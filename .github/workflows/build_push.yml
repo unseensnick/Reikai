@@ -5,7 +5,7 @@ run-name: ${{ github.event_name == 'workflow_dispatch' && format('Build and Rele
 on:
   push:
     branches:
-      - master
+      - main
       - backport/**
   workflow_dispatch:
     inputs:
@@ -197,7 +197,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION_TAG }}
-          name: Yōkai ${{ env.VERSION_TAG }}
+          name: Yōkai-Y2K ${{ env.VERSION_TAG }}
           body: |
             ${{ github.event.inputs.message }}
 
