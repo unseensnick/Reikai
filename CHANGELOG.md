@@ -8,6 +8,18 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - `Fixes` - Bugfixes
 - `Other` - Technical changes/updates
 
+## [1.9.7.5.1]
+
+### Additions
+- Add multi-source manga grouping: same-title library entries collapse into a single card with a source-count badge
+- Add source-switcher chip row in manga details to switch between grouped sources
+- Add manual merge/unmerge: "Merge selected" in library multi-select, long-press a chip to remove an entry from a group
+- Add "Manage sources" sheet in manga details overflow menu to add or remove entries from a source group
+- Add category sort order setting (off / A→Z / Z→A) under Settings → Library
+
+### Other
+- Rebrand to Yōkai-Y2K (fork of upstream Yōkai 1.9.7.5)
+
 ## [Unreleased]
 
 ### Additions
