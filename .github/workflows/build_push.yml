@@ -32,6 +32,9 @@ jobs:
   build:
     name: Build app
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      checks: write
 
     steps:
       - name: Clone repo
