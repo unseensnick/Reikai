@@ -170,9 +170,10 @@ class MangaDetailsController :
         smartSearchConfig: BrowseController.SmartSearchConfig? = null,
         update: Boolean = false,
         shouldLockIfNeeded: Boolean = false,
-    ) : super(bundle(manga?.id, fromCatalogue, smartSearchConfig, update)) {
+        relatedMangaIds: LongArray = LongArray(0),
+    ) : super(bundle(manga?.id, fromCatalogue, smartSearchConfig, update, relatedMangaIds)) {
         this.shouldLockIfNeeded = shouldLockIfNeeded
-        this.presenter = MangaDetailsPresenter(manga?.id!!).apply { setCurrentManga(manga) }
+        this.presenter = MangaDetailsPresenter(manga?.id!!, relatedMangaIds = relatedMangaIds).apply { setCurrentManga(manga) }
     }
 
     constructor(
@@ -181,12 +182,16 @@ class MangaDetailsController :
         smartSearchConfig: BrowseController.SmartSearchConfig? = null,
         update: Boolean = false,
         shouldLockIfNeeded: Boolean = false,
-    ) : super(bundle(mangaId, fromCatalogue, smartSearchConfig, update)) {
+        relatedMangaIds: LongArray = LongArray(0),
+    ) : super(bundle(mangaId, fromCatalogue, smartSearchConfig, update, relatedMangaIds)) {
         this.shouldLockIfNeeded = shouldLockIfNeeded
-        this.presenter = MangaDetailsPresenter(mangaId)
+        this.presenter = MangaDetailsPresenter(mangaId, relatedMangaIds = relatedMangaIds)
     }
 
-    constructor(bundle: Bundle) : this(bundle.getLong(Constants.MANGA_EXTRA)) {
+    constructor(bundle: Bundle) : this(
+        bundle.getLong(Constants.MANGA_EXTRA),
+        relatedMangaIds = bundle.getLongArray(RELATED_MANGA_IDS_EXTRA) ?: LongArray(0),
+    ) {
         val notificationId = bundle.getInt("notificationId", -1)
         val context = applicationContext ?: return
         if (notificationId > -1) {
@@ -1224,6 +1229,8 @@ class MangaDetailsController :
             presenter.hasBookmark() && !presenter.isLockedFromSearch
         menu.findItem(R.id.action_migrate)?.isVisible = !presenter.isLockedFromSearch &&
             !presenter.manga.isLocal() && presenter.manga.favorite
+        menu.findItem(R.id.action_manage_sources)?.isVisible =
+            presenter.relatedMangaIds.isNotEmpty() && !presenter.isLockedFromSearch
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -1267,6 +1274,9 @@ class MangaDetailsController :
             R.id.download_next, R.id.download_next_5, R.id.download_custom, R.id.download_unread, R.id.download_all -> downloadChapters(
                 item.itemId,
             )
+            R.id.action_manage_sources -> {
+                ManageSourcesSheet(presenter) { updateHeader() }.showDialog(router)
+            }
             else -> return super.onOptionsItemSelected(item)
         }
         return true
@@ -1955,6 +1965,7 @@ class MangaDetailsController :
         const val SMART_SEARCH_CONFIG_EXTRA = "smartSearchConfig"
 
         const val FROM_CATALOGUE_EXTRA = "from_catalogue"
+        const val RELATED_MANGA_IDS_EXTRA = "related_manga_ids"
 
         private enum class RangeMode {
             Download,
@@ -1968,11 +1979,15 @@ class MangaDetailsController :
             fromCatalogue: Boolean = false,
             smartSearchConfig: BrowseController.SmartSearchConfig? = null,
             update: Boolean = false,
+            relatedMangaIds: LongArray = LongArray(0),
         ) = Bundle().apply {
             putLong(Constants.MANGA_EXTRA, mangaId ?: 0)
             putBoolean(FROM_CATALOGUE_EXTRA, fromCatalogue)
             putParcelable(SMART_SEARCH_CONFIG_EXTRA, smartSearchConfig)
             putBoolean(UPDATE_EXTRA, update)
+            if (relatedMangaIds.isNotEmpty()) {
+                putLongArray(RELATED_MANGA_IDS_EXTRA, relatedMangaIds)
+            }
         }
     }
 

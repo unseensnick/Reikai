@@ -81,4 +81,9 @@
         android:title="@string/migrate"
         app:showAsAction="never" />
 
+    <item
+        android:id="@+id/action_manage_sources"
+        android:title="@string/manage_sources"
+        app:showAsAction="never" />
+
 </menu>

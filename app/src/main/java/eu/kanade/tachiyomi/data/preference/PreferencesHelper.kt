@@ -259,6 +259,10 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
 
     fun collapsedDynamicCategories() = preferenceStore.getStringSet("collapsed_dynamic_categories", mutableSetOf())
 
+    fun categorySortOrder() = preferenceStore.getInt(Keys.categorySortOrder, 0)
+    fun mangaManualMerges() = preferenceStore.getStringSet(Keys.mangaManualMerges, emptySet())
+    fun mangaManualUnmerges() = preferenceStore.getStringSet(Keys.mangaManualUnmerges, emptySet())
+
     fun collapsedDynamicAtBottom() = preferenceStore.getBoolean("collapsed_dynamic_at_bottom", false)
 
     // TODO: SourcePref

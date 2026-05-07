@@ -233,4 +233,8 @@ object PreferenceKeys {
     const val hideChapterTitles = "hide_chapter_titles"
 
     const val chaptersDescAsDefault = "chapters_desc_as_default"
+
+    const val categorySortOrder = "pref_category_sort_order"
+    const val mangaManualMerges = "manga_manual_merges"
+    const val mangaManualUnmerges = "manga_manual_unmerges"
 }

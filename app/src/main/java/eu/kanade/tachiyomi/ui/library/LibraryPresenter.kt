@@ -138,6 +138,8 @@ class LibraryPresenter(
         private set
     val currentLibraryItems: List<LibraryItem>
         get() = currentLibrary.values.flatten()
+    private var allLibraryMangaById: Map<Long, LibraryManga> = emptyMap()
+    fun getLibraryMangaById(id: Long): LibraryManga? = allLibraryMangaById[id]
     /** List of all manga to be displayed */
     private var libraryToDisplay: LibraryMutableMap = mutableMapOf()
     val libraryItemsToDisplay: List<LibraryItem>
@@ -765,7 +767,11 @@ class LibraryPresenter(
                 // category would disappear whenever a new category is added.
                 category.id == 0 -> -1
                 category2.id == 0 -> 1
-                else -> category.order.compareTo(category2.order)
+                else -> when (preferences.categorySortOrder().get()) {
+                    1 -> category.name.lowercase().compareTo(category2.name.lowercase())
+                    2 -> category2.name.lowercase().compareTo(category.name.lowercase())
+                    else -> category.order.compareTo(category2.order)
+                }
             }
         }
     }
@@ -811,6 +817,9 @@ class LibraryPresenter(
 
         preferences.collapsedCategories().changes(),
         preferences.collapsedDynamicCategories().changes(),
+        preferences.categorySortOrder().changes(),
+        preferences.mangaManualMerges().changes(),
+        preferences.mangaManualUnmerges().changes(),
     ) {
        ItemPreferences(
            filterDownloaded = it[0] as Int,
@@ -826,6 +835,7 @@ class LibraryPresenter(
            sortAscending = it[10] as Boolean,
            collapsedCategories = it[11] as Set<String>,
            collapsedDynamicCategories = it[12] as Set<String>,
+           // indices 13 (categorySortOrder), 14 (mangaManualMerges), 15 (mangaManualUnmerges) intentionally not mapped
        )
     }
 
@@ -913,6 +923,60 @@ class LibraryPresenter(
         }
     }
 
+    private fun applySourceGrouping(items: List<LibraryMangaItem>): List<LibraryMangaItem> {
+        if (items.size <= 1) return items
+        val manualMerges = preferences.mangaManualMerges().get()
+        val manualUnmerges = preferences.mangaManualUnmerges().get()
+        val unmergedPairs = manualUnmerges.mapNotNullTo(HashSet<Pair<Long, Long>>()) { entry ->
+            val parts = entry.split(",")
+            if (parts.size != 2) return@mapNotNullTo null
+            val a = parts[0].trim().toLongOrNull() ?: return@mapNotNullTo null
+            val b = parts[1].trim().toLongOrNull() ?: return@mapNotNullTo null
+            if (a < b) a to b else b to a
+        }
+        val mergeKey = mutableMapOf<Long, String>()
+        for (entry in manualMerges) {
+            val ids = entry.split(",").mapNotNull { it.trim().toLongOrNull() }.sorted()
+            if (ids.size < 2) continue
+            val key = ids.joinToString(",")
+            ids.forEach { mergeKey[it] = key }
+        }
+        val buckets = LinkedHashMap<String, MutableList<LibraryMangaItem>>()
+        for (item in items) {
+            val id = item.manga.manga.id ?: continue
+            val key = mergeKey[id] ?: item.manga.manga.title.lowercase().trim()
+            buckets.getOrPut(key) { mutableListOf() }.add(item)
+        }
+        val result = mutableListOf<LibraryMangaItem>()
+        for ((_, bucket) in buckets) {
+            val subGroups = mutableListOf<MutableList<LibraryMangaItem>>()
+            for (item in bucket) {
+                val id = item.manga.manga.id ?: run { result.add(item); continue }
+                var placed = false
+                for (sg in subGroups) {
+                    val compatible = sg.all { existing ->
+                        val eid = existing.manga.manga.id ?: return@all true
+                        val pair = if (id < eid) id to eid else eid to id
+                        pair !in unmergedPairs
+                    }
+                    if (compatible) { sg.add(item); placed = true; break }
+                }
+                if (!placed) subGroups.add(mutableListOf(item))
+            }
+            for (sg in subGroups) {
+                if (sg.size == 1) { result.add(sg.first()); continue }
+                val primary = sg.maxWith(
+                    compareBy<LibraryMangaItem> { it.manga.totalChapters }
+                        .thenBy { it.manga.manga.date_added },
+                )
+                primary.sourceCount = sg.size
+                primary.relatedMangaIds = sg.mapNotNull { it.manga.manga.id }.toLongArray()
+                result.add(primary)
+            }
+        }
+        return result
+    }
+
     private fun getLibraryItems(
         dbCategories: List<Category>,
         libraryManga: List<LibraryManga>,
@@ -946,6 +1010,8 @@ class LibraryPresenter(
             collapsedCategories.mapNotNull { it.toIntOrNull() }.toSet()
         }
 
+        allLibraryMangaById = libraryManga.filter { it.manga.id != null }.associateBy { it.manga.id!! }
+
         val map = if (!libraryIsGrouped)
             libraryManga
                 .asSequence()
@@ -960,6 +1026,7 @@ class LibraryPresenter(
                     LibraryMangaItem(it, headerItem, viewContext)
                 }
                 .groupBy { it.header.catId }
+                .mapValues { (_, catItems) -> applySourceGrouping(catItems) }
 
             // Only show default category when needed
             if (rt.containsKey(0)) categories.add(0, defaultCategory)
@@ -1281,6 +1348,27 @@ class LibraryPresenter(
 
             withIOContext { updateManga.awaitAll(mangaToDelete) }
         }
+    }
+
+    fun mergeMangas(ids: List<Long>) {
+        val sorted = ids.sorted()
+        val sortedSet = sorted.toSet()
+        val newEntry = sorted.joinToString(",")
+
+        val merges = preferences.mangaManualMerges().get().toMutableSet()
+        merges.removeAll { entry ->
+            entry.split(",").any { part -> part.trim().toLongOrNull() in sortedSet }
+        }
+        merges.add(newEntry)
+        preferences.mangaManualMerges().set(merges)
+
+        // Clear any unmerge pairs that conflict with this manual re-merge
+        val unmerges = preferences.mangaManualUnmerges().get().toMutableSet()
+        unmerges.removeAll { entry ->
+            val parts = entry.split(",").mapNotNull { it.trim().toLongOrNull() }
+            parts.any { it in sortedSet }
+        }
+        preferences.mangaManualUnmerges().set(unmerges)
     }
 
     /** Remove manga from the library and delete the downloads */

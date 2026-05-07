@@ -46,9 +46,14 @@ import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.isInNightMode
 import eu.kanade.tachiyomi.util.system.isLTR
 import eu.kanade.tachiyomi.util.view.resetStrokeColor
+import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import io.noties.markwon.Markwon
 import io.noties.markwon.SoftBreakAddsNewLinePlugin
 import android.text.method.LinkMovementMethod
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import yokai.i18n.MR
 import yokai.util.coil.loadManga
 import yokai.util.lang.getString
@@ -79,6 +84,7 @@ class MangaHeaderHolder(
     private var showMoreButton = true
     var hadSelection = false
     private var canCollapse = true
+    private var chipsJob: Job? = null
 
     init {
 
@@ -317,6 +323,7 @@ class MangaHeaderHolder(
         binding.title.text = manga.title
 
         setGenreTags(binding, manga)
+        setSourceChips(binding, presenter)
 
         if (manga.hasSameAuthorAndArtist) {
             binding.mangaAuthor.text = manga.author?.trim()
@@ -538,6 +545,64 @@ class MangaHeaderHolder(
                     this.addView(chip)
                 }
             }
+        }
+    }
+
+    private fun setSourceChips(binding: MangaHeaderItemBinding?, presenter: MangaDetailsPresenter) {
+        val chipGroup = binding?.sourceChipGroup ?: return
+        val scrollView = binding.sourceChipScroll ?: return
+
+        chipsJob?.cancel()
+        chipGroup.removeAllViews()
+
+        if (presenter.relatedMangaIds.isEmpty()) {
+            scrollView.isVisible = false
+            return
+        }
+
+        // Stay hidden until chips are ready — prevents blank-row flash
+        scrollView.isVisible = false
+
+        val scope = (adapter.delegate as? MangaDetailsController)?.viewScope ?: return
+        chipsJob = scope.launch(Dispatchers.Main) {
+            val sources = withContext(Dispatchers.IO) {
+                presenter.availableSources()
+            }
+            chipGroup.removeAllViews()
+            for ((id, src) in sources) {
+                val chip = Chip(chipGroup.context).apply {
+                    text = src.name
+                    isCheckable = true
+                    isChecked = (id == presenter.mangaId)
+                    setOnClickListener {
+                        if (id != presenter.mangaId) {
+                            val controller = adapter.delegate as? MangaDetailsController
+                            controller?.router?.replaceTopController(
+                                MangaDetailsController(
+                                    id,
+                                    relatedMangaIds = presenter.relatedMangaIds,
+                                ).withFadeTransaction(),
+                            )
+                        }
+                    }
+                    setOnLongClickListener {
+                        val ctx = context
+                        val controller = adapter.delegate as? MangaDetailsController
+                        androidx.appcompat.app.AlertDialog.Builder(ctx)
+                            .setMessage(ctx.getString(MR.strings.remove_from_group))
+                            .setPositiveButton(android.R.string.ok) { _, _ ->
+                                presenter.removeFromGroup(id)
+                                controller?.updateHeader()
+                            }
+                            .setNegativeButton(android.R.string.cancel, null)
+                            .show()
+                        true
+                    }
+                }
+                chipGroup.addView(chip)
+            }
+            // Only reveal the row once chips are actually present
+            scrollView.isVisible = true
         }
     }
 

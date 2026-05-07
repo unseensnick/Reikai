@@ -4,7 +4,7 @@
     <img src="./.github/readme-images/app-icon.webp" alt="Yokai logo" height="200px" width="200px" />
 </a>
 
-# Yōkai
+# Yōkai-Y2K
 
 </div>
 
@@ -40,6 +40,16 @@ As of the time of writing, this fork is currently focusing on migrating to a muc
 ## Features
 
 <div align="left">
+
+<details open="">
+    <summary><h3>From Yōkai-Y2K</h3></summary>
+
+* **Multi-source manga grouping** — manga entries sharing the same title are automatically grouped into a single library card with a source-count badge. Switch between sources from the manga details screen via a chip row.
+* **Manual merge/unmerge** — manually merge any two library entries into one group, or long-press a source chip to remove it from a group. Use "Merge selected" in library multi-select to combine entries.
+* **Manage sources sheet** — accessible from the manga details overflow menu; search for and add other library entries to the current manga's source group.
+* **Category sort order** — new setting under Settings → Library to sort categories alphabetically (A→Z or Z→A) instead of manual order.
+
+</details>
 
 <details open="">
     <summary><h3>From Yōkai</h3></summary>

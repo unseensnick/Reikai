@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">Yōkai</string>
-    <string name="app_short_name" translatable="false">Yōkai</string>
-    <string name="app_normalized_name" translatable="false">Yokai</string>
+    <string name="app_name" translatable="false">Yōkai-Y2K</string>
+    <string name="app_short_name" translatable="false">Yōkai-Y2K</string>
+    <string name="app_normalized_name" translatable="false">Yokai-Y2K</string>
 
     <string name="action_menu_overflow_description">More options</string>
     <string name="action_bar_up_description">Navigate up</string>
@@ -1201,4 +1201,12 @@
     <string name="crash_screen_restart_application">Restart the application</string>
 
     <string name="refresh">Refresh</string>
+    <string name="pref_category_sort_order">Category sort order</string>
+    <string name="category_sort_off">Off</string>
+    <string name="category_sort_a_to_z">A→Z</string>
+    <string name="category_sort_z_to_a">Z→A</string>
+    <string name="merge_selected">Merge selected</string>
+    <string name="manage_sources">Manage sources</string>
+    <string name="remove_from_group">Remove from group</string>
+    <string name="add_another_manga">Add another manga…</string>
 </resources>

@@ -1566,7 +1566,7 @@ open class LibraryController(
             toggleSelection(position)
             false
         } else {
-            openManga(item.manga.manga)
+            openManga(item.manga.manga, item.relatedMangaIds)
             false
         }
     }
@@ -1577,8 +1577,10 @@ open class LibraryController(
         }
     }
 
-    private fun openManga(manga: Manga) {
-        router.pushController(MangaDetailsController(manga).withFadeTransaction())
+    private fun openManga(manga: Manga, relatedMangaIds: LongArray = LongArray(0)) {
+        router.pushController(
+            MangaDetailsController(manga, relatedMangaIds = relatedMangaIds).withFadeTransaction(),
+        )
     }
 
     /**
@@ -2107,6 +2109,25 @@ open class LibraryController(
                 )
                 destroyActionModeIfNeeded()
             }
+            R.id.action_merge_selected -> {
+                val selectedIds = selectedMangas.mapNotNull { it.id }.toSet()
+                val allIds = presenter.currentLibraryItems
+                    .filterIsInstance<LibraryMangaItem>()
+                    .filter { it.manga.manga.id in selectedIds }
+                    .flatMap { item ->
+                        if (item.relatedMangaIds.isNotEmpty()) {
+                            item.relatedMangaIds.toList()
+                        } else {
+                            listOfNotNull(item.manga.manga.id)
+                        }
+                    }
+                    .distinct()
+                if (allIds.size >= 2) {
+                    presenter.mergeMangas(allIds)
+                    presenter.updateLibrary()
+                }
+                destroyActionModeIfNeeded()
+            }
             else -> return false
         }
         return true
@@ -2191,7 +2212,17 @@ open class LibraryController(
     private fun showChangeMangaCategoriesSheet() {
         val activity = activity ?: return
         viewScope.launchIO {
-            selectedMangas.toList().moveCategories(activity) {
+            // Expand selection to include related manga from merged groups
+            val selectedIds = selectedMangas.mapNotNull { it.id }.toSet()
+            val relatedMangas = presenter.currentLibraryItems
+                .filterIsInstance<LibraryMangaItem>()
+                .filter { it.manga.manga.id in selectedIds && it.relatedMangaIds.isNotEmpty() }
+                .flatMap { item ->
+                    item.relatedMangaIds
+                        .filter { it !in selectedIds }
+                        .mapNotNull { presenter.getLibraryMangaById(it)?.manga }
+                }
+            (selectedMangas.toList() + relatedMangas).moveCategories(activity) {
                 presenter.updateLibrary()
                 destroyActionModeIfNeeded()
             }

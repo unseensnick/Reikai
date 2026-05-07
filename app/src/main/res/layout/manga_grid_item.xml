@@ -156,6 +156,27 @@
             android:layout_height="10dp"
             app:layout_constraintTop_toTopOf="@+id/card" />
 
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/source_count_badge"
+            style="?textAppearanceCaption"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:layout_marginEnd="5dp"
+            android:background="?attr/colorPrimary"
+            android:gravity="center"
+            android:minWidth="18dp"
+            android:minHeight="18dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:textColor="?attr/colorOnPrimary"
+            android:textSize="11sp"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="3"
+            tools:visibility="visible" />
+
         <LinearLayout
             android:id="@+id/text_layout"
             android:layout_width="match_parent"

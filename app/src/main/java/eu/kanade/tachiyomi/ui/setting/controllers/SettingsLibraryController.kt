@@ -131,6 +131,23 @@ class SettingsLibraryController : SettingsLegacyController() {
                     true
                 }
             }
+            intListPreference(activity) {
+                key = Keys.categorySortOrder
+                titleRes = MR.strings.pref_category_sort_order
+                val sortEntries = listOf(
+                    context.getString(MR.strings.category_sort_off),
+                    context.getString(MR.strings.category_sort_a_to_z),
+                    context.getString(MR.strings.category_sort_z_to_a),
+                )
+                entries = sortEntries
+                entryValues = listOf(0, 1, 2)
+                defaultValue = "0"
+                summary = sortEntries[preferences.categorySortOrder().get()]
+                onChange { newValue ->
+                    summary = sortEntries[newValue as Int]
+                    true
+                }
+            }
         }
 
         preferenceCategory {

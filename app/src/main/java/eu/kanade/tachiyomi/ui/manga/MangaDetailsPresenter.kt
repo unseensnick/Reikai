@@ -113,6 +113,7 @@ class MangaDetailsPresenter(
     private val downloadManager: DownloadManager = Injekt.get(),
     private val chapterFilter: ChapterFilter = Injekt.get(),
     private val storageManager: StorageManager = Injekt.get(),
+    val relatedMangaIds: LongArray = LongArray(0),
 ) : BaseCoroutinePresenter<MangaDetailsController>(),
     DownloadQueue.Listener {
     private val getAvailableScanlators: GetAvailableScanlators by injectLazy()
@@ -1136,6 +1137,70 @@ class MangaDetailsPresenter(
     override fun onPageProgressUpdate(download: Download) {
         chapters.find { it.id == download.chapter.id }?.download = download
         view?.updateChapterDownload(download)
+    }
+
+    // ── Source-group management ───────────────────────────────────────────────
+
+    suspend fun availableSources(): List<Pair<Long, eu.kanade.tachiyomi.source.Source>> {
+        val unmerges = preferences.mangaManualUnmerges().get()
+        return relatedMangaIds.filter { otherId ->
+            if (otherId == mangaId) return@filter true
+            val pair = if (mangaId < otherId) "$mangaId,$otherId" else "$otherId,$mangaId"
+            pair !in unmerges
+        }.mapNotNull { id ->
+            val m = getManga.awaitById(id) ?: return@mapNotNull null
+            id to sourceManager.getOrStub(m.source)
+        }
+    }
+
+    fun removeFromGroup(targetId: Long) {
+        val others = relatedMangaIds.filter { it != targetId }
+        if (others.isEmpty()) return
+
+        // Record that targetId must not auto-group with any of the others
+        val unmerges = preferences.mangaManualUnmerges().get().toMutableSet()
+        for (otherId in others) {
+            val pair = if (targetId < otherId) "$targetId,$otherId" else "$otherId,$targetId"
+            unmerges.add(pair)
+        }
+        preferences.mangaManualUnmerges().set(unmerges)
+
+        // Remove entries containing targetId, then re-add one for the remaining IDs
+        // so the rest of the group stays explicitly merged together
+        val merges = preferences.mangaManualMerges().get().toMutableSet()
+        merges.removeAll { entry ->
+            entry.split(",").any { it.trim().toLongOrNull() == targetId }
+        }
+        if (others.size >= 2) {
+            merges.add(others.sorted().joinToString(","))
+        }
+        preferences.mangaManualMerges().set(merges)
+    }
+
+    fun addToGroup(newId: Long) {
+        val allIds = (relatedMangaIds.toList() + newId + mangaId).distinct().sorted()
+        val newEntry = allIds.joinToString(",")
+        val merges = preferences.mangaManualMerges().get().toMutableSet()
+        merges.removeAll { entry ->
+            entry.split(",").any { part -> part.trim().toLongOrNull() in allIds }
+        }
+        merges.add(newEntry)
+        preferences.mangaManualMerges().set(merges)
+    }
+
+    suspend fun searchAddableManga(query: String): List<Pair<Long, String>> {
+        if (query.isBlank()) return emptyList()
+        val alreadyInGroup = relatedMangaIds.toSet() + mangaId
+        return getManga.awaitFavorites()
+            .filter { m ->
+                m.id !in alreadyInGroup &&
+                    m.title.contains(query, ignoreCase = true)
+            }
+            .mapNotNull { m ->
+                val id = m.id ?: return@mapNotNull null
+                id to "${m.title} — ${sourceManager.getOrStub(m.source).name}"
+            }
+            .sortedBy { (_, label) -> label.lowercase() }
     }
 
     companion object {

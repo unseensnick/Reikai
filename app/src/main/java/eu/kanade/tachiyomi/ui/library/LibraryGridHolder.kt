@@ -97,6 +97,19 @@ class LibraryGridHolder(
         }
 
         setUnreadBadge(binding.unreadDownloadBadge.badgeView, item)
+        with(binding.sourceCountBadge) {
+            if (item.sourceCount > 1) {
+                text = item.sourceCount.toString()
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                    cornerRadius = 999f
+                    setColor(context.getResourceColor(R.attr.colorPrimary))
+                }
+                isVisible = true
+            } else {
+                isVisible = false
+            }
+        }
         setReadingButton(item)
         setSelected(adapter.isSelected(flexibleAdapterPosition))
 

@@ -30,6 +30,8 @@ class LibraryMangaItem(
     var downloadCount = -1
     var unreadType = 2
     var sourceLanguage: String? = null
+    var sourceCount: Int = 0
+    var relatedMangaIds: LongArray = LongArray(0)
 
     override fun getLayoutRes(): Int {
         return if (libraryLayout == LAYOUT_LIST) {
