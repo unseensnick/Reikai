@@ -8,6 +8,11 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - `Fixes` - Bugfixes
 - `Other` - Technical changes/updates
 
+## [1.9.7.5.2]
+
+### Other
+- Update in-app GitHub links to point to unseensnick/yokai-y2k instead of upstream
+
 ## [1.9.7.5.1]
 
 ### Additions
