@@ -36,10 +36,18 @@ import yokai.i18n.MR
 import yokai.util.lang.getString
 import android.R as AR
 
-class ManageSourcesSheet(
-    private val presenter: MangaDetailsPresenter,
-    private val onSourceRemoved: () -> Unit = {},
-) : DialogController() {
+class ManageSourcesSheet : DialogController {
+    private lateinit var presenter: MangaDetailsPresenter
+    private var onSourceRemoved: () -> Unit = {}
+
+    // Required by Conductor for state restoration
+    @Suppress("unused")
+    constructor() : super()
+
+    constructor(presenter: MangaDetailsPresenter, onSourceRemoved: () -> Unit = {}) : super() {
+        this.presenter = presenter
+        this.onSourceRemoved = onSourceRemoved
+    }
 
     private var sourcesContainer: LinearLayout? = null
     private var searchResultsRecycler: RecyclerView? = null
@@ -63,6 +71,10 @@ class ManageSourcesSheet(
 
     override fun onAttach(view: View) {
         super.onAttach(view)
+        if (!::presenter.isInitialized) {
+            dismissDialog()
+            return
+        }
         loadSources()
     }
 

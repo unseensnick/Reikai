@@ -159,6 +159,31 @@
         app:barrierDirection="bottom"
         app:constraint_referenced_ids="manga_source,cover_card" />
 
+    <!-- Source-switcher chip row — hidden when manga has only one source -->
+    <HorizontalScrollView
+        android:id="@+id/source_chip_scroll"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:clipToPadding="false"
+        android:requiresFadingEdge="horizontal"
+        android:scrollbars="none"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/bottom_line">
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/source_chip_group"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingStart="16dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="16dp"
+            app:singleLine="true"
+            app:singleSelection="true" />
+
+    </HorizontalScrollView>
+
     <HorizontalScrollView
         android:id="@+id/sub_button_scroll"
         android:layout_width="0dp"
@@ -169,7 +194,7 @@
         app:layout_constraintBottom_toTopOf="@id/start_reading_button"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/bottom_line">
+        app:layout_constraintTop_toBottomOf="@id/source_chip_scroll">
 
         <LinearLayout
             android:id="@+id/button_layout"

@@ -56,6 +56,11 @@ class CloudflareInterceptor(
     // One active solve per hostname; concurrent requests wait and reuse the result.
     private val pendingFSSolves = ConcurrentHashMap<String, CompletableFuture<Unit>>()
 
+    // Timestamp of last successful FlareSolverr solve per hostname; prevents re-solving for
+    // requests whose 403 was in-flight while a concurrent solve was already completing.
+    private val lastFSSolveTime = ConcurrentHashMap<String, Long>()
+    private val fsSolveReuseMs = 30_000L
+
     override fun shouldIntercept(response: Response): Boolean {
         return if (response.code in ERROR_CODES && response.header("Server") in SERVER_CHECK) {
             val document = Jsoup.parse(
@@ -76,7 +81,6 @@ class CloudflareInterceptor(
     ): Response {
         try {
             response.close()
-            cookieManager.remove(request.url, COOKIE_NAMES, 0)
 
             val flareSolverrUrl = networkPreferences.flareSolverrUrl().get().trim()
             var flareSolverrSucceeded = false
@@ -94,6 +98,8 @@ class CloudflareInterceptor(
             }
 
             if (!flareSolverrSucceeded) {
+                // Remove stale cookie before WebView so the change-detection check works correctly.
+                cookieManager.remove(request.url, COOKIE_NAMES, 0)
                 val oldCookie = cookieManager.get(request.url)
                     .firstOrNull { it.name == "cf_clearance" }
                 resolveWithWebView(request, oldCookie)
@@ -120,6 +126,12 @@ class CloudflareInterceptor(
 
     private fun resolveWithFlareSolverrDedup(flareSolverrUrl: String, request: Request) {
         val host = request.url.host
+
+        // If another thread solved this host very recently, the fresh cf_clearance is already
+        // in the cookie jar. Skip re-solving and let the caller retry with those cookies.
+        val lastSolve = lastFSSolveTime[host]
+        if (lastSolve != null && System.currentTimeMillis() - lastSolve < fsSolveReuseMs) return
+
         while (true) {
             val existing = pendingFSSolves[host]
             if (existing != null) {
@@ -131,8 +143,11 @@ class CloudflareInterceptor(
             val future = CompletableFuture<Unit>()
             if (pendingFSSolves.putIfAbsent(host, future) == null) {
                 try {
+                    // Remove the stale/expired cookie only when we are actually about to solve.
+                    cookieManager.remove(request.url, COOKIE_NAMES, 0)
                     resolveWithFlareSolverr(flareSolverrUrl, request)
                     future.complete(Unit)
+                    lastFSSolveTime[host] = System.currentTimeMillis()
                 } catch (e: Exception) {
                     future.completeExceptionally(e)
                     throw e
