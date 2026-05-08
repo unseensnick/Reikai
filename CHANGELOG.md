@@ -8,6 +8,11 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - `Fixes` - Bugfixes
 - `Other` - Technical changes/updates
 
+## [1.9.7.5.3]
+
+### Additions
+- Add FlareSolverr support for Cloudflare bypass; configure the service URL in Settings → Advanced → Network
+
 ## [1.9.7.5.2]
 
 ### Other
