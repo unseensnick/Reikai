@@ -105,6 +105,8 @@
     <string name="confirm_category_deletion">Delete category?</string>
     <string name="confirm_category_deletion_message">Entries in this category will moved into the
         default category.</string>
+    <string name="confirm_delete_categories">Delete %1$d categories?</string>
+    <string name="categories_deleted">%1$d categories deleted</string>
     <string name="already_in_category">Entry already in category</string>
     <string name="add_categories">Add categories</string>
     <string name="add_edit_categories">Add/Edit categories</string>

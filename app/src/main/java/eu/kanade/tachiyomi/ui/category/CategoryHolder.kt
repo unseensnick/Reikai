@@ -100,6 +100,7 @@ class CategoryHolder(view: View, val adapter: CategoryAdapter) : BaseFlexibleVie
             if (!createCategory) {
                 setDragHandleView(binding.reorder)
                 binding.editButton.setImageDrawable(ContextCompat.getDrawable(itemView.context, R.drawable.ic_edit_24dp))
+                binding.editButton.isVisible = true
             } else {
                 binding.editButton.setImageDrawable(null)
                 binding.reorder.setOnTouchListener { _, _ -> true }
@@ -114,6 +115,23 @@ class CategoryHolder(view: View, val adapter: CategoryAdapter) : BaseFlexibleVie
             )
             binding.reorder.setImageDrawable(regularDrawable)
         }
+    }
+
+    fun setSelectionVisual(selected: Boolean) {
+        itemView.isActivated = selected
+        binding.reorder.setImageDrawable(
+            ContextCompat.getDrawable(
+                itemView.context,
+                if (selected) R.drawable.ic_check_24dp else R.drawable.ic_drag_handle_24dp,
+            ),
+        )
+        binding.editButton.isVisible = false
+    }
+
+    fun clearSelectionVisual() {
+        itemView.isActivated = false
+        binding.editButton.isVisible = !createCategory
+        binding.reorder.setImageDrawable(regularDrawable)
     }
 
     private fun submitChanges() {

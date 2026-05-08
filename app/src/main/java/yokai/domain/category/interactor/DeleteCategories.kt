@@ -9,4 +9,5 @@ class DeleteCategories(
 ) {
 //    suspend fun await(updates: List<Int>) =
     suspend fun awaitOne(id: Long) = categoryRepository.delete(id)
+    suspend fun awaitAll(ids: List<Long>) = ids.forEach { awaitOne(it) }
 }

@@ -8,7 +8,10 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - `Fixes` - Bugfixes
 - `Other` - Technical changes/updates
 
-## [1.9.7.5.5]
+## [Unreleased]
+
+### Additions
+- Category bulk delete: long-press any category in Settings → Library → Edit categories to enter multi-select mode, then delete all selected categories at once with a single confirmation dialog and an undo snackbar
 
 ### Fixes
 - Fix crash when opening Manage Sources sheet: add no-arg constructor to satisfy Conductor's state-restoration requirement
@@ -43,7 +46,7 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 ### Other
 - Rebrand to Yōkai-Y2K (fork of upstream Yōkai 1.9.7.5)
 
-## [Unreleased]
+## [1.9.7.5.0]
 
 ### Additions
 - Add random library sort

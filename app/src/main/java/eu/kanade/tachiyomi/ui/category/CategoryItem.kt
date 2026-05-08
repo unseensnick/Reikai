@@ -46,8 +46,17 @@ class CategoryItem(val category: Category) : AbstractFlexibleItem<CategoryHolder
      */
     override fun bindViewHolder(adapter: FlexibleAdapter<IFlexible<RecyclerView.ViewHolder>>, holder: CategoryHolder, position: Int, payloads: MutableList<Any>) {
         holder.bind(category)
-        holder.isEditing(isEditing)
+        if (adapter.isSelected(position)) {
+            holder.setSelectionVisual(true)
+        } else {
+            holder.isEditing(isEditing)
+        }
     }
+
+    /**
+     * Returns true if this item can be selected in multi-select mode.
+     */
+    override fun isSelectable(): Boolean = category.order != CREATE_CATEGORY_ORDER
 
     /**
      * Returns true if this item is draggable.

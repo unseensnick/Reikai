@@ -91,7 +91,7 @@ class CategoryPresenter(
     }
 
     /**
-     * Deletes the given categories from the database.
+     * Deletes the given category from the database.
      *
      * @param category The category to delete.
      */
@@ -100,6 +100,22 @@ class CategoryPresenter(
         scope.launch {
             deleteCategories.awaitOne(safeCategory.toLong())
             categories.remove(category)
+            withContext(Dispatchers.Main) {
+                controller.setCategories(categories.map(::CategoryItem))
+            }
+        }
+    }
+
+    /**
+     * Deletes the given categories from the database.
+     *
+     * @param toDelete The categories to delete.
+     */
+    fun deleteCategories(toDelete: List<Category>) {
+        if (toDelete.isEmpty()) return
+        scope.launch {
+            deleteCategories.awaitAll(toDelete.mapNotNull { it.id?.toLong() })
+            categories.removeAll(toDelete.toSet())
             withContext(Dispatchers.Main) {
                 controller.setCategories(categories.map(::CategoryItem))
             }
