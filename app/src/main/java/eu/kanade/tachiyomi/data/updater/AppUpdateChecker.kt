@@ -104,9 +104,9 @@ val RELEASE_TAG: String by lazy {
 
 val GITHUB_REPO: String by lazy {
     if (BuildConfig.NIGHTLY) {
-        "null2264/yokai-nightly"
+        "unseensnick/yokai-y2k"
     } else {
-        "null2264/yokai"
+        "unseensnick/yokai-y2k"
     }
 }
 
