@@ -819,6 +819,11 @@
     <string name="doh">DNS over HTTPS</string>
     <string name="user_agent_string">Default user agent string</string>
     <string name="error_user_agent_string_invalid">Invalid user agent string</string>
+    <string name="pref_flaresolverr_url">FlareSolverr URL</string>
+    <string name="pref_flaresolverr_disable">Disable FlareSolverr</string>
+    <string name="flaresolverr_disabled">FlareSolverr disabled</string>
+    <string name="flaresolverr_already_disabled">FlareSolverr is not configured</string>
+    <string name="error_flaresolverr_invalid_url">Invalid URL — must start with http:// or https://</string>
     <string name="disabled">Disabled</string>
     <string name="cloudflare" translatable="false">Cloudflare</string>
     <string name="google" translatable="false">Google</string>

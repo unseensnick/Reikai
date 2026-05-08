@@ -75,6 +75,7 @@ import eu.kanade.tachiyomi.util.view.setPositiveButton
 import eu.kanade.tachiyomi.util.view.setTitle
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import java.io.File
+import java.net.URI
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -313,6 +314,41 @@ class SettingsAdvancedLegacyController : SettingsLegacyController() {
                     }
                     context.toast(MR.strings.requires_app_restart)
                     true
+                }
+            }
+            editTextPreference(activity) {
+                bindTo(networkPreferences.flareSolverrUrl())
+                titleMRes = MR.strings.pref_flaresolverr_url
+
+                onChange {
+                    it as String
+                    if (it.isNotBlank()) {
+                        try {
+                            val uri = URI(it)
+                            if (uri.scheme !in listOf("http", "https") || uri.host.isNullOrBlank()) {
+                                context.toast(MR.strings.error_flaresolverr_invalid_url)
+                                return@onChange false
+                            }
+                        } catch (_: Exception) {
+                            context.toast(MR.strings.error_flaresolverr_invalid_url)
+                            return@onChange false
+                        }
+                    }
+                    true
+                }
+            }
+            preference {
+                key = "flaresolverr_disable"
+                titleMRes = MR.strings.pref_flaresolverr_disable
+
+                onClick {
+                    val pref = networkPreferences.flareSolverrUrl()
+                    if (pref.get().isBlank()) {
+                        context.toast(MR.strings.flaresolverr_already_disabled)
+                    } else {
+                        pref.set("")
+                        context.toast(MR.strings.flaresolverr_disabled)
+                    }
                 }
             }
         }

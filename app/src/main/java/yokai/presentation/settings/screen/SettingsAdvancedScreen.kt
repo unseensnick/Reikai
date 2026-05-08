@@ -50,6 +50,7 @@ import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import java.io.File
+import java.net.URI
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.launch
@@ -257,7 +258,6 @@ object SettingsAdvancedScreen : ComposableSettings() {
     private fun getNetworkGroup(networkPreferences: NetworkPreferences): Preference.PreferenceGroup {
         val network: NetworkHelper by injectLazy()
         val context = LocalContext.current
-
         val children = buildList {
             add(Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.clear_cookies),
@@ -302,6 +302,37 @@ object SettingsAdvancedScreen : ComposableSettings() {
                     }
                     context.toast(MR.strings.requires_app_restart)
                     true
+                },
+            ))
+            add(Preference.PreferenceItem.EditTextPreference(
+                pref = networkPreferences.flareSolverrUrl(),
+                title = stringResource(MR.strings.pref_flaresolverr_url),
+                onValueChanged = onChange@{
+                    if (it.isNotBlank()) {
+                        try {
+                            val uri = URI(it)
+                            if (uri.scheme !in listOf("http", "https") || uri.host.isNullOrBlank()) {
+                                context.toast(MR.strings.error_flaresolverr_invalid_url)
+                                return@onChange false
+                            }
+                        } catch (_: Exception) {
+                            context.toast(MR.strings.error_flaresolverr_invalid_url)
+                            return@onChange false
+                        }
+                    }
+                    true
+                },
+            ))
+            add(Preference.PreferenceItem.TextPreference(
+                title = stringResource(MR.strings.pref_flaresolverr_disable),
+                onClick = {
+                    val pref = networkPreferences.flareSolverrUrl()
+                    if (pref.get().isBlank()) {
+                        context.toast(MR.strings.flaresolverr_already_disabled)
+                    } else {
+                        pref.set("")
+                        context.toast(MR.strings.flaresolverr_disabled)
+                    }
                 },
             ))
         }.toPersistentList()

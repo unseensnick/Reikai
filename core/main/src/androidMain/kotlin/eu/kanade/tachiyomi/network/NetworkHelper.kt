@@ -39,7 +39,7 @@ class NetworkHelper(
         block(builder)
 
         builder.addInterceptor(
-            CloudflareInterceptor(context, cookieJar, ::defaultUserAgent),
+            CloudflareInterceptor(context, cookieJar, ::defaultUserAgent, preferences),
         )
 
         when (preferences.dohProvider().get()) {
