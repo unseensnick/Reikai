@@ -760,6 +760,22 @@ class MangaDetailsPresenter(
         }
     }
 
+    suspend fun removeAllRelatedFromLibrary() {
+        val allIds = relatedMangaIds.toMutableList().apply { add(manga.id!!) }
+        val updates = allIds.mapNotNull { id ->
+            val target = getManga.awaitById(id) ?: return@mapNotNull null
+            if (!target.favorite) null else MangaUpdate(id = id, favorite = false)
+        }
+        if (updates.isNotEmpty()) updateManga.awaitAll(updates)
+        presenterScope.launchNonCancellableIO {
+            allIds.forEach { id ->
+                val target = getManga.awaitById(id) ?: return@forEach
+                target.removeCover(coverCache)
+                downloadManager.deleteManga(target, sourceManager.getOrStub(target.source))
+            }
+        }
+    }
+
     private fun onUpdateManga() = fetchChapters()
 
     fun shareManga() {

@@ -2179,7 +2179,16 @@ open class LibraryController(
     }
 
     open fun deleteMangasFromLibrary() {
-        val mangas = selectedMangas.toList()
+        val selectedIds = selectedMangas.mapNotNull { it.id }.toSet()
+        val relatedMangas = presenter.currentLibraryItems
+            .filterIsInstance<LibraryMangaItem>()
+            .filter { it.manga.manga.id in selectedIds && it.relatedMangaIds.isNotEmpty() }
+            .flatMap { item ->
+                item.relatedMangaIds
+                    .filter { it !in selectedIds }
+                    .mapNotNull { presenter.getLibraryMangaById(it)?.manga }
+            }
+        val mangas = selectedMangas.toList() + relatedMangas
         presenter.removeMangaFromLibrary(mangas)
         destroyActionModeIfNeeded()
         snack?.dismiss()

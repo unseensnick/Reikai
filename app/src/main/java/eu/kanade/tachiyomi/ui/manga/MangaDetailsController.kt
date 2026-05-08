@@ -1710,20 +1710,30 @@ class MangaDetailsController :
         val view = view ?: return null
         val popup = PopupMenu(view.context, popupView)
         popup.menu.add(0, 1, 0, view.context.getString(MR.strings.remove_from_library))
+        if (presenter.relatedMangaIds.isNotEmpty()) {
+            popup.menu.add(0, 2, 1, view.context.getString(MR.strings.remove_all_sources_from_library))
+        }
         if (categories.isNotEmpty()) {
-            popup.menu.add(0, 0, 1, view.context.getString(MR.strings.edit_categories))
+            popup.menu.add(0, 0, 2, view.context.getString(MR.strings.edit_categories))
         }
 
         // Set a listener so we are notified if a menu item is clicked
         popup.setOnMenuItemClickListener { menuItem ->
-            if (menuItem.itemId == 0) {
-                showCategoriesSheet()
-            } else {
-                toggleMangaFavorite()
+            when (menuItem.itemId) {
+                0 -> showCategoriesSheet()
+                2 -> removeAllRelatedFromLibrary()
+                else -> toggleMangaFavorite()
             }
             true
         }
         return popup
+    }
+
+    private fun removeAllRelatedFromLibrary() {
+        viewScope.launchIO {
+            presenter.removeAllRelatedFromLibrary()
+            withUIContext { updateHeader() }
+        }
     }
 
     private fun showCategoriesSheet() {
