@@ -11,6 +11,12 @@ import eu.kanade.tachiyomi.util.system.WebViewClientCompat
 import eu.kanade.tachiyomi.util.system.isOutdated
 import eu.kanade.tachiyomi.util.system.toast
 import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.SerialName
@@ -47,6 +53,9 @@ class CloudflareInterceptor(
 
     private val json = Json { ignoreUnknownKeys = true }
 
+    // One active solve per hostname; concurrent requests wait and reuse the result.
+    private val pendingFSSolves = ConcurrentHashMap<String, CompletableFuture<Unit>>()
+
     override fun shouldIntercept(response: Response): Boolean {
         return if (response.code in ERROR_CODES && response.header("Server") in SERVER_CHECK) {
             val document = Jsoup.parse(
@@ -74,7 +83,7 @@ class CloudflareInterceptor(
 
             if (flareSolverrUrl.isNotBlank()) {
                 try {
-                    resolveWithFlareSolverr(flareSolverrUrl, request)
+                    resolveWithFlareSolverrDedup(flareSolverrUrl, request)
                     flareSolverrSucceeded = true
                     if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
                         executor.execute { context.toast("FlareSolverr bypassed Cloudflare") }
@@ -109,6 +118,33 @@ class CloudflareInterceptor(
         }
     }
 
+    private fun resolveWithFlareSolverrDedup(flareSolverrUrl: String, request: Request) {
+        val host = request.url.host
+        while (true) {
+            val existing = pendingFSSolves[host]
+            if (existing != null) {
+                // Another thread is already solving for this host — wait for it, then return.
+                // The caller will retry the request with the fresh cookies now in the jar.
+                existing.get(90, TimeUnit.SECONDS)
+                return
+            }
+            val future = CompletableFuture<Unit>()
+            if (pendingFSSolves.putIfAbsent(host, future) == null) {
+                try {
+                    resolveWithFlareSolverr(flareSolverrUrl, request)
+                    future.complete(Unit)
+                } catch (e: Exception) {
+                    future.completeExceptionally(e)
+                    throw e
+                } finally {
+                    pendingFSSolves.remove(host)
+                }
+                return
+            }
+            // Another thread won the race between our check and putIfAbsent — loop and wait.
+        }
+    }
+
     private fun resolveWithFlareSolverr(flareSolverrUrl: String, request: Request) {
         val targetUrl = request.url.toString()
 
@@ -136,8 +172,12 @@ class CloudflareInterceptor(
             throw IOException("FlareSolverr solution status: ${result.solution.status}")
         }
 
-        val cookies = result.solution.cookies.mapNotNull { it.toOkHttpCookie(request.url.host) }
-        cookieManager.saveFromResponse(request.url, cookies)
+        // Store cookies directly via Android CookieManager, preserving the leading dot in the
+        // domain so they are treated as domain cookies (matching www.* and other subdomains) rather
+        // than host-only cookies that would only match the bare apex domain.
+        result.solution.cookies.forEach { fsCookie ->
+            cookieManager.saveCookieString(request.url, fsCookie.toRawCookieString(request.url.host))
+        }
 
         if (result.solution.userAgent.isNotBlank()) {
             networkPreferences.defaultUserAgent().set(result.solution.userAgent)
@@ -252,22 +292,23 @@ private data class FlareSolverrCookie(
     val httpOnly: Boolean = false,
     val secure: Boolean = false,
 ) {
-    fun toOkHttpCookie(requestHost: String): Cookie? {
-        return try {
-            val cookieDomain = domain.trimStart('.').ifBlank { requestHost }
-            Cookie.Builder()
-                .name(name)
-                .value(value)
-                .domain(cookieDomain)
-                .path(path)
-                .apply {
-                    if (secure) secure()
-                    if (httpOnly) httpOnly()
-                    if (expires > 0) expiresAt((expires * 1000).toLong())
-                }
-                .build()
-        } catch (_: Exception) {
-            null
+    fun toRawCookieString(requestHost: String): String = buildString {
+        append("$name=$value")
+        // Preserve (or add) a leading dot so Android CookieManager treats this as a domain
+        // cookie that matches the apex domain and all its subdomains (e.g. www.natomanga.com).
+        val dom = when {
+            domain.isBlank() -> ".$requestHost"
+            domain.startsWith('.') -> domain
+            else -> ".$domain"
         }
+        append("; Domain=$dom")
+        append("; Path=$path")
+        if (expires > 0) {
+            val fmt = SimpleDateFormat("EEE, dd-MMM-yyyy HH:mm:ss z", Locale.US)
+            fmt.timeZone = TimeZone.getTimeZone("GMT")
+            append("; Expires=${fmt.format(Date((expires * 1000).toLong()))}")
+        }
+        if (secure) append("; Secure")
+        if (httpOnly) append("; HttpOnly")
     }
 }

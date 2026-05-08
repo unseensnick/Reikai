@@ -138,3 +138,17 @@ Kotlin incremental compilation can serve stale class files for individual files 
 ## Source Plugin System
 
 External manga sources are plugins loaded at runtime via `source/api`. `HttpSource` and `ParsedHttpSource` define the extension contract. Do not break the public API surface of `source/api` without a migration plan.
+
+## Coding Principles
+
+Follow these principles in all changes to this codebase.
+
+**DRY (Don't Repeat Yourself):** Before writing a new utility, helper, or pattern, search the codebase for an existing equivalent. During planning, always run Explore agents to check whether similar code already exists — duplication found after implementation wastes review cycles.
+
+**YAGNI (You Aren't Gonna Need It):** Only add what the current task requires. No speculative APIs, optional parameters, or abstractions for hypothetical future callers. If it isn't needed right now, don't write it.
+
+**KISS (Keep It Simple):** Prefer the simplest solution that correctly solves the problem. Complexity must be justified by a concrete requirement, not elegance or anticipated scale.
+
+**No standalone refactor/cleanup sprints:** Refactoring must be done in small increments alongside the feature or fix that motivated it — only touch what the task requires. Never propose a separate "cleanup pass" as a follow-up PR unless the user explicitly asks for one.
+
+**Minimal blast radius:** A bug fix should change only what is broken. A feature should add only what is specified. Leave surrounding code that works untouched, even if it could be "improved."
