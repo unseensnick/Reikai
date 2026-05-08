@@ -90,7 +90,18 @@ class CloudflareInterceptor(
                 resolveWithWebView(request, oldCookie)
             }
 
-            return chain.proceed(request)
+            // cf_clearance is bound to the UA that solved the challenge. After FlareSolverr
+            // succeeds it saves its browser UA to preferences, so we must use that updated UA
+            // here — the original request still carries the old UA from UserAgentInterceptor.
+            val retryRequest = if (flareSolverrSucceeded) {
+                request.newBuilder()
+                    .header("User-Agent", defaultUserAgentProvider())
+                    .build()
+            } else {
+                request
+            }
+
+            return chain.proceed(retryRequest)
         } catch (e: CloudflareBypassException) {
             throw IOException(context.getString(MR.strings.failed_to_bypass_cloudflare), e)
         } catch (e: Exception) {
