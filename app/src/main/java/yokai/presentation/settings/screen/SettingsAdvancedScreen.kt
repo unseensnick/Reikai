@@ -258,6 +258,7 @@ object SettingsAdvancedScreen : ComposableSettings() {
     private fun getNetworkGroup(networkPreferences: NetworkPreferences): Preference.PreferenceGroup {
         val network: NetworkHelper by injectLazy()
         val context = LocalContext.current
+
         val children = buildList {
             add(Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.clear_cookies),
