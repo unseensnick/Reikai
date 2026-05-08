@@ -20,6 +20,31 @@ Two places to update per release:
 
 When syncing upstream: move the `[Unreleased]` content into a new version entry, then add fork-specific changes below it.
 
+## Development Workflow
+
+### Changelog
+
+After completing any code change (feature, fix, or other), update `CHANGELOG.md`:
+
+- Add a bullet under `## [Unreleased]`, using the same category labels as the file: `Additions`, `Changes`, `Fixes`, `Other`.
+- If `## [Unreleased]` does not exist, create it immediately above the most recent version entry (e.g., above `## [1.9.7.5.5]`).
+- **Do not add a new entry** for iterative changes or fixes to something already listed in `[Unreleased]` — that item was never released, so mid-development churn is noise. Update the existing bullet or leave it unchanged.
+
+**When the user asks to cut a release / rename Unreleased:**
+- Rename `## [Unreleased]` to the specified version (e.g., `## [1.9.7.5.6]`).
+- Add a new empty `## [Unreleased]` section above it for the next cycle.
+
+### Commits
+
+After completing code changes, create a git commit. Do not push. Use conventional commit format matching the project's existing style:
+
+- `feat:` / `feat(scope):` — new feature
+- `fix:` — bug fix
+- `docs:` — documentation only
+- `chore:` — build / tooling
+
+Do not include `Co-Authored-By` lines in commit messages.
+
 ## Build Commands
 
 ```bash
