@@ -51,6 +51,16 @@ We deliberately do **not** save FlareSolverr's cookies to OkHttp and replay them
 
 That's it — there's no separate enable toggle. A non-empty URL turns FlareSolverr on as a fallback for any source that hits a Cloudflare 403 the WebView can't solve.
 
+### Reaching FlareSolverr from outside your home network
+
+The simplest way to keep your FlareSolverr endpoint reachable when the device leaves your LAN — without exposing it to the public internet — is a mesh VPN like [Tailscale](https://tailscale.com/) (or alternatives such as [Headscale](https://github.com/juanfont/headscale), [ZeroTier](https://www.zerotier.com/), [NetBird](https://netbird.io/)).
+
+1. Install the mesh VPN client on both the FlareSolverr host and your Android device, signed in to the same network.
+2. Note the FlareSolverr host's VPN address — for Tailscale this is either a `100.x.y.z` address or a tailnet hostname like `unraid.tail-scale.ts.net`.
+3. In *Settings → Advanced → Network → FlareSolverr URL,* enter `http://<vpn-address>:8191` instead of the LAN IP.
+
+This avoids opening port `8191` on your router and avoids the complexity of running a public reverse proxy with TLS and auth in front of FlareSolverr. Connections only succeed when the device is signed in to the same mesh, so the endpoint isn't reachable from the open internet.
+
 ## Performance expectations
 
 | Situation | Typical wait |
@@ -68,7 +78,3 @@ That's it — there's no separate enable toggle. A non-empty URL turns FlareSolv
 **App shows `FlareSolverr error: Captcha detected.`** FlareSolverr ran into a CAPTCHA it can't solve. This is rare on manga sources but can happen if Cloudflare escalates challenge tiers. There's no automated workaround — you can try opening the source in WebView via the source's "Open in WebView" action and solving the CAPTCHA manually there, then come back to the app.
 
 **Every request triggers a new FlareSolverr solve, follow-ups never get fast.** The session feature isn't being reused — most likely the app is being killed between requests, or the FlareSolverr server is destroying sessions on each request (some custom configurations do this). Confirm your FlareSolverr is the standard build (`ghcr.io/flaresolverr/flaresolverr:latest` or the official Windows release), not a fork that auto-destroys sessions.
-
-**App shows `kotlinx.serialization.MissingFieldException`.** This was a bug in the 1.9.7.5.7 development cycle that's fixed in 1.9.7.5.7+. Update.
-
-**FlareSolverr solves the challenge in its own logs but the app still shows 403.** This was a previous bug from when the integration replayed cookies through OkHttp; fixed by switching to proxy mode. Update to 1.9.7.5.7 or later.

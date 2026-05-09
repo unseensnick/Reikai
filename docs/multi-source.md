@@ -24,8 +24,20 @@ The chip row appears on phones and on sw600dp tablet/foldable layouts.
 
 The auto-grouping is title-based; sometimes you want to merge entries that don't have identical titles (different romanizations, e.g. "Kaijuu 8-gou" vs. "Kaiju No. 8") or split a group apart.
 
-- **Merge** — *Library, long-press to enter multi-select, pick two or more entries, tap "Merge selected" in the menu.* Merged entries become one card.
-- **Unmerge a single source** — *Manga details → long-press a source chip → Remove from group.* That source goes back to being a standalone library entry; the rest of the group stays merged.
+### Merge
+
+*Library → long-press an entry to enter multi-select → tap any other entries you want to include → tap the **⋮ overflow menu** in the toolbar → **Merge selected**.*
+
+The Merge action lives in the overflow menu rather than the main toolbar — it isn't destructive, but it's also not something you want to fire accidentally. The selected entries become one library card and share the same chapter list, progress, and library state going forward.
+
+### Unmerge
+
+Two paths, both ending at the same confirmation dialog:
+
+- **From the source chips** — *Manga details → long-press a source chip → confirm "Remove from group".* Quickest if you only want to detach one source from the chip row you're already looking at.
+- **From the manage sources sheet** — *Manga details → overflow menu (⋮) → Manage sources → tap the X icon next to any source → confirm "Remove from group".* Useful when you're in the sheet anyway (adding/removing several sources at once), or when chip long-press is awkward on smaller screens.
+
+Either way, the source you remove goes back to being a standalone library entry; the rest of the group stays merged.
 
 State is stored in two preferences:
 

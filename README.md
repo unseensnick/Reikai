@@ -38,9 +38,9 @@ The goal is to stay in sync with upstream Yōkai as closely as possible, while l
 <details open="">
     <summary><h3>From Yōkai-Y2K</h3></summary>
 
-* **Multi-source manga grouping** — same-title entries are merged into a single library card with a source-count badge, and a chip row in the manga details switches between sources. Includes manual merge/unmerge, a manage-sources sheet, and bulk "remove all sources from library". ([docs](docs/multi-source.md))
-* **Category sort order & bulk delete** — sort categories A→Z / Z→A, or long-press to multi-select and delete with an undo snackbar. ([docs](docs/categories.md))
-* **FlareSolverr support** — optional Cloudflare bypass for sites the in-app WebView can't solve. WebView remains primary; FlareSolverr (when configured under Settings → Advanced → Network) is the fallback, proxying the response and reusing one browser session for fast follow-ups. ([docs](docs/flaresolverr.md))
+* **Multi-source manga grouping** ([docs](docs/multi-source.md)).
+* **Category sort order & bulk delete** ([docs](docs/categories.md)).
+* **FlareSolverr support** ([docs](docs/flaresolverr.md)).
 
 </details>
 
