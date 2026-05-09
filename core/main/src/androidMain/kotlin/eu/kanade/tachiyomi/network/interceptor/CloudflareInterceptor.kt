@@ -15,6 +15,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
@@ -64,6 +65,16 @@ class CloudflareInterceptor(
     // that host must use this UA so the cf_clearance cookie (bound to it) keeps validating.
     private val fsPinByHost = ConcurrentHashMap<String, String>()
 
+    // Hosts where WebView has failed and FlareSolverr has succeeded. Skip the wasted 30 s
+    // WebView pre-attempt on subsequent requests within this app session.
+    private val fsRequiredHosts: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    // Single shared FlareSolverr session ID. Lazily created on the first FS call and reused
+    // across all subsequent calls so the FS browser keeps cf_clearance / __cf_bm in-memory
+    // and most follow-up requests skip the JS challenge entirely.
+    private val fsSessionLock = Any()
+    @Volatile private var fsSessionId: String? = null
+
     fun pinnedUserAgentFor(host: String): String? = fsPinByHost[host]
 
     override fun shouldIntercept(response: Response): Boolean {
@@ -90,19 +101,26 @@ class CloudflareInterceptor(
             val oldCookie = cookieManager.get(request.url)
                 .firstOrNull { it.name == "cf_clearance" }
 
-            try {
-                resolveWithWebView(request, oldCookie)
-            } catch (e: CloudflareBypassException) {
-                val flareSolverrUrl = networkPreferences.flareSolverrUrl().get().trim()
-                if (flareSolverrUrl.isBlank()) throw e
+            val flareSolverrUrl = networkPreferences.flareSolverrUrl().get().trim()
+            val skipWebView = flareSolverrUrl.isNotBlank() &&
+                fsRequiredHosts.contains(request.url.host)
 
-                // FlareSolverr returns a fully-fetched response — serve it directly. Replaying
-                // its cookies through OkHttp doesn't work for hosts on Cloudflare's stricter
-                // bot-management tier (cf_clearance is bound to TLS / __cf_bm fingerprint that
-                // OkHttp can't reproduce). A null return means another thread did the solve;
-                // fall through to a normal retry with whatever the cookie jar holds.
+            // FlareSolverr returns a fully-fetched response — serve it directly. Replaying
+            // its cookies through OkHttp doesn't work for hosts on Cloudflare's stricter
+            // bot-management tier (cf_clearance is bound to TLS / __cf_bm fingerprint that
+            // OkHttp can't reproduce). A null return means another thread did the solve;
+            // fall through to a normal retry with whatever the cookie jar holds.
+            if (skipWebView) {
                 val fsResponse = resolveWithFlareSolverrDedup(flareSolverrUrl, request)
                 if (fsResponse != null) return fsResponse
+            } else {
+                try {
+                    resolveWithWebView(request, oldCookie)
+                } catch (e: CloudflareBypassException) {
+                    if (flareSolverrUrl.isBlank()) throw e
+                    val fsResponse = resolveWithFlareSolverrDedup(flareSolverrUrl, request)
+                    if (fsResponse != null) return fsResponse
+                }
             }
 
             // WebView path (or sibling-solve fallback): retry the request normally. The
@@ -150,12 +168,49 @@ class CloudflareInterceptor(
     }
 
     private fun resolveWithFlareSolverr(flareSolverrUrl: String, request: Request): Response {
+        val sessionId = ensureFlareSolverrSession(flareSolverrUrl)
+        return runFlareSolverrRequest(flareSolverrUrl, request, sessionId, allowRetry = true)
+    }
+
+    private fun ensureFlareSolverrSession(flareSolverrUrl: String): String {
+        fsSessionId?.let { return it }
+        return synchronized(fsSessionLock) {
+            fsSessionId?.let { return@synchronized it }
+            val newId = "yokai-${UUID.randomUUID()}"
+            val body = """{"cmd":"sessions.create","session":"$newId"}"""
+                .toRequestBody("application/json".toMediaType())
+            val req = Request.Builder()
+                .url("${flareSolverrUrl.trimEnd('/')}/v1")
+                .post(body)
+                .build()
+            flareSolverrClient.newCall(req).execute().use { resp ->
+                val text = resp.body.string()
+                if (!resp.isSuccessful) {
+                    throw IOException("FlareSolverr sessions.create HTTP ${resp.code}")
+                }
+                val parsed = json.decodeFromString<FlareSolverrResponse>(text)
+                if (parsed.status != "ok") {
+                    throw IOException("FlareSolverr sessions.create error: ${parsed.message}")
+                }
+            }
+            fsSessionId = newId
+            newId
+        }
+    }
+
+    private fun runFlareSolverrRequest(
+        flareSolverrUrl: String,
+        request: Request,
+        sessionId: String,
+        allowRetry: Boolean,
+    ): Response {
         val targetUrl = request.url.toString()
 
         // Full-response mode (returnOnlyCookies defaults to false). FS returns the page body its
         // headless Chrome fetched, so we can serve it directly and avoid replaying cf_clearance
         // through OkHttp — a path Cloudflare's TLS / __cf_bm fingerprinting often rejects.
-        val body = """{"cmd":"request.get","url":"$targetUrl","maxTimeout":60000}"""
+        // The session keeps cleared cookies in-memory so follow-up calls skip the JS challenge.
+        val body = """{"cmd":"request.get","url":"$targetUrl","session":"$sessionId","maxTimeout":60000}"""
             .toRequestBody("application/json".toMediaType())
 
         val fsRequest = Request.Builder()
@@ -171,6 +226,19 @@ class CloudflareInterceptor(
         }
 
         val result = json.decodeFromString<FlareSolverrResponse>(fsBody)
+
+        // FS restart, container reboot, or session GC invalidates the cached ID. Detect that
+        // case via the error message ("Session ${id} not found.") and recreate once.
+        if (result.status != "ok" && allowRetry &&
+            result.message.contains("session", ignoreCase = true)
+        ) {
+            synchronized(fsSessionLock) {
+                if (fsSessionId == sessionId) fsSessionId = null
+            }
+            val freshId = ensureFlareSolverrSession(flareSolverrUrl)
+            return runFlareSolverrRequest(flareSolverrUrl, request, freshId, allowRetry = false)
+        }
+
         if (result.status != "ok") {
             throw IOException("FlareSolverr error: ${result.message}")
         }
@@ -188,6 +256,9 @@ class CloudflareInterceptor(
         if (result.solution.userAgent.isNotBlank()) {
             fsPinByHost[request.url.host] = result.solution.userAgent
         }
+
+        // Mark this host as known-FS so the next request skips the WebView pre-attempt.
+        fsRequiredHosts.add(request.url.host)
 
         return buildResponseFromFlareSolverr(request, result.solution)
     }
