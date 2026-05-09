@@ -94,7 +94,15 @@ class CloudflareInterceptor(
                 resolveWithFlareSolverrDedup(flareSolverrUrl, request)
             }
 
-            return chain.proceed(request)
+            // The application interceptor chain doesn't re-run on chain.proceed() from inside
+            // an interceptor, so UserAgentInterceptor will not see the pin we just stored.
+            // Apply it directly to the retry request so cf_clearance (bound to FS's UA) is
+            // honored on the very first follow-up call.
+            val retryRequest = fsPinByHost[request.url.host]?.let { pinnedUa ->
+                request.newBuilder().header("User-Agent", pinnedUa).build()
+            } ?: request
+
+            return chain.proceed(retryRequest)
         } catch (e: CloudflareBypassException) {
             throw IOException(context.getString(MR.strings.failed_to_bypass_cloudflare), e)
         } catch (e: Exception) {
