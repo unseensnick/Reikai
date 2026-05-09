@@ -20,6 +20,8 @@ class NetworkHelper(
     val cookieJar = AndroidCookieJar()
 
     val client: OkHttpClient = run {
+        val cloudflareInterceptor = CloudflareInterceptor(context, cookieJar, ::defaultUserAgent, preferences)
+
         val builder = OkHttpClient.Builder()
             .cookieJar(cookieJar)
             .connectTimeout(30, TimeUnit.SECONDS)
@@ -32,15 +34,13 @@ class NetworkHelper(
                 )
             )
             .addInterceptor(UncaughtExceptionInterceptor())
-            .addInterceptor(UserAgentInterceptor(::defaultUserAgent))
+            .addInterceptor(UserAgentInterceptor(::defaultUserAgent, cloudflareInterceptor::pinnedUserAgentFor))
             .addNetworkInterceptor(IgnoreGzipInterceptor())
             .addNetworkInterceptor(BrotliInterceptor)
 
         block(builder)
 
-        builder.addInterceptor(
-            CloudflareInterceptor(context, cookieJar, ::defaultUserAgent, preferences),
-        )
+        builder.addInterceptor(cloudflareInterceptor)
 
         when (preferences.dohProvider().get()) {
             PREF_DOH_CLOUDFLARE -> builder.dohCloudflare()

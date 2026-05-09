@@ -15,6 +15,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
@@ -23,13 +24,17 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.Cookie
+import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.jsoup.Jsoup
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -37,7 +42,7 @@ import yokai.util.lang.getString
 class CloudflareInterceptor(
     private val context: Context,
     private val cookieManager: AndroidCookieJar,
-    private val defaultUserAgentProvider: () -> String,
+    defaultUserAgentProvider: () -> String,
     private val networkPreferences: NetworkPreferences,
 ) : WebViewInterceptor(context, defaultUserAgentProvider) {
 
@@ -53,13 +58,24 @@ class CloudflareInterceptor(
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    // One active solve per hostname; concurrent requests wait and reuse the result.
+    // One active FlareSolverr solve per hostname; concurrent 403s for the same host coalesce.
     private val pendingFSSolves = ConcurrentHashMap<String, CompletableFuture<Unit>>()
 
-    // Timestamp of last successful FlareSolverr solve per hostname; prevents re-solving for
-    // requests whose 403 was in-flight while a concurrent solve was already completing.
-    private val lastFSSolveTime = ConcurrentHashMap<String, Long>()
-    private val fsSolveReuseMs = 30_000L
+    // Per-host User-Agent pin set when FlareSolverr solves a challenge. Subsequent requests to
+    // that host must use this UA so the cf_clearance cookie (bound to it) keeps validating.
+    private val fsPinByHost = ConcurrentHashMap<String, String>()
+
+    // Hosts where WebView has failed and FlareSolverr has succeeded. Skip the wasted 30 s
+    // WebView pre-attempt on subsequent requests within this app session.
+    private val fsRequiredHosts: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    // Single shared FlareSolverr session ID. Lazily created on the first FS call and reused
+    // across all subsequent calls so the FS browser keeps cf_clearance / __cf_bm in-memory
+    // and most follow-up requests skip the JS challenge entirely.
+    private val fsSessionLock = Any()
+    @Volatile private var fsSessionId: String? = null
+
+    fun pinnedUserAgentFor(host: String): String? = fsPinByHost[host]
 
     override fun shouldIntercept(response: Response): Boolean {
         return if (response.code in ERROR_CODES && response.header("Server") in SERVER_CHECK) {
@@ -81,40 +97,38 @@ class CloudflareInterceptor(
     ): Response {
         try {
             response.close()
+            cookieManager.remove(request.url, COOKIE_NAMES, 0)
+            val oldCookie = cookieManager.get(request.url)
+                .firstOrNull { it.name == "cf_clearance" }
 
             val flareSolverrUrl = networkPreferences.flareSolverrUrl().get().trim()
-            var flareSolverrSucceeded = false
+            val skipWebView = flareSolverrUrl.isNotBlank() &&
+                fsRequiredHosts.contains(request.url.host)
 
-            if (flareSolverrUrl.isNotBlank()) {
+            // FlareSolverr returns a fully-fetched response — serve it directly. Replaying
+            // its cookies through OkHttp doesn't work for hosts on Cloudflare's stricter
+            // bot-management tier (cf_clearance is bound to TLS / __cf_bm fingerprint that
+            // OkHttp can't reproduce). A null return means another thread did the solve;
+            // fall through to a normal retry with whatever the cookie jar holds.
+            if (skipWebView) {
+                val fsResponse = resolveWithFlareSolverrDedup(flareSolverrUrl, request)
+                if (fsResponse != null) return fsResponse
+            } else {
                 try {
-                    resolveWithFlareSolverrDedup(flareSolverrUrl, request)
-                    flareSolverrSucceeded = true
-                    if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
-                        executor.execute { context.toast("FlareSolverr bypassed Cloudflare") }
-                    }
-                } catch (_: Exception) {
-                    // FlareSolverr failed — fall through to WebView
+                    resolveWithWebView(request, oldCookie)
+                } catch (e: CloudflareBypassException) {
+                    if (flareSolverrUrl.isBlank()) throw e
+                    val fsResponse = resolveWithFlareSolverrDedup(flareSolverrUrl, request)
+                    if (fsResponse != null) return fsResponse
                 }
             }
 
-            if (!flareSolverrSucceeded) {
-                // Remove stale cookie before WebView so the change-detection check works correctly.
-                cookieManager.remove(request.url, COOKIE_NAMES, 0)
-                val oldCookie = cookieManager.get(request.url)
-                    .firstOrNull { it.name == "cf_clearance" }
-                resolveWithWebView(request, oldCookie)
-            }
-
-            // cf_clearance is bound to the UA that solved the challenge. After FlareSolverr
-            // succeeds it saves its browser UA to preferences, so we must use that updated UA
-            // here — the original request still carries the old UA from UserAgentInterceptor.
-            val retryRequest = if (flareSolverrSucceeded) {
-                request.newBuilder()
-                    .header("User-Agent", defaultUserAgentProvider())
-                    .build()
-            } else {
-                request
-            }
+            // WebView path (or sibling-solve fallback): retry the request normally. The
+            // application interceptor chain doesn't re-run on chain.proceed() from inside an
+            // interceptor, so apply any FS-pinned UA directly here.
+            val retryRequest = fsPinByHost[request.url.host]?.let { pinnedUa ->
+                request.newBuilder().header("User-Agent", pinnedUa).build()
+            } ?: request
 
             return chain.proceed(retryRequest)
         } catch (e: CloudflareBypassException) {
@@ -124,46 +138,79 @@ class CloudflareInterceptor(
         }
     }
 
-    private fun resolveWithFlareSolverrDedup(flareSolverrUrl: String, request: Request) {
+    private fun resolveWithFlareSolverrDedup(flareSolverrUrl: String, request: Request): Response? {
         val host = request.url.host
-
-        // If another thread solved this host very recently, the fresh cf_clearance is already
-        // in the cookie jar. Skip re-solving and let the caller retry with those cookies.
-        val lastSolve = lastFSSolveTime[host]
-        if (lastSolve != null && System.currentTimeMillis() - lastSolve < fsSolveReuseMs) return
 
         while (true) {
             val existing = pendingFSSolves[host]
             if (existing != null) {
-                // Another thread is already solving for this host — wait for it, then return.
-                // The caller will retry the request with the fresh cookies now in the jar.
+                // Another thread is already solving for this host — wait for it, then return null
+                // so the caller falls through to chain.proceed with whatever the cookie jar has.
                 existing.get(90, TimeUnit.SECONDS)
-                return
+                return null
             }
             val future = CompletableFuture<Unit>()
             if (pendingFSSolves.putIfAbsent(host, future) == null) {
                 try {
-                    // Remove the stale/expired cookie only when we are actually about to solve.
                     cookieManager.remove(request.url, COOKIE_NAMES, 0)
-                    resolveWithFlareSolverr(flareSolverrUrl, request)
+                    val response = resolveWithFlareSolverr(flareSolverrUrl, request)
                     future.complete(Unit)
-                    lastFSSolveTime[host] = System.currentTimeMillis()
+                    return response
                 } catch (e: Exception) {
                     future.completeExceptionally(e)
                     throw e
                 } finally {
                     pendingFSSolves.remove(host)
                 }
-                return
             }
             // Another thread won the race between our check and putIfAbsent — loop and wait.
         }
     }
 
-    private fun resolveWithFlareSolverr(flareSolverrUrl: String, request: Request) {
+    private fun resolveWithFlareSolverr(flareSolverrUrl: String, request: Request): Response {
+        val sessionId = ensureFlareSolverrSession(flareSolverrUrl)
+        return runFlareSolverrRequest(flareSolverrUrl, request, sessionId, allowRetry = true)
+    }
+
+    private fun ensureFlareSolverrSession(flareSolverrUrl: String): String {
+        fsSessionId?.let { return it }
+        return synchronized(fsSessionLock) {
+            fsSessionId?.let { return@synchronized it }
+            val newId = "yokai-${UUID.randomUUID()}"
+            val body = """{"cmd":"sessions.create","session":"$newId"}"""
+                .toRequestBody("application/json".toMediaType())
+            val req = Request.Builder()
+                .url("${flareSolverrUrl.trimEnd('/')}/v1")
+                .post(body)
+                .build()
+            flareSolverrClient.newCall(req).execute().use { resp ->
+                val text = resp.body.string()
+                if (!resp.isSuccessful) {
+                    throw IOException("FlareSolverr sessions.create HTTP ${resp.code}")
+                }
+                val parsed = json.decodeFromString<FlareSolverrResponse>(text)
+                if (parsed.status != "ok") {
+                    throw IOException("FlareSolverr sessions.create error: ${parsed.message}")
+                }
+            }
+            fsSessionId = newId
+            newId
+        }
+    }
+
+    private fun runFlareSolverrRequest(
+        flareSolverrUrl: String,
+        request: Request,
+        sessionId: String,
+        allowRetry: Boolean,
+    ): Response {
         val targetUrl = request.url.toString()
 
-        val body = """{"cmd":"request.get","url":"$targetUrl","maxTimeout":60000,"returnOnlyCookies":true}"""
+        // Full-response mode (returnOnlyCookies defaults to false). FS returns the page body its
+        // headless Chrome fetched, so we can serve it directly and avoid replaying cf_clearance
+        // through OkHttp — a path Cloudflare's TLS / __cf_bm fingerprinting often rejects.
+        // The session keeps cleared cookies in-memory so follow-up calls skip the JS challenge.
+        val body = """{"cmd":"request.get","url":"$targetUrl","session":"$sessionId","maxTimeout":60000}"""
             .toRequestBody("application/json".toMediaType())
 
         val fsRequest = Request.Builder()
@@ -179,24 +226,74 @@ class CloudflareInterceptor(
         }
 
         val result = json.decodeFromString<FlareSolverrResponse>(fsBody)
+
+        // FS restart, container reboot, or session GC invalidates the cached ID. Detect that
+        // case via the error message ("Session ${id} not found.") and recreate once.
+        if (result.status != "ok" && allowRetry &&
+            result.message.contains("session", ignoreCase = true)
+        ) {
+            synchronized(fsSessionLock) {
+                if (fsSessionId == sessionId) fsSessionId = null
+            }
+            val freshId = ensureFlareSolverrSession(flareSolverrUrl)
+            return runFlareSolverrRequest(flareSolverrUrl, request, freshId, allowRetry = false)
+        }
+
         if (result.status != "ok") {
             throw IOException("FlareSolverr error: ${result.message}")
         }
 
-        if (result.solution.status !in 200..299) {
-            throw IOException("FlareSolverr solution status: ${result.solution.status}")
+        val solution = result.solution
+            ?: throw IOException("FlareSolverr returned no solution: ${result.message}")
+
+        if (solution.status !in 200..299) {
+            throw IOException("FlareSolverr solution status: ${solution.status}")
         }
 
-        // Store cookies directly via Android CookieManager, preserving the leading dot in the
-        // domain so they are treated as domain cookies (matching www.* and other subdomains) rather
-        // than host-only cookies that would only match the bare apex domain.
-        result.solution.cookies.forEach { fsCookie ->
+        // Best-effort: stash cookies + UA so unrelated future requests to this host can succeed
+        // without re-invoking FS. The current request's correctness comes from the synthetic
+        // response we build below, not from these.
+        solution.cookies.forEach { fsCookie ->
             cookieManager.saveCookieString(request.url, fsCookie.toRawCookieString(request.url.host))
         }
-
-        if (result.solution.userAgent.isNotBlank()) {
-            networkPreferences.defaultUserAgent().set(result.solution.userAgent)
+        if (solution.userAgent.isNotBlank()) {
+            fsPinByHost[request.url.host] = solution.userAgent
         }
+
+        // Mark this host as known-FS so the next request skips the WebView pre-attempt.
+        fsRequiredHosts.add(request.url.host)
+
+        return buildResponseFromFlareSolverr(request, solution)
+    }
+
+    private fun buildResponseFromFlareSolverr(request: Request, solution: FlareSolverrSolution): Response {
+        val contentType = solution.headers
+            .entries.firstOrNull { it.key.equals("content-type", ignoreCase = true) }
+            ?.value
+            ?: "text/html; charset=UTF-8"
+
+        val body = solution.response.toResponseBody(contentType.toMediaTypeOrNull())
+
+        val headersBuilder = Headers.Builder()
+        solution.headers.forEach { (name, value) ->
+            // FlareSolverr returns the body already decoded, so passing through Content-Encoding
+            // / Content-Length / Transfer-Encoding would make OkHttp try to re-decode and break.
+            // Set-Cookie was already applied to the cookie jar above; skip it here too.
+            if (name.equals("content-encoding", ignoreCase = true)) return@forEach
+            if (name.equals("content-length", ignoreCase = true)) return@forEach
+            if (name.equals("transfer-encoding", ignoreCase = true)) return@forEach
+            if (name.equals("set-cookie", ignoreCase = true)) return@forEach
+            runCatching { headersBuilder.add(name, value) }
+        }
+
+        return Response.Builder()
+            .request(request)
+            .protocol(Protocol.HTTP_1_1)
+            .code(solution.status)
+            .message(if (solution.status in 200..299) "OK" else "FlareSolverr")
+            .headers(headersBuilder.build())
+            .body(body)
+            .build()
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -286,13 +383,16 @@ private class CloudflareBypassException : Exception()
 private data class FlareSolverrResponse(
     val status: String,
     val message: String = "",
-    val solution: FlareSolverrSolution,
+    // Nullable because sessions.create responses have no solution field.
+    val solution: FlareSolverrSolution? = null,
 )
 
 @Serializable
 private data class FlareSolverrSolution(
     val url: String = "",
     val status: Int = 0,
+    val headers: Map<String, String> = emptyMap(),
+    val response: String = "",
     val cookies: List<FlareSolverrCookie> = emptyList(),
     @SerialName("userAgent") val userAgent: String = "",
 )
@@ -310,7 +410,7 @@ private data class FlareSolverrCookie(
     fun toRawCookieString(requestHost: String): String = buildString {
         append("$name=$value")
         // Preserve (or add) a leading dot so Android CookieManager treats this as a domain
-        // cookie that matches the apex domain and all its subdomains (e.g. www.natomanga.com).
+        // cookie that matches the apex domain and all its subdomains.
         val dom = when {
             domain.isBlank() -> ".$requestHost"
             domain.startsWith('.') -> domain
