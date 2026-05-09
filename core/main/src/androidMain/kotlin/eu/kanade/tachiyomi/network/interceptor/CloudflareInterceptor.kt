@@ -243,24 +243,27 @@ class CloudflareInterceptor(
             throw IOException("FlareSolverr error: ${result.message}")
         }
 
-        if (result.solution.status !in 200..299) {
-            throw IOException("FlareSolverr solution status: ${result.solution.status}")
+        val solution = result.solution
+            ?: throw IOException("FlareSolverr returned no solution: ${result.message}")
+
+        if (solution.status !in 200..299) {
+            throw IOException("FlareSolverr solution status: ${solution.status}")
         }
 
         // Best-effort: stash cookies + UA so unrelated future requests to this host can succeed
         // without re-invoking FS. The current request's correctness comes from the synthetic
         // response we build below, not from these.
-        result.solution.cookies.forEach { fsCookie ->
+        solution.cookies.forEach { fsCookie ->
             cookieManager.saveCookieString(request.url, fsCookie.toRawCookieString(request.url.host))
         }
-        if (result.solution.userAgent.isNotBlank()) {
-            fsPinByHost[request.url.host] = result.solution.userAgent
+        if (solution.userAgent.isNotBlank()) {
+            fsPinByHost[request.url.host] = solution.userAgent
         }
 
         // Mark this host as known-FS so the next request skips the WebView pre-attempt.
         fsRequiredHosts.add(request.url.host)
 
-        return buildResponseFromFlareSolverr(request, result.solution)
+        return buildResponseFromFlareSolverr(request, solution)
     }
 
     private fun buildResponseFromFlareSolverr(request: Request, solution: FlareSolverrSolution): Response {
@@ -380,7 +383,8 @@ private class CloudflareBypassException : Exception()
 private data class FlareSolverrResponse(
     val status: String,
     val message: String = "",
-    val solution: FlareSolverrSolution,
+    // Nullable because sessions.create responses have no solution field.
+    val solution: FlareSolverrSolution? = null,
 )
 
 @Serializable
