@@ -23,13 +23,17 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.Cookie
+import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.jsoup.Jsoup
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -91,13 +95,19 @@ class CloudflareInterceptor(
             } catch (e: CloudflareBypassException) {
                 val flareSolverrUrl = networkPreferences.flareSolverrUrl().get().trim()
                 if (flareSolverrUrl.isBlank()) throw e
-                resolveWithFlareSolverrDedup(flareSolverrUrl, request)
+
+                // FlareSolverr returns a fully-fetched response — serve it directly. Replaying
+                // its cookies through OkHttp doesn't work for hosts on Cloudflare's stricter
+                // bot-management tier (cf_clearance is bound to TLS / __cf_bm fingerprint that
+                // OkHttp can't reproduce). A null return means another thread did the solve;
+                // fall through to a normal retry with whatever the cookie jar holds.
+                val fsResponse = resolveWithFlareSolverrDedup(flareSolverrUrl, request)
+                if (fsResponse != null) return fsResponse
             }
 
-            // The application interceptor chain doesn't re-run on chain.proceed() from inside
-            // an interceptor, so UserAgentInterceptor will not see the pin we just stored.
-            // Apply it directly to the retry request so cf_clearance (bound to FS's UA) is
-            // honored on the very first follow-up call.
+            // WebView path (or sibling-solve fallback): retry the request normally. The
+            // application interceptor chain doesn't re-run on chain.proceed() from inside an
+            // interceptor, so apply any FS-pinned UA directly here.
             val retryRequest = fsPinByHost[request.url.host]?.let { pinnedUa ->
                 request.newBuilder().header("User-Agent", pinnedUa).build()
             } ?: request
@@ -110,39 +120,42 @@ class CloudflareInterceptor(
         }
     }
 
-    private fun resolveWithFlareSolverrDedup(flareSolverrUrl: String, request: Request) {
+    private fun resolveWithFlareSolverrDedup(flareSolverrUrl: String, request: Request): Response? {
         val host = request.url.host
 
         while (true) {
             val existing = pendingFSSolves[host]
             if (existing != null) {
-                // Another thread is already solving for this host — wait for it, then return.
-                // The caller will retry the request with the fresh cookies now in the jar.
+                // Another thread is already solving for this host — wait for it, then return null
+                // so the caller falls through to chain.proceed with whatever the cookie jar has.
                 existing.get(90, TimeUnit.SECONDS)
-                return
+                return null
             }
             val future = CompletableFuture<Unit>()
             if (pendingFSSolves.putIfAbsent(host, future) == null) {
                 try {
                     cookieManager.remove(request.url, COOKIE_NAMES, 0)
-                    resolveWithFlareSolverr(flareSolverrUrl, request)
+                    val response = resolveWithFlareSolverr(flareSolverrUrl, request)
                     future.complete(Unit)
+                    return response
                 } catch (e: Exception) {
                     future.completeExceptionally(e)
                     throw e
                 } finally {
                     pendingFSSolves.remove(host)
                 }
-                return
             }
             // Another thread won the race between our check and putIfAbsent — loop and wait.
         }
     }
 
-    private fun resolveWithFlareSolverr(flareSolverrUrl: String, request: Request) {
+    private fun resolveWithFlareSolverr(flareSolverrUrl: String, request: Request): Response {
         val targetUrl = request.url.toString()
 
-        val body = """{"cmd":"request.get","url":"$targetUrl","maxTimeout":60000,"returnOnlyCookies":true}"""
+        // Full-response mode (returnOnlyCookies defaults to false). FS returns the page body its
+        // headless Chrome fetched, so we can serve it directly and avoid replaying cf_clearance
+        // through OkHttp — a path Cloudflare's TLS / __cf_bm fingerprinting often rejects.
+        val body = """{"cmd":"request.get","url":"$targetUrl","maxTimeout":60000}"""
             .toRequestBody("application/json".toMediaType())
 
         val fsRequest = Request.Builder()
@@ -166,19 +179,47 @@ class CloudflareInterceptor(
             throw IOException("FlareSolverr solution status: ${result.solution.status}")
         }
 
-        // Store cookies via Android CookieManager, preserving the leading dot in the domain
-        // so they match subdomains (e.g. www.* in addition to the apex).
+        // Best-effort: stash cookies + UA so unrelated future requests to this host can succeed
+        // without re-invoking FS. The current request's correctness comes from the synthetic
+        // response we build below, not from these.
         result.solution.cookies.forEach { fsCookie ->
             cookieManager.saveCookieString(request.url, fsCookie.toRawCookieString(request.url.host))
         }
-
-        // cf_clearance is bound to the (UA, IP) pair that solved the challenge. Pin FS's UA
-        // for this host only — UserAgentInterceptor reads this via pinnedUserAgentFor() and
-        // applies it to subsequent requests to the same host. We never touch the global
-        // defaultUserAgent preference.
         if (result.solution.userAgent.isNotBlank()) {
             fsPinByHost[request.url.host] = result.solution.userAgent
         }
+
+        return buildResponseFromFlareSolverr(request, result.solution)
+    }
+
+    private fun buildResponseFromFlareSolverr(request: Request, solution: FlareSolverrSolution): Response {
+        val contentType = solution.headers
+            .entries.firstOrNull { it.key.equals("content-type", ignoreCase = true) }
+            ?.value
+            ?: "text/html; charset=UTF-8"
+
+        val body = solution.response.toResponseBody(contentType.toMediaTypeOrNull())
+
+        val headersBuilder = Headers.Builder()
+        solution.headers.forEach { (name, value) ->
+            // FlareSolverr returns the body already decoded, so passing through Content-Encoding
+            // / Content-Length / Transfer-Encoding would make OkHttp try to re-decode and break.
+            // Set-Cookie was already applied to the cookie jar above; skip it here too.
+            if (name.equals("content-encoding", ignoreCase = true)) return@forEach
+            if (name.equals("content-length", ignoreCase = true)) return@forEach
+            if (name.equals("transfer-encoding", ignoreCase = true)) return@forEach
+            if (name.equals("set-cookie", ignoreCase = true)) return@forEach
+            runCatching { headersBuilder.add(name, value) }
+        }
+
+        return Response.Builder()
+            .request(request)
+            .protocol(Protocol.HTTP_1_1)
+            .code(solution.status)
+            .message(if (solution.status in 200..299) "OK" else "FlareSolverr")
+            .headers(headersBuilder.build())
+            .body(body)
+            .build()
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -275,6 +316,8 @@ private data class FlareSolverrResponse(
 private data class FlareSolverrSolution(
     val url: String = "",
     val status: Int = 0,
+    val headers: Map<String, String> = emptyMap(),
+    val response: String = "",
     val cookies: List<FlareSolverrCookie> = emptyList(),
     @SerialName("userAgent") val userAgent: String = "",
 )
