@@ -10,6 +10,12 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Changes
+- Cloudflare handling realigned with upstream: WebView is now the primary solver and FlareSolverr (when configured) is used as a fallback only if the WebView solve fails — drastically cuts wait time on most challenges
+
+### Fixes
+- FlareSolverr no longer rewrites the global User-Agent preference; the FlareSolverr-derived UA is now pinned per-host and applied only to requests for that host, preventing cross-source UA pollution and the rapid re-challenge loop bound to it
+
 ## [1.9.7.5.6]
 
 ### Additions
