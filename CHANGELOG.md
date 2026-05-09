@@ -10,6 +10,8 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [1.9.7.5.7]
+
 ### Changes
 - Cloudflare handling realigned with upstream: WebView is now the primary solver and FlareSolverr (when configured) is used as a fallback only if the WebView solve fails — drastically cuts wait time on most challenges
 
