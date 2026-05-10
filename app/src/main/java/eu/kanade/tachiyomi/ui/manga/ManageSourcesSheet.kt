@@ -323,7 +323,7 @@ class ManageSourcesSheet : DialogController {
                 showUndoSnackbar(
                     message = ctx.getString(MR.strings.sources_removed_from_library, ids.size),
                 ) {
-                    presenter.presenterScope.launch {
+                    presenter.presenterScope.launch(Dispatchers.Main) {
                         presenter.removeFromLibrary(ids)
                         onSourceRemoved()
                     }
