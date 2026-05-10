@@ -1320,7 +1320,7 @@ class MangaDetailsController :
     //endregion
 
     private fun showSourceUndoSnackbar(message: String, onCommit: () -> Unit) {
-        val snack = view?.snack(message, Snackbar.LENGTH_INDEFINITE) {
+        val snack = view?.snack(message, 5_000) {
             var undoing = false
             setAction(MR.strings.undo) { undoing = true }
             addCallback(

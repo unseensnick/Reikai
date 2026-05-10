@@ -270,7 +270,7 @@ class CategoryController(bundle: Bundle? = null) :
                 positions.forEach { adapter?.removeItem(it) }
                 snack = view?.snack(
                     view!!.context.getString(MR.strings.categories_deleted, count),
-                    Snackbar.LENGTH_INDEFINITE,
+                    5_000,
                 ) {
                     var undoing = false
                     setAction(MR.strings.undo) {
@@ -319,7 +319,7 @@ class CategoryController(bundle: Bundle? = null) :
         confirmDelete()
         adapter?.removeItem(position)
         snack =
-            view?.snack(MR.strings.category_deleted, Snackbar.LENGTH_INDEFINITE) {
+            view?.snack(MR.strings.category_deleted, 5_000) {
                 var undoing = false
                 setAction(MR.strings.undo) {
                     adapter?.restoreDeletedItems()
