@@ -4,8 +4,6 @@ import android.app.Dialog
 import android.content.Context
 import android.graphics.Typeface
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -13,22 +11,16 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.CheckBox
-import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.view.isVisible
-import androidx.core.view.setPadding
 import androidx.core.widget.NestedScrollView
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
-import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.base.controller.DialogController
 import eu.kanade.tachiyomi.util.system.dpToPx
-import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.materialAlertDialog
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
@@ -58,8 +50,6 @@ class ManageSourcesSheet : DialogController {
     }
 
     private var sourcesContainer: LinearLayout? = null
-    private var searchResultsRecycler: RecyclerView? = null
-    private var searchResultsAdapter: SearchResultAdapter? = null
     private var splitButton: MaterialButton? = null
     private var removeButton: MaterialButton? = null
 
@@ -112,58 +102,7 @@ class ManageSourcesSheet : DialogController {
             addView(sourcesContainer)
             addView(buildActionBar(ctx, p16, p8))
             addView(View(ctx).apply {
-                setBackgroundColor(ctx.getResourceColor(R.attr.colorOutline))
-                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, 1.dpToPx).apply {
-                    setMargins(0, p8, 0, p8)
-                }
-            })
-            addView(TextView(ctx).apply {
-                text = ctx.getString(MR.strings.add_another_manga)
-                textSize = 14f
-                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-                    setMargins(p16, 0, p16, p8)
-                }
-            })
-            val searchField = EditText(ctx).apply {
-                hint = ctx.getString(MR.strings.search)
-                setSingleLine(true)
-                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-                    setMargins(p16, 0, p16, 0)
-                }
-            }
-            addView(searchField)
-            searchResultsAdapter = SearchResultAdapter { mangaId ->
-                presenter.addToGroup(mangaId)
-                dismissDialog()
-            }
-            searchResultsRecycler = RecyclerView(ctx).apply {
-                layoutManager = LinearLayoutManager(ctx)
-                adapter = searchResultsAdapter
-                isVisible = false
-                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-            }
-            addView(searchResultsRecycler)
-            addView(View(ctx).apply {
-                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, p16)
-            })
-            searchField.addTextChangedListener(object : TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
-                override fun afterTextChanged(s: Editable) {
-                    val query = s.toString().trim()
-                    if (query.length >= 2) {
-                        onCreateViewScope?.launch {
-                            val results = withContext(Dispatchers.IO) {
-                                presenter.searchAddableManga(query)
-                            }
-                            searchResultsAdapter?.updateResults(results)
-                            searchResultsRecycler?.isVisible = results.isNotEmpty()
-                        }
-                    } else {
-                        searchResultsAdapter?.updateResults(emptyList())
-                        searchResultsRecycler?.isVisible = false
-                    }
-                }
+                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, p8)
             })
         }
     }
@@ -323,33 +262,4 @@ class ManageSourcesSheet : DialogController {
             .show()
     }
 
-    private inner class SearchResultAdapter(
-        private val onSelect: (Long) -> Unit,
-    ) : RecyclerView.Adapter<SearchResultAdapter.ViewHolder>() {
-        private var items: List<Pair<Long, String>> = emptyList()
-
-        fun updateResults(newItems: List<Pair<Long, String>>) {
-            items = newItems
-            notifyDataSetChanged()
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val tv = TextView(parent.context).apply {
-                textSize = 14f
-                setPadding(16.dpToPx)
-                layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-            }
-            return ViewHolder(tv)
-        }
-
-        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val (mangaId, label) = items[position]
-            holder.textView.text = label
-            holder.textView.setOnClickListener { onSelect(mangaId) }
-        }
-
-        override fun getItemCount() = items.size
-
-        inner class ViewHolder(val textView: TextView) : RecyclerView.ViewHolder(textView)
-    }
 }

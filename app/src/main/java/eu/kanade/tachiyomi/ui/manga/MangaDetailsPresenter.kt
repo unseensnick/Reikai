@@ -1213,32 +1213,6 @@ class MangaDetailsPresenter(
         }
     }
 
-    fun addToGroup(newId: Long) {
-        val allIds = (relatedMangaIds.toList() + newId + mangaId).distinct().sorted()
-        val newEntry = allIds.joinToString(",")
-        val merges = preferences.mangaManualMerges().get().toMutableSet()
-        merges.removeAll { entry ->
-            entry.split(",").any { part -> part.trim().toLongOrNull() in allIds }
-        }
-        merges.add(newEntry)
-        preferences.mangaManualMerges().set(merges)
-    }
-
-    suspend fun searchAddableManga(query: String): List<Pair<Long, String>> {
-        if (query.isBlank()) return emptyList()
-        val alreadyInGroup = relatedMangaIds.toSet() + mangaId
-        return getManga.awaitFavorites()
-            .filter { m ->
-                m.id !in alreadyInGroup &&
-                    m.title.contains(query, ignoreCase = true)
-            }
-            .mapNotNull { m ->
-                val id = m.id ?: return@mapNotNull null
-                id to "${m.title} — ${sourceManager.getOrStub(m.source).name}"
-            }
-            .sortedBy { (_, label) -> label.lowercase() }
-    }
-
     companion object {
         const val MULTIPLE_VOLUMES = 1
         const val TENS_OF_CHAPTERS = 2

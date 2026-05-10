@@ -57,9 +57,7 @@ This sheet shows every source currently grouped with the open manga and lets you
 
 Both actions confirm via dialog and then show an undo snackbar — the change isn't committed until the snackbar dismisses, so an accidental tap can be reverted within the grace period.
 
-Below the action bar is a search field for adding more entries to the group: type ≥2 characters to search your library, then tap a result to merge it in.
-
-The sheet only appears when the manga has at least one related library entry.
+The sheet only appears when the manga has at least one related library entry. To merge two existing entries, use Library multi-select → Merge selected (described above).
 
 ## Bulk "remove all sources from library"
 
