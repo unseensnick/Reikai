@@ -36,11 +36,14 @@ The goal is to stay in sync with upstream Yōkai as closely as possible, while l
 <div align="left">
 
 <details open="">
-    <summary><h3>From Yōkai-Y2K</h3></summary>
+    <summary><h3>Unique to Yōkai-Y2K</h3></summary>
 
 * **Multi-source manga grouping** ([docs](docs/multi-source.md)).
+* **Source-switcher chips** in manga details ([docs](docs/multi-source.md#source-switcher-chips)).
+* **Manage Sources sheet** with multi-select and undo ([docs](docs/multi-source.md#manage-sources-sheet)).
+* **Bulk-remove merged groups** ([docs](docs/multi-source.md#bulk-remove-all-sources-from-library)).
 * **Category sort order & bulk delete** ([docs](docs/categories.md)).
-* **FlareSolverr support** ([docs](docs/flaresolverr.md)).
+* **FlareSolverr support** for Cloudflare bypass ([docs](docs/flaresolverr.md)).
 
 </details>
 
