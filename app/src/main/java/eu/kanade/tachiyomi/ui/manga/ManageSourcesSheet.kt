@@ -6,6 +6,7 @@ import android.graphics.Typeface
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -23,12 +24,17 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.snackbar.BaseTransientBottomBar
+import com.google.android.material.snackbar.Snackbar
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.base.controller.DialogController
+import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.materialAlertDialog
+import eu.kanade.tachiyomi.util.view.setAction
+import eu.kanade.tachiyomi.util.view.snack
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -238,8 +244,29 @@ class ManageSourcesSheet : DialogController {
         p12: Int,
         p8: Int,
     ): View {
+        val checkbox = CheckBox(ctx).apply {
+            isChecked = mangaId in selectedIds
+            isClickable = false
+            isFocusable = false
+            contentDescription = source.name
+            layoutParams = FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                gravity = Gravity.CENTER_VERTICAL or Gravity.END
+                marginEnd = p8
+            }
+            setOnCheckedChangeListener { _, isChecked ->
+                if (isChecked) selectedIds.add(mangaId) else selectedIds.remove(mangaId)
+                updateActionButtonsState()
+            }
+        }
         return FrameLayout(ctx).apply {
             layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+            isClickable = true
+            isFocusable = true
+            val ripple = TypedValue().also {
+                ctx.theme.resolveAttribute(android.R.attr.selectableItemBackground, it, true)
+            }
+            setBackgroundResource(ripple.resourceId)
+            setOnClickListener { checkbox.toggle() }
             addView(TextView(ctx).apply {
                 text = buildString { append(source.name); if (isCurrent) append("  ✓") }
                 textSize = 15f
@@ -252,18 +279,7 @@ class ManageSourcesSheet : DialogController {
                     bottomMargin = p12
                 }
             })
-            addView(CheckBox(ctx).apply {
-                isChecked = mangaId in selectedIds
-                contentDescription = source.name
-                layoutParams = FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                    gravity = Gravity.CENTER_VERTICAL or Gravity.END
-                    marginEnd = p8
-                }
-                setOnCheckedChangeListener { _, isChecked ->
-                    if (isChecked) selectedIds.add(mangaId) else selectedIds.remove(mangaId)
-                    updateActionButtonsState()
-                }
-            })
+            addView(checkbox)
         }
     }
 
@@ -284,9 +300,13 @@ class ManageSourcesSheet : DialogController {
                 ctx.getString(MR.strings.remove_from_group) + "?\n" + selectedNamesText(),
             )
             .setPositiveButton(AR.string.ok) { _, _ ->
-                presenter.removeFromGroup(ids)
-                loadSources()
-                onSourceRemoved()
+                showUndoSnackbar(
+                    message = ctx.getString(MR.strings.sources_split_from_group, ids.size),
+                ) {
+                    presenter.removeFromGroup(ids)
+                    onSourceRemoved()
+                }
+                dismissDialog()
             }
             .setNegativeButton(AR.string.cancel, null)
             .show()
@@ -295,24 +315,44 @@ class ManageSourcesSheet : DialogController {
     private fun onRemoveFromLibraryClicked(ctx: Context) {
         if (selectedIds.isEmpty()) return
         val ids = selectedIds.toList()
-        val containsCurrent = presenter.mangaId in ids
         ctx.materialAlertDialog()
             .setMessage(
                 ctx.getString(MR.strings.remove_from_library) + "?\n" + selectedNamesText(),
             )
             .setPositiveButton(AR.string.ok) { _, _ ->
-                onCreateViewScope?.launch {
-                    presenter.removeFromLibrary(ids)
-                    if (containsCurrent) {
-                        dismissDialog()
-                    } else {
-                        loadSources()
+                showUndoSnackbar(
+                    message = ctx.getString(MR.strings.sources_removed_from_library, ids.size),
+                ) {
+                    presenter.presenterScope.launch {
+                        presenter.removeFromLibrary(ids)
+                        onSourceRemoved()
                     }
-                    onSourceRemoved()
                 }
+                dismissDialog()
             }
             .setNegativeButton(AR.string.cancel, null)
             .show()
+    }
+
+    private fun showUndoSnackbar(
+        message: String,
+        onCommit: () -> Unit,
+    ) {
+        val act = activity ?: return
+        val anchor = act.findViewById<View>(android.R.id.content) ?: return
+        val snack = anchor.snack(message, Snackbar.LENGTH_INDEFINITE) {
+            var undoing = false
+            setAction(MR.strings.undo) { undoing = true }
+            addCallback(
+                object : BaseTransientBottomBar.BaseCallback<Snackbar>() {
+                    override fun onDismissed(transientBottomBar: Snackbar?, event: Int) {
+                        super.onDismissed(transientBottomBar, event)
+                        if (!undoing) onCommit()
+                    }
+                },
+            )
+        }
+        (act as? MainActivity)?.setUndoSnackBar(snack)
     }
 
     private inner class SearchResultAdapter(

@@ -1219,4 +1219,6 @@
     <string name="add_another_manga">Add another manga…</string>
     <string name="split_selected_sources">Split selected</string>
     <string name="remove_selected_from_library">Remove selected from library</string>
+    <string name="sources_split_from_group">%1$d sources split from group</string>
+    <string name="sources_removed_from_library">%1$d sources removed from library</string>
 </resources>

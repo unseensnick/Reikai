@@ -50,10 +50,12 @@ Both preferences are included in app backups, so manual merge/unmerge state surv
 
 *Manga details → overflow menu (⋮) → Manage sources.*
 
-This sheet shows every source currently grouped with the open manga and lets you act on them in bulk. Each row has a checkbox; the bottom action bar exposes two operations on the selection:
+This sheet shows every source currently grouped with the open manga and lets you act on them in bulk. Tap anywhere on a row to toggle its checkbox; the bottom action bar exposes two operations on the selection:
 
 - **Split selected** — detaches the checked sources from the group (same effect as long-pressing each chip), leaving them as standalone library entries.
 - **Remove selected from library** — unfavorites the checked sources outright, deleting their downloaded chapters and covers. Useful when you want to drop unwanted source duplicates entirely rather than just splitting them off.
+
+Both actions confirm via dialog and then show an undo snackbar — the change isn't committed until the snackbar dismisses, so an accidental tap can be reverted within the grace period.
 
 Below the action bar is a search field for adding more entries to the group: type ≥2 characters to search your library, then tap a result to merge it in.
 
