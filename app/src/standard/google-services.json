@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "636318130901",
-    "project_id": "yokai-4034e",
-    "storage_bucket": "yokai-4034e.appspot.com"
+    "project_number": "558303745268",
+    "project_id": "yokai-y2k",
+    "storage_bucket": "yokai-y2k.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:636318130901:android:6487a6238b24d2a357f85c",
+        "mobilesdk_app_id": "1:558303745268:android:84c3cb6fe7888ebe65baa1",
         "android_client_info": {
-          "package_name": "eu.kanade.tachiyomi.debugYokai"
+          "package_name": "eu.kanade.tachiyomi.debugY2k"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBORypbgpIKGb8s3Si6gaQlY5CLkR804OI"
+          "current_key": "AIzaSyA-tzlOT3XZuuczmkw7KZd8bjh50KXtP0k"
         }
       ],
       "services": {
@@ -26,15 +26,15 @@
     },
     {
       "client_info": {
-        "mobilesdk_app_id": "1:636318130901:android:388d6d443528368657f85c",
+        "mobilesdk_app_id": "1:558303745268:android:487c6be6d283b2d765baa1",
         "android_client_info": {
-          "package_name": "eu.kanade.tachiyomi.nightlyYokai"
+          "package_name": "eu.kanade.tachiyomi.nightlyY2k"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBORypbgpIKGb8s3Si6gaQlY5CLkR804OI"
+          "current_key": "AIzaSyA-tzlOT3XZuuczmkw7KZd8bjh50KXtP0k"
         }
       ],
       "services": {
@@ -45,15 +45,15 @@
     },
     {
       "client_info": {
-        "mobilesdk_app_id": "1:636318130901:android:0ae2cb126b21d3a357f85c",
+        "mobilesdk_app_id": "1:558303745268:android:e303aed19083346765baa1",
         "android_client_info": {
-          "package_name": "eu.kanade.tachiyomi.yokai"
+          "package_name": "eu.kanade.tachiyomi.y2k"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBORypbgpIKGb8s3Si6gaQlY5CLkR804OI"
+          "current_key": "AIzaSyA-tzlOT3XZuuczmkw7KZd8bjh50KXtP0k"
         }
       ],
       "services": {
