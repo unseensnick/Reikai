@@ -1193,6 +1193,25 @@ class MangaDetailsPresenter(
         preferences.mangaManualMerges().set(merges)
     }
 
+    fun removeFromGroup(targetIds: List<Long>) {
+        targetIds.forEach { removeFromGroup(it) }
+    }
+
+    suspend fun removeFromLibrary(targetIds: List<Long>) {
+        val updates = targetIds.mapNotNull { id ->
+            val target = getManga.awaitById(id) ?: return@mapNotNull null
+            if (!target.favorite) null else MangaUpdate(id = id, favorite = false)
+        }
+        if (updates.isNotEmpty()) updateManga.awaitAll(updates)
+        presenterScope.launchNonCancellableIO {
+            targetIds.forEach { id ->
+                val target = getManga.awaitById(id) ?: return@forEach
+                target.removeCover(coverCache)
+                downloadManager.deleteManga(target, sourceManager.getOrStub(target.source))
+            }
+        }
+    }
+
     fun addToGroup(newId: Long) {
         val allIds = (relatedMangaIds.toList() + newId + mangaId).distinct().sorted()
         val newEntry = allIds.joinToString(",")

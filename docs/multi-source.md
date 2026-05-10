@@ -35,7 +35,7 @@ The Merge action lives in the overflow menu rather than the main toolbar — it 
 Two paths, both ending at the same confirmation dialog:
 
 - **From the source chips** — *Manga details → long-press a source chip → confirm "Remove from group".* Quickest if you only want to detach one source from the chip row you're already looking at.
-- **From the manage sources sheet** — *Manga details → overflow menu (⋮) → Manage sources → tap the X icon next to any source → confirm "Remove from group".* Useful when you're in the sheet anyway (adding/removing several sources at once), or when chip long-press is awkward on smaller screens.
+- **From the manage sources sheet** — *Manga details → overflow menu (⋮) → Manage sources → check one or more sources → tap "Split selected" → confirm.* Lets you split several sources at once and is easier than chip long-press on smaller screens.
 
 Either way, the source you remove goes back to being a standalone library entry; the rest of the group stays merged.
 
@@ -50,12 +50,14 @@ Both preferences are included in app backups, so manual merge/unmerge state surv
 
 *Manga details → overflow menu (⋮) → Manage sources.*
 
-This sheet lets you search across your library for entries to add to (or remove from) the current manga's source group. Useful when:
+This sheet shows every source currently grouped with the open manga and lets you act on them in bulk. Each row has a checkbox; the bottom action bar exposes two operations on the selection:
 
-- A new source for a manga you already track gets added to your library — open the existing entry, Manage sources, search for the new entry, add it.
-- You want to clean up sources you're no longer interested in tracking for a particular manga.
+- **Split selected** — detaches the checked sources from the group (same effect as long-pressing each chip), leaving them as standalone library entries.
+- **Remove selected from library** — unfavorites the checked sources outright, deleting their downloaded chapters and covers. Useful when you want to drop unwanted source duplicates entirely rather than just splitting them off.
 
-The sheet only appears when the manga has at least one related library entry to potentially merge with.
+Below the action bar is a search field for adding more entries to the group: type ≥2 characters to search your library, then tap a result to merge it in.
+
+The sheet only appears when the manga has at least one related library entry.
 
 ## Bulk "remove all sources from library"
 
@@ -63,8 +65,6 @@ When a multi-source group is in your library, removing it normally would only re
 
 - **Single-manga path** — *Manga details → tap the favorite (heart) button → "Remove all sources from library"* in the popup. Removes every source that's part of the same merged group.
 - **Library multi-select** — *Library, long-press to multi-select, include any merged-group entry in your selection, then delete.* The deletion automatically extends to all sources in any selected merged group, no extra confirmation needed.
-
-This is from version 1.9.7.5.6 — before that, removing a merged group required removing each source individually.
 
 ## Settings
 
