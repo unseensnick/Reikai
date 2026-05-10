@@ -1165,6 +1165,7 @@ class MangaDetailsPresenter(
             pair !in unmerges
         }.mapNotNull { id ->
             val m = getManga.awaitById(id) ?: return@mapNotNull null
+            if (!m.favorite) return@mapNotNull null
             id to sourceManager.getOrStub(m.source)
         }
     }

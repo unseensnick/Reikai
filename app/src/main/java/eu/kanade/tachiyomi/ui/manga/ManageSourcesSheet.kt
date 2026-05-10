@@ -24,17 +24,12 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.snackbar.BaseTransientBottomBar
-import com.google.android.material.snackbar.Snackbar
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.base.controller.DialogController
-import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.materialAlertDialog
-import eu.kanade.tachiyomi.util.view.setAction
-import eu.kanade.tachiyomi.util.view.snack
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -45,15 +40,21 @@ import android.R as AR
 
 class ManageSourcesSheet : DialogController {
     private lateinit var presenter: MangaDetailsPresenter
-    private var onSourceRemoved: () -> Unit = {}
+    private var onConfirmSplit: (List<Long>) -> Unit = {}
+    private var onConfirmRemoveFromLibrary: (List<Long>) -> Unit = {}
 
     // Required by Conductor for state restoration
     @Suppress("unused")
     constructor() : super()
 
-    constructor(presenter: MangaDetailsPresenter, onSourceRemoved: () -> Unit = {}) : super() {
+    constructor(
+        presenter: MangaDetailsPresenter,
+        onConfirmSplit: (List<Long>) -> Unit = {},
+        onConfirmRemoveFromLibrary: (List<Long>) -> Unit = {},
+    ) : super() {
         this.presenter = presenter
-        this.onSourceRemoved = onSourceRemoved
+        this.onConfirmSplit = onConfirmSplit
+        this.onConfirmRemoveFromLibrary = onConfirmRemoveFromLibrary
     }
 
     private var sourcesContainer: LinearLayout? = null
@@ -300,12 +301,7 @@ class ManageSourcesSheet : DialogController {
                 ctx.getString(MR.strings.remove_from_group) + "?\n" + selectedNamesText(),
             )
             .setPositiveButton(AR.string.ok) { _, _ ->
-                showUndoSnackbar(
-                    message = ctx.getString(MR.strings.sources_split_from_group, ids.size),
-                ) {
-                    presenter.removeFromGroup(ids)
-                    onSourceRemoved()
-                }
+                onConfirmSplit(ids)
                 dismissDialog()
             }
             .setNegativeButton(AR.string.cancel, null)
@@ -320,39 +316,11 @@ class ManageSourcesSheet : DialogController {
                 ctx.getString(MR.strings.remove_from_library) + "?\n" + selectedNamesText(),
             )
             .setPositiveButton(AR.string.ok) { _, _ ->
-                showUndoSnackbar(
-                    message = ctx.getString(MR.strings.sources_removed_from_library, ids.size),
-                ) {
-                    presenter.presenterScope.launch(Dispatchers.Main) {
-                        presenter.removeFromLibrary(ids)
-                        onSourceRemoved()
-                    }
-                }
+                onConfirmRemoveFromLibrary(ids)
                 dismissDialog()
             }
             .setNegativeButton(AR.string.cancel, null)
             .show()
-    }
-
-    private fun showUndoSnackbar(
-        message: String,
-        onCommit: () -> Unit,
-    ) {
-        val act = activity ?: return
-        val anchor = act.findViewById<View>(android.R.id.content) ?: return
-        val snack = anchor.snack(message, Snackbar.LENGTH_INDEFINITE) {
-            var undoing = false
-            setAction(MR.strings.undo) { undoing = true }
-            addCallback(
-                object : BaseTransientBottomBar.BaseCallback<Snackbar>() {
-                    override fun onDismissed(transientBottomBar: Snackbar?, event: Int) {
-                        super.onDismissed(transientBottomBar, event)
-                        if (!undoing) onCommit()
-                    }
-                },
-            )
-        }
-        (act as? MainActivity)?.setUndoSnackBar(snack)
     }
 
     private inner class SearchResultAdapter(
