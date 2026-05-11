@@ -20,6 +20,9 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 ### Fixes
 - Source-switcher chips on the manga details screen now refresh when returning from another screen — previously, adding a same-title source via Global Search and pressing back left the chip bar showing the old set of sources until you backed out to Library and came back
 
+### Other
+- Source-API: added `getRelatedMangaList` with three opt-in flags (`supportsRelatedMangas`, `disableRelatedMangasBySearch`, `disableRelatedMangas`) and a built-in keyword-search fallback. Infrastructure only — no UI yet
+
 ## [1.9.7.5.7]
 
 ### Changes
