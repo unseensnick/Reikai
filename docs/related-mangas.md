@@ -157,6 +157,42 @@ When the taste profile has no entries or no scored tags, scoring is bypassed and
 
 Defaults — `w_personal = 0.3`, `w_serendipity = 0.2`, `maxPerDominantTag = 2` — are hardcoded for now. Phase 7 will surface sliders that bind to these positions.
 
+## Full-screen browse (See all) *(Y2K)*
+
+The 30-cap carousel only shows a fraction of what gets fetched — Madara-style sources combined with tracker fan-out routinely produce 100–200 candidates that never reach the visible row. A trailing "See all (N)" card is appended to the carousel when the underlying pool has more than 30 entries; tapping opens a dedicated full-screen grid showing the full ranked pool with no cap.
+
+### What the browse view shows
+
+[`MangaDetailsPresenter`](../app/src/main/java/eu/kanade/tachiyomi/ui/manga/MangaDetailsPresenter.kt) exposes a second presenter field `relatedMangasFullPool` alongside the existing 30-cap `relatedMangas`. The ranker runs twice per push — once on the merged-30 slice (carousel) and once on the unbounded pool (browse) — because `RecommendationRanker`'s exploration-slot count scales with input size, so feeding it the full pool and taking the top 30 would dump too many exploration picks into the carousel and starve the taste-sorted ones. Two passes preserves byte-identical Phase 6 carousel behavior; the cost is negligible (pure compute, no I/O).
+
+The browse grid scales column count to screen width: `max(3, screenWidthDp / 130)`. Phones stay at 3 columns (matches the carousel's card rhythm); foldables in unfolded state (~810 dp) get ~6 columns; tablets land in between.
+
+### Pool handoff
+
+The carousel-to-browse pool transfer goes through `RelatedMangasHandoff`, a Koin singleton holding a `ConcurrentHashMap<Long, List<RelatedMangaCandidate>>` keyed by `mangaId`. The carousel's "See all" tap deposits the snapshot; the browse controller takes-and-clears in `onViewCreated` right before initializing the adapter. The Bundle that travels with the new controller carries only `mangaId: Long`.
+
+The handoff avoids putting the pool through Conductor's saved-state bundle because [`SManga`](../source/api/src/commonMain/kotlin/eu/kanade/tachiyomi/source/model/SManga.kt) is `java.io.Serializable` and lives in the `source/api` plugin contract — adding `@Parcelize` would change the public surface, and Serializable round-tripping ~150 entries is slow enough to lag the screen transition.
+
+Process-death edge: if Android wipes the process between the handoff write and the browse view's view-creation, the grid renders empty and the user backs out manually. Auto-popping mid-transition races Conductor's lifecycle.
+
+### Bulk selection
+
+Long-press a card to enter selection mode (an `ActionMode` toolbar replaces the regular toolbar). The toolbar exposes:
+
+- **Add to library** — applies a single category set to every selected card. Mirrors the four-branch shape of `addOrRemoveToFavorites`:
+  - **Default category set** → apply that category directly
+  - **Last-used categories** (`defaultCategory = -2`) → apply the most recent set
+  - **No categories defined** (`defaultCategory = 0` or empty list) → mark favorite without categories
+  - **Always ask** (`defaultCategory = -1`) → show the existing [`SetCategoriesSheet`](../app/src/main/java/eu/kanade/tachiyomi/ui/category/addtolibrary/SetCategoriesSheet.kt) once with common+mixed preselection across the selection
+- **Select all** — selects every card in the grid
+- **Invert selection** — flips the selection state of every card
+
+Tracker-origin candidates (`sourceId == RECOMMENDS_SOURCE`) are partitioned out before resolution because their URLs don't map to any installed extension. The completion toast counts them as skipped: *"Added 5 to library — 2 skipped (tracker recommendations)"*.
+
+Duplicate-library detection (the per-item "this is already in your library, want to migrate?" dialog Yokai's single-add path uses) is deliberately skipped for bulk. Most related-manga items aren't already in the library, and the workflow is "browse and add quickly" rather than careful per-item curation.
+
+The "always ask" branch pre-flips `favorite=true` + `date_added=now()` via `UpdateManga` before invoking the sheet, working around an existing N=1-only favorite-flip in `SetCategoriesSheet.addMangaToCategories`.
+
 ## Settings
 
 *Settings → Library → Recommendations.*
@@ -200,4 +236,4 @@ The Komikku-baseline streams (#1-3 above) are a direct port — same source-API 
 
 The personalization layer (taste profile + active candidate injection, streams #4 and #5) is Y2K-original — Komikku has no equivalent.
 
-Komikku also has source-specific recommendation integrations (MangaDex similar, ComicK) and a full bulk-favorite UI on the dedicated Recommends screen — neither is ported, since the inline carousel UX doesn't have a place for them.
+Komikku also has source-specific recommendation integrations (MangaDex similar, ComicK) — not ported, since the inline carousel UX doesn't have a place for them. Komikku's bulk-favorite UI on the dedicated Recommends screen has an equivalent in Yōkai-Y2K's full-screen "See all" browse view (long-press → Add to library / Select all / Invert), with a slightly narrower action set: no per-item duplicate-library dialog on bulk-add, no move-to-category from selection (single-item only, on the manga details screen).

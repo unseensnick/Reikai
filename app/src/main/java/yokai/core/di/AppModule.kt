@@ -21,6 +21,7 @@ import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.network.JavaScriptEngine
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.SourceManager
+import eu.kanade.tachiyomi.ui.manga.related.browse.RelatedMangasHandoff
 import eu.kanade.tachiyomi.util.chapter.ChapterFilter
 import eu.kanade.tachiyomi.util.manga.MangaShortcutManager
 import io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory
@@ -153,6 +154,8 @@ fun appModule(app: Application) = module {
     single { ChapterFilter() }
 
     single { MangaShortcutManager() }
+
+    single { RelatedMangasHandoff() }
 
     single { AndroidStorageFolderProvider(app) }
     single { StorageManager(app, get()) }

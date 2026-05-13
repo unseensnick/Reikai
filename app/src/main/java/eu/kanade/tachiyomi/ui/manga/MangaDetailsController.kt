@@ -92,6 +92,9 @@ import eu.kanade.tachiyomi.ui.manga.chapter.ChapterItem
 import eu.kanade.tachiyomi.ui.manga.chapter.ChaptersSortBottomSheet
 import eu.kanade.tachiyomi.ui.manga.related.RelatedMangaCardAdapter
 import eu.kanade.tachiyomi.ui.manga.related.RelatedMangaCardItem
+import eu.kanade.tachiyomi.ui.manga.related.SeeAllCardItem
+import eu.kanade.tachiyomi.ui.manga.related.browse.RelatedMangasBrowseController
+import eu.kanade.tachiyomi.ui.manga.related.browse.RelatedMangasHandoff
 import eu.kanade.tachiyomi.ui.manga.track.TrackItem
 import eu.kanade.tachiyomi.ui.manga.track.TrackingBottomSheet
 import eu.kanade.tachiyomi.ui.migration.manga.design.PreMigrationController
@@ -152,6 +155,8 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import yokai.domain.manga.models.cover
 import yokai.i18n.MR
 import yokai.presentation.core.Constants
@@ -167,6 +172,7 @@ class MangaDetailsController :
     SmallToolbarInterface,
     HingeSupportedController,
     RelatedMangaCardAdapter.OnRelatedMangaClickListener,
+    RelatedMangaCardAdapter.OnRelatedMangaSeeAllClickListener,
     FlexibleAdapter.OnItemMoveListener {
 
     constructor(
@@ -1738,6 +1744,19 @@ class MangaDetailsController :
                 MangaDetailsController(local, true).withFadeTransaction(),
             )
         }
+    }
+
+    /**
+     * Phase 6.5 — tap on the trailing "See all" card. Deposits the current full ranked pool
+     * into [RelatedMangasHandoff] (keyed by mangaId), then pushes [RelatedMangasBrowseController]
+     * with just the id in the Bundle. The browse controller reads-and-clears on attach.
+     */
+    override fun onRelatedMangaSeeAllClick(item: SeeAllCardItem) {
+        val mangaId = manga?.id ?: return
+        val pool = presenter.snapshotForBrowseHandoff()
+        if (pool.isEmpty()) return
+        Injekt.get<RelatedMangasHandoff>().put(mangaId, pool)
+        router.pushController(RelatedMangasBrowseController(mangaId).withFadeTransaction())
     }
 
     override fun showFloatingActionMode(view: TextView, content: String?, isTag: Boolean) {

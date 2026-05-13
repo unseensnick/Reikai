@@ -2,7 +2,7 @@
 
 Working notes for adding Komikku-style related-manga suggestions to Yōkai-Y2K, plus a Y2K-original personalization layer that re-ranks (and adds to) the result pool using the user's tracker library, with explicit anti-echo-chamber controls.
 
-**Status:** Phases 1–6 are done. Phase 6.5 (full-screen browse) is next, then Phase 7 (sliders) and Phase 8 (i18n).
+**Status:** Phases 1–6.5 are done. Phase 7 (sliders) and Phase 8 (i18n) are next.
 
 ## Scope split
 
@@ -34,7 +34,7 @@ Updated after Phases 1–2 landed. Decisions captured here are the ones that div
 | 4. Taste profile | ✅ done | `0a6e42d66` → `5f8f8c6c8` |
 | 5. Active candidate injection (tag-search + cross-rec + HttpSource baseline + cross-pool dedup) | ✅ done | `ebfe5a48b` → `4936c53f9` |
 | 6. Rerank + anti-echo | ✅ done | this cycle |
-| 6.5. Dedicated full-screen browse view ("See all" surface) | ⏸ planned — lands after Phase 6 | |
+| 6.5. Dedicated full-screen browse view ("See all" surface) | ✅ done | this cycle |
 | 7. Settings UI (personalization sliders) | ⏸ not started | |
 | 8. i18n + `docs/related-mangas.md` | ⏳ partial | Doc covers Phases 1–5; CHANGELOG bullets land per phase; non-English string translations still ride upstream Moko Resources cycle |
 
@@ -229,6 +229,18 @@ These were considered and pushed to later phases or open questions:
 - **Bypass paths log under `[Phase6]`** so the verification probes are uniformly filterable in Logcat. Three bypass reasons: `emptyProfile` (zero tracked entries), `noScoredTags` (entries exist but none scored — all PLAN_TO_READ / UNKNOWN), `trivialSlice` (≤1 source candidate, nothing to reorder).
 - **Defaults hardcoded for Phase 6**: `w_personal = 0.3`, `w_serendipity = 0.2`, `maxPerDominantTag = 2`. Phase 7 will surface sliders that read into these positions via preferences.
 
+### Phase 6.5 decisions
+
+- **Two ranker passes per push, not one rank-then-slice.** The presenter exposes a new `relatedMangasFullPool: List<RelatedMangaCandidate>` populated alongside the existing `relatedMangas` (carousel). Each pool gets its own `RecommendationRanker.rank(...)` call — once on the 30-cap merge (carousel, identical to Phase 6 output), once on the full accumulated pool (browse). Rationale: the ranker's exploration-slot count is `ceil(sourceSize × wSerendipity)`, so feeding it the unbounded pool and then taking the top 30 would dump ~20 exploration picks into the carousel and squeeze out the taste-sorted ones. Two passes preserves byte-identical Phase 6 carousel behavior. Cost is negligible — pure compute, no I/O.
+- **Conductor + FlexibleAdapter, not Compose.** Mirrors `BrowseSourceController` (grid + selection-mode `ActionMode`); matches the rest of the manga-details flow which is still Conductor + ViewBinding. Komikku has a Compose `RelatedMangasScreen` reference but porting it would mean half-migrating manga-details mid-feature. New screen lives under `ui/manga/related/browse/` with its own controller, presenter-less view, and item/holder pair that reuses the carousel's `related_manga_card_item.xml` layout.
+- **In-memory pool handoff, not Bundle Parcelable.** [`SManga`](../source/api/src/commonMain/kotlin/eu/kanade/tachiyomi/source/model/SManga.kt) extends `java.io.Serializable` and lives in the `source/api` plugin contract — adding `@Parcelize` would change the public surface, and Serializable round-tripping ~150 entries through the Conductor saved-state bundle is slow. Instead a small `RelatedMangasHandoff` Koin singleton holds a `ConcurrentHashMap<Long, List<RelatedMangaCandidate>>` keyed by `mangaId`. The carousel's "See all" tap deposits the snapshot; the browse controller takes-and-clears on view creation. Bundle carries only `mangaId: Long`. Process-death recovery: if the singleton's map is wiped between deposit and pickup, the grid renders empty and the user backs out manually — auto-pop during the in-progress transition races Conductor's lifecycle.
+- **Handoff read in `onViewCreated`, not `onChangeStarted`.** Conductor fires `postCreateView` → `onViewCreated` BEFORE `onChangeStarted` for the entering controller during a push. Reading the handoff in `onChangeStarted` (which would be the "natural" pre-view hook) leaves `pool` empty when the adapter is initialized — first verification pass surfaced this with `pool=0 items=0`. Moved the take into `onViewCreated` right before adapter construction.
+- **Adaptive `spanCount`, not a fixed `GridLayoutManager(context, 3)`.** Card width is ~120dp (112dp card + 4dp lateral margins); the controller now computes `spanCount = max(3, screenWidthDp / 130)` at view-creation time so foldables in unfolded state (~810dp) get ~6 columns instead of three oversized ones, while phones (~360dp) stay at 3. `AutofitRecyclerView` was considered but its `setSpan()` is a no-op until `columnWidth` is set via a preference path we don't want to plumb here.
+- **Action-mode bootstrapping: toggle BEFORE `startSupportActionMode`.** Android invokes `onCreateActionMode` + `onPrepareActionMode` synchronously inside `startSupportActionMode`. If the long-pressed item isn't selected yet at that moment, `onPrepareActionMode` sees `selectedItemCount == 0` and any attempt to `mode.finish()` (the obvious "no selection, dismiss" reflex) crashes through `MainActivity.onSupportActionModeFinished(null)` with a non-null-parameter assertion. The browse controller now toggles the long-pressed position into the selection FIRST, then starts the action mode; the prepare callback just sets the title without ever calling `finish()`. Empty-selection cleanup is handled by `onItemClick` (post-toggle) instead.
+- **Bulk-add: three direct branches + one sheet branch, mirroring `addOrRemoveToFavorites`.** Default category set / last-used (`-2`) / no-categories (`0`): apply favorite + categories directly without prompting. "Always ask" (`-1`): show the existing [`SetCategoriesSheet`](../app/src/main/java/eu/kanade/tachiyomi/ui/category/addtolibrary/SetCategoriesSheet.kt)'s multi-manga constructor once with common+mixed preselection. Tracker-origin candidates (`sourceId == RECOMMENDS_SOURCE`) are partitioned out before resolution — their URLs don't map to any installed extension — and surfaced in the completion toast count. Duplicate-library detection (Yokai's single-add `getManga.awaitDuplicateFavorite` path) is deliberately skipped for bulk; most related-manga items aren't already in the library, and the workflow is "browse and add quickly."
+- **Workaround for `SetCategoriesSheet`'s single-manga `favorite` flip.** `addMangaToCategories` at `SetCategoriesSheet.kt:271` flips `favorite=true` + persists `date_added` only when `listManga.size == 1`. For multi-manga bulk-add the handler pre-flips favorite + persists via `UpdateManga` BEFORE invoking the sheet, leaving the sheet to handle category writes only. Marked with a `HACK(unseensnick)` comment in `BulkAddToLibraryHandler.showAlwaysAskSheet` so the workaround can be removed if the sheet ever learns to handle N>1 favorite-flip itself.
+- **Reused single-tap navigation via `MangaResolver`.** New small helper at `ui/manga/related/browse/MangaResolver.kt` mirrors `MangaDetailsPresenter.toLocalManga` exactly. Used by both the browse controller's single-tap (open manga details) and the bulk-add handler (resolve `SManga` → `Manga` before favoriting). Stand-alone — no presenter coupling — so the browse view doesn't need to reach across screen lifetimes.
+
 ### Bugs surfaced and fixed during Phase 1–2 work
 
 These were latent — Phase 2 just happened to exercise the right code paths.
@@ -405,7 +417,7 @@ Turning **both** "Active candidate injection" and "Taste-profile reranking" off 
 | 4. Taste profile (fetcher + cache + compute) | Y2K | 4–5 | ✅ done |
 | 5. Active candidate injection (tag-search + cross-recommendation + HttpSource baseline + cross-pool dedup) | Y2K | 3–4 | ✅ done |
 | 6. Rerank + anti-echo (formula + diversity cap + novelty + exploration slots) | Y2K | 4–5 | ✅ done |
-| 6.5. Dedicated full-screen browse view ("See all" surface, bulk-select, drops 30-cap for the full grid) | Y2K | 1–2 days | ⏸ planned |
+| 6.5. Dedicated full-screen browse view ("See all" surface, bulk-select, drops 30-cap for the full grid) | Y2K | 1–2 days | ✅ done |
 | 7. Settings UI (sliders + filters + refresh) | Y2K | 3–4 | ⏸ |
 | 8. i18n + `docs/related-mangas.md` | both | 1 | ⏳ partial |
 | **Total** | | **23–30** | |
@@ -440,6 +452,16 @@ Phases 1–3 ship a usable Komikku-equivalent on their own. Phases 4–7 add the
 
 - ~~**Where does the rerank logic live.**~~ `RecommendationRanker` lives in [`app/data/recommendation/`](../app/src/main/java/eu/kanade/tachiyomi/data/recommendation/RecommendationRanker.kt), beside `TasteCandidateFetcher` and `RecommendationsFetcher`. Operates directly on `RelatedMangaCandidate` + `SManga`, no module-graph changes. Still pure compute (no I/O, no `suspend`), so the use-case character is preserved without paying the cost of a `domain/`-side abstraction over `SManga`.
 - ~~**Anti-echo scope.**~~ Library-URL exact match (`Pair<sourceId, url>` set, populated from `getManga.awaitFavorites()`). Tracker-origin candidates skip the filter. Status-based filters and fuzzy-URL matching deferred to Phase 7+.
+
+### Resolved (during Phase 6.5 finalization)
+
+- ~~**How to expose the full pool without breaking the carousel.**~~ Two ranker passes per push — once on the 30-cap merge for the carousel (byte-identical Phase 6 output), once on the full accumulated pool for the new browse view. The exploration-slot count in `RecommendationRanker` is input-size-dependent, so the apparently cleaner "rank-once-then-slice" alternative would have starved the carousel of taste-sorted picks by inflating exploration. Pure-compute cost is negligible.
+- ~~**How to share the pool across controllers without breaking `source/api`.**~~ In-memory Koin singleton (`RelatedMangasHandoff`) keyed by `mangaId`. The Bundle carries only the id; the carousel's "See all" tap deposits the snapshot, the browse controller takes-and-clears on `onViewCreated`. Rejected `@Parcelize` on `SManga` because the class is `java.io.Serializable` in the `source/api` plugin contract and adding parcelable would change the public surface; rejected Serializable Bundle round-tripping for performance.
+- ~~**When to read the handoff.**~~ `onViewCreated`, not `onChangeStarted`. Conductor fires `postCreateView → onViewCreated` BEFORE `onChangeStarted` for the entering controller during a push. The first verification pass surfaced this as `pool=0 items=0` even when handoff put/take both reported size=148.
+- ~~**Bulk-add UX flow.**~~ Mirror the four-branch shape of `addOrRemoveToFavorites` for the multi-manga case (default-category / last-used / no-categories / always-ask). Reuse the existing `SetCategoriesSheet` multi-manga constructor for the always-ask branch. Tracker-origin candidates partitioned out before resolution and surfaced in the completion toast. Duplicate-library detection deliberately skipped — most related-manga items aren't in the library and the workflow is "browse and add quickly."
+- ~~**`SetCategoriesSheet` multi-manga favorite-flip bug.**~~ `addMangaToCategories` flips `favorite` only for `listManga.size == 1`. Bulk-add handler pre-flips + persists `favorite=true` + `date_added` via `UpdateManga` BEFORE invoking the sheet to work around. Marked `HACK(unseensnick)` so the workaround can be removed if the sheet is ever fixed.
+- ~~**Action-mode bootstrapping crash.**~~ Long-press → `startSupportActionMode` invokes `onCreateActionMode` + `onPrepareActionMode` synchronously, and calling `mode.finish()` during that re-entrant prepare (e.g. on `selectedItemCount == 0` reflex) crashes through `MainActivity.onSupportActionModeFinished(null)`. Fix: toggle the long-pressed item into the selection BEFORE starting the action mode; the prepare callback only sets the title and never finishes. Empty-selection cleanup runs in `onItemClick` (post-toggle).
+- ~~**Span count for foldables / tablets.**~~ Dynamic `max(3, screenWidthDp / 130)` computed at view-creation time. Phones stay at 3 columns (matches carousel rhythm), Fold-class unfolded screens (~810dp) get ~6 columns. Rejected `AutofitRecyclerView` because its `setSpan()` is a no-op until `columnWidth` is set via a preference path that requires more plumbing than the use case justifies.
 
 ### Still open (Phase 7+ territory)
 

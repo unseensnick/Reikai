@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.manga.related
 
 import eu.davidea.flexibleadapter.FlexibleAdapter
+import eu.davidea.flexibleadapter.items.IFlexible
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.ui.UiPreferences
@@ -9,9 +10,15 @@ import yokai.domain.ui.UiPreferences
  * Adapter for the related-mangas carousel rendered below the description on the manga details
  * screen. Mirrors [GlobalSearchCardAdapter]'s shape but works with raw [SManga] entries (source
  * suggestions are not in the library yet, so they don't have a [Manga] row to flow off of).
+ *
+ * Phase 6.5: holds two item types — [RelatedMangaCardItem] for suggestion cards and a single
+ * trailing [SeeAllCardItem] when the full pool exceeds the carousel cap. The generic is widened
+ * to [IFlexible] so both fit; each holder's `init` casts back to its concrete type.
  */
-class RelatedMangaCardAdapter(listener: OnRelatedMangaClickListener) :
-    FlexibleAdapter<RelatedMangaCardItem>(null, listener, true) {
+class RelatedMangaCardAdapter(
+    listener: OnRelatedMangaClickListener,
+    val seeAllClickListener: OnRelatedMangaSeeAllClickListener,
+) : FlexibleAdapter<IFlexible<*>>(null, listener, true) {
 
     val mangaClickListener: OnRelatedMangaClickListener = listener
     private val uiPreferences: UiPreferences by injectLazy()
@@ -26,5 +33,13 @@ class RelatedMangaCardAdapter(listener: OnRelatedMangaClickListener) :
      */
     interface OnRelatedMangaClickListener {
         fun onRelatedMangaClick(item: RelatedMangaCardItem)
+    }
+
+    /**
+     * Phase 6.5 — click contract for the trailing "See all" card. Routes to the full-screen
+     * browse view that drops the carousel's 30-cap.
+     */
+    interface OnRelatedMangaSeeAllClickListener {
+        fun onRelatedMangaSeeAllClick(item: SeeAllCardItem)
     }
 }

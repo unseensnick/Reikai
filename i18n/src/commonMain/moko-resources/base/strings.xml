@@ -253,6 +253,12 @@
     <string name="recommendation_rerank">Reranking</string>
     <string name="rerank_by_taste">Rerank by taste</string>
     <string name="rerank_by_taste_summary">Reorder the related-mangas carousel by your taste profile, with exploration slots, novelty boost, and dominant-tag diversity cap. Manga already in your library are hidden regardless of this toggle.</string>
+    <!-- Phase 6.5 (See all / bulk-add browse) -->
+    <string name="see_all_count">See all (%d)</string>
+    <string name="related_mangas_browse_title">Related mangas</string>
+    <string name="bulk_added_to_library">Added %d to library</string>
+    <string name="bulk_added_with_skipped">Added %1$d to library — %2$d skipped (tracker recommendations)</string>
+    <string name="invert_selection">Invert selection</string>
     <string name="library_update_frequency">Library update frequency</string>
     <string name="pref_library_update_manga_restriction">Skip updating titles</string>
     <string name="pref_update_only_completely_read">With unread chapter(s)</string>

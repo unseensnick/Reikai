@@ -44,7 +44,8 @@ The goal is to stay in sync with upstream Yōkai as closely as possible, while l
 * **Bulk-remove merged groups** ([docs](docs/multi-source.md#bulk-remove-all-sources-from-library)).
 * **Tracker sync across grouped sources** ([docs](docs/tracker-sync.md)).
 * **Category sort order & bulk delete** ([docs](docs/categories.md)).
-* **Taste-profile-driven recommendations** — the related-mangas carousel injects extra candidates derived from your tracker library (top-3 tag searches on the current source, plus your top-rated favorites' related-mangas lists), then reranks the pool against your taste profile with exploration slots and a dominant-tag diversity cap. Manga already in your library are filtered out. Pulls library data from AniList / MyAnimeList / Kitsu with cross-tracker dedup ([docs](docs/related-mangas.md#taste-profile)).
+* **Taste-profile-driven related-mangas carousel** ([docs](docs/related-mangas.md#taste-profile)).
+* **Full-screen "See all" browse** for related mangas, with bulk add-to-library ([docs](docs/related-mangas.md#full-screen-browse-see-all-y2k)).
 * **FlareSolverr support** for Cloudflare bypass ([docs](docs/flaresolverr.md)).
 
 </details>

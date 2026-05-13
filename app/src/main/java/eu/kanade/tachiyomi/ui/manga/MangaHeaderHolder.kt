@@ -41,8 +41,10 @@ import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.nameBasedOnEnabledLanguages
 import eu.kanade.tachiyomi.ui.base.holder.BaseFlexibleViewHolder
+import eu.davidea.flexibleadapter.items.IFlexible
 import eu.kanade.tachiyomi.ui.manga.related.RelatedMangaCardAdapter
 import eu.kanade.tachiyomi.ui.manga.related.RelatedMangaCardItem
+import eu.kanade.tachiyomi.ui.manga.related.SeeAllCardItem
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.lang.toNormalized
 import eu.kanade.tachiyomi.util.system.getResourceColor
@@ -662,15 +664,24 @@ class MangaHeaderHolder(
                 // Streamed updates from the presenter would otherwise animate every new batch,
                 // producing a visible flicker as the row grows. Static row, no animation needed.
                 recycler.itemAnimator = null
-                relatedMangasAdapter = RelatedMangaCardAdapter(controller)
+                relatedMangasAdapter = RelatedMangaCardAdapter(controller, controller)
                 recycler.adapter = relatedMangasAdapter
             }
             // Each candidate already knows its origin sourceId — current source for source-native
             // / keyword results, RECOMMENDS_SOURCE for tracker recommendations whose URL needs to
             // be opened via Global Search instead of the local source lookup.
-            relatedMangasAdapter?.updateDataSet(
-                list.map { RelatedMangaCardItem(it.sourceId, it.manga) },
-            )
+            val items: MutableList<IFlexible<*>> = list.map {
+                RelatedMangaCardItem(it.sourceId, it.manga)
+            }.toMutableList()
+            // Phase 6.5: append the "See all (N)" trailing card when the unbounded pool has
+            // more entries than the carousel cap shows. The carousel slice itself may be smaller
+            // than RELATED_MANGAS_LIMIT due to anti-echo drops, but we gate on the full pool size
+            // so the affordance only appears when the browse view will be meaningfully bigger.
+            val fullPoolSize = presenter.relatedMangasFullPool.size
+            if (fullPoolSize > MangaDetailsPresenter.RELATED_MANGAS_LIMIT) {
+                items.add(SeeAllCardItem(fullPoolSize))
+            }
+            relatedMangasAdapter?.updateDataSet(items)
             recycler.visibility = View.VISIBLE
             skeleton.visibility = View.INVISIBLE
         } else {

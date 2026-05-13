@@ -163,6 +163,15 @@ class MangaDetailsPresenter(
      */
     var relatedMangas: List<RelatedMangaCandidate> = emptyList()
         private set
+
+    /**
+     * Phase 6.5 — full unbounded ranked pool feeding the dedicated "See all" browse view.
+     * Populated in lockstep with [relatedMangas] on every push, but holds the entire
+     * accumulated set instead of the 30-cap carousel slice. The browse controller reads a
+     * snapshot via [snapshotForBrowseHandoff] when the user taps the "See all" card.
+     */
+    var relatedMangasFullPool: List<RelatedMangaCandidate> = emptyList()
+        private set
     var relatedMangasLoading: Boolean = false
         private set
     private var relatedMangasFetched: Boolean = false
@@ -613,13 +622,26 @@ class MangaDetailsPresenter(
                         // "don't suggest what's already in the library"). Full rerank gates on
                         // the user-facing toggle so the carousel can be returned to Phase 5
                         // ordering by flipping one preference.
+                        val antiEcho: (RelatedMangaCandidate) -> Boolean = { c ->
+                            c.sourceId != RECOMMENDS_SOURCE &&
+                                libraryUrls.contains(c.sourceId to c.manga.url)
+                        }
                         relatedMangas = if (rerankEnabled) {
                             ranker.rank(merged, taste, libraryUrls)
                         } else {
-                            merged.filterNot { c ->
-                                c.sourceId != RECOMMENDS_SOURCE &&
-                                    libraryUrls.contains(c.sourceId to c.manga.url)
-                            }
+                            merged.filterNot(antiEcho)
+                        }
+                        // Phase 6.5: separate ranker pass on the unbounded pool for the "See all"
+                        // browse view. We rank twice (rather than rank-once-then-slice) so the
+                        // carousel keeps its byte-identical Phase 6 behavior — the ranker's
+                        // exploration-slot count scales with input size, so ranking the full pool
+                        // and taking the top 30 would over-allocate exploration into the carousel
+                        // and starve the taste-sorted picks.
+                        val fullPool = accumulated.toList()
+                        relatedMangasFullPool = if (rerankEnabled) {
+                            ranker.rank(fullPool, taste, libraryUrls)
+                        } else {
+                            fullPool.filterNot(antiEcho)
                         }
                         true
                     } else {
@@ -661,6 +683,14 @@ class MangaDetailsPresenter(
             withUIContext { view?.updateHeader() }
         }
     }
+
+    /**
+     * Snapshot of [relatedMangasFullPool] for the Phase 6.5 "See all" browse handoff. Returns
+     * the current full ranked pool with no synchronization — the caller is on the UI thread and
+     * the write side is single-writer via [relatedMangasMutex], so the worst-case race is that
+     * the user sees a slightly-stale snapshot (still-fetching scenario), never a torn list.
+     */
+    fun snapshotForBrowseHandoff(): List<RelatedMangaCandidate> = relatedMangasFullPool
 
     /**
      * Slice the accumulated pool into the carousel-visible list. Reserves up to
@@ -1516,7 +1546,9 @@ class MangaDetailsPresenter(
         const val MULTIPLE_VOLUMES = 1
         const val TENS_OF_CHAPTERS = 2
         const val MULTIPLE_SEASONS = 3
-        private const val RELATED_MANGAS_LIMIT = 30
+
+        /** Carousel display cap. Phase 6.5 surfaces the full pool via [relatedMangasFullPool]. */
+        internal const val RELATED_MANGAS_LIMIT = 30
 
         /**
          * Minimum number of carousel slots reserved for tracker-origin recommendations so they
