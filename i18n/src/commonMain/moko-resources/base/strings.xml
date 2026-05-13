@@ -252,7 +252,25 @@
     <!-- Phase 6 (rerank + anti-echo) -->
     <string name="recommendation_rerank">Reranking</string>
     <string name="rerank_by_taste">Rerank by taste</string>
-    <string name="rerank_by_taste_summary">Reorder the related-mangas carousel by your taste profile, with exploration slots, novelty boost, and dominant-tag diversity cap. Manga already in your library are hidden regardless of this toggle.</string>
+    <string name="rerank_by_taste_summary">Reorder the related-mangas carousel by your taste profile, with exploration slots, novelty boost, and dominant-tag diversity cap.</string>
+    <!-- Phase 7 (personalization sliders + status-based hide filters) -->
+    <string name="recommendation_style">Recommendation style</string>
+    <string name="recommendation_style_popular_only">Popular only</string>
+    <string name="recommendation_style_mostly_popular">Mostly popular</string>
+    <string name="recommendation_style_balanced">Balanced</string>
+    <string name="recommendation_style_mostly_personalized">Mostly personalized</string>
+    <string name="recommendation_style_pure_personalized">Pure personalized</string>
+    <string name="serendipity">Serendipity</string>
+    <string name="serendipity_familiar">Familiar</string>
+    <string name="serendipity_mostly_familiar">Mostly familiar</string>
+    <string name="serendipity_balanced">Balanced</string>
+    <string name="serendipity_adventurous">Adventurous</string>
+    <string name="serendipity_very_adventurous">Very adventurous</string>
+    <string name="recommendation_filters">Filters</string>
+    <string name="hide_tracked_reading_completed">Hide already-tracked</string>
+    <string name="hide_tracked_reading_completed_summary">Hide library manga marked as Reading or Completed on a tracker. Library entries without tracker info are also hidden.</string>
+    <string name="hide_tracked_dropped">Hide dropped</string>
+    <string name="hide_tracked_dropped_summary">Hide library manga marked as Dropped on a tracker. Requires a refreshed tracker library cache to detect Dropped accurately.</string>
     <!-- Phase 6.5 (See all / bulk-add browse) -->
     <string name="see_all_count">See all (%d)</string>
     <string name="related_mangas_browse_title">Related mangas</string>

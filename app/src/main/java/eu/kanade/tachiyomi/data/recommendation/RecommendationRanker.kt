@@ -12,9 +12,11 @@ import yokai.domain.library.taste.model.TasteProfile
  * Operates on the output of `MangaDetailsPresenter.mergeForDisplay`, so the 12-slot
  * tracker reserve + round-robin fairness is already baked into the input. The ranker:
  *
- * 1. **Anti-echo filter.** Drops candidates whose `(sourceId, url)` is in [libraryUrls].
+ * 1. **Anti-echo filter.** Drops candidates whose `(sourceId, url)` is in [libraryHidden].
  *    Tracker-origin entries (`sourceId == RECOMMENDS_SOURCE`) skip the filter — their
  *    URLs are tracker URLs, not source URLs, and would never match a library row.
+ *    The set is pre-computed by the caller (Phase 7 narrows it by tracker-status prefs;
+ *    Phase 6 fed every library URL here unconditionally).
  * 2. **Partition.** Source-origin vs tracker-origin (same split `mergeForDisplay` does).
  *    The tracker slice is passed through untouched — round-robin fairness isn't taste
  *    business and tracker entries rarely carry parseable tags anyway.
@@ -44,15 +46,18 @@ class RecommendationRanker(
     /**
      * @param pool merged carousel-visible list from `MangaDetailsPresenter.mergeForDisplay`
      * @param taste user's taste profile from `ComputeTasteProfile`; empty profile bypasses scoring
-     * @param libraryUrls `(sourceId, url)` pairs already in the library — used for anti-echo
+     * @param libraryHidden pre-computed `(sourceId, url)` pairs the caller has decided to drop.
+     *   Phase 6 fed every library URL here unconditionally; Phase 7 narrows the set based on
+     *   tracker-status filter prefs. Tracker-origin candidates (`sourceId == RECOMMENDS_SOURCE`)
+     *   always bypass — their URLs live in a different namespace and would never match.
      */
     fun rank(
         pool: List<RelatedMangaCandidate>,
         taste: TasteProfile,
-        libraryUrls: Set<Pair<Long, String>>,
+        libraryHidden: Set<Pair<Long, String>>,
     ): List<RelatedMangaCandidate> {
         val filtered = pool.filterNot { c ->
-            c.sourceId != RECOMMENDS_SOURCE && libraryUrls.contains(c.sourceId to c.manga.url)
+            c.sourceId != RECOMMENDS_SOURCE && libraryHidden.contains(c.sourceId to c.manga.url)
         }
 
         val source = filtered.filterNot { it.sourceId == RECOMMENDS_SOURCE }

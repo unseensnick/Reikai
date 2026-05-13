@@ -106,8 +106,10 @@ import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.history.interactor.GetHistory
 import yokai.domain.library.custom.model.CustomMangaInfo
 import yokai.domain.library.taste.interactor.ComputeTasteProfile
+import yokai.domain.library.taste.interactor.GetLibraryStatuses
 import yokai.domain.library.taste.interactor.GetTrackedEntries
 import yokai.domain.library.taste.model.TasteProfile
+import yokai.domain.library.taste.model.TrackStatus
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.interactor.InsertManga
 import yokai.domain.manga.interactor.UpdateManga
@@ -568,7 +570,7 @@ class MangaDetailsPresenter(
             relatedMangasLoading = true
             withUIContext { view?.updateHeader() }
 
-            // Phase 6 inputs computed once up-front, captured by the per-push closure below.
+            // Phase 6/7 inputs computed once up-front, captured by the per-push closure below.
             // These are read-only after this point so no lock is needed when the ranker reads them.
             val rerankEnabled = preferences.enableRecommendationRerank().get()
             val taste: TasteProfile = runCatching {
@@ -578,13 +580,25 @@ class MangaDetailsPresenter(
                 Logger.e(it) { "Taste profile load failed; ranker will run with empty profile" }
                 TasteProfile.EMPTY
             }
-            val libraryUrls: Set<Pair<Long, String>> = runCatching {
-                getManga.awaitFavorites().mapTo(HashSet()) { it.source to it.url }
+            // Phase 7 — status-aware library hide. Replaces the Phase 6 blanket `libraryUrls`
+            // filter with a status-driven drop set. Failure modes degrade to "no filter at all"
+            // for status data but the Phase 6 behavior is recovered via the toggle below.
+            val libraryStatuses: Map<Pair<Long, String>, Set<TrackStatus>> = runCatching {
+                Injekt.get<GetLibraryStatuses>().await()
             }.getOrElse {
-                Logger.e(it) { "Favorites lookup failed; rerank anti-echo will be a no-op" }
-                emptySet()
+                Logger.e(it) { "Library statuses lookup failed; status filter will be a no-op" }
+                emptyMap()
             }
-            val ranker = RecommendationRanker()
+            val hideRC = preferences.hideTrackedReadingCompleted().get()
+            val hideD = preferences.hideTrackedDropped().get()
+            val libraryHidden: Set<Pair<Long, String>> = libraryStatuses.entries
+                .asSequence()
+                .filter { (_, statuses) -> shouldHideLibraryEntry(statuses, hideRC, hideD) }
+                .mapTo(HashSet()) { it.key }
+            val ranker = RecommendationRanker(
+                wPersonal = preferences.recommendationStyle().get() / 100.0,
+                wSerendipity = preferences.serendipity().get() / 100.0,
+            )
 
             val accumulated = LinkedHashSet<RelatedMangaCandidate>()
             // Cross-pool dedup: tracker URLs (anilist.co/...) and source URLs (mangadex.org/...)
@@ -618,16 +632,16 @@ class MangaDetailsPresenter(
                     }
                     if (accumulated.size != before) {
                         val merged = mergeForDisplay(accumulated)
-                        // Phase 6: anti-echo runs in both modes (it's not really taste — just
-                        // "don't suggest what's already in the library"). Full rerank gates on
-                        // the user-facing toggle so the carousel can be returned to Phase 5
-                        // ordering by flipping one preference.
+                        // Phase 6/7: anti-echo runs in both modes. Phase 7 narrows the hidden
+                        // set by tracker-status user prefs (computed once into `libraryHidden`
+                        // above). Full rerank gates on the user-facing toggle so the carousel
+                        // can be returned to Phase 5 ordering by flipping one preference.
                         val antiEcho: (RelatedMangaCandidate) -> Boolean = { c ->
                             c.sourceId != RECOMMENDS_SOURCE &&
-                                libraryUrls.contains(c.sourceId to c.manga.url)
+                                libraryHidden.contains(c.sourceId to c.manga.url)
                         }
                         relatedMangas = if (rerankEnabled) {
-                            ranker.rank(merged, taste, libraryUrls)
+                            ranker.rank(merged, taste, libraryHidden)
                         } else {
                             merged.filterNot(antiEcho)
                         }
@@ -639,7 +653,7 @@ class MangaDetailsPresenter(
                         // and starve the taste-sorted picks.
                         val fullPool = accumulated.toList()
                         relatedMangasFullPool = if (rerankEnabled) {
-                            ranker.rank(fullPool, taste, libraryUrls)
+                            ranker.rank(fullPool, taste, libraryHidden)
                         } else {
                             fullPool.filterNot(antiEcho)
                         }
@@ -700,6 +714,30 @@ class MangaDetailsPresenter(
      * Within the tracker slots, round-robin across trackers so one fast tracker doesn't dominate
      * (e.g. MAL/Jikan returning 90+ items shouldn't squeeze AniList and MangaUpdates out).
      */
+    /**
+     * Phase 7 — apply the user's status-based hide policy to a single library entry.
+     *
+     * Empty status set = "in library, no tracker info" → always hide (matches Phase 6
+     * blanket behavior). UNKNOWN rides the Reading/Completed bucket because Layer A's
+     * local mapper currently collapses DROPPED + ON_HOLD into UNKNOWN (see Phase 4.1
+     * TODO at [yokai.data.library.taste.TrackerLibraryRepositoryImpl.mapStatus]).
+     * PLAN_TO_READ and ON_HOLD are never hidden — those are "reminder" statuses.
+     */
+    private fun shouldHideLibraryEntry(
+        statuses: Set<TrackStatus>,
+        hideReadingCompleted: Boolean,
+        hideDropped: Boolean,
+    ): Boolean {
+        if (statuses.isEmpty()) return true
+        return statuses.any { s ->
+            when (s) {
+                TrackStatus.READING, TrackStatus.COMPLETED, TrackStatus.UNKNOWN -> hideReadingCompleted
+                TrackStatus.DROPPED -> hideDropped
+                TrackStatus.ON_HOLD, TrackStatus.PLAN_TO_READ -> false
+            }
+        }
+    }
+
     private fun mergeForDisplay(pool: LinkedHashSet<RelatedMangaCandidate>): List<RelatedMangaCandidate> {
         val sourceList = pool.filterNot { it.sourceId == RECOMMENDS_SOURCE }
         val trackerLists = pool

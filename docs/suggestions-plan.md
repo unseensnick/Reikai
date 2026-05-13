@@ -2,7 +2,7 @@
 
 Working notes for adding Komikku-style related-manga suggestions to Yōkai-Y2K, plus a Y2K-original personalization layer that re-ranks (and adds to) the result pool using the user's tracker library, with explicit anti-echo-chamber controls.
 
-**Status:** Phases 1–6.5 are done. Phase 7 (sliders) and Phase 8 (i18n) are next.
+**Status:** Phases 1–7 are done. Phase 8 (i18n) is next.
 
 ## Scope split
 
@@ -35,8 +35,8 @@ Updated after Phases 1–2 landed. Decisions captured here are the ones that div
 | 5. Active candidate injection (tag-search + cross-rec + HttpSource baseline + cross-pool dedup) | ✅ done | `ebfe5a48b` → `4936c53f9` |
 | 6. Rerank + anti-echo | ✅ done | this cycle |
 | 6.5. Dedicated full-screen browse view ("See all" surface) | ✅ done | this cycle |
-| 7. Settings UI (personalization sliders) | ⏸ not started | |
-| 8. i18n + `docs/related-mangas.md` | ⏳ partial | Doc covers Phases 1–5; CHANGELOG bullets land per phase; non-English string translations still ride upstream Moko Resources cycle |
+| 7. Settings UI (personalization sliders + filters) | ✅ done | this cycle |
+| 8. i18n + `docs/related-mangas.md` | ⏳ partial | Doc covers Phases 1–7; CHANGELOG bullets land per phase; non-English string translations still ride upstream Moko Resources cycle |
 
 Branch is forked off `feat/tracker-sync-grouped`. Phases 1–3 form a usable Komikku-equivalent baseline on their own.
 
@@ -241,6 +241,16 @@ These were considered and pushed to later phases or open questions:
 - **Workaround for `SetCategoriesSheet`'s single-manga `favorite` flip.** `addMangaToCategories` at `SetCategoriesSheet.kt:271` flips `favorite=true` + persists `date_added` only when `listManga.size == 1`. For multi-manga bulk-add the handler pre-flips favorite + persists via `UpdateManga` BEFORE invoking the sheet, leaving the sheet to handle category writes only. Marked with a `HACK(unseensnick)` comment in `BulkAddToLibraryHandler.showAlwaysAskSheet` so the workaround can be removed if the sheet ever learns to handle N>1 favorite-flip itself.
 - **Reused single-tap navigation via `MangaResolver`.** New small helper at `ui/manga/related/browse/MangaResolver.kt` mirrors `MangaDetailsPresenter.toLocalManga` exactly. Used by both the browse controller's single-tap (open manga details) and the bulk-add handler (resolve `SManga` → `Manga` before favoriting). Stand-alone — no presenter coupling — so the browse view doesn't need to reach across screen lifetimes.
 
+### Phase 7 decisions
+
+- **Sliders as `intListPreference` with 5 named buckets, not a real `SeekBarPreference`.** The legacy preference DSL has no slider primitive and ships zero existing seek-bar usage (verified by repo grep). Building one means a new ~50-line DSL helper for two values — out of proportion to the use case. `intListPreference` is the closest existing pattern (cf. `trackerLibraryAutoRefreshHours`), and the discrete labels ("Mostly popular" / "Balanced" / "Very adventurous") are more discoverable than a 0..100 number. Bucket values for *Recommendation style*: `[0, 25, 50, 75, 100]` (default 25, a clean grid bucket close to Phase 6's hardcoded 0.3). Bucket values for *Serendipity*: `[0, 20, 40, 60, 100]` (default 20, matches Phase 6 exactly). Asymmetric grid for the second slider so the default lines up with Phase 6 and "Familiar" stays adjacent to it instead of jumping to 0.25.
+- **Status-aware filter replaces the Phase 6 blanket library-URL hide.** New presenter helper `shouldHideLibraryEntry(statuses, hideRC, hideD)` consults a `Map<Pair<Long, String>, Set<TrackStatus>>` built once per push by `GetLibraryStatuses`. Library entries with no tracker info at all (`statuses.isEmpty()`) are still hidden unconditionally — they're already in your library and the user's signal is "don't suggest what I already have." UNKNOWN status rides the *Hide already-tracked* bucket because Layer A's local mapper collapses DROPPED / ON_HOLD into UNKNOWN; treating UNKNOWN as "actively-reading" is the conservative choice for users without a populated Layer B cache. PLAN_TO_READ + ON_HOLD are NEVER hidden — those are "reminder" statuses (the user explicitly noted "I plan to read this later" or "I'm pausing this").
+- **Ranker stays a pure compute function.** The presenter pre-computes the drop set and the ranker just filters by membership. Renamed the parameter `libraryUrls` → `libraryHidden` to reflect the semantic shift ("URLs the caller decided to drop" vs "all library URLs"). Pulling `TrackStatus` + preference reads into `RecommendationRanker` would invert the existing dependency direction (recommendation depends on domain/library/taste/preferences) and kill the trivially unit-testable signature.
+- **New interactor `GetLibraryStatuses` at `yokai/domain/library/taste/interactor/`.** Composes `getManga.awaitFavorites()` with parallel per-favorite `GetTrack.awaitAllByMangaId(id)` calls, joining the result against `TrackerLibraryRepository.getCachedEntries()` for accurate Layer B status. Layer A's status mapper is inlined as a fallback for cache misses. Two-query composition rather than a third SQL JOIN — runs once per `MangaDetailsPresenter` instance (one-shot guard), so N=1000 favorites with `async` is fine, and adding a new SQLDelight query would have duplicated the two-layer composition rules already encoded in `GetTrackedEntries`.
+- **`TrackService.onHoldStatus()` / `droppedStatus()` accessor extension deferred.** Phase 7 is UI-and-policy only. The TODO at [TrackerLibraryRepositoryImpl.kt:137](../app/src/main/java/yokai/data/library/taste/TrackerLibraryRepositoryImpl.kt) needs accessor additions on every `TrackService` subclass — much larger scope than this phase. Layer B already classifies DROPPED / ON_HOLD correctly per-tracker (each fetcher does its own mapping), so users with a populated tracker library cache get accurate *Hide dropped* behavior. Users without fall into UNKNOWN, governed by *Hide already-tracked* — documented in both the settings summary string and the docs section.
+- **`maxPerDominantTag` stays hardcoded.** Spec table didn't call it out; YAGNI. Could become a third bucket-slider in a future iteration if observation shows the cap is wrong for some users.
+- **Filters off + no taste + rerank on = library entries appear in suggestions.** Accepted failure mode. The kill-switch is the existing *Rerank by taste* toggle (when off, the antiEcho lambda still consults `libraryHidden`, which is computed from filter prefs — so this is consistent across both branches). The reasoning: a user who deliberately turned both filters off and has no taste profile is opting out of the only signals the carousel has; degrading to "show everything" is the least-surprising failure for that combination. Adding a separate kill-switch toggle would inflate the test matrix.
+
 ### Bugs surfaced and fixed during Phase 1–2 work
 
 These were latent — Phase 2 just happened to exercise the right code paths.
@@ -418,7 +428,7 @@ Turning **both** "Active candidate injection" and "Taste-profile reranking" off 
 | 5. Active candidate injection (tag-search + cross-recommendation + HttpSource baseline + cross-pool dedup) | Y2K | 3–4 | ✅ done |
 | 6. Rerank + anti-echo (formula + diversity cap + novelty + exploration slots) | Y2K | 4–5 | ✅ done |
 | 6.5. Dedicated full-screen browse view ("See all" surface, bulk-select, drops 30-cap for the full grid) | Y2K | 1–2 days | ✅ done |
-| 7. Settings UI (sliders + filters + refresh) | Y2K | 3–4 | ⏸ |
+| 7. Settings UI (sliders + filters + refresh) | Y2K | 3–4 | ✅ done |
 | 8. i18n + `docs/related-mangas.md` | both | 1 | ⏳ partial |
 | **Total** | | **23–30** | |
 
@@ -462,6 +472,14 @@ Phases 1–3 ship a usable Komikku-equivalent on their own. Phases 4–7 add the
 - ~~**`SetCategoriesSheet` multi-manga favorite-flip bug.**~~ `addMangaToCategories` flips `favorite` only for `listManga.size == 1`. Bulk-add handler pre-flips + persists `favorite=true` + `date_added` via `UpdateManga` BEFORE invoking the sheet to work around. Marked `HACK(unseensnick)` so the workaround can be removed if the sheet is ever fixed.
 - ~~**Action-mode bootstrapping crash.**~~ Long-press → `startSupportActionMode` invokes `onCreateActionMode` + `onPrepareActionMode` synchronously, and calling `mode.finish()` during that re-entrant prepare (e.g. on `selectedItemCount == 0` reflex) crashes through `MainActivity.onSupportActionModeFinished(null)`. Fix: toggle the long-pressed item into the selection BEFORE starting the action mode; the prepare callback only sets the title and never finishes. Empty-selection cleanup runs in `onItemClick` (post-toggle).
 - ~~**Span count for foldables / tablets.**~~ Dynamic `max(3, screenWidthDp / 130)` computed at view-creation time. Phones stay at 3 columns (matches carousel rhythm), Fold-class unfolded screens (~810dp) get ~6 columns. Rejected `AutofitRecyclerView` because its `setSpan()` is a no-op until `columnWidth` is set via a preference path that requires more plumbing than the use case justifies.
+
+### Resolved (during Phase 7 finalization)
+
+- ~~**Where the personalization sliders live and what their resolution should be.**~~ Five-bucket `intListPreference` with named entries (`recommendationStyle` → values `[0, 25, 50, 75, 100]`; `serendipity` → values `[0, 20, 40, 60, 100]`). Both stored as ints 0..100, divided by 100 at the ranker call site to feed `RecommendationRanker.wPersonal` / `wSerendipity`. Rejected a true `SeekBarPreference` (~50 lines of new DSL, less discoverable values) — discrete buckets matching the existing `intListPreference` idiom are the right fit for the legacy controller. Defaults: 25 (close to Phase 6's 0.3) and 20 (matches Phase 6 exactly).
+- ~~**How to surface tracker status to the anti-echo filter.**~~ New interactor `GetLibraryStatuses` returning `Map<Pair<Long, String>, Set<TrackStatus>>`. Composes `getManga.awaitFavorites()` + parallel `GetTrack.awaitAllByMangaId(id)` + `TrackerLibraryRepository.getCachedEntries()`. Layer B (cached) wins per `(trackerId, remoteId)`; Layer A's status mapper is the fallback inlined into the interactor (3 cases + UNKNOWN). Rejected a third SQLDelight JOIN query — would have duplicated `GetTrackedEntries`'s two-layer composition rules in raw SQL.
+- ~~**Where the int → double conversion happens.**~~ In `MangaDetailsPresenter`, two lines above the `RecommendationRanker(...)` constructor call. Rejected a factory `RecommendationRanker.fromPreferences(prefs)` (premature for one call site) and Double-typed `PreferencesHelper.wPersonal(): Preference<Double>` (would have forced a custom `Preference<Double>` adapter to wrap the existing `getInt` API; the bucket nature of the values is clearer at the call site).
+- ~~**Filter semantics — replace vs layer on top of Phase 6 anti-echo.**~~ Replace. Phase 6's "always-on library URL hide" becomes status-aware: the presenter builds `libraryHidden` from `libraryStatuses` + filter prefs, the ranker just consumes the set. The `antiEcho` lambda used in the rerank-off branch also reads `libraryHidden` so toggling rerank off doesn't bypass the new filter prefs. Untracked library entries (`statuses.isEmpty()`) stay hidden unconditionally — they're already in your library and the spec is silent on that case, so the conservative default applies.
+- ~~**UNKNOWN status mapping for `Hide dropped`.**~~ Documented as a known limitation. Layer A's `mapStatus` collapses DROPPED + ON_HOLD into UNKNOWN until `TrackService.onHoldStatus()` / `droppedStatus()` accessors land (separate phase). Users with a populated Layer B cache see accurate `hideTrackedDropped` behavior; users without get UNKNOWN, governed by `hideTrackedReadingCompleted`. The settings summary string flags this; users can fix it by hitting the existing "Refresh now" button under Taste profile.
 
 ### Still open (Phase 7+ territory)
 

@@ -28,7 +28,7 @@ import eu.kanade.tachiyomi.ui.setting.titleMRes as titleRes
 /**
  * Settings → Library → Recommendations.
  *
- * Three sections:
+ * Five sections:
  * 1. **Recommendation sources** (Phase 3) — master toggle + per-tracker sources for the
  *    related-mangas carousel.
  * 2. **Taste profile** (Phase 4 core) — per-tracker library-pull toggles, auto-refresh
@@ -36,8 +36,11 @@ import eu.kanade.tachiyomi.ui.setting.titleMRes as titleRes
  * 3. **Candidate injection** (Phase 5) — sub-toggles for the taste-profile-driven candidate
  *    streams that feed the related-mangas carousel: tag-search on the current source and
  *    cross-recommendation from the user's top-rated tracked manga.
- * 4. **Reranking** (Phase 6) — master toggle for taste-driven reordering of the merged
- *    pool. Anti-echo (drop library-known URLs) is independent and always on.
+ * 4. **Reranking** (Phase 6 + Phase 7 sliders) — master toggle for taste-driven reordering,
+ *    plus "Recommendation style" (Popular ↔ Personalized) and "Serendipity" (Familiar ↔
+ *    Adventurous) sliders that map onto `RecommendationRanker.wPersonal` / `wSerendipity`.
+ * 5. **Filters** (Phase 7) — status-based hide toggles. Replaces Phase 6's unconditional
+ *    library-URL hide with a status-aware filter (Reading/Completed, Dropped).
  */
 class SettingsLibraryRecommendationsController : SettingsLegacyController() {
 
@@ -160,6 +163,54 @@ class SettingsLibraryRecommendationsController : SettingsLegacyController() {
                 key = Keys.enableRecommendationRerank
                 titleRes = MR.strings.rerank_by_taste
                 summaryRes = MR.strings.rerank_by_taste_summary
+                defaultValue = true
+            }
+
+            intListPreference(activity) {
+                key = Keys.recommendationStyle
+                titleRes = MR.strings.recommendation_style
+                entriesRes = arrayOf(
+                    MR.strings.recommendation_style_popular_only,
+                    MR.strings.recommendation_style_mostly_popular,
+                    MR.strings.recommendation_style_balanced,
+                    MR.strings.recommendation_style_mostly_personalized,
+                    MR.strings.recommendation_style_pure_personalized,
+                )
+                entryValues = listOf(0, 25, 50, 75, 100)
+                defaultValue = 25
+                preferences.enableRecommendationRerank().changesIn(viewScope) { isEnabled = it }
+            }
+
+            intListPreference(activity) {
+                key = Keys.serendipity
+                titleRes = MR.strings.serendipity
+                entriesRes = arrayOf(
+                    MR.strings.serendipity_familiar,
+                    MR.strings.serendipity_mostly_familiar,
+                    MR.strings.serendipity_balanced,
+                    MR.strings.serendipity_adventurous,
+                    MR.strings.serendipity_very_adventurous,
+                )
+                entryValues = listOf(0, 20, 40, 60, 100)
+                defaultValue = 20
+                preferences.enableRecommendationRerank().changesIn(viewScope) { isEnabled = it }
+            }
+        }
+
+        preferenceCategory {
+            titleRes = MR.strings.recommendation_filters
+
+            switchPreference {
+                key = Keys.hideTrackedReadingCompleted
+                titleRes = MR.strings.hide_tracked_reading_completed
+                summaryRes = MR.strings.hide_tracked_reading_completed_summary
+                defaultValue = true
+            }
+
+            switchPreference {
+                key = Keys.hideTrackedDropped
+                titleRes = MR.strings.hide_tracked_dropped
+                summaryRes = MR.strings.hide_tracked_dropped_summary
                 defaultValue = true
             }
         }

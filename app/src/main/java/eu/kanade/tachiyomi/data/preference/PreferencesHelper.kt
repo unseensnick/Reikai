@@ -227,6 +227,38 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
     fun enableRecommendationRerank() = preferenceStore.getBoolean(Keys.enableRecommendationRerank, true)
 
     /**
+     * Phase 7 — "Popular ↔ Personalized" slider as an int 0..100, divided by 100 at the
+     * ranker call site to feed `RecommendationRanker.wPersonal`. Stored in 5 buckets
+     * (0/25/50/75/100). Default 25 maps to ~0.25, close to Phase 6's hardcoded 0.3.
+     * Only consulted when [enableRecommendationRerank] is on.
+     */
+    fun recommendationStyle() = preferenceStore.getInt(Keys.recommendationStyle, 25)
+
+    /**
+     * Phase 7 — "Familiar ↔ Adventurous" slider as an int 0..100, divided by 100 at the
+     * ranker call site to feed `RecommendationRanker.wSerendipity`. Stored in 5 buckets
+     * (0/20/40/60/100). Default 20 matches Phase 6's hardcoded 0.2 exactly.
+     * Only consulted when [enableRecommendationRerank] is on.
+     */
+    fun serendipity() = preferenceStore.getInt(Keys.serendipity, 20)
+
+    /**
+     * Phase 7 — drop library candidates whose tracker status is READING, COMPLETED, or
+     * UNKNOWN. UNKNOWN rides this bucket because Layer A's local status mapper currently
+     * collapses DROPPED + ON_HOLD into UNKNOWN (see Phase 4.1 TODO at
+     * TrackerLibraryRepositoryImpl.mapStatus), so the conservative default is "treat
+     * unknown like already-reading."
+     */
+    fun hideTrackedReadingCompleted() = preferenceStore.getBoolean(Keys.hideTrackedReadingCompleted, true)
+
+    /**
+     * Phase 7 — drop library candidates whose tracker status is DROPPED. Accurate only
+     * when the Layer B tracker cache is populated; users without a refreshed cache see
+     * DROPPED rows fall into UNKNOWN, governed by [hideTrackedReadingCompleted] instead.
+     */
+    fun hideTrackedDropped() = preferenceStore.getBoolean(Keys.hideTrackedDropped, true)
+
+    /**
      * Drop any cached group-reconciliation keys that contain one of [mangaIds]. Called whenever a
      * manga is removed from the library so that, if it's later re-added and the same composition
      * re-forms, tracker reconciliation runs fresh (the new entry starts with no trackers and needs

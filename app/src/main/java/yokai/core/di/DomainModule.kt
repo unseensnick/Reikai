@@ -44,6 +44,7 @@ import yokai.domain.library.custom.interactor.GetCustomManga
 import yokai.domain.library.custom.interactor.RelinkCustomManga
 import yokai.domain.library.taste.TrackerLibraryRepository
 import yokai.domain.library.taste.interactor.ComputeTasteProfile
+import yokai.domain.library.taste.interactor.GetLibraryStatuses
 import yokai.domain.library.taste.interactor.GetTrackedEntries
 import yokai.domain.library.taste.interactor.RefreshTrackerLibrary
 import yokai.domain.manga.MangaRepository
@@ -113,6 +114,7 @@ fun domainModule() = module {
 
     single<TrackerLibraryRepository> { TrackerLibraryRepositoryImpl(get(), get()) }
     factory { GetTrackedEntries(get()) }
+    factory { GetLibraryStatuses(get(), get(), get(), get()) }
     factory { ComputeTasteProfile() }
     // One entry per supported tracker — the full Phase 4 set (AniList + MAL + Kitsu) is live.
     factory {

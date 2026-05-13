@@ -127,25 +127,29 @@ Title normalization for the cross-pool dedup is intentionally minimal — case +
 
 Once the merged pool is assembled, [`RecommendationRanker`](../app/src/main/java/eu/kanade/tachiyomi/data/recommendation/RecommendationRanker.kt) reorders the source-origin slice against the user's taste profile and drops anything already in the library. Tracker-origin entries keep their round-robin fairness ordering — their recommendations are already personalized by construction and rarely carry parseable tags.
 
-### Anti-echo (always on)
+### Anti-echo (always on, narrowed by status filters)
 
-Candidates whose `(sourceId, manga.url)` is already a library entry are dropped before scoring. Tracker-origin candidates skip the filter — their URLs are tracker URLs and wouldn't match a library row anyway. Runs independently of the rerank toggle: turning Rerank by taste off restores Phase 5 ordering, but library entries stay hidden.
+Candidates whose `(sourceId, manga.url)` matches a library entry are dropped before scoring. Tracker-origin candidates skip the filter — their URLs are tracker URLs and wouldn't match a library row. Runs independently of the rerank toggle: turning Rerank by taste off keeps the filter active.
+
+The hide set is computed by [`GetLibraryStatuses`](../app/src/main/java/yokai/domain/library/taste/interactor/GetLibraryStatuses.kt) joining favorites + tracker rows + Layer B cache, then narrowed by the user's [filter prefs](#filters-y2k): **READING** / **COMPLETED** / **UNKNOWN** are governed by *Hide already-tracked*, **DROPPED** by *Hide dropped*. **ON_HOLD** and **PLAN_TO_READ** are never hidden — those are "reminder" statuses. Library entries with no tracker info at all are hidden regardless (no status to consult).
 
 ### Scoring
 
 For each source-origin candidate:
 
 ```
-final_score = 0.7 × popularity_rank + 0.3 × (taste_score + novelty_boost)
+final_score = (1 − w_personal) × popularity_rank + w_personal × (taste_score + novelty_boost)
 ```
 
 - `popularity_rank` is the candidate's inverse position in the merged pool's arrival order (top of the pool ≈ 1.0).
 - `taste_score` is the mean of `tagScores[t]` over the candidate's `SManga.getGenres()` tags (lowercased + trimmed). Tags not in the profile contribute 0.0. Untagged candidates score 0.0 on the taste axis and naturally land near the popularity-only ordering.
-- `novelty_boost` rewards tags the user has *few* tracked entries for: `0.2 × min(2.0, ln(1 + totalEntries / Σ tagEntryCounts[t]))`. Capped to avoid blowing up on extremely rare tags.
+- `novelty_boost` rewards tags the user has *few* tracked entries for: `w_serendipity × min(2.0, ln(1 + totalEntries / Σ tagEntryCounts[t]))`. Capped to avoid blowing up on extremely rare tags.
+
+`w_personal` is the [*Recommendation style*](#reranking-y2k) slider (Popular ← → Personalized, default 0.25), `w_serendipity` is the [*Serendipity*](#reranking-y2k) slider (Familiar ← → Adventurous, default 0.2). Both stored as ints 0..100 in preferences and divided by 100 at the ranker call site.
 
 ### Exploration slots
 
-`⌈sourceSize × 0.2⌉` slots (~4 of the visible source slice) stay in the pool's original popularity order, pulled from the top of the unsorted source slice. Guarantees the user always sees "what the source thinks is broadly relevant" no matter how strong the taste signal — built-in guard against echo collapse.
+`⌈sourceSize × w_serendipity⌉` slots stay in the pool's original popularity order, pulled from the top of the unsorted source slice. Guarantees the user always sees "what the source thinks is broadly relevant" no matter how strong the taste signal — built-in guard against echo collapse. At the *Familiar* end (0.0) no slots are reserved and taste sorting is maximally aggressive; at *Very adventurous* (1.0) the entire source slice keeps popularity order.
 
 ### Diversity cap
 
@@ -155,7 +159,7 @@ No more than 2 of the taste-ranked picks may share the same dominant tag (the ca
 
 When the taste profile has no entries or no scored tags, scoring is bypassed and the pool returns with only anti-echo applied. Matches the Phase 5 pattern: features that need a populated profile degrade silently to baseline behaviour when the profile is empty.
 
-Defaults — `w_personal = 0.3`, `w_serendipity = 0.2`, `maxPerDominantTag = 2` — are hardcoded for now. Phase 7 will surface sliders that bind to these positions.
+`maxPerDominantTag = 2` stays hardcoded; the slider defaults `w_personal = 0.25` and `w_serendipity = 0.2` are user-controllable via [Settings](#settings).
 
 ## Full-screen browse (See all) *(Y2K)*
 
@@ -197,7 +201,7 @@ The "always ask" branch pre-flips `favorite=true` + `date_added=now()` via `Upda
 
 *Settings → Library → Recommendations.*
 
-Four sections:
+Five sections:
 
 **Recommendation sources** *(Komikku baseline)*
 
@@ -218,7 +222,16 @@ Four sections:
 
 **Reranking** *(Y2K)*
 
-- **Rerank by taste** *(default on)* — reorders the source-origin slice by `popularity_rank + taste_score + novelty_boost`, reserves ~20% of slots for exploration picks, and caps repeated dominant tags at 2. Anti-echo (drop library-known URLs) runs whether this toggle is on or off.
+- **Rerank by taste** *(default on)* — gates the scoring pipeline. When off, the carousel keeps its arrival ordering (filters still apply).
+- **Recommendation style** *(slider, default Mostly popular)* — five buckets `[Popular only, Mostly popular, Balanced, Mostly personalized, Pure personalized]` mapping to `w_personal ∈ {0.0, 0.25, 0.5, 0.75, 1.0}`. Disabled when *Rerank by taste* is off.
+- **Serendipity** *(slider, default Mostly familiar)* — five buckets `[Familiar, Mostly familiar, Balanced, Adventurous, Very adventurous]` mapping to `w_serendipity ∈ {0.0, 0.2, 0.4, 0.6, 1.0}`. Controls exploration-slot count + novelty boost magnitude. Disabled when *Rerank by taste* is off.
+
+**Filters** *(Y2K)*
+
+- **Hide already-tracked** *(default on)* — drop library candidates whose tracker status is READING, COMPLETED, or UNKNOWN. UNKNOWN rides this toggle because Layer A's local status mapper collapses DROPPED / ON_HOLD into UNKNOWN when the Layer B cache is empty (Phase 4.1 TODO).
+- **Hide dropped** *(default on)* — drop library candidates marked DROPPED on a tracker. Accurate only after a tracker library refresh; without a populated cache, DROPPED rows fall into UNKNOWN and ride *Hide already-tracked* instead.
+
+Library entries with no tracker info at all are hidden regardless of these toggles. PLAN_TO_READ and ON_HOLD entries are never hidden — those are "reminder" statuses. Turning both filters off plus *Rerank by taste* on with no taste profile means library entries appear in suggestions; the escape hatch is to flip *Rerank by taste* off, which restores the Phase 6 blanket-hide.
 
 Source-native and keyword-search streams (#1 and #2 above) are governed by source-level extension flags (see [Where candidates come from](#where-candidates-come-from)), not user-facing settings.
 
@@ -230,7 +243,7 @@ The Komikku-baseline streams (#1-3 above) are a direct port — same source-API 
 - **Tracker slot reservation + round-robin** algorithm to share the 30-cap fairly across trackers. Komikku doesn't need this since its sections are independent and pre-sized.
 - **Cross-pool title dedup** beyond URL-keyed dedup, so the same manga can't show up as separate cards via different streams. Komikku dedups by `mangaId` at render time after each stream's been resolved into local DB rows; Y2K dedups by normalized title at insertion, which catches cross-namespace cases (tracker URL vs source URL) more directly.
 - **`@Serializable` DTOs** for all tracker responses instead of Komikku's raw `JsonObject` / `jsonArray` traversal — matches the conventions Yokai's existing tracker code uses elsewhere.
-- **Settings sub-screen** *(Settings → Library → Recommendations)* — Komikku exposes per-source recommendation flags differently; Yōkai-Y2K has a dedicated screen with three sections (Recommendation sources, Taste profile, Candidate injection).
+- **Settings sub-screen** *(Settings → Library → Recommendations)* — Komikku exposes per-source recommendation flags differently; Yōkai-Y2K has a dedicated screen with five sections (Recommendation sources, Taste profile, Candidate injection, Reranking with sliders, Filters).
 - **RecyclerView + FlexibleAdapter** instead of Compose `LazyRow` — Yōkai's manga details screen is still Conductor + ViewBinding, so the carousel matches that framework.
 - **Komikku's MangaUpdates `category_recommendations` ("similar") variant** is not ported — Yōkai-Y2K uses the community-recommendations variant only.
 

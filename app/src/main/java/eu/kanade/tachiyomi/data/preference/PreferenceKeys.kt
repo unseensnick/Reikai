@@ -128,6 +128,15 @@ object PreferenceKeys {
     // and always on; this toggle only gates the scoring/diversity/exploration pipeline.
     const val enableRecommendationRerank = "pref_enable_recommendation_rerank"
 
+    // Phase 7 (personalization sliders + status-based hide filters).
+    // Slider values are stored as ints 0..100 and divided by 100 at the ranker call site.
+    const val recommendationStyle = "pref_recommendation_style"
+    const val serendipity = "pref_serendipity"
+    // Hide library candidates matching these tracker statuses. UNKNOWN (which catches
+    // DROPPED/ON_HOLD when Layer B cache is empty) rides with `hideTrackedReadingCompleted`.
+    const val hideTrackedReadingCompleted = "pref_hide_tracked_reading_completed"
+    const val hideTrackedDropped = "pref_hide_tracked_dropped"
+
     const val lastUsedCatalogueSource = "last_catalogue_source"
 
     const val lastUsedCategory = "last_used_category"
