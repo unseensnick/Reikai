@@ -33,6 +33,7 @@ import eu.kanade.tachiyomi.data.library.CustomMangaManager
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.recommendation.RECOMMENDS_SOURCE
+import eu.kanade.tachiyomi.data.recommendation.RecommendationRanker
 import eu.kanade.tachiyomi.data.recommendation.RecommendationsFetcher
 import eu.kanade.tachiyomi.data.recommendation.TasteCandidateFetcher
 import eu.kanade.tachiyomi.data.track.EnhancedTrackService
@@ -104,6 +105,9 @@ import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.history.interactor.GetHistory
 import yokai.domain.library.custom.model.CustomMangaInfo
+import yokai.domain.library.taste.interactor.ComputeTasteProfile
+import yokai.domain.library.taste.interactor.GetTrackedEntries
+import yokai.domain.library.taste.model.TasteProfile
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.interactor.InsertManga
 import yokai.domain.manga.interactor.UpdateManga
@@ -555,6 +559,24 @@ class MangaDetailsPresenter(
             relatedMangasLoading = true
             withUIContext { view?.updateHeader() }
 
+            // Phase 6 inputs computed once up-front, captured by the per-push closure below.
+            // These are read-only after this point so no lock is needed when the ranker reads them.
+            val rerankEnabled = preferences.enableRecommendationRerank().get()
+            val taste: TasteProfile = runCatching {
+                val entries = Injekt.get<GetTrackedEntries>().await()
+                Injekt.get<ComputeTasteProfile>().invoke(entries)
+            }.getOrElse {
+                Logger.e(it) { "Taste profile load failed; ranker will run with empty profile" }
+                TasteProfile.EMPTY
+            }
+            val libraryUrls: Set<Pair<Long, String>> = runCatching {
+                getManga.awaitFavorites().mapTo(HashSet()) { it.source to it.url }
+            }.getOrElse {
+                Logger.e(it) { "Favorites lookup failed; rerank anti-echo will be a no-op" }
+                emptySet()
+            }
+            val ranker = RecommendationRanker()
+
             val accumulated = LinkedHashSet<RelatedMangaCandidate>()
             // Cross-pool dedup: tracker URLs (anilist.co/...) and source URLs (mangadex.org/...)
             // live in distinct namespaces, so url-keyed dedup inside `accumulated` can't catch a
@@ -586,7 +608,19 @@ class MangaDetailsPresenter(
                         accumulated.add(RelatedMangaCandidate(sourceId, trackerName, m))
                     }
                     if (accumulated.size != before) {
-                        relatedMangas = mergeForDisplay(accumulated)
+                        val merged = mergeForDisplay(accumulated)
+                        // Phase 6: anti-echo runs in both modes (it's not really taste — just
+                        // "don't suggest what's already in the library"). Full rerank gates on
+                        // the user-facing toggle so the carousel can be returned to Phase 5
+                        // ordering by flipping one preference.
+                        relatedMangas = if (rerankEnabled) {
+                            ranker.rank(merged, taste, libraryUrls)
+                        } else {
+                            merged.filterNot { c ->
+                                c.sourceId != RECOMMENDS_SOURCE &&
+                                    libraryUrls.contains(c.sourceId to c.manga.url)
+                            }
+                        }
                         true
                     } else {
                         false

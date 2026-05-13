@@ -36,6 +36,8 @@ import eu.kanade.tachiyomi.ui.setting.titleMRes as titleRes
  * 3. **Candidate injection** (Phase 5) — sub-toggles for the taste-profile-driven candidate
  *    streams that feed the related-mangas carousel: tag-search on the current source and
  *    cross-recommendation from the user's top-rated tracked manga.
+ * 4. **Reranking** (Phase 6) — master toggle for taste-driven reordering of the merged
+ *    pool. Anti-echo (drop library-known URLs) is independent and always on.
  */
 class SettingsLibraryRecommendationsController : SettingsLegacyController() {
 
@@ -147,6 +149,17 @@ class SettingsLibraryRecommendationsController : SettingsLegacyController() {
                 key = Keys.injectCrossRecommendationCandidates
                 titleRes = MR.strings.cross_recommendation_from_favorites
                 summaryRes = MR.strings.cross_recommendation_from_favorites_summary
+                defaultValue = true
+            }
+        }
+
+        preferenceCategory {
+            titleRes = MR.strings.recommendation_rerank
+
+            switchPreference {
+                key = Keys.enableRecommendationRerank
+                titleRes = MR.strings.rerank_by_taste
+                summaryRes = MR.strings.rerank_by_taste_summary
                 defaultValue = true
             }
         }

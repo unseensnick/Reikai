@@ -249,6 +249,10 @@
     <string name="tag_search_on_current_source_summary">Search the current source for your top taste-profile tags and add the hits to the related-mangas carousel</string>
     <string name="cross_recommendation_from_favorites">Cross-recommendation from favorites</string>
     <string name="cross_recommendation_from_favorites_summary">Look up your top-rated tracked manga on the current source and pull each match\'s source-native related list into the carousel</string>
+    <!-- Phase 6 (rerank + anti-echo) -->
+    <string name="recommendation_rerank">Reranking</string>
+    <string name="rerank_by_taste">Rerank by taste</string>
+    <string name="rerank_by_taste_summary">Reorder the related-mangas carousel by your taste profile, with exploration slots, novelty boost, and dominant-tag diversity cap. Manga already in your library are hidden regardless of this toggle.</string>
     <string name="library_update_frequency">Library update frequency</string>
     <string name="pref_library_update_manga_restriction">Skip updating titles</string>
     <string name="pref_update_only_completely_read">With unread chapter(s)</string>

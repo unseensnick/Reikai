@@ -2,7 +2,7 @@
 
 Working notes for adding Komikku-style related-manga suggestions to Yōkai-Y2K, plus a Y2K-original personalization layer that re-ranks (and adds to) the result pool using the user's tracker library, with explicit anti-echo-chamber controls.
 
-**Status:** Phases 1–3 are done. Phases 4–8 are not started — read this doc, the "Implementation status & decisions" section below, and the still-open questions at the bottom, then start Phase 4.
+**Status:** Phases 1–6 are done. Phase 6.5 (full-screen browse) is next, then Phase 7 (sliders) and Phase 8 (i18n).
 
 ## Scope split
 
@@ -30,12 +30,13 @@ Updated after Phases 1–2 landed. Decisions captured here are the ones that div
 |---|---|---|
 | 1. Source-API contract + keyword fallback | ✅ done | `54fa8d9b3` |
 | 2. UI carousel on manga details | ✅ done (+ stability follow-ups) | `fb5fed2f8` → `fd9be3ca6` |
-| 3. Tracker-backed recommendations | ✅ done | (this commit) |
-| 4. Taste profile | ⏸ next | |
-| 5. Active candidate injection | ⏸ not started | |
-| 6. Rerank + anti-echo | ⏸ not started | |
-| 7. Settings UI | ⏸ not started | |
-| 8. i18n + `docs/related-mangas.md` | ⏳ partial | CHANGELOG bullets land per phase; dedicated doc not yet written |
+| 3. Tracker-backed recommendations | ✅ done | `7edda7726` → `1161fe37a` |
+| 4. Taste profile | ✅ done | `0a6e42d66` → `5f8f8c6c8` |
+| 5. Active candidate injection (tag-search + cross-rec + HttpSource baseline + cross-pool dedup) | ✅ done | `ebfe5a48b` → `4936c53f9` |
+| 6. Rerank + anti-echo | ✅ done | this cycle |
+| 6.5. Dedicated full-screen browse view ("See all" surface) | ⏸ planned — lands after Phase 6 | |
+| 7. Settings UI (personalization sliders) | ⏸ not started | |
+| 8. i18n + `docs/related-mangas.md` | ⏳ partial | Doc covers Phases 1–5; CHANGELOG bullets land per phase; non-English string translations still ride upstream Moko Resources cycle |
 
 Branch is forked off `feat/tracker-sync-grouped`. Phases 1–3 form a usable Komikku-equivalent baseline on their own.
 
@@ -207,6 +208,26 @@ These were considered and pushed to later phases or open questions:
 - **Cross-tracker dedup** (same manga on AniList + MAL). Within-tracker dedup is automatic via the `(tracker, remoteId)` PK. Cross-tracker is harder — AniList exposes `Media.idMal` as the cleanest cross-ref, Kitsu has its own mapping endpoint, MU/Shikimori/Bangumi don't have direct cross-refs. Triple-counting an entry may even be the *correct* behavior (the user cares enough to track on two services → stronger signal). Revisit if observation shows it's a problem.
 - **Importing from MAL XML export** (the file format malscraper produces). Doesn't carry genres, so it still needs API enrichment; doesn't save real work over Option B's direct GraphQL path; only useful for users who refuse to grant library-read scope, which we'll address as a separate import flow if requested.
 - **Cross-tracker taxonomy normalization map.** Start exact match. Log raw tag distribution and build the map empirically if mismatches matter.
+
+### Phase 5 decisions
+
+- **Single orchestrator class for both sub-mechanisms.** `TasteCandidateFetcher` at [data/recommendation/](../app/src/main/java/eu/kanade/tachiyomi/data/recommendation/TasteCandidateFetcher.kt) mirrors Phase 3's `RecommendationsFetcher` shape — fans out tag-search and cross-recommendation flows concurrently, routes errors through the same `exceptionHandler`. Reuses Phase 4's `GetTrackedEntries.await()` + `ComputeTasteProfile(entries).topTags(n)` instead of recomputing.
+- **Cross-rec resolves favorite → SManga via search-then-pick-first.** No fuzzy match; if the first search hit is wrong, results are off-topic but harmless. The user's accepted behavior is "falls back gracefully when a favorite isn't on the current source — that favorite is just skipped." Constants `FAVORITE_SCORE_THRESHOLD = 0.8` and `MAX_FAVORITES = 5` bound the call count.
+- **HttpSource baseline ported, reverted, then re-ported.** First attempt (`2aa8063fa`) used Komikku's exact override (`override val supportsRelatedMangas: Boolean get() = true` plus a `fetchRelatedMangaList` calling `relatedMangaListRequest` → `relatedMangaListParse` chain). Verification on ~6 sources returned `related=0` for every cross-rec call, so the baseline was reverted in `cf1f5140e`. The Keiyoushi extensions repo audit later showed ~377 extensions ship overrides for the related-mangas hooks (Madara × 342, Iken × 12, GalleryAdults × 8, plus 15 standalone) — the original verification sample missed them. Re-ported in `15f6493ce` with the same shape, using Y2K's idiomatic `awaitSuccess()` instead of Komikku's blocking `execute()`.
+- **Cross-rec user toggle: removed, then restored.** Dropped in `cf1f5140e` because the gate was structurally closed and the toggle did nothing. Restored in `d5f77183b` once the baseline re-port made cross-rec actually fire. Toggle defaults on; gates AND with `supportsRelatedMangas` so users can disable cross-rec without disabling tag-search.
+- **Cross-pool dedup keys on normalized title.** Parallel `HashSet<String>` alongside the URL-keyed accumulator in `fetchRelatedMangasFromSource`. Normalization is minimal: lowercase + trim + collapse internal whitespace (`MangaDetailsPresenter.normalizeTitleForDedup`). First-arriving entry wins — natural preference for source-origin (faster) and source-tap routes directly to the reader.
+
+### Phase 6 decisions
+
+- **Ranker lives in `app/data/recommendation/`, not `domain/`.** The handoff doc originally recommended `domain/`. Reverted to `app/` to match the `TasteCandidateFetcher` / `RecommendationsFetcher` precedent (both consume `RelatedMangaCandidate` + `SManga`, which live in `app/`). No module-graph changes; no abstract interface needed. The ranker is still pure compute — no I/O, not `suspend` — so the "use-case" character of the original recommendation is preserved.
+- **Anti-echo scope: library-URL match only.** The ranker drops candidates whose `(sourceId, manga.url)` is in `getManga.awaitFavorites().map { it.source to it.url }`. Tracker-origin entries (`sourceId == RECOMMENDS_SOURCE`) skip the filter — their URLs are tracker URLs and would never match a library row anyway. Status-based filters ("hide Reading / Completed / Dropped") are deferred to Phase 7 with the rest of the personalization UI.
+- **Anti-echo always on, even when the rerank toggle is off.** Rationale: hiding library-known manga from the carousel isn't really a taste opinion, it's just "don't suggest what I already have." Decoupling the two means flipping `enableRecommendationRerank` off returns the user to the Phase 5 ordering exactly, but with library entries still hidden. Users who want library entries back can revisit when Phase 7 adds the filter UI.
+- **TasteProfile gains `tagEntryCounts: Map<String, Int>`** for the novelty boost. Populated in `ComputeTasteProfile` from every entry's tags regardless of status weight — even PLAN_TO_READ and UNKNOWN count toward exposure breadth (the user has seen the tag in their library), they just don't contribute to the affinity score. Cheap to compute, parallel-keyed with `tagScores`.
+- **Rerank scope: source slice only, tracker slice passes through.** Trackers already return personalized recs by construction (you tracked these because they match your interests), and their fairness round-robin is a separate concern from taste alignment. Tracker entries also rarely carry parseable `SManga.genre`, so scoring them would mostly produce 0.0 noise.
+- **Exploration slots pull from the top of the popularity-ordered slice**, not random samples. `⌈sourceSize × 0.2⌉` ≈ 4 slots at default `w_serendipity = 0.2`. Means users always see "what the source thinks is broadly relevant" no matter how strong the taste signal — a built-in guard against echo collapse.
+- **Diversity cap: 2 per dominant tag.** "Dominant" = the candidate's highest-affinity tag from the user's `tagScores` map (so the cap operates on what the user cares about, not whichever tag the source happens to list first). Walks the taste-sorted list top-down, demotes offenders to a deferred list that's drained at the end if any slots remain. Single pass, no re-sort.
+- **Bypass paths log under `[Phase6]`** so the verification probes are uniformly filterable in Logcat. Three bypass reasons: `emptyProfile` (zero tracked entries), `noScoredTags` (entries exist but none scored — all PLAN_TO_READ / UNKNOWN), `trivialSlice` (≤1 source candidate, nothing to reorder).
+- **Defaults hardcoded for Phase 6**: `w_personal = 0.3`, `w_serendipity = 0.2`, `maxPerDominantTag = 2`. Phase 7 will surface sliders that read into these positions via preferences.
 
 ### Bugs surfaced and fixed during Phase 1–2 work
 
@@ -381,10 +402,11 @@ Turning **both** "Active candidate injection" and "Taste-profile reranking" off 
 | 1. Source-API contract + keyword fallback | Komikku | 3–4 | ✅ done |
 | 2. UI carousel on manga details | Komikku | 2–3 | ✅ done |
 | 3. Tracker-backed recommendations | Komikku | 3–4 | ✅ done |
-| 4. Taste profile (fetcher + cache + compute) | Y2K | 4–5 | ⏸ next |
-| 5. Active candidate injection (tag-search + cross-recommendation) | Y2K | 3–4 | ⏸ |
-| 6. Rerank + anti-echo (formula + diversity cap + novelty + exploration slots) | Y2K | 4–5 | ⏸ |
-| 7. Settings UI (toggles + sliders + filters + refresh) | Y2K | 3–4 | ⏸ |
+| 4. Taste profile (fetcher + cache + compute) | Y2K | 4–5 | ✅ done |
+| 5. Active candidate injection (tag-search + cross-recommendation + HttpSource baseline + cross-pool dedup) | Y2K | 3–4 | ✅ done |
+| 6. Rerank + anti-echo (formula + diversity cap + novelty + exploration slots) | Y2K | 4–5 | ✅ done |
+| 6.5. Dedicated full-screen browse view ("See all" surface, bulk-select, drops 30-cap for the full grid) | Y2K | 1–2 days | ⏸ planned |
+| 7. Settings UI (sliders + filters + refresh) | Y2K | 3–4 | ⏸ |
 | 8. i18n + `docs/related-mangas.md` | both | 1 | ⏳ partial |
 | **Total** | | **23–30** | |
 
@@ -409,9 +431,18 @@ Phases 1–3 ship a usable Komikku-equivalent on their own. Phases 4–7 add the
 - ~~**Cache lifetime / TTL.**~~ Durable storage in the main DB (rides Yokai's backup pipeline), no time-based auto-invalidation. Refreshed manually + event-driven for Yokai-side writes + optional auto-interval (default Never).
 - ~~**Trackers supported.**~~ AniList, MyAnimeList, Kitsu. MangaUpdates / Shikimori / Bangumi were considered but dropped during Phase 4.1 — the maintainer doesn't use them and won't ship untested fetchers. Self-hosted Komga / Kavita / Suwayomi also excluded (no canonical tag taxonomy).
 
-### Still open (Phase 5+ territory)
+### Resolved (during Phase 5 finalization)
 
-- **Where does the rerank logic live** — dedicated `RecommendationRanker` use-case in [`domain/`](../domain/) (clean separation, recommended) vs. presenter (couples concerns).
+- ~~**HttpSource baseline activation across Keiyoushi extension ecosystem.**~~ Komikku's `HttpSource` overrides `supportsRelatedMangas = true` and provides a default `fetchRelatedMangaList` that runs `popularMangaParse` on the manga details URL. Y2K's Phase 1 port omitted that override, so every HTTP-backed extension inherited `supportsRelatedMangas = false` and the source-native flow was dormant in practice — only the keyword-search fallback ran. Audit of the Keiyoushi extensions repo revealed ~377 extensions ship working `relatedMangaListRequest` / `relatedMangaListParse` overrides (342 Madara-derivatives parsing `.related-reading-wrap`, 12 Iken extensions hitting a dedicated `/api/recommendations` endpoint, 8 GalleryAdults derivatives, 15 standalone implementations). Re-ported the baseline so virtual dispatch lights up those overrides automatically; non-overriding extensions fall through to `popularMangaParse(details_page).mangas` which is typically empty and absorbed by dedup + 30-cap. An earlier port (`2aa8063fa`) was reverted (`cf1f5140e`) on a small biased sample; the audit invalidated that reversal and the re-port landed in the same release cycle.
+- ~~**Same-manga dedup of recommendation candidates.**~~ Implemented as a parallel title-key `HashSet<String>` alongside the URL-keyed `LinkedHashSet` accumulator in `MangaDetailsPresenter.fetchRelatedMangasFromSource`. Normalization is minimal — lowercase + trim + collapse internal whitespace — enough to catch case/whitespace variants without risking false positives across legitimately distinct titles. First-arriving entry wins, which naturally prefers source-origin candidates (single fast call, route to reader on tap) over tracker entries (slower, multiple calls, route through Global Search).
+
+### Resolved (during Phase 6 finalization)
+
+- ~~**Where does the rerank logic live.**~~ `RecommendationRanker` lives in [`app/data/recommendation/`](../app/src/main/java/eu/kanade/tachiyomi/data/recommendation/RecommendationRanker.kt), beside `TasteCandidateFetcher` and `RecommendationsFetcher`. Operates directly on `RelatedMangaCandidate` + `SManga`, no module-graph changes. Still pure compute (no I/O, no `suspend`), so the use-case character is preserved without paying the cost of a `domain/`-side abstraction over `SManga`.
+- ~~**Anti-echo scope.**~~ Library-URL exact match (`Pair<sourceId, url>` set, populated from `getManga.awaitFavorites()`). Tracker-origin candidates skip the filter. Status-based filters and fuzzy-URL matching deferred to Phase 7+.
+
+### Still open (Phase 7+ territory)
+
 - **Tag overlap calculation** — exact-match (default) vs. fuzzy ("Sci-Fi" vs "Science Fiction"). Phase 4 ships with exact-match + raw-distribution logging; the normalization map can be built from observed data later if mismatches actually hurt recommendations.
 - ~~**Cross-tracker dedup of taste-profile entries**~~ — implemented in the same wave as Phase 4.3 after the maintainer's mirror-list setup surfaced as a real bug. Two cross-ref keys per entry (migrations 30 and 31): `mal_id` and `anilist_id`. AniList trivially populates `anilist_id` from its own remote id and `mal_id` from `Media.idMal` when set; MAL trivially populates `mal_id` from its own remote id (no AL cross-ref exposed); Kitsu resolves both via its `mappings` records (filter `externalSite=="myanimelist/manga"` and `"anilist/manga"`). `GetTrackedEntries.dedupedAcrossTrackers()` runs a two-pass collapse: first by `malId`, then by `anilistId` on the result. Both passes prefer AniList > MAL > Kitsu (richest tag taxonomy first). The second pass catches the "AniList manhwa without idMal + Kitsu has the AniList mapping but no MAL one" gap that pass 1 misses. Entries with neither cross-ref pass through and only dedupe within their own tracker. The orchestrator's post-refresh diagnostic logs the dedup-drop count for each pass.
 - **Same-manga dedup of *recommendation candidates*** — different problem from taste-profile dedup. If two tracker recommendations surface the same manga under different URLs, the carousel currently shows both. Lower-impact than taste-profile dedup since the 30-cap bounds visual noise.

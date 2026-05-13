@@ -11,6 +11,7 @@ package yokai.domain.library.taste.model
  */
 data class TasteProfile(
     val tagScores: Map<String, Double>,
+    val tagEntryCounts: Map<String, Int>,
     val totalEntries: Int,
 ) {
     fun topTags(n: Int): List<String> = tagScores.entries
@@ -19,6 +20,6 @@ data class TasteProfile(
         .map { it.key }
 
     companion object {
-        val EMPTY = TasteProfile(emptyMap(), 0)
+        val EMPTY = TasteProfile(emptyMap(), emptyMap(), 0)
     }
 }

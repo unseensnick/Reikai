@@ -123,6 +123,11 @@ object PreferenceKeys {
     const val injectTagSearchCandidates = "pref_inject_tag_search_candidates"
     const val injectCrossRecommendationCandidates = "pref_inject_cross_recommendation_candidates"
 
+    // Phase 6 (rerank + anti-echo) — master toggle for taste-driven reordering of the
+    // related-mangas carousel pool. Anti-echo (drop library-known URLs) is independent
+    // and always on; this toggle only gates the scoring/diversity/exploration pipeline.
+    const val enableRecommendationRerank = "pref_enable_recommendation_rerank"
+
     const val lastUsedCatalogueSource = "last_catalogue_source"
 
     const val lastUsedCategory = "last_used_category"

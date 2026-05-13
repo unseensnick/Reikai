@@ -40,8 +40,15 @@ class ComputeTasteProfile {
 
         val numerators = HashMap<String, Double>()
         val denominators = HashMap<String, Double>()
+        val tagCounts = HashMap<String, Int>()
 
         for (entry in entries) {
+            // Novelty boost (Phase 6) wants exposure breadth across the whole library,
+            // so count every entry's tags regardless of status weight — PLAN_TO_READ
+            // and UNKNOWN are skipped for scoring but still register as "I've seen this tag."
+            for (tag in entry.tags) {
+                tagCounts.merge(tag, 1) { a, b -> a + b }
+            }
             val statusWeight = STATUS_WEIGHTS[entry.status] ?: 0.0
             if (statusWeight == 0.0) continue
             val rating = if (entry.score >= 0.0) entry.score else 0.5
@@ -57,7 +64,11 @@ class ComputeTasteProfile {
             val denom = denominators[tag] ?: return@mapValues 0.0
             (num / denom).coerceIn(-1.0, 1.0)
         }
-        return TasteProfile(tagScores = scores, totalEntries = entries.size)
+        return TasteProfile(
+            tagScores = scores,
+            tagEntryCounts = tagCounts,
+            totalEntries = entries.size,
+        )
     }
 
     companion object {

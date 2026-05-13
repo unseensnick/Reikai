@@ -218,6 +218,15 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
     fun injectCrossRecommendationCandidates() = preferenceStore.getBoolean(Keys.injectCrossRecommendationCandidates, true)
 
     /**
+     * Phase 6 — when on, the related-mangas carousel reorders its source-origin slice
+     * against the user's taste profile (top-tag affinity + novelty boost + exploration
+     * slots + dominant-tag diversity cap). Tracker-origin entries retain their round-robin
+     * fairness order regardless. Anti-echo (drop library-known URLs) runs independently of
+     * this toggle.
+     */
+    fun enableRecommendationRerank() = preferenceStore.getBoolean(Keys.enableRecommendationRerank, true)
+
+    /**
      * Drop any cached group-reconciliation keys that contain one of [mangaIds]. Called whenever a
      * manga is removed from the library so that, if it's later re-added and the same composition
      * re-forms, tracker reconciliation runs fresh (the new entry starts with no trackers and needs
