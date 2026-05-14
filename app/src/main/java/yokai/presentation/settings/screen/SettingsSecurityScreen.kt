@@ -3,10 +3,8 @@ package yokai.presentation.settings.screen
 import android.app.Activity
 import androidx.biometric.BiometricPrompt
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.fragment.app.FragmentActivity
-import co.touchlab.kermit.Logger
 import dev.icerock.moko.resources.StringResource
 import dev.icerock.moko.resources.compose.pluralStringResource
 import dev.icerock.moko.resources.compose.stringResource
@@ -27,8 +25,6 @@ import yokai.presentation.settings.ComposableSettings
 
 object SettingsSecurityScreen : ComposableSettings() {
 
-    private const val LOG_TAG = "SettingsSecurityScreen"
-
     private fun readResolve() = SettingsSecurityScreen
 
     @Composable
@@ -39,10 +35,6 @@ object SettingsSecurityScreen : ComposableSettings() {
         val securityPreferences: SecurityPreferences by injectLazy()
         val preferences: PreferencesHelper by injectLazy()
         val context = LocalContext.current
-
-        LaunchedEffect(Unit) {
-            Logger.i(LOG_TAG) { "entered compose security settings" }
-        }
 
         return buildList {
             if (context.isAuthenticationSupported()) {
@@ -69,7 +61,6 @@ object SettingsSecurityScreen : ComposableSettings() {
             pref = pref,
             title = title,
             onValueChanged = { newValue ->
-                Logger.i(LOG_TAG) { "useBiometrics → $newValue" }
                 val activity = context as? FragmentActivity
                 if (activity != null && context.isAuthenticationSupported()) {
                     activity.startAuthentication(
@@ -110,10 +101,6 @@ object SettingsSecurityScreen : ComposableSettings() {
             pref = preferences.lockAfter(),
             title = stringResource(MR.strings.lock_when_idle),
             entries = entries,
-            onValueChanged = {
-                Logger.i(LOG_TAG) { "lockAfter → $it" }
-                true
-            },
         )
     }
 
@@ -122,10 +109,6 @@ object SettingsSecurityScreen : ComposableSettings() {
         return Preference.PreferenceItem.SwitchPreference(
             pref = preferences.hideNotificationContent(),
             title = stringResource(MR.strings.hide_notification_content),
-            onValueChanged = {
-                Logger.i(LOG_TAG) { "hideNotificationContent → $it" }
-                true
-            },
         )
     }
 
@@ -141,7 +124,6 @@ object SettingsSecurityScreen : ComposableSettings() {
             title = stringResource(MR.strings.secure_screen),
             entries = entries,
             onValueChanged = {
-                Logger.i(LOG_TAG) { "secureScreen → $it" }
                 SecureActivityDelegate.setSecure(context as? Activity)
                 true
             },

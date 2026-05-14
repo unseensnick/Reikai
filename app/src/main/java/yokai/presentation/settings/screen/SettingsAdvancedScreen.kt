@@ -7,18 +7,22 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.webkit.WebStorage
 import android.webkit.WebView
+import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import cafe.adriel.voyager.navigator.LocalNavigator
 import co.touchlab.kermit.Logger
+import com.hippo.unifile.UniFile
 import dev.icerock.moko.resources.StringResource
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.core.storage.preference.collectAsState
 import eu.kanade.tachiyomi.data.download.DownloadManager
+import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.extension.installer.ShizukuInstaller
@@ -36,33 +40,53 @@ import eu.kanade.tachiyomi.network.PREF_DOH_NJALLA
 import eu.kanade.tachiyomi.network.PREF_DOH_QUAD101
 import eu.kanade.tachiyomi.network.PREF_DOH_QUAD9
 import eu.kanade.tachiyomi.network.PREF_DOH_SHECAN
+import eu.kanade.tachiyomi.source.SourceManager
+import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.setting.controllers.database.ClearDatabaseController
 import eu.kanade.tachiyomi.ui.setting.controllers.debug.DebugController
 import eu.kanade.tachiyomi.util.CrashLogUtil
 import eu.kanade.tachiyomi.util.compose.LocalDialogHostState
 import eu.kanade.tachiyomi.util.compose.LocalRouter
 import eu.kanade.tachiyomi.util.compose.currentOrThrow
+import eu.kanade.tachiyomi.util.system.GLUtil
+import eu.kanade.tachiyomi.util.system.ImageUtil
 import eu.kanade.tachiyomi.util.system.isPackageInstalled
 import eu.kanade.tachiyomi.util.system.launchIO
+import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.system.localeContext
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.system.workManager
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import java.io.File
 import java.net.URI
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.collections.immutable.toPersistentList
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import okhttp3.Headers
 import rikka.sui.Sui
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.base.BasePreferences
+import yokai.domain.chapter.interactor.GetChapter
+import yokai.domain.extension.interactor.TrustExtension
+import yokai.domain.manga.interactor.GetManga
 import yokai.domain.simple
+import yokai.domain.source.SourcePreferences
+import yokai.domain.ui.settings.ReaderPreferences
 import yokai.i18n.MR
+import yokai.util.lang.getString
 import yokai.presentation.component.preference.Preference
 import yokai.presentation.settings.ComposableSettings
 import yokai.presentation.settings.screen.advanced.StoryBookScreen
+import yokai.presentation.settings.screen.advanced.awaitCleanupDownloadedChapters
 
 object SettingsAdvancedScreen : ComposableSettings() {
 
@@ -99,6 +123,8 @@ object SettingsAdvancedScreen : ComposableSettings() {
             add(getNetworkGroup(networkPreferences))
             add(getExtensionGroup(basePreferences))
             add(getLibraryGroup(basePreferences))
+            add(getReaderGroup(basePreferences))
+            add(getLocalSourceGroup())
             add(getDeveloperGroup())
         }.toPersistentList()
     }
@@ -204,8 +230,12 @@ object SettingsAdvancedScreen : ComposableSettings() {
         // FIXME: Maybe this should be moved to Data and storage?
         val context = LocalContext.current
         val router = LocalRouter.currentOrThrow
+        val scope = rememberCoroutineScope()
+        val alertDialog = LocalDialogHostState.currentOrThrow
 
         val downloadManager: DownloadManager by injectLazy()
+        val getChapter: GetChapter by injectLazy()
+        val getManga: GetManga by injectLazy()
 
         val children = buildList {
             add(Preference.PreferenceItem.TextPreference(
@@ -217,7 +247,17 @@ object SettingsAdvancedScreen : ComposableSettings() {
                 title = stringResource(MR.strings.clean_up_downloaded_chapters),
                 subtitle = stringResource(MR.strings.delete_unused_chapters),
                 onClick = {
-                    // TODO:
+                    scope.launch {
+                        val opts = alertDialog.awaitCleanupDownloadedChapters() ?: return@launch
+                        cleanupDownloads(
+                            context = context,
+                            downloadManager = downloadManager,
+                            getChapter = getChapter,
+                            getManga = getManga,
+                            removeRead = opts.deleteRead,
+                            removeNonFavorite = opts.deleteNonFavorite,
+                        )
+                    }
                 },
             ))
             add(Preference.PreferenceItem.TextPreference(
@@ -251,6 +291,54 @@ object SettingsAdvancedScreen : ComposableSettings() {
         } catch (e: Throwable) {
             Logger.e(e) { "Unable to delete WebView data" }
             toast(MR.strings.cache_delete_error)
+        }
+    }
+
+    @Volatile private var cleanupJob: Job? = null
+
+    @OptIn(DelicateCoroutinesApi::class)
+    private fun cleanupDownloads(
+        context: Context,
+        downloadManager: DownloadManager,
+        getChapter: GetChapter,
+        getManga: GetManga,
+        removeRead: Boolean,
+        removeNonFavorite: Boolean,
+    ) {
+        if (cleanupJob?.isActive == true) return
+        context.toast(MR.strings.starting_cleanup)
+        cleanupJob = GlobalScope.launch(Dispatchers.IO, CoroutineStart.DEFAULT) {
+            val mangaList = getManga.awaitAll()
+            val sourceManager: SourceManager = Injekt.get()
+            val downloadProvider = DownloadProvider(context)
+            var foldersCleared = 0
+            val sources = sourceManager.getOnlineSources()
+
+            for (source in sources) {
+                val mangaFolders = downloadManager.getMangaFolders(source)
+                val sourceManga = mangaList.filter { it.source == source.id }
+
+                for (mangaFolder in mangaFolders) {
+                    val manga = sourceManga.find { downloadProvider.getMangaDirName(it) == mangaFolder.name }
+                    if (manga == null) {
+                        if (removeNonFavorite) {
+                            foldersCleared += 1 + (mangaFolder.listFiles()?.size ?: 0)
+                            mangaFolder.delete()
+                        }
+                        continue
+                    }
+                    val chapterList = getChapter.awaitAll(manga, false)
+                    foldersCleared += downloadManager.cleanupChapters(chapterList, manga, source, removeRead, removeNonFavorite)
+                }
+            }
+            launchUI {
+                val cleanupString = if (foldersCleared == 0) {
+                    context.getString(MR.strings.no_folders_to_cleanup)
+                } else {
+                    context.getString(MR.plurals.cleanup_done, foldersCleared, foldersCleared)
+                }
+                context.toast(cleanupString, Toast.LENGTH_LONG)
+            }
         }
     }
 
@@ -349,6 +437,7 @@ object SettingsAdvancedScreen : ComposableSettings() {
         val scope = rememberCoroutineScope()
         val context = LocalContext.current
         val alertDialog = LocalDialogHostState.currentOrThrow
+        val trustExtension: TrustExtension by injectLazy()
         val installerPref by basePreferences.extensionInstaller().collectAsState()
 
 
@@ -399,7 +488,15 @@ object SettingsAdvancedScreen : ComposableSettings() {
             add(Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.action_revoke_all_extensions),
                 onClick = {
-                    // TODO:
+                    scope.launch {
+                        alertDialog.simple {
+                            titleRes = MR.strings.confirm_revoke_all_extensions
+                            onConfirm = {
+                                trustExtension.revokeAll()
+                                context.toast(MR.strings.requires_app_restart)
+                            }
+                        }
+                    }
                 },
             ))
         }.toPersistentList()
@@ -441,14 +538,113 @@ object SettingsAdvancedScreen : ComposableSettings() {
     }
 
     @Composable
+    private fun getReaderGroup(basePreferences: BasePreferences): Preference.PreferenceGroup {
+        val readerPreferences: ReaderPreferences by injectLazy()
+        val context = LocalContext.current
+        val displayProfilePath by basePreferences.displayProfile().collectAsState()
+        val displayProfileSubtitle = remember(displayProfilePath) {
+            if (displayProfilePath.isEmpty()) {
+                null
+            } else {
+                UniFile.fromUri(context, displayProfilePath.toUri())?.filePath ?: displayProfilePath
+            }
+        }
+
+        val children = buildList {
+            if (!ImageUtil.HARDWARE_BITMAP_UNSUPPORTED && GLUtil.DEVICE_TEXTURE_LIMIT > GLUtil.SAFE_TEXTURE_LIMIT) {
+                val entries = GLUtil.CUSTOM_TEXTURE_LIMIT_OPTIONS
+                    .mapIndexed { index, option ->
+                        val display = if (index == 0) {
+                            context.getString(MR.strings.pref_hardware_bitmap_threshold_default, option)
+                        } else {
+                            option.toString()
+                        }
+                        option to display
+                    }
+                    .toMap()
+                    .toImmutableMap()
+                add(Preference.PreferenceItem.ListPreference(
+                    pref = basePreferences.hardwareBitmapThreshold(),
+                    title = stringResource(MR.strings.pref_hardware_bitmap_threshold),
+                    subtitle = stringResource(MR.strings.pref_hardware_bitmap_threshold_summary, "%s"),
+                    entries = entries,
+                ))
+            }
+            add(Preference.PreferenceItem.TextPreference(
+                title = stringResource(MR.strings.pref_display_profile),
+                subtitle = displayProfileSubtitle,
+                onClick = { (context as? MainActivity)?.showColourProfilePicker() },
+            ))
+            add(Preference.PreferenceItem.SwitchPreference(
+                pref = readerPreferences.debugMode(),
+                title = stringResource(MR.strings.pref_reader_debug_mode),
+            ))
+        }.toPersistentList()
+
+        return Preference.PreferenceGroup(
+            title = stringResource(MR.strings.reader),
+            preferenceItems = children,
+        )
+    }
+
+    @Composable
+    private fun getLocalSourceGroup(): Preference.PreferenceGroup {
+        val sourcePreferences: SourcePreferences by injectLazy()
+
+        // FIXME: Add beta tag support to preference item — matches the FIXME in getLibraryGroup.
+        return Preference.PreferenceGroup(
+            title = stringResource(MR.strings.local_source),
+            preferenceItems = listOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    pref = sourcePreferences.externalLocalSource(),
+                    title = stringResource(MR.strings.pref_external_local_source),
+                ),
+            ).toPersistentList(),
+        )
+    }
+
+    @Composable
     private fun getDeveloperGroup(): Preference.PreferenceGroup {
         val navigator = LocalNavigator.currentOrThrow
+        val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        val alertDialog = LocalDialogHostState.currentOrThrow
 
         val children = buildList {
             add(Preference.PreferenceItem.TextPreference(
                 title = "Storybook",
                 onClick = { navigator.push(StoryBookScreen()) },
             ))
+            if (BuildConfig.FLAVOR == "dev" || BuildConfig.DEBUG || BuildConfig.NIGHTLY) {
+                add(Preference.PreferenceItem.TextPreference(
+                    title = "Crash the app!",
+                    subtitle = "To test crashes",
+                    onClick = {
+                        scope.launch {
+                            alertDialog.simple {
+                                titleRes = MR.strings.warning
+                                text = "I told you this would crash the app, why would you want that?"
+                                confirmText = "Crash it anyway"
+                                onConfirm = { throw RuntimeException("Fell into the void") }
+                            }
+                        }
+                    },
+                ))
+                add(Preference.PreferenceItem.TextPreference(
+                    title = "Prune finished workers",
+                    subtitle = "In case worker stuck in FAILED state and you're too impatient to wait",
+                    onClick = {
+                        scope.launch {
+                            alertDialog.simple {
+                                title = "Are you sure?"
+                                text = "Failed workers should clear out by itself eventually, this option should only be used if you're being impatient and you know what you're doing."
+                                confirmText = "Prune"
+                                onConfirm = { context.workManager.pruneWork() }
+                            }
+                        }
+                    },
+                ))
+            }
         }.toPersistentList()
 
         return Preference.PreferenceGroup(
