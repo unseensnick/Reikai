@@ -9,7 +9,6 @@ import android.webkit.WebStorage
 import android.webkit.WebView
 import android.widget.Toast
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -91,8 +90,6 @@ import yokai.presentation.settings.screen.advanced.awaitCleanupDownloadedChapter
 
 object SettingsAdvancedScreen : ComposableSettings() {
 
-    private const val LOG_TAG = "SettingsAdvancedScreen"
-
     private fun readResolve() = SettingsAdvancedScreen
 
     @Composable
@@ -104,10 +101,6 @@ object SettingsAdvancedScreen : ComposableSettings() {
         val basePreferences: BasePreferences by injectLazy()
         val networkPreferences: NetworkPreferences by injectLazy()
         val isUpdaterEnabled = BuildConfig.INCLUDE_UPDATER
-
-        LaunchedEffect(Unit) {
-            Logger.i(LOG_TAG) { "entered compose advanced settings" }
-        }
 
         return buildList {
             add(Preference.PreferenceItem.SwitchPreference(
@@ -248,21 +241,14 @@ object SettingsAdvancedScreen : ComposableSettings() {
             add(Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.force_download_cache_refresh),
                 subtitle = stringResource(MR.strings.force_download_cache_refresh_summary),
-                onClick = {
-                    Logger.i(LOG_TAG) { "force download cache refresh" }
-                    downloadManager.refreshCache()
-                },
+                onClick = { downloadManager.refreshCache() },
             ))
             add(Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.clean_up_downloaded_chapters),
                 subtitle = stringResource(MR.strings.delete_unused_chapters),
                 onClick = {
-                    Logger.i(LOG_TAG) { "clean up downloaded chapters clicked" }
                     scope.launch {
                         val opts = alertDialog.awaitCleanupDownloadedChapters() ?: return@launch
-                        Logger.i(LOG_TAG) {
-                            "cleanup options → deleteRead=${opts.deleteRead}, deleteNonFavorite=${opts.deleteNonFavorite}"
-                        }
                         cleanupDownloads(
                             context = context,
                             downloadManager = downloadManager,
@@ -502,7 +488,6 @@ object SettingsAdvancedScreen : ComposableSettings() {
             add(Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.action_revoke_all_extensions),
                 onClick = {
-                    Logger.i(LOG_TAG) { "revoke all extensions clicked" }
                     scope.launch {
                         alertDialog.simple {
                             titleRes = MR.strings.confirm_revoke_all_extensions
@@ -583,27 +568,16 @@ object SettingsAdvancedScreen : ComposableSettings() {
                     title = stringResource(MR.strings.pref_hardware_bitmap_threshold),
                     subtitle = stringResource(MR.strings.pref_hardware_bitmap_threshold_summary, "%s"),
                     entries = entries,
-                    onValueChanged = {
-                        Logger.i(LOG_TAG) { "hardwareBitmapThreshold → $it" }
-                        true
-                    },
                 ))
             }
             add(Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.pref_display_profile),
                 subtitle = displayProfileSubtitle,
-                onClick = {
-                    Logger.i(LOG_TAG) { "display profile picker opened" }
-                    (context as? MainActivity)?.showColourProfilePicker()
-                },
+                onClick = { (context as? MainActivity)?.showColourProfilePicker() },
             ))
             add(Preference.PreferenceItem.SwitchPreference(
                 pref = readerPreferences.debugMode(),
                 title = stringResource(MR.strings.pref_reader_debug_mode),
-                onValueChanged = {
-                    Logger.i(LOG_TAG) { "readerDebugMode → $it" }
-                    true
-                },
             ))
         }.toPersistentList()
 
@@ -624,10 +598,6 @@ object SettingsAdvancedScreen : ComposableSettings() {
                 Preference.PreferenceItem.SwitchPreference(
                     pref = sourcePreferences.externalLocalSource(),
                     title = stringResource(MR.strings.pref_external_local_source),
-                    onValueChanged = {
-                        Logger.i(LOG_TAG) { "externalLocalSource → $it" }
-                        true
-                    },
                 ),
             ).toPersistentList(),
         )
@@ -643,17 +613,13 @@ object SettingsAdvancedScreen : ComposableSettings() {
         val children = buildList {
             add(Preference.PreferenceItem.TextPreference(
                 title = "Storybook",
-                onClick = {
-                    Logger.i(LOG_TAG) { "storybook clicked" }
-                    navigator.push(StoryBookScreen())
-                },
+                onClick = { navigator.push(StoryBookScreen()) },
             ))
             if (BuildConfig.FLAVOR == "dev" || BuildConfig.DEBUG || BuildConfig.NIGHTLY) {
                 add(Preference.PreferenceItem.TextPreference(
                     title = "Crash the app!",
                     subtitle = "To test crashes",
                     onClick = {
-                        Logger.i(LOG_TAG) { "crash the app clicked" }
                         scope.launch {
                             alertDialog.simple {
                                 titleRes = MR.strings.warning
@@ -668,7 +634,6 @@ object SettingsAdvancedScreen : ComposableSettings() {
                     title = "Prune finished workers",
                     subtitle = "In case worker stuck in FAILED state and you're too impatient to wait",
                     onClick = {
-                        Logger.i(LOG_TAG) { "prune finished workers clicked" }
                         scope.launch {
                             alertDialog.simple {
                                 title = "Are you sure?"
