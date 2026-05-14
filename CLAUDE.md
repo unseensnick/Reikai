@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Yōkai-Y2K** is a personal Android manga reader — a fork of [Yōkai](https://github.com/null2264/yokai) (itself a fork of Tachiyomi/Mihon). The fork adds multi-source manga grouping, manual merge/unmerge, and category sorting on top of upstream Yōkai.
 
 - Upstream: `https://github.com/null2264/yokai`
-- Package ID: `eu.kanade.tachiyomi` (kept intentionally for backup compatibility with Yōkai)
+- Package ID: `eu.kanade.tachiyomi`. Release suffix is `.y2k` (was `.yokai`); the change in 1.9.7.5.x makes Y2K installable alongside upstream Yōkai. Backup files remain interchangeable — Tachiyomi-lineage backups don't bind to applicationId, so a Y2K backup restores into upstream Yōkai (and vice versa).
 - App name string: `Yōkai-Y2K` (in `i18n/src/commonMain/moko-resources/base/strings.xml`)
 
 ## Versioning Convention
