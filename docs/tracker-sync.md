@@ -16,7 +16,7 @@ If a sibling already has a different `remote_id` linked for the same tracker ser
 
 *Library → long-press to multi-select → tap "Merge selected".*
 
-When the resulting group has any tracker links, every member ends up with the union of those links after the merge. For each tracker service, the binding shared by the most members of the new group wins, so a brand-new source joining an already-tracked group inherits the group's existing binding rather than overwriting it. Ties fall back to first-encountered.
+When the resulting group has any tracker links, every member ends up with the union of those links after the merge. For each tracker service, the binding shared by **strictly more** members of the new group wins, so a brand-new source joining an already-tracked group inherits the group's existing binding rather than overwriting it. On ties (no strict majority) the tracker is left as-is on every member — so a 2-member group where each member has a different binding for the same service keeps both bindings instead of silently overwriting one.
 
 The same reconciliation runs on **auto-grouped** entries — when you add a manga to your library and it shares a title with an already-tracked entry, the new source picks up the existing tracker on the next library refresh. Reconciliation runs once per group composition (cached persistently across app restarts) so the user's later explicit tracker-chip removals on a member aren't undone on subsequent passes.
 

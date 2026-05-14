@@ -11,6 +11,7 @@ Update `CHANGELOG.md`:
 - Add a bullet under `## [Unreleased]` using these category labels: `Additions`, `Changes`, `Fixes`, `Other`.
 - If `## [Unreleased]` doesn't exist, create it immediately above the most recent version entry.
 - **Do not add a new entry for mid-development churn** — if you're iterating on something already in `[Unreleased]`, edit the existing bullet or leave it. Don't accumulate "fix X in feature Y" bullets when Y was added in the same `[Unreleased]` block.
+- **Write for release notes, not for yourself.** `[Unreleased]` becomes the GitHub release draft, so users skimming it want *what changed, where it lives, what it does* — not the implementation rationale. Avoid formulas, class names, internal phase numbering, network protocol detail, migration numbers, and extension-family taxonomy. Keep each bullet to 1–3 sentences; lead with the user-visible effect or in-app path. Implementation context belongs in commit messages, not the changelog.
 
 Check `README.md` and `docs/*.md` for stale references when behavior, file paths called out in docs, or fork-specific mechanics change. Update in the same change.
 

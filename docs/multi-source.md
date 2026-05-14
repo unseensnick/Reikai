@@ -10,7 +10,7 @@ Each section below leads with the in-app path or trigger so you know exactly whe
 
 When two or more library entries share the same title (case-insensitive), they're rendered as a single card. A small pill badge in the corner of the card shows the source count (e.g. `2`, `3`).
 
-Behind the scenes this happens in `LibraryPresenter.applySourceGrouping()`. Grouping is per-category, so the same manga across two categories still shows once per category.
+Grouping is per-category, so the same manga across two categories still shows once per category.
 
 ## Source-switcher chips
 
@@ -41,12 +41,7 @@ Two paths, both ending at the same confirmation dialog:
 
 Either way, the source you remove goes back to being a standalone library entry; the rest of the group stays merged.
 
-State is stored in two preferences:
-
-- `mangaManualMerges` — string set of comma-separated ID pairs of manga that should be grouped even if titles don't match
-- `mangaManualUnmerges` — string set of comma-separated ID pairs of manga that should *not* be grouped despite matching titles
-
-Both preferences are included in app backups, so manual merge/unmerge state survives a backup-and-restore.
+Manual merge / unmerge state is included in app backups, so it survives a backup-and-restore.
 
 ## Manage sources sheet
 

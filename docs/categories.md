@@ -16,8 +16,6 @@ By default, categories appear in the order you arranged them (manual order, drag
 
 Switching to A→Z or Z→A doesn't destroy your manual order — flipping back to **Off** restores it. The sort applies everywhere categories are listed: the library tab strip, the "Move to category" sheet, and the categories screen.
 
-The setting is stored in the `categorySortOrder` preference (int: `0` = Off, `1` = A→Z, `2` = Z→A) and applied in `LibraryPresenter`'s category comparator.
-
 ## Category bulk delete
 
 *Settings → Library → **Edit categories**, then long-press any category.*

@@ -44,9 +44,17 @@ The goal is to stay in sync with upstream Yōkai as closely as possible, while l
 * **Bulk-remove merged groups** ([docs](docs/multi-source.md#bulk-remove-all-sources-from-library)).
 * **Tracker sync across grouped sources** ([docs](docs/tracker-sync.md)).
 * **Category sort order & bulk delete** ([docs](docs/categories.md)).
-* **Taste-profile-driven related-mangas carousel** ([docs](docs/related-mangas.md#taste-profile)).
-* **Full-screen "See all" browse** for related mangas, with bulk add-to-library ([docs](docs/related-mangas.md#full-screen-browse-see-all-y2k)).
+* **Taste-profile personalization** of the related-mangas carousel ([docs](docs/related-mangas.md#taste-profile)).
+* **Status-aware hide filters** on the related-mangas carousel ([docs](docs/related-mangas.md#filters-y2k)).
 * **FlareSolverr support** for Cloudflare bypass ([docs](docs/flaresolverr.md)).
+
+</details>
+
+<details open="">
+    <summary><h3>From Komikku</h3></summary>
+
+* **Related-mangas carousel** on manga details ([docs](docs/related-mangas.md)).
+* **Full-screen "See all" browse** for related mangas, with bulk add-to-library ([docs](docs/related-mangas.md#full-screen-browse-see-all-y2k)).
 
 </details>
 
@@ -146,7 +154,7 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 * **On `main`**: tries to pull from upstream, sees divergence, refuses or offers to discard fork commits. Don't use.
 * **On other branches**: safe — syncs the branch with this repo's `main`.
 
-Upstream commits flow in via `git fetch upstream && git merge upstream/master` on `main`, where rebrand conflicts are resolved once. Never merge `upstream/master` directly into a non-`main` branch. See [docs/development.md](docs/development.md#syncing-with-upstream) for full details.
+Upstream commits flow in via `git fetch upstream && git merge upstream/master` on `main`, where rebrand conflicts are resolved once. Never merge `upstream/master` directly into a non-`main` branch. See [docs/dev/development.md](docs/dev/development.md#syncing-with-upstream) for full details.
 
 </details>
 

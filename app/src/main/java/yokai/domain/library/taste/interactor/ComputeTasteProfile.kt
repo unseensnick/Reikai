@@ -8,7 +8,7 @@ import yokai.domain.library.taste.model.TrackedEntry
 /**
  * Pure (no I/O) reduction: `List<TrackedEntry>` → `TasteProfile`.
  *
- * **Status weights** (from `docs/suggestions-plan.md` §"Taste profile"):
+ * **Status weights:**
  *
  * | Status | Weight |
  * |---|---|
@@ -27,10 +27,9 @@ import yokai.domain.library.taste.model.TrackedEntry
  *
  * - `rating` is the normalized 0..1 score from the tracker. Unrated entries (`-1.0`)
  *   substitute `0.5` so status still signals direction with neutral magnitude.
- * - The denominator uses `|status_weight|` — diverges from the doc's literal
- *   `Σ status_weight` because that form divides by zero whenever a tag has equal
- *   COMPLETED and DROPPED counts. `|·|` preserves the intended weighting (completed
- *   counts more than reading) without the divide-by-zero pathology.
+ * - Denominator uses `|status_weight|` rather than raw `Σ status_weight` so a tag
+ *   with equal COMPLETED and DROPPED counts doesn't divide by zero. `|·|` preserves
+ *   the intended weighting (completed counts more than reading) without that pathology.
  * - Result is clamped to `[-1.0, +1.0]`.
  */
 class ComputeTasteProfile {

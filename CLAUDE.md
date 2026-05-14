@@ -1,6 +1,6 @@
 # Yōkai-Y2K
 
-Android manga reader. Personal fork of [Yōkai](https://github.com/null2264/yokai) (Tachiyomi/Mihon lineage) adding multi-source grouping, manual merge/unmerge, and category sort order. See `docs/development.md` for architecture, modules, fork features, and reference clones.
+Android manga reader. Personal fork of [Yōkai](https://github.com/null2264/yokai) (Tachiyomi/Mihon lineage) adding multi-source grouping, manual merge/unmerge, and category sort order. See `docs/dev/development.md` for architecture, modules, fork features, and reference clones.
 
 ## Commands
 
