@@ -244,17 +244,17 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
 
     /**
      * Phase 7 — drop library candidates whose tracker status is READING, COMPLETED, or
-     * UNKNOWN. UNKNOWN rides this bucket because Layer A's local status mapper currently
-     * collapses DROPPED + ON_HOLD into UNKNOWN (see Phase 4.1 TODO at
-     * TrackerLibraryRepositoryImpl.mapStatus), so the conservative default is "treat
-     * unknown like already-reading."
+     * UNKNOWN. UNKNOWN catches manga tracked on services without a recognized status
+     * accessor (legacy/removed trackers); the conservative default is "treat unknown
+     * like already-reading."
      */
     fun hideTrackedReadingCompleted() = preferenceStore.getBoolean(Keys.hideTrackedReadingCompleted, true)
 
     /**
-     * Phase 7 — drop library candidates whose tracker status is DROPPED. Accurate only
-     * when the Layer B tracker cache is populated; users without a refreshed cache see
-     * DROPPED rows fall into UNKNOWN, governed by [hideTrackedReadingCompleted] instead.
+     * Phase 7 — drop library candidates whose tracker status is DROPPED. Works for every
+     * tracker that exposes a `droppedStatus()` accessor (AniList, MAL, MangaUpdates, Kitsu,
+     * Shikimori, Bangumi). Self-hosted Komga / Kavita / Suwayomi don't model "dropped" at
+     * all, so this preference has no effect for those entries.
      */
     fun hideTrackedDropped() = preferenceStore.getBoolean(Keys.hideTrackedDropped, true)
 

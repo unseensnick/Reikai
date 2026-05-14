@@ -6,8 +6,10 @@ import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.util.QuerySanitizer.sanitize
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.domain.library.taste.interactor.ComputeTasteProfile
@@ -80,14 +82,20 @@ class TasteCandidateFetcher(
             tags.forEach { tag ->
                 launch {
                     runCatching {
-                        source.getSearchManga(1, tag.sanitize(), FilterList()).mangas
+                        withTimeout(REQUEST_TIMEOUT_MS) {
+                            source.getSearchManga(1, tag.sanitize(), FilterList()).mangas
+                        }
                     }
                         .onSuccess { mangas ->
                             if (mangas.isNotEmpty()) pushResults(tag to mangas, false)
                         }
                         .onFailure { e ->
-                            Logger.e(e) { "Tag-search candidate fetch failed for \"$tag\"" }
-                            exceptionHandler(e)
+                            if (e is TimeoutCancellationException) {
+                                // Silent skip — slow source search shouldn't gate the carousel.
+                            } else {
+                                Logger.e(e) { "Tag-search candidate fetch failed for \"$tag\"" }
+                                exceptionHandler(e)
+                            }
                         }
                 }
             }
@@ -113,14 +121,20 @@ class TasteCandidateFetcher(
             favorites.forEach { favorite ->
                 launch {
                     runCatching {
-                        val match = source
-                            .getSearchManga(1, favorite.title.sanitize(), FilterList())
-                            .mangas.firstOrNull() ?: return@runCatching
-                        val related = source.fetchRelatedMangaList(match)
-                        if (related.isNotEmpty()) pushResults(favorite.title to related, false)
+                        withTimeout(REQUEST_TIMEOUT_MS) {
+                            val match = source
+                                .getSearchManga(1, favorite.title.sanitize(), FilterList())
+                                .mangas.firstOrNull() ?: return@withTimeout
+                            val related = source.fetchRelatedMangaList(match)
+                            if (related.isNotEmpty()) pushResults(favorite.title to related, false)
+                        }
                     }.onFailure { e ->
-                        Logger.e(e) { "Cross-recommendation candidate fetch failed for \"${favorite.title}\"" }
-                        exceptionHandler(e)
+                        if (e is TimeoutCancellationException) {
+                            // Silent skip — slow source search or related fetch shouldn't gate the carousel.
+                        } else {
+                            Logger.e(e) { "Cross-recommendation candidate fetch failed for \"${favorite.title}\"" }
+                            exceptionHandler(e)
+                        }
                     }
                 }
             }
@@ -136,5 +150,9 @@ class TasteCandidateFetcher(
 
         /** Hard cap on favorites consulted per page load — bounds the call count. */
         const val MAX_FAVORITES = 5
+
+        /** Per-stream hard cap on each tag-search / cross-rec source call. Matches the per-task
+         *  timeout in `RecommendationsFetcher` so a hung source request can't gate the carousel. */
+        private const val REQUEST_TIMEOUT_MS = 15_000L
     }
 }

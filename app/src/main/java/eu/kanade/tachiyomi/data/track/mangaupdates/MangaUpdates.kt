@@ -50,6 +50,10 @@ class MangaUpdates(private val context: Context, id: Long) : TrackService(id) {
     override fun completedStatus() = COMPLETE_LIST
     override fun readingStatus() = READING_LIST
     override fun planningStatus() = WISH_LIST
+    override fun onHoldStatus() = ON_HOLD_LIST
+    // MangaUpdates' "Unfinished List" is the equivalent of "Dropped" — manga the user started
+    // but won't finish. The list label differs from other trackers but the user intent matches.
+    override fun droppedStatus() = UNFINISHED_LIST
 
     override fun getStatus(status: Int): String = with(context) {
         when (status) {

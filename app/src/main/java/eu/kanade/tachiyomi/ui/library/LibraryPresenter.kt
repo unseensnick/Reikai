@@ -1386,11 +1386,15 @@ class LibraryPresenter(
         merges.add(newEntry)
         preferences.mangaManualMerges().set(merges)
 
-        // Clear any unmerge pairs that conflict with this manual re-merge
+        // Clear only the unmerge pairs that are WHOLLY within the new merge set. Using
+        // `.any` here would over-clear: merging [B,C] would strip the (A,B) and (A,C)
+        // unmerge pairs from an earlier full-group unmerge of [A,B,C], silently re-admitting
+        // A back into the auto-group via the same-title path next time the manga details page
+        // recomputes relatedMangaIds. Restrict to pairs where every member is in the merge set.
         val unmerges = preferences.mangaManualUnmerges().get().toMutableSet()
         unmerges.removeAll { entry ->
             val parts = entry.split(",").mapNotNull { it.trim().toLongOrNull() }
-            parts.any { it in sortedSet }
+            parts.isNotEmpty() && parts.all { it in sortedSet }
         }
         preferences.mangaManualUnmerges().set(unmerges)
 
@@ -1417,8 +1421,11 @@ class LibraryPresenter(
      * Ensures every manga in the new group carries the union of all tracker links any member
      * already had. For each tracker service, the binding shared by the most members wins (so a
      * new source joining a group inherits the group's existing binding rather than overwriting
-     * it). Ties fall back to first-encountered. Uses `(manga_id, sync_id) ON CONFLICT REPLACE`
-     * semantics — any existing row for a given service is overwritten with the canonical link.
+     * it). **Requires a strict majority** — if two bindings are tied for most-frequent, the
+     * tracker is left untouched on every member rather than silently overwriting user-set values
+     * with whichever happens to come first by insertion order. Uses `(manga_id, sync_id) ON
+     * CONFLICT REPLACE` semantics for the propagated rows — any existing row for a given service
+     * is overwritten with the canonical link, but skipped trackers stay as-is.
      */
     private suspend fun propagateTracksAcrossGroup(ids: List<Long>) {
         if (ids.size < 2) return
@@ -1427,10 +1434,10 @@ class LibraryPresenter(
         val canonicalBySyncId = allTracks
             .groupBy { it.sync_id }
             .mapValues { (_, list) ->
-                list.groupBy { it.media_id }
-                    .maxByOrNull { it.value.size }
-                    ?.value
-                    ?.first()
+                val byMediaId = list.groupBy { it.media_id }
+                val winner = byMediaId.maxByOrNull { it.value.size } ?: return@mapValues null
+                val hasTie = byMediaId.values.any { it !== winner.value && it.size == winner.value.size }
+                if (hasTie) null else winner.value.first()
             }
         ids.forEach { mangaId ->
             canonicalBySyncId.values.forEach { canonical ->

@@ -47,6 +47,21 @@ abstract class TrackService(val id: Long) {
     abstract fun readingStatus(): Int
     abstract fun planningStatus(): Int
 
+    /**
+     * Tracker's raw status code for On-hold / paused entries, or [STATUS_UNSUPPORTED] if the
+     * tracker doesn't model the concept (e.g. self-hosted Komga / Kavita / Suwayomi).
+     * Consumed by [yokai.data.library.taste.TrackerLibraryRepositoryImpl.mapStatus] when
+     * Layer A's local `manga_sync` rows need a [yokai.domain.library.taste.model.TrackStatus]
+     * classification for Phase 7's hide filters.
+     */
+    open fun onHoldStatus(): Int = STATUS_UNSUPPORTED
+
+    /**
+     * Tracker's raw status code for Dropped entries, or [STATUS_UNSUPPORTED] if the tracker
+     * doesn't model the concept. See [onHoldStatus] for usage.
+     */
+    open fun droppedStatus(): Int = STATUS_UNSUPPORTED
+
     abstract fun getStatus(status: Int): String
 
     abstract fun getGlobalStatus(status: Int): String
@@ -110,6 +125,15 @@ abstract class TrackService(val id: Long) {
 
     fun saveCredentials(username: String, password: String) {
         trackPreferences.setCredentials(this, username, password)
+    }
+
+    companion object {
+        /**
+         * Sentinel for [onHoldStatus] / [droppedStatus] when the tracker doesn't model the
+         * status. [Int.MIN_VALUE] is far outside any tracker's real status-code range, so
+         * `mapStatus(service, rawStatus)`'s `when` won't accidentally match it.
+         */
+        const val STATUS_UNSUPPORTED: Int = Int.MIN_VALUE
     }
 }
 

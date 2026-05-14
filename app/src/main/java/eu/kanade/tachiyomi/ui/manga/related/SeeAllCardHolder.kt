@@ -17,6 +17,9 @@ class SeeAllCardHolder(view: View, adapter: RelatedMangaCardAdapter) :
                 ?: return@setOnClickListener
             (adapter as RelatedMangaCardAdapter).seeAllClickListener.onRelatedMangaSeeAllClick(item)
         }
+        // Same as RelatedMangaCardHolder — consume long-press so the chapter context menu
+        // doesn't surface from the outer adapter.
+        itemView.setOnLongClickListener { true }
     }
 
     fun bind(count: Int) {

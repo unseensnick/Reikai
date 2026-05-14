@@ -66,6 +66,8 @@ class MyAnimeList(private val context: Context, id: Long) : TrackService(id) {
     override fun completedStatus(): Int = COMPLETED
     override fun readingStatus() = READING
     override fun planningStatus() = PLAN_TO_READ
+    override fun onHoldStatus() = ON_HOLD
+    override fun droppedStatus() = DROPPED
 
     override fun getScoreList(): ImmutableList<String> {
         return IntRange(0, 10).map(Int::toString).toImmutableList()

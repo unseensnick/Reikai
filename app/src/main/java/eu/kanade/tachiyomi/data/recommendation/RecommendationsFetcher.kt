@@ -6,8 +6,10 @@ import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.model.SManga
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.domain.track.interactor.GetTrack
@@ -66,13 +68,25 @@ class RecommendationsFetcher(
         exceptionHandler: (Throwable) -> Unit,
         pushResults: suspend (Pair<String, List<SManga>>, Boolean) -> Unit,
     ) {
-        runCatching { tracker.fetch(remoteId, title) }
+        runCatching { withTimeout(REQUEST_TIMEOUT_MS) { tracker.fetch(remoteId, title) } }
             .onSuccess { results ->
                 if (results.isNotEmpty()) pushResults(tracker.trackerName to results, false)
             }
             .onFailure { e ->
-                Logger.e(e) { "Tracker recommendations fetch failed (${tracker.trackerName})" }
-                exceptionHandler(e)
+                if (e is TimeoutCancellationException) {
+                    // Slow tracker → silently skip so it doesn't gate the carousel's
+                    // load-complete signal for the other trackers and source-native results.
+                } else {
+                    Logger.e(e) { "Tracker recommendations fetch failed (${tracker.trackerName})" }
+                    exceptionHandler(e)
+                }
             }
+    }
+
+    companion object {
+        /** Per-tracker hard cap on the recommendation fetch. Long enough that AniList GraphQL
+         *  on a slow connection completes; short enough that one hung tracker doesn't gate the
+         *  carousel's `relatedMangasLoading = false` toggle for ~30s on OkHttp's socket timeout. */
+        private const val REQUEST_TIMEOUT_MS = 15_000L
     }
 }

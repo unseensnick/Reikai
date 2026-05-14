@@ -20,6 +20,9 @@ class RelatedMangaCardHolder(view: View, adapter: RelatedMangaCardAdapter) :
                 ?: return@setOnClickListener
             (adapter as RelatedMangaCardAdapter).mangaClickListener.onRelatedMangaClick(item)
         }
+        // Carousel cards have no long-press action; consume the gesture locally so the
+        // outer MangaDetailsAdapter (chapter list) doesn't catch it and show its context menu.
+        itemView.setOnLongClickListener { true }
         // Cards-style outlines match the rest of the app's manga thumbnails.
         setCards(adapter.showOutlines, binding.card, null)
     }

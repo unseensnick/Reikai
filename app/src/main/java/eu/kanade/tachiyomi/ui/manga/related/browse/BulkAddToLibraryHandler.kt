@@ -37,12 +37,6 @@ import yokai.util.lang.getString
  *   `manga.favorite` post-resolve and move on.
  * - Tracker-origin candidates (`sourceId == RECOMMENDS_SOURCE`). Their URLs don't resolve to any
  *   installed extension; we partition them off and report them in the completion toast.
- *
- * HACK(unseensnick): [SetCategoriesSheet.addMangaToCategories] only flips `favorite` + writes
- * `date_added` when `listManga.size == 1`. For the multi-manga "always ask" path here, we set
- * favorite + persist via [UpdateManga] BEFORE invoking the sheet so the sheet's category-write is
- * applied against an already-favorited manga set. Remove the pre-flip if the sheet ever learns to
- * handle N>1 itself.
  */
 class BulkAddToLibraryHandler(
     private val preferences: PreferencesHelper = Injekt.get(),
@@ -137,22 +131,6 @@ class BulkAddToLibraryHandler(
         skippedTrackerCount: Int,
         onDone: () -> Unit,
     ) {
-        // Pre-flip favorite + persist before the sheet — see HACK comment in class KDoc.
-        val now = Date().time
-        withIOContext {
-            resolved.forEach { manga ->
-                manga.favorite = true
-                manga.date_added = now
-                updateManga.await(
-                    MangaUpdate(
-                        id = manga.id!!,
-                        favorite = true,
-                        dateAdded = now,
-                    ),
-                )
-            }
-        }
-
         // Compute common+mixed preselection (mirrors List<Manga>.moveCategories in MangaExtensions).
         // Freshly-added manga have no existing categories yet, so both sets are typically empty
         // and every checkbox starts UNCHECKED — but the reduce is correct for the general case

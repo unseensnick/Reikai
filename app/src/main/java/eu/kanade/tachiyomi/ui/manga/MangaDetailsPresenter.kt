@@ -81,6 +81,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -178,6 +179,9 @@ class MangaDetailsPresenter(
         private set
     private var relatedMangasFetched: Boolean = false
     private val relatedMangasMutex = Mutex()
+
+    /** Dedupe guard for [refreshRelatedMangaIds] — see KDoc on that function. */
+    @Volatile private var lastRelatedMangaIdsRefreshMs: Long = 0L
 
 //    private val currentMangaInternal: MutableStateFlow<Manga?> = MutableStateFlow(null)
 //    val currentManga get() = currentMangaInternal.asStateFlow()
@@ -583,14 +587,20 @@ class MangaDetailsPresenter(
             // Phase 7 — status-aware library hide. Replaces the Phase 6 blanket `libraryUrls`
             // filter with a status-driven drop set. Failure modes degrade to "no filter at all"
             // for status data but the Phase 6 behavior is recovered via the toggle below.
-            val libraryStatuses: Map<Pair<Long, String>, Set<TrackStatus>> = runCatching {
-                Injekt.get<GetLibraryStatuses>().await()
-            }.getOrElse {
-                Logger.e(it) { "Library statuses lookup failed; status filter will be a no-op" }
-                emptyMap()
-            }
             val hideRC = preferences.hideTrackedReadingCompleted().get()
             val hideD = preferences.hideTrackedDropped().get()
+            val libraryStatuses: Map<Pair<Long, String>, Set<TrackStatus>> = if (!hideRC && !hideD) {
+                // Both filters off → nothing for the interactor to feed; skip the full-favorites
+                // scan + per-favorite track lookups entirely.
+                emptyMap()
+            } else {
+                runCatching {
+                    Injekt.get<GetLibraryStatuses>().await()
+                }.getOrElse {
+                    Logger.e(it) { "Library statuses lookup failed; status filter will be a no-op" }
+                    emptyMap()
+                }
+            }
             val libraryHidden: Set<Pair<Long, String>> = libraryStatuses.entries
                 .asSequence()
                 .filter { (_, statuses) -> shouldHideLibraryEntry(statuses, hideRC, hideD) }
@@ -611,58 +621,73 @@ class MangaDetailsPresenter(
             val exceptionHandler: (Throwable) -> Unit = { e ->
                 Logger.e(e) { "Related-mangas sub-task failed for ${manga.title}" }
             }
+            val antiEcho: (RelatedMangaCandidate) -> Boolean = { c ->
+                c.sourceId != RECOMMENDS_SOURCE && libraryHidden.contains(c.sourceId to c.manga.url)
+            }
+            // Post-review M2 — snapshot under the mutex, rank outside, then re-acquire to apply
+            // iff this push is still the latest. Lets a slow ranker pass on push A run concurrently
+            // with push B's insert + snapshot. Version check prevents A from clobbering B's newer
+            // ranked output if A's apply phase happens to land after B's.
+            val pushSeq = AtomicLong(0L)
+            val appliedSeq = AtomicLong(0L)
 
             // Same accumulator for both input streams — only the sourceId attached to each batch
             // differs. Mutex guards concurrent inserts since source-native + tracker fetchers
             // race each other.
             fun makePushResults(
                 sourceId: Long,
-            ): suspend (Pair<String, List<SManga>>, Boolean) -> Unit = { pair, _ ->
+            ): suspend (Pair<String, List<SManga>>, Boolean) -> Unit = pushHandler@{ pair, _ ->
                 // For tracker pushes (sourceId == RECOMMENDS_SOURCE) the bucket label is the
                 // tracker name (e.g. "AniList") and lets the merge step round-robin slots fairly.
                 // For source pushes it's the keyword/extension label and isn't needed downstream.
                 val trackerName = pair.first.takeIf { sourceId == RECOMMENDS_SOURCE }
-                val changed = relatedMangasMutex.withLock {
-                    val before = accumulated.size
-                    pair.second.forEach { m ->
-                        if (m.url == excludedUrl) return@forEach
-                        val titleKey = normalizeTitleForDedup(m.title)
-                        if (!seenTitleKeys.add(titleKey)) return@forEach
-                        accumulated.add(RelatedMangaCandidate(sourceId, trackerName, m))
-                    }
-                    if (accumulated.size != before) {
-                        val merged = mergeForDisplay(accumulated)
-                        // Phase 6/7: anti-echo runs in both modes. Phase 7 narrows the hidden
-                        // set by tracker-status user prefs (computed once into `libraryHidden`
-                        // above). Full rerank gates on the user-facing toggle so the carousel
-                        // can be returned to Phase 5 ordering by flipping one preference.
-                        val antiEcho: (RelatedMangaCandidate) -> Boolean = { c ->
-                            c.sourceId != RECOMMENDS_SOURCE &&
-                                libraryHidden.contains(c.sourceId to c.manga.url)
+                val snapshot: Triple<Long, List<RelatedMangaCandidate>, List<RelatedMangaCandidate>> =
+                    relatedMangasMutex.withLock {
+                        val before = accumulated.size
+                        pair.second.forEach { m ->
+                            if (m.url == excludedUrl) return@forEach
+                            val titleKey = normalizeTitleForDedup(m.title)
+                            if (!seenTitleKeys.add(titleKey)) return@forEach
+                            accumulated.add(RelatedMangaCandidate(sourceId, trackerName, m))
                         }
-                        relatedMangas = if (rerankEnabled) {
-                            ranker.rank(merged, taste, libraryHidden)
+                        if (accumulated.size == before) {
+                            null
                         } else {
-                            merged.filterNot(antiEcho)
+                            val seq = pushSeq.incrementAndGet()
+                            // Phase 6.5: separate snapshot of the unbounded pool for the "See all"
+                            // browse view. Ranking it separately (rather than ranking-once-then-
+                            // slicing) preserves byte-identical Phase 6 carousel behavior since the
+                            // ranker's exploration-slot count scales with input size.
+                            Triple(seq, mergeForDisplay(accumulated), accumulated.toList())
                         }
-                        // Phase 6.5: separate ranker pass on the unbounded pool for the "See all"
-                        // browse view. We rank twice (rather than rank-once-then-slice) so the
-                        // carousel keeps its byte-identical Phase 6 behavior — the ranker's
-                        // exploration-slot count scales with input size, so ranking the full pool
-                        // and taking the top 30 would over-allocate exploration into the carousel
-                        // and starve the taste-sorted picks.
-                        val fullPool = accumulated.toList()
-                        relatedMangasFullPool = if (rerankEnabled) {
-                            ranker.rank(fullPool, taste, libraryHidden)
-                        } else {
-                            fullPool.filterNot(antiEcho)
-                        }
-                        true
-                    } else {
+                    } ?: return@pushHandler
+
+                val (seq, merged, fullPool) = snapshot
+                // Phase 6/7: anti-echo runs in both modes. Phase 7 narrows the hidden set by
+                // tracker-status user prefs. Full rerank gates on the user-facing toggle so the
+                // carousel can be returned to Phase 5 ordering by flipping one preference.
+                val newRelated = if (rerankEnabled) {
+                    ranker.rank(merged, taste, libraryHidden)
+                } else {
+                    merged.filterNot(antiEcho)
+                }
+                val newFullPool = if (rerankEnabled) {
+                    ranker.rank(fullPool, taste, libraryHidden)
+                } else {
+                    fullPool.filterNot(antiEcho)
+                }
+
+                val applied = relatedMangasMutex.withLock {
+                    if (appliedSeq.get() >= seq) {
                         false
+                    } else {
+                        appliedSeq.set(seq)
+                        relatedMangas = newRelated
+                        relatedMangasFullPool = newFullPool
+                        true
                     }
                 }
-                if (changed) withUIContext { view?.updateHeader() }
+                if (applied) withUIContext { view?.updateHeader() }
             }
 
             runCatching {
@@ -718,9 +743,9 @@ class MangaDetailsPresenter(
      * Phase 7 — apply the user's status-based hide policy to a single library entry.
      *
      * Empty status set = "in library, no tracker info" → always hide (matches Phase 6
-     * blanket behavior). UNKNOWN rides the Reading/Completed bucket because Layer A's
-     * local mapper currently collapses DROPPED + ON_HOLD into UNKNOWN (see Phase 4.1
-     * TODO at [yokai.data.library.taste.TrackerLibraryRepositoryImpl.mapStatus]).
+     * blanket behavior). UNKNOWN rides the Reading/Completed bucket — it now only fires
+     * for tracks on services without a recognized status accessor (legacy / unsupported
+     * trackers), so the conservative default is to treat them like actively-reading.
      * PLAN_TO_READ and ON_HOLD are never hidden — those are "reminder" statuses.
      */
     private fun shouldHideLibraryEntry(
@@ -1486,8 +1511,15 @@ class MangaDetailsPresenter(
      * details screen re-attaches (e.g. returning from Global Search after the user added another
      * source for the same title) so the source-switcher chips reflect the new sibling without
      * waiting for a Library round-trip.
+     *
+     * Dedupes back-to-back calls within a short window: the controller fires this from both
+     * `onAttach` and `onChangeStarted(POP_ENTER)` and back-nav can trip both within ~10ms. Each
+     * call would otherwise scan the full favorites list; the timestamp guard skips the second.
      */
     suspend fun refreshRelatedMangaIds(): Boolean {
+        val now = System.currentTimeMillis()
+        if (now - lastRelatedMangaIdsRefreshMs < REFRESH_DEDUP_WINDOW_MS) return false
+        lastRelatedMangaIdsRefreshMs = now
         val targetId = manga.id ?: return false
         val targetTitle = manga.title.lowercase().trim()
         if (targetTitle.isEmpty()) return false
@@ -1557,10 +1589,46 @@ class MangaDetailsPresenter(
             merges.add(others.sorted().joinToString(","))
         }
         preferences.mangaManualMerges().set(merges)
+        // Mirror onto in-memory state — see the multi-id overload's comment for why this matters
+        // for the chip-row memo invalidation.
+        relatedMangaIds = others.toLongArray()
     }
 
     fun removeFromGroup(targetIds: List<Long>) {
-        targetIds.forEach { removeFromGroup(it) }
+        if (targetIds.isEmpty()) return
+        val targetSet = targetIds.toSet()
+        val others = relatedMangaIds.filter { it !in targetSet }
+        if (others.isEmpty()) return
+
+        // Record that each removed target must not auto-group with any other group member
+        // (both the surviving siblings and any other removed targets). Mirrors the single-id
+        // unmerge shape but runs once instead of N times, so we don't read stale state per loop.
+        val unmerges = preferences.mangaManualUnmerges().get().toMutableSet()
+        for (targetId in targetIds) {
+            for (otherId in relatedMangaIds) {
+                if (otherId == targetId) continue
+                val pair = if (targetId < otherId) "$targetId,$otherId" else "$otherId,$targetId"
+                unmerges.add(pair)
+            }
+        }
+        preferences.mangaManualUnmerges().set(unmerges)
+
+        // Drop every merge entry mentioning any removed target, then re-add a single entry for
+        // the survivors so they stay explicitly grouped.
+        val merges = preferences.mangaManualMerges().get().toMutableSet()
+        merges.removeAll { entry ->
+            entry.split(",").any { it.trim().toLongOrNull() in targetSet }
+        }
+        if (others.size >= 2) {
+            merges.add(others.sorted().joinToString(","))
+        }
+        preferences.mangaManualMerges().set(merges)
+        // Mirror the persisted result onto the in-memory state. Without this, the chip-row memo
+        // (keyed on `(mangaId, relatedMangaIds, unmerges)`) only re-renders when the snackbar
+        // action fires once — a duplicate fire (~10ms apart) leaves it short-circuited because
+        // `relatedMangaIds` was identical between the two `setSourceChips` calls and the second
+        // call hits the cache-hit branch before the first's async chip rebuild has finished.
+        relatedMangaIds = others.toLongArray()
     }
 
     suspend fun removeFromLibrary(targetIds: List<Long>) {
@@ -1570,6 +1638,11 @@ class MangaDetailsPresenter(
         }
         if (updates.isNotEmpty()) updateManga.awaitAll(updates)
         preferences.invalidateTrackerReconciliationFor(targetIds)
+        // Mirror onto in-memory state so the chip-row memo invalidates (same reasoning as
+        // `removeFromGroup` overloads). The unfavorite write above doesn't trigger the memo since
+        // its key doesn't include manga.favorite — only `(mangaId, relatedMangaIds, unmerges)`.
+        val targetSet = targetIds.toSet()
+        relatedMangaIds = relatedMangaIds.filter { it !in targetSet }.toLongArray()
         presenterScope.launchNonCancellableIO {
             targetIds.forEach { id ->
                 val target = getManga.awaitById(id) ?: return@forEach
@@ -1587,6 +1660,11 @@ class MangaDetailsPresenter(
 
         /** Carousel display cap. Phase 6.5 surfaces the full pool via [relatedMangasFullPool]. */
         internal const val RELATED_MANGAS_LIMIT = 30
+
+        /** Dedupe window for [refreshRelatedMangaIds]. Two attach hooks (`onAttach` and
+         *  `onChangeStarted(POP_ENTER)`) can fire within ~10ms of each other on back-nav;
+         *  this prevents the second from re-running the full-favorites scan. */
+        private const val REFRESH_DEDUP_WINDOW_MS = 1000L
 
         /**
          * Minimum number of carousel slots reserved for tracker-origin recommendations so they

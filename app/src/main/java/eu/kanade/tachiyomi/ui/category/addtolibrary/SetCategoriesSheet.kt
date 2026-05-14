@@ -8,6 +8,8 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.WindowInsetsCompat.Type.systemBars
 import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePaddingRelative
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetBehavior
@@ -22,7 +24,9 @@ import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.ui.category.ManageCategoryDialog
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.util.system.dpToPx
+import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.rootWindowInsetsCompat
+import eu.kanade.tachiyomi.util.system.withUIContext
 import eu.kanade.tachiyomi.util.view.checkHeightThen
 import eu.kanade.tachiyomi.util.view.expand
 import eu.kanade.tachiyomi.widget.E2EBottomSheetDialog
@@ -30,6 +34,9 @@ import eu.kanade.tachiyomi.widget.TriStateCheckBox
 import java.util.Date
 import java.util.Locale
 import kotlin.math.max
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.category.interactor.GetCategories
@@ -262,44 +269,69 @@ class SetCategoriesSheet(
         }
 
         binding.addToCategoriesButton.setOnClickListener {
-            addMangaToCategories()
-            dismiss()
+            binding.addToCategoriesButton.isEnabled = false
+            val owner = activity as? LifecycleOwner
+            if (owner == null) {
+                // Defensive fallback for non-LifecycleOwner activities; matches the pre-fix
+                // behavior. Yokai's MainActivity is an AppCompatActivity so this path is dead in
+                // practice — kept so the sheet doesn't crash if reused from a stripped-down host.
+                runBlocking { addMangaToCategories() }
+                dismiss()
+                return@setOnClickListener
+            }
+            owner.lifecycleScope.launchIO {
+                try {
+                    addMangaToCategories()
+                    withUIContext { dismiss() }
+                } catch (e: Throwable) {
+                    withUIContext { binding.addToCategoriesButton.isEnabled = true }
+                    throw e
+                }
+            }
         }
     }
 
-    private fun addMangaToCategories() {
-        if (listManga.size == 1 && !listManga.first().favorite) {
-            val manga = listManga.first()
-            manga.favorite = !manga.favorite
-            manga.date_added = Date().time
-
-            // FIXME: Don't do blocking
-            runBlocking {
+    private suspend fun addMangaToCategories() {
+        val toFavorite = listManga.filter { !it.favorite }
+        if (toFavorite.isNotEmpty()) {
+            val now = Date().time
+            toFavorite.forEach { manga ->
+                manga.favorite = true
+                manga.date_added = now
                 updateManga.await(
                     MangaUpdate(
                         id = manga.id!!,
-                        favorite = manga.favorite,
+                        favorite = true,
                         dateAdded = manga.date_added,
-                    )
+                    ),
                 )
             }
         }
 
         val addCategories = checkedItems.map(AddCategoryItem::category)
         val removeCategories = uncheckedItems.map(AddCategoryItem::category)
-        val mangaCategories = listManga.map { manga ->
-            // FIXME: Don't do blocking
-            runBlocking { getCategories.awaitByMangaId(manga.id!!) }
-                .subtract(removeCategories.toSet())
+        // Batch the per-manga existing-categories fetch in parallel — used to be a sequential
+        // runBlocking inside .map, which was the worst freeze in the function (N×DB round-trips
+        // on the UI thread for bulk-add of 100 mangas → ~300-800ms ANR risk).
+        val perManga = coroutineScope {
+            listManga.map { manga ->
+                async { manga to getCategories.awaitByMangaId(manga.id!!) }
+            }.awaitAll()
+        }
+        val mangaCategories = perManga.flatMap { (manga, existing) ->
+            existing.subtract(removeCategories.toSet())
                 .plus(addCategories)
                 .distinct()
                 .map { MangaCategory.create(manga, it) }
-        }.flatten()
+        }
         if (addCategories.isNotEmpty() || listManga.size == 1) {
             Category.lastCategoriesAddedTo =
                 addCategories.mapNotNull { it.id }.toSet().ifEmpty { setOf(0) }
         }
-        runBlocking { setMangaCategories.awaitAll(listManga.mapNotNull { it.id }, mangaCategories) }
-        onMangaAdded()
+        setMangaCategories.awaitAll(listManga.mapNotNull { it.id }, mangaCategories)
+        // Hop to UI so the callback contract is "always invoked on main" — pre-fix the whole
+        // function ran on main via runBlocking, so callers can still call toast(), update views,
+        // etc. without their own thread hop.
+        withUIContext { onMangaAdded() }
     }
 }

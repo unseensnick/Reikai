@@ -131,7 +131,7 @@ Once the merged pool is assembled, [`RecommendationRanker`](../app/src/main/java
 
 Candidates whose `(sourceId, manga.url)` matches a library entry are dropped before scoring. Tracker-origin candidates skip the filter — their URLs are tracker URLs and wouldn't match a library row. Runs independently of the rerank toggle: turning Rerank by taste off keeps the filter active.
 
-The hide set is computed by [`GetLibraryStatuses`](../app/src/main/java/yokai/domain/library/taste/interactor/GetLibraryStatuses.kt) joining favorites + tracker rows + Layer B cache, then narrowed by the user's [filter prefs](#filters-y2k): **READING** / **COMPLETED** / **UNKNOWN** are governed by *Hide already-tracked*, **DROPPED** by *Hide dropped*. **ON_HOLD** and **PLAN_TO_READ** are never hidden — those are "reminder" statuses. Library entries with no tracker info at all are hidden regardless (no status to consult).
+The hide set is computed by [`GetLibraryStatuses`](../app/src/main/java/yokai/domain/library/taste/interactor/GetLibraryStatuses.kt) joining favorites + tracker rows + Layer B cache, then narrowed by the user's [filter prefs](#filters-y2k): **READING** / **COMPLETED** / **UNKNOWN** are governed by *Hide already-tracked*, **DROPPED** by *Hide dropped*, **ON_HOLD** and **PLAN_TO_READ** are never hidden. Phase 4.1's `TrackService.onHoldStatus()` / `droppedStatus()` accessors let Layer A classify DROPPED / ON_HOLD from local `manga_sync` rows alone for the six full-feature trackers (AniList, MAL, MangaUpdates, Kitsu, Shikimori, Bangumi); Layer B cache is no longer required for accurate filtering. Library entries with no tracker info at all are hidden regardless.
 
 ### Scoring
 
@@ -195,8 +195,6 @@ Tracker-origin candidates (`sourceId == RECOMMENDS_SOURCE`) are partitioned out 
 
 Duplicate-library detection (the per-item "this is already in your library, want to migrate?" dialog Yokai's single-add path uses) is deliberately skipped for bulk. Most related-manga items aren't already in the library, and the workflow is "browse and add quickly" rather than careful per-item curation.
 
-The "always ask" branch pre-flips `favorite=true` + `date_added=now()` via `UpdateManga` before invoking the sheet, working around an existing N=1-only favorite-flip in `SetCategoriesSheet.addMangaToCategories`.
-
 ## Settings
 
 *Settings → Library → Recommendations.*
@@ -228,8 +226,8 @@ Five sections:
 
 **Filters** *(Y2K)*
 
-- **Hide already-tracked** *(default on)* — drop library candidates whose tracker status is READING, COMPLETED, or UNKNOWN. UNKNOWN rides this toggle because Layer A's local status mapper collapses DROPPED / ON_HOLD into UNKNOWN when the Layer B cache is empty (Phase 4.1 TODO).
-- **Hide dropped** *(default on)* — drop library candidates marked DROPPED on a tracker. Accurate only after a tracker library refresh; without a populated cache, DROPPED rows fall into UNKNOWN and ride *Hide already-tracked* instead.
+- **Hide already-tracked** *(default on)* — drop library candidates whose tracker status is READING, COMPLETED, or UNKNOWN. UNKNOWN now only triggers for entries on legacy / unsupported trackers (after Phase 4.1, the six full-feature trackers — AniList, MAL, MangaUpdates, Kitsu, Shikimori, Bangumi — all classify DROPPED / ON_HOLD natively).
+- **Hide dropped** *(default on)* — drop library candidates marked DROPPED on a tracker. Works from local data alone for the six full-feature trackers above; self-hosted Komga / Kavita / Suwayomi don't model "dropped" at all so this toggle has no effect for those entries.
 
 Library entries with no tracker info at all are hidden regardless of these toggles. PLAN_TO_READ and ON_HOLD entries are never hidden — those are "reminder" statuses. Turning both filters off plus *Rerank by taste* on with no taste profile means library entries appear in suggestions; the escape hatch is to flip *Rerank by taste* off, which restores the Phase 6 blanket-hide.
 

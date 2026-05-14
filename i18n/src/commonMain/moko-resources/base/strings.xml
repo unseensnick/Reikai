@@ -270,7 +270,7 @@
     <string name="hide_tracked_reading_completed">Hide already-tracked</string>
     <string name="hide_tracked_reading_completed_summary">Hide library manga marked as Reading or Completed on a tracker. Library entries without tracker info are also hidden.</string>
     <string name="hide_tracked_dropped">Hide dropped</string>
-    <string name="hide_tracked_dropped_summary">Hide library manga marked as Dropped on a tracker. Requires a refreshed tracker library cache to detect Dropped accurately.</string>
+    <string name="hide_tracked_dropped_summary">Hide library manga marked as Dropped on a tracker.</string>
     <!-- Phase 6.5 (See all / bulk-add browse) -->
     <string name="see_all_count">See all (%d)</string>
     <string name="related_mangas_browse_title">Related mangas</string>

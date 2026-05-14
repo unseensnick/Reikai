@@ -74,11 +74,6 @@ class TrackerLibraryRepositoryImpl(
      * Maps a Layer A raw row to a [TrackedEntry], applying per-tracker score + status
      * normalization. Returns `null` when the row's tracker id doesn't match any known
      * [TrackService] (e.g. a removed/legacy tracker).
-     *
-     * Phase 4 core caveat: only [TrackService.completedStatus] / [TrackService.readingStatus]
-     * / [TrackService.planningStatus] are detectable from the base API, so ON_HOLD and
-     * DROPPED currently fall through to [TrackStatus.UNKNOWN]. Phase 4.1+ adds dedicated
-     * accessors so the compute formula can apply the full status-weight table.
      */
     private fun LocalEntryRow.toTrackedEntry(): TrackedEntry? {
         val service = trackManager.getService(trackerId) ?: return null
@@ -134,9 +129,8 @@ class TrackerLibraryRepositoryImpl(
         service.completedStatus() -> TrackStatus.COMPLETED
         service.readingStatus() -> TrackStatus.READING
         service.planningStatus() -> TrackStatus.PLAN_TO_READ
-        // TODO(phase4.1): add onHoldStatus()/droppedStatus() to TrackService so ON_HOLD/DROPPED
-        //  contribute their doc-spec weights (0.3 / -1.0) to the compute formula. Until then,
-        //  they fall through to UNKNOWN which the formula treats as zero-weight.
+        service.onHoldStatus() -> TrackStatus.ON_HOLD
+        service.droppedStatus() -> TrackStatus.DROPPED
         else -> TrackStatus.UNKNOWN
     }
 

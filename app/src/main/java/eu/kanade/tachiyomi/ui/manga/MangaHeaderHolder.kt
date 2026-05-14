@@ -90,6 +90,7 @@ class MangaHeaderHolder(
     var hadSelection = false
     private var canCollapse = true
     private var chipsJob: Job? = null
+    private var lastChipState: Triple<Long, List<Long>, Set<String>>? = null
     private var relatedMangasAdapter: RelatedMangaCardAdapter? = null
 
     init {
@@ -555,21 +556,52 @@ class MangaHeaderHolder(
         }
     }
 
+    /**
+     * Populate the source-switcher chip row.
+     *
+     * `bind()` fires on every `updateHeader()` — including the rapid stream of header updates
+     * the related-mangas fetch triggers as it pushes batches. Re-running the async source query
+     * and rebuilding all chips on every bind caused a continuous collapse→expand flicker of the
+     * row. Two changes to fix it:
+     *
+     *  1. **Memoize on (mangaId, relatedMangaIds, mangaManualUnmerges).** When the inputs to
+     *     the chip set haven't changed, skip the rebuild entirely (the chips already on screen
+     *     are correct). The unmerges preference has to be part of the key — long-pressing a
+     *     chip to "Remove from group" only writes to that pref and never touches
+     *     `presenter.relatedMangaIds` (which is in-memory state refreshed on attach), so a
+     *     memo on just the array would miss the unmerge and keep stale chips on screen.
+     *  2. **Stop pre-collapsing the row to GONE during the async fetch.** GONE on every bind
+     *     was what made the layout below shift up then back down each time. Only set GONE when
+     *     the manga truly has no related sources (so the row never appears). When chips are
+     *     populating for the first time, the scroll view goes straight from XML-default GONE to
+     *     VISIBLE once the chips are added — one transition per controller, not one per bind.
+     */
     private fun setSourceChips(binding: MangaHeaderItemBinding?, presenter: MangaDetailsPresenter) {
         val chipGroup = binding?.sourceChipGroup ?: return
         val scrollView = binding.sourceChipScroll ?: return
 
-        chipsJob?.cancel()
-        chipGroup.removeAllViews()
-
+        // No siblings to switch to — hide the row entirely and reset the memo so a future
+        // re-grouping re-renders cleanly.
         if (presenter.relatedMangaIds.isEmpty()) {
-            scrollView.isVisible = false
+            chipsJob?.cancel()
+            chipGroup.removeAllViews()
+            lastChipState = null
+            scrollView.visibility = View.GONE
             return
         }
 
-        // Stay hidden until chips are ready — prevents blank-row flash
-        scrollView.isVisible = false
+        val newState = Triple(
+            presenter.mangaId,
+            presenter.relatedMangaIds.toList(),
+            presenter.preferences.mangaManualUnmerges().get(),
+        )
+        if (newState == lastChipState && chipGroup.childCount > 0) {
+            // Same chip set as last render and the chips are still attached — nothing to do.
+            return
+        }
+        lastChipState = newState
 
+        chipsJob?.cancel()
         val scope = (adapter.delegate as? MangaDetailsController)?.viewScope ?: return
         chipsJob = scope.launch(Dispatchers.Main) {
             val sources = withContext(Dispatchers.IO) {
@@ -608,8 +640,9 @@ class MangaHeaderHolder(
                 }
                 chipGroup.addView(chip)
             }
-            // Only reveal the row once chips are actually present
-            scrollView.isVisible = true
+            // Reveal the row once chips are attached — single GONE→VISIBLE transition per
+            // controller, instead of one per bind.
+            scrollView.visibility = View.VISIBLE
         }
     }
 
