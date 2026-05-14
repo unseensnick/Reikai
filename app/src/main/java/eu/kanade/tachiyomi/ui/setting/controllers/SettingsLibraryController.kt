@@ -91,6 +91,17 @@ class SettingsLibraryController : SettingsLegacyController() {
                     TabbedLibraryDisplaySheet(this@SettingsLibraryController).show()
                 }
             }
+
+            preference {
+                key = "library_recommendations"
+                isPersistent = false
+                titleRes = MR.strings.recommendations
+                summaryRes = MR.strings.configure_recommendations
+
+                onClick {
+                    router.pushController(SettingsLibraryRecommendationsController().withFadeTransaction())
+                }
+            }
         }
 
         // FIXME: Don't do blocking

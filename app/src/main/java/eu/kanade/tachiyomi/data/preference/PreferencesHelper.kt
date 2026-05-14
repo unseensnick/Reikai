@@ -168,6 +168,18 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
 
     fun trackerSyncReconciledGroups() = preferenceStore.getStringSet(Keys.trackerSyncReconciledGroups, emptySet())
 
+    /** Master toggle for tracker-backed recommendations in the related-mangas carousel. */
+    fun includeTrackerRecommendations() = preferenceStore.getBoolean(Keys.includeTrackerRecommendations, true)
+
+    /** Whether AniList's public recommendations endpoint contributes to the related-mangas pool. */
+    fun aniListRecommendations() = preferenceStore.getBoolean(Keys.aniListRecommendations, true)
+
+    /** Whether the MyAnimeList recommendations endpoint (via Jikan) contributes. */
+    fun myAnimeListRecommendations() = preferenceStore.getBoolean(Keys.myAnimeListRecommendations, true)
+
+    /** Whether the MangaUpdates community recommendations endpoint contributes. */
+    fun mangaUpdatesRecommendations() = preferenceStore.getBoolean(Keys.mangaUpdatesRecommendations, true)
+
     /**
      * Drop any cached group-reconciliation keys that contain one of [mangaIds]. Called whenever a
      * manga is removed from the library so that, if it's later re-added and the same composition

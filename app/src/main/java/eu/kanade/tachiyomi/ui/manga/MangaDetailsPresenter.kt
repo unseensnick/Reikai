@@ -32,6 +32,8 @@ import eu.kanade.tachiyomi.data.download.model.DownloadQueue
 import eu.kanade.tachiyomi.data.library.CustomMangaManager
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.data.recommendation.RECOMMENDS_SOURCE
+import eu.kanade.tachiyomi.data.recommendation.RecommendationsFetcher
 import eu.kanade.tachiyomi.data.track.EnhancedTrackService
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.TrackService
@@ -48,6 +50,7 @@ import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.base.presenter.BaseCoroutinePresenter
 import eu.kanade.tachiyomi.ui.manga.chapter.ChapterItem
+import eu.kanade.tachiyomi.ui.manga.related.RelatedMangaCandidate
 import eu.kanade.tachiyomi.ui.manga.track.TrackItem
 import eu.kanade.tachiyomi.ui.manga.track.TrackingBottomSheet
 import eu.kanade.tachiyomi.ui.security.SecureActivityDelegate
@@ -79,6 +82,7 @@ import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
@@ -147,8 +151,12 @@ class MangaDetailsPresenter(
      * Source-suggested mangas shown in the carousel below the description. Populated lazily on
      * first attach via [fetchRelatedMangasFromSource] and never refetched for the lifetime of
      * this presenter (matches Komikku's per-instance cache shape).
+     *
+     * Each entry carries the source id it should be opened with on tap — the current source for
+     * source-native / keyword suggestions, [eu.kanade.tachiyomi.data.recommendation.RECOMMENDS_SOURCE]
+     * for tracker recommendations whose URL doesn't belong to any installed extension.
      */
-    var relatedMangas: List<SManga> = emptyList()
+    var relatedMangas: List<RelatedMangaCandidate> = emptyList()
         private set
     var relatedMangasLoading: Boolean = false
         private set
@@ -526,8 +534,15 @@ class MangaDetailsPresenter(
 
     /**
      * Fetch related/suggested mangas for the carousel. One-shot per presenter instance — repeat
-     * calls are no-ops. Streams results from the source (per Komikku's `getRelatedMangaList`
-     * API) and pushes header updates as each batch arrives so the carousel populates as it goes.
+     * calls are no-ops. Three input streams feed the same pool: source-native related mangas
+     * (Komikku's `getRelatedMangaList` API on [CatalogueSource]), the keyword-search fallback
+     * (also from the source API), and tracker-backed recommendations (AniList / MyAnimeList via
+     * Jikan / MangaUpdates). Tracker batches are tagged with [RECOMMENDS_SOURCE] so the carousel
+     * can route their clicks through Global Search instead of trying to resolve a tracker URL
+     * against the current source.
+     *
+     * Dedup is by SManga url within the pool; tracker URLs and source URLs are in distinct URL
+     * spaces so they don't collide. Cap is [RELATED_MANGAS_LIMIT] across the merged pool.
      */
     fun fetchRelatedMangasFromSource() {
         if (relatedMangasFetched) return
@@ -539,29 +554,56 @@ class MangaDetailsPresenter(
             relatedMangasLoading = true
             withUIContext { view?.updateHeader() }
 
-            val accumulated = LinkedHashSet<SManga>()
+            val accumulated = LinkedHashSet<RelatedMangaCandidate>()
             val excludedUrl = manga.url
+            val exceptionHandler: (Throwable) -> Unit = { e ->
+                Logger.e(e) { "Related-mangas sub-task failed for ${manga.title}" }
+            }
+
+            // Same accumulator for both input streams — only the sourceId attached to each batch
+            // differs. Mutex guards concurrent inserts since source-native + tracker fetchers
+            // race each other.
+            fun makePushResults(
+                sourceId: Long,
+            ): suspend (Pair<String, List<SManga>>, Boolean) -> Unit = { pair, _ ->
+                // For tracker pushes (sourceId == RECOMMENDS_SOURCE) the bucket label is the
+                // tracker name (e.g. "AniList") and lets the merge step round-robin slots fairly.
+                // For source pushes it's the keyword/extension label and isn't needed downstream.
+                val trackerName = pair.first.takeIf { sourceId == RECOMMENDS_SOURCE }
+                val changed = relatedMangasMutex.withLock {
+                    val before = accumulated.size
+                    pair.second.forEach { m ->
+                        if (m.url != excludedUrl) {
+                            accumulated.add(RelatedMangaCandidate(sourceId, trackerName, m))
+                        }
+                    }
+                    if (accumulated.size != before) {
+                        relatedMangas = mergeForDisplay(accumulated)
+                        true
+                    } else {
+                        false
+                    }
+                }
+                if (changed) withUIContext { view?.updateHeader() }
+            }
 
             runCatching {
-                catalogueSource.getRelatedMangaList(
-                    manga = manga,
-                    exceptionHandler = { e ->
-                        Logger.e(e) { "Related-mangas sub-task failed for ${manga.title}" }
-                    },
-                    pushResults = { pair, _ ->
-                        val changed = relatedMangasMutex.withLock {
-                            val before = accumulated.size
-                            pair.second.forEach { m -> if (m.url != excludedUrl) accumulated.add(m) }
-                            if (accumulated.size != before) {
-                                relatedMangas = accumulated.toList().take(RELATED_MANGAS_LIMIT)
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                        if (changed) withUIContext { view?.updateHeader() }
-                    },
-                )
+                coroutineScope {
+                    launch {
+                        catalogueSource.getRelatedMangaList(
+                            manga = manga,
+                            exceptionHandler = exceptionHandler,
+                            pushResults = makePushResults(catalogueSource.id),
+                        )
+                    }
+                    launch {
+                        RecommendationsFetcher().fetch(
+                            manga = manga,
+                            exceptionHandler = exceptionHandler,
+                            pushResults = makePushResults(RECOMMENDS_SOURCE),
+                        )
+                    }
+                }
             }.onFailure {
                 Logger.e(it) { "Related-mangas fetch failed for ${manga.title}" }
             }
@@ -569,6 +611,48 @@ class MangaDetailsPresenter(
             relatedMangasLoading = false
             withUIContext { view?.updateHeader() }
         }
+    }
+
+    /**
+     * Slice the accumulated pool into the carousel-visible list. Reserves up to
+     * [RELATED_MANGAS_TRACKER_RESERVE] slots for tracker-origin entries so they aren't starved
+     * when source-native fills the cap first; either side cedes unfilled capacity to the other.
+     *
+     * Within the tracker slots, round-robin across trackers so one fast tracker doesn't dominate
+     * (e.g. MAL/Jikan returning 90+ items shouldn't squeeze AniList and MangaUpdates out).
+     */
+    private fun mergeForDisplay(pool: LinkedHashSet<RelatedMangaCandidate>): List<RelatedMangaCandidate> {
+        val sourceList = pool.filterNot { it.sourceId == RECOMMENDS_SOURCE }
+        val trackerLists = pool
+            .filter { it.sourceId == RECOMMENDS_SOURCE }
+            .groupBy { it.trackerName }
+            .values
+            .toList()
+        val trackerTotal = trackerLists.sumOf { it.size }
+        val initialTracker = minOf(trackerTotal, RELATED_MANGAS_TRACKER_RESERVE)
+        val sourceTake = minOf(sourceList.size, RELATED_MANGAS_LIMIT - initialTracker)
+        val trackerCap = minOf(trackerTotal, RELATED_MANGAS_LIMIT - sourceTake)
+        return sourceList.take(sourceTake) + roundRobin(trackerLists, trackerCap)
+    }
+
+    /**
+     * Interleave [lists] in round-robin order, stopping at [limit]. Empty lists are skipped
+     * automatically; uneven list sizes mean longer lists drain into remaining iterations once
+     * shorter ones are exhausted.
+     */
+    private fun <T> roundRobin(lists: List<List<T>>, limit: Int): List<T> {
+        if (limit <= 0 || lists.isEmpty()) return emptyList()
+        val iterators = lists.map { it.iterator() }.filter { it.hasNext() }.toMutableList()
+        val out = ArrayList<T>(limit)
+        while (out.size < limit && iterators.isNotEmpty()) {
+            val it = iterators.iterator()
+            while (it.hasNext() && out.size < limit) {
+                val cur = it.next()
+                out.add(cur.next())
+                if (!cur.hasNext()) it.remove()
+            }
+        }
+        return out
     }
 
     /**
@@ -1384,5 +1468,12 @@ class MangaDetailsPresenter(
         const val TENS_OF_CHAPTERS = 2
         const val MULTIPLE_SEASONS = 3
         private const val RELATED_MANGAS_LIMIT = 30
+
+        /**
+         * Minimum number of carousel slots reserved for tracker-origin recommendations so they
+         * aren't starved when source-native + keyword-search return enough to fill the cap
+         * before trackers respond. Either side cedes unfilled capacity to the other.
+         */
+        private const val RELATED_MANGAS_TRACKER_RESERVE = 12
     }
 }

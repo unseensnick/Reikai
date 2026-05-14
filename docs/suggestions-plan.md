@@ -2,7 +2,7 @@
 
 Working notes for adding Komikku-style related-manga suggestions to Yōkai-Y2K, plus a Y2K-original personalization layer that re-ranks (and adds to) the result pool using the user's tracker library, with explicit anti-echo-chamber controls.
 
-**Status:** not implemented. This document is the spec. Read it, settle the open questions at the bottom, then start phase 1.
+**Status:** Phases 1–3 are done. Phases 4–8 are not started — read this doc, the "Implementation status & decisions" section below, and the still-open questions at the bottom, then start Phase 4.
 
 ## Scope split
 
@@ -17,6 +17,106 @@ The feature has two layers, advertised separately in the README. The Komikku lay
 | **Taste-profile reranking** | **Unique to Yōkai-Y2K** | Re-orders the combined pool by similarity to your library. |
 | **Serendipity / anti-echo** | **Unique to Yōkai-Y2K** | Reserved exploration slots, tag-diversity cap, tag-novelty boost — keeps recommendations from collapsing into "more of the same." |
 | **Personalization settings** | **Unique to Yōkai-Y2K** | Per-mechanism toggles + weight sliders. |
+
+---
+
+## Implementation status & decisions
+
+Updated after Phases 1–2 landed. Decisions captured here are the ones that diverged from the original spec or settled a previously-open question.
+
+### Phase status
+
+| Phase | Status | Commit anchor (on `feat/related-mangas`) |
+|---|---|---|
+| 1. Source-API contract + keyword fallback | ✅ done | `54fa8d9b3` |
+| 2. UI carousel on manga details | ✅ done (+ stability follow-ups) | `fb5fed2f8` → `fd9be3ca6` |
+| 3. Tracker-backed recommendations | ✅ done | (this commit) |
+| 4. Taste profile | ⏸ next | |
+| 5. Active candidate injection | ⏸ not started | |
+| 6. Rerank + anti-echo | ⏸ not started | |
+| 7. Settings UI | ⏸ not started | |
+| 8. i18n + `docs/related-mangas.md` | ⏳ partial | CHANGELOG bullets land per phase; dedicated doc not yet written |
+
+Branch is forked off `feat/tracker-sync-grouped`. Phases 1–3 form a usable Komikku-equivalent baseline on their own.
+
+### Phase 1 decisions
+
+- **Source-API signature: ported Komikku's streaming callback verbatim** — not the flat `List<SManga>` or bucketed `List<Pair<String, List<SManga>>>` alternatives this doc originally proposed. The signature is:
+
+  ```kotlin
+  suspend fun getRelatedMangaList(
+      manga: SManga,
+      exceptionHandler: (Throwable) -> Unit,
+      pushResults: suspend (Pair<String, List<SManga>>, Boolean) -> Unit,
+  )
+  ```
+
+  Extensions override only `fetchRelatedMangaList(manga): List<SManga>` and set `supportsRelatedMangas = true`; the base class handles streaming and the search fallback. This is the right shape for incremental UI population — the carousel can fill in as each keyword search returns.
+
+- **Errors route via `exceptionHandler`**, not via an internal Kermit log. Komikku swallows sub-task errors into a log; we surface them to the caller's handler. Side benefit: no kermit dep needed in `source/api`'s commonMain.
+
+- **Dropped Komikku's `manga.originalTitle` branch** in the keyword-search fallback. Yokai's `SManga` has no `originalTitle` field. Only `manga.title` is split.
+
+- **`QuerySanitizer` ported as a stand-alone utility** at `source/api/src/commonMain/kotlin/eu/kanade/tachiyomi/util/QuerySanitizer.kt`. Yokai didn't have it.
+
+- **Coroutines core in `source/api` commonMain** is already transitively available via `koin-core` (see `Page.kt` for prior use of `kotlinx.coroutines.flow`). No gradle changes needed.
+
+### Phase 2 decisions
+
+- **Carousel uses RecyclerView + FlexibleAdapter**, not Compose. Manga details screen is still Conductor + ViewBinding (per CLAUDE.md). New classes:
+  - `RelatedMangaCardItem` / `RelatedMangaCardHolder` / `RelatedMangaCardAdapter` under `ui/manga/related/`
+  - `OnRelatedMangaClickListener` interface implemented by `MangaDetailsController`
+  - `related_manga_card_item.xml` for the real card, `related_manga_skeleton_card.xml` + `drawable/skeleton_placeholder.xml` for the loading placeholder
+
+- **Layout stability is achieved differently from Komikku's Compose impl.** Komikku puts placeholder cards inline in the same `LazyRow` as real items so the container is permanently fixed-size; Yokai uses two siblings (skeleton `LinearLayout` + RecyclerView) anchored at the same position. To get the same stability:
+
+  1. **`VISIBLE`/`INVISIBLE` swap between skeleton and recycler, never `GONE`.** Both children always occupy the 230dp slot once the section is visible. `GONE` causes the layout to collapse and pushes siblings around.
+  2. **`Barrier` (`related_mangas_bottom_barrier`) references both** with `barrierDirection="bottom"`. `start_reading_button` (and `chapter_layout` in landscape) anchors to the barrier, not directly to the recycler. Without this the button slides into the skeleton row when the recycler is GONE.
+  3. **Adapter populated before `recycler.visibility = VISIBLE`**, closing the one-frame "visible but empty" gap.
+  4. **`recycler.itemAnimator = null`** so streamed batch appends don't animate.
+  5. **Section-level `GONE`** is fine and still used for the "source has no suggestions, hide the whole section" state.
+
+- **Click navigation creates a DB row.** `MangaDetailsPresenter.toLocalManga(sManga, sourceId)` mirrors `GlobalSearchPresenter.networkToLocalManga` — looks up by `(url, source)`, inserts if missing, returns the local `Manga`. The carousel then routes through `router.pushController(MangaDetailsController(local, true).withFadeTransaction())`.
+
+- **Pool cap of 30** is hard-coded as `RELATED_MANGAS_LIMIT` in `MangaDetailsPresenter.companion`. Deduplication uses a `LinkedHashSet<SManga>` keyed by `url` (within a single source), protected by a `Mutex` since `pushResults` is invoked concurrently from per-keyword sub-tasks.
+
+- **Per-presenter cache.** `relatedMangasFetched: Boolean` is a one-shot guard; re-attaches/POP_ENTER don't re-fetch. New `MangaDetailsController` instances (e.g. after switching source via chip) get a fresh presenter and re-fetch.
+
+- **Trigger from `onAttach`.** Idempotent — `presenter.fetchRelatedMangasFromSource()` is safe to call on every attach.
+
+- **Source chips got the same memoization treatment** (related fix, not new feature):
+  - `(mangaId, relatedMangaIds, mangaManualUnmerges)` memo key on `MangaHeaderHolder`.
+  - `mangaManualUnmerges` is part of the key because `removeFromGroup` only writes to the pref and never mutates the in-memory `relatedMangaIds` — without including the pref, chip long-press → "Remove from group" would leave the chip on screen.
+  - `setSourceChips` only `GONE`s the row when chips truly aren't needed (single-source manga); during fetch the scroll view stays at its XML-default `GONE` until chips are added, then flips to `VISIBLE` once and stays there.
+
+### Phase 3 decisions
+
+- **Three tracker endpoints, all public.** AniList GraphQL, MyAnimeList via Jikan v4 REST (the official MAL API has no recommendations endpoint — Komikku does the same), MangaUpdates v1 community recommendations. Each runs without auth — no tracker sign-in required. The MU `category_recommendations` ("similar") variant Komikku also exposes is deferred; community only for Phase 3.
+
+- **Komikku's by-id-or-search dispatch ported verbatim.** Each tracker first looks up the user's existing track entry for the manga (via `GetTrack.awaitAllByMangaId` from the `domain/` interactor — **not** `TrackRepository` directly). If found, fetch recommendations by `media_id` for that tracker; otherwise resolve the id via a title search and then fetch recommendations. Means tracker recommendations work even for untracked manga.
+
+- **Single carousel, not separate sections.** Komikku has a dedicated Recommends *screen* with one section per tracker; Yokai has a single inline carousel on manga details. Tracker batches feed the same `pushResults` callback the source-native and keyword-search results use, sharing the existing `LinkedHashSet` dedup + 30-item cap. Tracker URLs and source URLs are in distinct URL spaces so URL-based dedup doesn't false-collide.
+
+- **`RECOMMENDS_SOURCE = -1L` sentinel + Global Search routing.** Each pool entry is wrapped in `RelatedMangaCandidate(sourceId, manga)` (in [`ui/manga/related/`](../app/src/main/java/eu/kanade/tachiyomi/ui/manga/related/RelatedMangaCandidate.kt)). Source-native results get `sourceId = catalogueSource.id`; tracker results get `RECOMMENDS_SOURCE`. `MangaDetailsController.onRelatedMangaClick` now takes the full item and branches: source-origin clicks resolve via `toLocalManga` as before; tracker-origin clicks call `globalSearch(item.manga.title)` (mirrors Komikku's SmartSearch behavior). Tracker URLs would never resolve to an installed extension, so opening one via `toLocalManga` would create an orphan DB row — sentinel routing avoids that.
+
+- **Package location: `data/recommendation/`, not `data/track/recommendation/`.** These fetchers consume three external APIs that happen to share endpoints with trackers but use no tracker auth, write nothing back to `manga_sync`, and don't depend on `TrackService` lifecycle. Coupling them under `data/track/` would inherit upstream tracker-class refactor risk for no benefit. Mirrors Komikku's `exh/recs/sources/` placement (also outside `data/track/`).
+
+- **`NetworkHelper.client`, not per-tracker authed clients.** The shared OkHttp client is fine — endpoints are public. Pulling each tracker's `Api.client` would attach OAuth interceptors that we don't want firing on public recommendation URLs.
+
+- **`@Serializable` DTOs, not raw JSON parsing.** Komikku uses `JsonObject` / `jsonArray` traversal everywhere; Yokai's existing tracker code uses Kotlinx Serialization data classes throughout. Followed Yokai convention. The shared `Json` instance has `ignoreUnknownKeys = true` + `explicitNulls = false` so DTOs only model the fields we extract.
+
+- **One-shot per presenter, no Phase 3 caching layer.** Same `relatedMangasFetched` guard as Phase 2 — switching source via chip creates a fresh presenter and re-runs all three trackers. Caching across screen rotations / app restarts is deferred unless a future phase needs it.
+
+- **Cross-pool title-dedup not added.** A manga could appear in source-native AND in a tracker's recommendations under different URLs. Accepted; matches Komikku (they don't dedupe across since their sections are separate anyway). The 30-cap bounds the visual noise.
+
+- **Tracker slot reservation + round-robin.** Surfaced during verification: source-native + keyword-search return enough hits to fill the 30-cap before the slower tracker endpoints respond, so a naive `take(30)` over the merged `LinkedHashSet` left tracker entries with zero visible slots. Then, with a flat reserve, whichever tracker pushed first would eat the whole reserve (MAL/Jikan typically returns 90+ items and beats AniList by ~150ms, MU by ~600ms, so MU got squeezed out). Fix: `mergeForDisplay` in `MangaDetailsPresenter` reserves up to `RELATED_MANGAS_TRACKER_RESERVE = 12` slots for tracker-origin entries and round-robins those slots across trackers (~4 each for the three trackers; empty trackers cede their share). Either side of the source/tracker split cedes unfilled capacity to the other. `RelatedMangaCandidate.trackerName` carries the tracker label (set from the `pushResults` bucket label, which is "AniList" / "MyAnimeList" / "MangaUpdates" for tracker pushes and null for source pushes).
+
+### Bugs surfaced and fixed during Phase 1–2 work
+
+These were latent — Phase 2 just happened to exercise the right code paths.
+
+- **`MangaCoverMetadata.getVibrantColor(Long?)` / `getColors(Long?)` NPE on null mangaId.** Both methods passed a nullable mangaId straight into `ConcurrentHashMap.get()`, which NPEs on null keys. Every other method in the file had a `mangaId ?: return` guard; these two missed it. Triggered by carousel cover loads passing `mangaId = null` (recommendations aren't library entries yet). Fix: added the same null guard.
+- **`Manga.create()` and `copyFrom()` need separate imports.** Both are extension functions in the `data.database.models` package, not members of the `Manga` class. `GlobalSearchPresenter` already imports them; my Phase 2 work needed the same.
 
 ---
 
@@ -179,29 +279,34 @@ Turning **both** "Active candidate injection" and "Taste-profile reranking" off 
 
 ## Phased commit plan
 
-| Phase | Layer | Hours |
-|---|---|---|
-| 1. Source-API contract + keyword fallback | Komikku | 3–4 |
-| 2. UI carousel on manga details | Komikku | 2–3 |
-| 3. Tracker-backed paging sources | Komikku | 3–4 |
-| 4. Taste profile (fetcher + cache + compute) | Y2K | 4–5 |
-| 5. Active candidate injection (tag-search + cross-recommendation) | Y2K | 3–4 |
-| 6. Rerank + anti-echo (formula + diversity cap + novelty + exploration slots) | Y2K | 4–5 |
-| 7. Settings UI (toggles + sliders + filters + refresh) | Y2K | 3–4 |
-| 8. i18n + `docs/related-mangas.md` | both | 1 |
-| **Total** | | **23–30** |
+| Phase | Layer | Hours | Status |
+|---|---|---|---|
+| 1. Source-API contract + keyword fallback | Komikku | 3–4 | ✅ done |
+| 2. UI carousel on manga details | Komikku | 2–3 | ✅ done |
+| 3. Tracker-backed recommendations | Komikku | 3–4 | ✅ done |
+| 4. Taste profile (fetcher + cache + compute) | Y2K | 4–5 | ⏸ next |
+| 5. Active candidate injection (tag-search + cross-recommendation) | Y2K | 3–4 | ⏸ |
+| 6. Rerank + anti-echo (formula + diversity cap + novelty + exploration slots) | Y2K | 4–5 | ⏸ |
+| 7. Settings UI (toggles + sliders + filters + refresh) | Y2K | 3–4 | ⏸ |
+| 8. i18n + `docs/related-mangas.md` | both | 1 | ⏳ partial |
+| **Total** | | **23–30** | |
 
-Phases 1–3 ship a usable Komikku-equivalent on their own — reasonable to land as one PR. Phases 4–7 add the Y2K layer; can land as a follow-up PR once the Komikku baseline is stable.
-
-A research/scoping commit before phase 1 — pinning the source-API function signature and confirming Yōkai's source layer is `suspend`-friendly here — is a good idea.
+Phases 1–3 ship a usable Komikku-equivalent on their own. Phases 4–7 add the Y2K layer; can land as a follow-up PR once the Komikku baseline is stable.
 
 ---
 
-## Open questions to resolve before coding
+## Open questions
+
+### Resolved (during Phase 1–3)
+
+- ~~**Function signature on the source API.**~~ Ported Komikku's streaming `pushResults` callback verbatim — neither flat nor bucketed. See "Implementation status & decisions" above.
+- ~~**Per-rerank pool size.**~~ Hard-cap of 30 (`RELATED_MANGAS_LIMIT` in `MangaDetailsPresenter`). In-process rerank is fine at this scale.
+- ~~**Cache invalidation for the candidate pool.**~~ Per-`MangaDetailsPresenter` instance via the `relatedMangasFetched` one-shot guard. New controllers re-fetch.
+- ~~**Tracker-recommendation click navigation.**~~ Tracker-origin cards carry a `RECOMMENDS_SOURCE = -1L` sentinel; on click they push `GlobalSearchController(title)` so the user picks an installed source to read on. Source-origin cards retain the existing `toLocalManga` path.
+- ~~**Where the tracker recommendation classes live.**~~ New package `data/recommendation/` (sibling of `data/track/`). Uses `NetworkHelper.client` (shared, unauthenticated), `GetTrack` interactor for per-tracker `media_id` lookup, `@Serializable` DTOs.
+
+### Still open (Phase 4+ territory)
 
 - **Where does the rerank logic live** — dedicated `RecommendationRanker` use-case in [`domain/`](../domain/) (clean separation, recommended) vs. presenter (couples concerns).
 - **Tag overlap calculation** — exact-match (default) vs. fuzzy ("Sci-Fi" vs "Science Fiction"). Start exact + a small tracker-side normalization map for the worst offenders.
 - **Score normalization across trackers** — AniList 0–100, MAL 1–10, MU 0–10 → normalize to 0–1 before merging into the taste profile.
-- **Per-rerank pool size** — confirmed during phase 1. If Komikku returns ≤30, rerank in-process; if more, sample or paginate.
-- **Function signature on the source API** — flat `suspend fun getRelatedMangaList(manga: SManga): List<SManga>` (default, simpler) vs. Komikku's keyword-bucketed `List<Pair<String, List<SManga>>>` (richer, lets the UI label each bucket "from search 'kaiju'"). Decide before phase 1.
-- **Cache invalidation for the candidate pool** — fetch once per `MangaDetailsController` instance, or share across instances? Per-instance is fine for v1.

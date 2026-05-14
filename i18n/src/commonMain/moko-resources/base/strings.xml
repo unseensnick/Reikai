@@ -225,6 +225,11 @@
     <string name="channel_skipped">Skipped</string>
 
     <!-- Library settings -->
+    <string name="recommendations">Recommendations</string>
+    <string name="configure_recommendations">Configure tracker recommendations</string>
+    <string name="include_tracker_recommendations">Include tracker recommendations</string>
+    <string name="include_tracker_recommendations_summary">Mix similar-manga suggestions from public tracker APIs into the related-mangas carousel</string>
+    <string name="recommendation_sources">Recommendation sources</string>
     <string name="library_update_frequency">Library update frequency</string>
     <string name="pref_library_update_manga_restriction">Skip updating titles</string>
     <string name="pref_update_only_completely_read">With unread chapter(s)</string>

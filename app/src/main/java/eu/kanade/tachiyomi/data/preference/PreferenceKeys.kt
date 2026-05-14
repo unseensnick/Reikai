@@ -97,6 +97,14 @@ object PreferenceKeys {
 
     const val trackerSyncReconciledGroups = "pref_tracker_sync_reconciled_groups"
 
+    const val includeTrackerRecommendations = "pref_include_tracker_recommendations"
+
+    const val aniListRecommendations = "pref_anilist_recommendations"
+
+    const val myAnimeListRecommendations = "pref_myanimelist_recommendations"
+
+    const val mangaUpdatesRecommendations = "pref_mangaupdates_recommendations"
+
     const val lastUsedCatalogueSource = "last_catalogue_source"
 
     const val lastUsedCategory = "last_used_category"

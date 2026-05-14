@@ -2,7 +2,6 @@ package eu.kanade.tachiyomi.ui.manga.related
 
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
-import eu.kanade.tachiyomi.source.model.SManga
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.ui.UiPreferences
 
@@ -21,9 +20,11 @@ class RelatedMangaCardAdapter(listener: OnRelatedMangaClickListener) :
 
     /**
      * Click contract for the carousel. The owning controller implements this to route taps to
-     * the next manga-details screen.
+     * the next manga-details screen. The full [RelatedMangaCardItem] is forwarded so the click
+     * handler can branch on `sourceId` — tracker-origin items use a sentinel and route through
+     * Global Search instead of trying to open the tracker URL as if it were a source URL.
      */
     interface OnRelatedMangaClickListener {
-        fun onRelatedMangaClick(manga: SManga)
+        fun onRelatedMangaClick(item: RelatedMangaCardItem)
     }
 }

@@ -665,9 +665,11 @@ class MangaHeaderHolder(
                 relatedMangasAdapter = RelatedMangaCardAdapter(controller)
                 recycler.adapter = relatedMangasAdapter
             }
-            val sourceId = presenter.manga.source
+            // Each candidate already knows its origin sourceId — current source for source-native
+            // / keyword results, RECOMMENDS_SOURCE for tracker recommendations whose URL needs to
+            // be opened via Global Search instead of the local source lookup.
             relatedMangasAdapter?.updateDataSet(
-                list.map { RelatedMangaCardItem(sourceId, it) },
+                list.map { RelatedMangaCardItem(it.sourceId, it.manga) },
             )
             recycler.visibility = View.VISIBLE
             skeleton.visibility = View.INVISIBLE

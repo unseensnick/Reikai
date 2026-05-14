@@ -69,12 +69,12 @@ import eu.kanade.tachiyomi.data.database.models.vibrantCoverColor
 import eu.kanade.tachiyomi.data.download.DownloadJob
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
+import eu.kanade.tachiyomi.data.recommendation.RECOMMENDS_SOURCE
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.databinding.MangaDetailsControllerBinding
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.icon
-import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.base.MaterialMenuSheet
 import eu.kanade.tachiyomi.ui.base.SmallToolbarInterface
@@ -91,6 +91,7 @@ import eu.kanade.tachiyomi.ui.manga.chapter.ChapterHolder
 import eu.kanade.tachiyomi.ui.manga.chapter.ChapterItem
 import eu.kanade.tachiyomi.ui.manga.chapter.ChaptersSortBottomSheet
 import eu.kanade.tachiyomi.ui.manga.related.RelatedMangaCardAdapter
+import eu.kanade.tachiyomi.ui.manga.related.RelatedMangaCardItem
 import eu.kanade.tachiyomi.ui.manga.track.TrackItem
 import eu.kanade.tachiyomi.ui.manga.track.TrackingBottomSheet
 import eu.kanade.tachiyomi.ui.migration.manga.design.PreMigrationController
@@ -1716,13 +1717,23 @@ class MangaDetailsController :
     }
 
     /**
-     * Tap on a card in the related-mangas carousel. Resolves the source-side [SManga] to a
-     * local DB entry (creating one if needed, matching Global Search semantics) and navigates
-     * to its details page.
+     * Tap on a card in the related-mangas carousel.
+     *
+     * Source-origin items (sourceId == the current source) resolve to a local DB entry (creating
+     * one if needed, matching Global Search semantics) and open in [MangaDetailsController].
+     *
+     * Tracker-origin items (sourceId == [RECOMMENDS_SOURCE]) have a tracker URL that doesn't map
+     * to any installed extension — route those through [GlobalSearchController] using the
+     * recommendation's title so the user can pick a source to read on. Mirrors Komikku's
+     * SmartSearch behavior.
      */
-    override fun onRelatedMangaClick(manga: SManga) {
+    override fun onRelatedMangaClick(item: RelatedMangaCardItem) {
+        if (item.sourceId == RECOMMENDS_SOURCE) {
+            globalSearch(item.manga.title)
+            return
+        }
         viewScope.launchUI {
-            val local = presenter.toLocalManga(manga, presenter.manga.source) ?: return@launchUI
+            val local = presenter.toLocalManga(item.manga, item.sourceId) ?: return@launchUI
             router.pushController(
                 MangaDetailsController(local, true).withFadeTransaction(),
             )

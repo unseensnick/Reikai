@@ -17,7 +17,7 @@ class RelatedMangaCardHolder(view: View, adapter: RelatedMangaCardAdapter) :
     init {
         itemView.setOnClickListener {
             val item = adapter.getItem(flexibleAdapterPosition) ?: return@setOnClickListener
-            (adapter as RelatedMangaCardAdapter).mangaClickListener.onRelatedMangaClick(item.manga)
+            (adapter as RelatedMangaCardAdapter).mangaClickListener.onRelatedMangaClick(item)
         }
         // Cards-style outlines match the rest of the app's manga thumbnails.
         setCards(adapter.showOutlines, binding.card, null)
