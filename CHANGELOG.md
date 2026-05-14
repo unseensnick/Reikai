@@ -10,6 +10,9 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Changes
+- Settings → Security rebuilt on the new Compose pattern. Long-press the row to reach the legacy version
+
 ## [1.9.7.5.9]
 
 ### Additions

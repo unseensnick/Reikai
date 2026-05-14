@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.ui.more.AboutController
 import eu.kanade.tachiyomi.ui.setting.SettingsLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsAdvancedLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsDataLegacyController
+import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsSecurityLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.search.SettingsSearchController
 import eu.kanade.tachiyomi.ui.setting.iconRes
 import eu.kanade.tachiyomi.ui.setting.iconTint
@@ -95,11 +96,15 @@ class SettingsMainController : SettingsLegacyController(), FloatingSearchInterfa
                 context.toast("You're entering legacy version of 'Data and storage'")
             }
         }
-        preference {
+        preferenceLongClickable {
             iconRes = R.drawable.ic_security_24dp
             iconTint = tintColor
             titleRes = MR.strings.security
             onClick { navigateTo(SettingsSecurityController()) }
+            onLongClick {
+                navigateTo(SettingsSecurityLegacyController())
+                context.toast("You're entering legacy version of 'Security'")
+            }
         }
         preferenceLongClickable {
             iconRes = R.drawable.ic_code_24dp
