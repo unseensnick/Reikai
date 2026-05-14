@@ -1275,13 +1275,65 @@ class MangaDetailsController :
                 item.itemId,
             )
             R.id.action_manage_sources -> {
-                ManageSourcesSheet(presenter) { updateHeader() }.showDialog(router)
+                ManageSourcesSheet(
+                    presenter,
+                    onConfirmSplit = { ids ->
+                        // If the active source is being split out, redirect to a remaining sibling
+                        // so the user stays on the multi-source group view.
+                        val containsCurrent = presenter.mangaId in ids
+                        val sibling = if (containsCurrent) {
+                            presenter.relatedMangaIds
+                                .firstOrNull { it != presenter.mangaId && it !in ids }
+                        } else null
+                        showSourceUndoSnackbar(
+                            view?.context?.getString(MR.strings.sources_split_from_group, ids.size).orEmpty(),
+                        ) {
+                            presenter.removeFromGroup(ids)
+                            if (sibling != null) {
+                                router.replaceTopController(
+                                    MangaDetailsController(
+                                        sibling,
+                                        relatedMangaIds = presenter.relatedMangaIds,
+                                    ).withFadeTransaction(),
+                                )
+                            } else {
+                                updateHeader()
+                            }
+                        }
+                    },
+                    onConfirmRemoveFromLibrary = { ids ->
+                        showSourceUndoSnackbar(
+                            view?.context?.getString(MR.strings.sources_removed_from_library, ids.size).orEmpty(),
+                        ) {
+                            viewScope.launchUI {
+                                presenter.removeFromLibrary(ids)
+                                updateHeader()
+                            }
+                        }
+                    },
+                ).showDialog(router)
             }
             else -> return super.onOptionsItemSelected(item)
         }
         return true
     }
     //endregion
+
+    private fun showSourceUndoSnackbar(message: String, onCommit: () -> Unit) {
+        val snack = view?.snack(message, 5_000) {
+            var undoing = false
+            setAction(MR.strings.undo) { undoing = true }
+            addCallback(
+                object : BaseTransientBottomBar.BaseCallback<Snackbar>() {
+                    override fun onDismissed(transientBottomBar: Snackbar?, event: Int) {
+                        super.onDismissed(transientBottomBar, event)
+                        if (!undoing) onCommit()
+                    }
+                },
+            )
+        }
+        (activity as? MainActivity)?.setUndoSnackBar(snack)
+    }
 
     fun saveCover() {
         if (presenter.saveCover()) {

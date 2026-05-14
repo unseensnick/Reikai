@@ -4,29 +4,23 @@ import android.app.Dialog
 import android.content.Context
 import android.graphics.Typeface
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.widget.EditText
+import android.widget.CheckBox
 import android.widget.FrameLayout
-import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.view.isVisible
-import androidx.core.view.setPadding
 import androidx.core.widget.NestedScrollView
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import eu.kanade.tachiyomi.R
+import com.google.android.material.button.MaterialButton
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.base.controller.DialogController
 import eu.kanade.tachiyomi.util.system.dpToPx
-import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.materialAlertDialog
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
@@ -38,20 +32,29 @@ import android.R as AR
 
 class ManageSourcesSheet : DialogController {
     private lateinit var presenter: MangaDetailsPresenter
-    private var onSourceRemoved: () -> Unit = {}
+    private var onConfirmSplit: (List<Long>) -> Unit = {}
+    private var onConfirmRemoveFromLibrary: (List<Long>) -> Unit = {}
 
     // Required by Conductor for state restoration
     @Suppress("unused")
     constructor() : super()
 
-    constructor(presenter: MangaDetailsPresenter, onSourceRemoved: () -> Unit = {}) : super() {
+    constructor(
+        presenter: MangaDetailsPresenter,
+        onConfirmSplit: (List<Long>) -> Unit = {},
+        onConfirmRemoveFromLibrary: (List<Long>) -> Unit = {},
+    ) : super() {
         this.presenter = presenter
-        this.onSourceRemoved = onSourceRemoved
+        this.onConfirmSplit = onConfirmSplit
+        this.onConfirmRemoveFromLibrary = onConfirmRemoveFromLibrary
     }
 
     private var sourcesContainer: LinearLayout? = null
-    private var searchResultsRecycler: RecyclerView? = null
-    private var searchResultsAdapter: SearchResultAdapter? = null
+    private var splitButton: MaterialButton? = null
+    private var removeButton: MaterialButton? = null
+
+    private val selectedIds = mutableSetOf<Long>()
+    private val sourceNamesById = mutableMapOf<Long, String>()
 
     override fun onCreateDialog(savedViewState: Bundle?): Dialog {
         val ctx = activity!!
@@ -97,60 +100,39 @@ class ManageSourcesSheet : DialogController {
                 layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             }
             addView(sourcesContainer)
+            addView(buildActionBar(ctx, p16, p8))
             addView(View(ctx).apply {
-                setBackgroundColor(ctx.getResourceColor(R.attr.colorOutline))
-                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, 1.dpToPx).apply {
-                    setMargins(0, p8, 0, p8)
-                }
+                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, p8)
             })
-            addView(TextView(ctx).apply {
-                text = ctx.getString(MR.strings.add_another_manga)
-                textSize = 14f
-                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-                    setMargins(p16, 0, p16, p8)
-                }
-            })
-            val searchField = EditText(ctx).apply {
-                hint = ctx.getString(MR.strings.search)
-                setSingleLine(true)
-                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-                    setMargins(p16, 0, p16, 0)
-                }
+        }
+    }
+
+    private fun buildActionBar(ctx: Context, p16: Int, p8: Int): View {
+        return LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                setMargins(p16, p8, p16, p8)
             }
-            addView(searchField)
-            searchResultsAdapter = SearchResultAdapter { mangaId ->
-                presenter.addToGroup(mangaId)
-                dismissDialog()
+            splitButton = MaterialButton(
+                ctx,
+                null,
+                com.google.android.material.R.attr.materialButtonOutlinedStyle,
+            ).apply {
+                text = ctx.getString(MR.strings.split_selected_sources)
+                isEnabled = false
+                setOnClickListener { onSplitClicked(ctx) }
             }
-            searchResultsRecycler = RecyclerView(ctx).apply {
-                layoutManager = LinearLayoutManager(ctx)
-                adapter = searchResultsAdapter
-                isVisible = false
-                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-            }
-            addView(searchResultsRecycler)
+            addView(splitButton)
             addView(View(ctx).apply {
-                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, p16)
+                layoutParams = LinearLayout.LayoutParams(p8, WRAP_CONTENT)
             })
-            searchField.addTextChangedListener(object : TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
-                override fun afterTextChanged(s: Editable) {
-                    val query = s.toString().trim()
-                    if (query.length >= 2) {
-                        onCreateViewScope?.launch {
-                            val results = withContext(Dispatchers.IO) {
-                                presenter.searchAddableManga(query)
-                            }
-                            searchResultsAdapter?.updateResults(results)
-                            searchResultsRecycler?.isVisible = results.isNotEmpty()
-                        }
-                    } else {
-                        searchResultsAdapter?.updateResults(emptyList())
-                        searchResultsRecycler?.isVisible = false
-                    }
-                }
-            })
+            removeButton = MaterialButton(ctx).apply {
+                text = ctx.getString(MR.strings.remove_selected_from_library)
+                isEnabled = false
+                setOnClickListener { onRemoveFromLibraryClicked(ctx) }
+            }
+            addView(removeButton)
         }
     }
 
@@ -165,6 +147,9 @@ class ManageSourcesSheet : DialogController {
         val container = sourcesContainer ?: return
         val ctx = activity ?: return
         container.removeAllViews()
+        selectedIds.clear()
+        sourceNamesById.clear()
+        updateActionButtonsState()
         val p16 = 16.dpToPx
         val p12 = 12.dpToPx
         val p8 = 8.dpToPx
@@ -176,9 +161,14 @@ class ManageSourcesSheet : DialogController {
                     setMargins(p16, p8, p16, p8)
                 }
             })
+            splitButton?.isVisible = false
+            removeButton?.isVisible = false
             return
         }
+        splitButton?.isVisible = true
+        removeButton?.isVisible = true
         for ((mangaId, source) in sources) {
+            sourceNamesById[mangaId] = source.name
             container.addView(
                 buildSourceRow(ctx, mangaId, source, mangaId == presenter.mangaId, p16, p12, p8),
             )
@@ -194,8 +184,29 @@ class ManageSourcesSheet : DialogController {
         p12: Int,
         p8: Int,
     ): View {
+        val checkbox = CheckBox(ctx).apply {
+            isChecked = mangaId in selectedIds
+            isClickable = false
+            isFocusable = false
+            contentDescription = source.name
+            layoutParams = FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                gravity = Gravity.CENTER_VERTICAL or Gravity.END
+                marginEnd = p8
+            }
+            setOnCheckedChangeListener { _, isChecked ->
+                if (isChecked) selectedIds.add(mangaId) else selectedIds.remove(mangaId)
+                updateActionButtonsState()
+            }
+        }
         return FrameLayout(ctx).apply {
             layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+            isClickable = true
+            isFocusable = true
+            val ripple = TypedValue().also {
+                ctx.theme.resolveAttribute(android.R.attr.selectableItemBackground, it, true)
+            }
+            setBackgroundResource(ripple.resourceId)
+            setOnClickListener { checkbox.toggle() }
             addView(TextView(ctx).apply {
                 text = buildString { append(source.name); if (isCurrent) append("  ✓") }
                 textSize = 15f
@@ -203,63 +214,52 @@ class ManageSourcesSheet : DialogController {
                 layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
                     gravity = Gravity.CENTER_VERTICAL
                     marginStart = p16
-                    marginEnd = 48.dpToPx
+                    marginEnd = 56.dpToPx
                     topMargin = p12
                     bottomMargin = p12
                 }
             })
-            addView(ImageButton(ctx).apply {
-                setImageResource(R.drawable.ic_close_24dp)
-                background = null
-                contentDescription = ctx.getString(MR.strings.remove_from_group)
-                layoutParams = FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                    gravity = Gravity.CENTER_VERTICAL or Gravity.END
-                    marginEnd = p8
-                }
-                setOnClickListener {
-                    ctx.materialAlertDialog()
-                        .setMessage(
-                            ctx.getString(MR.strings.remove_from_group) + "?\n${source.name}",
-                        )
-                        .setPositiveButton(AR.string.ok) { _, _ ->
-                            presenter.removeFromGroup(mangaId)
-                            loadSources()
-                            onSourceRemoved()
-                        }
-                        .setNegativeButton(AR.string.cancel, null)
-                        .show()
-                }
-            })
+            addView(checkbox)
         }
     }
 
-    private inner class SearchResultAdapter(
-        private val onSelect: (Long) -> Unit,
-    ) : RecyclerView.Adapter<SearchResultAdapter.ViewHolder>() {
-        private var items: List<Pair<Long, String>> = emptyList()
+    private fun updateActionButtonsState() {
+        val anySelected = selectedIds.isNotEmpty()
+        splitButton?.isEnabled = anySelected
+        removeButton?.isEnabled = anySelected
+    }
 
-        fun updateResults(newItems: List<Pair<Long, String>>) {
-            items = newItems
-            notifyDataSetChanged()
-        }
+    private fun selectedNamesText(): String =
+        selectedIds.mapNotNull { sourceNamesById[it] }.joinToString("\n")
 
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val tv = TextView(parent.context).apply {
-                textSize = 14f
-                setPadding(16.dpToPx)
-                layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+    private fun onSplitClicked(ctx: Context) {
+        if (selectedIds.isEmpty()) return
+        val ids = selectedIds.toList()
+        ctx.materialAlertDialog()
+            .setMessage(
+                ctx.getString(MR.strings.remove_from_group) + "?\n" + selectedNamesText(),
+            )
+            .setPositiveButton(AR.string.ok) { _, _ ->
+                onConfirmSplit(ids)
+                dismissDialog()
             }
-            return ViewHolder(tv)
-        }
-
-        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val (mangaId, label) = items[position]
-            holder.textView.text = label
-            holder.textView.setOnClickListener { onSelect(mangaId) }
-        }
-
-        override fun getItemCount() = items.size
-
-        inner class ViewHolder(val textView: TextView) : RecyclerView.ViewHolder(textView)
+            .setNegativeButton(AR.string.cancel, null)
+            .show()
     }
+
+    private fun onRemoveFromLibraryClicked(ctx: Context) {
+        if (selectedIds.isEmpty()) return
+        val ids = selectedIds.toList()
+        ctx.materialAlertDialog()
+            .setMessage(
+                ctx.getString(MR.strings.remove_from_library) + "?\n" + selectedNamesText(),
+            )
+            .setPositiveButton(AR.string.ok) { _, _ ->
+                onConfirmRemoveFromLibrary(ids)
+                dismissDialog()
+            }
+            .setNegativeButton(AR.string.cancel, null)
+            .show()
+    }
+
 }

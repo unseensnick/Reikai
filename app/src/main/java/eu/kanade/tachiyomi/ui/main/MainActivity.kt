@@ -674,7 +674,11 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                     if (!isPush || router.backstackSize == 1) {
                         nav.translationY = 0f
                     }
-                    snackBar?.dismiss()
+                    // Don't dismiss the undo snackbar when a transient DialogController is popped —
+                    // the user stays on the same underlying screen, so the undo affordance should remain.
+                    if (!(from is DialogController && !isPush)) {
+                        snackBar?.dismiss()
+                    }
                 }
 
                 override fun onChangeCompleted(
