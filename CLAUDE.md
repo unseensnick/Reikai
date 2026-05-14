@@ -34,6 +34,14 @@ After completing any code change (feature, fix, or other), update `CHANGELOG.md`
 - Rename `## [Unreleased]` to the specified version (e.g., `## [1.9.7.5.6]`).
 - Add a new empty `## [Unreleased]` section above it for the next cycle.
 
+### Documentation
+
+After any change that alters user-visible behavior, file paths called out in docs, or fork-specific feature mechanics, check `README.md` and `docs/*.md` for stale references and update them in the same change. Do not leave bullets describing dev-cycle iteration once a feature is complete:
+
+- Inside `[Unreleased]`: fold mid-development churn into the original bullet (already covered by the Changelog rule above) — do not accumulate `Fix X in feature Y` bullets when feature Y was added in the same `[Unreleased]` block.
+- In `README.md` / `docs/*.md`: describe the current behavior, not the journey to it. No "we tried X then switched to Y" paragraphs, no notes about temporary workarounds that have since been removed.
+- Refrain from rewriting already-released CHANGELOG entries — those are a historical record. Apply the rule going forward.
+
 ### Commits
 
 After completing code changes, create a git commit. Do not push. Use conventional commit format matching the project's existing style:
@@ -44,6 +52,15 @@ After completing code changes, create a git commit. Do not push. Use conventiona
 - `chore:` — build / tooling
 
 Do not include `Co-Authored-By` lines in commit messages.
+
+### Pushing
+
+Before pushing commits to GitHub, bump the app version in `app/build.gradle.kts`:
+
+- `_versionName` — follow the versioning convention above (5-segment, `upstream.fork-patch`).
+- `versionCode` — always increment.
+
+The release workflow (`build_push.yml`) treats every push as buildable, so each pushed state needs a unique version identifier. If a commit is purely docs / CI / tooling and not going into a release APK, the version bump can be skipped — but flag that explicitly so the user can decide.
 
 ## Build Commands
 

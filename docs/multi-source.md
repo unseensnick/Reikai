@@ -20,6 +20,8 @@ Open any manga that's part of a multi-source group and you'll see a horizontal c
 
 The chip row appears on phones and on sw600dp tablet/foldable layouts.
 
+The chip row refreshes automatically whenever you return to the manga details screen from another screen (e.g. after adding a new same-title source via Global Search) — no need to back out to Library and come back.
+
 ## Manual merge & unmerge
 
 The auto-grouping is title-based; sometimes you want to merge entries that don't have identical titles (different romanizations, e.g. "Kaijuu 8-gou" vs. "Kaiju No. 8") or split a group apart.
