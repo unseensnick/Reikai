@@ -58,6 +58,39 @@ Before pushing commits to GitHub, bump the app version in `app/build.gradle.kts`
 
 The release workflow (`build_push.yml`) treats every push as buildable, so each pushed state needs a unique version identifier. If a commit is purely docs / CI / tooling and not going into a release APK, the version bump can be skipped — but flag that explicitly so the user can decide.
 
+### History hygiene before merge
+
+A feature branch accumulates journey-noise — probe-instrument/strip pairs, revert/re-port cycles, temp doc add/drop pairs, fix-of-my-own-bug commits, mid-development churn. Land it on `main` as a clean themed history instead.
+
+**Target shape:** one commit per phase or coherent unit of work. Bisectable. Reads top-down as a feature story.
+
+**Mechanics (proven on the 71→18 commit cleanup):**
+
+1. **Backup first.** `git branch <branch>-pre-rebase <branch>` before touching anything. The 23-commit and 71-commit originals stayed locally recoverable through the entire rebase.
+2. **Reset to the merge-base with `main`**, then cherry-pick original commits in chronological order into themed groups. `git cherry-pick --no-commit <a> <b> <c>` accumulates a group; `git commit` materializes it with a written message.
+3. **Conflicts on doc files (`CHANGELOG.md`, `docs/suggestions-plan.md`):** auto-resolve with `git cherry-pick -X theirs`. Intermediate doc states don't matter — the final docs commit sets the canonical state.
+4. **Conflicts on code:** rare when commits are kept in chronological order within a group. If one happens, it usually means a reordered docs commit (e.g., README rename) is a prerequisite — split that doc commit out and apply it earlier.
+5. **`--no-commit` + conflict + `--continue` quirk:** if cherry-pick stalls with "your local changes would be overwritten," run `git commit --no-edit` to materialize the current accumulated state, then `--continue`.
+6. **Verify before pushing.** Compare the rebased branch's final tree against the pre-rebase backup:
+
+   ```bash
+   git diff <branch>-pre-rebase <branch>   # should be empty
+   ```
+
+   Stronger check: tree-object hash equality.
+
+   ```bash
+   [ "$(git rev-parse <branch>^{tree})" = "$(git rev-parse <branch>-pre-rebase^{tree})" ]
+   ```
+
+   If those match, the rebase preserved every byte. Any divergence means `-X theirs` mis-resolved something — fix by `git checkout <branch>-pre-rebase -- <file>` and `git commit --amend`.
+7. **`--force-with-lease`, not `--force`.** Refuses to push if origin moved unexpectedly. Single-developer fork still benefits from the safety check.
+8. **FF merge to `main`.** Both branches are already rebased onto `main`'s tip, so `git merge --ff-only` is trivial. Single-developer fork → no team workflow reason to prefer merge commits.
+
+**When to do it:** before merging a feature branch back to `main`. Squash earlier than that and you lose the ability to re-section work mid-stream.
+
+**When *not* to do it:** never rebase commits that are already on `main` or carry release tags. The `feat/tracker-sync-grouped-pre-rebase` and `feat/related-mangas-pre-rebase` backups are local-only; they can be deleted with `git branch -D` once the merge has been confirmed healthy for a week or so.
+
 ### Syncing with upstream
 
 Branch layering, top-down:
