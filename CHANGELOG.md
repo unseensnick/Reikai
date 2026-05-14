@@ -13,6 +13,9 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 ### Changes
 - Settings → Security rebuilt on the new Compose pattern. Long-press the row to reach the legacy version
 
+### Fixes
+- Opening the search bar in Settings no longer crashes the app. The experimental "Change App Icon" dropdown was sharing a SharedPreferences key with the Compose-library toggle, causing a `ClassCastException` when search enumerated every settings screen at once
+
 ## [1.9.7.5.9]
 
 ### Additions
