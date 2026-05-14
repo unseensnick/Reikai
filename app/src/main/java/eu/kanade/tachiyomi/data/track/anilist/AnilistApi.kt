@@ -4,8 +4,10 @@ import androidx.core.net.toUri
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALAddMangaResult
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALCurrentUserResult
+import eu.kanade.tachiyomi.data.track.anilist.dto.ALLibraryEntry
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALOAuth
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALSearchResult
+import eu.kanade.tachiyomi.data.track.anilist.dto.ALUserLibraryResult
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALUserListMangaQueryResult
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.POST
@@ -115,6 +117,27 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
 
     suspend fun getLibManga(track: Track, userid: Int): Track {
         return findLibManga(track, userid) ?: throw Exception("Could not find manga")
+    }
+
+    /**
+     * Pulls every manga entry across all of the user's lists in a single GraphQL round trip
+     * (AniList returns the full library in one shot — no pagination needed). Used by the
+     * taste-profile fetcher; raw entries are status-mapped + score-normalized by the caller.
+     */
+    suspend fun getUserLibrary(userId: Int): List<ALLibraryEntry> {
+        return withIOContext {
+            val payload = buildJsonObject {
+                put("query", userLibraryQuery())
+                putJsonObject("variables") {
+                    put("userId", userId)
+                }
+            }
+            authClient.newCall(POST(API_URL, body = payload.toString().toRequestBody(jsonMime)))
+                .awaitSuccess()
+                .parseAs<ALUserLibraryResult>()
+                .data.mediaListCollection.lists
+                .flatMap { it.entries }
+        }
     }
 
     suspend fun remove(track: Track): Boolean {
@@ -294,6 +317,32 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
                                 |year
                                 |month
                                 |day
+                            |}
+                        |}
+                    |}
+                |}
+            |}
+            |
+            """.trimMargin()
+
+        fun userLibraryQuery() =
+            """
+            |query UserLibrary(${'$'}userId: Int!) {
+                |MediaListCollection(userId: ${'$'}userId, type: MANGA) {
+                    |lists {
+                        |entries {
+                            |status
+                            |scoreRaw: score(format: POINT_100)
+                            |media {
+                                |id
+                                |idMal
+                                |title {
+                                    |userPreferred
+                                |}
+                                |genres
+                                |tags {
+                                    |name
+                                |}
                             |}
                         |}
                     |}

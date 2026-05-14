@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.TrackService
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
+import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALLibraryItem
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALOAuth
 import eu.kanade.tachiyomi.data.track.updateNewTrackInfo
 import eu.kanade.tachiyomi.util.system.e
@@ -118,6 +119,9 @@ class MyAnimeList(private val context: Context, id: Long) : TrackService(id) {
 
         return api.search(query)
     }
+
+    /** Pull every entry from the user's MAL manga list (paginated). Used by the taste-profile fetcher. */
+    suspend fun getUserLibrary(): List<MALLibraryItem> = api.getUserLibrary()
 
     override suspend fun refresh(track: Track): Track {
         return api.findListItem(track) ?: add(track)

@@ -180,6 +180,30 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
     /** Whether the MangaUpdates community recommendations endpoint contributes. */
     fun mangaUpdatesRecommendations() = preferenceStore.getBoolean(Keys.mangaUpdatesRecommendations, true)
 
+    // Phase 4 (taste profile) — per-tracker library-pull toggles.
+    fun pullLibraryFromAnilist() = preferenceStore.getBoolean(Keys.pullLibraryFromAnilist, false)
+    fun pullLibraryFromMyAnimeList() = preferenceStore.getBoolean(Keys.pullLibraryFromMyAnimeList, false)
+    fun pullLibraryFromKitsu() = preferenceStore.getBoolean(Keys.pullLibraryFromKitsu, false)
+
+    /**
+     * Returns the pull-library preference for the given tracker id ([eu.kanade.tachiyomi.data.track.TrackService.id]).
+     * Used by [yokai.domain.library.taste.interactor.RefreshTrackerLibrary] to gate per-tracker refreshes.
+     * Returns a stable always-false preference for tracker ids without a Phase 4 fetcher
+     * (MangaUpdates / Shikimori / Bangumi / self-hosted Komga / Kavita / Suwayomi).
+     */
+    fun pullLibraryFromTracker(trackerId: Long): Preference<Boolean> = when (trackerId) {
+        eu.kanade.tachiyomi.data.track.TrackManager.ANILIST -> pullLibraryFromAnilist()
+        eu.kanade.tachiyomi.data.track.TrackManager.MYANIMELIST -> pullLibraryFromMyAnimeList()
+        eu.kanade.tachiyomi.data.track.TrackManager.KITSU -> pullLibraryFromKitsu()
+        else -> preferenceStore.getBoolean("pref_pull_library_unsupported_$trackerId", false)
+    }
+
+    /** Auto-refresh interval for tracker library cache. 0 = Never; 168 = every 7 days; 720 = every 30 days. */
+    fun trackerLibraryAutoRefreshHours() = preferenceStore.getInt(Keys.trackerLibraryAutoRefreshHours, 0)
+
+    /** Epoch-millis the refresh-now button is disabled until (60 s cooldown after each press). */
+    fun trackerLibraryRefreshCooldownUntil() = preferenceStore.getLong(Keys.trackerLibraryRefreshCooldownUntil, 0L)
+
     /**
      * Drop any cached group-reconciliation keys that contain one of [mangaIds]. Called whenever a
      * manga is removed from the library so that, if it's later re-added and the same composition

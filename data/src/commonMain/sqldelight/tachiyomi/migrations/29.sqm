@@ -1,0 +1,12 @@
+CREATE TABLE tracker_library_cache(
+    tracker_id INTEGER NOT NULL,
+    remote_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    score REAL NOT NULL,
+    status INTEGER NOT NULL,
+    tags TEXT NOT NULL,
+    fetched_at INTEGER NOT NULL,
+    PRIMARY KEY (tracker_id, remote_id)
+);
+
+CREATE INDEX tracker_library_cache_tracker_idx ON tracker_library_cache(tracker_id);

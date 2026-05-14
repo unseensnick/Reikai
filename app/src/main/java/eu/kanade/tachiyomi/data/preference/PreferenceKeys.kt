@@ -105,6 +105,18 @@ object PreferenceKeys {
 
     const val mangaUpdatesRecommendations = "pref_mangaupdates_recommendations"
 
+    // Phase 4 (taste profile) — per-tracker library-pull toggles. Default off; the
+    // settings UI greys each one out unless the matching tracker is logged in.
+    const val pullLibraryFromAnilist = "pref_pull_library_from_anilist"
+    const val pullLibraryFromMyAnimeList = "pref_pull_library_from_myanimelist"
+    const val pullLibraryFromKitsu = "pref_pull_library_from_kitsu"
+
+    /** Auto-refresh interval for the tracker library cache, in hours. 0 = Never. */
+    const val trackerLibraryAutoRefreshHours = "pref_tracker_library_auto_refresh_hours"
+
+    /** Epoch millis the refresh button stays disabled until (60 s cooldown). */
+    const val trackerLibraryRefreshCooldownUntil = "pref_tracker_library_refresh_cooldown_until"
+
     const val lastUsedCatalogueSource = "last_catalogue_source"
 
     const val lastUsedCategory = "last_used_category"

@@ -1,0 +1,6 @@
+-- Second cross-tracker dedup key. AniList trivially populates this with its own remote id;
+-- Kitsu via an `anilist/manga` mappings filter (parallel to the existing MAL one). Catches
+-- the "AniList no idMal + Kitsu no MAL mapping" gap where neither side has a MAL cross-ref
+-- but both sides have an AniList cross-ref. Existing rows get NULL until next refresh
+-- rewrites the cache atomically per tracker.
+ALTER TABLE tracker_library_cache ADD COLUMN anilist_id INTEGER;

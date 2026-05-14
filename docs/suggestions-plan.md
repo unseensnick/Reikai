@@ -111,6 +111,103 @@ Branch is forked off `feat/tracker-sync-grouped`. Phases 1–3 form a usable Kom
 
 - **Tracker slot reservation + round-robin.** Surfaced during verification: source-native + keyword-search return enough hits to fill the 30-cap before the slower tracker endpoints respond, so a naive `take(30)` over the merged `LinkedHashSet` left tracker entries with zero visible slots. Then, with a flat reserve, whichever tracker pushed first would eat the whole reserve (MAL/Jikan typically returns 90+ items and beats AniList by ~150ms, MU by ~600ms, so MU got squeezed out). Fix: `mergeForDisplay` in `MangaDetailsPresenter` reserves up to `RELATED_MANGAS_TRACKER_RESERVE = 12` slots for tracker-origin entries and round-robins those slots across trackers (~4 each for the three trackers; empty trackers cede their share). Either side of the source/tracker split cedes unfilled capacity to the other. `RelatedMangaCandidate.trackerName` carries the tracker label (set from the `pushResults` bucket label, which is "AniList" / "MyAnimeList" / "MangaUpdates" for tracker pushes and null for source pushes).
 
+### Phase 4 plan (brainstormed pre-implementation)
+
+The original plan doc treated the taste profile as one mechanism ("fetch tracker library, compute tags"). Brainstorm with the user surfaced enough nuance that pinning the shape *before* coding is worth the upfront work. Decisions below.
+
+#### Two layers, layered
+
+The taste profile draws from two complementary signals. Both produce the same `TrackedEntry` row shape and feed the same compute formula:
+
+| Layer | Source | Cost | Coverage |
+|---|---|---|---|
+| A — Local | `manga_sync ⋈ mangas` join (existing tables) | Zero — live SQL query, no network | Currently-in-library manga that have at least one Track row |
+| B — Remote | Per-tracker authed library API call, results persisted to a new DB table | ~3–5 API calls per voluntary refresh | Everything the user has ever rated/tracked on each enabled tracker, including manga they've since removed from the library |
+
+User's "rate-then-remove" workflow (rate a finished series, remove from library to keep the library clean, then read something new) **deletes the local Track rows** — confirmed via `MangaDetailsController.onMangaDeleted` → `presenter.confirmDeletion()` → `deleteTrack.awaitForMangaAll(mangaId)` — so Layer A alone is insufficient for that workflow. Layer B reads from the trackers' own source-of-truth and catches everything Layer A misses. Layer A still earns its keep for currently-reading manga (always-fresh, free).
+
+Composition at compute time: union A's rows and B's rows, dedup within-tracker by `(tracker, remoteId)`. Don't dedup cross-tracker for v1 — see open questions.
+
+#### Trackers in Layer B's scope
+
+Three public cloud trackers: AniList, MyAnimeList, Kitsu. MangaUpdates / Shikimori / Bangumi were originally in scope but dropped — the maintainer doesn't have accounts on them and won't ship code they can't verify against a real library. Their toggles are also removed from the settings screen for now (rather than greyed-out) to avoid surfacing options that can never be enabled. Self-hosted services (Komga / Kavita / Suwayomi) are also out of scope — their tag taxonomies depend on user-uploaded metadata and don't carry a canonical genre vocabulary that's useful for tag-based recommendation. If a user requests one of the dropped trackers later, adding it is mechanical (one fetcher + one toggle + one `LIBRARY_TRACKERS` entry).
+
+Rolled out as a sequence of small commits, each independently shippable:
+
+| Step | Trackers added | Rationale |
+|---|---|---|
+| Phase 4 core | framework only (Layer A live, B scaffolding) | A alone produces a working taste profile for currently-reading manga; verifiable via logcat probe |
+| Phase 4.1 | AniList | Easiest API (1 GraphQL query returns the lot), most users have it |
+| Phase 4.2 | MyAnimeList | Common pairing with AniList |
+| Phase 4.3 | Kitsu | Catches manga that exist only on Kitsu (e.g. "The Beginning After the End" — confirmed gap) |
+| ~~Phase 4.4~~ | ~~MangaUpdates~~ | Dropped — maintainer doesn't use it, can't test the library pull. Phase 3 public recommendations endpoint is unaffected. |
+| ~~Phase 4.5~~ | ~~Shikimori + Bangumi~~ | Dropped — same reason. Niche audiences, untestable for the maintainer. |
+
+Each tracker implements the same `TrackerLibraryFetcher` contract. Adding one is mechanical once the framework is in place — same DTO + status mapping + score normalization shape.
+
+#### Storage: new SQLDelight table in the existing DB
+
+```sql
+-- data/src/commonMain/sqldelight/tachiyomi/data/tracker_library_cache.sq
+CREATE TABLE tracker_library_cache (
+    tracker TEXT NOT NULL,        -- "AniList" / "MyAnimeList" / etc.
+    remote_id INTEGER NOT NULL,   -- tracker media id
+    title TEXT NOT NULL,
+    score REAL NOT NULL,          -- 0..1 normalized, -1 if unrated
+    status INTEGER NOT NULL,      -- ordinal of TrackStatus enum
+    tags TEXT NOT NULL,           -- comma-separated, lowercased + trimmed
+    fetched_at INTEGER NOT NULL,  -- epoch millis, per-row
+    PRIMARY KEY (tracker, remote_id)
+);
+CREATE INDEX tracker_library_cache_tracker_idx ON tracker_library_cache(tracker);
+```
+
+Same DB as the rest of Yokai's app data (`mangas`, `manga_sync`, `categories`, …). Riding Yokai's existing backup pipeline means the user's cached library survives device restores — chosen explicitly over filesDir JSON for this reason. `MAX(fetched_at) WHERE tracker = ?` gives per-tracker last-refresh for the settings display; no separate metadata table.
+
+Refresh is atomic per tracker (transaction: `DELETE WHERE tracker = ?` then bulk `INSERT`) so a partial-failure scenario leaves the previous data intact.
+
+#### Cache invalidation: durable, no time-based TTL
+
+The original plan said "24h TTL". Replaced with a tiered approach that's friendlier to rate limits:
+
+1. **Manual refresh button** (primary) — user clicks "Refresh now" in settings, all logged-in + enabled trackers fetched sequentially.
+2. **Event-driven incremental updates** — when the user binds / updates a tracker entry *via Yokai's own UI*, the corresponding row in the cache is updated in place (no API call needed). Piggybacks on the existing `InsertTrack` / `UpdateTrack` interactors.
+3. **Optional auto-refresh interval** — single setting "Auto-refresh tracker library" with values `[Never, 7 days, 30 days]`, default **Never**. Conservative default; users who want a fail-safe can opt in.
+4. **Button cooldown** — refresh button disables for 60 s after press to prevent panic-spam.
+5. **Soft staleness hint** — "Last refresh: 12 days ago" shown in settings as info, not enforcement.
+
+Rate-limit picture in practice: a full-fan-out refresh is ~3–5 API hits total (AniList returns the entire 150-entry library in a single GraphQL `MediaListCollection` query; MAL / MU / Kitsu are 1–3 paginated calls each). The danger isn't one fetch — it's fetches stacking up, so the defense is making refreshes deliberate.
+
+Additional rate-limit guards:
+- Sequential per-tracker fetch (not parallel) — easier abort semantics
+- Honor `Retry-After` on 429 — log + skip that tracker, continue with others
+- No background WorkManager job, no app-launch refresh
+- Per-tracker enable toggle (separate from Phase 3's recommendation-source toggles)
+
+#### Normalization
+
+- **Scores:** AniList → divide by the user's per-account `scoreFormat` max (POINT_100 / POINT_10 / POINT_10_DECIMAL / POINT_5 / POINT_3, fetched alongside the library). MAL / MU / Shikimori / Bangumi → fixed scales, divide accordingly. Kitsu → variable, fetch per user. All normalized to 0..1; unrated entries stored as `-1` so the compute formula can distinguish "rated low" from "no rating".
+- **Status:** unified enum `TrackStatus { COMPLETED, READING, ON_HOLD, PLAN_TO_READ, DROPPED, UNKNOWN }`. Per-tracker status integers map in at fetch time.
+- **Tags:** lowercase + trim, no fuzzy matching for v1. Log raw distribution on first fetch so a tracker-specific normalization map can be added later if cross-tracker taxonomy mismatch ("Sci-Fi" vs "Science Fiction") proves actionable.
+
+#### Settings UI (extends what Phase 3 added)
+
+Settings → Library → Recommendations:
+- Tracker-backed recommendations [master, Phase 3, exists]
+- Recommendation sources [Phase 3, exists]: AniList / MyAnimeList / MangaUpdates toggles
+- **— Taste profile — [NEW Phase 4 section header]**
+- Pull library from these trackers — three per-tracker toggles, default off, greyed when not logged in. AniList / MyAnimeList / Kitsu. (MangaUpdates / Shikimori / Bangumi dropped — see scope note above.)
+- Auto-refresh tracker library — int list `[Never, 7 days, 30 days]`, default Never
+- Refresh now — button, 60 s cooldown after press
+- Last refresh: per-tracker line summary
+
+#### What Phase 4 explicitly defers
+
+These were considered and pushed to later phases or open questions:
+- **Cross-tracker dedup** (same manga on AniList + MAL). Within-tracker dedup is automatic via the `(tracker, remoteId)` PK. Cross-tracker is harder — AniList exposes `Media.idMal` as the cleanest cross-ref, Kitsu has its own mapping endpoint, MU/Shikimori/Bangumi don't have direct cross-refs. Triple-counting an entry may even be the *correct* behavior (the user cares enough to track on two services → stronger signal). Revisit if observation shows it's a problem.
+- **Importing from MAL XML export** (the file format malscraper produces). Doesn't carry genres, so it still needs API enrichment; doesn't save real work over Option B's direct GraphQL path; only useful for users who refuse to grant library-read scope, which we'll address as a separate import flow if requested.
+- **Cross-tracker taxonomy normalization map.** Start exact match. Log raw tag distribution and build the map empirically if mismatches matter.
+
 ### Bugs surfaced and fixed during Phase 1–2 work
 
 These were latent — Phase 2 just happened to exercise the right code paths.
@@ -305,8 +402,16 @@ Phases 1–3 ship a usable Komikku-equivalent on their own. Phases 4–7 add the
 - ~~**Tracker-recommendation click navigation.**~~ Tracker-origin cards carry a `RECOMMENDS_SOURCE = -1L` sentinel; on click they push `GlobalSearchController(title)` so the user picks an installed source to read on. Source-origin cards retain the existing `toLocalManga` path.
 - ~~**Where the tracker recommendation classes live.**~~ New package `data/recommendation/` (sibling of `data/track/`). Uses `NetworkHelper.client` (shared, unauthenticated), `GetTrack` interactor for per-tracker `media_id` lookup, `@Serializable` DTOs.
 
-### Still open (Phase 4+ territory)
+### Resolved (during Phase 4 brainstorming)
+
+- ~~**Score normalization across trackers.**~~ Per-user-per-tracker: fetch the user's `scoreFormat` from each tracker (AniList exposes it on `User.mediaListOptions`; others have fixed scales) and divide by that max to get 0..1. Unrated entries stored as `-1`, distinct from "rated zero".
+- ~~**Taste profile data source.**~~ Two-layer (A local, B remote). A reads `manga_sync ⋈ mangas`. B persists per-tracker library fetches to a new `tracker_library_cache` SQLDelight table.
+- ~~**Cache lifetime / TTL.**~~ Durable storage in the main DB (rides Yokai's backup pipeline), no time-based auto-invalidation. Refreshed manually + event-driven for Yokai-side writes + optional auto-interval (default Never).
+- ~~**Trackers supported.**~~ AniList, MyAnimeList, Kitsu. MangaUpdates / Shikimori / Bangumi were considered but dropped during Phase 4.1 — the maintainer doesn't use them and won't ship untested fetchers. Self-hosted Komga / Kavita / Suwayomi also excluded (no canonical tag taxonomy).
+
+### Still open (Phase 5+ territory)
 
 - **Where does the rerank logic live** — dedicated `RecommendationRanker` use-case in [`domain/`](../domain/) (clean separation, recommended) vs. presenter (couples concerns).
-- **Tag overlap calculation** — exact-match (default) vs. fuzzy ("Sci-Fi" vs "Science Fiction"). Start exact + a small tracker-side normalization map for the worst offenders.
-- **Score normalization across trackers** — AniList 0–100, MAL 1–10, MU 0–10 → normalize to 0–1 before merging into the taste profile.
+- **Tag overlap calculation** — exact-match (default) vs. fuzzy ("Sci-Fi" vs "Science Fiction"). Phase 4 ships with exact-match + raw-distribution logging; the normalization map can be built from observed data later if mismatches actually hurt recommendations.
+- ~~**Cross-tracker dedup of taste-profile entries**~~ — implemented in the same wave as Phase 4.3 after the maintainer's mirror-list setup surfaced as a real bug. Two cross-ref keys per entry (migrations 30 and 31): `mal_id` and `anilist_id`. AniList trivially populates `anilist_id` from its own remote id and `mal_id` from `Media.idMal` when set; MAL trivially populates `mal_id` from its own remote id (no AL cross-ref exposed); Kitsu resolves both via its `mappings` records (filter `externalSite=="myanimelist/manga"` and `"anilist/manga"`). `GetTrackedEntries.dedupedAcrossTrackers()` runs a two-pass collapse: first by `malId`, then by `anilistId` on the result. Both passes prefer AniList > MAL > Kitsu (richest tag taxonomy first). The second pass catches the "AniList manhwa without idMal + Kitsu has the AniList mapping but no MAL one" gap that pass 1 misses. Entries with neither cross-ref pass through and only dedupe within their own tracker. The orchestrator's post-refresh diagnostic logs the dedup-drop count for each pass.
+- **Same-manga dedup of *recommendation candidates*** — different problem from taste-profile dedup. If two tracker recommendations surface the same manga under different URLs, the carousel currently shows both. Lower-impact than taste-profile dedup since the 30-cap bounds visual noise.

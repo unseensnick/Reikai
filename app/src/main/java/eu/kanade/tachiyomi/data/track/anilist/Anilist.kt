@@ -6,6 +6,7 @@ import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.TrackService
+import eu.kanade.tachiyomi.data.track.anilist.dto.ALLibraryEntry
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALOAuth
 import eu.kanade.tachiyomi.data.track.updateNewTrackInfo
 import eu.kanade.tachiyomi.util.system.e
@@ -195,6 +196,9 @@ class Anilist(private val context: Context, id: Long) : TrackService(id) {
     }
 
     override suspend fun search(query: String) = api.search(query)
+
+    /** Pull every entry from the user's AniList manga library. Used by the taste-profile fetcher. */
+    suspend fun getUserLibrary(userId: Int): List<ALLibraryEntry> = api.getUserLibrary(userId)
 
     override suspend fun refresh(track: Track): Track {
         val remoteTrack = api.getLibManga(track, getUsername().toInt())

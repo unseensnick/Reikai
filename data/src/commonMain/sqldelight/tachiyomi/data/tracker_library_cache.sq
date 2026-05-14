@@ -1,0 +1,57 @@
+-- Phase 4 (taste profile) — per-tracker library cache + Layer A JOIN query.
+-- Layer A reads manga_sync ⋈ mangas live (no rows in this table required).
+-- Layer B persists per-tracker library fetches here; refresh is atomic per tracker
+-- (DELETE WHERE tracker_id = ? + bulk INSERT inside a transaction).
+CREATE TABLE tracker_library_cache(
+    tracker_id INTEGER NOT NULL,
+    remote_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    score REAL NOT NULL,        -- 0..1 normalized; -1 if unrated
+    status INTEGER NOT NULL,    -- TrackStatus ordinal
+    tags TEXT NOT NULL,         -- comma-separated, lowercased + trimmed
+    fetched_at INTEGER NOT NULL,
+    mal_id INTEGER,             -- cross-tracker dedup key (MAL); nullable when no MAL mapping exists
+    anilist_id INTEGER,         -- cross-tracker dedup key (AniList); nullable when no AL mapping exists
+    PRIMARY KEY (tracker_id, remote_id)
+);
+
+CREATE INDEX tracker_library_cache_tracker_idx ON tracker_library_cache(tracker_id);
+
+-- Layer A: locally-tracked manga, joined against the library.
+-- Status/score/genre are returned raw — repository impl maps them through
+-- per-tracker normalizers before producing TrackedEntry rows.
+getLocalTrackedEntries:
+SELECT
+    ms.sync_id     AS tracker_id,
+    ms.remote_id   AS remote_id,
+    ms.title       AS title,
+    ms.status      AS raw_status,
+    ms.score       AS raw_score,
+    m.genre        AS raw_genre
+FROM manga_sync ms
+INNER JOIN mangas m ON m._id = ms.manga_id
+WHERE m.favorite = 1;
+
+-- Layer B: cached entries from remote tracker library fetches.
+getAllCached:
+SELECT *
+FROM tracker_library_cache;
+
+getCachedByTracker:
+SELECT *
+FROM tracker_library_cache
+WHERE tracker_id = :trackerId;
+
+-- Returns 0 when the tracker has no cached rows yet; repository maps 0 → null.
+lastFetchedAt:
+SELECT IFNULL(MAX(fetched_at), 0)
+FROM tracker_library_cache
+WHERE tracker_id = :trackerId;
+
+deleteByTracker:
+DELETE FROM tracker_library_cache
+WHERE tracker_id = :trackerId;
+
+insert:
+INSERT INTO tracker_library_cache(tracker_id, remote_id, title, score, status, tags, fetched_at, mal_id, anilist_id)
+VALUES (:trackerId, :remoteId, :title, :score, :status, :tags, :fetchedAt, :malId, :anilistId);

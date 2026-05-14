@@ -6,6 +6,8 @@ import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
+import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALLibraryItem
+import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALLibraryResult
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALListItem
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALListItemStatus
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALManga
@@ -162,6 +164,43 @@ class MyAnimeListApi(private val client: OkHttpClient, interceptor: MyAnimeListI
             } else {
                 matches
             }
+        }
+    }
+
+    /**
+     * Pulls every entry in the user's MAL manga list, walking the cursor-paginated endpoint
+     * until exhausted. Used by the taste-profile fetcher; raw entries are status-mapped +
+     * score-normalized by the caller.
+     *
+     * Field projection includes `is_rereading` so the fetcher can collapse rereading entries
+     * into the READING status bucket, matching AniList's REPEATING handling.
+     */
+    suspend fun getUserLibrary(): List<MALLibraryItem> {
+        return withIOContext {
+            val accumulated = mutableListOf<MALLibraryItem>()
+            var offset = 0
+            while (true) {
+                val page = getLibraryPage(offset)
+                accumulated += page.data
+                if (page.paging.next.isNullOrBlank()) break
+                offset += LIST_PAGINATION_AMOUNT
+            }
+            accumulated
+        }
+    }
+
+    private suspend fun getLibraryPage(offset: Int): MALLibraryResult {
+        return withIOContext {
+            val urlBuilder = "$BASE_API_URL/users/@me/mangalist".toUri().buildUpon()
+                .appendQueryParameter("fields", "list_status{status,score,is_rereading},genres")
+                .appendQueryParameter("limit", LIST_PAGINATION_AMOUNT.toString())
+                .appendQueryParameter("nsfw", "true")
+            if (offset > 0) {
+                urlBuilder.appendQueryParameter("offset", offset.toString())
+            }
+            authClient.newCall(GET(urlBuilder.build().toString()))
+                .awaitSuccess()
+                .parseAs()
         }
     }
 

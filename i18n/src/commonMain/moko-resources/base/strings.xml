@@ -230,6 +230,19 @@
     <string name="include_tracker_recommendations">Include tracker recommendations</string>
     <string name="include_tracker_recommendations_summary">Mix similar-manga suggestions from public tracker APIs into the related-mangas carousel</string>
     <string name="recommendation_sources">Recommendation sources</string>
+    <!-- Phase 4 (taste profile) -->
+    <string name="taste_profile">Taste profile</string>
+    <string name="tracker_not_logged_in">Not logged in</string>
+    <string name="auto_refresh_tracker_library">Auto-refresh tracker library</string>
+    <string name="every_7_days">Every 7 days</string>
+    <string name="every_30_days">Every 30 days</string>
+    <string name="refresh_now">Refresh now</string>
+    <string name="refresh_now_summary">Pull each enabled tracker\'s library to build the taste profile</string>
+    <string name="last_refresh">Last refresh</string>
+    <string name="last_refresh_never">never</string>
+    <string name="last_refresh_today">today</string>
+    <string name="last_refresh_yesterday">yesterday</string>
+    <string name="last_refresh_days_ago">%1$d days ago</string>
     <string name="library_update_frequency">Library update frequency</string>
     <string name="pref_library_update_manga_restriction">Skip updating titles</string>
     <string name="pref_update_only_completely_read">With unread chapter(s)</string>

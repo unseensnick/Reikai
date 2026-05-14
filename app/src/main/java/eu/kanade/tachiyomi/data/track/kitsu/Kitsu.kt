@@ -6,6 +6,7 @@ import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.TrackService
+import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuLibraryEntry
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuOAuth
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.data.track.updateNewTrackInfo
@@ -126,6 +127,9 @@ class Kitsu(private val context: Context, id: Long) : TrackService(id) {
     override suspend fun search(query: String): List<TrackSearch> {
         return api.search(query)
     }
+
+    /** Pull every entry from the user's Kitsu manga library (paginated). Used by the taste-profile fetcher. */
+    suspend fun getUserLibrary(): List<KitsuLibraryEntry> = api.getUserLibrary(getUserId())
 
     override suspend fun refresh(track: Track): Track {
         val remoteTrack = api.getLibManga(track)

@@ -1,11 +1,16 @@
 package yokai.core.di
 
+import eu.kanade.tachiyomi.data.track.TrackManager
+import eu.kanade.tachiyomi.data.track.anilist.AnilistLibraryFetcher
+import eu.kanade.tachiyomi.data.track.kitsu.KitsuLibraryFetcher
+import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeListLibraryFetcher
 import org.koin.dsl.module
 import yokai.data.category.CategoryRepositoryImpl
 import yokai.data.chapter.ChapterRepositoryImpl
 import yokai.data.extension.repo.ExtensionRepoRepositoryImpl
 import yokai.data.history.HistoryRepositoryImpl
 import yokai.data.library.custom.CustomMangaRepositoryImpl
+import yokai.data.library.taste.TrackerLibraryRepositoryImpl
 import yokai.data.manga.MangaRepositoryImpl
 import yokai.data.source.browse.filter.SavedSearchRepositoryImpl
 import yokai.data.track.TrackRepositoryImpl
@@ -37,6 +42,10 @@ import yokai.domain.library.custom.interactor.CreateCustomManga
 import yokai.domain.library.custom.interactor.DeleteCustomManga
 import yokai.domain.library.custom.interactor.GetCustomManga
 import yokai.domain.library.custom.interactor.RelinkCustomManga
+import yokai.domain.library.taste.TrackerLibraryRepository
+import yokai.domain.library.taste.interactor.ComputeTasteProfile
+import yokai.domain.library.taste.interactor.GetTrackedEntries
+import yokai.domain.library.taste.interactor.RefreshTrackerLibrary
 import yokai.domain.manga.MangaRepository
 import yokai.domain.manga.interactor.GetLibraryManga
 import yokai.domain.manga.interactor.GetManga
@@ -101,6 +110,24 @@ fun domainModule() = module {
     factory { DeleteTrack(get()) }
     factory { GetTrack(get()) }
     factory { InsertTrack(get()) }
+
+    single<TrackerLibraryRepository> { TrackerLibraryRepositoryImpl(get(), get()) }
+    factory { GetTrackedEntries(get()) }
+    factory { ComputeTasteProfile() }
+    // One entry per supported tracker — the full Phase 4 set (AniList + MAL + Kitsu) is live.
+    factory {
+        val trackManager = get<TrackManager>()
+        RefreshTrackerLibrary(
+            get(),
+            listOf(
+                AnilistLibraryFetcher(trackManager.aniList),
+                MyAnimeListLibraryFetcher(trackManager.myAnimeList),
+                KitsuLibraryFetcher(trackManager.kitsu),
+            ),
+            get(),
+            get(),
+        )
+    }
 
     single<SavedSearchRepository> { SavedSearchRepositoryImpl(get()) }
     factory { DeleteSavedSearch(get()) }

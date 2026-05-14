@@ -10,6 +10,14 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Additions
+- Taste profile groundwork (Phase 4 of the personalized-recommendations feature). New "Taste profile" section under Settings → Library → Recommendations: per-tracker library-pull toggles for AniList / MyAnimeList / Kitsu, auto-refresh interval (Never / 7 days / 30 days), refresh-now button (60 s cooldown), and a last-refresh summary line. All three trackers have live library fetchers — pressing "Refresh now" pulls every entry from your enabled trackers (one GraphQL call for AniList, cursor-paginated REST for MAL, JSON:API with `included` resolution for Kitsu) and caches it locally for the profile. Cross-tracker entries (the same manga tracked on AniList + MAL + Kitsu) are deduped at compute time via two cross-ref keys (MyAnimeList id and AniList id) — important for mirror-list setups where the same manga would otherwise count multiple times. AniList trivially carries both ids; MAL only its own; Kitsu resolves both via its own `mappings` records. The AniList-id fallback catches manhwa where MAL cross-refs don't exist. No user-visible recommendation changes yet — the data is collected so Phase 5+ (active candidate injection, taste-driven rerank) can consume it
+
+### Other
+- New SQLDelight table `tracker_library_cache` (migrations 29 + 30 + 31) backs the durable per-tracker library cache. Migrations 30 / 31 add nullable `mal_id` / `anilist_id` columns for cross-tracker dedup. Not included in backups; rebuilt on demand from the tracker APIs
+
+## [1.9.7.5.8]
+
 ### Changes
 - **Package ID changed to allow installing alongside upstream Yōkai.** Release builds are now `eu.kanade.tachiyomi.y2k` (was `.yokai`). Existing Y2K installs need to back up → install the new build → restore; backup files are forward-compatible.
 

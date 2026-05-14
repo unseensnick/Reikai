@@ -1,0 +1,5 @@
+-- Cross-tracker dedup support. New nullable column carries the MAL id whenever the
+-- fetching tracker can resolve it (MAL trivially, AniList via Media.idMal). Kitsu remains
+-- null until the `mappings` include lands. Existing cached rows get NULL — they'll be
+-- backfilled on the next refresh, which rewrites the cache per tracker atomically.
+ALTER TABLE tracker_library_cache ADD COLUMN mal_id INTEGER;
