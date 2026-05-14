@@ -93,6 +93,10 @@ object PreferenceKeys {
 
     const val trackingsToAddOnline = "pref_tracking_for_online"
 
+    const val syncTrackerLinksGrouped = "pref_sync_tracker_links_grouped"
+
+    const val trackerSyncReconciledGroups = "pref_tracker_sync_reconciled_groups"
+
     const val lastUsedCatalogueSource = "last_catalogue_source"
 
     const val lastUsedCategory = "last_used_category"

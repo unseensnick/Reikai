@@ -42,6 +42,7 @@ The goal is to stay in sync with upstream Yōkai as closely as possible, while l
 * **Source-switcher chips** in manga details ([docs](docs/multi-source.md#source-switcher-chips)).
 * **Manage Sources sheet** with multi-select and undo ([docs](docs/multi-source.md#manage-sources-sheet)).
 * **Bulk-remove merged groups** ([docs](docs/multi-source.md#bulk-remove-all-sources-from-library)).
+* **Tracker sync across grouped sources** ([docs](docs/tracker-sync.md)).
 * **Category sort order & bulk delete** ([docs](docs/categories.md)).
 * **FlareSolverr support** for Cloudflare bypass ([docs](docs/flaresolverr.md)).
 

@@ -80,7 +80,9 @@ import yokai.domain.manga.interactor.GetLibraryManga
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.interactor.UpdateManga
 import yokai.domain.manga.models.MangaUpdate
+import yokai.domain.track.interactor.DeleteTrack
 import yokai.domain.track.interactor.GetTrack
+import yokai.domain.track.interactor.InsertTrack
 import yokai.i18n.MR
 import yokai.util.isLewd
 import yokai.util.lang.getString
@@ -109,6 +111,8 @@ class LibraryPresenter(
     private val updateChapter: UpdateChapter by injectLazy()
     private val updateManga: UpdateManga by injectLazy()
     private val getTrack: GetTrack by injectLazy()
+    private val insertTrack: InsertTrack by injectLazy()
+    private val deleteTrack: DeleteTrack by injectLazy()
     private val getHistory: GetHistory by injectLazy()
 
     private val forceUpdateEvent: Channel<Unit> = Channel(Channel.UNLIMITED)
@@ -970,11 +974,31 @@ class LibraryPresenter(
                         .thenBy { it.manga.manga.date_added },
                 )
                 primary.sourceCount = sg.size
-                primary.relatedMangaIds = sg.mapNotNull { it.manga.manga.id }.toLongArray()
+                val groupIds = sg.mapNotNull { it.manga.manga.id }.toLongArray()
+                primary.relatedMangaIds = groupIds
                 result.add(primary)
+                maybeReconcileTrackersForGroup(groupIds.toList())
             }
         }
         return result
+    }
+
+    /**
+     * For groups formed by [applySourceGrouping] (auto-grouping by title or via manual merge),
+     * propagate trackers across members the first time we see the composition. We track which
+     * `(sorted-id-csv)` keys have already been reconciled in a persistent preference so:
+     *  - new joiners (auto-group on title match after the user adds the manga to library) trigger
+     *    a one-shot propagation, fixing the "auto-merged sibling didn't inherit the tracker" bug;
+     *  - subsequent library refreshes don't keep re-reconciling the same group;
+     *  - the user's explicit tracker-chip removals on a member aren't undone on app restart, since
+     *    the cached key persists.
+     */
+    private fun maybeReconcileTrackersForGroup(ids: List<Long>) {
+        if (ids.size < 2) return
+        if (!preferences.syncTrackerLinksGrouped().get()) return
+        val key = ids.sorted().joinToString(",")
+        if (key in preferences.trackerSyncReconciledGroups().get()) return
+        presenterScope.launchIO { reconcileGroupTrackers(ids) }
     }
 
     private fun getLibraryItems(
@@ -1369,10 +1393,57 @@ class LibraryPresenter(
             parts.any { it in sortedSet }
         }
         preferences.mangaManualUnmerges().set(unmerges)
+
+        if (preferences.syncTrackerLinksGrouped().get()) {
+            presenterScope.launchIO { reconcileGroupTrackers(sorted) }
+        }
+    }
+
+    /**
+     * Propagate trackers across [ids] and cache the group's canonical key so the auto-grouping
+     * pass in [applySourceGrouping] doesn't repeat the work later. Used by both the manual
+     * [mergeMangas] path (immediate, for snappy UX) and the auto-merge path via
+     * [maybeReconcileTrackersForGroup].
+     */
+    private suspend fun reconcileGroupTrackers(ids: List<Long>) {
+        propagateTracksAcrossGroup(ids)
+        val key = ids.sorted().joinToString(",")
+        preferences.trackerSyncReconciledGroups().set(
+            preferences.trackerSyncReconciledGroups().get() + key,
+        )
+    }
+
+    /**
+     * Ensures every manga in the new group carries the union of all tracker links any member
+     * already had. For each tracker service, the binding shared by the most members wins (so a
+     * new source joining a group inherits the group's existing binding rather than overwriting
+     * it). Ties fall back to first-encountered. Uses `(manga_id, sync_id) ON CONFLICT REPLACE`
+     * semantics — any existing row for a given service is overwritten with the canonical link.
+     */
+    private suspend fun propagateTracksAcrossGroup(ids: List<Long>) {
+        if (ids.size < 2) return
+        val allTracks = ids.flatMap { id -> getTrack.awaitAllByMangaId(id) }
+        if (allTracks.isEmpty()) return
+        val canonicalBySyncId = allTracks
+            .groupBy { it.sync_id }
+            .mapValues { (_, list) ->
+                list.groupBy { it.media_id }
+                    .maxByOrNull { it.value.size }
+                    ?.value
+                    ?.first()
+            }
+        ids.forEach { mangaId ->
+            canonicalBySyncId.values.forEach { canonical ->
+                canonical ?: return@forEach
+                if (canonical.manga_id == mangaId) return@forEach
+                insertTrack.await(canonical.copyForSibling(mangaId))
+            }
+        }
     }
 
     /** Remove manga from the library and delete the downloads */
     fun confirmDeletion(mangas: List<Manga>, coverCacheToo: Boolean = true) {
+        preferences.invalidateTrackerReconciliationFor(mangas.mapNotNull { it.id })
         presenterScope.launchNonCancellableIO {
             val mangaToDelete = mangas.distinctBy { it.id }
             mangaToDelete.forEach { manga ->
@@ -1383,6 +1454,7 @@ class LibraryPresenter(
                 if (source != null) {
                     downloadManager.deleteManga(manga, source)
                 }
+                manga.id?.let { deleteTrack.awaitForMangaAll(it) }
             }
             if (!coverCacheToo) {
                 requestDownloadBadgesUpdate()

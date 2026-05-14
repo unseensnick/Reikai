@@ -113,7 +113,7 @@ class MangaDetailsPresenter(
     private val downloadManager: DownloadManager = Injekt.get(),
     private val chapterFilter: ChapterFilter = Injekt.get(),
     private val storageManager: StorageManager = Injekt.get(),
-    val relatedMangaIds: LongArray = LongArray(0),
+    relatedMangaIds: LongArray = LongArray(0),
 ) : BaseCoroutinePresenter<MangaDetailsController>(),
     DownloadQueue.Listener {
     private val getAvailableScanlators: GetAvailableScanlators by injectLazy()
@@ -128,6 +128,13 @@ class MangaDetailsPresenter(
     private val getHistory: GetHistory by injectLazy()
 
     private val networkPreferences: NetworkPreferences by injectLazy()
+
+    /**
+     * IDs of all library entries grouped with this manga (auto-grouped same-title or manually
+     * merged). Mutable so the controller can refresh on attach — see [refreshRelatedMangaIds].
+     */
+    var relatedMangaIds: LongArray = relatedMangaIds
+        private set
 
 //    private val currentMangaInternal: MutableStateFlow<Manga?> = MutableStateFlow(null)
 //    val currentManga get() = currentMangaInternal.asStateFlow()
@@ -744,6 +751,7 @@ class MangaDetailsPresenter(
     }
 
     fun confirmDeletion() {
+        preferences.invalidateTrackerReconciliationFor(listOf(manga.id!!))
         presenterScope.launchNonCancellableIO {
             manga.removeCover(coverCache)
             customMangaManager.saveMangaInfo(CustomMangaInfo(
@@ -756,6 +764,7 @@ class MangaDetailsPresenter(
                 status = null,
             ))
             downloadManager.deleteManga(manga, source)
+            deleteTrack.awaitForMangaAll(manga.id!!)
             asyncUpdateMangaAndChapters(true)
         }
     }
@@ -767,11 +776,13 @@ class MangaDetailsPresenter(
             if (!target.favorite) null else MangaUpdate(id = id, favorite = false)
         }
         if (updates.isNotEmpty()) updateManga.awaitAll(updates)
+        preferences.invalidateTrackerReconciliationFor(allIds)
         presenterScope.launchNonCancellableIO {
             allIds.forEach { id ->
                 val target = getManga.awaitById(id) ?: return@forEach
                 target.removeCover(coverCache)
                 downloadManager.deleteManga(target, sourceManager.getOrStub(target.source))
+                deleteTrack.awaitForMangaAll(id)
             }
         }
     }
@@ -1041,12 +1052,30 @@ class MangaDetailsPresenter(
                 withContext(Dispatchers.IO) {
                     if (binding != null) {
                         insertTrack.await(binding)
+                        propagateTrackToSiblings(binding)
                     }
 
                     syncChaptersWithTrackServiceTwoWay(chapters, item, service)
                 }
                 fetchTracks()
             }
+        }
+    }
+
+    /**
+     * Mirrors [binding] onto every still-favorited sibling in [relatedMangaIds] so that adding a
+     * tracker to one source in a multi-source group automatically links the others. Behind the
+     * `syncTrackerLinksGrouped` preference. Skips siblings that are no longer favorited (per the
+     * favorite filter applied elsewhere in `availableSources`).
+     */
+    private suspend fun propagateTrackToSiblings(binding: Track) {
+        if (!preferences.syncTrackerLinksGrouped().get()) return
+        if (relatedMangaIds.isEmpty()) return
+        relatedMangaIds.forEach { siblingId ->
+            if (siblingId == binding.manga_id) return@forEach
+            val sibling = getManga.awaitById(siblingId) ?: return@forEach
+            if (!sibling.favorite) return@forEach
+            insertTrack.await(binding.copyForSibling(siblingId))
         }
     }
 
@@ -1157,6 +1186,49 @@ class MangaDetailsPresenter(
 
     // ── Source-group management ───────────────────────────────────────────────
 
+    /**
+     * Recomputes [relatedMangaIds] from the current library state — same logic
+     * `LibraryPresenter.applySourceGrouping` uses, but for a single manga. Returns true if the
+     * set of IDs changed, so the caller can decide whether a re-render is needed. Used when the
+     * details screen re-attaches (e.g. returning from Global Search after the user added another
+     * source for the same title) so the source-switcher chips reflect the new sibling without
+     * waiting for a Library round-trip.
+     */
+    suspend fun refreshRelatedMangaIds(): Boolean {
+        val targetId = manga.id ?: return false
+        val targetTitle = manga.title.lowercase().trim()
+        if (targetTitle.isEmpty()) return false
+
+        val mergesPrefs = preferences.mangaManualMerges().get()
+        val unmergesPrefs = preferences.mangaManualUnmerges().get()
+
+        val merged = mergesPrefs.flatMap { entry ->
+            val ids = entry.split(",").mapNotNull { it.trim().toLongOrNull() }
+            if (targetId in ids) ids else emptyList()
+        }.toSet()
+
+        val sameTitle = getManga.awaitFavorites()
+            .asSequence()
+            .filter { it.id != null && it.title.lowercase().trim() == targetTitle }
+            .mapNotNull { it.id }
+            .toSet()
+
+        val candidates = (merged + sameTitle + targetId)
+        val filtered = candidates
+            .filter { id ->
+                if (id == targetId) return@filter true
+                val pair = if (targetId < id) "$targetId,$id" else "$id,$targetId"
+                pair !in unmergesPrefs
+            }
+            .sorted()
+            .toLongArray()
+
+        val current = relatedMangaIds.sortedArray()
+        if (filtered.contentEquals(current)) return false
+        relatedMangaIds = filtered
+        return true
+    }
+
     suspend fun availableSources(): List<Pair<Long, eu.kanade.tachiyomi.source.Source>> {
         val unmerges = preferences.mangaManualUnmerges().get()
         return relatedMangaIds.filter { otherId ->
@@ -1204,11 +1276,13 @@ class MangaDetailsPresenter(
             if (!target.favorite) null else MangaUpdate(id = id, favorite = false)
         }
         if (updates.isNotEmpty()) updateManga.awaitAll(updates)
+        preferences.invalidateTrackerReconciliationFor(targetIds)
         presenterScope.launchNonCancellableIO {
             targetIds.forEach { id ->
                 val target = getManga.awaitById(id) ?: return@forEach
                 target.removeCover(coverCache)
                 downloadManager.deleteManga(target, sourceManager.getOrStub(target.source))
+                deleteTrack.awaitForMangaAll(id)
             }
         }
     }

@@ -38,6 +38,23 @@ interface Track : Serializable {
         finished_reading_date = other.finished_reading_date
     }
 
+    /**
+     * Builds a fresh track row pointing at [siblingMangaId] but carrying the same tracker link
+     * (`sync_id` / `media_id` / `library_id` / `title` / `tracking_url`) and personal progress as
+     * `this`. Used when mirroring a tracker across siblings in a multi-source group.
+     */
+    fun copyForSibling(siblingMangaId: Long): Track = TrackImpl().also { copy ->
+        copy.id = null
+        copy.manga_id = siblingMangaId
+        copy.sync_id = sync_id
+        copy.media_id = media_id
+        copy.library_id = library_id
+        copy.title = title
+        copy.tracking_url = tracking_url
+        copy.copyPersonalFrom(this)
+        copy.total_chapters = total_chapters
+    }
+
     companion object {
         fun create(serviceId: Long): Track = TrackImpl().apply {
             sync_id = serviceId

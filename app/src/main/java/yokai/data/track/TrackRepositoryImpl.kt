@@ -12,6 +12,10 @@ class TrackRepositoryImpl(private val handler: DatabaseHandler) : TrackRepositor
         handler.await { manga_syncQueries.deleteForManga(mangaId, syncId) }
     }
 
+    override suspend fun deleteAllForManga(mangaId: Long) {
+        handler.await { manga_syncQueries.deleteAllForManga(mangaId) }
+    }
+
     override suspend fun insert(track: Track) {
         handler.await {
             manga_syncQueries.insert(

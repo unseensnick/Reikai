@@ -146,6 +146,7 @@ import java.io.IOException
 import java.util.Locale
 import kotlin.math.max
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import yokai.domain.manga.models.cover
@@ -741,6 +742,15 @@ class MangaDetailsController :
 
     override fun onAttach(view: View) {
         super.onAttach(view)
+        // Refresh the source-switcher group on attach so the initial render picks up any
+        // library changes since the controller was constructed. POP_ENTER handles back-nav
+        // from a pushed controller separately (see onChangeStarted).
+        viewScope.launchUI {
+            // Small delay so any in-flight `favorite = true` write settles before we query.
+            delay(150L)
+            presenter.refreshRelatedMangaIds()
+            updateHeader()
+        }
         if (!returningFromReader) return
         returningFromReader = false
         runBlocking {
@@ -764,6 +774,17 @@ class MangaDetailsController :
                 activityBinding?.appBar?.updateAppBarAfterY(binding.recycler)
                 updateToolbarTitleAlpha(0f)
                 setStatusBarAndToolbar()
+            }
+            // Pop-enter (back-nav from a pushed controller, e.g. Global Search) doesn't fire
+            // onAttach because the fade transaction keeps our view in the hierarchy. Refresh
+            // related manga IDs here so the chip bar picks up new siblings that were added while
+            // we were "off-screen."
+            if (!type.isPush) {
+                viewScope.launchUI {
+                    delay(150L)
+                    presenter.refreshRelatedMangaIds()
+                    updateHeader()
+                }
             }
         } else {
             if (router.backstack.lastOrNull()?.controller is DialogController) {

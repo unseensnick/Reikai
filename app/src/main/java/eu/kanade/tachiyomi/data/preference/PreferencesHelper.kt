@@ -164,6 +164,28 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
 
     fun trackingsToAddOnline() = preferenceStore.getStringSet(Keys.trackingsToAddOnline, emptySet())
 
+    fun syncTrackerLinksGrouped() = preferenceStore.getBoolean(Keys.syncTrackerLinksGrouped, true)
+
+    fun trackerSyncReconciledGroups() = preferenceStore.getStringSet(Keys.trackerSyncReconciledGroups, emptySet())
+
+    /**
+     * Drop any cached group-reconciliation keys that contain one of [mangaIds]. Called whenever a
+     * manga is removed from the library so that, if it's later re-added and the same composition
+     * re-forms, tracker reconciliation runs fresh (the new entry starts with no trackers and needs
+     * to inherit the group's binding).
+     */
+    fun invalidateTrackerReconciliationFor(mangaIds: Collection<Long>) {
+        if (mangaIds.isEmpty()) return
+        val idSet = mangaIds.toSet()
+        val reconciled = trackerSyncReconciledGroups().get()
+        val filtered = reconciled.filterNotTo(mutableSetOf()) { key ->
+            key.split(",").any { part -> part.trim().toLongOrNull() in idSet }
+        }
+        if (filtered.size != reconciled.size) {
+            trackerSyncReconciledGroups().set(filtered)
+        }
+    }
+
     // TODO: SourcePref
     fun lastUsedCatalogueSource() = preferenceStore.getLong(Keys.lastUsedCatalogueSource, -1)
 

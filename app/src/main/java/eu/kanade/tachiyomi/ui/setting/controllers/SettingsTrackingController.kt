@@ -25,6 +25,7 @@ import eu.kanade.tachiyomi.ui.setting.infoPreference
 import eu.kanade.tachiyomi.ui.setting.onClick
 import eu.kanade.tachiyomi.ui.setting.preference
 import eu.kanade.tachiyomi.ui.setting.preferenceCategory
+import eu.kanade.tachiyomi.ui.setting.summaryMRes as summaryRes
 import eu.kanade.tachiyomi.ui.setting.switchPreference
 import eu.kanade.tachiyomi.ui.setting.titleMRes as titleRes
 import eu.kanade.tachiyomi.util.system.launchIO
@@ -58,6 +59,12 @@ class SettingsTrackingController :
             key = Keys.trackMarkedAsRead
             titleRes = MR.strings.update_tracking_marked_read
             defaultValue = false
+        }
+        switchPreference {
+            key = Keys.syncTrackerLinksGrouped
+            titleRes = MR.strings.sync_tracker_links_grouped
+            summaryRes = MR.strings.sync_tracker_links_grouped_summary
+            defaultValue = true
         }
         preferenceCategory {
             titleRes = MR.strings.services

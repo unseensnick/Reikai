@@ -6,4 +6,5 @@ class DeleteTrack(
     private val trackRepository: TrackRepository,
 ) {
     suspend fun awaitForManga(mangaId: Long, syncId: Long) = trackRepository.deleteForManga(mangaId, syncId)
+    suspend fun awaitForMangaAll(mangaId: Long) = trackRepository.deleteAllForManga(mangaId)
 }

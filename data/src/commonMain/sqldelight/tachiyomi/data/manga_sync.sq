@@ -26,6 +26,10 @@ deleteForManga:
 DELETE FROM manga_sync
 WHERE manga_id = :mangaId AND sync_id = :syncId;
 
+deleteAllForManga:
+DELETE FROM manga_sync
+WHERE manga_id = :mangaId;
+
 insert:
 INSERT INTO manga_sync(manga_id, sync_id, remote_id, library_id, title, last_chapter_read, total_chapters, status, score, remote_url, start_date, finish_date)
 VALUES(:mangaId, :syncId, :remoteId, :libraryId, :title, :lastChapterRead, :totalChapters, :status, :score, :remoteUrl, :startDate, :finishDate);
