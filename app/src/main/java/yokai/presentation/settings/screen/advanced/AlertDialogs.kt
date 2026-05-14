@@ -26,9 +26,13 @@ data class CleanupChaptersOptions(
 suspend fun DialogHostState.awaitCleanupDownloadedChapters(): CleanupChaptersOptions? = dialog { cont ->
     var deleteRead by rememberSaveable { mutableStateOf(true) }
     var deleteNonFavorite by rememberSaveable { mutableStateOf(true) }
+    val resume: (CleanupChaptersOptions?) -> Unit = { value ->
+        // Guard against rapid double-taps (confirm + dismiss landing in the same frame)
+        if (cont.isActive) cont.resume(value)
+    }
 
     AlertDialog(
-        onDismissRequest = { cont.resume(null) },
+        onDismissRequest = { resume(null) },
         title = { Text(text = stringResource(MR.strings.clean_up_downloaded_chapters)) },
         text = {
             Box {
@@ -61,13 +65,13 @@ suspend fun DialogHostState.awaitCleanupDownloadedChapters(): CleanupChaptersOpt
         },
         confirmButton = {
             TextButton(onClick = {
-                cont.resume(CleanupChaptersOptions(deleteRead = deleteRead, deleteNonFavorite = deleteNonFavorite))
+                resume(CleanupChaptersOptions(deleteRead = deleteRead, deleteNonFavorite = deleteNonFavorite))
             }) {
                 Text(stringResource(AR.string.ok))
             }
         },
         dismissButton = {
-            TextButton(onClick = { cont.resume(null) }) {
+            TextButton(onClick = { resume(null) }) {
                 Text(stringResource(AR.string.cancel))
             }
         },

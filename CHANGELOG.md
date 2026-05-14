@@ -12,7 +12,7 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 
 ### Changes
 - Settings → Security rebuilt on the new Compose pattern. Long-press the row to reach the legacy version
-- Settings → Advanced now opens the Compose version by default. Tap reaches the modern screen; long-press still falls back to the legacy preferences screen during the soak period. The Compose version is now feature-complete: cleanup-downloaded-chapters and revoke-all-extensions are wired up, the Reader category (hardware bitmap threshold, color profile picker, reader debug mode) is back, the external local-source switch is back, and the developer dev/debug-only "Crash the app!" and "Prune finished workers" actions are available
+- Settings → Advanced rebuilt on the new Compose pattern. Long-press the row to reach the legacy version. Cleanup downloaded chapters, revoke trust for all extensions, the Reader options (hardware bitmap threshold, color profile picker, reader debug mode), and the external local-source toggle are all back; debug builds keep the "Crash the app!" and "Prune finished workers" actions
 
 ### Fixes
 - Opening the search bar in Settings no longer crashes the app. The experimental "Change App Icon" dropdown was sharing a SharedPreferences key with the Compose-library toggle, causing a `ClassCastException` when search enumerated every settings screen at once

@@ -10,12 +10,18 @@ Each non-Compose screen has a `*Controller` (Conductor, view) + `*Presenter` (bu
 
 ## Settings UI — two-screen pattern
 
-Every settings section has two parallel implementations:
+A settings section under migration has two parallel implementations:
 
-- **Legacy Conductor controller** in `app/.../ui/setting/controllers/legacy/` — **what users see by default**.
-- **Compose screen** in `app/.../yokai/presentation/settings/screen/` — experimental, not yet the default.
+- **Compose screen** in `app/.../yokai/presentation/settings/screen/` — the target stack.
+- **Legacy Conductor controller** in `app/.../ui/setting/controllers/legacy/` — kept as a long-press fallback during the soak period after the section flips to Compose-default.
 
-**When adding or editing settings UI, changes go to the legacy controller.** The Compose screen is invisible to users until that section's migration is complete. Advanced settings specifically: normal tap → legacy; long-press → Compose (experimental).
+**Flipped (Compose-default):** Security, Data and storage, Advanced. Tap reaches Compose; long-press toasts and falls back to legacy.
+
+**Not flipped:** General, Appearance, Library, Reader, Downloads, Browse, Tracking, About — legacy only.
+
+**When adding or editing UI for a flipped section**, changes go to the Compose screen. The legacy controller stays alive (still indexed by `SettingsSearchHelper`) — don't delete it without solving Compose-side search.
+
+**When adding or editing UI for a not-yet-flipped section**, changes go to the legacy controller. The Compose screen, if any, is invisible to users until the section is migrated and flipped.
 
 ## Preferences
 

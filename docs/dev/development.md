@@ -190,15 +190,17 @@ All implemented in `app/`:
 
 Settings navigation is driven by `app/src/main/java/eu/kanade/tachiyomi/ui/setting/controllers/SettingsMainController.kt`, which maps each section to its screen.
 
-**Two-screen pattern:** every settings section has two parallel implementations:
-- **Legacy Conductor controller** in `app/.../ui/setting/controllers/legacy/` — this is what users see by default
-- **Compose screen** in `app/.../yokai/presentation/settings/screen/` — experimental, not yet the default for most sections
+**Two-screen pattern:** each settings section can have two parallel implementations during its migration:
+- **Compose screen** in `app/.../yokai/presentation/settings/screen/` — the target stack (Compose + Voyager).
+- **Legacy Conductor controller** in `app/.../ui/setting/controllers/legacy/` — kept as a long-press fallback during the soak period after a section flips.
 
-**When adding or editing settings UI, changes must go to the legacy controller.** The Compose screen won't be visible to users until the migration for that section is complete.
+**Per-section state:**
+- **Security**, **Data and storage**, **Advanced** — Compose by default (tap). Long-press reaches the legacy version, which prints a `"You're entering legacy version of …"` toast.
+- **General**, **Appearance**, **Library**, **Reader**, **Downloads**, **Browse**, **Tracking**, **About** — legacy only. No Compose port yet.
 
-**Advanced settings specifically:**
-- Normal tap → `SettingsAdvancedLegacyController` (legacy, what users see)
-- Long-press → `SettingsAdvancedController` → `SettingsAdvancedScreen` (Compose, experimental)
+**When adding or editing settings UI for a section that has flipped:** changes go to the Compose screen. The legacy controller stays alive during the soak period so that the Settings search (which still indexes legacy controllers — see `SettingsSearchHelper.kt`) keeps surfacing results for migrated sections.
+
+**When adding or editing settings UI for a section that has not flipped:** changes go to the legacy controller. The Compose screen, if any, is invisible to users until that section's migration is complete and the routing is flipped.
 
 ## Build Gotchas
 
