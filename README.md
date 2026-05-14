@@ -139,6 +139,17 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 
 </details>
 
+<details><summary>Syncing from upstream Yōkai</summary>
+
+`main` carries rebrand commits (app name, `.y2k` package suffix, Firebase config) on top of upstream. Behavior of GitHub's "Sync fork" button:
+
+* **On `main`**: tries to pull from upstream, sees divergence, refuses or offers to discard fork commits. Don't use.
+* **On other branches**: safe — syncs the branch with this repo's `main`.
+
+Upstream commits flow in via `git fetch upstream && git merge upstream/master` on `main`, where rebrand conflicts are resolved once. Never merge `upstream/master` directly into a non-`main` branch. See [docs/development.md](docs/development.md#syncing-with-upstream) for full details.
+
+</details>
+
 </div>
 
 ### Credits

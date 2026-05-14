@@ -64,7 +64,7 @@ Branch is forked off `feat/tracker-sync-grouped`. Phases 1–3 form a usable Kom
 
 ### Phase 2 decisions
 
-- **Carousel uses RecyclerView + FlexibleAdapter**, not Compose. Manga details screen is still Conductor + ViewBinding (per CLAUDE.md). New classes:
+- **Carousel uses RecyclerView + FlexibleAdapter**, not Compose. Manga details screen is still Conductor + ViewBinding (per `docs/development.md`). New classes:
   - `RelatedMangaCardItem` / `RelatedMangaCardHolder` / `RelatedMangaCardAdapter` under `ui/manga/related/`
   - `OnRelatedMangaClickListener` interface implemented by `MangaDetailsController`
   - `related_manga_card_item.xml` for the real card, `related_manga_skeleton_card.xml` + `drawable/skeleton_placeholder.xml` for the loading placeholder
@@ -266,7 +266,7 @@ These were latent — Phase 2 just happened to exercise the right code paths.
 
 Add to [`source/api`](../source/api/) — `suspend fun getRelatedMangaList(manga: SManga): List<SManga>` on the source contract (likely `CatalogueSource`, but pin during phase 1 — Yōkai still has RxJava in places, so check whether the surrounding API is `Observable` or `suspend`).
 
-`open` with a default keyword-search implementation so existing extensions continue to compile and run. CLAUDE.md §"Source Plugin System" prohibits breaking the public source-API surface without a migration plan — defaulting via the fallback satisfies that.
+`open` with a default keyword-search implementation so existing extensions continue to compile and run. `docs/development.md` §"Source Plugin System" prohibits breaking the public source-API surface without a migration plan — defaulting via the fallback satisfies that.
 
 Three opt-in flags mirroring Komikku:
 
