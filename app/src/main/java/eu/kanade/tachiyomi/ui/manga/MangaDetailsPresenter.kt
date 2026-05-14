@@ -34,6 +34,7 @@ import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.recommendation.RECOMMENDS_SOURCE
 import eu.kanade.tachiyomi.data.recommendation.RecommendationsFetcher
+import eu.kanade.tachiyomi.data.recommendation.TasteCandidateFetcher
 import eu.kanade.tachiyomi.data.track.EnhancedTrackService
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.TrackService
@@ -555,6 +556,12 @@ class MangaDetailsPresenter(
             withUIContext { view?.updateHeader() }
 
             val accumulated = LinkedHashSet<RelatedMangaCandidate>()
+            // Cross-pool dedup: tracker URLs (anilist.co/...) and source URLs (mangadex.org/...)
+            // live in distinct namespaces, so url-keyed dedup inside `accumulated` can't catch a
+            // manga that appears via both. Normalized title acts as a second key spanning all
+            // streams. First-arriving entry wins, which naturally prefers source-origin candidates
+            // (single fast call) over tracker entries (slower, multiple calls).
+            val seenTitleKeys = HashSet<String>().apply { add(normalizeTitleForDedup(manga.title)) }
             val excludedUrl = manga.url
             val exceptionHandler: (Throwable) -> Unit = { e ->
                 Logger.e(e) { "Related-mangas sub-task failed for ${manga.title}" }
@@ -573,9 +580,10 @@ class MangaDetailsPresenter(
                 val changed = relatedMangasMutex.withLock {
                     val before = accumulated.size
                     pair.second.forEach { m ->
-                        if (m.url != excludedUrl) {
-                            accumulated.add(RelatedMangaCandidate(sourceId, trackerName, m))
-                        }
+                        if (m.url == excludedUrl) return@forEach
+                        val titleKey = normalizeTitleForDedup(m.title)
+                        if (!seenTitleKeys.add(titleKey)) return@forEach
+                        accumulated.add(RelatedMangaCandidate(sourceId, trackerName, m))
                     }
                     if (accumulated.size != before) {
                         relatedMangas = mergeForDisplay(accumulated)
@@ -601,6 +609,13 @@ class MangaDetailsPresenter(
                             manga = manga,
                             exceptionHandler = exceptionHandler,
                             pushResults = makePushResults(RECOMMENDS_SOURCE),
+                        )
+                    }
+                    launch {
+                        TasteCandidateFetcher().fetch(
+                            source = catalogueSource,
+                            exceptionHandler = exceptionHandler,
+                            pushResults = makePushResults(catalogueSource.id),
                         )
                     }
                 }
@@ -1475,5 +1490,17 @@ class MangaDetailsPresenter(
          * before trackers respond. Either side cedes unfilled capacity to the other.
          */
         private const val RELATED_MANGAS_TRACKER_RESERVE = 12
+
+        /**
+         * Minimal title normalization used to dedup across pool streams (source-native, keyword,
+         * trackers, taste-driven). Trims, lowercases, and collapses internal whitespace —
+         * enough to catch "Solo Leveling" vs "SOLO LEVELING" vs "Solo  Leveling " from different
+         * sources. Deliberately does not strip punctuation, diacritics, or transliterate scripts;
+         * those collapses risk false positives across legitimately distinct titles. Revisit if
+         * observation shows v1 misses common cases.
+         */
+        private val DEDUP_WHITESPACE = Regex("\\s+")
+        internal fun normalizeTitleForDedup(title: String): String =
+            title.lowercase().trim().replace(DEDUP_WHITESPACE, " ")
     }
 }

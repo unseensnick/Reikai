@@ -28,17 +28,14 @@ import eu.kanade.tachiyomi.ui.setting.titleMRes as titleRes
 /**
  * Settings → Library → Recommendations.
  *
- * Two sections:
+ * Three sections:
  * 1. **Recommendation sources** (Phase 3) — master toggle + per-tracker sources for the
  *    related-mangas carousel.
  * 2. **Taste profile** (Phase 4 core) — per-tracker library-pull toggles, auto-refresh
  *    interval, refresh-now button, and a last-refresh summary line.
- *
- * The Phase 4 section produces no user-visible behavior yet — Phase 5 (active candidate
- * injection) and Phase 6 (rerank + anti-echo) consume the taste-profile data. For Phase 4
- * core the section is wired and visible so the data pipeline can be configured and
- * verified, but the refresh button is a no-op until Phase 4.1 ships the first
- * [eu.kanade.tachiyomi.data.track.library.TrackerLibraryFetcher].
+ * 3. **Candidate injection** (Phase 5) — sub-toggles for the taste-profile-driven candidate
+ *    streams that feed the related-mangas carousel: tag-search on the current source and
+ *    cross-recommendation from the user's top-rated tracked manga.
  */
 class SettingsLibraryRecommendationsController : SettingsLegacyController() {
 
@@ -133,6 +130,24 @@ class SettingsLibraryRecommendationsController : SettingsLegacyController() {
                 refresh()
                 // Each refresh-button press flips the cooldown pref twice; each flip wakes this.
                 preferences.trackerLibraryRefreshCooldownUntil().changesIn(viewScope) { refresh() }
+            }
+        }
+
+        preferenceCategory {
+            titleRes = MR.strings.candidate_injection
+
+            switchPreference {
+                key = Keys.injectTagSearchCandidates
+                titleRes = MR.strings.tag_search_on_current_source
+                summaryRes = MR.strings.tag_search_on_current_source_summary
+                defaultValue = true
+            }
+
+            switchPreference {
+                key = Keys.injectCrossRecommendationCandidates
+                titleRes = MR.strings.cross_recommendation_from_favorites
+                summaryRes = MR.strings.cross_recommendation_from_favorites_summary
+                defaultValue = true
             }
         }
     }

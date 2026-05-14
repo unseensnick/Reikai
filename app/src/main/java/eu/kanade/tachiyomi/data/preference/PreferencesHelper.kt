@@ -205,6 +205,19 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
     fun trackerLibraryRefreshCooldownUntil() = preferenceStore.getLong(Keys.trackerLibraryRefreshCooldownUntil, 0L)
 
     /**
+     * Phase 5 — when on, the related-mangas carousel runs the user's top taste-profile tags
+     * as searches against the current source and pools the hits.
+     */
+    fun injectTagSearchCandidates() = preferenceStore.getBoolean(Keys.injectTagSearchCandidates, true)
+
+    /**
+     * Phase 5 — when on, the related-mangas carousel looks up the user's top-rated tracked
+     * manga on the current source and pulls each match's source-native related list. Also
+     * gated structurally on `CatalogueSource.supportsRelatedMangas`.
+     */
+    fun injectCrossRecommendationCandidates() = preferenceStore.getBoolean(Keys.injectCrossRecommendationCandidates, true)
+
+    /**
      * Drop any cached group-reconciliation keys that contain one of [mangaIds]. Called whenever a
      * manga is removed from the library so that, if it's later re-added and the same composition
      * re-forms, tracker reconciliation runs fresh (the new entry starts with no trackers and needs

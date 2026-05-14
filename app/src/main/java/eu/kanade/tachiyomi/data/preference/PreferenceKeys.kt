@@ -117,6 +117,12 @@ object PreferenceKeys {
     /** Epoch millis the refresh button stays disabled until (60 s cooldown). */
     const val trackerLibraryRefreshCooldownUntil = "pref_tracker_library_refresh_cooldown_until"
 
+    // Phase 5 (active candidate injection) — taste-profile-driven candidates for the
+    // related-mangas carousel. Each sub-mechanism is independently toggleable; cross-rec
+    // also gates structurally on the source's `supportsRelatedMangas` flag.
+    const val injectTagSearchCandidates = "pref_inject_tag_search_candidates"
+    const val injectCrossRecommendationCandidates = "pref_inject_cross_recommendation_candidates"
+
     const val lastUsedCatalogueSource = "last_catalogue_source"
 
     const val lastUsedCategory = "last_used_category"

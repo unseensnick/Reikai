@@ -243,6 +243,12 @@
     <string name="last_refresh_today">today</string>
     <string name="last_refresh_yesterday">yesterday</string>
     <string name="last_refresh_days_ago">%1$d days ago</string>
+    <!-- Phase 5 (active candidate injection) -->
+    <string name="candidate_injection">Candidate injection</string>
+    <string name="tag_search_on_current_source">Tag search on current source</string>
+    <string name="tag_search_on_current_source_summary">Search the current source for your top taste-profile tags and add the hits to the related-mangas carousel</string>
+    <string name="cross_recommendation_from_favorites">Cross-recommendation from favorites</string>
+    <string name="cross_recommendation_from_favorites_summary">Look up your top-rated tracked manga on the current source and pull each match\'s source-native related list into the carousel</string>
     <string name="library_update_frequency">Library update frequency</string>
     <string name="pref_library_update_manga_restriction">Skip updating titles</string>
     <string name="pref_update_only_completely_read">With unread chapter(s)</string>
