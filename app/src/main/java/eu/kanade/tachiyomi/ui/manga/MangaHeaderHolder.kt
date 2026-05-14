@@ -14,6 +14,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.toDrawable
@@ -40,6 +41,8 @@ import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.nameBasedOnEnabledLanguages
 import eu.kanade.tachiyomi.ui.base.holder.BaseFlexibleViewHolder
+import eu.kanade.tachiyomi.ui.manga.related.RelatedMangaCardAdapter
+import eu.kanade.tachiyomi.ui.manga.related.RelatedMangaCardItem
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.lang.toNormalized
 import eu.kanade.tachiyomi.util.system.getResourceColor
@@ -85,6 +88,7 @@ class MangaHeaderHolder(
     var hadSelection = false
     private var canCollapse = true
     private var chipsJob: Job? = null
+    private var relatedMangasAdapter: RelatedMangaCardAdapter? = null
 
     init {
 
@@ -324,6 +328,7 @@ class MangaHeaderHolder(
 
         setGenreTags(binding, manga)
         setSourceChips(binding, presenter)
+        setRelatedMangas(binding, presenter)
 
         if (manga.hasSameAuthorAndArtist) {
             binding.mangaAuthor.text = manga.author?.trim()
@@ -603,6 +608,74 @@ class MangaHeaderHolder(
             }
             // Only reveal the row once chips are actually present
             scrollView.isVisible = true
+        }
+    }
+
+    /**
+     * Populate the related-mangas carousel below the description.
+     *
+     * Section-level visibility uses GONE (collapses the layout entirely when the source has no
+     * suggestions). But the skeleton↔recycler swap inside the section uses VISIBLE/INVISIBLE so
+     * both children always occupy the same 230dp footprint. The [Barrier][androidx.constraintlayout.widget.Barrier]
+     * below in the XML respects INVISIBLE views, so `start_reading_button` (and `chapter_layout`
+     * in landscape) stays anchored at a fixed position — no reflow when the placeholder swaps
+     * out for real cards.
+     *
+     * Visibility matrix:
+     *  - list empty + not loading → section hidden (fetch unstarted or returned nothing).
+     *  - list empty + loading → skeleton VISIBLE, recycler INVISIBLE.
+     *  - list non-empty → skeleton INVISIBLE, recycler VISIBLE (the adapter is updated *before*
+     *    we flip the recycler visible so there's no one-frame "empty recycler" flash).
+     *
+     * The adapter is lazily created on the first non-empty result so scroll position survives binds.
+     */
+    private fun setRelatedMangas(binding: MangaHeaderItemBinding?, presenter: MangaDetailsPresenter) {
+        binding ?: return
+        val controller = adapter.delegate as? MangaDetailsController ?: return
+        val label = binding.relatedMangasLabel
+        val skeleton = binding.relatedMangasSkeleton
+        val recycler = binding.relatedMangasRecycler
+
+        val list = presenter.relatedMangas
+        val isLoading = presenter.relatedMangasLoading
+
+        if (list.isEmpty() && !isLoading) {
+            label.visibility = View.GONE
+            skeleton.visibility = View.GONE
+            recycler.visibility = View.GONE
+            return
+        }
+
+        // The label sits above whichever of skeleton/recycler is currently visible — show it
+        // as soon as a fetch is in flight so the section header reserves space from the start.
+        label.visibility = View.VISIBLE
+
+        if (list.isNotEmpty()) {
+            // Populate the adapter *before* flipping visibility so the recycler is never
+            // briefly visible-but-empty.
+            if (recycler.adapter == null) {
+                recycler.layoutManager = LinearLayoutManager(
+                    recycler.context,
+                    LinearLayoutManager.HORIZONTAL,
+                    false,
+                )
+                // Streamed updates from the presenter would otherwise animate every new batch,
+                // producing a visible flicker as the row grows. Static row, no animation needed.
+                recycler.itemAnimator = null
+                relatedMangasAdapter = RelatedMangaCardAdapter(controller)
+                recycler.adapter = relatedMangasAdapter
+            }
+            val sourceId = presenter.manga.source
+            relatedMangasAdapter?.updateDataSet(
+                list.map { RelatedMangaCardItem(sourceId, it) },
+            )
+            recycler.visibility = View.VISIBLE
+            skeleton.visibility = View.INVISIBLE
+        } else {
+            // Loading with no results yet — show skeleton, keep recycler reserved as INVISIBLE
+            // so the Barrier doesn't shift when the recycler swaps in.
+            skeleton.visibility = View.VISIBLE
+            recycler.visibility = View.INVISIBLE
         }
     }
 

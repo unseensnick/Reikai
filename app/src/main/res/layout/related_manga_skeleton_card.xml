@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  Skeleton placeholder shown in the related-mangas carousel slot while the
+  source fetch is in flight. Geometry matches related_manga_card_item.xml so
+  swapping in real cards doesn't cause layout shifts. No id on the root so
+  multiple <include> tags can stack without id collisions.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <View
+        android:layout_width="112dp"
+        android:layout_height="168dp"
+        android:layout_marginStart="6dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginEnd="6dp"
+        android:alpha="0.2"
+        android:background="@drawable/skeleton_placeholder" />
+
+    <View
+        android:layout_width="80dp"
+        android:layout_height="12dp"
+        android:layout_marginStart="6dp"
+        android:layout_marginTop="10dp"
+        android:alpha="0.2"
+        android:background="@drawable/skeleton_placeholder" />
+</LinearLayout>

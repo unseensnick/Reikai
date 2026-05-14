@@ -120,6 +120,7 @@ object MangaCoverMetadata {
     fun getColors(manga: Manga): Pair<Int, Int>? = getColors(manga.id)
 
     fun getColors(mangaId: Long?): Pair<Int, Int>? {
+        mangaId ?: return null
         return coverColorMap[mangaId]
     }
 
@@ -139,6 +140,7 @@ object MangaCoverMetadata {
     }
 
     fun getVibrantColor(mangaId: Long?): Int? {
+        mangaId ?: return null
         return vibrantCoverColorMap[mangaId]
     }
 

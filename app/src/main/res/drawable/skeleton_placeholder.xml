@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  Rounded placeholder shape used for related-mangas skeleton cards while the
+  source fetch is in flight. Themed via ?attr/colorOnBackground so it adapts
+  to light/dark mode. Apply alpha at the call site (typically ~0.2) for the
+  intended "loading placeholder" look.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="6dp" />
+    <solid android:color="?attr/colorOnBackground" />
+</shape>

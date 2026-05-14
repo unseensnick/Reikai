@@ -18,6 +18,8 @@ import eu.kanade.tachiyomi.data.database.models.History
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.database.models.bookmarkedFilter
 import eu.kanade.tachiyomi.data.database.models.chapterOrder
+import eu.kanade.tachiyomi.data.database.models.copyFrom
+import eu.kanade.tachiyomi.data.database.models.create
 import eu.kanade.tachiyomi.data.database.models.downloadedFilter
 import eu.kanade.tachiyomi.data.database.models.prepareCoverUpdate
 import eu.kanade.tachiyomi.data.database.models.readFilter
@@ -36,6 +38,7 @@ import eu.kanade.tachiyomi.data.track.TrackService
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.network.NetworkPreferences
+import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceManager
@@ -84,6 +87,8 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -95,6 +100,7 @@ import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.history.interactor.GetHistory
 import yokai.domain.library.custom.model.CustomMangaInfo
 import yokai.domain.manga.interactor.GetManga
+import yokai.domain.manga.interactor.InsertManga
 import yokai.domain.manga.interactor.UpdateManga
 import yokai.domain.manga.models.MangaUpdate
 import yokai.domain.manga.models.cover
@@ -120,6 +126,7 @@ class MangaDetailsPresenter(
     private val getCategories: GetCategories by injectLazy()
     private val getChapter: GetChapter by injectLazy()
     private val getManga: GetManga by injectLazy()
+    private val insertManga: InsertManga by injectLazy()
     private val updateChapter: UpdateChapter by injectLazy()
     private val updateManga: UpdateManga by injectLazy()
     private val deleteTrack: DeleteTrack by injectLazy()
@@ -135,6 +142,18 @@ class MangaDetailsPresenter(
      */
     var relatedMangaIds: LongArray = relatedMangaIds
         private set
+
+    /**
+     * Source-suggested mangas shown in the carousel below the description. Populated lazily on
+     * first attach via [fetchRelatedMangasFromSource] and never refetched for the lifetime of
+     * this presenter (matches Komikku's per-instance cache shape).
+     */
+    var relatedMangas: List<SManga> = emptyList()
+        private set
+    var relatedMangasLoading: Boolean = false
+        private set
+    private var relatedMangasFetched: Boolean = false
+    private val relatedMangasMutex = Mutex()
 
 //    private val currentMangaInternal: MutableStateFlow<Manga?> = MutableStateFlow(null)
 //    val currentManga get() = currentMangaInternal.asStateFlow()
@@ -503,6 +522,79 @@ class MangaDetailsPresenter(
                 view?.showError(trimException(e))
             }
         }
+    }
+
+    /**
+     * Fetch related/suggested mangas for the carousel. One-shot per presenter instance — repeat
+     * calls are no-ops. Streams results from the source (per Komikku's `getRelatedMangaList`
+     * API) and pushes header updates as each batch arrives so the carousel populates as it goes.
+     */
+    fun fetchRelatedMangasFromSource() {
+        if (relatedMangasFetched) return
+        val catalogueSource = source as? CatalogueSource ?: return
+        if (catalogueSource.disableRelatedMangas) return
+        relatedMangasFetched = true
+
+        presenterScope.launch {
+            relatedMangasLoading = true
+            withUIContext { view?.updateHeader() }
+
+            val accumulated = LinkedHashSet<SManga>()
+            val excludedUrl = manga.url
+
+            runCatching {
+                catalogueSource.getRelatedMangaList(
+                    manga = manga,
+                    exceptionHandler = { e ->
+                        Logger.e(e) { "Related-mangas sub-task failed for ${manga.title}" }
+                    },
+                    pushResults = { pair, _ ->
+                        val changed = relatedMangasMutex.withLock {
+                            val before = accumulated.size
+                            pair.second.forEach { m -> if (m.url != excludedUrl) accumulated.add(m) }
+                            if (accumulated.size != before) {
+                                relatedMangas = accumulated.toList().take(RELATED_MANGAS_LIMIT)
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                        if (changed) withUIContext { view?.updateHeader() }
+                    },
+                )
+            }.onFailure {
+                Logger.e(it) { "Related-mangas fetch failed for ${manga.title}" }
+            }
+
+            relatedMangasLoading = false
+            withUIContext { view?.updateHeader() }
+        }
+    }
+
+    /**
+     * Resolve a source-side [SManga] to a local [Manga] DB row (creating one if it doesn't exist
+     * yet), suitable for navigating to its details page. Mirrors GlobalSearchPresenter's
+     * `networkToLocalManga` so behavior matches what a Global Search tap does.
+     */
+    suspend fun toLocalManga(sManga: SManga, sourceId: Long): Manga? {
+        var localManga = getManga.awaitByUrlAndSource(sManga.url, sourceId)
+        if (localManga == null) {
+            val newManga = try {
+                Manga.create(sManga.url, sManga.title, sourceId)
+            } catch (_: UninitializedPropertyAccessException) {
+                return null
+            }
+            newManga.copyFrom(sManga)
+            newManga.id = insertManga.await(newManga)
+            localManga = newManga
+        } else if (!localManga.favorite) {
+            localManga.title = try {
+                sManga.title
+            } catch (_: UninitializedPropertyAccessException) {
+                return localManga
+            }
+        }
+        return localManga
     }
 
     /** Refresh Manga Info and Chapter List (not tracking) */
@@ -1291,5 +1383,6 @@ class MangaDetailsPresenter(
         const val MULTIPLE_VOLUMES = 1
         const val TENS_OF_CHAPTERS = 2
         const val MULTIPLE_SEASONS = 3
+        private const val RELATED_MANGAS_LIMIT = 30
     }
 }

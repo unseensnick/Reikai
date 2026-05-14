@@ -74,6 +74,7 @@ import eu.kanade.tachiyomi.databinding.MangaDetailsControllerBinding
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.icon
+import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.base.MaterialMenuSheet
 import eu.kanade.tachiyomi.ui.base.SmallToolbarInterface
@@ -89,6 +90,7 @@ import eu.kanade.tachiyomi.ui.main.SearchActivity
 import eu.kanade.tachiyomi.ui.manga.chapter.ChapterHolder
 import eu.kanade.tachiyomi.ui.manga.chapter.ChapterItem
 import eu.kanade.tachiyomi.ui.manga.chapter.ChaptersSortBottomSheet
+import eu.kanade.tachiyomi.ui.manga.related.RelatedMangaCardAdapter
 import eu.kanade.tachiyomi.ui.manga.track.TrackItem
 import eu.kanade.tachiyomi.ui.manga.track.TrackingBottomSheet
 import eu.kanade.tachiyomi.ui.migration.manga.design.PreMigrationController
@@ -163,6 +165,7 @@ class MangaDetailsController :
     MangaDetailsAdapter.MangaDetailsInterface,
     SmallToolbarInterface,
     HingeSupportedController,
+    RelatedMangaCardAdapter.OnRelatedMangaClickListener,
     FlexibleAdapter.OnItemMoveListener {
 
     constructor(
@@ -751,6 +754,9 @@ class MangaDetailsController :
             presenter.refreshRelatedMangaIds()
             updateHeader()
         }
+        // Kick off the related-mangas fetch. One-shot per presenter instance, so calling on
+        // every attach is safe and lets the user see results without leaving and returning.
+        presenter.fetchRelatedMangasFromSource()
         if (!returningFromReader) return
         returningFromReader = false
         runBlocking {
@@ -1707,6 +1713,20 @@ class MangaDetailsController :
     fun globalSearch(text: String) {
         if (isNotOnline()) return
         router.pushController(GlobalSearchController(text).withFadeTransaction())
+    }
+
+    /**
+     * Tap on a card in the related-mangas carousel. Resolves the source-side [SManga] to a
+     * local DB entry (creating one if needed, matching Global Search semantics) and navigates
+     * to its details page.
+     */
+    override fun onRelatedMangaClick(manga: SManga) {
+        viewScope.launchUI {
+            val local = presenter.toLocalManga(manga, presenter.manga.source) ?: return@launchUI
+            router.pushController(
+                MangaDetailsController(local, true).withFadeTransaction(),
+            )
+        }
     }
 
     override fun showFloatingActionMode(view: TextView, content: String?, isTag: Boolean) {

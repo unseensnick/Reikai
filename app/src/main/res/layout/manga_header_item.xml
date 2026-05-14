@@ -370,25 +370,88 @@
         android:paddingEnd="0dp"
         app:drawableTint="?colorSecondary"
         android:visibility="gone"
-        app:layout_constraintBottom_toTopOf="@id/start_reading_button"
+        app:layout_constraintBottom_toTopOf="@id/related_mangas_label"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/manga_genres_tags"
         app:rippleColor="@null"
         tools:visibility="visible" />
 
+    <!-- Y2K: related-mangas carousel -->
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/related_mangas_label"
+        style="?textAppearanceTitleSmall"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        android:text="@string/related"
+        android:textColor="?attr/colorOnBackground"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/less_button"
+        tools:visibility="visible" />
+
+    <LinearLayout
+        android:id="@+id/related_mangas_skeleton"
+        android:layout_width="match_parent"
+        android:layout_height="230dp"
+        android:layout_marginTop="8dp"
+        android:clipToPadding="false"
+        android:orientation="horizontal"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/related_mangas_label">
+
+        <include layout="@layout/related_manga_skeleton_card" />
+        <include layout="@layout/related_manga_skeleton_card" />
+        <include layout="@layout/related_manga_skeleton_card" />
+        <include layout="@layout/related_manga_skeleton_card" />
+        <include layout="@layout/related_manga_skeleton_card" />
+    </LinearLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/related_mangas_recycler"
+        android:layout_width="match_parent"
+        android:layout_height="230dp"
+        android:layout_marginTop="8dp"
+        android:clipToPadding="false"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/related_mangas_label"
+        tools:listitem="@layout/related_manga_card_item"
+        tools:visibility="visible" />
+
+    <!-- Anchors start_reading_button below whichever of skeleton/recycler is currently
+         visible. Without this, when skeleton is showing (recycler GONE), the button's
+         constraint chain collapses upward and overlaps the skeleton row. -->
+    <androidx.constraintlayout.widget.Barrier
+        android:id="@+id/related_mangas_bottom_barrier"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:barrierDirection="bottom"
+        app:constraint_referenced_ids="related_mangas_skeleton,related_mangas_recycler" />
+
     <com.google.android.material.button.MaterialButton
         android:id="@+id/start_reading_button"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="16dp"
         android:layout_marginEnd="16dp"
         android:text="@string/start_reading"
         app:layout_constraintBottom_toTopOf="@id/chapter_layout"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/less_button"
+        app:layout_constraintTop_toBottomOf="@id/related_mangas_bottom_barrier"
         tools:text="Continue Reading Chapter 17.1" />
 
     <androidx.constraintlayout.widget.ConstraintLayout
