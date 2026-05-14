@@ -110,10 +110,10 @@ class SettingsMainController : SettingsLegacyController(), FloatingSearchInterfa
             iconRes = R.drawable.ic_code_24dp
             iconTint = tintColor
             titleRes = MR.strings.advanced
-            onClick { navigateTo(SettingsAdvancedLegacyController()) }
+            onClick { navigateTo(SettingsAdvancedController()) }
             onLongClick {
-                navigateTo(SettingsAdvancedController())
-                context.toast("You're entering experimental version of 'Advanced'")
+                navigateTo(SettingsAdvancedLegacyController())
+                context.toast("You're entering legacy version of 'Advanced'")
             }
         }
         preference {
