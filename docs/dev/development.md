@@ -204,6 +204,13 @@ Settings navigation is driven by `app/src/main/java/eu/kanade/tachiyomi/ui/setti
 
 For the full step-by-step recipe to port a remaining section (Compose screen creation, dialog helpers, soak probes, routing flip, regression test, /ship), see [`docs/dev/settings-compose-migration.md`](settings-compose-migration.md). That doc is the canonical place to update the per-section status table as sections flip.
 
+## Planned work
+
+Standing tasks captured in their own cold-start handbooks. Each is self-contained and pickup-able by a fresh session:
+
+- [Finishing the Settings Compose migration](settings-compose-migration.md) — 8 remaining sections to port from legacy Conductor / XML preferences to Compose + Voyager. Includes the recipe, probe protocol, and per-section status table.
+- [Renaming the fork to Reikai](reikai-rebrand.md) — pre-flight plan for renaming `Yōkai-Y2K` → `Reikai`. Locked-in decisions, step-by-step file changes, Android Studio Image Asset Studio steps for the new launcher icons.
+
 ## Build Gotchas
 
 If file edits don't appear in the running app despite a successful build, Kotlin incremental compilation is likely serving stale class files — **Build → Clean Project** in Android Studio, then rebuild.
