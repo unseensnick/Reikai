@@ -47,7 +47,7 @@ After completing code changes, create a git commit. Do not push. Use conventiona
 - `docs:` — documentation only
 - `chore:` — build / tooling
 
-Do not include `Co-Authored-By` lines in commit messages.
+When running Claude Code, use the `/ship` skill (or `/debug-fix --fast` for hotfixes) — those walk the scan → stage → commit → push → PR flow with this project's conventions baked in and won't emit `Co-Authored-By` lines.
 
 ### Pushing
 

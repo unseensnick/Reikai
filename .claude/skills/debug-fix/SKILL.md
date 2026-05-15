@@ -105,12 +105,12 @@ In `--fast` mode specifically:
 
 **--fast**:
 - Stage only the fix files (never secrets, locks, or build output).
-- Draft commit: `hotfix: <short description>`. **ASK** the user to confirm.
+- Draft commit: `hotfix: <short description>`. **Do NOT include `Co-Authored-By` lines.** **ASK** the user to confirm.
 - Push: `git push -u origin hotfix/<description>`.
 - Create a PR targeting production:
   - Title: `[HOTFIX] <description>`.
-  - Body: what broke, what caused it, what this fixes.
-  - Try to add the `hotfix` label: `gh pr create ... --label hotfix`. Fall back to no label on failure.
+  - Body: `## Summary` with what broke, what caused it, what this fixes. **No `## Test plan` section. No `🤖 Generated with [Claude Code]` footer or other AI-attribution handle.**
+  - Run `gh pr create --repo unseensnick/yokai-y2k --base main --label hotfix …` — the `--repo` and `--base` flags are required because this repo is a fork of `null2264/yokai` and gh would otherwise target the upstream parent. Fall back to no label on failure.
 - Show the PR URL.
 
 ## Rules

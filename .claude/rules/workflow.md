@@ -24,7 +24,7 @@ When the user asks to cut a release:
 1. Rename `## [Unreleased]` to the version (e.g. `## [1.9.7.5.6]`).
 2. Add a new empty `## [Unreleased]` section above it for the next cycle.
 
-## Commits
+## Commits & PRs
 
 After code changes, create a git commit (do not push). Conventional commits with optional scope:
 
@@ -33,7 +33,7 @@ After code changes, create a git commit (do not push). Conventional commits with
 - `docs:` — documentation only
 - `chore:` — build / tooling
 
-Do NOT include `Co-Authored-By` lines in commit messages for this project.
+For day-to-day commit / push / PR work, run **`/ship`** (or **`/debug-fix --fast`** for hotfixes). Those skills walk the scan → stage → commit → push → PR flow with this project's conventions baked in — including no `Co-Authored-By` lines in commits, no `## Test plan` section or `🤖 Generated with [Claude Code]` footer in PR bodies, and the `--repo unseensnick/yokai-y2k --base main` flags `gh` needs (the repo is a fork of `null2264/yokai`, and `gh` otherwise targets upstream).
 
 ## Before pushing
 

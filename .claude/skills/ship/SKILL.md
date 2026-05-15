@@ -40,6 +40,7 @@ Ship the current changes through commit, push, and PR creation. Confirm with the
   - Dependencies: `node_modules/`, `vendor/`, `.venv/`
   - OS/editor: `.DS_Store`, `Thumbs.db`, `*.swp`, `.idea/`, `.vscode/settings.json`
 - Draft a commit message based on the changes, matching the repo's existing commit style
+- **Do NOT include `Co-Authored-By` lines** in the commit message — this project explicitly forbids them
 - **ASK the user to confirm or edit**: show the exact files to stage and the proposed commit message
 - Only after confirmation: stage the files and create the commit
 - If the commit fails (e.g., pre-commit hook), fix the issue and try again with a NEW commit
@@ -53,13 +54,21 @@ Ship the current changes through commit, push, and PR creation. Confirm with the
 
 ## Step 4: Pull Request
 
-- Check if a PR already exists for this branch (`gh pr view`. If it exists, show the URL and stop)
+- Check if a PR already exists for this branch with `gh pr view --repo unseensnick/yokai-y2k`. If it exists, show the URL and stop.
 - Analyze ALL commits on this branch vs the base branch (not just the latest commit)
 - Draft a PR title (under 72 chars) and body with:
-  - Summary: 2-4 bullet points
-  - Test plan: how to verify
+  - `## Summary`: 2-4 bullet points
+  - (optional) a short narrative or table describing what landed
+- **Do NOT include a `## Test plan` section** — verification before opening is implicit on this solo fork
+- **Do NOT include `🤖 Generated with [Claude Code]`** or any other AI-attribution footer
 - **ASK the user to confirm or edit** the title and body
-- Only after confirmation: create the PR with `gh pr create`
+- Only after confirmation, create the PR with:
+
+  ```
+  gh pr create --repo unseensnick/yokai-y2k --base main --title "…" --body "…"
+  ```
+
+  The `--repo unseensnick/yokai-y2k --base main` flags are required: this repo is a fork of `null2264/yokai`, and `gh pr create` otherwise targets the upstream parent.
 - Show the PR URL when done
 
 ## Rules
