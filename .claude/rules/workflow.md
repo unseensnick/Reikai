@@ -35,6 +35,15 @@ After code changes, create a git commit (do not push). Conventional commits with
 
 Do NOT include `Co-Authored-By` lines in commit messages for this project.
 
+## Pull requests
+
+When generating a PR body (e.g. via `gh pr create`):
+
+- Do NOT add a `## Test plan` checklist section. Verification done before opening the PR is implicit; an unchecked checklist is just noise on a solo fork.
+- Do NOT add a `🤖 Generated with [Claude Code]` footer or any other AI-attribution handle.
+- Keep the body to a `## Summary` (1–3 bullets) and an optional table or short narrative of what landed. Match the voice of the CHANGELOG entry, not the commit log.
+- Always pass `--repo unseensnick/yokai-y2k --base main` to `gh pr create` — this fork's parent is `null2264/yokai` and `gh` will default to upstream otherwise.
+
 ## Before pushing
 
 Bump the version in `app/build.gradle.kts`:
