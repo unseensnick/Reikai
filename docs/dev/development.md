@@ -202,6 +202,8 @@ Settings navigation is driven by `app/src/main/java/eu/kanade/tachiyomi/ui/setti
 
 **When adding or editing settings UI for a section that has not flipped:** changes go to the legacy controller. The Compose screen, if any, is invisible to users until that section's migration is complete and the routing is flipped.
 
+For the full step-by-step recipe to port a remaining section (Compose screen creation, dialog helpers, soak probes, routing flip, regression test, /ship), see [`docs/dev/settings-compose-migration.md`](settings-compose-migration.md). That doc is the canonical place to update the per-section status table as sections flip.
+
 ## Build Gotchas
 
 If file edits don't appear in the running app despite a successful build, Kotlin incremental compilation is likely serving stale class files — **Build → Clean Project** in Android Studio, then rebuild.
