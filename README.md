@@ -1,10 +1,10 @@
 <div align="center">
 
-<a href="https://github.com/unseensnick/yokai-y2k">
+<a href="https://github.com/unseensnick/Reikai">
     <img src="./.github/readme-images/app-icon.webp" alt="Yokai logo" height="200px" width="200px" />
 </a>
 
-# Yōkai-Y2K
+# Reikai
 
 </div>
 
@@ -12,14 +12,14 @@
 
 A free and open source manga reader
 
-[![CI](https://github.com/unseensnick/yokai-y2k/actions/workflows/build_push.yml/badge.svg?labelColor=27303D)](https://github.com/unseensnick/yokai-y2k/actions/workflows/build_push.yml)
-[![License: Apache-2.0](https://img.shields.io/github/license/unseensnick/yokai-y2k?labelColor=27303D&color=0877d2)](/LICENSE)
+[![CI](https://github.com/unseensnick/Reikai/actions/workflows/build_push.yml/badge.svg?labelColor=27303D)](https://github.com/unseensnick/Reikai/actions/workflows/build_push.yml)
+[![License: Apache-2.0](https://img.shields.io/github/license/unseensnick/Reikai?labelColor=27303D&color=0877d2)](/LICENSE)
 
 <img src="./.github/readme-images/screens.gif" alt="Yokai screenshots" />
 
 ## Download
 
-[![Yokai-Y2K Stable](https://img.shields.io/github/v/release/unseensnick/yokai-y2k?maxAge=3600&label=Stable&labelColor=06599d&color=043b69)](https://github.com/unseensnick/yokai-y2k/releases)
+[![Reikai Stable](https://img.shields.io/github/v/release/unseensnick/Reikai?maxAge=3600&label=Stable&labelColor=06599d&color=043b69)](https://github.com/unseensnick/Reikai/releases)
 
 *Requires Android 6.0 or higher.*
 
@@ -36,7 +36,7 @@ The goal is to stay in sync with upstream Yōkai as closely as possible, while l
 <div align="left">
 
 <details open="">
-    <summary><h3>Unique to Yōkai-Y2K</h3></summary>
+    <summary><h3>Unique to Reikai</h3></summary>
 
 * **Multi-source manga grouping** ([docs](docs/multi-source.md)).
 * **Source-switcher chips** in manga details ([docs](docs/multi-source.md#source-switcher-chips)).
@@ -122,7 +122,7 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 
 <details><summary>Issues</summary>
 
-**Before reporting a new issue, take a look at the [changelog](https://github.com/unseensnick/yokai-y2k/releases) and the already opened [issues](https://github.com/unseensnick/yokai-y2k/issues).**
+**Before reporting a new issue, take a look at the [changelog](https://github.com/unseensnick/Reikai/releases) and the already opened [issues](https://github.com/unseensnick/Reikai/issues).**
 
 </details>
 
@@ -164,8 +164,8 @@ Upstream commits flow in via `git fetch upstream && git merge upstream/master` o
 
 Thank you to all the people who have contributed!
 
-<a href="https://github.com/unseensnick/yokai-y2k/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=unseensnick/yokai-y2k" alt="Yokai app contributors" title="Yokai app contributors" width="600"/>
+<a href="https://github.com/unseensnick/Reikai/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=unseensnick/Reikai" alt="Yokai app contributors" title="Yokai app contributors" width="600"/>
 </a>
 
 ### Disclaimer

@@ -4,7 +4,7 @@
 
 ## TL;DR
 
-Y2K can today only auto-detect that a new manga is "already in your library on another source" when titles match exactly. Same series with different romanizations (e.g. "Boku no Hero Academia" vs "My Hero Academia") still requires a manual merge. This note describes a tracker-identity-based detection that closes that gap, why it isn't a clean port from upstream, and the questions to answer before building it.
+Reikai can today only auto-detect that a new manga is "already in your library on another source" when titles match exactly. Same series with different romanizations (e.g. "Boku no Hero Academia" vs "My Hero Academia") still requires a manual merge. This note describes a tracker-identity-based detection that closes that gap, why it isn't a clean port from upstream, and the questions to answer before building it.
 
 ## The gap
 
@@ -13,7 +13,7 @@ The library already merges multi-source duplicates at display time — see [`doc
 - User has a series tracked on AniList/MAL/MU under one title.
 - User browses a different source that publishes the same series under a different romanization.
 - User taps **Add to library**.
-- Y2K's [`findDuplicateFavorite`](../data/src/commonMain/sqldelight/tachiyomi/data/mangas.sq) compares `lower(title)` exactly and across-source, finds nothing, adds silently. Result: two unmerged library cards for the same series until the user notices and runs a manual merge.
+- Reikai's [`findDuplicateFavorite`](../data/src/commonMain/sqldelight/tachiyomi/data/mangas.sq) compares `lower(title)` exactly and across-source, finds nothing, adds silently. Result: two unmerged library cards for the same series until the user notices and runs a manual merge.
 
 ## The signal
 
@@ -27,7 +27,7 @@ Three blockers, in increasing order of weight:
 
 ### 1. Schema is reachable but the query shape differs
 
-Y2K's [`findDuplicateFavorite`](../data/src/commonMain/sqldelight/tachiyomi/data/mangas.sq) takes `(title, source)`, not `:id`. Komikku's `getDuplicateLibraryManga` takes `:id`. Adding the tracker JOIN requires changing the query signature, the [`MangaRepository`](../app/src/main/java/yokai/domain/manga/MangaRepository.kt) / [`GetManga`](../app/src/main/java/yokai/domain/manga/interactor/GetManga.kt) interactor, and the call site in [`MangaExtensions.kt:169`](../app/src/main/java/eu/kanade/tachiyomi/util/MangaExtensions.kt) — not just the `.sq` file.
+Reikai's [`findDuplicateFavorite`](../data/src/commonMain/sqldelight/tachiyomi/data/mangas.sq) takes `(title, source)`, not `:id`. Komikku's `getDuplicateLibraryManga` takes `:id`. Adding the tracker JOIN requires changing the query signature, the [`MangaRepository`](../app/src/main/java/yokai/domain/manga/MangaRepository.kt) / [`GetManga`](../app/src/main/java/yokai/domain/manga/interactor/GetManga.kt) interactor, and the call site in [`MangaExtensions.kt:169`](../app/src/main/java/eu/kanade/tachiyomi/util/MangaExtensions.kt) — not just the `.sq` file.
 
 ### 2. The new manga has no `manga_sync` rows pre-add
 

@@ -225,7 +225,7 @@ class AboutScreen : Screen() {
                             LinkIcon(
                                 label = "GitHub",
                                 icon = CustomIcons.GitHub,
-                                url = "https://github.com/unseensnick/yokai-y2k",
+                                url = "https://github.com/unseensnick/Reikai",
                             )
                         }
                     }
@@ -297,4 +297,4 @@ fun getFormattedBuildTime(dateFormat: DateFormat): String {
     }
 }
 
-private const val SOURCE_URL = "https://github.com/unseensnick/yokai-y2k/commits/main"
+private const val SOURCE_URL = "https://github.com/unseensnick/Reikai/commits/main"

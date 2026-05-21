@@ -11,6 +11,7 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Changes
+- Renamed the fork to **Reikai**. The Yōkai-Y2K placeholder name is retired — installs upgrade in place (same package ID), the launcher shows the new R-monogram icon and "Reikai" as the app label. The `.y2k` package suffix stays under the hood.
 - Settings → Security rebuilt on the new Compose pattern. Long-press the row to reach the legacy version
 - Settings → Advanced rebuilt on the new Compose pattern. Long-press the row to reach the legacy version. Cleanup downloaded chapters, revoke trust for all extensions, the Reader options (hardware bitmap threshold, color profile picker, reader debug mode), and the external local-source toggle are all back; debug builds keep the "Crash the app!" and "Prune finished workers" actions
 

@@ -1,6 +1,6 @@
 # Backup & restore
 
-How to back up your library, tracking, and settings — and how Yōkai-Y2K's backup format relates to upstream Yōkai.
+How to back up your library, tracking, and settings — and how Reikai's backup format relates to upstream Yōkai.
 
 ## Creating a backup
 
@@ -18,23 +18,23 @@ The restore replaces the current library state with the backup. The app warns be
 
 After restore, open Settings → Browse → Extensions and re-install any extensions that were active in the backup. Backups reference sources by id, not by extension binary — the manga reappears immediately, but you need the matching extension installed to actually fetch chapters.
 
-## Yōkai-Y2K ↔ upstream Yōkai compatibility
+## Reikai ↔ upstream Yōkai compatibility
 
-A backup made in **Yōkai-Y2K** restores cleanly into **upstream Yōkai**, and vice versa. The backup format is shared.
+A backup made in **Reikai** restores cleanly into **upstream Yōkai**, and vice versa. The backup format is shared.
 
-Y2K-specific state behaves as follows on a cross-fork round-trip:
+Reikai-specific state behaves as follows on a cross-fork round-trip:
 
-- **Multi-source grouping** (manual merges / unmerges) — included in the backup file. Survives a Y2K → Y2K restore; upstream Yōkai ignores it on restore (the manga reappear ungrouped), and round-tripping back through upstream loses the grouping.
-- **Taste-profile cache, category sort order, related-mangas settings** — included in the backup. Survives a Y2K → Y2K restore; upstream silently drops unknown preference keys on restore.
+- **Multi-source grouping** (manual merges / unmerges) — included in the backup file. Survives a Reikai → Reikai restore; upstream Yōkai ignores it on restore (the manga reappear ungrouped), and round-tripping back through upstream loses the grouping.
+- **Taste-profile cache, category sort order, related-mangas settings** — included in the backup. Survives a Reikai → Reikai restore; upstream silently drops unknown preference keys on restore.
 - **Tracker links, library entries, categories, chapter read state, history, downloads metadata** — fully portable in both directions.
 
-If you're temporarily switching to upstream Yōkai and plan to come back, make a Y2K backup *before* switching so Y2K-specific state isn't lost.
+If you're temporarily switching to upstream Yōkai and plan to come back, make a Reikai backup *before* switching so Reikai-specific state isn't lost.
 
 ## Migrating across the .yokai → .y2k package suffix (1.9.7.5.x)
 
-Y2K 1.9.7.5.8 changed the release package suffix from `.yokai` to `.y2k` so Yōkai-Y2K can install alongside upstream Yōkai instead of overwriting it. Android treats apps with different package ids as separate installs, so the new build doesn't auto-update the old one.
+Reikai 1.9.7.5.8 changed the release package suffix from `.yokai` to `.y2k` so Reikai can install alongside upstream Yōkai instead of overwriting it. Android treats apps with different package ids as separate installs, so the new build doesn't auto-update the old one.
 
-Existing Y2K users upgrading from a `.yokai` build to a `.y2k` build:
+Existing Reikai users upgrading from a `.yokai` build to a `.y2k` build:
 
 1. Open your existing `.yokai` install → Settings → Data and storage → **Create backup**. Save the `.tachibk` file off-device.
 2. Install the new `.y2k` build. Both apps will now appear in your launcher; they're separate installs and don't share data.

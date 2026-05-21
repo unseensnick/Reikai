@@ -110,7 +110,7 @@ In `--fast` mode specifically:
 - Create a PR targeting production:
   - Title: `[HOTFIX] <description>`.
   - Body: `## Summary` with what broke, what caused it, what this fixes. **No `## Test plan` section. No `🤖 Generated with [Claude Code]` footer or other AI-attribution handle.**
-  - Run `gh pr create --repo unseensnick/yokai-y2k --base main --label hotfix …` — the `--repo` and `--base` flags are required because this repo is a fork of `null2264/yokai` and gh would otherwise target the upstream parent. Fall back to no label on failure.
+  - Run `gh pr create --repo unseensnick/Reikai --base main --label hotfix …` — the `--repo` and `--base` flags are required because this repo is a fork of `null2264/yokai` and gh would otherwise target the upstream parent. Fall back to no label on failure.
 - Show the PR URL.
 
 ## Rules

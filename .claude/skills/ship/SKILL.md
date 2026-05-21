@@ -54,7 +54,7 @@ Ship the current changes through commit, push, and PR creation. Confirm with the
 
 ## Step 4: Pull Request
 
-- Check if a PR already exists for this branch with `gh pr view --repo unseensnick/yokai-y2k`. If it exists, show the URL and stop.
+- Check if a PR already exists for this branch with `gh pr view --repo unseensnick/Reikai`. If it exists, show the URL and stop.
 - Analyze ALL commits on this branch vs the base branch (not just the latest commit)
 - Draft a PR title (under 72 chars) and body with:
   - `## Summary`: 2-4 bullet points
@@ -65,10 +65,10 @@ Ship the current changes through commit, push, and PR creation. Confirm with the
 - Only after confirmation, create the PR with:
 
   ```
-  gh pr create --repo unseensnick/yokai-y2k --base main --title "…" --body "…"
+  gh pr create --repo unseensnick/Reikai --base main --title "…" --body "…"
   ```
 
-  The `--repo unseensnick/yokai-y2k --base main` flags are required: this repo is a fork of `null2264/yokai`, and `gh pr create` otherwise targets the upstream parent.
+  The `--repo unseensnick/Reikai --base main` flags are required: this repo is a fork of `null2264/yokai`, and `gh pr create` otherwise targets the upstream parent.
 - Show the PR URL when done
 
 ## Rules

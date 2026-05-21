@@ -1,6 +1,6 @@
 # Multi-source manga grouping
 
-Many manga are available from multiple sources. Yōkai-Y2K folds same-title entries from different sources into a single library card so the library reflects unique manga rather than duplicates, and lets you switch between which source you're reading from on a per-manga basis.
+Many manga are available from multiple sources. Reikai folds same-title entries from different sources into a single library card so the library reflects unique manga rather than duplicates, and lets you switch between which source you're reading from on a per-manga basis.
 
 Each section below leads with the in-app path or trigger so you know exactly where the feature lives.
 

@@ -1,12 +1,12 @@
-# Yōkai-Y2K — Development
+# Reikai — Development
 
 ## Project Overview
 
-**Yōkai-Y2K** is a personal Android manga reader — a fork of [Yōkai](https://github.com/null2264/yokai) (itself a fork of Tachiyomi/Mihon). The fork adds multi-source manga grouping, manual merge/unmerge, and category sorting on top of upstream Yōkai.
+**Reikai** is a personal Android manga reader — a fork of [Yōkai](https://github.com/null2264/yokai) (itself a fork of Tachiyomi/Mihon). The fork adds multi-source manga grouping, manual merge/unmerge, and category sorting on top of upstream Yōkai.
 
 - Upstream: `https://github.com/null2264/yokai`
-- Package ID: `eu.kanade.tachiyomi`. Release suffix is `.y2k` (was `.yokai`); the change in 1.9.7.5.x makes Y2K installable alongside upstream Yōkai. Backup files remain interchangeable — Tachiyomi-lineage backups don't bind to applicationId, so a Y2K backup restores into upstream Yōkai (and vice versa).
-- App name string: `Yōkai-Y2K` (in `i18n/src/commonMain/moko-resources/base/strings.xml`)
+- Package ID: `eu.kanade.tachiyomi`. Release suffix is `.y2k` (legacy — predates the Reikai rename; kept so existing installs upgrade in place). Backup files remain interchangeable — Tachiyomi-lineage backups don't bind to applicationId, so a Reikai backup restores into upstream Yōkai (and vice versa).
+- App name string: `Reikai` (in `i18n/src/commonMain/moko-resources/base/strings.xml`)
 
 ## Versioning Convention
 
@@ -209,7 +209,6 @@ For the full step-by-step recipe to port a remaining section (Compose screen cre
 Standing tasks captured in their own cold-start handbooks. Each is self-contained and pickup-able by a fresh session:
 
 - [Finishing the Settings Compose migration](settings-compose-migration.md) — 8 remaining sections to port from legacy Conductor / XML preferences to Compose + Voyager. Includes the recipe, probe protocol, and per-section status table.
-- [Renaming the fork to Reikai](reikai-rebrand.md) — pre-flight plan for renaming `Yōkai-Y2K` → `Reikai`. Locked-in decisions, step-by-step file changes, Android Studio Image Asset Studio steps for the new launcher icons.
 
 ## Build Gotchas
 

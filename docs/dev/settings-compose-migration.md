@@ -110,7 +110,7 @@ The migration is happening ahead of upstream (`null2264/yokai`). Upstream sync f
 
     **Do NOT** bump `_versionName` or `versionCode` in `app/build.gradle.kts`. **Do NOT** rename `[Unreleased]` to a numbered version header — see the **Versioning policy** section below.
 
-15. **Ship.** Run `/ship`. The skill bakes in `--repo unseensnick/yokai-y2k --base main`, no `## Test plan` section, no `🤖 Generated with [Claude Code]` footer, no `Co-Authored-By` line. If the recent `code-reviewer` + `doc-reviewer` parallel run before push catches anything, fix and re-push to the same branch before merge.
+15. **Ship.** Run `/ship`. The skill bakes in `--repo unseensnick/Reikai --base main`, no `## Test plan` section, no `🤖 Generated with [Claude Code]` footer, no `Co-Authored-By` line. If the recent `code-reviewer` + `doc-reviewer` parallel run before push catches anything, fix and re-push to the same branch before merge.
 
 After merge: update the **Status** table at the top of this file in a follow-up `docs(dev)` commit (can go direct-to-main as a docs chore).
 
@@ -185,7 +185,7 @@ Observed during the Security and Advanced ports. Listing them here so the next s
 
 - **No Compose UI test infrastructure.** The project has no `androidInstrumentedTest` setup, no Compose test rules wired, no screenshot tests. Don't attempt TDD on the Compose screens — soak-test on device via probes instead. Unit tests for pure logic in `domain/`, `data/`, `core/main` are still encouraged.
 
-- **`gh pr create` defaults to upstream.** The fork's parent is `null2264/yokai`, and bare `gh pr create` targets it. `/ship` already passes `--repo unseensnick/yokai-y2k --base main`; if you call gh manually for any reason, include those flags or you'll file against upstream and have to close + recreate.
+- **`gh pr create` defaults to upstream.** The fork's parent is `null2264/yokai`, and bare `gh pr create` targets it. `/ship` already passes `--repo unseensnick/Reikai --base main`; if you call gh manually for any reason, include those flags or you'll file against upstream and have to close + recreate.
 
 - **Misleading string-resource names.** Some moko-resources keys don't match their visible label (e.g. `lock_with_biometrics` actually displays "Require unlock"). Don't assume the resource key spells the user-visible text — open the strings.xml when in doubt.
 

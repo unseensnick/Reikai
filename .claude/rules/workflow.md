@@ -2,6 +2,14 @@
 alwaysApply: true
 ---
 
+# Working approach
+
+**Plan before acting.** Before starting any task, think through what needs to change and why — which files are affected, what the failure modes are, and whether the approach is sound. Use `EnterPlanMode` for non-trivial tasks to draft and get approval before touching code.
+
+**Stop and replan when blocked.** If you hit an unexpected problem mid-task — a failing constraint, a broken assumption, an error you don't fully understand — stop all changes immediately and surface the blocker. Do not circumvent it (deleting a test, silencing a lint error, skipping a hook, or forcing past a tool denial). Replan from scratch with the new information.
+
+**Offload long or hard tasks to subagents.** When a task requires deep codebase exploration, multi-file research, or extended multi-step work, spawn a subagent (`Agent` tool) to do that work. This keeps the main context window clean and avoids polluting conversation state with intermediate search noise.
+
 # Fork workflow
 
 ## After completing any code change
@@ -33,7 +41,7 @@ After code changes, create a git commit (do not push). Conventional commits with
 - `docs:` — documentation only
 - `chore:` — build / tooling
 
-For day-to-day commit / push / PR work, run **`/ship`** (or **`/debug-fix --fast`** for hotfixes). Those skills walk the scan → stage → commit → push → PR flow with this project's conventions baked in — including no `Co-Authored-By` lines in commits, no `## Test plan` section or `🤖 Generated with [Claude Code]` footer in PR bodies, and the `--repo unseensnick/yokai-y2k --base main` flags `gh` needs (the repo is a fork of `null2264/yokai`, and `gh` otherwise targets upstream).
+For day-to-day commit / push / PR work, run **`/ship`** (or **`/debug-fix --fast`** for hotfixes). Those skills walk the scan → stage → commit → push → PR flow with this project's conventions baked in — including no `Co-Authored-By` lines in commits, no `## Test plan` section or `🤖 Generated with [Claude Code]` footer in PR bodies, and the `--repo unseensnick/Reikai --base main` flags `gh` needs (the repo is a fork of `null2264/yokai`, and `gh` otherwise targets upstream).
 
 ## Before pushing
 
