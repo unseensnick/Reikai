@@ -19,16 +19,14 @@ Per-plugin soak status: [`app/src/main/assets/lnhost/COMPATIBILITY.md`](../../ap
 
 ## User-facing flow
 
-LN ships as the fourth bottom-nav tab **Novels (Beta)**. The tab home (`NovelHomeController` → `NovelHomeScreen`) is a Scaffold that wraps `NovelLibraryContent` (the saved-novels list) with a search-icon action that opens `NovelBrowseScreen` and an overflow menu entry for `LnRepoBrowseScreen`. Tapping a novel pushes `NovelDetailsController` which re-fetches parseNovel and renders the shared `NovelDetails` + `ChapterReader` composables. The standalone `NovelLibraryScreen` (with its own back-arrow TopAppBar) is kept for the Settings → Light novels (Beta) shelf described below.
-
-The five debug screens that drove the spike are relocated from Settings → Advanced → Debug info to a dedicated **Settings → Light novels (Beta)** entry, one tap deeper than the main Settings root. The shelf is transient: once the production placement covers everything the debug screens give, the shelf goes away.
+LN entry points live exclusively under **Settings → Light novels (Beta)** during the design-prototype + Compose-Library-foundation work. The previous first-cut bottom-nav Novels tab was rolled back because the upcoming unified Library (manga + novels in one Compose surface, content-type filter chip) supersedes it. See the Library Compose foundation plan for the new direction.
 
 | Settings → Light novels (Beta) entry | Purpose |
 |---|---|
 | **LN plugin host probe** | Bridge testbench. Paste plugin .js URL, exercise the four lnreader methods. Used for soaking new shim additions. |
-| **LN plugin repo browse** | Paste a registry URL (lnreader's `plugins.min.json`), list available plugins, install / uninstall per row. Persists URLs in `NovelPreferences.installedPluginUrls`. The same screen is reachable from the Novels tab's overflow menu under "Manage plugin repos". |
-| **LN browse** | Pick an installed source, popularNovels list, tap novel for parseNovel + chapter list + Save-to-library toggle, tap chapter for paragraph reader. 4-state machine, internal back-stack. Also reachable from the Novels tab's search-icon action. |
-| **LN library** | Debug-shelf duplicate of the Novels tab home. Renders the same `NovelLibraryContent` with a back-arrow Scaffold so testers can reach it without leaving Settings. |
+| **LN plugin repo browse** | Paste a registry URL (lnreader's `plugins.min.json`), list available plugins, install / uninstall per row. Persists URLs in `NovelPreferences.installedPluginUrls`. |
+| **LN browse** | Pick an installed source, popularNovels list, tap novel for parseNovel + chapter list + Save-to-library toggle, tap chapter for paragraph reader. 4-state machine, internal back-stack. |
+| **LN library** | Saved-novels list (`NovelLibraryScreen`). Renders `NovelLibraryContent` with a back-arrow Scaffold. Will be replaced by the unified Library surface in the Compose Library work. |
 | **LN track probe** | AniList / MAL / Kitsu NOVEL search + `novel_tracks` bind/read panel. No production placement yet; novel-detail tracker UI is a later slice. |
 
 ## Why this exists
@@ -203,7 +201,7 @@ NovelUpdates, Shikimori, and Bangumi are not wired into the probe today even tho
 - ✅ Card UI with covers via Coil on browse + library + details (slice J).
 - ✅ Search bar on novel browse list (slice K).
 - ✅ Font / line-spacing / theme controls on the reader (slice L); settings button lives in the reader's `TopAppBar` actions slot.
-- ✅ Production placement of LN entries: bottom-nav **Novels (Beta)** tab is the new home; debug screens relocated to **Settings → Light novels (Beta)**.
+- 🟡 Production placement of LN entries: the first-cut bottom-nav Novels tab was reverted; LN entries live under **Settings → Light novels (Beta)** until the unified Library Compose surface lands (separate plan).
 - ⏳ Compose-side Settings search integration once upstream solves it.
 
 Items deferred until a real plugin demands them: `@libs/aes` real implementation (`@noble/ciphers` IIFE bundle), non-UTF-8 `fetchText` decoding, multipart bodies with File/Blob values, `fetchProto`, `customJS` / `customCSS` per-plugin scripts.

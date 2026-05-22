@@ -92,7 +92,6 @@ import eu.kanade.tachiyomi.ui.more.AboutController
 import eu.kanade.tachiyomi.ui.more.OverflowDialog
 import eu.kanade.tachiyomi.ui.more.stats.StatsController
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
-import eu.kanade.tachiyomi.ui.novel.NovelHomeController
 import eu.kanade.tachiyomi.ui.recents.RecentsController
 import eu.kanade.tachiyomi.ui.recents.RecentsViewType
 import eu.kanade.tachiyomi.ui.security.SecureActivityDelegate
@@ -519,7 +518,6 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                 when (router.backstack.firstOrNull()?.controller) {
                     is RecentsController -> R.id.nav_recents
                     is BrowseController -> R.id.nav_browse
-                    is NovelHomeController -> R.id.nav_novels
                     else -> R.id.nav_library
                 }
         }
@@ -543,7 +541,6 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                     when (id) {
                         R.id.nav_library -> if (basePreferences.composeLibrary().get()) LibraryComposeController() else LibraryController()
                         R.id.nav_recents -> RecentsController()
-                        R.id.nav_novels -> NovelHomeController()
                         else -> BrowseController()
                     },
                     id,

@@ -14,9 +14,5 @@
             android:id="@+id/nav_browse"
             android:icon="@drawable/ic_browse_selector_24dp"
             android:title="@string/browse" />
-        <item
-            android:id="@+id/nav_novels"
-            android:icon="@drawable/ic_book_24dp"
-            android:title="@string/novels" />
     </group>
 </menu>

@@ -10,9 +10,6 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
-### Additions
-- New **Novels (Beta)** tab in the bottom navigation hosts a WIP light-novel reader. The tab lists novels you've saved to your LN library; the search icon opens a browse flow against installed lnreader plugins (paste a repo URL, install plugins, search, read). The text reader has font-size / line-spacing / theme controls and resumes mid-chapter where you left off. Tracker search against AniList, MAL, and Kitsu is wired in but reachable only from the LN track probe today (full tracker UI on the novel detail screen lands in a later release). Backups round-trip novels, chapters, and tracker rows alongside manga. The five debug screens that built the spike now live under Settings → **Light novels (Beta)** for fast access during the soak.
-
 ### Changes
 - Renamed the fork to **Reikai**. The Yōkai-Y2K placeholder name is retired — installs upgrade in place (same package ID), the launcher shows the new R-monogram icon and "Reikai" as the app label. The `.y2k` package suffix stays under the hood.
 - Settings → Security rebuilt on the new Compose pattern. Long-press the row to reach the legacy version
