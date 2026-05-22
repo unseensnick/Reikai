@@ -48,6 +48,7 @@ import uy.kohesive.injekt.api.get
 import yokai.domain.novel.NovelPreferences
 import yokai.novel.host.LnPluginHost
 import yokai.novel.install.LnPluginInstaller
+import yokai.novel.install.canonicalizePluginUrl
 import yokai.novel.registry.LnRegistryEntry
 
 private const val DEFAULT_REPO_HINT =
@@ -149,9 +150,12 @@ fun LnRepoBrowseScreen() {
             HorizontalDivider()
             LazyColumn(modifier = Modifier.fillMaxWidth()) {
                 items(items = entries, key = { it.id + it.url }) { entry ->
+                    // Canonicalize per-row so registry's literal-bracket URLs still match the
+                    // percent-encoded form stored by the installer.
+                    val canonical = remember(entry.url) { canonicalizePluginUrl(entry.url) }
                     PluginRow(
                         entry = entry,
-                        installed = entry.url in installedUrls,
+                        installed = canonical in installedUrls,
                         busy = entry.id in busyIds,
                         onInstall = {
                             scope.launch {

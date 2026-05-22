@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Request
 import yokai.domain.novel.NovelPreferences
 import yokai.novel.host.LN_HOST_TAG
@@ -36,13 +37,14 @@ class LnPluginInstaller(
 ) {
 
     suspend fun installFromUrl(host: LnPluginHost, pluginJsUrl: String): LnPluginSource {
-        val src = loader.fetchSource(pluginJsUrl, forceRefresh = true)
-        val info = host.loadPlugin(scopeIdFromUrl(pluginJsUrl), src)
+        val canonical = canonicalizePluginUrl(pluginJsUrl)
+        val src = loader.fetchSource(canonical, forceRefresh = true)
+        val info = host.loadPlugin(scopeIdFromUrl(canonical), src)
         val source = LnPluginSource(host, info)
         manager.register(source)
         val current = prefs.installedPluginUrls().get()
-        prefs.installedPluginUrls().set(current + pluginJsUrl)
-        Logger.i(LN_HOST_TAG) { "installed plugin ${info.id} from $pluginJsUrl" }
+        prefs.installedPluginUrls().set(current + canonical)
+        Logger.i(LN_HOST_TAG) { "installed plugin ${info.id} from $canonical" }
         return source
     }
 
@@ -73,10 +75,11 @@ class LnPluginInstaller(
      * fine because the source is no longer reachable through the manager.
      */
     suspend fun uninstall(pluginId: String, pluginJsUrl: String) {
+        val canonical = canonicalizePluginUrl(pluginJsUrl)
         val current = prefs.installedPluginUrls().get()
-        prefs.installedPluginUrls().set(current - pluginJsUrl)
+        prefs.installedPluginUrls().set(current - canonical)
         manager.unregister(pluginId)
-        Logger.i(LN_HOST_TAG) { "uninstalled plugin $pluginId (was $pluginJsUrl)" }
+        Logger.i(LN_HOST_TAG) { "uninstalled plugin $pluginId (was $canonical)" }
     }
 
     /**
@@ -102,3 +105,17 @@ class LnPluginInstaller(
     private fun scopeIdFromUrl(url: String): String =
         url.substringAfterLast('/').substringBeforeLast('.')
 }
+
+/**
+ * Normalize a plugin URL so equality compares predictably across the install/uninstall surface.
+ *
+ * Registry-emitted URLs leave reserved path characters like `[` and `]` literal; URLs the soak
+ * operator pasted historically had them percent-encoded. Both forms parse and fetch fine, but
+ * the `entry.url in installedPluginUrls` membership check is exact string equality — the
+ * registry-form URL would miss against the encoded-form stored URL. OkHttp's `HttpUrl.toString()`
+ * percent-encodes reserved characters predictably, giving us one canonical form.
+ *
+ * Falls back to the raw input for URLs OkHttp can't parse (malformed inputs from the probe).
+ */
+fun canonicalizePluginUrl(url: String): String =
+    url.toHttpUrlOrNull()?.toString() ?: url
