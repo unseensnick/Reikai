@@ -60,6 +60,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
@@ -138,11 +139,16 @@ fun NovelBrowseScreen() {
     var state by remember { mutableStateOf<BrowseState>(BrowseState.PickingSource) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    // Remembered separately from `state` because pickSource failures leave the screen in
+    // PickingSource (we never transitioned), but the user still needs an affordance to clear
+    // CF on the source they actually tried.
+    var lastAttemptedSource by remember { mutableStateOf<NovelSource?>(null) }
     // Hoisted so the TopAppBar action toggles the same sheet ChapterReader renders.
     var readerSettingsOpen by remember { mutableStateOf(false) }
 
     fun pickSource(source: NovelSource) {
         if (loading) return
+        lastAttemptedSource = source
         scope.launch {
             loading = true; error = null
             try {
@@ -258,6 +264,23 @@ fun NovelBrowseScreen() {
             }
             error?.let {
                 Text(text = it, color = MaterialTheme.colorScheme.error)
+                // Prefer the source from current state (it's the one the user is interacting
+                // with); fall back to the last attempted source when an early-fail left the
+                // screen in PickingSource with no state-side reference.
+                val cfTarget = when (val s = state) {
+                    is BrowseState.PickingSource -> lastAttemptedSource
+                    is BrowseState.BrowsingNovels -> s.source
+                    is BrowseState.ViewingNovel -> s.parent.source
+                    is BrowseState.ReadingChapter -> s.parent.parent.source
+                }
+                cfTarget?.site?.takeIf { it.isNotBlank() }?.let { siteUrl ->
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedButton(onClick = {
+                        context.startActivity(
+                            WebViewActivity.newIntent(context, siteUrl, null, cfTarget.name),
+                        )
+                    }) { Text("Open ${cfTarget.name} in WebView") }
+                }
                 Spacer(Modifier.height(8.dp))
             }
             when (val s = state) {

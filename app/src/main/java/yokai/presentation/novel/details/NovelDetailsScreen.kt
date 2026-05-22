@@ -15,6 +15,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -32,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
@@ -57,7 +59,7 @@ private sealed interface DetailsState {
     /** User picked a chapter — show paragraphs. */
     data class Reading(val parent: Viewing, val chapter: ChapterItem, val read: ChapterRead) : DetailsState
     /** Source not installed, parseNovel failed, or other terminal error. */
-    data class Failed(val message: String) : DetailsState
+    data class Failed(val message: String, val source: NovelSource? = null) : DetailsState
 }
 
 /**
@@ -90,14 +92,16 @@ fun NovelDetailsScreen(sourceId: String, novelUrl: String) {
     // Hydrate plugin host, then look up the source, then fetch the novel. All in one effect so
     // it triggers exactly once per screen open.
     LaunchedEffect(sourceId, novelUrl) {
+        var resolvedSource: NovelSource? = null
         try {
             installer.loadInstalled(host)
             val source = manager.get(sourceId)
                 ?: throw IllegalStateException("source not installed: $sourceId")
+            resolvedSource = source
             val novel = source.parseNovel(novelUrl)
             state = DetailsState.Viewing(source, novel)
         } catch (e: Throwable) {
-            state = DetailsState.Failed("${e.javaClass.simpleName}: ${e.message ?: ""}")
+            state = DetailsState.Failed("${e.javaClass.simpleName}: ${e.message ?: ""}", resolvedSource)
         }
     }
 
@@ -115,7 +119,7 @@ fun NovelDetailsScreen(sourceId: String, novelUrl: String) {
                 )
                 state = DetailsState.Reading(parent, chapter, read)
             } catch (e: Throwable) {
-                state = DetailsState.Failed("${e.javaClass.simpleName}: ${e.message ?: ""}")
+                state = DetailsState.Failed("${e.javaClass.simpleName}: ${e.message ?: ""}", parent.source)
             } finally { loading = false }
         }
     }
@@ -188,9 +192,17 @@ fun NovelDetailsScreen(sourceId: String, novelUrl: String) {
                 )
                 is DetailsState.Failed -> {
                     Text(text = s.message, color = MaterialTheme.colorScheme.error)
+                    s.source?.site?.takeIf { it.isNotBlank() }?.let { siteUrl ->
+                        Spacer(Modifier.height(4.dp))
+                        OutlinedButton(onClick = {
+                            context.startActivity(
+                                WebViewActivity.newIntent(context, siteUrl, null, s.source.name),
+                            )
+                        }) { Text("Open ${s.source.name} in WebView") }
+                    }
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = "If the source was uninstalled, reinstall it from Debug → LN plugin repo browse.",
+                        text = "If the source was uninstalled, reinstall it from Debug, LN plugin repo browse.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
