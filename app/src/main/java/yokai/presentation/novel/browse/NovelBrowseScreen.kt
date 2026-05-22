@@ -16,12 +16,14 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -47,6 +49,8 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import yokai.data.novel.toNovel
+import yokai.domain.novel.NovelRepository
 import yokai.novel.host.ChapterItem
 import yokai.novel.host.LnPluginHost
 import yokai.novel.host.NovelItem
@@ -69,6 +73,7 @@ fun NovelBrowseScreen() {
     val networkHelper = remember { Injekt.get<NetworkHelper>() }
     val installer = remember { Injekt.get<LnPluginInstaller>() }
     val manager = remember { Injekt.get<NovelSourceManager>() }
+    val repo = remember { Injekt.get<NovelRepository>() }
     val host = remember { LnPluginHost(context, networkHelper.client) }
     val scope = rememberCoroutineScope()
     val backPress = LocalBackPress.current
@@ -171,7 +176,12 @@ fun NovelBrowseScreen() {
             when (val s = state) {
                 is BrowseState.PickingSource -> SourcePicker(sources = sources, onPick = ::pickSource)
                 is BrowseState.BrowsingNovels -> NovelList(s.novels) { item -> pickNovel(s, item) }
-                is BrowseState.ViewingNovel -> NovelDetails(novel = s.novel) { chapter -> pickChapter(s, chapter) }
+                is BrowseState.ViewingNovel -> NovelDetails(
+                    source = s.parent.source,
+                    novel = s.novel,
+                    repo = repo,
+                    onPickChapter = { chapter -> pickChapter(s, chapter) },
+                )
                 is BrowseState.ReadingChapter -> ChapterReader(s.chapter, s.text)
             }
         }
@@ -231,8 +241,22 @@ private fun NovelList(novels: List<NovelItem>, onPick: (NovelItem) -> Unit) {
 }
 
 @Composable
-private fun NovelDetails(novel: SourceNovel, onPickChapter: (ChapterItem) -> Unit) {
+private fun NovelDetails(
+    source: NovelSource,
+    novel: SourceNovel,
+    repo: NovelRepository,
+    onPickChapter: (ChapterItem) -> Unit,
+) {
     val chapters = novel.chapters ?: emptyList()
+    // Reactive library state: if the novel is already saved we show "In library ✓" and let the
+    // user remove it; otherwise show "Save to library" and insert on tap.
+    val savedNovel by remember(novel.path, source.id) {
+        repo.getByUrlAndSourceAsFlow(novel.path, source.id)
+    }.collectAsState(initial = null)
+    val inLibrary = savedNovel?.favorite == true
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+
     LazyColumn(modifier = Modifier.fillMaxWidth()) {
         item {
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
@@ -247,6 +271,37 @@ private fun NovelDetails(novel: SourceNovel, onPickChapter: (ChapterItem) -> Uni
                 Spacer(Modifier.height(8.dp))
                 novel.summary?.takeIf { it.isNotBlank() }?.let {
                     SelectionContainer { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                }
+                Spacer(Modifier.height(12.dp))
+                if (inLibrary) {
+                    OutlinedButton(
+                        enabled = !busy,
+                        onClick = {
+                            val current = savedNovel ?: return@OutlinedButton
+                            scope.launch {
+                                busy = true
+                                try { repo.update(current.copy(favorite = false)) }
+                                finally { busy = false }
+                            }
+                        },
+                    ) { Text("In library ✓  •  tap to remove") }
+                } else {
+                    Button(
+                        enabled = !busy,
+                        onClick = {
+                            scope.launch {
+                                busy = true
+                                try {
+                                    val existing = savedNovel
+                                    if (existing == null) {
+                                        repo.insert(novel.toNovel(sourceId = source.id, favorite = true))
+                                    } else {
+                                        repo.update(existing.copy(favorite = true))
+                                    }
+                                } finally { busy = false }
+                            }
+                        },
+                    ) { Text("Save to library") }
                 }
                 Spacer(Modifier.height(12.dp))
                 Text("${chapters.size} chapter${if (chapters.size == 1) "" else "s"}", style = MaterialTheme.typography.titleSmall)
