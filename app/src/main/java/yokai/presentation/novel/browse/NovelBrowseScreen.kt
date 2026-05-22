@@ -138,6 +138,8 @@ fun NovelBrowseScreen() {
     var state by remember { mutableStateOf<BrowseState>(BrowseState.PickingSource) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    // Hoisted so the TopAppBar action toggles the same sheet ChapterReader renders.
+    var readerSettingsOpen by remember { mutableStateOf(false) }
 
     fun pickSource(source: NovelSource) {
         if (loading) return
@@ -233,6 +235,13 @@ fun NovelBrowseScreen() {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
+                actions = {
+                    if (state is BrowseState.ReadingChapter) {
+                        IconButton(onClick = { readerSettingsOpen = true }) {
+                            Icon(Icons.Default.Settings, contentDescription = "Reader settings")
+                        }
+                    }
+                },
             )
         },
     ) { padding ->
@@ -270,6 +279,8 @@ fun NovelBrowseScreen() {
                     chapterId = s.chapterId,
                     initialProgress = s.initialProgress,
                     chapterRepo = chapterRepo,
+                    settingsOpen = readerSettingsOpen,
+                    onSettingsOpenChange = { readerSettingsOpen = it },
                 )
             }
         }
@@ -515,6 +526,8 @@ internal fun ChapterReader(
     chapterId: Long,
     initialProgress: Int,
     chapterRepo: NovelChapterRepository,
+    settingsOpen: Boolean,
+    onSettingsOpenChange: (Boolean) -> Unit,
 ) {
     if (paragraphs.isEmpty()) {
         Text("(no readable text in chapter)")
@@ -529,7 +542,6 @@ internal fun ChapterReader(
     val (bg, fg) = readerColors(themeMode, systemDark)
 
     val lazyListState = rememberLazyListState()
-    var settingsOpen by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
 
     // Restore scroll position on first composition (or when the chapter changes).
@@ -553,23 +565,6 @@ internal fun ChapterReader(
     Box(modifier = Modifier.fillMaxSize().background(bg)) {
         SelectionContainer(modifier = Modifier.fillMaxSize()) {
             LazyColumn(state = lazyListState, modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp)) {
-                item {
-                    // Compact settings affordance pinned to the top of the chapter. Floating buttons
-                    // would be nicer but require Scaffold integration we don't have inside this state.
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Spacer(Modifier.weight(1f))
-                        IconButton(onClick = { settingsOpen = true }) {
-                            Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = "Reader settings",
-                                tint = fg,
-                            )
-                        }
-                    }
-                }
                 items(items = paragraphs, key = { it.hashCode() }) { p ->
                     Text(
                         text = p,
@@ -587,7 +582,7 @@ internal fun ChapterReader(
 
     if (settingsOpen) {
         ModalBottomSheet(
-            onDismissRequest = { settingsOpen = false },
+            onDismissRequest = { onSettingsOpenChange(false) },
             sheetState = sheetState,
         ) {
             ReaderSettingsSheet(

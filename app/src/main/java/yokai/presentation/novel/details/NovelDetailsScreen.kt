@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -83,6 +84,8 @@ fun NovelDetailsScreen(sourceId: String, novelUrl: String) {
 
     var state by remember { mutableStateOf<DetailsState>(DetailsState.Loading) }
     var loading by remember { mutableStateOf(false) }
+    // Hoisted so the TopAppBar action toggles the same sheet ChapterReader renders.
+    var readerSettingsOpen by remember { mutableStateOf(false) }
 
     // Hydrate plugin host, then look up the source, then fetch the novel. All in one effect so
     // it triggers exactly once per screen open.
@@ -141,6 +144,13 @@ fun NovelDetailsScreen(sourceId: String, novelUrl: String) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
+                actions = {
+                    if (state is DetailsState.Reading) {
+                        IconButton(onClick = { readerSettingsOpen = true }) {
+                            Icon(Icons.Default.Settings, contentDescription = "Reader settings")
+                        }
+                    }
+                },
             )
         },
     ) { padding ->
@@ -173,6 +183,8 @@ fun NovelDetailsScreen(sourceId: String, novelUrl: String) {
                     chapterId = s.read.chapterId,
                     initialProgress = s.read.initialProgress,
                     chapterRepo = chapterRepo,
+                    settingsOpen = readerSettingsOpen,
+                    onSettingsOpenChange = { readerSettingsOpen = it },
                 )
                 is DetailsState.Failed -> {
                     Text(text = s.message, color = MaterialTheme.colorScheme.error)
