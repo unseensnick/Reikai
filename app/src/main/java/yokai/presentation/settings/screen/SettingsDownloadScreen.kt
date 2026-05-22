@@ -1,12 +1,10 @@
 package yokai.presentation.settings.screen
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
-import co.touchlab.kermit.Logger
 import dev.icerock.moko.resources.StringResource
 import dev.icerock.moko.resources.compose.pluralStringResource
 import dev.icerock.moko.resources.compose.stringResource
@@ -27,8 +25,6 @@ object SettingsDownloadScreen : ComposableSettings() {
 
     private fun readResolve() = SettingsDownloadScreen
 
-    private const val LOG_TAG = "SettingsDownloadScreen"
-
     @Composable
     override fun getTitleRes(): StringResource = MR.strings.downloads
 
@@ -38,10 +34,6 @@ object SettingsDownloadScreen : ComposableSettings() {
         val downloadPreferences: DownloadPreferences by injectLazy()
         val getCategories: GetCategories by injectLazy()
         val context = LocalContext.current
-
-        LaunchedEffect(Unit) {
-            Logger.i(LOG_TAG) { "entered compose download settings" }
-        }
 
         val dbCategories by remember { getCategories.subscribe() }
             .collectAsState(initial = emptyList())
@@ -60,20 +52,12 @@ object SettingsDownloadScreen : ComposableSettings() {
                 Preference.PreferenceItem.SwitchPreference(
                     pref = preferences.downloadOnlyOverWifi(),
                     title = stringResource(MR.strings.only_download_over_wifi),
-                    onValueChanged = {
-                        Logger.i(LOG_TAG) { "downloadOnlyOverWifi → $it" }
-                        true
-                    },
                 ),
             )
             add(
                 Preference.PreferenceItem.SwitchPreference(
                     pref = preferences.saveChaptersAsCBZ(),
                     title = stringResource(MR.strings.save_chapters_as_cbz),
-                    onValueChanged = {
-                        Logger.i(LOG_TAG) { "saveChaptersAsCBZ → $it" }
-                        true
-                    },
                 ),
             )
             add(
@@ -81,10 +65,6 @@ object SettingsDownloadScreen : ComposableSettings() {
                     pref = preferences.splitTallImages(),
                     title = stringResource(MR.strings.split_tall_images),
                     subtitle = stringResource(MR.strings.split_tall_images_summary),
-                    onValueChanged = {
-                        Logger.i(LOG_TAG) { "splitTallImages → $it" }
-                        true
-                    },
                 ),
             )
             add(
@@ -92,10 +72,6 @@ object SettingsDownloadScreen : ComposableSettings() {
                     pref = downloadPreferences.downloadWithId(),
                     title = stringResource(MR.strings.download_with_id).addBetaTag(context).toString(),
                     subtitle = stringResource(MR.strings.download_with_id_details),
-                    onValueChanged = {
-                        Logger.i(LOG_TAG) { "downloadWithId → $it" }
-                        true
-                    },
                 ),
             )
 
@@ -107,10 +83,6 @@ object SettingsDownloadScreen : ComposableSettings() {
                             Preference.PreferenceItem.SwitchPreference(
                                 pref = preferences.removeAfterMarkedAsRead(),
                                 title = stringResource(MR.strings.remove_when_marked_as_read),
-                                onValueChanged = {
-                                    Logger.i(LOG_TAG) { "removeAfterMarkedAsRead → $it" }
-                                    true
-                                },
                             ),
                         )
                         add(
@@ -125,10 +97,6 @@ object SettingsDownloadScreen : ComposableSettings() {
                                     3 to stringResource(MR.strings.fourth_to_last),
                                     4 to stringResource(MR.strings.fifth_to_last),
                                 ).toImmutableMap(),
-                                onValueChanged = {
-                                    Logger.i(LOG_TAG) { "removeAfterReadSlots → $it" }
-                                    true
-                                },
                             ),
                         )
                         if (removeAfterReadSlots != -1) {
@@ -137,10 +105,6 @@ object SettingsDownloadScreen : ComposableSettings() {
                                     pref = preferences.removeExcludeCategories(),
                                     title = stringResource(MR.strings.pref_remove_exclude_categories),
                                     entries = categoryEntries,
-                                    onValueChanged = {
-                                        Logger.i(LOG_TAG) { "removeExcludeCategories → $it" }
-                                        true
-                                    },
                                 ),
                             )
                         }
@@ -148,10 +112,6 @@ object SettingsDownloadScreen : ComposableSettings() {
                             Preference.PreferenceItem.SwitchPreference(
                                 pref = preferences.removeBookmarkedChapters(),
                                 title = stringResource(MR.strings.allow_deleting_bookmarked_chapters),
-                                onValueChanged = {
-                                    Logger.i(LOG_TAG) { "removeBookmarkedChapters → $it" }
-                                    true
-                                },
                             ),
                         )
                     }.toPersistentList(),
@@ -166,10 +126,6 @@ object SettingsDownloadScreen : ComposableSettings() {
                             Preference.PreferenceItem.SwitchPreference(
                                 pref = preferences.downloadNewChapters(),
                                 title = stringResource(MR.strings.download_new_chapters),
-                                onValueChanged = {
-                                    Logger.i(LOG_TAG) { "downloadNewChapters → $it" }
-                                    true
-                                },
                             ),
                         )
                         if (downloadNewChapters) {
@@ -179,10 +135,6 @@ object SettingsDownloadScreen : ComposableSettings() {
                                     excludedPref = preferences.excludeCategoriesInDownloadNew(),
                                     title = stringResource(MR.strings.categories),
                                     entries = categoryEntries,
-                                    onValuesChanged = { included, excluded ->
-                                        Logger.i(LOG_TAG) { "downloadNewChaptersInCategories → included=$included excluded=$excluded" }
-                                        true
-                                    },
                                 ),
                             )
                         }
@@ -211,10 +163,6 @@ object SettingsDownloadScreen : ComposableSettings() {
                                     1 to stringResource(MR.strings.always_keep),
                                     2 to stringResource(MR.strings.always_delete),
                                 ).toImmutableMap(),
-                                onValueChanged = {
-                                    Logger.i(LOG_TAG) { "deleteRemovedChapters → $it" }
-                                    true
-                                },
                             ),
                         )
                     }.toPersistentList(),
@@ -237,10 +185,6 @@ object SettingsDownloadScreen : ComposableSettings() {
                 pref = preferences.autoDownloadWhileReading(),
                 title = stringResource(MR.strings.auto_download_while_reading),
                 entries = entries,
-                onValueChanged = {
-                    Logger.i(LOG_TAG) { "autoDownloadWhileReading → $it" }
-                    true
-                },
             ),
         )
         add(
