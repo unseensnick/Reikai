@@ -14,3 +14,8 @@ weblate.conf
 app/standard/
 CLAUDE.local.md
 /prototype/
+
+# Per-developer skill installs (npx skills add ...)
+.agents/
+.claude/skills/
+skills-lock.json
