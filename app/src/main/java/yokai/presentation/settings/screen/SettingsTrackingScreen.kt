@@ -2,12 +2,10 @@ package yokai.presentation.settings.screen
 
 import android.net.Uri
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
-import co.touchlab.kermit.Logger
 import dev.icerock.moko.resources.StringResource
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.core.storage.preference.collectAsState
@@ -29,8 +27,6 @@ import eu.kanade.tachiyomi.util.system.withIOContext
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.DialogHostState
 import yokai.domain.simple
@@ -43,8 +39,6 @@ import yokai.util.lang.getString
 object SettingsTrackingScreen : ComposableSettings() {
 
     private fun readResolve() = SettingsTrackingScreen
-
-    private const val LOG_TAG = "SettingsTrackingScreen"
 
     @Composable
     override fun getTitleRes(): StringResource = MR.strings.tracking
@@ -60,10 +54,6 @@ object SettingsTrackingScreen : ComposableSettings() {
         val dialogHostState = LocalDialogHostState.currentOrThrow
         val scope = rememberCoroutineScope()
 
-        LaunchedEffect(Unit) {
-            Logger.i(LOG_TAG) { "entered compose tracking settings" }
-        }
-
         val anilistUsername by trackPreferences.trackUsername(trackManager.aniList).collectAsState()
 
         val enhancedTrackers = remember(trackManager, sourceManager) {
@@ -78,20 +68,12 @@ object SettingsTrackingScreen : ComposableSettings() {
                 Preference.PreferenceItem.SwitchPreference(
                     pref = preferences.autoUpdateTrack(),
                     title = stringResource(MR.strings.update_tracking_after_reading),
-                    onValueChanged = {
-                        Logger.i(LOG_TAG) { "autoUpdateTrack → $it" }
-                        true
-                    },
                 ),
             )
             add(
                 Preference.PreferenceItem.SwitchPreference(
                     pref = preferences.trackMarkedAsRead(),
                     title = stringResource(MR.strings.update_tracking_marked_read),
-                    onValueChanged = {
-                        Logger.i(LOG_TAG) { "trackMarkedAsRead → $it" }
-                        true
-                    },
                 ),
             )
             add(
@@ -99,10 +81,6 @@ object SettingsTrackingScreen : ComposableSettings() {
                     pref = preferences.syncTrackerLinksGrouped(),
                     title = stringResource(MR.strings.sync_tracker_links_grouped),
                     subtitle = stringResource(MR.strings.sync_tracker_links_grouped_summary),
-                    onValueChanged = {
-                        Logger.i(LOG_TAG) { "syncTrackerLinksGrouped → $it" }
-                        true
-                    },
                 ),
             )
 
@@ -136,7 +114,6 @@ object SettingsTrackingScreen : ComposableSettings() {
                                 Preference.PreferenceItem.TextPreference(
                                     title = stringResource(MR.strings.update_tracking_scoring_type, anilistName),
                                     onClick = {
-                                        Logger.i(LOG_TAG) { "update_anilist_scoring clicked" }
                                         scope.launch {
                                             val (result, error) = withIOContext {
                                                 trackManager.aniList.updatingScoring()
@@ -242,12 +219,8 @@ object SettingsTrackingScreen : ComposableSettings() {
         return Preference.PreferenceItem.TrackerPreference(
             tracker = service,
             title = serviceTitle,
-            login = {
-                Logger.i(LOG_TAG) { "browser-login $serviceTitle" }
-                context.openInBrowser(authUrl, service.getLogoColor(), true)
-            },
+            login = { context.openInBrowser(authUrl, service.getLogoColor(), true) },
             logout = {
-                Logger.i(LOG_TAG) { "logout-clicked $serviceTitle" }
                 scope.launch { confirmAndLogout(service, serviceTitle, context, dialogHostState) }
             },
         )
@@ -265,7 +238,6 @@ object SettingsTrackingScreen : ComposableSettings() {
             tracker = service,
             title = serviceTitle,
             login = {
-                Logger.i(LOG_TAG) { "credentials-login $serviceTitle" }
                 scope.launch {
                     val creds = dialogHostState.awaitTrackLogin(
                         serviceTitle = serviceTitle,
@@ -284,7 +256,6 @@ object SettingsTrackingScreen : ComposableSettings() {
                 }
             },
             logout = {
-                Logger.i(LOG_TAG) { "logout-clicked $serviceTitle" }
                 scope.launch { confirmAndLogout(service, serviceTitle, context, dialogHostState) }
             },
         )
@@ -298,14 +269,8 @@ object SettingsTrackingScreen : ComposableSettings() {
         return Preference.PreferenceItem.TrackerPreference(
             tracker = trackService,
             title = serviceTitle,
-            login = {
-                Logger.i(LOG_TAG) { "enhanced-login $serviceTitle" }
-                service.loginNoop()
-            },
-            logout = {
-                Logger.i(LOG_TAG) { "enhanced-logout $serviceTitle" }
-                trackService.logout()
-            },
+            login = { service.loginNoop() },
+            logout = { trackService.logout() },
         )
     }
 
