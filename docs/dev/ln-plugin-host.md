@@ -103,14 +103,16 @@ Per-call timeout: 30 s via `withTimeout(TIMEOUT_MS)`.
 | `app/src/main/java/yokai/novel/registry/` | `LnRegistry.parse()` + `LnRegistryEntry` DTO |
 | `app/src/main/java/yokai/novel/source/` | `NovelSource` (interface), `LnPluginSource` (adapter), `NovelSourceManager` (in-memory registry) — note: source manager is in `yokai/novel/source/` while the same-purpose Manga `SourceManager` lives in `eu/kanade/tachiyomi/source/`; they're disjoint |
 | `app/src/main/java/yokai/novel/text/` | `htmlToParagraphs` Jsoup helper |
-| `app/src/main/java/yokai/data/novel/` | Repo impls + `Mappers.kt` (SQLDelight row → domain) + `NovelMapping.kt` (SourceNovel → Novel, ChapterItem → NovelChapter, `NovelStatusCode` enum) |
-| `domain/src/commonMain/kotlin/yokai/domain/novel/` | Repository interfaces + `models/{Novel,NovelChapter}` |
-| `app/src/main/java/yokai/domain/novel/NovelPreferences.kt` | `installedPluginUrls()` Set<String> accessor |
+| `app/src/main/java/yokai/data/novel/` | Repo impls + `Mappers.kt` (SQLDelight row → domain, incl. `novelTrackMapper`) + `NovelMapping.kt` (SourceNovel → Novel, ChapterItem → NovelChapter, `NovelStatusCode` enum) + `NovelTrackRepositoryImpl` |
+| `domain/src/commonMain/kotlin/yokai/domain/novel/` | Repository interfaces (`NovelRepository`, `NovelChapterRepository`, `NovelTrackRepository`) + `models/{Novel,NovelChapter,NovelTrack}` |
+| `app/src/main/java/yokai/domain/novel/NovelPreferences.kt` | `installedPluginUrls()` Set<String> accessor + reader prefs (`readerFontSize`, `readerLineSpacing`, `readerTheme`) |
+| `app/src/main/java/eu/kanade/tachiyomi/data/track/{anilist,myanimelist,kitsu}/` | Each tracker has a tiny `*MediaType { MANGA, NOVEL }` enum + a `searchNovels` method on the tracker class. The API class branches its result filter (or GraphQL fragment for AniList) on the enum. Manga `search` paths are untouched. |
 | `app/src/main/java/yokai/presentation/novel/probe/` | Debug bridge testbench |
 | `app/src/main/java/yokai/presentation/novel/repo/` | Add-repo screen (`LnRepoBrowseScreen`) |
 | `app/src/main/java/yokai/presentation/novel/browse/` | 4-state browse screen + shared `NovelDetails`, `ChapterReader`, `loadChapterForReading`, `buildDefaultOptions` (all `internal` so the details screen can reuse them) |
 | `app/src/main/java/yokai/presentation/novel/library/` | Library list (`NovelLibraryScreen`) |
-| `app/src/main/java/yokai/presentation/novel/details/` | Library-tap entry point (`NovelDetailsScreen`) — 2-state machine `Loading → Viewing → Reading` |
+| `app/src/main/java/yokai/presentation/novel/details/` | Library-tap entry point (`NovelDetailsScreen`), 2-state machine `Loading → Viewing → Reading` |
+| `app/src/main/java/yokai/presentation/novel/track/` | `NovelTrackProbeScreen`, multi-tracker (AniList / MAL / Kitsu) search + bind probe writing into `novel_tracks` |
 | `app/src/main/java/eu/kanade/tachiyomi/ui/setting/controllers/debug/` | One Conductor bridge controller per Compose screen, plus `DebugController` entries |
 
 ### JS assets
@@ -167,9 +169,9 @@ After any shim addition, run the regression: the smallest validated source from 
 - **`buildDefaultOptions` is the cheapest way to keep `popularNovels` from crashing.** Many sources read `options.filters.X.value` and crash on `{}`. The helper walks `source.filters` and emits `{key: {value: <default>}}` for each. Used by both the browse screen and any future filter-aware UI.
 - **The lightnovelplus 404** isn't a host bug; it's a real-world source-side issue (the readnovelfull template's URL pattern for that site is stale). Errors propagate cleanly from the plugin through the bridge into the screen's error message.
 
-## Phase 3 roadmap — status
+## Phase 3 roadmap, status
 
-Items 1–8 done on this branch. Items 9–11 are open.
+Items 1, 8, plus the AniList / MAL / Kitsu half of item 9 done on this branch. Items 10 and 11 are open. Polish items partially shipped (covers, search, reader settings).
 
 | # | Item | Status |
 |---|---|---|
@@ -181,16 +183,25 @@ Items 1–8 done on this branch. Items 9–11 are open.
 | 6 | Database parallel tables | ✅ `novels.sq` + `novel_chapters.sq` + migration `32.sqm` (chose parallel tables over a content-type column on `mangas`) |
 | 7 | Library tab + browse + details + chapter list | ✅ `NovelBrowseScreen` 4-state machine + `NovelLibraryScreen` + `NovelDetailsScreen` (library-tap entry point) |
 | 8 | Text reader | ✅ `ChapterReader` Composable (Jsoup paragraph extraction + scroll-progress auto-save + chapter-row upsert) |
-| 9 | Tracking media-type | ⏳ Open. AniList/MAL have separate `media_type: NOVEL` filters. |
-| 10 | Cloudflare-clear UX | ⏳ Open. "Open in WebView" affordance for `webnovel` / `boxnovel` / age-gated AO3. |
+| 9 | Tracking media-type | 🟡 Partial. AniList + MAL + Kitsu NOVEL search wired via `searchNovels` + per-tracker `MediaType` enum; `novel_tracks` table (migration `33.sqm`) stores rows keyed by `(novel_id, sync_id)`. Validated via `LN track probe` debug screen. Add/update/remove mutations and user-facing tracker UI on the novel detail screen are still open. |
+| 10 | Cloudflare-clear UX | ⏳ Open. "Open in WebView" affordance for `webnovel` / `boxnovel` / age-gated AO3. `NetworkHelper.client` already runs `CloudflareInterceptor` globally, so Flaresolverr + in-app challenge solving already apply to LN traffic; this item is just about surfacing the affordance from LN browse errors. |
 | 11 | Backup proto extension | ⏳ Open. Add Novel rows to backup format. |
 
-Polish items (not on the original roadmap) that would improve UX:
-- Card UI with covers via Coil on browse + library lists.
-- Search bar on novel browse list.
-- Font / theme / size controls on the reader.
-- Production placement of LN entries (currently all debug-menu only).
-- Compose-side Settings search integration once upstream solves it.
+### Deferred trackers (gated on novel-detail tracking UI)
+
+NovelUpdates, Shikimori, and Bangumi are not wired into the probe today even though they likely have better LN coverage than AniList / MAL / Kitsu for specific regions (NovelUpdates: broad translated catalog; Shikimori: Russian; Bangumi: Chinese-original). Reason: they only become useful once the novel detail screen has the same tracker bottom sheet the manga side has, including bind / unbind / status / progress / score. Adding more search-only chips to the probe before that lands is busywork. When item 9's user-facing UI ships and reaches parity with the manga track sheet:
+
+- **Shikimori** (good Russian coverage): `/api/mangas` supports a `kind` query param (`light_novel,novel`). Same parameterization pattern as AniList / MAL / Kitsu; small slice.
+- **Bangumi** (strongest for Chinese-original web novels): search already uses `type=1` (book) which unifies manga + LN, so the "novel" branch is just a post-filter on the subject `type` returned from the detail call. Small slice.
+- **NovelUpdates** (broadest LN catalog overall): no public API. Cookie-based auth and HTML scraping required. Multi-slice integration: new tracker class, new login flow (`WebViewActivity` cookie capture), new search parser. Worth doing only if NovelUpdates remains the canonical LN tracker by the time this gets to the top of the queue.
+
+### Polish items (not on the original roadmap)
+
+- ✅ Card UI with covers via Coil on browse + library + details (slice J).
+- ✅ Search bar on novel browse list (slice K).
+- ✅ Font / line-spacing / theme controls on the reader (slice L); settings button lives in the reader's `TopAppBar` actions slot.
+- ⏳ Production placement of LN entries (currently all debug-menu only).
+- ⏳ Compose-side Settings search integration once upstream solves it.
 
 Items deferred until a real plugin demands them: `@libs/aes` real implementation (`@noble/ciphers` IIFE bundle), non-UTF-8 `fetchText` decoding, multipart bodies with File/Blob values, `fetchProto`, `customJS` / `customCSS` per-plugin scripts.
 
