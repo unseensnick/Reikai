@@ -139,27 +139,19 @@ fun NovelBrowseScreen() {
         scope.launch {
             loading = true; error = null
             try {
-                val source = parent.parent.source
-                // 1. Upsert novel row. Non-favorited if not in library yet — we need a row to
-                //    anchor the chapter's foreign key.
-                val existingNovel = novelRepo.getByUrlAndSource(parent.novel.path, source.id)
-                val novelId = existingNovel?.id
-                    ?: novelRepo.insert(parent.novel.toNovel(sourceId = source.id, favorite = false))
-                    ?: error("failed to insert novel")
-                // 2. Upsert chapter row so saved progress has somewhere to live across sessions.
-                val existingChapter = chapterRepo.getByUrlAndNovelId(chapter.path, novelId)
-                val chapterId = existingChapter?.id
-                    ?: chapterRepo.insert(chapter.toNovelChapter(novelId))
-                    ?: error("failed to insert chapter")
-                // 3. Fetch + parse.
-                val html = source.parseChapter(chapter.path)
-                val paragraphs = htmlToParagraphs(html)
+                val read = loadChapterForReading(
+                    source = parent.parent.source,
+                    novel = parent.novel,
+                    chapter = chapter,
+                    novelRepo = novelRepo,
+                    chapterRepo = chapterRepo,
+                )
                 state = BrowseState.ReadingChapter(
                     parent = parent,
                     chapter = chapter,
-                    chapterId = chapterId,
-                    initialProgress = existingChapter?.lastTextProgress ?: 0,
-                    paragraphs = paragraphs,
+                    chapterId = read.chapterId,
+                    initialProgress = read.initialProgress,
+                    paragraphs = read.paragraphs,
                 )
             } catch (e: Throwable) {
                 error = "${e.javaClass.simpleName}: ${e.message ?: ""}"
@@ -283,8 +275,42 @@ private fun NovelList(novels: List<NovelItem>, onPick: (NovelItem) -> Unit) {
     }
 }
 
+/**
+ * Result of the chapter-load pipeline: ensures novel + chapter rows exist (upsert) so progress
+ * has somewhere to live, then fetches and paragraph-parses the chapter HTML.
+ */
+internal data class ChapterRead(
+    val chapterId: Long,
+    val initialProgress: Int,
+    val paragraphs: List<String>,
+)
+
+internal suspend fun loadChapterForReading(
+    source: NovelSource,
+    novel: SourceNovel,
+    chapter: ChapterItem,
+    novelRepo: NovelRepository,
+    chapterRepo: NovelChapterRepository,
+): ChapterRead {
+    val existingNovel = novelRepo.getByUrlAndSource(novel.path, source.id)
+    val novelId = existingNovel?.id
+        ?: novelRepo.insert(novel.toNovel(sourceId = source.id, favorite = false))
+        ?: error("failed to insert novel")
+    val existingChapter = chapterRepo.getByUrlAndNovelId(chapter.path, novelId)
+    val chapterId = existingChapter?.id
+        ?: chapterRepo.insert(chapter.toNovelChapter(novelId))
+        ?: error("failed to insert chapter")
+    val html = source.parseChapter(chapter.path)
+    val paragraphs = htmlToParagraphs(html)
+    return ChapterRead(
+        chapterId = chapterId,
+        initialProgress = existingChapter?.lastTextProgress ?: 0,
+        paragraphs = paragraphs,
+    )
+}
+
 @Composable
-private fun NovelDetails(
+internal fun NovelDetails(
     source: NovelSource,
     novel: SourceNovel,
     repo: NovelRepository,
@@ -376,7 +402,7 @@ private fun NovelDetails(
  */
 @OptIn(FlowPreview::class)
 @Composable
-private fun ChapterReader(
+internal fun ChapterReader(
     paragraphs: List<String>,
     chapterId: Long,
     initialProgress: Int,
@@ -429,7 +455,7 @@ private fun ChapterReader(
  *
  * Sources that don't declare filters get `{}` plus `showLatestNovels=false`.
  */
-private fun buildDefaultOptions(filters: JsonObject?): String {
+internal fun buildDefaultOptions(filters: JsonObject?): String {
     val opts = buildJsonObject {
         put(
             "filters",
