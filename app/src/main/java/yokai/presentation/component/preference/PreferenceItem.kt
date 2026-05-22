@@ -25,6 +25,7 @@ import yokai.presentation.component.preference.widget.SliderPreferenceWidget
 import yokai.presentation.component.preference.widget.SwitchPreferenceWidget
 import yokai.presentation.component.preference.widget.TextPreferenceWidget
 import yokai.presentation.component.preference.widget.TrackingPreferenceWidget
+import yokai.presentation.component.preference.widget.TriStateListPreferenceWidget
 
 val LocalPreferenceHighlighted = compositionLocalOf(structuralEqualityPolicy()) { false }
 val LocalPreferenceMinHeight = compositionLocalOf(structuralEqualityPolicy()) { 56.dp }
@@ -116,6 +117,23 @@ internal fun PreferenceItem(
                     icon = item.icon,
                     entries = item.entries,
                     onValueChange = { scope.launch { item.onValueChanged(it) } },
+                )
+            }
+            is Preference.PreferenceItem.TriStateListPreference -> {
+                val included by item.includedPref.collectAsState()
+                val excluded by item.excludedPref.collectAsState()
+                TriStateListPreferenceWidget(
+                    preference = item,
+                    included = included,
+                    excluded = excluded,
+                    onValuesChanged = { newIncluded, newExcluded ->
+                        scope.launch {
+                            if (item.onValuesChanged(newIncluded, newExcluded)) {
+                                item.includedPref.set(newIncluded)
+                                item.excludedPref.set(newExcluded)
+                            }
+                        }
+                    },
                 )
             }
             is Preference.PreferenceItem.MultiSelectListPreference -> {

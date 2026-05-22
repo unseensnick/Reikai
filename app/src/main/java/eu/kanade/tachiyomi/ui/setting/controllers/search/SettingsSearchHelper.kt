@@ -12,13 +12,13 @@ import eu.kanade.tachiyomi.ui.setting.SettingsControllerInterface
 import eu.kanade.tachiyomi.ui.setting.SettingsLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsAppearanceController
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsBrowseController
-import eu.kanade.tachiyomi.ui.setting.controllers.SettingsDownloadController
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsGeneralController
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsLibraryController
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsReaderController
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsTrackingController
 import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsAdvancedLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsDataLegacyController
+import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsDownloadLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsSecurityLegacyController
 import eu.kanade.tachiyomi.util.system.isLTR
 import eu.kanade.tachiyomi.util.system.launchNow
@@ -36,7 +36,7 @@ object SettingsSearchHelper {
         SettingsDataLegacyController::class,
         // SettingsDataController::class,  // compose
         SettingsBrowseController::class,
-        SettingsDownloadController::class,
+        SettingsDownloadLegacyController::class,
         SettingsGeneralController::class,
         SettingsAppearanceController::class,
         SettingsSecurityLegacyController::class,
