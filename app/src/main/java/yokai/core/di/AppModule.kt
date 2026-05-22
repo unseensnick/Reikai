@@ -21,6 +21,8 @@ import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.network.JavaScriptEngine
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.SourceManager
+import yokai.novel.host.LnPluginLoader
+import yokai.novel.install.LnPluginInstaller
 import yokai.novel.source.NovelSourceManager
 import eu.kanade.tachiyomi.ui.manga.related.browse.RelatedMangasHandoff
 import eu.kanade.tachiyomi.util.chapter.ChapterFilter
@@ -122,6 +124,8 @@ fun appModule(app: Application) = module {
 
     single { SourceManager(app, get()) }
     single { NovelSourceManager() }
+    single { LnPluginLoader(app, get<NetworkHelper>().client) }
+    single { LnPluginInstaller(get(), get(), get(), get()) }
     single { ExtensionManager(app) }
 
     single { DownloadProvider(app) }

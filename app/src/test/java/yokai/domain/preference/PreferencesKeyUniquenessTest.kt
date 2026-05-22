@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test
 import yokai.domain.backup.BackupPreferences
 import yokai.domain.base.BasePreferences
 import yokai.domain.library.LibraryPreferences
+import yokai.domain.novel.NovelPreferences
 import yokai.domain.recents.RecentsPreferences
 import yokai.domain.source.SourcePreferences
 import yokai.domain.storage.StoragePreferences
@@ -54,6 +55,7 @@ class PreferencesKeyUniquenessTest {
             SourcePreferences(recorder),
             RecentsPreferences(recorder),
             LibraryPreferences(recorder),
+            NovelPreferences(recorder),
             BackupPreferences(recorder),
             UiPreferences(recorder),
             NetworkPreferences(recorder, verboseLogging = false),

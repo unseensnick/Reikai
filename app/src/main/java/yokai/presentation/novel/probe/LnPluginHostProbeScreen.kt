@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +43,8 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.novel.host.LnPluginHost
 import yokai.novel.host.LnPluginLoader
+import yokai.novel.install.LnPluginInstaller
+import yokai.novel.source.NovelSourceManager
 
 private val PRETTY_JSON = Json {
     prettyPrint = true
@@ -55,7 +58,9 @@ fun LnPluginHostProbeScreen() {
     val context = LocalContext.current
     val networkHelper = remember { Injekt.get<NetworkHelper>() }
     val host = remember { LnPluginHost(context, networkHelper.client) }
-    val loader = remember { LnPluginLoader(context, networkHelper.client) }
+    val loader = remember { Injekt.get<LnPluginLoader>() }
+    val installer = remember { Injekt.get<LnPluginInstaller>() }
+    val manager = remember { Injekt.get<NovelSourceManager>() }
     val scope = rememberCoroutineScope()
     val backPress = LocalBackPress.current
 
@@ -80,6 +85,21 @@ fun LnPluginHostProbeScreen() {
     var status by remember { mutableStateOf("Idle") }
     var output by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    var registeredIds by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    // On screen open, re-load every previously-installed plugin into this fresh host. Registers
+    // each in NovelSourceManager, so any subsequent product code can find them via the manager.
+    LaunchedEffect(host) {
+        try {
+            val loaded = installer.loadInstalled(host)
+            registeredIds = loaded.map { it.id }
+            if (loaded.isNotEmpty()) {
+                loadedPluginId = loaded.last().id
+            }
+        } catch (_: Throwable) {
+            // Logged inside the installer; don't block the probe.
+        }
+    }
 
     fun run(label: String, block: suspend () -> Any?) {
         if (busy) return
@@ -176,6 +196,20 @@ fun LnPluginHostProbeScreen() {
                     },
                 ) { Text("Load plugin") }
                 Button(
+                    enabled = !busy && pluginUrl.isNotBlank(),
+                    onClick = {
+                        run("install") {
+                            val source = installer.installFromUrl(host, pluginUrl)
+                            loadedPluginId = source.id
+                            registeredIds = manager.getAll().map { it.id }
+                            mapOf(
+                                "installed" to source.id,
+                                "registered" to registeredIds,
+                            )
+                        }
+                    },
+                ) { Text("Install + register") }
+                Button(
                     enabled = !busy && loadedPluginId != null,
                     onClick = {
                         run("popularNovels(1)") {
@@ -206,7 +240,13 @@ fun LnPluginHostProbeScreen() {
             }
             Spacer(Modifier.height(12.dp))
             Text(
-                text = if (loadedPluginId != null) "$status  •  plugin id: ${loadedPluginId}" else status,
+                text = buildString {
+                    append(status)
+                    if (loadedPluginId != null) append("  •  active: ${loadedPluginId}")
+                    if (registeredIds.isNotEmpty()) {
+                        append("  •  registered: ${registeredIds.size} (${registeredIds.joinToString()})")
+                    }
+                },
                 style = MaterialTheme.typography.titleMedium,
             )
             Spacer(Modifier.height(8.dp))

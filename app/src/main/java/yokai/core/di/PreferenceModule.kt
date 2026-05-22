@@ -14,6 +14,7 @@ import yokai.domain.backup.BackupPreferences
 import yokai.domain.base.BasePreferences
 import yokai.domain.download.DownloadPreferences
 import yokai.domain.library.LibraryPreferences
+import yokai.domain.novel.NovelPreferences
 import yokai.domain.recents.RecentsPreferences
 import yokai.domain.source.SourcePreferences
 import yokai.domain.storage.StoragePreferences
@@ -36,6 +37,8 @@ fun preferenceModule(application: Application) = module {
     single { RecentsPreferences(get()) }
 
     single { DownloadPreferences(get()) }
+
+    single { NovelPreferences(get()) }
 
     single {
         NetworkPreferences(
