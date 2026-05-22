@@ -24,7 +24,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,7 +64,9 @@ fun LnPluginHostProbeScreen() {
     }
 
     var pluginUrl by remember { mutableStateOf("") }
-    var pluginId by remember { mutableStateOf("") }
+    // Captured from the load result. This is the plugin's canonical id (e.g. "novelbin"), used
+    // for every host method call after load. The user no longer types it.
+    var loadedPluginId by remember { mutableStateOf<String?>(null) }
     var optionsJson by remember {
         mutableStateOf(
             // Default works for any lnreader source that doesn't read filters from
@@ -79,14 +80,6 @@ fun LnPluginHostProbeScreen() {
     var status by remember { mutableStateOf("Idle") }
     var output by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
-
-    // Auto-derive plugin id from URL filename when the user hasn't overridden it.
-    LaunchedEffect(pluginUrl) {
-        val derived = pluginUrl.substringAfterLast('/').substringBeforeLast('.')
-        if (pluginId.isBlank() || pluginId == derivedFrom(pluginUrl, last = true)) {
-            pluginId = derived
-        }
-    }
 
     fun run(label: String, block: suspend () -> Any?) {
         if (busy) return
@@ -135,14 +128,6 @@ fun LnPluginHostProbeScreen() {
             )
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
-                value = pluginId,
-                onValueChange = { pluginId = it },
-                label = { Text("Plugin id") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(8.dp))
-            OutlinedTextField(
                 value = optionsJson,
                 onValueChange = { optionsJson = it },
                 label = { Text("popularNovels options JSON") },
@@ -176,46 +161,52 @@ fun LnPluginHostProbeScreen() {
             Spacer(Modifier.height(12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
-                    enabled = !busy && pluginUrl.isNotBlank() && pluginId.isNotBlank(),
+                    enabled = !busy && pluginUrl.isNotBlank(),
                     onClick = {
                         run("loadPlugin") {
                             val src = loader.fetchSource(pluginUrl, forceRefresh = true)
-                            host.loadPlugin(pluginId, src)
+                            // The pluginId passed here is only used as the @libs/storage scope
+                            // prefix; the host keys its plugin registry by plugin.id (returned
+                            // in the info below). Derive a stable scope id from the URL filename.
+                            val scopeId = pluginUrl.substringAfterLast('/').substringBeforeLast('.')
+                            val info = host.loadPlugin(scopeId, src)
+                            loadedPluginId = info.id
+                            info
                         }
                     },
                 ) { Text("Load plugin") }
                 Button(
-                    enabled = !busy && pluginId.isNotBlank(),
+                    enabled = !busy && loadedPluginId != null,
                     onClick = {
                         run("popularNovels(1)") {
-                            host.popularNovels(pluginId, 1, optionsJson.ifBlank { "{}" })
+                            host.popularNovels(loadedPluginId!!, 1, optionsJson.ifBlank { "{}" })
                         }
                     },
                 ) { Text("popularNovels(1)") }
                 Button(
-                    enabled = !busy && pluginId.isNotBlank() && novelPath.isNotBlank(),
-                    onClick = { run("parseNovel") { host.parseNovel(pluginId, novelPath) } },
+                    enabled = !busy && loadedPluginId != null && novelPath.isNotBlank(),
+                    onClick = { run("parseNovel") { host.parseNovel(loadedPluginId!!, novelPath) } },
                 ) { Text("parseNovel") }
                 Button(
-                    enabled = !busy && pluginId.isNotBlank() && chapterPath.isNotBlank(),
+                    enabled = !busy && loadedPluginId != null && chapterPath.isNotBlank(),
                     onClick = {
                         run("parseChapter") {
-                            val text = host.parseChapter(pluginId, chapterPath)
+                            val text = host.parseChapter(loadedPluginId!!, chapterPath)
                             // Truncate huge chapter bodies in the UI; show full length count.
                             "length=${text.length}\n\n" + text.take(8_000)
                         }
                     },
                 ) { Text("parseChapter") }
                 Button(
-                    enabled = !busy && pluginId.isNotBlank() && searchQuery.isNotBlank(),
+                    enabled = !busy && loadedPluginId != null && searchQuery.isNotBlank(),
                     onClick = {
-                        run("searchNovels") { host.searchNovels(pluginId, searchQuery, 1) }
+                        run("searchNovels") { host.searchNovels(loadedPluginId!!, searchQuery, 1) }
                     },
                 ) { Text("searchNovels") }
             }
             Spacer(Modifier.height(12.dp))
             Text(
-                text = status,
+                text = if (loadedPluginId != null) "$status  •  plugin id: ${loadedPluginId}" else status,
                 style = MaterialTheme.typography.titleMedium,
             )
             Spacer(Modifier.height(8.dp))
@@ -229,9 +220,6 @@ fun LnPluginHostProbeScreen() {
         }
     }
 }
-
-private fun derivedFrom(url: String, last: Boolean) =
-    if (last) url.substringAfterLast('/').substringBeforeLast('.') else url
 
 private fun pretty(value: Any?): String = when (value) {
     null -> "null"

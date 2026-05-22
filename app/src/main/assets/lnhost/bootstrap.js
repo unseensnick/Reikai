@@ -204,7 +204,15 @@
       if (!plugin || !plugin.id) {
         throw new Error('plugin did not export a default with .id');
       }
-      plugins.set(pluginId, plugin);
+      // Always key the registry by the plugin's intrinsic id (the one in its source code),
+      // not by whatever the caller passed as pluginId. That argument now scopes ONLY storage
+      // (@libs/storage uses it as the SharedPreferences prefix). Method lookups elsewhere in
+      // this file go through plugin.id.
+      plugins.set(plugin.id, plugin);
+      if (pluginId !== plugin.id) {
+        log('warn', 'storage scope id "' + pluginId + '" differs from plugin.id "' + plugin.id
+          + '"; future calls must use plugin.id');
+      }
       log('info', 'loaded plugin ' + plugin.id + ' v' + (plugin.version || '?'));
       return {
         id: plugin.id,
