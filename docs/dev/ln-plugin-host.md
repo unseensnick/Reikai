@@ -1,157 +1,211 @@
 # Light-novel plugin host — cold-start handbook
 
-This doc is the single-source recipe for picking up the LN plugin host work after a break. A fresh session reading this from scratch should be able to navigate, build, and extend the host without consulting prior conversation history.
+This doc is the single-source recipe for picking up the LN feature after a break. A fresh session reading this from scratch should be able to navigate the code, build and run, and pick up where the previous session left off without consulting prior conversation history.
 
-Start by reading **Where things stand**, then **Architecture**, then jump to whatever section your task touches.
+Start with **Where things stand**, then **Architecture**, then jump to whatever section your task touches.
 
 ## Where things stand
 
-The work lives on the **`feat/ln-plugin-host-spike` branch**, not on `main`. The branch bundles the hot spike + the compatibility soak + Phase 3 product work, planned to ship as one cohesive "LN plugin host MVP" PR.
+The work lives on the **`feat/ln-plugin-host-spike` branch**. Currently 27 commits ahead of `main`. The branch bundles the host spike + compatibility soak + Phase 3 product work and ships as one cohesive PR when it's ready.
 
 ```bash
 git checkout feat/ln-plugin-host-spike
+git pull
 ```
 
-Phase 1 (hot spike — host bridge proves novelbin works) and Phase 2 (compatibility soak — host validated against 8 lnreader plugins) are **done and on origin**. Phase 3 (`NovelSource` Kotlin interface + plugin registry parser + add-repo Compose screen + library / browse / details / reader / tracking) is **not started**.
+**Phase 1** (host bridge, novelbin proof), **Phase 2** (8-source compatibility soak), and **Phase 3 items 1–8** of the original roadmap are **done**. Functional end-to-end LN reader (debug-only entry points): install a plugin from a repo → browse a source → save a novel to library → open it from the library → read a chapter with paragraph-by-paragraph rendering and scroll-progress resume across launches.
 
-Per-plugin compatibility status lives in [`app/src/main/assets/lnhost/COMPATIBILITY.md`](../../app/src/main/assets/lnhost/COMPATIBILITY.md). Read that first when designing Phase 3 — it captures every known gap, every `@libs/*` method's status, every limitation the host doesn't solve.
+Per-plugin soak status: [`app/src/main/assets/lnhost/COMPATIBILITY.md`](../../app/src/main/assets/lnhost/COMPATIBILITY.md). Read that first when designing further work — it captures every known gap, every `@libs/*` method's status, every limitation the host doesn't solve.
+
+## User-facing flow (debug menu only)
+
+All four LN screens live under the Debug menu (Settings → Debug). Production placement is a later concern.
+
+| Entry | Purpose |
+|---|---|
+| **LN plugin host probe** | Bridge testbench. Paste plugin .js URL, exercise the four lnreader methods. Used for soaking new shim additions. |
+| **LN plugin repo browse** | Paste a registry URL (lnreader's `plugins.min.json`), list available plugins, install / uninstall per row. Persists URLs in `NovelPreferences.installedPluginUrls`. |
+| **LN browse** | Pick an installed source → popularNovels list → tap novel → parseNovel details + chapter list + Save-to-library toggle → tap chapter → paragraph reader. 4-state machine, internal back-stack. |
+| **LN library** | List of favorited novels (`NovelRepository.getFavorites`). Tap an entry → pushes the standalone `NovelDetailsController` which re-fetches parseNovel and reuses the browse screen's `NovelDetails` + `ChapterReader` composables. |
 
 ## Why this exists
 
-Reikai is a Kotlin/Android manga reader (Tachiyomi / Mihon lineage). The goal is to expand it into a unified manga + light-novel reader **without abandoning the Tachiyomi manga extension ecosystem** and **without taking on maintenance of a forked light-novel plugin tree**. Decision matrix:
-
-- **A: Native Kotlin LN module + new Kotlin extension contract.** Would mean a brand-new plugin ecosystem from zero. Rejected — too much per-source porting work.
-- **B (chosen): Native Kotlin LN module that runs upstream lnreader plugins unmodified.** Reimplement lnreader's `require('@libs/*')` resolver in JS, host plugins in a WebView, bridge HTTP / storage to Kotlin via `@JavascriptInterface`. Plugin-side surface area stays at zero maintenance.
-- **C: React Native shell + Kotlin bridge for Tachiyomi extensions.** Killer downside: the Tachiyomi extension contract assumes Android Activity, Coil, OkHttp, etc. Bridging to a RN host is months of glue plus re-implementing every Reikai screen.
-- **D: Codemod lnreader TypeScript plugins to Kotlin.** Generates Kotlin source files we'd then own — every upstream plugin update means re-running the transpiler and patching the 20% it gets wrong. Rejected: we'd be maintaining a fork-by-translation indefinitely.
-
-We picked B specifically because the maintenance load is bounded: pulling new plugin code is `git pull` in the registry, never a code change in Reikai.
+Reikai is a Kotlin/Android manga reader (Tachiyomi / Mihon lineage). The goal is a unified manga + light-novel reader **without abandoning the Tachiyomi manga extension ecosystem** and **without taking on maintenance of a forked light-novel plugin tree**. We picked option B (host upstream lnreader plugins unmodified inside a WebView with Kotlin shims) over native ports (too much per-source work), a React Native rewrite (months of bridge glue), and a transpiler approach (perpetual codemod maintenance). Maintenance load is bounded: pulling new plugin code is `git pull` in the registry repo, never a code change in Reikai.
 
 Plugin source code is **not bundled** in the APK. Same legal distance as the Tachiyomi manga extension model: the user pastes a repo URL at runtime.
 
 ## Architecture
 
-Four layers, top-down:
+Five layers, top-down:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Compose UI / Phase 3 product (browse, details, reader)    │  Kotlin
-├─────────────────────────────────────────────────────────────┤
-│  LnPluginHost.kt   — facade with suspend popularNovels/... │  Kotlin
-│  LnPluginLoader.kt — downloads + caches plugin .js         │  Kotlin
-├─────────────────────────────────────────────────────────────┤
-│  LnHostBridge.kt   — @JavascriptInterface; OkHttp fetches   │  Kotlin ↔ JS
-├─────────────────────────────────────────────────────────────┤
-│  bootstrap.js      — _require() resolver, @libs/* shims    │  JS in WebView
-│  vendor/*.js       — cheerio, htmlparser2, dayjs bundles   │  JS in WebView
-│  upstream plugin   — runs unmodified, exports default      │  JS in WebView
-└─────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│  Compose UI                                                    │
+│    yokai/presentation/novel/{probe,repo,browse,library,details}│  Kotlin
+├────────────────────────────────────────────────────────────────┤
+│  Source contract + install layer                               │
+│    yokai/novel/source/{NovelSource, LnPluginSource, Manager}   │
+│    yokai/novel/install/LnPluginInstaller (+ canonicalize URL)  │  Kotlin
+│    yokai/novel/registry/LnRegistry                             │
+├────────────────────────────────────────────────────────────────┤
+│  Data (SQLDelight, parallel to mangas/chapters)                │
+│    data/.../sqldelight/.../data/{novels,novel_chapters}.sq     │
+│    migrations/32.sqm                                           │  Kotlin / SQL
+│    domain/.../yokai/domain/novel/* (Novel, NovelChapter, repos)│
+│    app/.../yokai/data/novel/* (impls, mappers)                 │
+├────────────────────────────────────────────────────────────────┤
+│  Plugin host facade                                            │
+│    yokai/novel/host/LnPluginHost  — facade, suspend methods    │
+│    yokai/novel/host/LnPluginLoader — download + cache .js      │
+│    yokai/novel/host/LnHostBridge  — @JavascriptInterface       │  Kotlin ↔ JS
+├────────────────────────────────────────────────────────────────┤
+│  JS in WebView                                                 │
+│    assets/lnhost/bootstrap.js — _require + @libs/* shims       │
+│    assets/lnhost/vendor/{cheerio,htmlparser2,dayjs}.js         │  JS
+│    upstream plugin .js (runs unmodified, exports default)      │
+└────────────────────────────────────────────────────────────────┘
 ```
-
-The probe screen ([`LnPluginHostProbeScreen.kt`](../../app/src/main/java/yokai/presentation/novel/probe/LnPluginHostProbeScreen.kt)) sits beside the product UI as a debug-only testbench. It instantiates an `LnPluginHost`, accepts a plugin URL + an id + an options-JSON blob, and exercises the five plugin methods.
 
 ### How a popularNovels call flows
 
-1. Probe screen → `host.popularNovels(pluginId, 1, optionsJson)` (suspend).
-2. Host generates a callback id, stashes a `CancellableContinuation` keyed by it, calls `webView.evaluateJavascript("window.__lnhost.callMethod(pluginId, 'popularNovels', argsJson, callbackId)")` via the main `Handler`.
-3. `bootstrap.js` `callMethod` invokes `plugin.popularNovels(1, options)` and awaits its Promise.
-4. The plugin's body calls `require('@libs/fetch').fetchApi(url, init)`. The shim's `fetchApi` posts to `LnHostBridge.fetch(url, optsJson, cbId)`.
-5. Kotlin runs OkHttp on `Dispatchers.IO` via `NetworkHelper.client` (Cloudflare interceptor + cookie jar inherited), serializes the response as JSON, and calls back via `webView.evaluateJavascript("window.__lnhost.resolveFetch(cbId, response)")`.
-6. JS Promise resolves, plugin parses HTML (htmlparser2 / cheerio), returns the novel list.
-7. `callMethod` JSON-stringifies the result and calls `LnHostBridge.resolveResult(callbackId, json)`.
-8. Kotlin resumes the stashed continuation, the suspend function returns, the probe renders the JSON.
+1. Compose screen → `source.popularNovels(page, optionsJson)` (where `source` is an `LnPluginSource` adapter).
+2. Adapter delegates to `LnPluginHost.popularNovels(pluginId, page, optionsJson)`.
+3. Host generates a callback id, stashes a `CancellableContinuation` keyed by it, calls `webView.evaluateJavascript("window.__lnhost.callMethod(...)")` via the main `Handler`.
+4. `bootstrap.js` `callMethod` invokes `plugin.popularNovels(page, options)` and awaits its Promise.
+5. The plugin's body calls `require('@libs/fetch').fetchApi(url, init)`. The shim's `fetchApi` posts to `LnHostBridge.fetch(url, optsJson, cbId)`.
+6. Kotlin runs OkHttp on `Dispatchers.IO` via `NetworkHelper.client` (Cloudflare interceptor + cookie jar inherited), serializes the response as JSON, and calls back via `webView.evaluateJavascript("window.__lnhost.resolveFetch(cbId, response)")`.
+7. JS Promise resolves, plugin parses HTML (htmlparser2 / cheerio), returns the novel list.
+8. `callMethod` JSON-stringifies the result and calls `LnHostBridge.resolveResult(callbackId, json)`.
+9. Kotlin resumes the stashed continuation, the suspend function returns, Compose state updates.
 
 Per-call timeout: 30 s via `withTimeout(TIMEOUT_MS)`.
 
+### How a reader chapter flow works
+
+1. User taps chapter in `NovelDetails` (browse or library entry — both screens use the same composable).
+2. `loadChapterForReading(source, novel, chapter, novelRepo, chapterRepo)` runs:
+   - Upserts a `novels` row (favorite=false if not already saved) — anchor for chapter FK.
+   - Upserts a `novel_chapters` row — anchor for `last_text_progress`.
+   - Calls `source.parseChapter(path)` → raw HTML.
+   - Runs `htmlToParagraphs(html)` (Jsoup-based; `<p>` tags primary, blank-line splitting fallback).
+3. Returns a `ChapterRead(chapterId, initialProgress, paragraphs)`.
+4. `ChapterReader` Composable renders paragraphs in a `LazyColumn`; on `LaunchedEffect` scrolls to `initialProgress` (0..10000 → paragraph index).
+5. Auto-save: `snapshotFlow { lazyListState.firstVisibleItemIndex } |> debounce(1s) |> distinctUntilChanged()` writes `chapterRepo.setLastTextProgress(id, percent)`. No back-stack save needed; the latest debounced write is the persisted value.
+
 ## Files map
 
-Edit-touched per future work:
+### Kotlin
 
-- **Kotlin host** ([`app/src/main/java/yokai/novel/host/`](../../app/src/main/java/yokai/novel/host/)):
-  - `LnPluginHost.kt` — facade. Holds the WebView, manages plugin registration, exposes suspend methods. Owns the `mainHandler` (`Handler(Looper.getMainLooper())`) because the WebView is never attached to a window — `View.post` would queue forever.
-  - `LnHostBridge.kt` — `@JavascriptInterface` class. Methods: `fetch`, `resolveResult`, `getStorage`, `setStorage`, `log`.
-  - `LnPluginModels.kt` — Kotlin mirrors of lnreader types (`NovelItem`, `SourceNovel`, `ChapterItem`, `LnCallResult`, `LnPluginInfo`).
-  - `LnPluginLoader.kt` — downloads `.js` from a URL via OkHttp, caches under `context.cacheDir/lnplugins/<sha256-of-url>.js`.
+| Path | Purpose |
+|---|---|
+| `app/src/main/java/yokai/novel/host/` | WebView host: `LnPluginHost`, `LnPluginLoader`, `LnHostBridge`, `LnPluginModels` |
+| `app/src/main/java/yokai/novel/install/` | `LnPluginInstaller` (install/uninstall/loadInstalled/fetchRepo) + `canonicalizePluginUrl` |
+| `app/src/main/java/yokai/novel/registry/` | `LnRegistry.parse()` + `LnRegistryEntry` DTO |
+| `app/src/main/java/yokai/novel/source/` | `NovelSource` (interface), `LnPluginSource` (adapter), `NovelSourceManager` (in-memory registry) — note: source manager is in `yokai/novel/source/` while the same-purpose Manga `SourceManager` lives in `eu/kanade/tachiyomi/source/`; they're disjoint |
+| `app/src/main/java/yokai/novel/text/` | `htmlToParagraphs` Jsoup helper |
+| `app/src/main/java/yokai/data/novel/` | Repo impls + `Mappers.kt` (SQLDelight row → domain) + `NovelMapping.kt` (SourceNovel → Novel, ChapterItem → NovelChapter, `NovelStatusCode` enum) |
+| `domain/src/commonMain/kotlin/yokai/domain/novel/` | Repository interfaces + `models/{Novel,NovelChapter}` |
+| `app/src/main/java/yokai/domain/novel/NovelPreferences.kt` | `installedPluginUrls()` Set<String> accessor |
+| `app/src/main/java/yokai/presentation/novel/probe/` | Debug bridge testbench |
+| `app/src/main/java/yokai/presentation/novel/repo/` | Add-repo screen (`LnRepoBrowseScreen`) |
+| `app/src/main/java/yokai/presentation/novel/browse/` | 4-state browse screen + shared `NovelDetails`, `ChapterReader`, `loadChapterForReading`, `buildDefaultOptions` (all `internal` so the details screen can reuse them) |
+| `app/src/main/java/yokai/presentation/novel/library/` | Library list (`NovelLibraryScreen`) |
+| `app/src/main/java/yokai/presentation/novel/details/` | Library-tap entry point (`NovelDetailsScreen`) — 2-state machine `Loading → Viewing → Reading` |
+| `app/src/main/java/eu/kanade/tachiyomi/ui/setting/controllers/debug/` | One Conductor bridge controller per Compose screen, plus `DebugController` entries |
 
-- **JS host** ([`app/src/main/assets/lnhost/`](../../app/src/main/assets/lnhost/)):
-  - `bootstrap.html` — minimal page that loads vendor + bootstrap.js.
-  - `bootstrap.js` — defines `window.__lnhost`: `_require()` resolver, `loadPlugin`, `callMethod`, `resolveFetch`, the `@libs/*` shims, the `fetchApi` wrapper (with FormData → urlencoded conversion).
-  - `vendor/cheerio.min.js` — esbuild IIFE bundle (~343 KB).
-  - `vendor/htmlparser2.min.js` — esbuild IIFE bundle (~116 KB).
-  - `vendor/dayjs.min.js` — jsDelivr UMD (~7 KB).
+### JS assets
 
-- **Probe screen** ([`app/src/main/java/yokai/presentation/novel/probe/LnPluginHostProbeScreen.kt`](../../app/src/main/java/yokai/presentation/novel/probe/LnPluginHostProbeScreen.kt)) and its bridge controller ([`debug/LnPluginHostProbeController.kt`](../../app/src/main/java/eu/kanade/tachiyomi/ui/setting/controllers/debug/LnPluginHostProbeController.kt)). Entry point: open the app → settings → Debug menu → "LN plugin host probe". Debug-builds-only.
+| Path | Purpose |
+|---|---|
+| `app/src/main/assets/lnhost/bootstrap.html` | Loads vendor + bootstrap.js |
+| `app/src/main/assets/lnhost/bootstrap.js` | `window.__lnhost`: `_require()`, `loadPlugin` (two-pass: discovery + real), `callMethod`, `resolveFetch`, `@libs/*` shims, `fetchApi` with FormData/URLSearchParams → urlencoded |
+| `app/src/main/assets/lnhost/vendor/cheerio.min.js` | esbuild IIFE bundle (~343 KB) |
+| `app/src/main/assets/lnhost/vendor/htmlparser2.min.js` | esbuild IIFE bundle (~116 KB) |
+| `app/src/main/assets/lnhost/vendor/dayjs.min.js` | jsDelivr UMD (~7 KB) |
 
-Read-only references:
+### Read-only references
+
 - [`COMPATIBILITY.md`](../../app/src/main/assets/lnhost/COMPATIBILITY.md) — soak results, what works, what doesn't.
-- [`refs/lnreader-main/src/plugins/pluginManager.ts`](../../refs/lnreader-main/src/plugins/pluginManager.ts) — the upstream lnreader resolver our `_require` mimics. Match its shape when adding `@libs/*` modules.
-- [`refs/lnreader-plugins/`](../../refs/lnreader-plugins/) — upstream plugin sources (TypeScript). The compiled `.js` files used at runtime live on the `plugins/v3.0.0` branch of that repo under `.dist/`.
+- [`refs/lnreader-main/src/plugins/pluginManager.ts`](../../refs/lnreader-main/src/plugins/pluginManager.ts) — upstream resolver our `_require` mimics. Match its shape when adding `@libs/*` modules.
+- [`refs/lnreader-plugins/`](../../refs/lnreader-plugins/) — upstream plugin source (TypeScript). Compiled `.js` lives on the `plugins/v3.0.0` branch under `.dist/`.
 
-## The probe screen
+## DI surface
 
-Quick reference for testing against any registry plugin:
+All Koin-registered, all singletons (declared in `AppModule.kt` and `DomainModule.kt`):
 
-1. Find the plugin's compiled `.js` URL: `https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.min.json`, look up the entry by `id`, grab its `url` field.
-2. The plugin id field in the probe **must match the registry's `id`**, not the URL filename. The probe auto-derives from filename which often differs (e.g. `Bookhamster%5Bifreedom%5D` vs `bookhamster`); fix it manually.
-3. The popularNovels options-JSON field needs to match the plugin's `filters` shape. Without per-key defaults, many plugins crash inside their own `popularNovels` body. Read the plugin's compiled source for `this.filters={...}` to know what to pass.
-4. Output area is selectable — long-press to copy JSON / error stacks.
+- `NetworkHelper` (existing) — OkHttp client used by `LnPluginLoader` + `LnPluginInstaller.fetchRepo`.
+- `LnPluginLoader(app, NetworkHelper.client)` — per-app, application-context for cache dir.
+- `LnPluginInstaller(NetworkHelper, LnPluginLoader, NovelSourceManager, NovelPreferences)`.
+- `NovelSourceManager()` — empty until each screen's `LnPluginHost` opens and `installer.loadInstalled(host)` populates it.
+- `NovelPreferences(PreferenceStore)`.
+- `NovelRepository` ← `NovelRepositoryImpl(DatabaseHandler)`.
+- `NovelChapterRepository` ← `NovelChapterRepositoryImpl(DatabaseHandler)`.
 
-Logcat filter while soaking:
-```
-package:eu.kanade.tachiyomi.debugY2k & (tag:LnHost | tag:chromium)
-```
+`LnPluginHost` is **NOT** a singleton. It's constructed per Compose screen (`remember { LnPluginHost(context, networkHelper.client) }`) because the WebView needs an Activity context and its lifecycle tracks the screen. Each screen that needs sources calls `LnPluginHost.installer.loadInstalled(host)` in a `LaunchedEffect(host)` to re-register sources into the manager bound to the current host.
 
 ## Adding a new @libs/* shim or vendor bundle
 
 When a tested plugin imports something we don't have:
 
 1. **Locate the upstream definition** in `refs/lnreader-main/src/plugins/helpers/` (for `@libs/*`) or its `package.json` (for npm deps).
-2. **For a small `@libs/*` (pure JS data or trivial functions)**: add the implementation inline in `bootstrap.js`'s package map. Examples: `@libs/novelStatus`, `@libs/filterInputs`, `@libs/isAbsoluteUrl`.
-3. **For Kotlin-backed `@libs/*`**: extend `LnHostBridge` with new `@JavascriptInterface` methods. The shim object on the JS side posts to the bridge and either expects a synchronous return value (rare; OK for storage-style lookups) or a Promise-based async response (use the same callback-id pattern as `fetch`).
-4. **For an npm dep**: bundle as IIFE via esbuild and place in `assets/lnhost/vendor/`. Follow the cheerio / htmlparser2 pattern in git history — `npm install`, write a tiny entry file that does `globalThis.X = require('X')`, run `npx esbuild --bundle --format=iife`. dayjs ships UMD directly so no bundling step.
+2. **For a small `@libs/*` (pure JS data or trivial functions)**: add inline in `bootstrap.js`'s package map. Examples: `@libs/novelStatus`, `@libs/filterInputs`, `@libs/isAbsoluteUrl`.
+3. **For Kotlin-backed `@libs/*`**: extend `LnHostBridge` with new `@JavascriptInterface` methods. The JS shim posts to the bridge and either expects a synchronous return (rare; OK for storage-style lookups) or a Promise-based async response (use the same callback-id pattern as `fetch`).
+4. **For an npm dep**: bundle as IIFE via esbuild and place in `assets/lnhost/vendor/`. Pattern: `npm install`, write a tiny entry file that does `globalThis.X = require('X')`, run `npx esbuild --bundle --format=iife`. dayjs ships UMD directly so no bundling step needed.
 
-After any shim addition, run the regression: the smallest validated source from the soak (`novelbin`) should still pass all five methods.
+After any shim addition, run the regression: the smallest validated source from the soak (`novelbin`) should still pass all five plugin methods in the host probe.
 
-## Common pitfalls (observed during the soak)
+## Common pitfalls (observed during the soak + Phase 3)
 
-- **WebView must be created with an Activity context, not `applicationContext`.** Application context silently breaks asset loading; `onPageFinished` never fires; every JS call times out. See commit `5663e2f5f`.
-- **`View.post` on an unattached WebView never fires.** Our probe WebView is created off-screen and never attached to a window, so the View's deferred run queue holds runnables forever. Always dispatch via `Handler(Looper.getMainLooper())`. See commit `a7cf0613c`.
-- **The bridge accepts only string bodies.** Plugins that pass `FormData` or `URLSearchParams` hit `JSON.stringify(formData) === '{}'`. The shim's `fetchApi` converts both to `application/x-www-form-urlencoded` before posting to Kotlin. Multipart with `File`/`Blob` values is still unsupported. See commit `e6f632944`.
-- **Plugin id field must match the registry's `id`**, not the URL filename. Phase 3's add-repo UX will eliminate this by reading `id` directly from the registry JSON. Until then, probe operators have to type it manually.
+- **WebView must be created with an Activity context, not `applicationContext`.** Application context silently breaks asset loading; `onPageFinished` never fires; every JS call times out. Fixed in commit `5663e2f5f`.
+- **`View.post` on an unattached WebView never fires.** Our screen WebViews are created off-screen and never attached to a window, so the View's deferred run queue holds runnables forever. Always dispatch via `Handler(Looper.getMainLooper())`. Fixed in commit `a7cf0613c`.
+- **The bridge accepts only string bodies.** Plugins that pass `FormData` or `URLSearchParams` hit `JSON.stringify(formData) === '{}'`. The shim's `fetchApi` converts both to `application/x-www-form-urlencoded` before posting to Kotlin. Multipart with `File`/`Blob` values is still unsupported. Fixed in commit `e6f632944`.
+- **Two-pass loadPlugin keeps storage scope = plugin.id.** A first discovery pass runs with no-op `@libs/storage` shims to extract `plugin.id`; a second real pass uses that id as the storage prefix. Without this, `@libs/storage` ended up scoped by the caller-supplied id (URL-derived in practice) which would orphan storage on a URL-disjoint reinstall. See commit `4ab524568`.
+- **URL canonicalization for install state.** Registry URLs leave reserved path characters literal (`NovelBin[readnovelfull].js`); historically-stored URLs were percent-encoded (`%5B...%5D`). The membership check `entry.url in installedPluginUrls` is exact equality. `canonicalizePluginUrl` in `yokai/novel/install/` forces `[` → `%5B` / `]` → `%5D` on every store / lookup path. Tested by `CanonicalizePluginUrlTest`.
+- **Source identity differs from Tachiyomi's.** Tachiyomi extension source ids are `Long`. Lnreader plugin ids are `String`. The `NovelSourceManager` is keyed by `String`, disjoint from the Manga `SourceManager`'s `Long` map. Don't try to unify.
 - **Cloudflare Turnstile breaks** for the same reason it breaks Tachiyomi manga sources: the auto-bypass interceptor times out on interactive challenges. Two soak sources hit this (webnovel, boxnovel). Fix is product work: an "open source in WebView to clear challenge" affordance that lets the user solve Turnstile once, after which the `cf_clearance` cookie persists in `AndroidCookieJar`.
 - **AO3 server-side rate-limits aggressively.** First popular OK, repeated calls 30-second-time-out. Real-world plugins need debounce / retry-with-backoff at the product layer.
-- **Probe screen UI**: lift `verticalScroll` to the outer `Column` (`Modifier.fillMaxSize().verticalScroll(...)`), not the inner output `Text` — `Text` has no bounded height to scroll within. Wrap the output `Text` in `SelectionContainer` so long-press select + copy works.
+- **`buildDefaultOptions` is the cheapest way to keep `popularNovels` from crashing.** Many sources read `options.filters.X.value` and crash on `{}`. The helper walks `source.filters` and emits `{key: {value: <default>}}` for each. Used by both the browse screen and any future filter-aware UI.
+- **The lightnovelplus 404** isn't a host bug; it's a real-world source-side issue (the readnovelfull template's URL pattern for that site is stale). Errors propagate cleanly from the plugin through the bridge into the screen's error message.
 
-## Phase 3 roadmap
+## Phase 3 roadmap — status
 
-Concrete sequence to build on top of the validated host:
+Items 1–8 done on this branch. Items 9–11 are open.
 
-1. **`NovelSource` Kotlin interface** — mirror of `HttpSource` for novels. Methods: `popularNovels(page)`, `searchNovels(query, page)`, `getNovelDetails(novel)`, `getChapterList(novel)`, `getChapterText(chapter)`, plus `filters` and `imageRequestInit` metadata. Lives somewhere like `source/api/.../novel/NovelSource.kt`.
-2. **`LnPluginSource(host, pluginInfo)` adapter** — implements `NovelSource` by delegating to `LnPluginHost` calls. One adapter instance per installed plugin.
-3. **`NovelSourceManager`** — parallel to existing `SourceManager`. Holds installed `NovelSource` instances keyed by id.
-4. **Plugin registry parser** — JSON deserialization of lnreader's `plugins.min.json` shape (matches `LnPluginInfo` mostly; add `lang`, `iconUrl`, `customJS`, `customCSS`).
-5. **Add-repo Compose screen** — parallel of [`ExtensionRepoScreen.kt`](../../app/src/main/java/yokai/presentation/extension/repo/ExtensionRepoScreen.kt). User pastes a repo URL, app fetches the index, lists available sources, install downloads each plugin's `.js` to the cache.
-6. **Database `content_type` column** — start with adding it to the existing `mangas` table (smallest diff, semantic fudges acceptable for MVP). Migrate to parallel `novels` / `novel_chapters` tables later if the surface area justifies the migration. See [docs/dev/settings-compose-migration.md](settings-compose-migration.md) for migration patterns.
-7. **Library tab / browse / details / chapter list** — Compose screens; reuse existing manga shells where possible, content-type filter at the query layer.
-8. **Text reader UI** — brand-new Compose screen. No `PageLoader`; instead a `ChapterText` fetcher. Font / theme / size controls, scroll-percent progress, bookmark, chapter navigation. Reuses chapter-history and tracking-update machinery.
-9. **Tracking media-type** — AniList and MyAnimeList have separate `media_type: NOVEL` filters; pass content type through tracker API payloads. Track table itself stays content-agnostic.
-10. **Cloudflare-clear UX** — the "open source in WebView" affordance for sources blocked by Turnstile. Same UX could serve age-gate cookies (AO3's `view_adult`).
-11. **Backup proto extension** — add `content_type` field to `BackupManga` proto (default value = 1 = MANGA so old backups restore correctly).
+| # | Item | Status |
+|---|---|---|
+| 1 | `NovelSource` interface | ✅ `yokai/novel/source/NovelSource.kt` |
+| 2 | `LnPluginSource` adapter | ✅ `yokai/novel/source/LnPluginSource.kt` |
+| 3 | `NovelSourceManager` | ✅ `yokai/novel/source/NovelSourceManager.kt` (StateFlow-backed; 7 tests) |
+| 4 | Plugin registry parser | ✅ `yokai/novel/registry/LnRegistry.kt` (7 tests) |
+| 5 | Add-repo Compose screen | ✅ `LnRepoBrowseScreen` (debug menu) |
+| 6 | Database parallel tables | ✅ `novels.sq` + `novel_chapters.sq` + migration `32.sqm` (chose parallel tables over a content-type column on `mangas`) |
+| 7 | Library tab + browse + details + chapter list | ✅ `NovelBrowseScreen` 4-state machine + `NovelLibraryScreen` + `NovelDetailsScreen` (library-tap entry point) |
+| 8 | Text reader | ✅ `ChapterReader` Composable (Jsoup paragraph extraction + scroll-progress auto-save + chapter-row upsert) |
+| 9 | Tracking media-type | ⏳ Open. AniList/MAL have separate `media_type: NOVEL` filters. |
+| 10 | Cloudflare-clear UX | ⏳ Open. "Open in WebView" affordance for `webnovel` / `boxnovel` / age-gated AO3. |
+| 11 | Backup proto extension | ⏳ Open. Add Novel rows to backup format. |
+
+Polish items (not on the original roadmap) that would improve UX:
+- Card UI with covers via Coil on browse + library lists.
+- Search bar on novel browse list.
+- Font / theme / size controls on the reader.
+- Production placement of LN entries (currently all debug-menu only).
+- Compose-side Settings search integration once upstream solves it.
 
 Items deferred until a real plugin demands them: `@libs/aes` real implementation (`@noble/ciphers` IIFE bundle), non-UTF-8 `fetchText` decoding, multipart bodies with File/Blob values, `fetchProto`, `customJS` / `customCSS` per-plugin scripts.
 
 ## Verification at the end of any host-side change
 
 1. `./gradlew :app:compileDevDebugKotlin` clean.
-2. `./gradlew :app:testDevDebugUnitTest --tests "yokai.domain.preference.PreferencesKeyUniquenessTest"` green.
-3. Open the probe, paste the novelbin URL, run all five methods. Baseline regression.
+2. `./gradlew :app:testDevDebugUnitTest --tests "yokai.novel.*" --tests "yokai.domain.preference.PreferencesKeyUniquenessTest"` — 19 tests should pass (4 canonicalize + 7 manager + 7 registry + 1 regression).
+3. Open the host probe with novelbin URL, run all five methods. Baseline regression.
 4. If the change targets a specific shim or vendor library, also run the source that originally surfaced the need (e.g. scribblehub for FormData, bookhamster for Cyrillic, royalroad for `@libs/storage`).
-5. Strip any per-step diagnostic `Logger.i` calls before committing — keep only the `lnhost bootstrap ready` baseline log, the `loaded plugin <id>` summary, and error-path logs. Bootstrap-side: keep the cheerio/htmlparser2/dayjs vendor-presence sanity check and remove anything finer.
+5. Strip any per-step diagnostic `Logger.i` calls before committing — keep only the `lnhost bootstrap ready` baseline log, the `loaded plugin <id>` summary, and error-path logs.
 
-## Cold-start checklist for tomorrow
+## Cold-start checklist
 
-- [ ] `git fetch && git checkout feat/ln-plugin-host-spike && git pull` to be on the latest spike state.
-- [ ] Read [`COMPATIBILITY.md`](../../app/src/main/assets/lnhost/COMPATIBILITY.md) to recall what's validated and what's open.
-- [ ] Read this doc's **Phase 3 roadmap** section. Pick one numbered item as the next branch of work.
-- [ ] Open task `P3-1` in the active task list (set during last session's wrap). It's parked as `pending` waiting for a plan-mode session.
-- [ ] Enter plan mode for Phase 3 step 1 (`NovelSource` interface) or whichever item the day starts with.
+- [ ] `git fetch && git checkout feat/ln-plugin-host-spike && git pull`.
+- [ ] Read [`COMPATIBILITY.md`](../../app/src/main/assets/lnhost/COMPATIBILITY.md) for soak results and known limitations.
+- [ ] Skim the **Phase 3 roadmap** above. Items 9, 10, 11 plus the polish list are open. Pick one as the next slice.
+- [ ] Rebuild the debug APK once before coding so all four debug-menu LN entries are present.
+- [ ] Smoke test: launch app → Debug → LN library should show whatever was saved last session → tap an entry → details + chapters render → tap a chapter → paragraphs + resume work.
