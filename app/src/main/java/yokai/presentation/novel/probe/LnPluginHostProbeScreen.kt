@@ -122,6 +122,7 @@ fun LnPluginHostProbeScreen() {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             OutlinedTextField(
@@ -221,9 +222,7 @@ fun LnPluginHostProbeScreen() {
                 text = output,
                 fontFamily = FontFamily.Monospace,
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }
