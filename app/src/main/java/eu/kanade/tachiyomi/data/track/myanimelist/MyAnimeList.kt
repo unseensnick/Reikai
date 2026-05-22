@@ -119,8 +119,11 @@ class MyAnimeList(private val context: Context, id: Long) : TrackService(id) {
             }
         }
 
-        return api.search(query)
+        return api.search(query, MyAnimeListMediaType.MANGA)
     }
+
+    /** Light-novel-scoped search. Used by the novel-tracking flow; manga search is unchanged. */
+    suspend fun searchNovels(query: String): List<TrackSearch> = api.search(query, MyAnimeListMediaType.NOVEL)
 
     /** Pull every entry from the user's MAL manga list (paginated). Used by the taste-profile fetcher. */
     suspend fun getUserLibrary(): List<MALLibraryItem> = api.getUserLibrary()

@@ -39,8 +39,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.FilterChip
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
+import eu.kanade.tachiyomi.data.track.TrackService
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
@@ -69,8 +71,12 @@ fun NovelTrackProbeScreen() {
     val trackRepo = remember { Injekt.get<NovelTrackRepository>() }
     val trackManager = remember { Injekt.get<TrackManager>() }
     val anilist = trackManager.aniList
+    val mal = trackManager.myAnimeList
     val backPress = LocalBackPress.current
     val scope = rememberCoroutineScope()
+
+    var tracker by remember { mutableStateOf<TrackService>(anilist) }
+    val trackerLabel = if (tracker === anilist) "AniList" else "MAL"
 
     val novels by novelRepo.getAllAsFlow().collectAsState(initial = emptyList())
     val favorites = remember(novels) { novels.filter { it.favorite }.sortedBy { it.title.lowercase() } }
@@ -86,16 +92,18 @@ fun NovelTrackProbeScreen() {
     val tracks by (selected?.id?.let { trackRepo.observeByNovelId(it) } ?: flowOf(emptyList()))
         .collectAsState(initial = emptyList())
 
-    LaunchedEffect(anilist.isLogged) {
-        if (!anilist.isLogged) {
-            error = "AniList is not logged in. Settings → Tracking → AniList → sign in, then retry."
-        }
+    LaunchedEffect(tracker, anilist.isLogged, mal.isLogged) {
+        error = if (!tracker.isLogged) {
+            "$trackerLabel is not logged in. Settings, Tracking, $trackerLabel, sign in, then retry."
+        } else null
+        results = emptyList()
+        status = null
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("LN track probe (AniList)", style = MaterialTheme.typography.titleMedium) },
+                title = { Text("LN track probe", style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = { backPress?.invoke() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -111,9 +119,25 @@ fun NovelTrackProbeScreen() {
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             if (favorites.isEmpty()) {
-                Text("No favorited novels. Save one from Debug → LN browse or LN library.")
+                Text("No favorited novels. Save one from Debug, LN browse or LN library.")
                 return@Column
             }
+
+            Text("Tracker", style = MaterialTheme.typography.labelLarge)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                FilterChip(
+                    selected = tracker === anilist,
+                    onClick = { tracker = anilist },
+                    label = { Text("AniList") },
+                )
+                Spacer(Modifier.width(8.dp))
+                FilterChip(
+                    selected = tracker === mal,
+                    onClick = { tracker = mal },
+                    label = { Text("MAL") },
+                )
+            }
+            Spacer(Modifier.height(8.dp))
 
             Text("Novel", style = MaterialTheme.typography.labelLarge)
             Box {
@@ -149,7 +173,11 @@ fun NovelTrackProbeScreen() {
                         scope.launch {
                             loading = true; error = null; status = null; results = emptyList()
                             try {
-                                results = anilist.searchNovels(query)
+                                results = when (tracker) {
+                                    anilist -> anilist.searchNovels(query)
+                                    mal -> mal.searchNovels(query)
+                                    else -> emptyList()
+                                }
                                 if (results.isEmpty()) status = "no results"
                             } catch (e: Throwable) {
                                 error = "${e.javaClass.simpleName}: ${e.message ?: ""}"
@@ -157,7 +185,7 @@ fun NovelTrackProbeScreen() {
                         }
                     },
                     enabled = !loading && query.isNotBlank(),
-                ) { Text("Search AniList") }
+                ) { Text("Search $trackerLabel") }
                 Spacer(Modifier.width(12.dp))
                 if (loading) CircularProgressIndicator()
                 status?.let {
@@ -183,8 +211,8 @@ fun NovelTrackProbeScreen() {
                                 val novel = selected ?: return@SearchResultRow
                                 val novelId = novel.id ?: return@SearchResultRow
                                 scope.launch {
-                                    val id = trackRepo.upsert(toNovelTrack(novelId, r, anilist.id))
-                                    status = if (id != null) "bound row id=$id" else "upsert failed"
+                                    val id = trackRepo.upsert(toNovelTrack(novelId, r, tracker.id))
+                                    status = if (id != null) "bound $trackerLabel row id=$id" else "upsert failed"
                                 }
                             },
                         )

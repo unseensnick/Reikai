@@ -66,7 +66,10 @@ class MyAnimeListApi(private val client: OkHttpClient, interceptor: MyAnimeListI
         }
     }
 
-    suspend fun search(query: String): List<TrackSearch> {
+    suspend fun search(
+        query: String,
+        mediaType: MyAnimeListMediaType = MyAnimeListMediaType.MANGA,
+    ): List<TrackSearch> {
         return withIOContext {
             val url = "$BASE_API_URL/manga".toUri().buildUpon()
                 // MAL API throws a 400 when the query is over 64 characters...
@@ -79,7 +82,16 @@ class MyAnimeListApi(private val client: OkHttpClient, interceptor: MyAnimeListI
                 .data
                 .map { async { getMangaDetails(it.node.id) } }
                 .awaitAll()
-                .filter { !it.publishing_type.contains("novel") }
+                .filter {
+                    // getMangaDetails maps the raw media_type (e.g. "light_novel") to a
+                    // space-separated form ("light novel"), so a substring check on "novel"
+                    // matches both "novel" and "light novel" cleanly.
+                    val isNovel = it.publishing_type.contains("novel")
+                    when (mediaType) {
+                        MyAnimeListMediaType.MANGA -> !isNovel
+                        MyAnimeListMediaType.NOVEL -> isNovel
+                    }
+                }
         }
     }
 

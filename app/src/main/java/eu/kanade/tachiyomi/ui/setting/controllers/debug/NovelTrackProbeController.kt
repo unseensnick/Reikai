@@ -12,6 +12,6 @@ class NovelTrackProbeController : BaseComposeController() {
     }
 
     companion object {
-        const val title = "LN track probe (AniList)"
+        const val title = "LN track probe"
     }
 }
