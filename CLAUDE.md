@@ -26,6 +26,7 @@ Android manga reader. Personal fork of [Yōkai](https://github.com/null2264/yoka
 - No dead code or commented-out blocks. Git has history.
 - WHY comments, never WHAT. If code needs a "what" comment, rename instead.
 - KDoc at module boundaries only (public APIs of `source/api`, repository interfaces), not every internal function.
+- No em dashes (—) in prose, comments, commit messages, or PR bodies. Use commas, parentheses, periods, or colons. Em dashes are a Claude stylistic tic that flags writing as AI-generated.
 
 ## Identity (load-bearing — preserve when porting upstream)
 
