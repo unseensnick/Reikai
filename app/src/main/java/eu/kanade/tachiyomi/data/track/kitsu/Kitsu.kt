@@ -127,8 +127,11 @@ class Kitsu(private val context: Context, id: Long) : TrackService(id) {
     }
 
     override suspend fun search(query: String): List<TrackSearch> {
-        return api.search(query)
+        return api.search(query, KitsuMediaType.MANGA)
     }
+
+    /** Light-novel-scoped search. Used by the novel-tracking flow; manga search is unchanged. */
+    suspend fun searchNovels(query: String): List<TrackSearch> = api.search(query, KitsuMediaType.NOVEL)
 
     /** Pull every entry from the user's Kitsu manga library (paginated). Used by the taste-profile fetcher. */
     suspend fun getUserLibrary(): List<KitsuLibraryEntry> = api.getUserLibrary(getUserId())

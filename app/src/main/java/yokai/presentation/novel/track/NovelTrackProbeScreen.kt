@@ -72,11 +72,17 @@ fun NovelTrackProbeScreen() {
     val trackManager = remember { Injekt.get<TrackManager>() }
     val anilist = trackManager.aniList
     val mal = trackManager.myAnimeList
+    val kitsu = trackManager.kitsu
     val backPress = LocalBackPress.current
     val scope = rememberCoroutineScope()
 
     var tracker by remember { mutableStateOf<TrackService>(anilist) }
-    val trackerLabel = if (tracker === anilist) "AniList" else "MAL"
+    val trackerLabel = when (tracker) {
+        anilist -> "AniList"
+        mal -> "MAL"
+        kitsu -> "Kitsu"
+        else -> "?"
+    }
 
     val novels by novelRepo.getAllAsFlow().collectAsState(initial = emptyList())
     val favorites = remember(novels) { novels.filter { it.favorite }.sortedBy { it.title.lowercase() } }
@@ -92,7 +98,7 @@ fun NovelTrackProbeScreen() {
     val tracks by (selected?.id?.let { trackRepo.observeByNovelId(it) } ?: flowOf(emptyList()))
         .collectAsState(initial = emptyList())
 
-    LaunchedEffect(tracker, anilist.isLogged, mal.isLogged) {
+    LaunchedEffect(tracker, anilist.isLogged, mal.isLogged, kitsu.isLogged) {
         error = if (!tracker.isLogged) {
             "$trackerLabel is not logged in. Settings, Tracking, $trackerLabel, sign in, then retry."
         } else null
@@ -136,6 +142,12 @@ fun NovelTrackProbeScreen() {
                     onClick = { tracker = mal },
                     label = { Text("MAL") },
                 )
+                Spacer(Modifier.width(8.dp))
+                FilterChip(
+                    selected = tracker === kitsu,
+                    onClick = { tracker = kitsu },
+                    label = { Text("Kitsu") },
+                )
             }
             Spacer(Modifier.height(8.dp))
 
@@ -176,6 +188,7 @@ fun NovelTrackProbeScreen() {
                                 results = when (tracker) {
                                     anilist -> anilist.searchNovels(query)
                                     mal -> mal.searchNovels(query)
+                                    kitsu -> kitsu.searchNovels(query)
                                     else -> emptyList()
                                 }
                                 if (results.isEmpty()) status = "no results"
