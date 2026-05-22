@@ -15,7 +15,7 @@ Start by reading the **Status** table to see where things stand, then jump to **
 | Appearance | Legacy | — |
 | Library | Legacy | — |
 | Reader | Legacy | — |
-| Downloads | Legacy | — |
+| Downloads | Compose | Legacy |
 | Browse | Legacy | — |
 | Tracking | Legacy | — |
 | About | Compose | — (no legacy) |
