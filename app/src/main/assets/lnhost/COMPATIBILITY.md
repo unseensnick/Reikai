@@ -14,6 +14,8 @@ API design.
 | `webnovel` | fetch, filterInputs, storage, cheerio | ⚠️ Load works; popular blocked by Cloudflare Turnstile (auto-bypass times out; same limitation Tachiyomi has against CF-protected manga sources). Not a host bug. |
 | `archiveofourown` | defaultCover, fetch, filterInputs, cheerio | ⚠️ Load works. First popular OK (validates `CheckboxGroup` filter pass-through). parseNovel + repeated popular hit AO3 server-side rate limiting (HTTP/2 stream timeout, no headers within 30 s). Likely also needs `view_adult` cookie for explicit works. |
 | `novelfull` | fetch, novelStatus, cheerio, htmlparser2 | ✅ All five. Same `readnovelfull` template family as novelbin. |
+| `boxnovel` | defaultCover, fetch, novelStatus, storage, cheerio, dayjs | ⚠️ Load works (validates the `madara` template family). Popular blocked by Cloudflare Turnstile on `novelnice.com`; same limitation as webnovel. Plugin code did run against the partial CF response (validating bridge error propagation through plugin internals). |
+| `bookhamster` | fetch, novelStatus, dayjs, htmlparser2 | ✅ All five. Russian `ifreedom` template family; validates Cyrillic UTF-8 round-trip through the bridge (request URL params + response body). |
 
 ## Host changes made during the soak
 
@@ -22,6 +24,7 @@ API design.
 - `fix(novel): dispatch JS calls via main Looper, not webView.post` — `View.post` queues runnables in a deferred queue until the view attaches to a window. The probe's WebView is never attached, so the queue never drained. Every Kotlin → JS call hung until timeout.
 - `feat(novel): convert FormData and URLSearchParams bodies in fetchApi shim` — bridge accepts only string bodies; `JSON.stringify(formData)` gives `'{}'`. scribblehub's `parseNovel` POSTs `FormData` for chapter pagination. Conversion to `application/x-www-form-urlencoded` covers the string-keyed-string-value case (no File/Blob support yet).
 - `fix(novel): make the probe screen vertically scrollable` — outer Compose column was `fillMaxSize` without scroll; once inputs + buttons + output overflowed the viewport, lower fields and the output area were unreachable.
+- `feat(novel): make probe output selectable` — wrapped output `Text` in `SelectionContainer` so soak operators can copy the JSON / error stack via long-press.
 
 ## `@libs/*` coverage
 
@@ -58,6 +61,7 @@ These are real-world plugin issues the host doesn't currently solve. Each is a P
 - **Non-UTF-8 response decoding**: `fetchText`'s `encoding` arg is ignored; the bridge always returns body as UTF-8. Add base64 transport + `TextDecoder(encoding)` on the JS side when a Big5 / GBK / Shift-JIS source enters the test set.
 - **Multipart bodies with File/Blob values**: `FormData` shim only handles string values. File uploads (likely none for LN sources, but flagged anyway) would need real multipart encoding in Kotlin.
 - **Cookie persistence across calls**: `AndroidCookieJar` is shared by `NetworkHelper.client`, so cookies set during one fetch should carry into the next. Unverified by the soak (no session-required source completed end-to-end).
+- **Plugin id casing**: the probe screen auto-derives the plugin id from the URL filename, which often differs from the registry entry's `id` field (e.g. `Bookhamster%5Bifreedom%5D` vs `bookhamster`). Phase 3's add-repo UX will read `id` directly from the registry JSON, eliminating this class of friction. Until then, the probe operator must type the registry-side id manually for any source where the two differ.
 
 ## What the host is ready for
 
