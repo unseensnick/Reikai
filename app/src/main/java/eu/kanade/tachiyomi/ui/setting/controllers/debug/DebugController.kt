@@ -41,6 +41,12 @@ class DebugController : SettingsLegacyController() {
                 router.pushController(LnPluginHostProbeController().withFadeTransaction())
             }
         }
+        preference {
+            title = LnRepoBrowseController.title
+            onClick {
+                router.pushController(LnRepoBrowseController().withFadeTransaction())
+            }
+        }
         preferenceCategory {
             title = "App Info"
             preference {
