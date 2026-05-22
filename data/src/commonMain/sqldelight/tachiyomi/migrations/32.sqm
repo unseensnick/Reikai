@@ -1,0 +1,51 @@
+-- Light-novel parallel tables. Disjoint from `mangas` / `chapters` because:
+--   * source identifier space differs (lnreader plugin.id is a String, Tachiyomi extension
+--     source ids are Long);
+--   * the reader is text-based, so manga-specific fields (`viewer`, `pages_left`,
+--     `scanlator`, `filtered_scanlators`) are gone;
+--   * `last_text_progress` (0..10000 = hundredths of a percent) replaces `last_page_read`
+--     to support mid-chapter resume in a continuous scroll.
+-- Field names that DO have a direct manga analogue are kept identical so future view-layer
+-- code can be parameterized over the two table sets with minimal diff.
+
+CREATE TABLE novels(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    source TEXT NOT NULL,
+    url TEXT NOT NULL,
+    title TEXT NOT NULL,
+    author TEXT,
+    artist TEXT,
+    description TEXT,
+    genre TEXT,
+    status INTEGER NOT NULL,
+    thumbnail_url TEXT,
+    favorite INTEGER NOT NULL,
+    last_update INTEGER,
+    initialized INTEGER NOT NULL,
+    chapter_flags INTEGER NOT NULL,
+    date_added INTEGER,
+    update_strategy INTEGER NOT NULL DEFAULT 0,
+    cover_last_modified INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX novels_url_index ON novels(url);
+CREATE INDEX novels_library_favorite_index ON novels(favorite) WHERE favorite = 1;
+
+CREATE TABLE novel_chapters(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    novel_id INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    name TEXT NOT NULL,
+    read INTEGER NOT NULL,
+    bookmark INTEGER NOT NULL,
+    last_text_progress INTEGER NOT NULL DEFAULT 0,
+    chapter_number REAL NOT NULL,
+    source_order INTEGER NOT NULL,
+    date_fetch INTEGER NOT NULL,
+    date_upload INTEGER NOT NULL,
+    FOREIGN KEY(novel_id) REFERENCES novels (_id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX novel_chapters_novel_id_index ON novel_chapters(novel_id);
+CREATE INDEX novel_chapters_unread_by_novel_index ON novel_chapters(novel_id, read) WHERE read = 0;

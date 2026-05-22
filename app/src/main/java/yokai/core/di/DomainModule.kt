@@ -12,6 +12,8 @@ import yokai.data.history.HistoryRepositoryImpl
 import yokai.data.library.custom.CustomMangaRepositoryImpl
 import yokai.data.library.taste.TrackerLibraryRepositoryImpl
 import yokai.data.manga.MangaRepositoryImpl
+import yokai.data.novel.NovelChapterRepositoryImpl
+import yokai.data.novel.NovelRepositoryImpl
 import yokai.data.source.browse.filter.SavedSearchRepositoryImpl
 import yokai.data.track.TrackRepositoryImpl
 import yokai.domain.category.CategoryRepository
@@ -48,6 +50,8 @@ import yokai.domain.library.taste.interactor.GetLibraryStatuses
 import yokai.domain.library.taste.interactor.GetTrackedEntries
 import yokai.domain.library.taste.interactor.RefreshTrackerLibrary
 import yokai.domain.manga.MangaRepository
+import yokai.domain.novel.NovelChapterRepository
+import yokai.domain.novel.NovelRepository
 import yokai.domain.manga.interactor.GetLibraryManga
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.interactor.InsertManga
@@ -91,6 +95,9 @@ fun domainModule() = module {
     factory { GetLibraryManga(get()) }
     factory { InsertManga(get()) }
     factory { UpdateManga(get()) }
+
+    single<NovelRepository> { NovelRepositoryImpl(get()) }
+    single<NovelChapterRepository> { NovelChapterRepositoryImpl(get()) }
 
     factory { SetMangaCategories(get()) }
 

@@ -1,0 +1,80 @@
+import kotlin.Boolean;
+
+-- Parallel of mangas. Held disjoint from the manga table because the source-id space differs
+-- (lnreader plugin.id is a String; Tachiyomi extension source ids are Long), the reader is
+-- text-based (no `viewer` flags), and there are no scanlators. Fields with direct manga
+-- analogues are named identically so view code and tracker hooks can be ported with minimal
+-- diff once the library UI lands.
+CREATE TABLE novels(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    source TEXT NOT NULL,
+    url TEXT NOT NULL,
+    title TEXT NOT NULL,
+    author TEXT,
+    artist TEXT,
+    description TEXT,
+    genre TEXT,
+    status INTEGER NOT NULL,
+    thumbnail_url TEXT,
+    favorite INTEGER AS Boolean NOT NULL,
+    last_update INTEGER,
+    initialized INTEGER AS Boolean NOT NULL,
+    chapter_flags INTEGER NOT NULL,
+    date_added INTEGER,
+    update_strategy INTEGER NOT NULL DEFAULT 0,
+    cover_last_modified INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX novels_url_index ON novels(url);
+CREATE INDEX novels_library_favorite_index ON novels(favorite) WHERE favorite = 1;
+
+findAll:
+SELECT *
+FROM novels;
+
+findByUrlAndSource:
+SELECT *
+FROM novels
+WHERE url = :url AND source = :source;
+
+findById:
+SELECT *
+FROM novels
+WHERE _id = :novelId;
+
+findFavorites:
+SELECT *
+FROM novels
+WHERE favorite = 1
+ORDER BY title;
+
+insert:
+INSERT INTO novels (source, url, title, author, artist, description, genre, status, thumbnail_url, favorite, last_update, initialized, chapter_flags, date_added, update_strategy, cover_last_modified)
+VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :favorite, :lastUpdate, :initialized, :chapterFlags, :dateAdded, :updateStrategy, :coverLastModified);
+
+update:
+UPDATE novels SET
+    source = coalesce(:source, source),
+    url = coalesce(:url, url),
+    title = coalesce(:title, title),
+    author = coalesce(:author, author),
+    artist = coalesce(:artist, artist),
+    description = coalesce(:description, description),
+    genre = coalesce(:genre, genre),
+    status = coalesce(:status, status),
+    thumbnail_url = coalesce(:thumbnailUrl, thumbnail_url),
+    favorite = coalesce(:favorite, favorite),
+    last_update = coalesce(:lastUpdate, last_update),
+    initialized = coalesce(:initialized, initialized),
+    chapter_flags = coalesce(:chapterFlags, chapter_flags),
+    date_added = coalesce(:dateAdded, date_added),
+    update_strategy = coalesce(:updateStrategy, update_strategy),
+    cover_last_modified = coalesce(:coverLastModified, cover_last_modified)
+WHERE _id = :novelId;
+
+selectLastInsertedRowId:
+SELECT last_insert_rowid();
+
+deleteNotInLibraryBySourceIds:
+DELETE FROM novels
+WHERE favorite = 0 AND source IN :sourceIds;
