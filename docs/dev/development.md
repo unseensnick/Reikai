@@ -75,7 +75,7 @@ Sibling read-only clones provide related-project context. Clone whichever repos 
 - `yokai` — upstream `null2264/yokai`; primary reference for porting upstream changes
 - `komikku` — Komikku (source of ported features like related-mangas)
 - `mihon` — Mihon (upstream of Yōkai)
-- `tachiyomi-extension` — legacy Tachiyomi extension source repo (archived; historical reference only)
+- `tachiyomi-extension` — [Suwayomi/tachiyomi-extension](https://github.com/Suwayomi/tachiyomi-extension); the Suwayomi extension Reikai users install to read from a self-hosted [Suwayomi](https://suwayomi.org) server as an in-app source
 - `keiyoushi-extensions-source` — Keiyoushi extensions **source** repo (`keiyoushi/extensions-source`); active Mihon-lineage extension code that Reikai users install from
 - `keiyoushi-extensions` — Keiyoushi extensions **distribution** repo (`keiyoushi/extensions`); compiled APKs + `index.json` served to the in-app extension list
 - `blueth-yokai` — another Yokai fork; reference for alternative feature implementations
