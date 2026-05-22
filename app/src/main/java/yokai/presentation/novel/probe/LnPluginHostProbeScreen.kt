@@ -65,6 +65,13 @@ fun LnPluginHostProbeScreen() {
 
     var pluginUrl by remember { mutableStateOf("") }
     var pluginId by remember { mutableStateOf("") }
+    var optionsJson by remember {
+        mutableStateOf(
+            // Default works for any lnreader source that doesn't read filters from
+            // PopularNovelsOptions. novelbin etc. need real filter values pasted here.
+            "{}",
+        )
+    }
     var novelPath by remember { mutableStateOf("") }
     var chapterPath by remember { mutableStateOf("") }
     var searchQuery by remember { mutableStateOf("") }
@@ -134,6 +141,14 @@ fun LnPluginHostProbeScreen() {
             )
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
+                value = optionsJson,
+                onValueChange = { optionsJson = it },
+                label = { Text("popularNovels options JSON") },
+                singleLine = false,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
                 value = novelPath,
                 onValueChange = { novelPath = it },
                 label = { Text("Novel path (for parseNovel)") },
@@ -169,7 +184,11 @@ fun LnPluginHostProbeScreen() {
                 ) { Text("Load plugin") }
                 Button(
                     enabled = !busy && pluginId.isNotBlank(),
-                    onClick = { run("popularNovels(1)") { host.popularNovels(pluginId, 1) } },
+                    onClick = {
+                        run("popularNovels(1)") {
+                            host.popularNovels(pluginId, 1, optionsJson.ifBlank { "{}" })
+                        }
+                    },
                 ) { Text("popularNovels(1)") }
                 Button(
                     enabled = !busy && pluginId.isNotBlank() && novelPath.isNotBlank(),
