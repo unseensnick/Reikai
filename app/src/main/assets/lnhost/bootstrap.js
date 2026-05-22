@@ -53,12 +53,25 @@
   }
 
   async function fetchApi(url, init) {
+    // Normalize body: FormData → application/x-www-form-urlencoded since the Kotlin bridge
+    // accepts only string bodies. URLSearchParams handled the same way. (Scribblehub's
+    // parseNovel POSTs a FormData; without this conversion JSON.stringify(formData) = '{}'.)
+    const normalized = init ? Object.assign({}, init) : {};
+    if (normalized.body instanceof FormData || normalized.body instanceof URLSearchParams) {
+      const params = new URLSearchParams();
+      for (const [k, v] of normalized.body.entries()) {
+        params.append(k, typeof v === 'string' ? v : String(v));
+      }
+      normalized.body = params.toString();
+      normalized.headers = Object.assign({}, normalized.headers || {});
+      const hasCT = Object.keys(normalized.headers).some(h => h.toLowerCase() === 'content-type');
+      if (!hasCT) normalized.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    }
     const callbackId = newCallbackId();
     const promise = new Promise((resolve, reject) => {
       pendingFetches.set(callbackId, { resolve, reject });
     });
-    const optsJson = JSON.stringify(init || {});
-    bridge.fetch(url, optsJson, callbackId);
+    bridge.fetch(url, JSON.stringify(normalized), callbackId);
     const raw = await promise; // resolved by window.__lnhost.resolveFetch
     if (raw && raw.error) {
       throw new Error(raw.error);
