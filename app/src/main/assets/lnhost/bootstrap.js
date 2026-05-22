@@ -206,7 +206,16 @@
       }
       plugins.set(pluginId, plugin);
       log('info', 'loaded plugin ' + plugin.id + ' v' + (plugin.version || '?'));
-      return { id: plugin.id, name: plugin.name, version: plugin.version, site: plugin.site, icon: plugin.icon };
+      return {
+        id: plugin.id,
+        name: plugin.name,
+        version: plugin.version,
+        site: plugin.site,
+        icon: plugin.icon,
+        // Pass the plugin's filter schema through unmodified; the host doesn't interpret it.
+        // Future filter UI on the Kotlin side will render this.
+        filters: plugin.filters || null,
+      };
     } catch (e) {
       log('error', 'loadPlugin failed: ' + (e && e.stack ? e.stack : e));
       throw e;

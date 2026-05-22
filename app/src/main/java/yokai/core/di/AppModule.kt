@@ -21,6 +21,7 @@ import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.network.JavaScriptEngine
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.SourceManager
+import yokai.novel.source.NovelSourceManager
 import eu.kanade.tachiyomi.ui.manga.related.browse.RelatedMangasHandoff
 import eu.kanade.tachiyomi.util.chapter.ChapterFilter
 import eu.kanade.tachiyomi.util.manga.MangaShortcutManager
@@ -120,6 +121,7 @@ fun appModule(app: Application) = module {
     single { JavaScriptEngine(app) }
 
     single { SourceManager(app, get()) }
+    single { NovelSourceManager() }
     single { ExtensionManager(app) }
 
     single { DownloadProvider(app) }

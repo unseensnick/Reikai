@@ -3,6 +3,7 @@ package yokai.novel.host
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 
 /**
  * Kotlin mirrors of the lnreader Plugin types (see refs/lnreader-main/src/plugins/types/).
@@ -17,6 +18,8 @@ data class LnPluginInfo(
     val version: String? = null,
     val site: String? = null,
     val icon: String? = null,
+    /** Raw plugin.filters schema. Pass-through; the host does not interpret it. */
+    val filters: JsonObject? = null,
 )
 
 /**
