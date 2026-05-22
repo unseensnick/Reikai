@@ -2,6 +2,14 @@
 
 Android manga reader. Personal fork of [Yōkai](https://github.com/null2264/yokai) (Tachiyomi/Mihon lineage) adding multi-source grouping, manual merge/unmerge, and category sort order.
 
+## Working approach
+
+**Plan before acting.** Before starting any task, think through what needs to change and why — which files are affected, what the failure modes are, and whether the approach is sound. Use `EnterPlanMode` for non-trivial tasks to draft and get approval before touching code.
+
+**Stop and replan when blocked.** If you hit an unexpected problem mid-task — a failing constraint, a broken assumption, an error you don't fully understand — stop all changes immediately and surface the blocker. Do not circumvent it (deleting a test, silencing a lint error, skipping a hook, or forcing past a tool denial). Replan from scratch with the new information.
+
+**Offload long or hard tasks to subagents.** When a task requires deep codebase exploration, multi-file research, or extended multi-step work, spawn a subagent (`Agent` tool) to do that work. This keeps the main context window clean and avoids polluting conversation state with intermediate search noise.
+
 ## Identity (load-bearing — preserve when porting upstream)
 
 `applicationId = "eu.kanade.tachiyomi"` and release suffix `.y2k` — both legacy; kept so existing installs upgrade in place. App name string `Reikai` lives in `i18n/src/commonMain/moko-resources/base/strings.xml`. Keep `.y2k` for packaging continuity; take upstream for everything else.
@@ -16,7 +24,7 @@ Android Studio (`Build → Make/Rebuild`). Java 17, `minSdk 23`, `targetSdk 36`.
 
 - [docs/dev/development.md](docs/dev/development.md) — architecture, modules, fork features, reference clones, upstream-port workflow.
 - [.claude/rules/architecture.md](.claude/rules/architecture.md) — presenter vs Compose+Voyager, settings two-screen pattern, preferences, coroutines, KMP, DI.
-- [.claude/rules/workflow.md](.claude/rules/workflow.md) — working approach, CHANGELOG rule, commits/PRs, release-cut, upstream sync.
+- [.claude/rules/workflow.md](.claude/rules/workflow.md) — CHANGELOG rule, commits/PRs, release-cut, upstream sync.
 - [.claude/rules/code-quality.md](.claude/rules/code-quality.md) — DRY/YAGNI/KISS, naming, code markers, file organization.
 - [.claude/rules/testing.md](.claude/rules/testing.md) — behavior over implementation, mock at boundaries, coroutine test patterns.
 - [.claude/rules/database.md](.claude/rules/database.md) — SQLDelight migrations.
