@@ -15,6 +15,11 @@ data class Backup(
     @ProtoNumber(101) var backupSources: List<BackupSource> = emptyList(),
     @ProtoNumber(104) var backupPreferences: List<BackupPreference> = emptyList(),
     @ProtoNumber(105) var backupSourcePreferences: List<BackupSourcePreferences> = emptyList(),
+    // Light-novel rows. New in Reikai; upstream Yōkai's parser silently drops unknown protobuf
+    // tags so cross-fork restore stays compatible (novels are simply not migrated). Tag picked
+    // from the 200+ range to avoid colliding with manga (1, 16, 18), J2K (100, 101, 103-105),
+    // SY (602), or J2K custom-fields (800-805).
+    @ProtoNumber(200) var backupNovels: List<BackupNovel> = emptyList(),
 ) {
 
     companion object {

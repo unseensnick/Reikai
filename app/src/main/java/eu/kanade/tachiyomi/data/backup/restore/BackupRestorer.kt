@@ -5,6 +5,7 @@ import android.net.Uri
 import eu.kanade.tachiyomi.data.backup.BackupNotifier
 import eu.kanade.tachiyomi.data.backup.restore.restorers.CategoriesBackupRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaBackupRestorer
+import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelBackupRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.PreferenceBackupRestorer
 import eu.kanade.tachiyomi.util.BackupUtil
 import eu.kanade.tachiyomi.util.system.createFileInCacheDir
@@ -21,6 +22,7 @@ class BackupRestorer(
     val notifier: BackupNotifier,
     private val categoriesBackupRestorer: CategoriesBackupRestorer = CategoriesBackupRestorer(),
     private val mangaBackupRestorer: MangaBackupRestorer = MangaBackupRestorer(),
+    private val novelBackupRestorer: NovelBackupRestorer = NovelBackupRestorer(),
     private val preferenceBackupRestorer: PreferenceBackupRestorer = PreferenceBackupRestorer(context),
 ) {
     private var restoreAmount = 0
@@ -51,7 +53,7 @@ class BackupRestorer(
     private suspend fun performRestore(uri: Uri) {
         val backup = BackupUtil.decodeBackup(context, uri)
 
-        restoreAmount = backup.backupManga.size + 3 // +3 for categories, app prefs, source prefs
+        restoreAmount = backup.backupManga.size + backup.backupNovels.size + 3 // +3 for categories, app prefs, source prefs
 
         sourceMapping = backup.backupSources.associate { it.sourceId to it.name }
 
@@ -89,6 +91,22 @@ class BackupRestorer(
                     onError = { manga, e ->
                         val sourceName = sourceMapping[manga.source] ?: manga.source.toString()
                         errors.add(Date() to "${manga.title} [$sourceName]: ${e.message}")
+                    },
+                )
+            }
+
+            // Restore individual novels (parallel of the manga loop above; novels live in their
+            // own tables so they don't share the manga sourceMapping or category linkage).
+            backup.backupNovels.forEach {
+                ensureActive()
+                novelBackupRestorer.restoreNovel(
+                    it,
+                    onComplete = { novel ->
+                        restoreProgress += 1
+                        showRestoreProgress(restoreProgress, restoreAmount, novel.title)
+                    },
+                    onError = { novel, e ->
+                        errors.add(Date() to "${novel.title} [${novel.source}]: ${e.message}")
                     },
                 )
             }

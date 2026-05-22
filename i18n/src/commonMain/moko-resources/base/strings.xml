@@ -850,6 +850,7 @@
     <string name="complete">Complete</string>
     <string name="not_logged_into_">Not logged into %1$s</string>
     <string name="backup_private_pref">Include sensitive settings (e.g. tracker login tokens)</string>
+    <string name="light_novels">Light novels</string>
     <string name="last_auto_backup_info">Last automatically backed up: %s</string>
 
     <!-- Advanced section -->
