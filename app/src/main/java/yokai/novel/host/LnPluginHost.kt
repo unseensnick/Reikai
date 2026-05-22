@@ -112,9 +112,15 @@ class LnPluginHost(
     }
 
     suspend fun loadPlugin(pluginId: String, source: String): LnPluginInfo {
+        Logger.i(LN_HOST_TAG) { "loadPlugin awaiting page ready (sourceLen=${source.length})" }
         ready.await()
+        Logger.i(LN_HOST_TAG) { "loadPlugin page ready; pinging JS first" }
+        val pong = evaluateJsSuspending("'pong'")
+        Logger.i(LN_HOST_TAG) { "loadPlugin ping result=$pong" }
         val js = "JSON.stringify(window.__lnhost.loadPlugin(${jsStr(pluginId)}, ${jsStr(source)}))"
-        val rawJsString = evaluateJsSuspending(js) // outer string (JS literal of the JSON)
+        Logger.i(LN_HOST_TAG) { "loadPlugin invoking JS (jsLen=${js.length})" }
+        val rawJsString = evaluateJsSuspending(js)
+        Logger.i(LN_HOST_TAG) { "loadPlugin JS returned (rawLen=${rawJsString.length})" }
         val innerJson = JSON.decodeFromString(String.serializer(), rawJsString)
         return JSON.decodeFromString(LnPluginInfo.serializer(), innerJson)
     }

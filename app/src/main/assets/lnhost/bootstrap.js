@@ -182,14 +182,16 @@
   const plugins = new Map(); // pluginId -> Plugin instance
 
   function loadPlugin(pluginId, rawCode) {
+    log('info', 'loadPlugin enter pluginId=' + pluginId + ' codeLen=' + (rawCode && rawCode.length));
     try {
       const req = makeRequire(pluginId);
+      log('info', 'loadPlugin require built');
       const module = { exports: {} };
-      // Same shape as lnreader's pluginManager.initPlugin (with `module.exports.default` instead of
-      // `exports.default` to be robust against bundlers that emit one or the other).
       const fn = new Function('require', 'module', 'exports',
         rawCode + '\nreturn module.exports.default || module.exports;');
+      log('info', 'loadPlugin Function compiled');
       const plugin = fn(req, module, module.exports);
+      log('info', 'loadPlugin Function executed; plugin.id=' + (plugin && plugin.id));
       if (!plugin || !plugin.id) {
         throw new Error('plugin did not export a default with .id');
       }
