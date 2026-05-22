@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.ui.more.AboutController
 import eu.kanade.tachiyomi.ui.setting.SettingsLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsAdvancedLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsDataLegacyController
+import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsDownloadLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsSecurityLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.search.SettingsSearchController
 import eu.kanade.tachiyomi.ui.setting.iconRes
@@ -68,11 +69,15 @@ class SettingsMainController : SettingsLegacyController(), FloatingSearchInterfa
             titleRes = MR.strings.reader
             onClick { navigateTo(SettingsReaderController()) }
         }
-        preference {
+        preferenceLongClickable {
             iconRes = R.drawable.ic_file_download_24dp
             iconTint = tintColor
             titleRes = MR.strings.downloads
             onClick { navigateTo(SettingsDownloadController()) }
+            onLongClick {
+                navigateTo(SettingsDownloadLegacyController())
+                context.toast("You're entering legacy version of 'Downloads'")
+            }
         }
         preference {
             iconRes = R.drawable.ic_browse_outline_24dp

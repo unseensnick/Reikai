@@ -128,6 +128,40 @@ sealed class Preference {
         ) : PreferenceItem<Set<String>>()
 
         /**
+         * Tri-state list dialog: each entry can be included, excluded, or untouched. Backed by
+         * two [PreferenceData] sets (included keys, excluded keys).
+         */
+        data class TriStateListPreference(
+            val includedPref: PreferenceData<Set<String>>,
+            val excludedPref: PreferenceData<Set<String>>,
+            override val title: String,
+            override val subtitle: String? = "%s",
+            val subtitleProvider: @Composable (
+                included: Set<String>,
+                excluded: Set<String>,
+                entries: ImmutableMap<String, String>,
+            ) -> String? = { inc, exc, e ->
+                val parts = buildList {
+                    if (inc.isNotEmpty()) add(inc.mapNotNull { e[it] }.joinToString())
+                    if (exc.isNotEmpty()) add("-${exc.mapNotNull { e[it] }.joinToString(", -")}")
+                }
+                val combined = if (parts.isEmpty()) {
+                    stringResource(MR.strings.all)
+                } else {
+                    parts.joinToString(", ")
+                }
+                subtitle?.format(combined)
+            },
+            override val icon: ImageVector? = null,
+            override val enabled: Boolean = true,
+            val onValuesChanged: suspend (included: Set<String>, excluded: Set<String>) -> Boolean = { _, _ -> true },
+
+            val entries: ImmutableMap<String, String>,
+        ) : PreferenceItem<Set<String>>() {
+            override val onValueChanged: suspend (newValue: Set<String>) -> Boolean = { true }
+        }
+
+        /**
          * A [PreferenceItem] that shows a EditText in the dialog.
          */
         data class EditTextPreference(
