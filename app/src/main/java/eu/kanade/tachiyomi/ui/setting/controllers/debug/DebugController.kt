@@ -35,6 +35,12 @@ class DebugController : SettingsLegacyController() {
                 router.pushController(BackupSchemaController().withFadeTransaction())
             }
         }
+        preference {
+            title = LnPluginHostProbeController.title
+            onClick {
+                router.pushController(LnPluginHostProbeController().withFadeTransaction())
+            }
+        }
         preferenceCategory {
             title = "App Info"
             preference {
