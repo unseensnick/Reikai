@@ -16,6 +16,8 @@ API design.
 | `novelfull` | fetch, novelStatus, cheerio, htmlparser2 | ✅ All five. Same `readnovelfull` template family as novelbin. |
 | `boxnovel` | defaultCover, fetch, novelStatus, storage, cheerio, dayjs | ⚠️ Load works (validates the `madara` template family). Popular blocked by Cloudflare Turnstile on `novelnice.com`; same limitation as webnovel. Plugin code did run against the partial CF response (validating bridge error propagation through plugin internals). |
 | `bookhamster` | fetch, novelStatus, dayjs, htmlparser2 | ✅ All five. Russian `ifreedom` template family; validates Cyrillic UTF-8 round-trip through the bridge (request URL params + response body). |
+| `lightnovelplus` | fetch, novelStatus, cheerio, htmlparser2 | ⚠️ Plugin returns `Error: Could not reach site (404: ) try to open in webview.` Opening in WebView (slice 10) shows the site loads fine and Turnstile completes; the 404 is a stale URL pattern inside the plugin, not a CF block. Needs an upstream plugin fix. |
+| `boxnovel` (madara, novelnice.com) | defaultCover, fetch, novelStatus, storage, cheerio, dayjs | ⚠️ `TypeError: Cannot read properties of undefined (reading 'split') at getHostname`. WebView CF flow works (`__cf_chl_rt_tk` cookie persists), so this is an internal plugin bug, possibly madara's `site` field not being initialized in this template variant. Distinct from the earlier soak (which exercised novelfull.com); the registry has since moved the entry to novelnice.com. |
 
 ## Host changes made during the soak
 
@@ -55,7 +57,7 @@ API design.
 
 These are real-world plugin issues the host doesn't currently solve. Each is a Phase 3 product concern, not a host shim fix.
 
-- **Cloudflare Turnstile** (webnovel.com, others): `NetworkHelper.client` includes a `CloudflareInterceptor` that auto-solves classic CF challenges. Turnstile requires user interaction; the interceptor times out. Need an "open source in WebView to clear challenge" UX, mirroring how the manga side handles this; the `cf_clearance` cookie persists in `AndroidCookieJar` once obtained.
+- **Cloudflare Turnstile** (webnovel.com, novelnice.com, others): `NetworkHelper.client` includes a `CloudflareInterceptor` that auto-solves classic CF challenges. Turnstile requires user interaction; the interceptor times out. **Slice 10 resolves the UX side**: an "Open <source> in WebView" button now appears below LN browse / details errors. Tapping it opens `WebViewActivity` at the source's `site` URL, where the user solves Turnstile manually; the resulting `cf_clearance` / `__cf_chl_rt_tk` cookies persist in `AndroidCookieJar` (shared with `NetworkHelper.client`) and apply to subsequent LN fetches automatically. The CF UX *does not* fix stale plugin URLs (see lightnovelplus) or internal plugin bugs (see boxnovel).
 - **Server-side rate-limit** (AO3): no retry / backoff in the host. Plugins (and Phase 3 UI) should debounce repeated calls and surface a retry-friendly error.
 - **Age-gate cookies** (AO3 `view_adult`): some sources gate adult content behind a one-click cookie. Likely needs the same WebView-clear flow as Cloudflare.
 - **Non-UTF-8 response decoding**: `fetchText`'s `encoding` arg is ignored; the bridge always returns body as UTF-8. Add base64 transport + `TextDecoder(encoding)` on the JS side when a Big5 / GBK / Shift-JIS source enters the test set.
