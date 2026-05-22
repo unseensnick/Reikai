@@ -18,9 +18,9 @@ alwaysApply: true
 - Don't add features or improvements beyond what was asked.
 - Don't refactor adjacent code while fixing a bug.
 - No dead code or commented-out blocks. Git has history.
-- WHY comments, never WHAT. If code needs a "what" comment, rename instead.
-- KDoc at module boundaries only (public APIs of `source/api`, repository interfaces), not every internal function.
+- Comments, KDoc, and docstrings exist for contributors and maintainers. Keep them short and concise without losing context. Explain WHY, not WHAT (rename if a WHAT comment is needed). Reserve KDoc for module boundaries (public APIs of `source/api`, repository interfaces), not every internal function. Never a wall of text.
 - No em dashes (—) in prose, comments, commit messages, or PR bodies. Use commas, parentheses, periods, or colons. Em dashes are a Claude stylistic tic that flags writing as AI-generated.
+- No AI-generated watermarks. Don't add "Co-Authored-By: Claude", "Generated with Claude Code", robot emoji footers, or similar tags to commits, PRs, code, or docs.
 
 ## Naming (Kotlin)
 
