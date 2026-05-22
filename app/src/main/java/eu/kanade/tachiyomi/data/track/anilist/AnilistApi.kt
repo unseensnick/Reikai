@@ -80,10 +80,10 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
         }
     }
 
-    suspend fun search(search: String): List<TrackSearch> {
+    suspend fun search(search: String, mediaType: AnilistMediaType = AnilistMediaType.MANGA): List<TrackSearch> {
         return withIOContext {
             val payload = buildJsonObject {
-                put("query", searchQuery())
+                put("query", searchQuery(mediaType))
                 putJsonObject("variables") {
                     put("query", search)
                 }
@@ -254,11 +254,17 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
             |
             """.trimMargin()
 
-        fun searchQuery() =
-            """
+        fun searchQuery(mediaType: AnilistMediaType = AnilistMediaType.MANGA): String {
+            // AniList has no top-level NOVEL type; light novels are MANGA + format=NOVEL. So the
+            // MANGA search excludes that format and the NOVEL search restricts to it.
+            val mediaFilter = when (mediaType) {
+                AnilistMediaType.MANGA -> "type: MANGA, format_not_in: [NOVEL]"
+                AnilistMediaType.NOVEL -> "type: MANGA, format_in: [NOVEL]"
+            }
+            return """
             |query Search(${'$'}query: String) {
                 |Page (perPage: 50) {
-                    |media(search: ${'$'}query, type: MANGA, format_not_in: [NOVEL]) {
+                    |media(search: ${'$'}query, $mediaFilter) {
                         |id
                         |title {
                             |userPreferred
@@ -281,6 +287,7 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
             |}
             |
             """.trimMargin()
+        }
 
         fun findLibraryMangaQuery() =
             """

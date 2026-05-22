@@ -197,7 +197,10 @@ class Anilist(private val context: Context, id: Long) : TrackService(id) {
         return api.remove(track)
     }
 
-    override suspend fun search(query: String) = api.search(query)
+    override suspend fun search(query: String) = api.search(query, AnilistMediaType.MANGA)
+
+    /** Light-novel-scoped search. Used by the novel-tracking flow; manga search is unchanged. */
+    suspend fun searchNovels(query: String) = api.search(query, AnilistMediaType.NOVEL)
 
     /** Pull every entry from the user's AniList manga library. Used by the taste-profile fetcher. */
     suspend fun getUserLibrary(userId: Int): List<ALLibraryEntry> = api.getUserLibrary(userId)

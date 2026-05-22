@@ -1,0 +1,62 @@
+-- Parallel of manga_sync. Held disjoint from manga_sync because novel ids and manga ids share
+-- the same INTEGER PRIMARY KEY space across separate tables; a single shared sync table would
+-- have to be either widened with a media_type discriminator or risk silent id collisions.
+-- Field names mirror manga_sync wherever they have a direct analogue so future tracker glue can
+-- be parameterized over the two tables with minimal diff.
+CREATE TABLE novel_tracks(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    novel_id INTEGER NOT NULL,
+    sync_id INTEGER NOT NULL,
+    remote_id INTEGER NOT NULL,
+    library_id INTEGER,
+    title TEXT NOT NULL,
+    last_chapter_read REAL NOT NULL,
+    total_chapters INTEGER NOT NULL,
+    status INTEGER NOT NULL,
+    score REAL NOT NULL,
+    remote_url TEXT NOT NULL,
+    start_date INTEGER NOT NULL,
+    finish_date INTEGER NOT NULL,
+    UNIQUE (novel_id, sync_id) ON CONFLICT REPLACE,
+    FOREIGN KEY(novel_id) REFERENCES novels (_id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX novel_tracks_novel_id_index ON novel_tracks(novel_id);
+
+getAllByNovelId:
+SELECT *
+FROM novel_tracks
+WHERE novel_id = :novelId;
+
+deleteForNovel:
+DELETE FROM novel_tracks
+WHERE novel_id = :novelId AND sync_id = :syncId;
+
+deleteAllForNovel:
+DELETE FROM novel_tracks
+WHERE novel_id = :novelId;
+
+insert:
+INSERT INTO novel_tracks(novel_id, sync_id, remote_id, library_id, title, last_chapter_read, total_chapters, status, score, remote_url, start_date, finish_date)
+VALUES(:novelId, :syncId, :remoteId, :libraryId, :title, :lastChapterRead, :totalChapters, :status, :score, :remoteUrl, :startDate, :finishDate);
+
+update:
+UPDATE novel_tracks
+SET
+    novel_id = coalesce(:novelId, novel_id),
+    sync_id = coalesce(:syncId, sync_id),
+    remote_id = coalesce(:remoteId, remote_id),
+    library_id = coalesce(:libraryId, library_id),
+    title = coalesce(:title, title),
+    last_chapter_read = coalesce(:lastChapterRead, last_chapter_read),
+    total_chapters = coalesce(:totalChapters, total_chapters),
+    status = coalesce(:status, status),
+    score = coalesce(:score, score),
+    remote_url = coalesce(:remoteUrl, remote_url),
+    start_date = coalesce(:startDate, start_date),
+    finish_date = coalesce(:finishDate, finish_date)
+WHERE _id = :id;
+
+selectLastInsertedRowId:
+SELECT last_insert_rowid();

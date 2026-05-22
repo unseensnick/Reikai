@@ -1,0 +1,23 @@
+-- Tracker rows for light novels. Mirrors manga_sync but keys on novels(_id) so the parallel
+-- novel id space doesn't collide with manga ids. Slice 9a is AniList-only; MAL + Kitsu reuse
+-- the same table via different sync_id values when they land.
+CREATE TABLE novel_tracks(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    novel_id INTEGER NOT NULL,
+    sync_id INTEGER NOT NULL,
+    remote_id INTEGER NOT NULL,
+    library_id INTEGER,
+    title TEXT NOT NULL,
+    last_chapter_read REAL NOT NULL,
+    total_chapters INTEGER NOT NULL,
+    status INTEGER NOT NULL,
+    score REAL NOT NULL,
+    remote_url TEXT NOT NULL,
+    start_date INTEGER NOT NULL,
+    finish_date INTEGER NOT NULL,
+    UNIQUE (novel_id, sync_id) ON CONFLICT REPLACE,
+    FOREIGN KEY(novel_id) REFERENCES novels (_id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX novel_tracks_novel_id_index ON novel_tracks(novel_id);

@@ -2,6 +2,7 @@ package yokai.data.novel
 
 import yokai.domain.novel.models.Novel
 import yokai.domain.novel.models.NovelChapter
+import yokai.domain.novel.models.NovelTrack
 
 /**
  * Mappers from the generated SQLDelight row types to the domain models. SQLDelight invokes
@@ -45,6 +46,36 @@ fun novelMapper(
     dateAdded = date_added ?: 0L,
     updateStrategy = update_strategy.toInt(),
     coverLastModified = cover_last_modified,
+)
+
+fun novelTrackMapper(
+    id: Long,
+    novel_id: Long,
+    sync_id: Long,
+    remote_id: Long,
+    library_id: Long?,
+    title: String,
+    last_chapter_read: Double,
+    total_chapters: Long,
+    status: Long,
+    score: Double,
+    remote_url: String,
+    start_date: Long,
+    finish_date: Long,
+): NovelTrack = NovelTrack(
+    id = id,
+    novelId = novel_id,
+    syncId = sync_id,
+    remoteId = remote_id,
+    libraryId = library_id,
+    title = title,
+    lastChapterRead = last_chapter_read.toFloat(),
+    totalChapters = total_chapters,
+    status = status.toInt(),
+    score = score.toFloat(),
+    remoteUrl = remote_url,
+    startDate = start_date,
+    finishDate = finish_date,
 )
 
 fun novelChapterMapper(
