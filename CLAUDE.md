@@ -38,6 +38,11 @@ Upstream changes are **ported manually** from `refs/yokai/`. Never `git merge up
 
 Android Studio (`Build → Make/Rebuild`). Java 17, `minSdk 23`, `targetSdk 36`. Domain tests: `./gradlew :domain:test`. (Kotlinter runs via the pre-push hook only — there is no `lintKotlin` Gradle task.)
 
+## Design context
+
+- [PRODUCT.md](PRODUCT.md) — register (product), users, brand personality (quiet, dense, deliberate), anti-references, design principles, accessibility. Read before any UI / visual work. Maintained via the `impeccable` skill.
+- [DESIGN.md](DESIGN.md) — once seeded, holds visual tokens (color, typography, motion, components) derived from the prototype.
+
 ## Where things live
 
 - [docs/dev/development.md](docs/dev/development.md) — architecture, modules, fork features, reference clones, upstream-port workflow.
