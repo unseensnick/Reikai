@@ -171,7 +171,7 @@ After any shim addition, run the regression: the smallest validated source from 
 
 ## Phase 3 roadmap, status
 
-Items 1, 8, plus the AniList / MAL / Kitsu half of item 9 done on this branch. Items 10 and 11 are open. Polish items partially shipped (covers, search, reader settings).
+Items 1 through 8 plus item 10 done on this branch, and the search-half of item 9 (AniList / MAL / Kitsu NOVEL search through a debug probe). Item 11 is open. Polish items partially shipped (covers, search, reader settings).
 
 | # | Item | Status |
 |---|---|---|
@@ -184,7 +184,7 @@ Items 1, 8, plus the AniList / MAL / Kitsu half of item 9 done on this branch. I
 | 7 | Library tab + browse + details + chapter list | ✅ `NovelBrowseScreen` 4-state machine + `NovelLibraryScreen` + `NovelDetailsScreen` (library-tap entry point) |
 | 8 | Text reader | ✅ `ChapterReader` Composable (Jsoup paragraph extraction + scroll-progress auto-save + chapter-row upsert) |
 | 9 | Tracking media-type | 🟡 Partial. AniList + MAL + Kitsu NOVEL search wired via `searchNovels` + per-tracker `MediaType` enum; `novel_tracks` table (migration `33.sqm`) stores rows keyed by `(novel_id, sync_id)`. Validated via `LN track probe` debug screen. Add/update/remove mutations and user-facing tracker UI on the novel detail screen are still open. |
-| 10 | Cloudflare-clear UX | ⏳ Open. "Open in WebView" affordance for `webnovel` / `boxnovel` / age-gated AO3. `NetworkHelper.client` already runs `CloudflareInterceptor` globally, so Flaresolverr + in-app challenge solving already apply to LN traffic; this item is just about surfacing the affordance from LN browse errors. |
+| 10 | Cloudflare-clear UX | ✅ "Open in WebView" affordance renders below the error text on `NovelBrowseScreen` (any of the four states) and on `NovelDetailsScreen` Failed state. Tapping it launches `WebViewActivity` at the source's `site` URL; cookies set there flow through `AndroidCookieJar` shared with `NetworkHelper.client`, so the next LN fetch picks them up automatically. Flaresolverr + the silent in-app challenge solver already applied to LN traffic by virtue of the shared OkHttp client; this slice just surfaces the manual escape hatch. |
 | 11 | Backup proto extension | ⏳ Open. Add Novel rows to backup format. |
 
 ### Deferred trackers (gated on novel-detail tracking UI)
