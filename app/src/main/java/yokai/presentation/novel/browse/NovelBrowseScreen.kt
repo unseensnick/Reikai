@@ -17,8 +17,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,6 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -43,6 +48,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
@@ -72,7 +78,16 @@ import yokai.presentation.manga.components.MangaCoverRatio
 
 private sealed interface BrowseState {
     object PickingSource : BrowseState
-    data class BrowsingNovels(val source: NovelSource, val novels: List<NovelItem>) : BrowseState
+    /**
+     * Browsing a source's listing. [query] is empty for popularNovels results, non-empty when
+     * the search bar is active. Carrying it on the state lets back navigation restore the
+     * exact same listing (popular vs search) without re-fetching.
+     */
+    data class BrowsingNovels(
+        val source: NovelSource,
+        val novels: List<NovelItem>,
+        val query: String = "",
+    ) : BrowseState
     data class ViewingNovel(val parent: BrowsingNovels, val novel: SourceNovel) : BrowseState
     /**
      * Slice H state. Carries the persisted chapter row id + initial scroll progress so the
@@ -119,7 +134,24 @@ fun NovelBrowseScreen() {
             loading = true; error = null
             try {
                 val novels = source.popularNovels(1, buildDefaultOptions(source.filters))
-                state = BrowseState.BrowsingNovels(source, novels)
+                state = BrowseState.BrowsingNovels(source, novels, query = "")
+            } catch (e: Throwable) {
+                error = "${e.javaClass.simpleName}: ${e.message ?: ""}"
+            } finally { loading = false }
+        }
+    }
+
+    fun runSearch(current: BrowseState.BrowsingNovels, query: String) {
+        if (loading) return
+        scope.launch {
+            loading = true; error = null
+            try {
+                val novels = if (query.isBlank()) {
+                    current.source.popularNovels(1, buildDefaultOptions(current.source.filters))
+                } else {
+                    current.source.searchNovels(query, 1)
+                }
+                state = BrowseState.BrowsingNovels(current.source, novels, query = query)
             } catch (e: Throwable) {
                 error = "${e.javaClass.simpleName}: ${e.message ?: ""}"
             } finally { loading = false }
@@ -210,7 +242,12 @@ fun NovelBrowseScreen() {
             }
             when (val s = state) {
                 is BrowseState.PickingSource -> SourcePicker(sources = sources, onPick = ::pickSource)
-                is BrowseState.BrowsingNovels -> NovelList(s.novels) { item -> pickNovel(s, item) }
+                is BrowseState.BrowsingNovels -> NovelList(
+                    novels = s.novels,
+                    query = s.query,
+                    onSearch = { runSearch(s, it) },
+                    onPick = { item -> pickNovel(s, item) },
+                )
                 is BrowseState.ViewingNovel -> NovelDetails(
                     source = s.parent.source,
                     novel = s.novel,
@@ -255,13 +292,46 @@ private fun SourcePicker(sources: List<NovelSource>, onPick: (NovelSource) -> Un
 }
 
 @Composable
-private fun NovelList(novels: List<NovelItem>, onPick: (NovelItem) -> Unit) {
-    if (novels.isEmpty()) {
-        Text("Empty result.")
-        return
-    }
-    LazyColumn(modifier = Modifier.fillMaxWidth()) {
-        items(items = novels, key = { it.path }) { item ->
+private fun NovelList(
+    novels: List<NovelItem>,
+    query: String,
+    onSearch: (String) -> Unit,
+    onPick: (NovelItem) -> Unit,
+) {
+    var queryDraft by remember(query) { mutableStateOf(query) }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = queryDraft,
+            onValueChange = { queryDraft = it },
+            label = { Text("Search") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            trailingIcon = {
+                if (queryDraft.isNotEmpty()) {
+                    IconButton(onClick = {
+                        queryDraft = ""
+                        // Empty submit resets the listing to popularNovels in the screen-level
+                        // handler; we don't run a search-with-empty-query.
+                        onSearch("")
+                    }) {
+                        Icon(Icons.Default.Clear, contentDescription = "Clear")
+                    }
+                }
+            },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { onSearch(queryDraft) }),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
+        if (novels.isEmpty()) {
+            Text(
+                text = if (query.isBlank()) "Empty result." else "No matches for \"$query\".",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            return@Column
+        }
+        LazyColumn(modifier = Modifier.fillMaxWidth()) {
+            items(items = novels, key = { it.path }) { item ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -285,6 +355,7 @@ private fun NovelList(novels: List<NovelItem>, onPick: (NovelItem) -> Unit) {
                 }
             }
             HorizontalDivider()
+            }
         }
     }
 }
