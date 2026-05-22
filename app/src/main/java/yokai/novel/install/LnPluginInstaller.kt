@@ -4,7 +4,6 @@ import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Request
 import yokai.domain.novel.NovelPreferences
 import yokai.novel.host.LN_HOST_TAG
@@ -109,13 +108,17 @@ class LnPluginInstaller(
 /**
  * Normalize a plugin URL so equality compares predictably across the install/uninstall surface.
  *
- * Registry-emitted URLs leave reserved path characters like `[` and `]` literal; URLs the soak
- * operator pasted historically had them percent-encoded. Both forms parse and fetch fine, but
- * the `entry.url in installedPluginUrls` membership check is exact string equality — the
- * registry-form URL would miss against the encoded-form stored URL. OkHttp's `HttpUrl.toString()`
- * percent-encodes reserved characters predictably, giving us one canonical form.
+ * Registry-emitted URLs leave reserved path characters like `[` and `]` literal (e.g.
+ * `NovelBin[readnovelfull].js`); URLs the soak operator pasted historically had them
+ * percent-encoded (`NovelBin%5B...%5D.js`). Both forms parse and fetch fine, but the
+ * `entry.url in installedPluginUrls` check is exact string equality — without normalization, the
+ * registry form misses against the stored form. (We initially tried round-tripping through
+ * `HttpUrl.toString()`, but OkHttp preserves whichever form was input rather than normalizing
+ * to one.)
  *
- * Falls back to the raw input for URLs OkHttp can't parse (malformed inputs from the probe).
+ * Solution: force `[` and `]` to their percent-encoded forms. This is enough to collapse the
+ * only mismatch the soak surfaced. Add more substitutions here if a future registry source uses
+ * other reserved characters in filenames.
  */
 fun canonicalizePluginUrl(url: String): String =
-    url.toHttpUrlOrNull()?.toString() ?: url
+    url.replace("[", "%5B").replace("]", "%5D")
