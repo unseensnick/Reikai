@@ -2,6 +2,8 @@ package yokai.novel.host
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.webkit.ConsoleMessage
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -44,6 +46,9 @@ class LnPluginHost(
 ) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    // Use a Looper-backed handler instead of webView.post: the WebView is never attached to a
+    // window, so View.post() queues forever.
+    private val mainHandler = Handler(Looper.getMainLooper())
     private val webView: WebView
     private val bridge: LnHostBridge
     private val pendingCalls = ConcurrentHashMap<String, CancellableContinuation<String>>()
@@ -102,7 +107,7 @@ class LnPluginHost(
             context = context.applicationContext,
             client = client,
             scope = scope,
-            evaluateJs = { js -> webView.post { webView.evaluateJavascript(js, null) } },
+            evaluateJs = { js -> mainHandler.post { webView.evaluateJavascript(js, null) } },
             onResult = { cbId, json ->
                 pendingCalls.remove(cbId)?.takeIf { it.isActive }?.resume(json)
             },
@@ -155,7 +160,7 @@ class LnPluginHost(
 
     fun destroy() {
         scope.cancel()
-        webView.post {
+        mainHandler.post {
             webView.removeJavascriptInterface("LnHostBridge")
             webView.destroy()
         }
@@ -175,7 +180,7 @@ class LnPluginHost(
             suspendCancellableCoroutine<String> { cont ->
                 pendingCalls[callbackId] = cont
                 cont.invokeOnCancellation { pendingCalls.remove(callbackId) }
-                webView.post { webView.evaluateJavascript(jsCall, null) }
+                mainHandler.post { webView.evaluateJavascript(jsCall, null) }
             }
         }
         val result = JSON.decodeFromString(LnCallResult.serializer(), resultJson)
@@ -186,7 +191,7 @@ class LnPluginHost(
     private suspend fun evaluateJsSuspending(js: String): String =
         withTimeout(TIMEOUT_MS) {
             suspendCancellableCoroutine<String> { cont ->
-                webView.post {
+                mainHandler.post {
                     webView.evaluateJavascript(js) { result ->
                         if (cont.isActive) cont.resume(result ?: "null")
                     }
