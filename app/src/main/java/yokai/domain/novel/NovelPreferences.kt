@@ -14,4 +14,11 @@ class NovelPreferences(
      * add-repo Compose screen lands.
      */
     fun installedPluginUrls() = preferenceStore.getStringSet("ln_installed_plugin_urls", emptySet())
+
+    // Reader rendering preferences. Stored globally for the spike; future polish may add
+    // per-novel overrides if needed.
+    fun readerFontSize() = preferenceStore.getInt("ln_reader_font_size_sp", 16)
+    fun readerLineSpacing() = preferenceStore.getFloat("ln_reader_line_spacing", 1.5f)
+    /** 0 = follow system, 1 = light, 2 = dark. */
+    fun readerTheme() = preferenceStore.getInt("ln_reader_theme", 0)
 }

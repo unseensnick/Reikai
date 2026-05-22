@@ -19,10 +19,13 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,11 +33,15 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -47,9 +54,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import kotlinx.coroutines.FlowPreview
@@ -61,9 +70,11 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import eu.kanade.tachiyomi.core.storage.preference.collectAsState
 import yokai.data.novel.toNovel
 import yokai.data.novel.toNovelChapter
 import yokai.domain.novel.NovelChapterRepository
+import yokai.domain.novel.NovelPreferences
 import yokai.domain.novel.NovelRepository
 import yokai.novel.host.ChapterItem
 import yokai.novel.host.LnPluginHost
@@ -497,7 +508,7 @@ internal fun NovelDetails(
  * Font / theme / size controls live in a future polish slice; this one's about the rendering
  * + persistence loop.
  */
-@OptIn(FlowPreview::class)
+@OptIn(FlowPreview::class, ExperimentalMaterial3Api::class)
 @Composable
 internal fun ChapterReader(
     paragraphs: List<String>,
@@ -509,7 +520,17 @@ internal fun ChapterReader(
         Text("(no readable text in chapter)")
         return
     }
+    val prefs = remember { Injekt.get<NovelPreferences>() }
+    val fontSize by prefs.readerFontSize().collectAsState()
+    val lineSpacing by prefs.readerLineSpacing().collectAsState()
+    val themeMode by prefs.readerTheme().collectAsState()
+
+    val systemDark = isSystemInDarkTheme()
+    val (bg, fg) = readerColors(themeMode, systemDark)
+
     val lazyListState = rememberLazyListState()
+    var settingsOpen by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState()
 
     // Restore scroll position on first composition (or when the chapter changes).
     LaunchedEffect(chapterId, paragraphs.size) {
@@ -529,19 +550,108 @@ internal fun ChapterReader(
             }
     }
 
-    SelectionContainer(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(state = lazyListState, modifier = Modifier.fillMaxSize()) {
-            items(items = paragraphs, key = { it.hashCode() }) { p ->
-                Text(
-                    text = p,
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                )
+    Box(modifier = Modifier.fillMaxSize().background(bg)) {
+        SelectionContainer(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(state = lazyListState, modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp)) {
+                item {
+                    // Compact settings affordance pinned to the top of the chapter. Floating buttons
+                    // would be nicer but require Scaffold integration we don't have inside this state.
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Spacer(Modifier.weight(1f))
+                        IconButton(onClick = { settingsOpen = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Reader settings",
+                                tint = fg,
+                            )
+                        }
+                    }
+                }
+                items(items = paragraphs, key = { it.hashCode() }) { p ->
+                    Text(
+                        text = p,
+                        color = fg,
+                        fontSize = fontSize.sp,
+                        lineHeight = (fontSize * lineSpacing).sp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                    )
+                }
             }
         }
     }
+
+    if (settingsOpen) {
+        ModalBottomSheet(
+            onDismissRequest = { settingsOpen = false },
+            sheetState = sheetState,
+        ) {
+            ReaderSettingsSheet(
+                fontSize = fontSize,
+                onFontSize = { v -> prefs.readerFontSize().set(v) },
+                lineSpacing = lineSpacing,
+                onLineSpacing = { v -> prefs.readerLineSpacing().set(v) },
+                theme = themeMode,
+                onTheme = { v -> prefs.readerTheme().set(v) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReaderSettingsSheet(
+    fontSize: Int,
+    onFontSize: (Int) -> Unit,
+    lineSpacing: Float,
+    onLineSpacing: (Float) -> Unit,
+    theme: Int,
+    onTheme: (Int) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)) {
+        Text("Font size: ${fontSize}sp", style = MaterialTheme.typography.titleSmall)
+        Slider(
+            value = fontSize.toFloat(),
+            onValueChange = { onFontSize(it.toInt()) },
+            valueRange = 12f..24f,
+            steps = 11,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text("Line spacing: ${"%.1f".format(lineSpacing)}x", style = MaterialTheme.typography.titleSmall)
+        Slider(
+            value = lineSpacing,
+            onValueChange = { onLineSpacing(it) },
+            valueRange = 1.0f..2.5f,
+            steps = 14,
+        )
+        Spacer(Modifier.height(12.dp))
+        Text("Theme", style = MaterialTheme.typography.titleSmall)
+        listOf(0 to "Follow system", 1 to "Light", 2 to "Dark").forEach { (code, label) ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onTheme(code) }
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = theme == code, onClick = { onTheme(code) })
+                Spacer(Modifier.width(8.dp))
+                Text(label)
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+    }
+}
+
+/** Background / foreground pair for the reader based on theme mode + system dark setting. */
+@Composable
+private fun readerColors(themeMode: Int, systemDark: Boolean): Pair<Color, Color> = when (themeMode) {
+    1 -> Color.White to Color.Black
+    2 -> Color(0xFF101010) to Color(0xFFE0E0E0)
+    else -> if (systemDark) Color(0xFF101010) to Color(0xFFE0E0E0) else Color.White to Color.Black
 }
 
 /**
