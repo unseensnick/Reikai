@@ -33,6 +33,7 @@ import eu.kanade.tachiyomi.util.view.openInBrowser
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import yokai.i18n.MR
 import yokai.util.lang.getString
+import eu.kanade.tachiyomi.ui.setting.summaryMRes as summaryRes
 import eu.kanade.tachiyomi.ui.setting.titleMRes as titleRes
 
 class SettingsMainController : SettingsLegacyController(), FloatingSearchInterface {
@@ -125,6 +126,13 @@ class SettingsMainController : SettingsLegacyController(), FloatingSearchInterfa
                 navigateTo(SettingsAdvancedLegacyController())
                 context.toast("You're entering legacy version of 'Advanced'")
             }
+        }
+        preference {
+            iconRes = R.drawable.ic_book_24dp
+            iconTint = tintColor
+            titleRes = MR.strings.light_novels_beta
+            summaryRes = MR.strings.light_novels_beta_summary
+            onClick { navigateTo(SettingsLightNovelController()) }
         }
         preference {
             iconRes = R.drawable.ic_info_outline_24dp

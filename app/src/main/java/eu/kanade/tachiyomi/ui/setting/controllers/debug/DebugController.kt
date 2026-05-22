@@ -35,36 +35,8 @@ class DebugController : SettingsLegacyController() {
                 router.pushController(BackupSchemaController().withFadeTransaction())
             }
         }
-        preference {
-            title = LnPluginHostProbeController.title
-            onClick {
-                router.pushController(LnPluginHostProbeController().withFadeTransaction())
-            }
-        }
-        preference {
-            title = LnRepoBrowseController.title
-            onClick {
-                router.pushController(LnRepoBrowseController().withFadeTransaction())
-            }
-        }
-        preference {
-            title = NovelBrowseController.title
-            onClick {
-                router.pushController(NovelBrowseController().withFadeTransaction())
-            }
-        }
-        preference {
-            title = NovelLibraryController.title
-            onClick {
-                router.pushController(NovelLibraryController().withFadeTransaction())
-            }
-        }
-        preference {
-            title = NovelTrackProbeController.title
-            onClick {
-                router.pushController(NovelTrackProbeController().withFadeTransaction())
-            }
-        }
+        // LN debug screens moved to Settings, Light novels (Beta) for faster access during the
+        // soak. The Debug menu keeps build-info entries only.
         preferenceCategory {
             title = "App Info"
             preference {
