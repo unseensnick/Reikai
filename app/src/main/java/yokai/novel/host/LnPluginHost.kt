@@ -4,6 +4,9 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.webkit.ConsoleMessage
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import co.touchlab.kermit.Logger
@@ -48,7 +51,9 @@ class LnPluginHost(
     private val ready = CompletableDeferred<Unit>()
 
     init {
-        webView = WebView(context.applicationContext).apply {
+        // WebView must be created with an Activity-flavored Context (using applicationContext here
+        // silently breaks asset loading; onPageFinished never fires and every call times out).
+        webView = WebView(context).apply {
             settings.javaScriptEnabled = true
             settings.allowFileAccess = false
             settings.allowContentAccess = false
@@ -63,8 +68,33 @@ class LnPluginHost(
                 }
             }
             webViewClient = object : WebViewClient() {
+                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                    Logger.i(LN_HOST_TAG) { "WebView onPageStarted url=$url" }
+                }
+
                 override fun onPageFinished(view: WebView?, url: String?) {
+                    Logger.i(LN_HOST_TAG) { "WebView onPageFinished url=$url" }
                     if (!ready.isCompleted) ready.complete(Unit)
+                }
+
+                override fun onReceivedError(
+                    view: WebView?,
+                    request: WebResourceRequest?,
+                    error: WebResourceError?,
+                ) {
+                    Logger.e(LN_HOST_TAG) {
+                        "WebView resource error: ${request?.url} -> ${error?.errorCode} ${error?.description}"
+                    }
+                }
+
+                override fun onReceivedHttpError(
+                    view: WebView?,
+                    request: WebResourceRequest?,
+                    errorResponse: WebResourceResponse?,
+                ) {
+                    Logger.e(LN_HOST_TAG) {
+                        "WebView http error: ${request?.url} -> ${errorResponse?.statusCode}"
+                    }
                 }
             }
         }
