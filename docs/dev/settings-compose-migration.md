@@ -17,7 +17,7 @@ Start by reading the **Status** table to see where things stand, then jump to **
 | Reader | Legacy | — |
 | Downloads | Compose | Legacy |
 | Browse | Legacy | — |
-| Tracking | Legacy | — |
+| Tracking | Compose | Legacy |
 | About | Compose | — (no legacy) |
 
 About is Compose-only and lives outside `ui/setting/controllers/` ([`AboutController`](../../app/src/main/java/eu/kanade/tachiyomi/ui/more/AboutController.kt) is at `ui/more/`, hosting [`AboutScreen`](../../app/src/main/java/yokai/presentation/settings/screen/about/AboutScreen.kt)). It doesn't follow the rest of the recipe — it was migrated upstream before this fork started touching settings.
