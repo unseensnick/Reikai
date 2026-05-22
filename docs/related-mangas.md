@@ -14,7 +14,7 @@ The fetch fires once when the screen first attaches, then caches for the lifetim
 
 ## Where candidates come from
 
-Five independent streams feed the same pool. The first three are the Komikku-equivalent baseline; the last two are the Y2K personalization layer.
+Five independent streams feed the same pool. The first three are the Komikku-equivalent baseline; the last two are the Reikai personalization layer.
 
 ### 1. Source-native related-manga API
 
@@ -34,13 +34,13 @@ Three public tracker endpoints, each running without a tracker sign-in:
 
 Per tracker: if you already have a track entry for the current manga, the existing remote id is used directly. Otherwise a title-search resolves the id first, then the recommendation fetch runs. So tracker-backed recommendations work even on untracked manga.
 
-### 4. Tag search on current source *(Y2K)*
+### 4. Tag search on current source *(Reikai)*
 
 Your top three taste-profile tags (see [Taste profile](#taste-profile) below) run as searches against the current source. Stays on the current source — no source-switching while reading. Limitation: depends on the source supporting tag-style search; on sources that only do title search this contributes nothing.
 
 Gated by Settings → Library → Recommendations → Candidate injection → **Tag search on current source** *(default on)*.
 
-### 5. Cross-recommendation from favorites *(Y2K)*
+### 5. Cross-recommendation from favorites *(Reikai)*
 
 Your top-rated tracked manga (capped at the top 5) are looked up on the current source by title. For each match, that manga's native related-mangas list is fetched and pushed into the pool. Heavier (more network calls) but higher precision: surfaces matches you've already implicitly endorsed.
 
@@ -82,7 +82,7 @@ A single deduplicated pool, capped at 30 entries in the carousel:
 - **Title-level dedup** — the same manga arriving via source-native, a tracker, and a favorite's related list collapses to one card. Source-origin entries win ties since they route directly to the reader on tap.
 - **Tracker slot reservation** — up to 12 of the 30 slots are reserved for tracker-origin entries and distributed round-robin across the three trackers, so a fast-returning tracker can't eat the whole reserve before the slower ones respond. Empty trackers cede their share to source-origin entries, and vice versa.
 
-## Reranking *(Y2K)*
+## Reranking *(Reikai)*
 
 Once the merged pool is assembled, source-origin candidates are reordered against your taste profile and any manga already in your library is dropped. Tracker-origin entries keep their fair-share ordering — their recommendations are already personalized by construction.
 
@@ -108,7 +108,7 @@ No more than two of the taste-ranked picks may share the same dominant tag. Offe
 
 When the taste profile has no entries or no scored tags, scoring is bypassed and the pool returns with only anti-echo applied — same effect as setting *Recommendation style* fully toward *Popular*.
 
-## Full-screen browse (See all) *(Y2K)*
+## Full-screen browse (See all) *(Reikai)*
 
 The 30-cap carousel only shows a fraction of what gets fetched — many sources combined with tracker fan-out routinely produce 100–200 candidates that never reach the visible row. A trailing "See all (N)" card is appended to the carousel when the underlying pool has more than 30 entries; tapping opens a dedicated full-screen grid showing the full ranked pool with no cap.
 
@@ -139,25 +139,25 @@ Five sections:
 - **Tracker-backed recommendations** *(master, default on)* — turn the entire tracker-recommendation stream off without affecting source-native + keyword-search results.
 - AniList / MyAnimeList / MangaUpdates *(per-tracker, default on)* — toggle each tracker independently. Sub-toggles disable when the master toggle is off.
 
-### Taste profile *(Y2K)*
+### Taste profile *(Reikai)*
 
 - **Pull library from these trackers** — per-tracker toggles for AniList / MyAnimeList / Kitsu. Default off; greyed out unless the tracker is logged in.
 - **Auto-refresh tracker library** — `Never` (default) / `every 7 days` / `every 30 days`.
 - **Refresh now** — manual refresh button. 60 s cooldown after each press.
 - **Last refresh** — per-tracker timestamp summary line.
 
-### Candidate injection *(Y2K)*
+### Candidate injection *(Reikai)*
 
 - **Tag search on current source** *(default on)* — runs your top-3 taste-profile tags as searches on the current source.
 - **Cross-recommendation from favorites** *(default on)* — runs your top-5 favorites' related-mangas lists on the current source.
 
-### Reranking *(Y2K)*
+### Reranking *(Reikai)*
 
 - **Rerank by taste** *(default on)* — gates the scoring pipeline. When off, the carousel keeps its arrival ordering (filters still apply).
 - **Recommendation style** *(slider, default Mostly popular)* — `[Popular only, Mostly popular, Balanced, Mostly personalized, Pure personalized]`. Disabled when *Rerank by taste* is off.
 - **Serendipity** *(slider, default Mostly familiar)* — `[Familiar, Mostly familiar, Balanced, Adventurous, Very adventurous]`. Controls exploration-slot count and novelty bonus magnitude. Disabled when *Rerank by taste* is off.
 
-### Filters *(Y2K)*
+### Filters *(Reikai)*
 
 - **Hide already-tracked** *(default on)* — drop library candidates whose tracker status is Reading, Completed, or Unknown.
 - **Hide dropped** *(default on)* — drop library candidates marked Dropped on a tracker. Self-hosted Komga / Kavita / Suwayomi don't model "dropped" at all, so this toggle has no effect for those entries.

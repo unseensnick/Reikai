@@ -31,7 +31,7 @@ Reikai's [`findDuplicateFavorite`](../data/src/commonMain/sqldelight/tachiyomi/d
 
 ### 2. The new manga has no `manga_sync` rows pre-add
 
-The JOIN's premise is that the manga being checked already has tracker rows so it can match against library mangas with the same `(sync_id, remote_id)`. In Y2K's add-from-browse flow, the new manga is typically freshly inserted into `mangas` with `favorite = 0` and no tracker bindings. The JOIN returns nothing.
+The JOIN's premise is that the manga being checked already has tracker rows so it can match against library mangas with the same `(sync_id, remote_id)`. In Reikai's add-from-browse flow, the new manga is typically freshly inserted into `mangas` with `favorite = 0` and no tracker bindings. The JOIN returns nothing.
 
 There are two real-world cases where tracker rows *do* exist pre-add:
 
@@ -42,13 +42,13 @@ For non-enhanced sources without prior tracker binding, the feature won't trigge
 
 ### 3. Multi-source grouping already does something stronger at a different layer
 
-[`LibraryPresenter.applySourceGrouping()`](../app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryPresenter.kt) **merges** same-manga-different-source library entries into a single card, with source-switcher chips and bulk operations. Mihon#2978 only **prompts** the user — "this looks like a duplicate, do you want to migrate / cancel / add anyway?". For the same-title case, Y2K's auto-grouping is strictly more useful than mihon's prompt.
+[`LibraryPresenter.applySourceGrouping()`](../app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryPresenter.kt) **merges** same-manga-different-source library entries into a single card, with source-switcher chips and bulk operations. Mihon#2978 only **prompts** the user — "this looks like a duplicate, do you want to migrate / cancel / add anyway?". For the same-title case, Reikai's auto-grouping is strictly more useful than mihon's prompt.
 
-The interesting framing for Y2K, then, is probably **not** a 1:1 port of mihon's add-time dialog but rather:
+The interesting framing for Reikai, then, is probably **not** a 1:1 port of mihon's add-time dialog but rather:
 
 > Extend `applySourceGrouping` to consider `(sync_id, remote_id)` identity alongside title equality, so different-romanization same-tracker mangas merge automatically.
 
-That moves the value from "extra prompt during add" to "the library card collapses correctly without the user noticing." Possibly the better Y2K-shaped framing.
+That moves the value from "extra prompt during add" to "the library card collapses correctly without the user noticing." Possibly the better Reikai-shaped framing.
 
 ## Reference
 
@@ -58,7 +58,7 @@ That moves the value from "extra prompt during add" to "the library card collaps
 - Upstream PR: mihon/mihon#2978
 - Komikku cherry-pick: `e50767709a` (2026-02-21)
 
-## Critical files in Y2K (when picking this up)
+## Critical files in Reikai (when picking this up)
 
 - [`data/src/commonMain/sqldelight/tachiyomi/data/mangas.sq:43`](../data/src/commonMain/sqldelight/tachiyomi/data/mangas.sq) — `findDuplicateFavorite`
 - [`data/src/commonMain/sqldelight/tachiyomi/data/manga_sync.sq`](../data/src/commonMain/sqldelight/tachiyomi/data/manga_sync.sq) — schema; will need a new index
@@ -66,11 +66,11 @@ That moves the value from "extra prompt during add" to "the library card collaps
 - [`app/src/main/java/yokai/domain/manga/interactor/GetManga.kt`](../app/src/main/java/yokai/domain/manga/interactor/GetManga.kt) — `awaitDuplicateFavorite` interactor
 - [`app/src/main/java/eu/kanade/tachiyomi/util/MangaExtensions.kt:169`](../app/src/main/java/eu/kanade/tachiyomi/util/MangaExtensions.kt) — call site (`addOrRemoveToFavorites`)
 - [`app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryPresenter.kt`](../app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryPresenter.kt) — `applySourceGrouping` (if pursuing the auto-merge framing)
-- Next SQLDelight migration slot: `data/src/commonMain/sqldelight/tachiyomi/migrations/29.sqm` (Y2K is at 28; mihon is at 45)
+- Next SQLDelight migration slot: `data/src/commonMain/sqldelight/tachiyomi/migrations/32.sqm` (Reikai is at 31; mihon is at 45)
 
 ## Open questions to answer before building
 
-1. **Which framing?** Add-time prompt (closer to mihon#2978) or extension of auto-grouping (more Y2K-native, higher steady-state value). The two aren't mutually exclusive but pick one to start.
+1. **Which framing?** Add-time prompt (closer to mihon#2978) or extension of auto-grouping (more Reikai-native, higher steady-state value). The two aren't mutually exclusive but pick one to start.
 2. **How much of the audience benefits?** Mostly users of `EnhancedTrackService` sources. Worth a rough estimate of how often the different-romanization case actually fires for non-enhanced sources — if rarely, the auto-grouping framing is the only one worth shipping.
 3. **Migration-time port first?** Migration already has both `:id`s available and is simpler to land — could ship as a small standalone change without restructuring the add-flow signature.
 4. **Auto-bind coverage?** Confirm `EnhancedTrackService.match()` runs before the duplicate check on the add path, and whether it can be made to run on the auto-grouping recompute path.

@@ -52,7 +52,7 @@ If you forget to back up before uninstalling the old build, the old library is g
 | Tracker links and per-manga track entries | Cover image cache (re-downloaded on demand) |
 | Read / unread chapter state and history | Tracker authentication tokens (re-sign-in after restore) |
 | App settings (themes, reader prefs, library prefs) | App-level Android permissions |
-| Multi-source merge/unmerge state *(Y2K)* | |
-| Taste-profile cache *(Y2K)* | |
+| Multi-source merge/unmerge state *(Reikai)* | |
+| Taste-profile cache *(Reikai)* | |
 
 Tracker sign-in state is not included for security reasons — restored backups expose only the link between a manga and its tracker entry, not the credentials. Sign in again under Settings → Tracking after a restore.

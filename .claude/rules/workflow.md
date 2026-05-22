@@ -43,29 +43,17 @@ After code changes, create a git commit (do not push). Conventional commits with
 
 For day-to-day commit / push / PR work, run **`/ship`** (or **`/debug-fix --fast`** for hotfixes). Those skills walk the scan → stage → commit → push → PR flow with this project's conventions baked in — including no `Co-Authored-By` lines in commits, no `## Test plan` section or `🤖 Generated with [Claude Code]` footer in PR bodies, and the `--repo unseensnick/Reikai --base main` flags `gh` needs (the repo is a fork of `null2264/yokai`, and `gh` otherwise targets upstream).
 
-## Before pushing
+## Versioning (only at release-cut)
 
-Bump the version in `app/build.gradle.kts`:
+Don't bump per-push. Alpha cycles ship by branch/tag; the version bump happens only when the user asks to cut a release. At that point, bump both in `app/build.gradle.kts`:
 
-- `_versionName` — 5-segment `upstream.fork-patch` (see `CLAUDE.md`).
+- `_versionName` — 5-segment `upstream.fork-patch` (e.g. `1.9.7.5.6`).
 - `versionCode` — integer, always increment.
-
-The release workflow (`build_push.yml`) treats every push as buildable. Each pushed state needs a unique version identifier.
-
-Pure docs / CI / tooling commits not going into a release APK can skip the bump — flag it explicitly so the user decides.
 
 ## Syncing with upstream
 
-Layering, top-down: `upstream/master` → `main` (rebrand) → feature branches.
+Upstream changes are **ported manually** from the local `refs/yokai/` clone — never `git merge upstream/master` into any branch (would replay rebrand conflicts and overwrite Reikai-only screens). Re-target ports to the Compose screen where Reikai has migrated ahead of upstream.
 
-```bash
-git fetch upstream
-git checkout main && git merge upstream/master      # rebrand conflicts resolved here, once
-git checkout <branch> && git merge main             # branch picks up upstream via main
-```
+See `docs/dev/development.md` for the full walkthrough.
 
-**Never merge `upstream/master` directly into a non-`main` branch** — that replays rebrand conflicts on every branch instead of resolving them once on `main`.
-
-GitHub's "Sync fork" button: don't use on `main` (will offer to discard fork commits). Safe on other branches (syncs with this repo's `main`).
-
-Conflict resolution: keep Y2K for identity/packaging (`applicationId`, app name, `.y2k` suffix, workflow refs, README/CHANGELOG fork sections, `google-services.json`); keep upstream for everything else.
+When porting, keep **Reikai identity** as-is (`applicationId`, app name, `.y2k` packaging suffix, workflow refs, README/CHANGELOG fork sections, `google-services.json`); take upstream for everything else.

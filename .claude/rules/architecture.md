@@ -17,7 +17,9 @@ A settings section under migration has two parallel implementations:
 
 **Flipped (Compose-default):** Security, Data and storage, Advanced. Tap reaches Compose; long-press toasts and falls back to legacy.
 
-**Not flipped:** General, Appearance, Library, Reader, Downloads, Browse, Tracking, About — legacy only.
+**Compose-only (no legacy fallback):** About.
+
+**Not flipped:** General, Appearance, Library, Reader, Downloads, Browse, Tracking — legacy only.
 
 **When adding or editing UI for a flipped section**, changes go to the Compose screen. The legacy controller stays alive (still indexed by `SettingsSearchHelper`) — don't delete it without solving Compose-side search.
 
