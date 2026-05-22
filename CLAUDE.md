@@ -10,6 +10,23 @@ Android manga reader. Personal fork of [Yōkai](https://github.com/null2264/yoka
 
 **Offload long or hard tasks to subagents.** When a task requires deep codebase exploration, multi-file research, or extended multi-step work, spawn a subagent (`Agent` tool) to do that work. This keeps the main context window clean and avoids polluting conversation state with intermediate search noise.
 
+## Code change defaults
+
+- **DRY**: Before adding a helper, search the codebase (or run an Explore agent in plan mode) for an existing equivalent.
+- **YAGNI**: Only add what the current task requires. No speculative APIs, optional parameters, or abstractions for hypothetical callers.
+- **KISS**: Prefer the simplest correct solution. Complexity must be justified by concrete requirements, not elegance or anticipated scale.
+- **Minimal blast radius**: A bug fix changes only what's broken. A feature adds only what's specified. Leave working surrounding code untouched.
+- **No standalone refactor sprints**: Refactor incrementally alongside the feature or fix that motivated it. Never propose a separate "cleanup pass" unless the user asks.
+
+### Anti-defaults
+
+- No premature abstractions. Three similar lines beat a helper used once.
+- Don't add features or improvements beyond what was asked.
+- Don't refactor adjacent code while fixing a bug.
+- No dead code or commented-out blocks. Git has history.
+- WHY comments, never WHAT. If code needs a "what" comment, rename instead.
+- KDoc at module boundaries only (public APIs of `source/api`, repository interfaces), not every internal function.
+
 ## Identity (load-bearing — preserve when porting upstream)
 
 `applicationId = "eu.kanade.tachiyomi"` and release suffix `.y2k` — both legacy; kept so existing installs upgrade in place. App name string `Reikai` lives in `i18n/src/commonMain/moko-resources/base/strings.xml`. Keep `.y2k` for packaging continuity; take upstream for everything else.
