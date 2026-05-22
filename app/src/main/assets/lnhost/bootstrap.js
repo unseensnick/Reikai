@@ -194,9 +194,37 @@
 
   const plugins = new Map(); // pluginId -> Plugin instance
 
+  // No-op storage trio used during the discovery pass. Doesn't touch the Kotlin bridge so no
+  // SharedPreferences files are allocated for a transient scope.
+  const NOOP_STORAGE = (function () {
+    const noop = { get: function () { return null; }, set: function () {}, delete: function () {} };
+    return { storage: noop, localStorage: noop, sessionStorage: noop };
+  })();
+
   function loadPlugin(pluginId, rawCode) {
     try {
-      const req = makeRequire(pluginId);
+      // Pass 1: discover the plugin's intrinsic id. The require resolver shadows @libs/storage
+      // with no-ops so plugins that read storage at load time (royalroad, webnovel) don't write
+      // to a temporary scope we'd later abandon.
+      let canonicalId = pluginId;
+      try {
+        const baseReq = makeRequire(pluginId);
+        const discoverReq = function (name) {
+          return name === '@libs/storage' ? NOOP_STORAGE : baseReq(name);
+        };
+        const discoverModule = { exports: {} };
+        const discoverFn = new Function('require', 'module', 'exports',
+          rawCode + '\nreturn module.exports.default || module.exports;');
+        const discovered = discoverFn(discoverReq, discoverModule, discoverModule.exports);
+        if (discovered && discovered.id) canonicalId = discovered.id;
+      } catch (e) {
+        // Discovery failed; fall through to pass 2 which will surface the real error.
+        log('warn', 'plugin id discovery failed for ' + pluginId + ': ' + (e && e.message || e));
+      }
+
+      // Pass 2: real load. Storage scope is canonicalId (plugin.id if discovery worked,
+      // caller's pluginId otherwise). Plugin registry key is always plugin.id.
+      const req = makeRequire(canonicalId);
       const module = { exports: {} };
       const fn = new Function('require', 'module', 'exports',
         rawCode + '\nreturn module.exports.default || module.exports;');
@@ -204,15 +232,7 @@
       if (!plugin || !plugin.id) {
         throw new Error('plugin did not export a default with .id');
       }
-      // Always key the registry by the plugin's intrinsic id (the one in its source code),
-      // not by whatever the caller passed as pluginId. That argument now scopes ONLY storage
-      // (@libs/storage uses it as the SharedPreferences prefix). Method lookups elsewhere in
-      // this file go through plugin.id.
       plugins.set(plugin.id, plugin);
-      if (pluginId !== plugin.id) {
-        log('warn', 'storage scope id "' + pluginId + '" differs from plugin.id "' + plugin.id
-          + '"; future calls must use plugin.id');
-      }
       log('info', 'loaded plugin ' + plugin.id + ' v' + (plugin.version || '?'));
       return {
         id: plugin.id,
