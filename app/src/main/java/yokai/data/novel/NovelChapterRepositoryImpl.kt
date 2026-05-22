@@ -13,6 +13,11 @@ class NovelChapterRepositoryImpl(private val handler: DatabaseHandler) : NovelCh
     override suspend fun getById(id: Long): NovelChapter? =
         handler.awaitOneOrNull { novel_chaptersQueries.getById(id, ::novelChapterMapper) }
 
+    override suspend fun getByUrlAndNovelId(url: String, novelId: Long): NovelChapter? =
+        handler.awaitFirstOrNull {
+            novel_chaptersQueries.getByUrlAndNovelId(url, novelId, ::novelChapterMapper)
+        }
+
     override suspend fun insert(chapter: NovelChapter): Long? = try {
         handler.awaitOneOrNullExecutable(inTransaction = true) {
             novel_chaptersQueries.insert(
@@ -54,6 +59,30 @@ class NovelChapterRepositoryImpl(private val handler: DatabaseHandler) : NovelCh
         true
     } catch (e: Exception) {
         Logger.e(e) { "Failed to update novel chapter id=${chapter.id}" }
+        false
+    }
+
+    override suspend fun setLastTextProgress(id: Long, progress: Int): Boolean = try {
+        // Every other column gets null → coalesce in the SQL update keeps existing values. Only
+        // last_text_progress changes per call.
+        handler.await {
+            novel_chaptersQueries.update(
+                novelId = null,
+                url = null,
+                name = null,
+                read = null,
+                bookmark = null,
+                lastTextProgress = progress.toLong(),
+                chapterNumber = null,
+                sourceOrder = null,
+                dateFetch = null,
+                dateUpload = null,
+                chapterId = id,
+            )
+        }
+        true
+    } catch (e: Exception) {
+        Logger.e(e) { "Failed to set lastTextProgress on novel chapter id=$id" }
         false
     }
 

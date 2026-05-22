@@ -1,7 +1,6 @@
 package yokai.presentation.novel.browse
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -36,13 +36,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -50,6 +53,8 @@ import kotlinx.serialization.json.put
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.data.novel.toNovel
+import yokai.data.novel.toNovelChapter
+import yokai.domain.novel.NovelChapterRepository
 import yokai.domain.novel.NovelRepository
 import yokai.novel.host.ChapterItem
 import yokai.novel.host.LnPluginHost
@@ -58,12 +63,24 @@ import yokai.novel.host.SourceNovel
 import yokai.novel.install.LnPluginInstaller
 import yokai.novel.source.NovelSource
 import yokai.novel.source.NovelSourceManager
+import yokai.novel.text.htmlToParagraphs
 
 private sealed interface BrowseState {
     object PickingSource : BrowseState
     data class BrowsingNovels(val source: NovelSource, val novels: List<NovelItem>) : BrowseState
     data class ViewingNovel(val parent: BrowsingNovels, val novel: SourceNovel) : BrowseState
-    data class ReadingChapter(val parent: ViewingNovel, val chapter: ChapterItem, val text: String) : BrowseState
+    /**
+     * Slice H state. Carries the persisted chapter row id + initial scroll progress so the
+     * reader can resume; paragraphs are pre-parsed at transition time so the composable just
+     * renders them.
+     */
+    data class ReadingChapter(
+        val parent: ViewingNovel,
+        val chapter: ChapterItem,
+        val chapterId: Long,
+        val initialProgress: Int,
+        val paragraphs: List<String>,
+    ) : BrowseState
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,7 +90,8 @@ fun NovelBrowseScreen() {
     val networkHelper = remember { Injekt.get<NetworkHelper>() }
     val installer = remember { Injekt.get<LnPluginInstaller>() }
     val manager = remember { Injekt.get<NovelSourceManager>() }
-    val repo = remember { Injekt.get<NovelRepository>() }
+    val novelRepo = remember { Injekt.get<NovelRepository>() }
+    val chapterRepo = remember { Injekt.get<NovelChapterRepository>() }
     val host = remember { LnPluginHost(context, networkHelper.client) }
     val scope = rememberCoroutineScope()
     val backPress = LocalBackPress.current
@@ -121,8 +139,28 @@ fun NovelBrowseScreen() {
         scope.launch {
             loading = true; error = null
             try {
-                val text = parent.parent.source.parseChapter(chapter.path)
-                state = BrowseState.ReadingChapter(parent, chapter, text)
+                val source = parent.parent.source
+                // 1. Upsert novel row. Non-favorited if not in library yet — we need a row to
+                //    anchor the chapter's foreign key.
+                val existingNovel = novelRepo.getByUrlAndSource(parent.novel.path, source.id)
+                val novelId = existingNovel?.id
+                    ?: novelRepo.insert(parent.novel.toNovel(sourceId = source.id, favorite = false))
+                    ?: error("failed to insert novel")
+                // 2. Upsert chapter row so saved progress has somewhere to live across sessions.
+                val existingChapter = chapterRepo.getByUrlAndNovelId(chapter.path, novelId)
+                val chapterId = existingChapter?.id
+                    ?: chapterRepo.insert(chapter.toNovelChapter(novelId))
+                    ?: error("failed to insert chapter")
+                // 3. Fetch + parse.
+                val html = source.parseChapter(chapter.path)
+                val paragraphs = htmlToParagraphs(html)
+                state = BrowseState.ReadingChapter(
+                    parent = parent,
+                    chapter = chapter,
+                    chapterId = chapterId,
+                    initialProgress = existingChapter?.lastTextProgress ?: 0,
+                    paragraphs = paragraphs,
+                )
             } catch (e: Throwable) {
                 error = "${e.javaClass.simpleName}: ${e.message ?: ""}"
             } finally { loading = false }
@@ -179,10 +217,15 @@ fun NovelBrowseScreen() {
                 is BrowseState.ViewingNovel -> NovelDetails(
                     source = s.parent.source,
                     novel = s.novel,
-                    repo = repo,
+                    repo = novelRepo,
                     onPickChapter = { chapter -> pickChapter(s, chapter) },
                 )
-                is BrowseState.ReadingChapter -> ChapterReader(s.chapter, s.text)
+                is BrowseState.ReadingChapter -> ChapterReader(
+                    paragraphs = s.paragraphs,
+                    chapterId = s.chapterId,
+                    initialProgress = s.initialProgress,
+                    chapterRepo = chapterRepo,
+                )
             }
         }
     }
@@ -248,8 +291,6 @@ private fun NovelDetails(
     onPickChapter: (ChapterItem) -> Unit,
 ) {
     val chapters = novel.chapters ?: emptyList()
-    // Reactive library state: if the novel is already saved we show "In library ✓" and let the
-    // user remove it; otherwise show "Save to library" and insert on tap.
     val savedNovel by remember(novel.path, source.id) {
         repo.getByUrlAndSourceAsFlow(novel.path, source.id)
     }.collectAsState(initial = null)
@@ -325,26 +366,57 @@ private fun NovelDetails(
     }
 }
 
+/**
+ * Renders parseChapter output as a scrollable column of paragraphs. Progress (first-visible
+ * paragraph index, expressed as 0..10000 hundredths of a percent) auto-saves on a 1-second
+ * debounce so re-opening the chapter scrolls back to where the user left off.
+ *
+ * Font / theme / size controls live in a future polish slice; this one's about the rendering
+ * + persistence loop.
+ */
+@OptIn(FlowPreview::class)
 @Composable
-private fun ChapterReader(chapter: ChapterItem, text: String) {
-    // The text payload is raw HTML the plugin returns from parseChapter. Item 8 (the real text
-    // reader) will render it properly; for now show the first 16 KB inline so the soak operator
-    // can sanity-check that fetch + parse worked end-to-end.
-    val truncated = text.length > 16_000
-    val toShow = if (truncated) text.take(16_000) else text
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = "length=${text.length} chars" + if (truncated) " (truncated to 16k)" else "",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(8.dp))
-        SelectionContainer(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = toShow,
-                fontFamily = FontFamily.Monospace,
-                style = MaterialTheme.typography.bodySmall,
-            )
+private fun ChapterReader(
+    paragraphs: List<String>,
+    chapterId: Long,
+    initialProgress: Int,
+    chapterRepo: NovelChapterRepository,
+) {
+    if (paragraphs.isEmpty()) {
+        Text("(no readable text in chapter)")
+        return
+    }
+    val lazyListState = rememberLazyListState()
+
+    // Restore scroll position on first composition (or when the chapter changes).
+    LaunchedEffect(chapterId, paragraphs.size) {
+        val targetIdx = (initialProgress.toLong() * paragraphs.size / 10_000L).toInt()
+            .coerceIn(0, paragraphs.lastIndex)
+        if (targetIdx > 0) lazyListState.scrollToItem(targetIdx)
+    }
+
+    // Auto-save scroll progress while reading.
+    LaunchedEffect(chapterId, paragraphs.size) {
+        snapshotFlow { lazyListState.firstVisibleItemIndex }
+            .debounce(1_000)
+            .distinctUntilChanged()
+            .collect { idx ->
+                val progress = (idx.toLong() * 10_000L / paragraphs.size.coerceAtLeast(1)).toInt()
+                chapterRepo.setLastTextProgress(chapterId, progress)
+            }
+    }
+
+    SelectionContainer(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(state = lazyListState, modifier = Modifier.fillMaxSize()) {
+            items(items = paragraphs, key = { it.hashCode() }) { p ->
+                Text(
+                    text = p,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                )
+            }
         }
     }
 }

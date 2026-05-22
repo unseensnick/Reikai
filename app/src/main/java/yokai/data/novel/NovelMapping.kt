@@ -1,6 +1,8 @@
 package yokai.data.novel
 
 import yokai.domain.novel.models.Novel
+import yokai.domain.novel.models.NovelChapter
+import yokai.novel.host.ChapterItem
 import yokai.novel.host.SourceNovel
 
 /**
@@ -57,4 +59,30 @@ fun SourceNovel.toNovel(
     dateAdded = if (favorite) now else 0L,
     updateStrategy = 0,
     coverLastModified = 0L,
+)
+
+/**
+ * Translate a [ChapterItem] (lnreader plugin's chapter list entry) into a domain [NovelChapter]
+ * ready for upsert. `id = null` because the caller is about to insert; existing rows are looked
+ * up via [yokai.domain.novel.NovelChapterRepository.getByUrlAndNovelId] first.
+ *
+ * `lastTextProgress = 0`, `read = false`, `bookmark = false` on first insert; the reader updates
+ * these as the user reads.
+ */
+fun ChapterItem.toNovelChapter(
+    novelId: Long,
+    sourceOrder: Long = 0L,
+    now: Long = System.currentTimeMillis(),
+): NovelChapter = NovelChapter(
+    id = null,
+    novelId = novelId,
+    url = path,
+    name = name,
+    read = false,
+    bookmark = false,
+    lastTextProgress = 0,
+    chapterNumber = chapterNumber?.toFloat() ?: 0f,
+    sourceOrder = sourceOrder,
+    dateFetch = now,
+    dateUpload = 0L,
 )
