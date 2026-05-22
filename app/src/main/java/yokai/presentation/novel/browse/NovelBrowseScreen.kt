@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -64,6 +67,8 @@ import yokai.novel.install.LnPluginInstaller
 import yokai.novel.source.NovelSource
 import yokai.novel.source.NovelSourceManager
 import yokai.novel.text.htmlToParagraphs
+import yokai.presentation.manga.components.MangaCover
+import yokai.presentation.manga.components.MangaCoverRatio
 
 private sealed interface BrowseState {
     object PickingSource : BrowseState
@@ -257,18 +262,27 @@ private fun NovelList(novels: List<NovelItem>, onPick: (NovelItem) -> Unit) {
     }
     LazyColumn(modifier = Modifier.fillMaxWidth()) {
         items(items = novels, key = { it.path }) { item ->
-            Column(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onPick(item) }
                     .padding(vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(item.name, style = MaterialTheme.typography.titleSmall)
-                Text(
-                    text = item.path,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                MangaCover(
+                    data = item.cover,
+                    ratio = MangaCoverRatio.BOOK,
+                    modifier = Modifier.width(56.dp),
                 )
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(item.name, style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        text = item.path,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             HorizontalDivider()
         }
@@ -327,6 +341,18 @@ internal fun NovelDetails(
     LazyColumn(modifier = Modifier.fillMaxWidth()) {
         item {
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                novel.cover?.takeIf { it.isNotBlank() }?.let {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally),
+                    ) {
+                        MangaCover(
+                            data = it,
+                            ratio = MangaCoverRatio.BOOK,
+                            modifier = Modifier.width(180.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
                 novel.author?.takeIf { it.isNotBlank() }?.let {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("by ", style = MaterialTheme.typography.bodySmall)

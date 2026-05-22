@@ -2,11 +2,13 @@ package yokai.presentation.novel.library
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -30,9 +32,12 @@ import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import eu.kanade.tachiyomi.util.compose.LocalRouter
 import eu.kanade.tachiyomi.util.compose.currentOrThrow
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
+import androidx.compose.ui.Alignment
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.domain.novel.NovelRepository
+import yokai.presentation.manga.components.MangaCover
+import yokai.presentation.manga.components.MangaCoverRatio
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,7 +78,7 @@ fun NovelLibraryScreen() {
             }
             LazyColumn(modifier = Modifier.fillMaxWidth()) {
                 items(items = favorites, key = { it.id ?: 0L }) { novel ->
-                    Column(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
@@ -85,17 +90,26 @@ fun NovelLibraryScreen() {
                                 )
                             }
                             .padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(novel.title, style = MaterialTheme.typography.titleSmall)
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            text = buildString {
-                                append(novel.source)
-                                novel.author?.takeIf { it.isNotBlank() }?.let { append("  •  by ").append(it) }
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        MangaCover(
+                            data = novel.thumbnailUrl,
+                            ratio = MangaCoverRatio.BOOK,
+                            modifier = Modifier.width(56.dp),
                         )
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(novel.title, style = MaterialTheme.typography.titleSmall)
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = buildString {
+                                    append(novel.source)
+                                    novel.author?.takeIf { it.isNotBlank() }?.let { append("  •  by ").append(it) }
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     HorizontalDivider()
                 }
