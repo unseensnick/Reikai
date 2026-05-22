@@ -15,8 +15,6 @@
       "E:\\code\\yokai-y2k\\refs\\lnreader-plugins"
     ],
     "allow": [
-      "Bash(./gradlew lintKotlin)",
-      "Bash(./gradlew formatKotlin)",
       "Bash(./gradlew :domain:test)",
       "Bash(./gradlew clean)",
       "Bash(./gradlew tasks)",
@@ -35,33 +33,7 @@
       "Bash(git show *)",
       "Bash(gh pr *)",
       "Bash(gh issue *)",
-      "Bash(gh run *)",
-      "Bash(ls 'E:\\code\\yokai-y2k\\refs\\komikku'*)",
-      "Bash(ls 'E:\\code\\yokai-y2k\\refs\\yokai'*)",
-      "Bash(ls 'E:\\code\\yokai-y2k\\refs\\mihon'*)",
-      "Bash(ls 'E:\\code\\yokai-y2k\\refs\\tachiyomi-extension'*)",
-      "Bash(ls 'E:\\code\\yokai-y2k\\refs\\keiyoushi-extensions'*)",
-      "Bash(ls 'E:\\code\\yokai-y2k\\refs\\keiyoushi-extensions-source'*)",
-      "Bash(ls 'E:\\code\\yokai-y2k\\refs\\blueth-yokai'*)",
-      "Bash(ls 'E:\\code\\yokai-y2k\\refs\\Yōkai-Y2K-New-Icons'*)",
-      "Bash(ls 'E:\\code\\yokai-y2k\\refs\\lnreader-main'*)",
-      "Bash(ls 'E:\\code\\yokai-y2k\\refs\\lnreader-2.0.3-Pre-release'*)",
-      "Bash(ls 'E:\\code\\yokai-y2k\\refs\\lnreader-plugins'*)",
-      "Bash(ls E:\\code\\yokai-y2k\\refs\\komikku*)",
-      "Bash(ls E:\\code\\yokai-y2k\\refs\\yokai*)",
-      "Bash(ls E:\\code\\yokai-y2k\\refs\\mihon*)",
-      "Bash(ls E:\\code\\yokai-y2k\\refs\\tachiyomi-extension*)",
-      "Bash(ls E:\\code\\yokai-y2k\\refs\\keiyoushi-extensions*)",
-      "Bash(ls E:\\code\\yokai-y2k\\refs\\keiyoushi-extensions-source*)",
-      "Bash(ls E:\\code\\yokai-y2k\\refs\\blueth-yokai*)",
-      "Bash(ls E:\\code\\yokai-y2k\\refs\\lnreader-main*)",
-      "Bash(ls E:\\code\\yokai-y2k\\refs\\lnreader-plugins*)",
-      "Bash(ls 'E:\\code\\yokai-y2k\\app'*)",
-      "Bash(ls E:\\code\\yokai-y2k\\app*)",
-      "Bash(find 'E:/code/yokai-y2k/app'*)",
-      "Bash(find \"E:/code/yokai-y2k/app\"*)",
-      "Bash(grep*'E:/code/yokai-y2k/app'*)",
-      "Bash(grep*\"E:/code/yokai-y2k/app\"*)"
+      "Bash(gh run *)"
     ],
     "deny": [
       "Read(**/.env)",
@@ -147,6 +119,18 @@
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh",
             "timeout": 5000,
             "statusMessage": "Loading project context..."
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/notify.sh",
+            "timeout": 5000
           }
         ]
       }
