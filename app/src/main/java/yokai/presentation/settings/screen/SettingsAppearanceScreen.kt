@@ -1,5 +1,6 @@
 package yokai.presentation.settings.screen
 
+import android.app.Activity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -10,7 +11,6 @@ import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.core.storage.preference.collectAsState
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.util.system.SideNavMode
-import eu.kanade.tachiyomi.util.system.Themes
 import eu.kanade.tachiyomi.util.system.dpToPx
 import kotlin.math.max
 import kotlinx.collections.immutable.persistentListOf
@@ -21,6 +21,7 @@ import yokai.domain.base.BasePreferences
 import yokai.i18n.MR
 import yokai.presentation.component.preference.Preference
 import yokai.presentation.settings.ComposableSettings
+import yokai.presentation.settings.widget.ThemeTilePicker
 
 /**
  * Appearance settings on the Compose + Voyager stack. The legacy Conductor screen lives at
@@ -63,9 +64,11 @@ object SettingsAppearanceScreen : ComposableSettings() {
         preferences: PreferencesHelper,
         basePreferences: BasePreferences,
     ): Preference.PreferenceGroup {
+        val context = LocalContext.current
         val nightMode by preferences.nightMode().collectAsState()
-        // The pure-black-dark toggle only makes sense when dark is reachable: either the device
-        // is on follow-system (and may be dark) or the user explicitly forced dark.
+        // The pure-black-dark toggle + dark-theme picker only make sense when dark is reachable:
+        // either the device is on follow-system (and may be dark) or the user explicitly forced
+        // dark.
         val darkReachable = nightMode != AppCompatDelegate.MODE_NIGHT_NO
 
         // Night-mode labels: "Light" has no MR string entry yet so the literal stands until a
@@ -75,15 +78,6 @@ object SettingsAppearanceScreen : ComposableSettings() {
             AppCompatDelegate.MODE_NIGHT_NO to "Light",
             AppCompatDelegate.MODE_NIGHT_YES to stringResource(MR.strings.dark),
         ).toMap().toImmutableMap()
-
-        // Themes enum carries day + night-variant strings via nameRes / darkNameRes so the light
-        // and dark pickers show appropriate labels for each theme.
-        val lightThemeEntries = Themes.entries
-            .associateWith { stringResource(it.nameRes) }
-            .toImmutableMap()
-        val darkThemeEntries = Themes.entries
-            .associateWith { stringResource(it.darkNameRes) }
-            .toImmutableMap()
 
         val appIconEntries = BasePreferences.AppIcons.entries
             .associateWith { it.displayName }
@@ -97,27 +91,36 @@ object SettingsAppearanceScreen : ComposableSettings() {
                         pref = preferences.nightMode(),
                         title = stringResource(MR.strings.follow_system_theme),
                         entries = nightModeEntries,
+                        // Night-mode flips require an Activity recreate so the new uiMode is
+                        // resolved and the XML theme reapplied. Legacy controller does the same.
+                        onValueChanged = { (context as? Activity)?.recreate(); true },
                     ),
                 )
+                // Theme picker: horizontal tile rails matching the legacy ThemePreference widget.
+                // Light row is always present; dark row + pure-black switch only when reachable.
+                // The tile picker writes the pref + triggers recreate internally on tap.
                 add(
-                    Preference.PreferenceItem.ListPreference(
-                        pref = preferences.lightTheme(),
+                    Preference.PreferenceItem.CustomPreference(
                         title = stringResource(MR.strings.light_theme),
-                        entries = lightThemeEntries,
-                    ),
+                    ) { _ ->
+                        ThemeTilePicker(pref = preferences.lightTheme(), isDark = false)
+                    },
                 )
                 if (darkReachable) {
                     add(
-                        Preference.PreferenceItem.ListPreference(
-                            pref = preferences.darkTheme(),
+                        Preference.PreferenceItem.CustomPreference(
                             title = stringResource(MR.strings.dark_theme),
-                            entries = darkThemeEntries,
-                        ),
+                        ) { _ ->
+                            ThemeTilePicker(pref = preferences.darkTheme(), isDark = true)
+                        },
                     )
                     add(
                         Preference.PreferenceItem.SwitchPreference(
                             pref = preferences.themeDarkAmoled(),
                             title = stringResource(MR.strings.pure_black_dark_mode),
+                            // Amoled flips the background of every dark theme to true black;
+                            // recreate so the active theme picks up the new background color.
+                            onValueChanged = { (context as? Activity)?.recreate(); true },
                         ),
                     )
                 }
@@ -138,17 +141,23 @@ object SettingsAppearanceScreen : ComposableSettings() {
     // ---------- Toolbar ----------
 
     @Composable
-    private fun getToolbarGroup(preferences: PreferencesHelper): Preference.PreferenceGroup =
-        Preference.PreferenceGroup(
+    private fun getToolbarGroup(preferences: PreferencesHelper): Preference.PreferenceGroup {
+        val context = LocalContext.current
+        return Preference.PreferenceGroup(
             title = "Toolbar",
             preferenceItems = persistentListOf(
                 Preference.PreferenceItem.SwitchPreference(
                     pref = preferences.useLargeToolbar(),
                     title = stringResource(MR.strings.expanded_toolbar),
                     subtitle = stringResource(MR.strings.show_larger_toolbar),
+                    // Legacy controller reconfigures activityBinding.appBar inline; from a Compose
+                    // settings surface we don't hold that binding, so recreate is the coarse but
+                    // correct fallback that picks up the new toolbar mode on rebuild.
+                    onValueChanged = { (context as? Activity)?.recreate(); true },
                 ),
             ),
         )
+    }
 
     // ---------- Details page ----------
 
@@ -214,6 +223,9 @@ object SettingsAppearanceScreen : ComposableSettings() {
                         pref = preferences.sideNavMode(),
                         title = stringResource(MR.strings.use_side_navigation),
                         entries = sideNavModeEntries,
+                        // Side-nav-mode flips swap the navigation host (bottom vs side), which
+                        // can only land via activity recreate. Matches the legacy `onChange`.
+                        onValueChanged = { (context as? Activity)?.recreate(); true },
                     ),
                 )
                 add(
