@@ -24,9 +24,9 @@ internal fun LazyLibraryGrid(
     FastScrollLazyVerticalGrid(
         columns = if (columns == 0) GridCells.Adaptive(128.dp) else GridCells.Fixed(columns),
         modifier = modifier,
-        // Muted gray matches the legacy fast_scroller_handle_idle look; the loud primary
-        // default was too vivid against manga covers.
-        thumbColor = MaterialTheme.colorScheme.outline,
+        // Muted, theme-adaptive gray matching the legacy fast_scroller_handle_idle look.
+        // outline alone reads as too vivid in dark mode, so alpha-blend onSurface instead.
+        thumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
         contentPadding = contentPadding + PaddingValues(8.dp),
         verticalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridVerticalSpacer),
         horizontalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridHorizontalSpacer),

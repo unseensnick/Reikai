@@ -134,24 +134,37 @@ fun MangaComfortableGridItem(
     isSelected: Boolean = false,
     showOutline: Boolean = false,
     onClickContinueReading: (() -> Unit)? = null,
+    showLoadingIndicator: Boolean = true,
 ) {
     Column {
         MangaGridCover(
             border = if (showOutline) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
             cover = {
                 Box {
-                    var isLoading by remember { mutableStateOf(false) }
-                    MangaCover(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .alpha(if (isSelected) 0.34f else 1.0f),
-                        data = coverData,
-                        onState = { state ->
-                            isLoading = state is AsyncImagePainter.State.Loading
+                    if (showLoadingIndicator) {
+                        // Tracks Coil state to overlay a spinner. Cheap per item, but with
+                        // hundreds of covers loading on cold start each state transition adds a
+                        // recompose, so callers (e.g., the library) opt out via showLoadingIndicator.
+                        var isLoading by remember { mutableStateOf(false) }
+                        MangaCover(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .alpha(if (isSelected) 0.34f else 1.0f),
+                            data = coverData,
+                            onState = { state ->
+                                isLoading = state is AsyncImagePainter.State.Loading
+                            },
+                        )
+                        if (isLoading) {
+                            LoadingIndicator(modifier = Modifier.align(Alignment.Center))
                         }
-                    )
-                    if (isLoading) {
-                        LoadingIndicator(modifier = Modifier.align(Alignment.Center))
+                    } else {
+                        MangaCover(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .alpha(if (isSelected) 0.34f else 1.0f),
+                            data = coverData,
+                        )
                     }
                 }
             },
@@ -192,23 +205,33 @@ fun MangaCompactGridItem(
     isSelected: Boolean = false,
     showOutline: Boolean = false,
     onClickContinueReading: (() -> Unit)? = null,
+    showLoadingIndicator: Boolean = true,
 ) {
     MangaGridCover(
         border = if (showOutline) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
         cover = {
             Box {
-                var isLoading by remember { mutableStateOf(false) }
-                MangaCover(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .alpha(if (isSelected) 0.34f else 1.0f),
-                    data = coverData,
-                    onState = { state ->
-                        isLoading = state is AsyncImagePainter.State.Loading
+                if (showLoadingIndicator) {
+                    var isLoading by remember { mutableStateOf(false) }
+                    MangaCover(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .alpha(if (isSelected) 0.34f else 1.0f),
+                        data = coverData,
+                        onState = { state ->
+                            isLoading = state is AsyncImagePainter.State.Loading
+                        },
+                    )
+                    if (isLoading) {
+                        LoadingIndicator(modifier = Modifier.align(Alignment.Center))
                     }
-                )
-                if (isLoading) {
-                    LoadingIndicator(modifier = Modifier.align(Alignment.Center))
+                } else {
+                    MangaCover(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .alpha(if (isSelected) 0.34f else 1.0f),
+                        data = coverData,
+                    )
                 }
             }
         },

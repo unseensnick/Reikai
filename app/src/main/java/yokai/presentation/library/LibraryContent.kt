@@ -68,14 +68,25 @@ fun LibraryContent(
                     // grid scope so it is a stable cache key.
                     val coverData = remember(manga.id) { manga.cover() }
                     val title = remember(manga.id) { manga.title }
+                    // Skip the per-cover loading indicator. With large libraries each Coil state
+                    // transition triggers a recompose, which adds up to noticeable cold-start
+                    // lag; the cover placeholder color is enough visual cue while loading.
                     when (libraryLayout) {
                         LAYOUT_COMPACT_GRID, LAYOUT_COVER_ONLY_GRID -> {
-                            MangaCompactGridItem(coverData = coverData, title = title)
+                            MangaCompactGridItem(
+                                coverData = coverData,
+                                title = title,
+                                showLoadingIndicator = false,
+                            )
                         }
                         else -> {
                             // LAYOUT_COMFORTABLE_GRID and LAYOUT_LIST (list mode falls back to
                             // comfortable until a list item composable lands in a later phase).
-                            MangaComfortableGridItem(coverData = coverData, title = title)
+                            MangaComfortableGridItem(
+                                coverData = coverData,
+                                title = title,
+                                showLoadingIndicator = false,
+                            )
                         }
                     }
                 }
