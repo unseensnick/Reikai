@@ -78,9 +78,10 @@ object SettingsAppearanceScreen : ComposableSettings() {
         val alertDialog = LocalDialogHostState.currentOrThrow
         val nightMode by preferences.nightMode().collectAsState()
         val followSystem = nightMode == AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
-        // The pure-black-dark toggle + dark-theme picker only make sense when dark is reachable:
-        // either the device is on follow-system (and may be dark) or the user explicitly forced
-        // dark.
+        // The pure-black-dark switch only makes sense when dark is reachable: either device is
+        // on follow-system (and may be dark) or the user explicitly forced dark. The dark-theme
+        // picker itself stays visible regardless so the user can pre-pick a dark variant while
+        // the app is rendering light — matches the legacy widget which always shows both rails.
         val darkReachable = nightMode != AppCompatDelegate.MODE_NIGHT_NO
 
         val followSystemTitle = stringResource(MR.strings.follow_system_theme)
@@ -102,15 +103,18 @@ object SettingsAppearanceScreen : ComposableSettings() {
                         ThemeTilePicker(pref = preferences.lightTheme(), isDark = false)
                     },
                 )
-                if (darkReachable) {
-                    add(
-                        Preference.PreferenceItem.CustomPreference(
-                            title = stringResource(MR.strings.dark_theme),
-                        ) { _ ->
-                            ThemeTilePicker(pref = preferences.darkTheme(), isDark = true)
-                        },
-                    )
-                }
+                // Always shown. Tapping a light tile while in forced-dark flips nightMode to
+                // forced-light (legacy ThemeTilePicker behavior) which would hide this row if it
+                // was gated on darkReachable, locking the user out of the dark picker until
+                // they reopened the legacy menu. Keep it visible so the user can always change
+                // which dark theme will be active when the app does run dark.
+                add(
+                    Preference.PreferenceItem.CustomPreference(
+                        title = stringResource(MR.strings.dark_theme),
+                    ) { _ ->
+                        ThemeTilePicker(pref = preferences.darkTheme(), isDark = true)
+                    },
+                )
                 // App icon: experimental. Title carries the same BETA superscript tag the legacy
                 // controller uses via [addBetaTag]. Selection routes through a confirmation
                 // dialog before calling [setAppIcon] (which toggles activity-alias enabled state
