@@ -179,6 +179,19 @@ class AutofitRecyclerView @JvmOverloads constructor(context: Context, attrs: Att
         }
     }
 
+    /**
+     * Release the adapter when the view leaves the window. The adapter holds the Library /
+     * BrowseSource controller's row binders, which transitively capture the activity context.
+     * Without this hook, Activity.recreate() (driven by the theme picker on the Compose
+     * Appearance screen) leaks the old activity through AutofitRecyclerView.mAdapter, which
+     * LeakCanary reports after rapid theme switches. The owning controller re-attaches a
+     * fresh adapter via onCreateView on the new activity, so resetting it on detach is safe.
+     */
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        adapter = null
+    }
+
     companion object {
         private const val MULTIPLE_PERCENT = 0.25f
         const val MULTIPLE = MULTIPLE_PERCENT * 100

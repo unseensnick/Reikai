@@ -84,4 +84,19 @@ class CategoryRecyclerView @JvmOverloads constructor(
         }
         super.onMeasure(widthSpec, heightS)
     }
+
+    /**
+     * Release the listener closure + the FastAdapter chain when the view leaves the window.
+     * Without this, Activity.recreate() (driven by the theme picker on the Compose Appearance
+     * screen) holds the old activity alive through this lambda capture, which LeakCanary
+     * reports as a CategoryRecyclerView.onCategoryClicked retained reference. The Library
+     * controller's onCreateView path re-attaches a fresh adapter and listener on re-attach,
+     * so resetting them here is safe.
+     */
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        onCategoryClicked = { _ -> }
+        fastAdapter.onClickListener = null
+        adapter = null
+    }
 }
