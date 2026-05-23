@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
 import eu.kanade.tachiyomi.ui.more.AboutController
 import eu.kanade.tachiyomi.ui.setting.SettingsLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsAdvancedLegacyController
+import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsAppearanceLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsDataLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsDownloadLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.legacy.SettingsSecurityLegacyController
@@ -53,11 +54,15 @@ class SettingsMainController : SettingsLegacyController(), FloatingSearchInterfa
             titleRes = MR.strings.general
             onClick { navigateTo(SettingsGeneralController()) }
         }
-        preference {
+        preferenceLongClickable {
             iconRes = R.drawable.ic_appearance_outline_24dp
             iconTint = tintColor
             titleRes = MR.strings.appearance
             onClick { navigateTo(SettingsAppearanceController()) }
+            onLongClick {
+                navigateTo(SettingsAppearanceLegacyController())
+                context.toast("You're entering legacy version of 'Appearance'")
+            }
         }
         preference {
             iconRes = R.drawable.ic_library_outline_24dp
