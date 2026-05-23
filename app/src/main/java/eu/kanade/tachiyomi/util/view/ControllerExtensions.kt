@@ -271,6 +271,16 @@ fun <T> Controller.liftAppbarWith(
                     activityBinding?.appBar?.updateAppBarAfterY(recycler)
                 }
             }
+
+            // Conductor controllers outlive the host activity by design: on Activity.recreate()
+            // the same controller is re-attached to the new activity and onViewCreated runs
+            // again, which calls liftAppbarWith again and appends another listener that
+            // captures the new recycler. Without de-registering, listeners accumulate and each
+            // one pins the recycler (and through it, the prior destroyed MainActivity) in the
+            // heap. Removing on postDestroyView clears the closure for the dead view's cycle.
+            override fun postDestroyView(controller: Controller) {
+                controller.removeLifecycleListener(this)
+            }
         },
     )
 }
@@ -477,6 +487,16 @@ fun Controller.scrollViewWith(
                         activityBinding?.toolbar?.setOnClickListener(null)
                     }
                 }
+            }
+
+            // Same accumulation problem as liftAppbarWith above: Conductor preserves the
+            // controller across activity recreate, onViewCreated re-runs scrollViewWith on the
+            // new activity, and each call appends a listener whose closure captures the
+            // current recycler. Multiple theme switches stack listeners that each pin a
+            // destroyed-activity RecyclerView. LeakCanary surfaced exactly this chain:
+            // RecentsController.lifecycleListeners → scrollViewWith$6.$recycler → old MainActivity.
+            override fun postDestroyView(controller: Controller) {
+                controller.removeLifecycleListener(this)
             }
         },
     )

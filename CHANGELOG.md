@@ -20,6 +20,7 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 
 ### Fixes
 - Opening the search bar in Settings no longer crashes the app. The experimental "Change App Icon" dropdown was sharing a SharedPreferences key with the Compose-library toggle, causing a `ClassCastException` when search enumerated every settings screen at once
+- Repeatedly switching app themes no longer leaks the previous activity. Every legacy controller that uses the shared scroll-with-toolbar helper (Recents, Library, Browse, History, and the manga details page) accumulated a Conductor lifecycle listener on each theme switch that held onto the destroyed activity's RecyclerView. The listeners now unregister themselves when the controller's view is torn down
 
 ## [1.9.7.5.9]
 
