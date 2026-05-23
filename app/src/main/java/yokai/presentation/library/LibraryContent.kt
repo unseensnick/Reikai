@@ -138,6 +138,12 @@ fun LibraryContent(
     var parentWidthPx by remember { mutableIntStateOf(0) }
     var hopperWidthPx by remember { mutableIntStateOf(0) }
 
+    // Instant scrolls so rapid clicks don't queue. animateScrollToItem serializes via the
+    // grid's scroll Mutex, and each animation takes ~300ms; rapid taps stacked 5 animations
+    // sequentially, and the next-target computation kept reading mid-animation
+    // firstVisibleItemIndex so each queued click resolved to a stale target. scrollToItem
+    // resolves in a single frame, so each tap immediately advances firstVisibleItemIndex and
+    // the next tap reads the updated state. Matches the legacy scrollToPositionWithOffset.
     val onHopperUp = {
         val activeIdx = categoryOffsets.indexOfLast { it.first <= gridState.firstVisibleItemIndex }
         if (activeIdx >= 0) {
@@ -150,7 +156,7 @@ fun LibraryContent(
                 else -> null
             }
             target?.let { idx ->
-                coroutineScope.launch { gridState.animateScrollToItem(idx) }
+                coroutineScope.launch { gridState.scrollToItem(idx) }
             }
         }
         Unit
@@ -159,7 +165,7 @@ fun LibraryContent(
         val activeIdx = categoryOffsets.indexOfLast { it.first <= gridState.firstVisibleItemIndex }
         val nextHeader = categoryOffsets.getOrNull(activeIdx + 1)?.first
         nextHeader?.let { idx ->
-            coroutineScope.launch { gridState.animateScrollToItem(idx) }
+            coroutineScope.launch { gridState.scrollToItem(idx) }
         }
         Unit
     }
