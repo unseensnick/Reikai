@@ -34,6 +34,7 @@ class LibraryScreen : Screen {
         val sourceManager: SourceManager = Injekt.get()
         val libraryLayout = preferences.libraryLayout().get()
         val showCategoryInTitle = preferences.showCategoryInTitle().get()
+        val showCategoryItemCounts = preferences.categoryNumberOfItems().get()
         val hideHopper = preferences.hideHopper().get()
         val autohideHopper = preferences.autohideHopper().get()
         // hopperGravity is reactive: the user can fling the hopper to a new position, which
@@ -67,8 +68,20 @@ class LibraryScreen : Screen {
             MangaLibrarySearch.search(library, searchQuery, sourceNames)
         }
 
+        // Unfiltered category list and per-category counts for the jump-to-category picker. The
+        // picker is opened from the hopper (hidden during search), so library here is always
+        // the unfiltered map, but we derive these explicitly to keep the picker's data source
+        // separate from the grid-rendering source if filter UI later affects this.
+        val allCategories = remember(library) { library.keys.toList() }
+        val categoryItemCounts = remember(library) {
+            library.entries.associate { (cat, items) -> (cat.id ?: 0) to items.size }
+        }
+
         LibraryContent(
             library = filteredLibrary,
+            allCategories = allCategories,
+            categoryItemCounts = categoryItemCounts,
+            showCategoryItemCounts = showCategoryItemCounts,
             columns = 0,
             libraryLayout = libraryLayout,
             searchActive = searchActive,

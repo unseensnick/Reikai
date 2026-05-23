@@ -68,6 +68,9 @@ import yokai.presentation.manga.components.MangaCompactGridItem
 @Composable
 fun LibraryContent(
     library: Map<Category, List<LibraryItem.Manga>>,
+    allCategories: List<Category>,
+    categoryItemCounts: Map<Int, Int>,
+    showCategoryItemCounts: Boolean,
     columns: Int,
     libraryLayout: Int,
     searchActive: Boolean,
@@ -328,12 +331,17 @@ fun LibraryContent(
         }
         if (pickerOpen) {
             CategoryPickerSheet(
-                categories = library.keys.toList(),
+                categories = allCategories,
+                itemCounts = categoryItemCounts,
+                showItemCounts = showCategoryItemCounts,
                 activeCategoryId = activeCategory?.id,
                 onSelect = { category ->
                     val target = categoryOffsets.firstOrNull { it.second.id == category.id }?.first
                     target?.let { idx ->
-                        coroutineScope.launch { gridState.animateScrollToItem(idx) }
+                        // Instant jump matches legacy scrollToHeader (which uses
+                        // scrollToPositionWithOffset). animateScrollToItem on LazyGrid jitters
+                        // when items between source and target need to be measured.
+                        coroutineScope.launch { gridState.scrollToItem(idx) }
                     }
                     pickerOpen = false
                 },
