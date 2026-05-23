@@ -4,8 +4,11 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import androidx.compose.runtime.Composable
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.doOnLayout
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
+import androidx.core.view.updatePadding
 import cafe.adriel.voyager.navigator.Navigator
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.databinding.LibraryControllerBinding
@@ -13,6 +16,9 @@ import eu.kanade.tachiyomi.ui.base.controller.BaseCoroutineController
 import eu.kanade.tachiyomi.ui.main.BottomSheetController
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
 import eu.kanade.tachiyomi.ui.main.RootSearchInterface
+import eu.kanade.tachiyomi.util.view.activityBinding
+import eu.kanade.tachiyomi.util.view.doOnApplyWindowInsetsCompat
+import eu.kanade.tachiyomi.util.view.fullAppBarHeight
 import java.util.Locale
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -58,6 +64,24 @@ class LibraryComposeController(
         binding.composeView.isVisible = true
         binding.swipeRefresh.isGone = true
         binding.fastScroller.isGone = true
+
+        // The legacy controller wires this via scrollViewWith(recycler), which requires a
+        // ScrollingView and so does not apply to ComposeView. Replicate the essential bit
+        // manually: pad top by system inset + AppBar height so content sits below the legacy
+        // toolbar, pad bottom by system inset + bottom nav height. fullAppBarHeight returns
+        // null until the AppBar lays out, so re-request insets in appBar.doOnLayout.
+        binding.composeView.doOnApplyWindowInsetsCompat { v, insets, _ ->
+            val systemInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val appBarHeight = fullAppBarHeight ?: 0
+            val bottomNavHeight = activityBinding?.bottomNav?.height ?: 0
+            v.updatePadding(
+                top = systemInsets.top + appBarHeight,
+                bottom = systemInsets.bottom + bottomNavHeight,
+            )
+        }
+        activityBinding?.appBar?.doOnLayout {
+            if ((fullAppBarHeight ?: 0) > 0) binding.composeView.requestApplyInsets()
+        }
 
         binding.composeView.setContent {
             YokaiTheme {
