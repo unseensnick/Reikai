@@ -3,23 +3,26 @@ package yokai.presentation.library
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COMPACT_GRID
-import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COMFORTABLE_GRID
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COVER_ONLY_GRID
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
 import yokai.domain.manga.models.cover
-import yokai.presentation.AppBarType
-import yokai.presentation.YokaiScaffold
+import yokai.i18n.MR
 import yokai.presentation.library.components.LazyLibraryGrid
 import yokai.presentation.manga.components.MangaComfortableGridItem
 import yokai.presentation.manga.components.MangaCompactGridItem
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryContent(
     library: Map<Category, List<LibraryItem.Manga>>,
@@ -27,12 +30,16 @@ fun LibraryContent(
     libraryLayout: Int,
     modifier: Modifier = Modifier,
 ) {
-    YokaiScaffold(
-        onNavigationIconClicked = {},
-        appBarType = AppBarType.NONE,
+    // Material3 Scaffold with a Compose-side TopAppBar replaces the legacy app bar, which is
+    // hidden by BaseComposeController for this controller. No navigation icon: Library is a
+    // bottom-nav root, back-arrow would mislead. Compose-side search bar lands in Phase 2.
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            TopAppBar(title = { Text(stringResource(MR.strings.library)) })
+        },
     ) { contentPadding ->
         LazyLibraryGrid(
-            modifier = modifier,
             columns = columns,
             contentPadding = contentPadding,
         ) {
