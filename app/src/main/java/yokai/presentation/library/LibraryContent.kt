@@ -156,14 +156,19 @@ fun LibraryContent(
     // Drag-to-snap gravity. Mirrors LibraryGestureDetector.onFling in the legacy: a horizontal
     // fling that exceeds both distance and velocity thresholds steps the hopper one gravity
     // position toward the swipe direction (0 <-> 1 <-> 2). translationX animates back to 0 on
-    // release whether or not a gravity change was applied.
+    // release whether or not a gravity change was applied. Translation is hard-clamped to
+    // ±maxTranslationDp so the hopper can never drag off-screen, and so the post-gravity-change
+    // visual jump stays bounded.
     val density = LocalDensity.current
+    val maxTranslationPx = with(density) { 100.dp.toPx() }
     val velocityThresholdPx = with(density) { 100.dp.toPx() }
-    val distanceThresholdPx = with(density) { 80.dp.toPx() }
+    val distanceThresholdPx = with(density) { 50.dp.toPx() }
     val hopperTranslationX = remember { Animatable(0f) }
     val draggableState = rememberDraggableState { delta ->
         coroutineScope.launch {
-            hopperTranslationX.snapTo(hopperTranslationX.value + delta)
+            hopperTranslationX.snapTo(
+                (hopperTranslationX.value + delta).coerceIn(-maxTranslationPx, maxTranslationPx),
+            )
         }
     }
 
@@ -287,7 +292,7 @@ fun LibraryContent(
                                         onHopperGravityChange(newGravity)
                                     }
                                 }
-                                hopperTranslationX.animateTo(0f, animationSpec = tween(150))
+                                hopperTranslationX.animateTo(0f, animationSpec = tween(200))
                             },
                         ),
                 )
