@@ -10,6 +10,9 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Additions
+- Compose library (Settings → Advanced opt-in, dev/debug builds only) now displays real manga covers grouped by category instead of placeholder cells. The screen is read-only for now; search, filter, sort, and multi-select land in upcoming work.
+
 ### Changes
 - Renamed the fork to **Reikai**. The Yōkai-Y2K placeholder name is retired — installs upgrade in place (same package ID), the launcher shows the new R-monogram icon and "Reikai" as the app label. The `.y2k` package suffix stays under the hood.
 - Settings → Appearance rebuilt on the new Compose pattern. Long-press the row to reach the legacy version. App theme picker, app icon (Beta), follow-system theme switch, pure-black dark mode, expanded toolbar, manga-details cover tinting, hide-bottom-nav-on-scroll, and the side navigation controls are all back. The theme picker is the same horizontal tile rail as the legacy widget (mini-preview swatches with toolbar + content + bottom-nav dots in each theme's actual colors). Theme, night mode, pure-black, expanded toolbar, and side-nav-mode changes apply instantly via activity restart, matching the legacy behavior. Switching themes now cross-fades into the rebuilt UI instead of cutting to a blank frame, and tapping a tile that wouldn't change anything visible (e.g. picking a dark variant while the app is rendering light) no longer triggers a recreate at all.

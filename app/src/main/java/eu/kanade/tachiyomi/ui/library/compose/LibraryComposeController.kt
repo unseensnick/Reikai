@@ -1,93 +1,68 @@
 package eu.kanade.tachiyomi.ui.library.compose
 
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.View
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.rememberNestedScrollInteropConnection
-import androidx.core.view.isGone
-import androidx.core.view.isVisible
+import cafe.adriel.voyager.navigator.Navigator
+import com.bluelinelabs.conductor.ControllerChangeHandler
+import com.bluelinelabs.conductor.ControllerChangeType
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
-import eu.kanade.tachiyomi.databinding.LibraryControllerBinding
-import eu.kanade.tachiyomi.ui.base.controller.BaseCoroutineController
-import eu.kanade.tachiyomi.ui.library.models.LibraryItem
+import eu.kanade.tachiyomi.ui.base.controller.BaseComposeController
 import eu.kanade.tachiyomi.ui.main.BottomSheetController
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
+import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.main.RootSearchInterface
+import eu.kanade.tachiyomi.util.view.isControllerVisible
 import java.util.Locale
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import yokai.domain.ui.UiPreferences
 import yokai.i18n.MR
-import yokai.presentation.library.LibraryContent
-import yokai.presentation.theme.YokaiTheme
+import yokai.presentation.library.LibraryScreen
 import yokai.util.lang.getString
 
 class LibraryComposeController(
     bundle: Bundle? = null,
-    val uiPreferences: UiPreferences = Injekt.get(),
     val preferences: PreferencesHelper = Injekt.get(),
-) : BaseCoroutineController<LibraryControllerBinding, LibraryComposePresenter>(bundle) ,
+) : BaseComposeController(bundle),
     BottomSheetController,
     RootSearchInterface,
     FloatingSearchInterface {
 
-    override fun getTitle(): String? {
-        return view?.context?.getString(MR.strings.library)
+    // Keep the legacy app bar visible so the existing "Library" title and search affordance
+    // continue to work during Phase 1. Phase 8 swaps in a Compose-side toolbar with the
+    // PrimaryTabRow under it, at which point this flips to true.
+    override val shouldHideLegacyAppBar = false
+
+    @Composable
+    override fun ScreenContent() {
+        Navigator(screen = LibraryScreen())
     }
 
-    override fun getSearchTitle(): String? {
-        val searchSuggestion by lazy { preferences.librarySearchSuggestion().get() }
-
-        return searchTitle(
-            if (preferences.showLibrarySearchSuggestions().get() && searchSuggestion.isNotBlank()) {
+    override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
+        super.onChangeStarted(handler, type)
+        // BaseLegacyController.setTitle() isn't on the BaseComposeController path. Mirror the
+        // relevant bits inline so the legacy app bar shows the right title and the search bar
+        // gets a suggestion when we become visible.
+        if (type.isEnter && isControllerVisible) {
+            val ctx = view?.context ?: return
+            (activity as? AppCompatActivity)?.title = ctx.getString(MR.strings.library)
+            val mainActivity = activity as? MainActivity ?: return
+            val searchSuggestion = preferences.librarySearchSuggestion().get()
+            val suggested = if (
+                preferences.showLibrarySearchSuggestions().get() && searchSuggestion.isNotBlank()
+            ) {
                 "\"$searchSuggestion\""
             } else {
-                view?.context?.getString(MR.strings.your_library)?.lowercase(Locale.ROOT)
-            },
-        )
-    }
-
-    override val presenter = LibraryComposePresenter()
-
-    override fun createBinding(inflater: LayoutInflater) = LibraryControllerBinding.inflate(inflater)
-
-    override fun onViewCreated(view: View) {
-        super.onViewCreated(view)
-
-        binding.composeView.isVisible = true
-        binding.swipeRefresh.isGone = true
-        binding.fastScroller.isGone = true
-
-        binding.composeView.setContent {
-            YokaiTheme {
-                ScreenContent()
+                ctx.getString(MR.strings.your_library).lowercase(Locale.ROOT)
             }
+            mainActivity.searchTitle = searchTitle(suggested)
         }
     }
 
-    @Composable
-    fun ScreenContent() {
-        val nestedScrollInterop = rememberNestedScrollInteropConnection()
-
-        val state by presenter.state.collectAsState()
-        LibraryContent(
-            modifier = Modifier.nestedScroll(nestedScrollInterop),
-            items = (0..50).map { LibraryItem.Blank(it) },
-            columns = 3,
-        )
-    }
-
-    override fun showSheet() {
-    }
-
-    override fun hideSheet() {
-    }
-
-    override fun toggleSheet() {
-    }
+    // BottomSheetController is required by the Conductor host's nav coordination. The Compose
+    // path has no bottom sheets; settings sub-screens land via the local Voyager Navigator in
+    // Phase 3 instead.
+    override fun showSheet() {}
+    override fun hideSheet() {}
+    override fun toggleSheet() {}
 }
