@@ -82,13 +82,40 @@ object SettingsAppearanceScreen : ComposableSettings() {
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.app_theme),
+            // Order matches the legacy SettingsAppearanceLegacyController exactly: theme tile
+            // rails (light then dark), then app icon, then follow-system switch, then pure-black
+            // switch. The tile picker writes the pref + triggers recreate internally on tap.
             preferenceItems = buildList {
-                // Follow-system-theme row matches the legacy controller's switch shape exactly:
-                // OFF locks the night mode to whatever is currently rendered (light or dark),
-                // ON sets MODE_NIGHT_FOLLOW_SYSTEM. CustomPreference wraps SwitchPreferenceWidget
-                // so the visual is identical to the other switches on the screen; the backing
-                // store is the Int nightMode pref, which doesn't fit SwitchPreference's
-                // PreferenceData<Boolean> contract.
+                add(
+                    Preference.PreferenceItem.CustomPreference(
+                        title = stringResource(MR.strings.light_theme),
+                    ) { _ ->
+                        ThemeTilePicker(pref = preferences.lightTheme(), isDark = false)
+                    },
+                )
+                if (darkReachable) {
+                    add(
+                        Preference.PreferenceItem.CustomPreference(
+                            title = stringResource(MR.strings.dark_theme),
+                        ) { _ ->
+                            ThemeTilePicker(pref = preferences.darkTheme(), isDark = true)
+                        },
+                    )
+                }
+                // App icon: experimental, beta-tagged in the title until the change-app-icon flow
+                // is reliable across OEMs.
+                add(
+                    Preference.PreferenceItem.ListPreference(
+                        pref = basePreferences.appIcon(),
+                        title = "Change App Icon (Beta)",
+                        subtitle = "This feature is still very experimental",
+                        entries = appIconEntries,
+                    ),
+                )
+                // Follow-system row matches the legacy switch shape exactly: OFF locks night mode
+                // to whatever is currently rendered, ON sets MODE_NIGHT_FOLLOW_SYSTEM. Wrapping
+                // SwitchPreferenceWidget in CustomPreference because the backing store is the Int
+                // nightMode pref, which doesn't fit SwitchPreference's PreferenceData<Boolean>.
                 add(
                     Preference.PreferenceItem.CustomPreference(
                         title = followSystemTitle,
@@ -106,24 +133,7 @@ object SettingsAppearanceScreen : ComposableSettings() {
                         )
                     },
                 )
-                // Theme picker: horizontal tile rails matching the legacy ThemePreference widget.
-                // Light row is always present; dark row + pure-black switch only when reachable.
-                // The tile picker writes the pref + triggers recreate internally on tap.
-                add(
-                    Preference.PreferenceItem.CustomPreference(
-                        title = stringResource(MR.strings.light_theme),
-                    ) { _ ->
-                        ThemeTilePicker(pref = preferences.lightTheme(), isDark = false)
-                    },
-                )
                 if (darkReachable) {
-                    add(
-                        Preference.PreferenceItem.CustomPreference(
-                            title = stringResource(MR.strings.dark_theme),
-                        ) { _ ->
-                            ThemeTilePicker(pref = preferences.darkTheme(), isDark = true)
-                        },
-                    )
                     add(
                         Preference.PreferenceItem.SwitchPreference(
                             pref = preferences.themeDarkAmoled(),
@@ -134,16 +144,6 @@ object SettingsAppearanceScreen : ComposableSettings() {
                         ),
                     )
                 }
-                // App icon: experimental, beta-tagged in the title until the change-app-icon flow
-                // is reliable across OEMs.
-                add(
-                    Preference.PreferenceItem.ListPreference(
-                        pref = basePreferences.appIcon(),
-                        title = "Change App Icon (Beta)",
-                        subtitle = "This feature is still very experimental",
-                        entries = appIconEntries,
-                    ),
-                )
             }.toPersistentList(),
         )
     }
