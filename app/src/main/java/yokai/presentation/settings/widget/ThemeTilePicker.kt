@@ -93,16 +93,49 @@ fun ThemeTilePicker(
                 isDark = isDark,
                 amoled = isDark && amoled,
                 isSelected = selected == theme,
-                onClick = {
+                onClick = onClick@{
+                    val previousTheme = pref.get()
                     pref.set(theme)
-                    // The legacy widget also synchronises night-mode against the rail you tapped
-                    // so picking a dark tile while in light mode flips to dark immediately. The
-                    // recreate happens regardless of whether the night mode actually changed.
-                    val targetMode = if (isDark) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
-                    if (preferences.nightMode().get() != AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM) {
-                        preferences.nightMode().set(targetMode)
+
+                    val railMode = if (isDark) {
+                        AppCompatDelegate.MODE_NIGHT_YES
+                    } else {
+                        AppCompatDelegate.MODE_NIGHT_NO
                     }
-                    (context as? Activity)?.recreate()
+                    val previousNightMode = preferences.nightMode().get()
+                    // Mirrors the legacy widget: when night mode is not following system, tapping
+                    // a tile in the OTHER rail flips the lock to that rail's mode immediately.
+                    val nightModeWillChange = previousNightMode != AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM &&
+                        previousNightMode != railMode
+                    if (nightModeWillChange) {
+                        preferences.nightMode().set(railMode)
+                    }
+
+                    // Recreate only when the tap actually changes what's on screen right now:
+                    // either the night mode flipped, or the user picked a different tile inside
+                    // the rail that matches the currently-rendered mode. Picking a dark tile
+                    // while the app is rendering light (and not flipping mode) just stores a
+                    // future preference; no need to tear down the activity to display nothing
+                    // new. Matches the conditional in legacy ThemePreference.setThemeListener.
+                    val isAppCurrentlyDark = context.appDelegateNightMode() == AppCompatDelegate.MODE_NIGHT_YES
+                    val tilePresentlyRenders = isDark == isAppCurrentlyDark
+                    val themeChangedForCurrentMode = tilePresentlyRenders && previousTheme != theme
+                    if (!nightModeWillChange && !themeChangedForCurrentMode) return@onClick
+
+                    val activity = context as? Activity ?: return@onClick
+
+                    // Defer recreate to the next frame so the tile's selection animation gets
+                    // to paint before the heavy activity teardown blocks the main thread.
+                    // Without this the tap freezes mid-press feedback and the user just sees a
+                    // cut to the new theme; with it they see the tile select first, then a
+                    // smooth fade to the recreated UI.
+                    activity.window.decorView.post {
+                        // Cross-fade between old and new activity instead of the default cut to
+                        // a blank frame. Activity.recreate() internally routes through Android's
+                        // activity-relaunch path which honours window animation styles.
+                        activity.window.setWindowAnimations(R.style.Theme_Widget_Animation_ThemeChange)
+                        activity.recreate()
+                    }
                 },
             )
         }

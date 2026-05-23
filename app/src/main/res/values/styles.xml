@@ -180,6 +180,14 @@
         <item name="android:exitFadeDuration">0</item>
     </style>
 
+    <!-- Cross-fade used during theme-change Activity.recreate(); replaces the default cut to
+         blank frame with a smooth fade. Applied via window.setWindowAnimations(...) right
+         before recreate() in ThemeTilePicker. -->
+    <style name="Theme.Widget.Animation.ThemeChange" parent="android:Animation">
+        <item name="android:windowEnterAnimation">@android:anim/fade_in</item>
+        <item name="android:windowExitAnimation">@android:anim/fade_out</item>
+    </style>
+
     <style name="Theme.Widget.TextInputLayout.OutlinedBox.Dense" parent="Widget.Material3.TextInputLayout.OutlinedBox.Dense">
         <item name="boxStrokeColor">@color/text_input_stroke</item>
         <item name="hintTextColor">?attr/colorSecondary</item>
