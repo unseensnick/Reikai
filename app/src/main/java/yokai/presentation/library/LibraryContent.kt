@@ -9,6 +9,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.compose.stringResource
@@ -61,14 +62,20 @@ fun LibraryContent(
                     contentType = { "library_grid_item" },
                 ) { item ->
                     val manga = item.libraryManga.manga
+                    // Avoid recomputing the cover wrapper and the title getter (which hits the
+                    // Injekt-backed CustomMangaManager for favorited manga) on every recompose
+                    // triggered by Coil state updates. Each manga.id is unique within the lazy
+                    // grid scope so it is a stable cache key.
+                    val coverData = remember(manga.id) { manga.cover() }
+                    val title = remember(manga.id) { manga.title }
                     when (libraryLayout) {
                         LAYOUT_COMPACT_GRID, LAYOUT_COVER_ONLY_GRID -> {
-                            MangaCompactGridItem(coverData = manga.cover(), title = manga.title)
+                            MangaCompactGridItem(coverData = coverData, title = title)
                         }
                         else -> {
                             // LAYOUT_COMFORTABLE_GRID and LAYOUT_LIST (list mode falls back to
                             // comfortable until a list item composable lands in a later phase).
-                            MangaComfortableGridItem(coverData = manga.cover(), title = manga.title)
+                            MangaComfortableGridItem(coverData = coverData, title = title)
                         }
                     }
                 }

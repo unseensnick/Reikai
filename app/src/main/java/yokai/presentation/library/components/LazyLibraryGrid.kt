@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridScope
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -23,6 +24,9 @@ internal fun LazyLibraryGrid(
     FastScrollLazyVerticalGrid(
         columns = if (columns == 0) GridCells.Adaptive(128.dp) else GridCells.Fixed(columns),
         modifier = modifier,
+        // Muted gray matches the legacy fast_scroller_handle_idle look; the loud primary
+        // default was too vivid against manga covers.
+        thumbColor = MaterialTheme.colorScheme.outline,
         contentPadding = contentPadding + PaddingValues(8.dp),
         verticalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridVerticalSpacer),
         horizontalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridHorizontalSpacer),
@@ -40,6 +44,7 @@ internal fun LazyLibraryStaggeredGrid(
     FastScrollLazyVerticalStaggeredGrid(
         columns = if (columns == 0) StaggeredGridCells.Adaptive(128.dp) else StaggeredGridCells.Fixed(columns),
         modifier = modifier,
+        thumbColor = MaterialTheme.colorScheme.outline,
         contentPadding = contentPadding + PaddingValues(8.dp),
         verticalItemSpacing = CommonMangaItemDefaults.GridVerticalSpacer,
         horizontalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridHorizontalSpacer),
