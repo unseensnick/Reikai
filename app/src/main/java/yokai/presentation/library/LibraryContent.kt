@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -117,10 +118,15 @@ fun LibraryContent(
         activeCategory != null &&
         !searchActive
 
+    // Autohide on user drag only, not on any scroll. The hopper's own up/down/picker actions
+    // trigger programmatic animateScrollToItem / scrollToItem, which do not fire drag
+    // interactions; using isScrollInProgress instead would hide the hopper on every tap and
+    // break rapid up/down rhythm.
+    val isUserDragging by gridState.interactionSource.collectIsDraggedAsState()
     val hopperVisible by remember(hideHopper, autohideHopper, library, searchActive) {
         derivedStateOf {
             val base = !searchActive && !hideHopper && library.size > 1
-            if (autohideHopper) base && !gridState.isScrollInProgress else base
+            if (autohideHopper) base && !isUserDragging else base
         }
     }
 
