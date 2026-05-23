@@ -3,6 +3,9 @@ package yokai.presentation.library
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.rememberNestedScrollInteropConnection
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
@@ -21,6 +24,10 @@ class LibraryScreen : Screen {
 
     @Composable
     override fun Content() {
+        // Bridges Compose scroll deltas to the legacy AppBarLayout above us so the toolbar
+        // collapses on scroll exactly like the legacy library. Removed in Phase 8 once the
+        // controller no longer relies on the legacy app bar.
+        val nestedScrollInterop = rememberNestedScrollInteropConnection()
         val screenModel = rememberScreenModel { MangaLibraryScreenModel() }
         val state by screenModel.state.collectAsState()
         val preferences: PreferencesHelper = Injekt.get()
@@ -35,6 +42,7 @@ class LibraryScreen : Screen {
             library = library,
             columns = 0,
             libraryLayout = libraryLayout,
+            modifier = Modifier.nestedScroll(nestedScrollInterop),
         )
     }
 }
