@@ -33,10 +33,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -119,11 +121,13 @@ fun LibraryContent(
         }
     }
 
-    val hopperAlignment = when (hopperGravity) {
-        0 -> Alignment.BottomStart
-        2 -> Alignment.BottomEnd
-        else -> Alignment.BottomCenter
-    }
+    // Absolute X positioning for the hopper instead of Modifier.align. Lets us animate the
+    // hopper smoothly between gravity positions (legacy "flick from position to position"
+    // feel) without the visual jump that an align swap would cause, and lets us clamp the
+    // drag to keep the hopper fully on-screen regardless of gravity. Parent width comes from
+    // the Box's onSizeChanged below; hopper width from the CategoryHopper's onSizeChanged.
+    var parentWidthPx by remember { mutableIntStateOf(0) }
+    var hopperWidthPx by remember { mutableIntStateOf(0) }
 
     val onHopperUp = {
         val activeIdx = categoryOffsets.indexOfLast { it.first <= gridState.firstVisibleItemIndex }
@@ -153,22 +157,36 @@ fun LibraryContent(
 
     var pickerOpen by remember { mutableStateOf(false) }
 
-    // Drag-to-snap gravity. Mirrors LibraryGestureDetector.onFling in the legacy: a horizontal
-    // fling that exceeds both distance and velocity thresholds steps the hopper one gravity
-    // position toward the swipe direction (0 <-> 1 <-> 2). translationX animates back to 0 on
-    // release whether or not a gravity change was applied. Translation is hard-clamped to
-    // ±maxTranslationDp so the hopper can never drag off-screen, and so the post-gravity-change
-    // visual jump stays bounded.
+    // Drag-and-fling gravity. Mirrors LibraryGestureDetector.onFling: a horizontal fling that
+    // exceeds both distance and velocity thresholds steps the hopper one gravity position
+    // toward the swipe direction (0 <-> 1 <-> 2). The Animatable holds the hopper's absolute
+    // X within the parent Box; a LaunchedEffect animates it whenever the gravity preference
+    // (and therefore targetX) changes, giving the legacy smooth slide between positions.
     val density = LocalDensity.current
-    val maxTranslationPx = with(density) { 100.dp.toPx() }
+    val edgePaddingPx = with(density) { 20.dp.toPx() }
     val velocityThresholdPx = with(density) { 100.dp.toPx() }
     val distanceThresholdPx = with(density) { 50.dp.toPx() }
-    val hopperTranslationX = remember { Animatable(0f) }
+
+    fun xForGravity(g: Int): Float = when {
+        parentWidthPx == 0 || hopperWidthPx == 0 -> 0f
+        g == 0 -> edgePaddingPx
+        g == 2 -> (parentWidthPx - hopperWidthPx - edgePaddingPx).coerceAtLeast(0f)
+        else -> ((parentWidthPx - hopperWidthPx) / 2f).coerceAtLeast(0f)
+    }
+
+    val targetX = xForGravity(hopperGravity)
+    val hopperX = remember { Animatable(targetX) }
+    LaunchedEffect(targetX) {
+        if (hopperX.value != targetX) {
+            hopperX.animateTo(targetX, animationSpec = tween(250))
+        }
+    }
+
     val draggableState = rememberDraggableState { delta ->
         coroutineScope.launch {
-            hopperTranslationX.snapTo(
-                (hopperTranslationX.value + delta).coerceIn(-maxTranslationPx, maxTranslationPx),
-            )
+            val minX = edgePaddingPx
+            val maxX = (parentWidthPx - hopperWidthPx - edgePaddingPx).coerceAtLeast(minX)
+            hopperX.snapTo((hopperX.value + delta).coerceIn(minX, maxX))
         }
     }
 
@@ -199,7 +217,11 @@ fun LibraryContent(
             }
         },
     ) { contentPadding ->
-        Box(modifier = Modifier.padding(contentPadding)) {
+        Box(
+            modifier = Modifier
+                .padding(contentPadding)
+                .onSizeChanged { parentWidthPx = it.width },
+        ) {
             LazyLibraryGrid(
                 columns = columns,
                 state = gridState,
@@ -264,8 +286,8 @@ fun LibraryContent(
             AnimatedVisibility(
                 visible = hopperVisible,
                 modifier = Modifier
-                    .align(hopperAlignment)
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                    .align(Alignment.BottomStart)
+                    .padding(bottom = 12.dp),
                 enter = fadeIn(),
                 exit = fadeOut(),
             ) {
@@ -274,25 +296,31 @@ fun LibraryContent(
                     onCenterClick = { pickerOpen = true },
                     onDownClick = onHopperDown,
                     modifier = Modifier
-                        .offset { IntOffset(hopperTranslationX.value.roundToInt(), 0) }
+                        .offset { IntOffset(hopperX.value.roundToInt(), 0) }
+                        .onSizeChanged { hopperWidthPx = it.width }
                         .draggable(
                             orientation = Orientation.Horizontal,
                             state = draggableState,
                             onDragStopped = { velocity ->
-                                val absDistance = abs(hopperTranslationX.value)
-                                val absVelocity = abs(velocity)
-                                if (absDistance > distanceThresholdPx && absVelocity > velocityThresholdPx) {
-                                    val swipingRight = hopperTranslationX.value > 0
+                                val rest = xForGravity(hopperGravity)
+                                val distance = hopperX.value - rest
+                                val swipingRight = distance > 0
+                                if (abs(distance) > distanceThresholdPx && abs(velocity) > velocityThresholdPx) {
                                     val newGravity = when (hopperGravity) {
                                         0 -> if (swipingRight) 1 else 0
                                         2 -> if (swipingRight) 2 else 1
                                         else -> if (swipingRight) 2 else 0
                                     }
                                     if (newGravity != hopperGravity) {
+                                        // LaunchedEffect on targetX will animate the slide; no
+                                        // manual animateTo needed here.
                                         onHopperGravityChange(newGravity)
+                                    } else {
+                                        hopperX.animateTo(rest, animationSpec = tween(200))
                                     }
+                                } else {
+                                    hopperX.animateTo(rest, animationSpec = tween(200))
                                 }
-                                hopperTranslationX.animateTo(0f, animationSpec = tween(200))
                             },
                         ),
                 )
