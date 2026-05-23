@@ -191,11 +191,24 @@ class LibraryPresenter(
 
     fun isCategoryMoreThanOne(): Boolean = allCategories.size > 1
 
-    /** Save the current list to speed up loading later */
+    /**
+     * Save the current list across [Activity.recreate] driven by a real configuration change
+     * (rotation, locale, dark-mode follow-system flip) so the next onCreate restores instantly.
+     *
+     * Gating on `isChangingConfigurations` is what keeps the cache from outliving the activity
+     * in cases where no follow-up `LibraryPresenter.onCreate` runs to drain it: theme-tile
+     * recreate (Activity.recreate() doesn't set the flag), the user toggling on the new Compose
+     * Library (the new MainActivity uses LibraryComposeController, never reads this cache), or
+     * the activity dying for any other reason. Without the gate, the cached LibraryMangaItems
+     * pin Context references — LeakCanary surfaces this as a static-field leak chain from
+     * `LibraryPresenter.lastDisplayedLibrary` to a destroyed MainActivity through
+     * `LibraryItem.context`.
+     */
     override fun onDestroy() {
         val isSubController = controllerIsSubClass
+        val isConfigChange = view?.activity?.isChangingConfigurations == true
         super.onDestroy()
-        if (!isSubController) {
+        if (!isSubController && isConfigChange) {
             lastDisplayedLibrary = libraryToDisplay
             lastCategories = categories
             lastLibrary = currentLibrary
