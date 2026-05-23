@@ -5,20 +5,26 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import dev.icerock.moko.resources.StringResource
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.core.storage.preference.collectAsState
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.util.compose.LocalDialogHostState
+import eu.kanade.tachiyomi.util.compose.currentOrThrow
 import eu.kanade.tachiyomi.util.system.SideNavMode
 import eu.kanade.tachiyomi.util.system.appDelegateNightMode
 import eu.kanade.tachiyomi.util.system.dpToPx
+import eu.kanade.tachiyomi.util.system.setAppIcon
 import kotlin.math.max
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.collections.immutable.toPersistentList
+import kotlinx.coroutines.launch
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.base.BasePreferences
+import yokai.domain.simple
 import yokai.i18n.MR
 import yokai.presentation.component.preference.Preference
 import yokai.presentation.component.preference.widget.SwitchPreferenceWidget
@@ -68,6 +74,8 @@ object SettingsAppearanceScreen : ComposableSettings() {
         basePreferences: BasePreferences,
     ): Preference.PreferenceGroup {
         val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        val alertDialog = LocalDialogHostState.currentOrThrow
         val nightMode by preferences.nightMode().collectAsState()
         val followSystem = nightMode == AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
         // The pure-black-dark toggle + dark-theme picker only make sense when dark is reachable:
@@ -104,7 +112,11 @@ object SettingsAppearanceScreen : ComposableSettings() {
                     )
                 }
                 // App icon: experimental. Title carries the same BETA superscript tag the legacy
-                // controller uses via [addBetaTag] — accent color, smaller, raised.
+                // controller uses via [addBetaTag]. Selection routes through a confirmation
+                // dialog before calling [setAppIcon] (which toggles activity-alias enabled state
+                // via PackageManager.setComponentEnabledSetting and writes the pref). Returning
+                // false from onValueChanged suppresses the framework's auto-set so setAppIcon
+                // owns persistence; if the user cancels the dialog the pref stays untouched.
                 add(
                     Preference.PreferenceItem.ListPreference(
                         pref = basePreferences.appIcon(),
@@ -112,6 +124,18 @@ object SettingsAppearanceScreen : ComposableSettings() {
                         titleAnnotated = "Change App Icon".addBetaTag(),
                         subtitle = "This feature is still very experimental",
                         entries = appIconEntries,
+                        onValueChanged = { newIcon ->
+                            scope.launch {
+                                alertDialog.simple {
+                                    title = "Change App Icon?"
+                                    text = "[Very Experimental] This may kill the app!"
+                                    onConfirm = {
+                                        context.setAppIcon(basePreferences, newIcon)
+                                    }
+                                }
+                            }
+                            false
+                        },
                     ),
                 )
                 // Follow-system row matches the legacy switch shape exactly: OFF locks night mode
