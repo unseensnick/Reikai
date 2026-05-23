@@ -34,6 +34,9 @@ class LibraryScreen : Screen {
         val sourceManager: SourceManager = Injekt.get()
         val libraryLayout = preferences.libraryLayout().get()
         val showCategoryInTitle = preferences.showCategoryInTitle().get()
+        val hideHopper = preferences.hideHopper().get()
+        val autohideHopper = preferences.autohideHopper().get()
+        val hopperGravity = preferences.hopperGravity().get()
 
         var searchActive by rememberSaveable { mutableStateOf(false) }
         var searchQuery by rememberSaveable { mutableStateOf("") }
@@ -65,6 +68,9 @@ class LibraryScreen : Screen {
             searchActive = searchActive,
             searchQuery = searchQuery,
             showCategoryInTitle = showCategoryInTitle,
+            hideHopper = hideHopper,
+            autohideHopper = autohideHopper,
+            hopperGravity = hopperGravity,
             onSearchActiveChange = { searchActive = it },
             onSearchQueryChange = { searchQuery = it },
         )

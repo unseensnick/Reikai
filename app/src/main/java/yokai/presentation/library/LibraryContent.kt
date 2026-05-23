@@ -1,6 +1,9 @@
 package yokai.presentation.library
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,6 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -36,9 +40,11 @@ import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COMPACT_GRID
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COVER_ONLY_GRID
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
+import kotlinx.coroutines.launch
 import yokai.domain.manga.models.cover
 import yokai.i18n.MR
 import yokai.presentation.library.components.ActiveCategoryChip
+import yokai.presentation.library.components.CategoryHopper
 import yokai.presentation.library.components.LazyLibraryGrid
 import yokai.presentation.manga.components.MangaComfortableGridItem
 import yokai.presentation.manga.components.MangaCompactGridItem
@@ -52,6 +58,9 @@ fun LibraryContent(
     searchActive: Boolean,
     searchQuery: String,
     showCategoryInTitle: Boolean,
+    hideHopper: Boolean,
+    autohideHopper: Boolean,
+    hopperGravity: Int,
     onSearchActiveChange: (Boolean) -> Unit,
     onSearchQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -63,6 +72,7 @@ fun LibraryContent(
     }
 
     val gridState = rememberLazyGridState()
+    val coroutineScope = rememberCoroutineScope()
 
     // Precomputed map of (lazy-grid header index) -> Category. The lazy-grid scope below emits
     // one header item followed by N grid items per category, so each header's index = sum of
@@ -87,6 +97,45 @@ fun LibraryContent(
         library.size > 1 &&
         activeCategory != null &&
         !searchActive
+
+    val hopperVisible by remember(hideHopper, autohideHopper, library, searchActive) {
+        derivedStateOf {
+            val base = !searchActive && !hideHopper && library.size > 1
+            if (autohideHopper) base && !gridState.isScrollInProgress else base
+        }
+    }
+
+    val hopperAlignment = when (hopperGravity) {
+        0 -> Alignment.BottomStart
+        2 -> Alignment.BottomEnd
+        else -> Alignment.BottomCenter
+    }
+
+    val onHopperUp = {
+        val activeIdx = categoryOffsets.indexOfLast { it.first <= gridState.firstVisibleItemIndex }
+        if (activeIdx >= 0) {
+            val activeHeaderIdx = categoryOffsets[activeIdx].first
+            val pastHeader = gridState.firstVisibleItemIndex > activeHeaderIdx ||
+                gridState.firstVisibleItemScrollOffset > 0
+            val target = when {
+                pastHeader -> activeHeaderIdx
+                activeIdx > 0 -> categoryOffsets[activeIdx - 1].first
+                else -> null
+            }
+            target?.let { idx ->
+                coroutineScope.launch { gridState.animateScrollToItem(idx) }
+            }
+        }
+        Unit
+    }
+    val onHopperDown = {
+        val activeIdx = categoryOffsets.indexOfLast { it.first <= gridState.firstVisibleItemIndex }
+        val nextHeader = categoryOffsets.getOrNull(activeIdx + 1)?.first
+        nextHeader?.let { idx ->
+            coroutineScope.launch { gridState.animateScrollToItem(idx) }
+        }
+        Unit
+    }
 
     Scaffold(
         modifier = modifier,
@@ -175,6 +224,19 @@ fun LibraryContent(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(top = 6.dp),
+                )
+            }
+            AnimatedVisibility(
+                visible = hopperVisible,
+                modifier = Modifier
+                    .align(hopperAlignment)
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                enter = fadeIn(),
+                exit = fadeOut(),
+            ) {
+                CategoryHopper(
+                    onUpClick = onHopperUp,
+                    onDownClick = onHopperDown,
                 )
             }
         }
