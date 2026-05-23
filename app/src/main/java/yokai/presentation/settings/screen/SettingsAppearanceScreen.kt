@@ -11,6 +11,7 @@ import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.core.storage.preference.collectAsState
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.util.system.SideNavMode
+import eu.kanade.tachiyomi.util.system.appDelegateNightMode
 import eu.kanade.tachiyomi.util.system.dpToPx
 import kotlin.math.max
 import kotlinx.collections.immutable.persistentListOf
@@ -20,6 +21,7 @@ import uy.kohesive.injekt.injectLazy
 import yokai.domain.base.BasePreferences
 import yokai.i18n.MR
 import yokai.presentation.component.preference.Preference
+import yokai.presentation.component.preference.widget.SwitchPreferenceWidget
 import yokai.presentation.settings.ComposableSettings
 import yokai.presentation.settings.widget.ThemeTilePicker
 
@@ -66,18 +68,13 @@ object SettingsAppearanceScreen : ComposableSettings() {
     ): Preference.PreferenceGroup {
         val context = LocalContext.current
         val nightMode by preferences.nightMode().collectAsState()
+        val followSystem = nightMode == AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
         // The pure-black-dark toggle + dark-theme picker only make sense when dark is reachable:
         // either the device is on follow-system (and may be dark) or the user explicitly forced
         // dark.
         val darkReachable = nightMode != AppCompatDelegate.MODE_NIGHT_NO
 
-        // Night-mode labels: "Light" has no MR string entry yet so the literal stands until a
-        // localised resource lands; "Dark" already exists in strings.xml.
-        val nightModeEntries = persistentListOf(
-            AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM to stringResource(MR.strings.follow_system_theme),
-            AppCompatDelegate.MODE_NIGHT_NO to "Light",
-            AppCompatDelegate.MODE_NIGHT_YES to stringResource(MR.strings.dark),
-        ).toMap().toImmutableMap()
+        val followSystemTitle = stringResource(MR.strings.follow_system_theme)
 
         val appIconEntries = BasePreferences.AppIcons.entries
             .associateWith { it.displayName }
@@ -86,15 +83,28 @@ object SettingsAppearanceScreen : ComposableSettings() {
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.app_theme),
             preferenceItems = buildList {
+                // Follow-system-theme row matches the legacy controller's switch shape exactly:
+                // OFF locks the night mode to whatever is currently rendered (light or dark),
+                // ON sets MODE_NIGHT_FOLLOW_SYSTEM. CustomPreference wraps SwitchPreferenceWidget
+                // so the visual is identical to the other switches on the screen; the backing
+                // store is the Int nightMode pref, which doesn't fit SwitchPreference's
+                // PreferenceData<Boolean> contract.
                 add(
-                    Preference.PreferenceItem.ListPreference(
-                        pref = preferences.nightMode(),
-                        title = stringResource(MR.strings.follow_system_theme),
-                        entries = nightModeEntries,
-                        // Night-mode flips require an Activity recreate so the new uiMode is
-                        // resolved and the XML theme reapplied. Legacy controller does the same.
-                        onValueChanged = { (context as? Activity)?.recreate(); true },
-                    ),
+                    Preference.PreferenceItem.CustomPreference(
+                        title = followSystemTitle,
+                    ) { _ ->
+                        SwitchPreferenceWidget(
+                            title = followSystemTitle,
+                            checked = followSystem,
+                            onCheckedChanged = { checked ->
+                                preferences.nightMode().set(
+                                    if (checked) AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+                                    else context.appDelegateNightMode(),
+                                )
+                                (context as? Activity)?.recreate()
+                            },
+                        )
+                    },
                 )
                 // Theme picker: horizontal tile rails matching the legacy ThemePreference widget.
                 // Light row is always present; dark row + pure-black switch only when reachable.
