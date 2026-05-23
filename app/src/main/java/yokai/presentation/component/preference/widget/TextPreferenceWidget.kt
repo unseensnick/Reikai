@@ -14,6 +14,8 @@ import yokai.util.secondaryItemAlpha
 fun TextPreferenceWidget(
     modifier: Modifier = Modifier,
     title: String? = null,
+    /** Styled title that supersedes [title] (e.g. carrying a BETA tag suffix). */
+    titleAnnotated: androidx.compose.ui.text.AnnotatedString? = null,
     subtitle: String? = null,
     icon: ImageVector? = null,
     iconTint: Color = MaterialTheme.colorScheme.primary,
@@ -23,6 +25,7 @@ fun TextPreferenceWidget(
     BasePreferenceWidget(
         modifier = modifier,
         title = title,
+        titleAnnotated = titleAnnotated,
         subcomponent = if (!subtitle.isNullOrBlank()) {
             {
                 Text(

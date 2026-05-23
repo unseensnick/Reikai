@@ -39,6 +39,9 @@ import kotlin.time.Duration.Companion.seconds
 internal fun BasePreferenceWidget(
     modifier: Modifier = Modifier,
     title: String? = null,
+    /** When set, takes precedence over [title] and renders with span styling preserved.
+     *  Lets callers attach things like a "BETA" superscript via [yokai.presentation.util.addBetaTag]. */
+    titleAnnotated: androidx.compose.ui.text.AnnotatedString? = null,
     subcomponent: @Composable (ColumnScope.() -> Unit)? = null,
     icon: @Composable (() -> Unit)? = null,
     onClick: (() -> Unit)? = null,
@@ -65,7 +68,16 @@ internal fun BasePreferenceWidget(
                 .weight(1f)
                 .padding(vertical = PrefsVerticalPadding),
         ) {
-            if (!title.isNullOrBlank()) {
+            if (titleAnnotated != null) {
+                Text(
+                    modifier = Modifier.padding(horizontal = PrefsHorizontalPadding),
+                    text = titleAnnotated,
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 2,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontSize = TitleFontSize,
+                )
+            } else if (!title.isNullOrBlank()) {
                 Text(
                     modifier = Modifier.padding(horizontal = PrefsHorizontalPadding),
                     text = title,

@@ -97,6 +97,7 @@ internal fun PreferenceItem(
                 ListPreferenceWidget(
                     value = value,
                     title = item.title,
+                    titleAnnotated = item.titleAnnotated,
                     subtitle = item.internalSubtitleProvider(value, item.entries),
                     icon = item.icon,
                     entries = item.entries,

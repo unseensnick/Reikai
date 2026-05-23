@@ -36,11 +36,15 @@ fun <T> ListPreferenceWidget(
     icon: ImageVector?,
     entries: Map<out T, String>,
     onValueChange: (T) -> Unit,
+    /** Styled title that supersedes [title] on the row (e.g. carrying a BETA tag suffix). The
+     *  dialog title stays plain because rich styling reads oddly in a dialog header. */
+    titleAnnotated: androidx.compose.ui.text.AnnotatedString? = null,
 ) {
     var isDialogShown by remember { mutableStateOf(false) }
 
     TextPreferenceWidget(
         title = title,
+        titleAnnotated = titleAnnotated,
         subtitle = subtitle,
         icon = icon,
         onPreferenceClick = { isDialogShown = true },

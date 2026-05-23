@@ -194,6 +194,7 @@ fun String.addBetaTag(context: Context, useSuperScript: Boolean = true): Spanned
     }
 }
 
+
 fun String.toNormalized(): String = replace("’", "'")
 
 fun String.getUrlWithoutDomain(): String {

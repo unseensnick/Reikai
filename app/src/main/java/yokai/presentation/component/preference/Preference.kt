@@ -68,6 +68,8 @@ sealed class Preference {
         data class ListPreference<T>(
             val pref: PreferenceData<T>,
             override val title: String,
+            /** Styled title (e.g. with a BETA tag superscript) that supersedes [title] on the row. */
+            val titleAnnotated: androidx.compose.ui.text.AnnotatedString? = null,
             override val subtitle: String? = "%s",
             val subtitleProvider: @Composable (value: T, entries: ImmutableMap<T, String>) -> String? =
                 { v, e -> subtitle?.format(e[v]) },

@@ -24,6 +24,7 @@ import yokai.presentation.component.preference.Preference
 import yokai.presentation.component.preference.widget.SwitchPreferenceWidget
 import yokai.presentation.settings.ComposableSettings
 import yokai.presentation.settings.widget.ThemeTilePicker
+import yokai.presentation.util.addBetaTag
 
 /**
  * Appearance settings on the Compose + Voyager stack. The legacy Conductor screen lives at
@@ -102,12 +103,13 @@ object SettingsAppearanceScreen : ComposableSettings() {
                         },
                     )
                 }
-                // App icon: experimental, beta-tagged in the title until the change-app-icon flow
-                // is reliable across OEMs.
+                // App icon: experimental. Title carries the same BETA superscript tag the legacy
+                // controller uses via [addBetaTag] — accent color, smaller, raised.
                 add(
                     Preference.PreferenceItem.ListPreference(
                         pref = basePreferences.appIcon(),
-                        title = "Change App Icon (Beta)",
+                        title = "Change App Icon",
+                        titleAnnotated = "Change App Icon".addBetaTag(),
                         subtitle = "This feature is still very experimental",
                         entries = appIconEntries,
                     ),
