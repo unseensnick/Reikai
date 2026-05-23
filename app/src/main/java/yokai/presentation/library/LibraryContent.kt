@@ -1,10 +1,13 @@
 package yokai.presentation.library
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Search
@@ -19,7 +22,10 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -32,6 +38,7 @@ import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COVER_ONLY_GR
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
 import yokai.domain.manga.models.cover
 import yokai.i18n.MR
+import yokai.presentation.library.components.ActiveCategoryChip
 import yokai.presentation.library.components.LazyLibraryGrid
 import yokai.presentation.manga.components.MangaComfortableGridItem
 import yokai.presentation.manga.components.MangaCompactGridItem
@@ -44,6 +51,7 @@ fun LibraryContent(
     libraryLayout: Int,
     searchActive: Boolean,
     searchQuery: String,
+    showCategoryInTitle: Boolean,
     onSearchActiveChange: (Boolean) -> Unit,
     onSearchQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -53,6 +61,32 @@ fun LibraryContent(
         onSearchQueryChange("")
         onSearchActiveChange(false)
     }
+
+    val gridState = rememberLazyGridState()
+
+    // Precomputed map of (lazy-grid header index) -> Category. The lazy-grid scope below emits
+    // one header item followed by N grid items per category, so each header's index = sum of
+    // (1 + items.size) for all preceding categories.
+    val categoryOffsets = remember(library) {
+        var offset = 0
+        library.map { (cat, items) ->
+            val start = offset
+            offset += 1 + items.size
+            start to cat
+        }
+    }
+
+    val activeCategory by remember(categoryOffsets) {
+        derivedStateOf {
+            val firstVisible = gridState.firstVisibleItemIndex
+            categoryOffsets.lastOrNull { it.first <= firstVisible }?.second
+        }
+    }
+
+    val showChip = showCategoryInTitle &&
+        library.size > 1 &&
+        activeCategory != null &&
+        !searchActive
 
     Scaffold(
         modifier = modifier,
@@ -81,56 +115,67 @@ fun LibraryContent(
             }
         },
     ) { contentPadding ->
-        LazyLibraryGrid(
-            columns = columns,
-            contentPadding = contentPadding,
-        ) {
-            library.forEach { (category, mangaItems) ->
-                item(
-                    key = "header:${category.id ?: 0}",
-                    span = { GridItemSpan(maxLineSpan) },
-                    contentType = "library_category_header",
-                ) {
-                    Text(
-                        text = category.name,
-                        modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                }
-                items(
-                    items = mangaItems,
-                    key = { it.libraryManga.manga.id ?: 0L },
-                    contentType = { "library_grid_item" },
-                ) { item ->
-                    val manga = item.libraryManga.manga
-                    // Avoid recomputing the cover wrapper and the title getter (which hits the
-                    // Injekt-backed CustomMangaManager for favorited manga) on every recompose
-                    // triggered by Coil state updates. Each manga.id is unique within the lazy
-                    // grid scope so it is a stable cache key.
-                    val coverData = remember(manga.id) { manga.cover() }
-                    val title = remember(manga.id) { manga.title }
-                    // Skip the per-cover loading indicator. With large libraries each Coil state
-                    // transition triggers a recompose, which adds up to noticeable cold-start
-                    // lag; the cover placeholder color is enough visual cue while loading.
-                    when (libraryLayout) {
-                        LAYOUT_COMPACT_GRID, LAYOUT_COVER_ONLY_GRID -> {
-                            MangaCompactGridItem(
-                                coverData = coverData,
-                                title = title,
-                                showLoadingIndicator = false,
-                            )
-                        }
-                        else -> {
-                            // LAYOUT_COMFORTABLE_GRID and LAYOUT_LIST (list mode falls back to
-                            // comfortable until a list item composable lands in a later phase).
-                            MangaComfortableGridItem(
-                                coverData = coverData,
-                                title = title,
-                                showLoadingIndicator = false,
-                            )
+        Box(modifier = Modifier.padding(contentPadding)) {
+            LazyLibraryGrid(
+                columns = columns,
+                state = gridState,
+                contentPadding = PaddingValues(0.dp),
+            ) {
+                library.forEach { (category, mangaItems) ->
+                    item(
+                        key = "header:${category.id ?: 0}",
+                        span = { GridItemSpan(maxLineSpan) },
+                        contentType = "library_category_header",
+                    ) {
+                        Text(
+                            text = category.name,
+                            modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                    }
+                    items(
+                        items = mangaItems,
+                        key = { it.libraryManga.manga.id ?: 0L },
+                        contentType = { "library_grid_item" },
+                    ) { item ->
+                        val manga = item.libraryManga.manga
+                        // Avoid recomputing the cover wrapper and the title getter (which hits the
+                        // Injekt-backed CustomMangaManager for favorited manga) on every recompose
+                        // triggered by Coil state updates. Each manga.id is unique within the lazy
+                        // grid scope so it is a stable cache key.
+                        val coverData = remember(manga.id) { manga.cover() }
+                        val title = remember(manga.id) { manga.title }
+                        // Skip the per-cover loading indicator. With large libraries each Coil state
+                        // transition triggers a recompose, which adds up to noticeable cold-start
+                        // lag; the cover placeholder color is enough visual cue while loading.
+                        when (libraryLayout) {
+                            LAYOUT_COMPACT_GRID, LAYOUT_COVER_ONLY_GRID -> {
+                                MangaCompactGridItem(
+                                    coverData = coverData,
+                                    title = title,
+                                    showLoadingIndicator = false,
+                                )
+                            }
+                            else -> {
+                                // LAYOUT_COMFORTABLE_GRID and LAYOUT_LIST (list mode falls back to
+                                // comfortable until a list item composable lands in a later phase).
+                                MangaComfortableGridItem(
+                                    coverData = coverData,
+                                    title = title,
+                                    showLoadingIndicator = false,
+                                )
+                            }
                         }
                     }
                 }
+            }
+            if (showChip) {
+                ActiveCategoryChip(
+                    name = activeCategory!!.name,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 6.dp),
+                )
             }
         }
     }
