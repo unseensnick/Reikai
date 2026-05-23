@@ -36,7 +36,13 @@ class LibraryScreen : Screen {
         val showCategoryInTitle = preferences.showCategoryInTitle().get()
         val hideHopper = preferences.hideHopper().get()
         val autohideHopper = preferences.autohideHopper().get()
-        val hopperGravity = preferences.hopperGravity().get()
+        // hopperGravity is reactive: the user can fling the hopper to a new position, which
+        // writes the preference, and the UI needs to re-align without a recomposition trigger
+        // from somewhere else. The other prefs above are read-once because they only change via
+        // legacy display settings that the user has to leave the Compose library to reach.
+        val hopperGravityPref = remember { preferences.hopperGravity() }
+        val hopperGravity by hopperGravityPref.changes()
+            .collectAsState(initial = hopperGravityPref.get())
 
         var searchActive by rememberSaveable { mutableStateOf(false) }
         var searchQuery by rememberSaveable { mutableStateOf("") }
@@ -73,6 +79,7 @@ class LibraryScreen : Screen {
             hopperGravity = hopperGravity,
             onSearchActiveChange = { searchActive = it },
             onSearchQueryChange = { searchQuery = it },
+            onHopperGravityChange = { hopperGravityPref.set(it) },
         )
     }
 }

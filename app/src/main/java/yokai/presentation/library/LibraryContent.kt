@@ -2,11 +2,17 @@ package yokai.presentation.library
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
@@ -27,24 +33,31 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COMPACT_GRID
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COVER_ONLY_GRID
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import yokai.domain.manga.models.cover
 import yokai.i18n.MR
 import yokai.presentation.library.components.ActiveCategoryChip
 import yokai.presentation.library.components.CategoryHopper
+import yokai.presentation.library.components.CategoryPickerSheet
 import yokai.presentation.library.components.LazyLibraryGrid
 import yokai.presentation.manga.components.MangaComfortableGridItem
 import yokai.presentation.manga.components.MangaCompactGridItem
@@ -63,6 +76,7 @@ fun LibraryContent(
     hopperGravity: Int,
     onSearchActiveChange: (Boolean) -> Unit,
     onSearchQueryChange: (String) -> Unit,
+    onHopperGravityChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // System back closes search before exiting the library.
@@ -135,6 +149,22 @@ fun LibraryContent(
             coroutineScope.launch { gridState.animateScrollToItem(idx) }
         }
         Unit
+    }
+
+    var pickerOpen by remember { mutableStateOf(false) }
+
+    // Drag-to-snap gravity. Mirrors LibraryGestureDetector.onFling in the legacy: a horizontal
+    // fling that exceeds both distance and velocity thresholds steps the hopper one gravity
+    // position toward the swipe direction (0 <-> 1 <-> 2). translationX animates back to 0 on
+    // release whether or not a gravity change was applied.
+    val density = LocalDensity.current
+    val velocityThresholdPx = with(density) { 100.dp.toPx() }
+    val distanceThresholdPx = with(density) { 80.dp.toPx() }
+    val hopperTranslationX = remember { Animatable(0f) }
+    val draggableState = rememberDraggableState { delta ->
+        coroutineScope.launch {
+            hopperTranslationX.snapTo(hopperTranslationX.value + delta)
+        }
     }
 
     Scaffold(
@@ -236,9 +266,46 @@ fun LibraryContent(
             ) {
                 CategoryHopper(
                     onUpClick = onHopperUp,
+                    onCenterClick = { pickerOpen = true },
                     onDownClick = onHopperDown,
+                    modifier = Modifier
+                        .offset { IntOffset(hopperTranslationX.value.roundToInt(), 0) }
+                        .draggable(
+                            orientation = Orientation.Horizontal,
+                            state = draggableState,
+                            onDragStopped = { velocity ->
+                                val absDistance = abs(hopperTranslationX.value)
+                                val absVelocity = abs(velocity)
+                                if (absDistance > distanceThresholdPx && absVelocity > velocityThresholdPx) {
+                                    val swipingRight = hopperTranslationX.value > 0
+                                    val newGravity = when (hopperGravity) {
+                                        0 -> if (swipingRight) 1 else 0
+                                        2 -> if (swipingRight) 2 else 1
+                                        else -> if (swipingRight) 2 else 0
+                                    }
+                                    if (newGravity != hopperGravity) {
+                                        onHopperGravityChange(newGravity)
+                                    }
+                                }
+                                hopperTranslationX.animateTo(0f, animationSpec = tween(150))
+                            },
+                        ),
                 )
             }
+        }
+        if (pickerOpen) {
+            CategoryPickerSheet(
+                categories = library.keys.toList(),
+                activeCategoryId = activeCategory?.id,
+                onSelect = { category ->
+                    val target = categoryOffsets.firstOrNull { it.second.id == category.id }?.first
+                    target?.let { idx ->
+                        coroutineScope.launch { gridState.animateScrollToItem(idx) }
+                    }
+                    pickerOpen = false
+                },
+                onDismiss = { pickerOpen = false },
+            )
         }
     }
 }

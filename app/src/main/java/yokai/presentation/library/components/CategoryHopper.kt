@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -18,14 +19,15 @@ import dev.icerock.moko.resources.compose.stringResource
 import yokai.i18n.MR
 
 /**
- * Up / down hopper card for category navigation. Mirrors the legacy `rounded_category_hopper`
- * (minus the center category-picker button, which can land in a follow-up commit). Two
- * IconButtons in a horizontally-aligned rounded card; the card uses `colorSecondary` /
- * `onSecondary` to read as an action surface against the grid background.
+ * Three-button hopper card for category navigation, mirroring the legacy
+ * `rounded_category_hopper`: up + category picker + down. `colorSecondary` background reads as
+ * an action surface against the grid. Drag-to-reposition lives in the caller (LibraryContent
+ * wraps this with a `Modifier.draggable` so we can keep the component pure).
  */
 @Composable
 fun CategoryHopper(
     onUpClick: () -> Unit,
+    onCenterClick: () -> Unit,
     onDownClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -46,6 +48,17 @@ fun CategoryHopper(
                 Icon(
                     imageVector = Icons.Outlined.ExpandLess,
                     contentDescription = stringResource(MR.strings.previous_title),
+                )
+            }
+            IconButton(
+                onClick = onCenterClick,
+                colors = IconButtonDefaults.iconButtonColors(
+                    contentColor = MaterialTheme.colorScheme.onSecondary,
+                ),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Label,
+                    contentDescription = stringResource(MR.strings.categories),
                 )
             }
             IconButton(
