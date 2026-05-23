@@ -1,16 +1,29 @@
 package yokai.presentation.library
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.data.database.models.Category
@@ -29,15 +42,43 @@ fun LibraryContent(
     library: Map<Category, List<LibraryItem.Manga>>,
     columns: Int,
     libraryLayout: Int,
+    searchActive: Boolean,
+    searchQuery: String,
+    onSearchActiveChange: (Boolean) -> Unit,
+    onSearchQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Material3 Scaffold with a Compose-side TopAppBar replaces the legacy app bar, which is
-    // hidden by BaseComposeController for this controller. No navigation icon: Library is a
-    // bottom-nav root, back-arrow would mislead. Compose-side search bar lands in Phase 2.
+    // System back closes search before exiting the library.
+    BackHandler(enabled = searchActive) {
+        onSearchQueryChange("")
+        onSearchActiveChange(false)
+    }
+
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(title = { Text(stringResource(MR.strings.library)) })
+            if (searchActive) {
+                LibrarySearchBar(
+                    query = searchQuery,
+                    onQueryChange = onSearchQueryChange,
+                    onClose = {
+                        onSearchQueryChange("")
+                        onSearchActiveChange(false)
+                    },
+                )
+            } else {
+                TopAppBar(
+                    title = { Text(stringResource(MR.strings.library)) },
+                    actions = {
+                        IconButton(onClick = { onSearchActiveChange(true) }) {
+                            Icon(
+                                imageVector = Icons.Outlined.Search,
+                                contentDescription = stringResource(MR.strings.search),
+                            )
+                        }
+                    },
+                )
+            }
         },
     ) { contentPadding ->
         LazyLibraryGrid(
@@ -93,4 +134,58 @@ fun LibraryContent(
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LibrarySearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onClose: () -> Unit,
+) {
+    val focusRequester = remember { FocusRequester() }
+    // Auto-focus on first composition so the keyboard appears immediately when the user taps
+    // the search icon. LaunchedEffect with Unit key fires once per entry into the searchActive
+    // branch.
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
+    TopAppBar(
+        navigationIcon = {
+            // Visual lead, not interactive; tapping the magnifier here would be redundant since
+            // the bar is already expanded. Use the X to close.
+            Icon(
+                imageVector = Icons.Outlined.Search,
+                contentDescription = null,
+                modifier = Modifier.padding(start = 16.dp),
+            )
+        },
+        title = {
+            TextField(
+                value = query,
+                onValueChange = onQueryChange,
+                placeholder = { Text(stringResource(MR.strings.library_search_hint)) },
+                singleLine = true,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    disabledContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester),
+            )
+        },
+        actions = {
+            IconButton(onClick = onClose) {
+                Icon(
+                    imageVector = Icons.Outlined.Close,
+                    contentDescription = stringResource(MR.strings.close),
+                )
+            }
+        },
+    )
 }
