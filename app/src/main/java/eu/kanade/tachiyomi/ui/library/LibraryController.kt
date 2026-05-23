@@ -1119,6 +1119,12 @@ open class LibraryController(
         showAllCategoriesView?.let {
             (activityBinding?.searchToolbar?.searchView as? MiniSearchView)?.removeSearchModifierIcon(it)
         }
+        // Drop the strong reference to the destroyed activity's ImageView. The controller
+        // survives across activity recreate (Conductor), and a stale ImageView from the prior
+        // activity keeps that whole activity in memory until the next addSearchModifierIcon
+        // overwrites it. LeakCanary reported this as the FilterBottomSheet -> controller ->
+        // showAllCategoriesView -> destroyed MainActivity chain.
+        showAllCategoriesView = null
         super.onDestroyView(view)
     }
 

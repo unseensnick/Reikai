@@ -39,6 +39,14 @@ class MangaShortcutManager(
 ) {
 
     fun updateShortcuts(context: Context) {
+        // updateShortcuts runs on launchIO and chains image-loading + system-service work that
+        // can outlive the Activity that triggered it. Capturing the Activity context in the
+        // coroutine closure pins it as a leak under rapid theme recreates (LeakCanary chain:
+        // CoroutineScheduler.Worker -> MangaShortcutManager$updateShortcuts$1.$context). All
+        // calls below work with Application context (getSystemService, ImageRequest, Icon and
+        // Intent construction), so we shadow the parameter with the unbound reference and let
+        // the closure capture that instead.
+        @Suppress("NAME_SHADOWING") val context = context.applicationContext
         launchIO {
             with(TachiyomiWidgetManager()) { context.init() }
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N_MR1) {

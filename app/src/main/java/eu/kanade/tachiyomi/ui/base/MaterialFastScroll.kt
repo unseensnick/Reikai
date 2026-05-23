@@ -139,6 +139,35 @@ open class MaterialFastScroll @JvmOverloads constructor(context: Context, attrs:
         }
     }
 
+    /**
+     * Release strong refs that pin the host activity once the view leaves the window.
+     *
+     * The third-party FastScroller's [scrollbarAnimator] registers itself with the main
+     * thread's AnimationHandler when running; if a theme-tile recreate destroys the activity
+     * mid-fade, AnimationHandler keeps the animator alive, which keeps the scrollbar view
+     * alive, which keeps THIS view alive via its mParent chain, which keeps the
+     * [bubbleTextCreator] (the LibraryCategoryAdapter with its LibraryItem-context entries)
+     * alive. That's the 2.9 MB chain LeakCanary surfaced after the theme-switch fixes.
+     *
+     * Cancelling the animator on detach removes it from AnimationHandler.mAnimationCallbacks
+     * immediately, and dropping bubbleTextCreator + onScrollListener + controller breaks the
+     * remaining references to the destroyed activity. The host (LibraryController) reattaches
+     * a fresh recycler view + creator in onCreateView on the new activity, so the cleared
+     * state is safe.
+     */
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        if (scrollbarAnimator.isAnimating) {
+            // Hide without animating so the underlying AnimatorSet flushes synchronously and
+            // the AnimationHandler entry that pins us drops in this frame, not the next one.
+            bar?.visibility = GONE
+            bubble?.visibility = GONE
+        }
+        bubbleTextCreator = null
+        onScrollListener = null
+        controller = null
+    }
+
     private fun updateScrollListener() {
         onScrollListener = object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
