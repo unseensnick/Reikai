@@ -16,6 +16,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -55,8 +58,10 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.data.database.models.Category
+import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COMFORTABLE_GRID
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COMPACT_GRID
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COVER_ONLY_GRID
+import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_LIST
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -67,10 +72,12 @@ import yokai.presentation.library.components.ActiveCategoryChip
 import yokai.presentation.library.components.CategoryHopper
 import yokai.presentation.library.components.CategoryPickerSheet
 import yokai.presentation.library.components.LazyLibraryGrid
+import yokai.presentation.library.components.LazyLibraryList
 import yokai.presentation.library.components.LibraryOverflowMenu
 import yokai.presentation.library.settings.LibraryDisplayOptionsSheet
 import yokai.presentation.manga.components.MangaComfortableGridItem
 import yokai.presentation.manga.components.MangaCompactGridItem
+import yokai.presentation.manga.components.MangaListItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -113,12 +120,15 @@ fun LibraryContent(
         onSearchActiveChange(false)
     }
 
+    val isList = libraryLayout == LAYOUT_LIST
     val gridState = rememberLazyGridState()
+    val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
-    // Precomputed map of (lazy-grid header index) -> Category. The lazy-grid scope below emits
-    // one header item followed by N grid items per category, so each header's index = sum of
-    // (1 + items.size) for all preceding categories.
+    // Precomputed map of (lazy-scroll header index) -> Category. Both the LazyGrid and
+    // LazyColumn paths emit one header item followed by N item entries per category, so each
+    // header's index = sum of (1 + items.size) for all preceding categories regardless of
+    // container.
     val categoryOffsets = remember(library) {
         var offset = 0
         library.map { (cat, items) ->
@@ -128,10 +138,25 @@ fun LibraryContent(
         }
     }
 
+    // Generalized accessors so the hopper / chip code stays layout-agnostic.
+    val firstVisibleItemIndex by remember(isList) {
+        derivedStateOf {
+            if (isList) listState.firstVisibleItemIndex else gridState.firstVisibleItemIndex
+        }
+    }
+    val firstVisibleItemScrollOffset by remember(isList) {
+        derivedStateOf {
+            if (isList) listState.firstVisibleItemScrollOffset else gridState.firstVisibleItemScrollOffset
+        }
+    }
+    val scrollInteractionSource = if (isList) listState.interactionSource else gridState.interactionSource
+    val scrollTo: suspend (Int) -> Unit = { idx ->
+        if (isList) listState.scrollToItem(idx) else gridState.scrollToItem(idx)
+    }
+
     val activeCategory by remember(categoryOffsets) {
         derivedStateOf {
-            val firstVisible = gridState.firstVisibleItemIndex
-            categoryOffsets.lastOrNull { it.first <= firstVisible }?.second
+            categoryOffsets.lastOrNull { it.first <= firstVisibleItemIndex }?.second
         }
     }
 
@@ -141,10 +166,9 @@ fun LibraryContent(
         !searchActive
 
     // Autohide on user drag only, not on any scroll. The hopper's own up/down/picker actions
-    // trigger programmatic animateScrollToItem / scrollToItem, which do not fire drag
-    // interactions; using isScrollInProgress instead would hide the hopper on every tap and
-    // break rapid up/down rhythm.
-    val isUserDragging by gridState.interactionSource.collectIsDraggedAsState()
+    // trigger programmatic scrollToItem, which do not fire drag interactions; using
+    // isScrollInProgress instead would hide the hopper on every tap and break rapid rhythm.
+    val isUserDragging by scrollInteractionSource.collectIsDraggedAsState()
     val hopperVisible by remember(hideHopper, autohideHopper, library, searchActive) {
         derivedStateOf {
             val base = !searchActive && !hideHopper && library.size > 1
@@ -167,27 +191,27 @@ fun LibraryContent(
     // resolves in a single frame, so each tap immediately advances firstVisibleItemIndex and
     // the next tap reads the updated state. Matches the legacy scrollToPositionWithOffset.
     val onHopperUp = {
-        val activeIdx = categoryOffsets.indexOfLast { it.first <= gridState.firstVisibleItemIndex }
+        val activeIdx = categoryOffsets.indexOfLast { it.first <= firstVisibleItemIndex }
         if (activeIdx >= 0) {
             val activeHeaderIdx = categoryOffsets[activeIdx].first
-            val pastHeader = gridState.firstVisibleItemIndex > activeHeaderIdx ||
-                gridState.firstVisibleItemScrollOffset > 0
+            val pastHeader = firstVisibleItemIndex > activeHeaderIdx ||
+                firstVisibleItemScrollOffset > 0
             val target = when {
                 pastHeader -> activeHeaderIdx
                 activeIdx > 0 -> categoryOffsets[activeIdx - 1].first
                 else -> null
             }
             target?.let { idx ->
-                coroutineScope.launch { gridState.scrollToItem(idx) }
+                coroutineScope.launch { scrollTo(idx) }
             }
         }
         Unit
     }
     val onHopperDown = {
-        val activeIdx = categoryOffsets.indexOfLast { it.first <= gridState.firstVisibleItemIndex }
+        val activeIdx = categoryOffsets.indexOfLast { it.first <= firstVisibleItemIndex }
         val nextHeader = categoryOffsets.getOrNull(activeIdx + 1)?.first
         nextHeader?.let { idx ->
-            coroutineScope.launch { gridState.scrollToItem(idx) }
+            coroutineScope.launch { scrollTo(idx) }
         }
         Unit
     }
@@ -283,73 +307,129 @@ fun LibraryContent(
                 .padding(contentPadding)
                 .onSizeChanged { parentWidthPx = it.width },
         ) {
-            LazyLibraryGrid(
-                columns = columns,
-                state = gridState,
-                contentPadding = PaddingValues(0.dp),
-            ) {
-                library.forEach { (category, mangaItems) ->
-                    item(
-                        key = "header:${category.id ?: 0}",
-                        span = { GridItemSpan(maxLineSpan) },
-                        contentType = "library_category_header",
-                    ) {
-                        Text(
-                            text = category.name,
-                            modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                    }
-                    items(
-                        items = mangaItems,
-                        key = { it.libraryManga.manga.id ?: 0L },
-                        contentType = { "library_grid_item" },
-                    ) { item ->
-                        val manga = item.libraryManga.manga
-                        // Avoid recomputing the cover wrapper and the title getter (which hits the
-                        // Injekt-backed CustomMangaManager for favorited manga) on every recompose
-                        // triggered by Coil state updates. Each manga.id is unique within the lazy
-                        // grid scope so it is a stable cache key.
-                        val coverData = remember(manga.id) { manga.cover() }
-                        val title = remember(manga.id) { manga.title }
-                        // unreadBadgeType: -1 hide, 1 show count, 2 show dot. BadgeSegments
-                        // currently only renders the count form, so 1 and 2 both show count
-                        // until a dot variant is added. Pass 0 when hidden so the badge slot
-                        // collapses.
-                        val unreadCount = if (unreadBadgeType > 0) item.libraryManga.unread else 0
-                        val downloadCount = if (showDownloadBadge) {
-                            item.downloadCount.toInt().coerceAtLeast(0)
-                        } else {
-                            0
+            if (isList) {
+                LazyLibraryList(
+                    state = listState,
+                    contentPadding = PaddingValues(0.dp),
+                ) {
+                    library.forEach { (category, mangaItems) ->
+                        item(
+                            key = "header:${category.id ?: 0}",
+                            contentType = "library_category_header",
+                        ) {
+                            Text(
+                                text = category.name,
+                                modifier = Modifier.padding(start = 12.dp, top = 16.dp, bottom = 4.dp),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
                         }
-                        val lang = if (showLanguageBadge) item.language.takeIf { it.isNotBlank() } else null
-                        // Skip the per-cover loading indicator. With large libraries each Coil state
-                        // transition triggers a recompose, which adds up to noticeable cold-start
-                        // lag; the cover placeholder color is enough visual cue while loading.
-                        when (libraryLayout) {
-                            LAYOUT_COMPACT_GRID, LAYOUT_COVER_ONLY_GRID -> {
-                                MangaCompactGridItem(
-                                    coverData = coverData,
-                                    title = title,
-                                    lang = lang,
-                                    unreadCount = unreadCount,
-                                    downloadCount = downloadCount,
-                                    showOutline = outlineOnCovers,
-                                    showLoadingIndicator = false,
-                                )
+                        items(
+                            items = mangaItems,
+                            key = { it.libraryManga.manga.id ?: 0L },
+                            contentType = { "library_list_item" },
+                        ) { item ->
+                            val manga = item.libraryManga.manga
+                            val coverData = remember(manga.id) { manga.cover() }
+                            val title = remember(manga.id) { manga.title }
+                            val subtitle = remember(manga.id) {
+                                val author = manga.author?.trim().orEmpty()
+                                val artist = manga.artist?.trim().orEmpty()
+                                when {
+                                    author.isEmpty() -> artist
+                                    artist.isEmpty() || artist == author -> author
+                                    author.contains(artist, true) -> author
+                                    else -> "$author, $artist"
+                                }
                             }
-                            else -> {
-                                // LAYOUT_COMFORTABLE_GRID and LAYOUT_LIST (list mode falls back to
-                                // comfortable until a list item composable lands in a later phase).
-                                MangaComfortableGridItem(
-                                    coverData = coverData,
-                                    title = title,
-                                    lang = lang,
-                                    unreadCount = unreadCount,
-                                    downloadCount = downloadCount,
-                                    showOutline = outlineOnCovers,
-                                    showLoadingIndicator = false,
-                                )
+                            MangaListItem(
+                                coverData = coverData,
+                                title = title,
+                                subtitle = subtitle.takeIf { it.isNotEmpty() },
+                            )
+                        }
+                    }
+                }
+            } else {
+                LazyLibraryGrid(
+                    columns = columns,
+                    state = gridState,
+                    contentPadding = PaddingValues(0.dp),
+                ) {
+                    library.forEach { (category, mangaItems) ->
+                        item(
+                            key = "header:${category.id ?: 0}",
+                            span = { GridItemSpan(maxLineSpan) },
+                            contentType = "library_category_header",
+                        ) {
+                            Text(
+                                text = category.name,
+                                modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                        }
+                        items(
+                            items = mangaItems,
+                            key = { it.libraryManga.manga.id ?: 0L },
+                            contentType = { "library_grid_item" },
+                        ) { item ->
+                            val manga = item.libraryManga.manga
+                            // Avoid recomputing the cover wrapper and the title getter (which
+                            // hits the Injekt-backed CustomMangaManager for favorited manga)
+                            // on every recompose triggered by Coil state updates. manga.id is
+                            // unique within the lazy grid scope so it is a stable cache key.
+                            val coverData = remember(manga.id) { manga.cover() }
+                            val title = remember(manga.id) { manga.title }
+                            // unreadBadgeType: -1 hide, 1 show count, 2 show dot. BadgeSegments
+                            // currently only renders the count form, so 1 and 2 both show count
+                            // until a dot variant is added. Pass 0 when hidden so the badge slot
+                            // collapses.
+                            val unreadCount = if (unreadBadgeType > 0) item.libraryManga.unread else 0
+                            val downloadCount = if (showDownloadBadge) {
+                                item.downloadCount.toInt().coerceAtLeast(0)
+                            } else {
+                                0
+                            }
+                            val lang = if (showLanguageBadge) item.language.takeIf { it.isNotBlank() } else null
+                            // Skip the per-cover loading indicator. With large libraries each
+                            // Coil state transition triggers a recompose; the cover placeholder
+                            // color is enough visual cue while loading.
+                            when (libraryLayout) {
+                                LAYOUT_COMFORTABLE_GRID -> {
+                                    MangaComfortableGridItem(
+                                        coverData = coverData,
+                                        title = title,
+                                        lang = lang,
+                                        unreadCount = unreadCount,
+                                        downloadCount = downloadCount,
+                                        showOutline = outlineOnCovers,
+                                        showLoadingIndicator = false,
+                                    )
+                                }
+                                LAYOUT_COVER_ONLY_GRID -> {
+                                    MangaCompactGridItem(
+                                        coverData = coverData,
+                                        title = title,
+                                        lang = lang,
+                                        unreadCount = unreadCount,
+                                        downloadCount = downloadCount,
+                                        showOutline = outlineOnCovers,
+                                        showTitle = false,
+                                        showLoadingIndicator = false,
+                                    )
+                                }
+                                else -> {
+                                    // LAYOUT_COMPACT_GRID — default for the grid path. The
+                                    // List layout is handled in the isList branch above.
+                                    MangaCompactGridItem(
+                                        coverData = coverData,
+                                        title = title,
+                                        lang = lang,
+                                        unreadCount = unreadCount,
+                                        downloadCount = downloadCount,
+                                        showOutline = outlineOnCovers,
+                                        showLoadingIndicator = false,
+                                    )
+                                }
                             }
                         }
                     }
@@ -415,10 +495,10 @@ fun LibraryContent(
                 onSelect = { category ->
                     val target = categoryOffsets.firstOrNull { it.second.id == category.id }?.first
                     target?.let { idx ->
-                        // Instant jump matches legacy scrollToHeader (which uses
-                        // scrollToPositionWithOffset). animateScrollToItem on LazyGrid jitters
-                        // when items between source and target need to be measured.
-                        coroutineScope.launch { gridState.scrollToItem(idx) }
+                        // Instant jump matches legacy scrollToHeader (uses
+                        // scrollToPositionWithOffset). animateScrollToItem jitters when items
+                        // between source and target need to be measured.
+                        coroutineScope.launch { scrollTo(idx) }
                     }
                     pickerOpen = false
                 },

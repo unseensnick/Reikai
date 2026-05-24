@@ -204,6 +204,12 @@ fun MangaCompactGridItem(
     badgeSegments: List<BadgeSegment> = listOf(),
     isSelected: Boolean = false,
     showOutline: Boolean = false,
+    /**
+     * When false, the gradient title overlay at the bottom of the cover is suppressed; the
+     * cell shows just the cover image. Library uses this for LAYOUT_COVER_ONLY_GRID to match
+     * the legacy view where `compactTitle` + `gradient` are hidden in cover-only mode.
+     */
+    showTitle: Boolean = true,
     onClickContinueReading: (() -> Unit)? = null,
     showLoadingIndicator: Boolean = true,
 ) {
@@ -248,9 +254,11 @@ fun MangaCompactGridItem(
                     onClick = onClickContinueReading,
                 )
             }
-            CoverTextOverlay(
-                title = title,
-            )
+            if (showTitle) {
+                CoverTextOverlay(
+                    title = title,
+                )
+            }
         },
     )
 }
