@@ -44,6 +44,8 @@ const val TAB_CATEGORIES = 3
 fun LibraryDisplayOptionsSheet(
     initialTab: Int,
     onDismiss: () -> Unit,
+    detectedMangaTypes: Set<Int> = emptySet(),
+    loggedTrackerNames: List<String> = emptyList(),
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var selectedTab by rememberSaveable { mutableIntStateOf(initialTab) }
@@ -65,7 +67,10 @@ fun LibraryDisplayOptionsSheet(
         }
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             when (selectedTab) {
-                TAB_FILTER -> FilterTab()
+                TAB_FILTER -> FilterTab(
+                    detectedMangaTypes = detectedMangaTypes,
+                    loggedTrackerNames = loggedTrackerNames,
+                )
                 TAB_DISPLAY -> DisplayTab()
                 TAB_BADGES -> BadgesTab()
                 TAB_CATEGORIES -> CategoriesTab()
