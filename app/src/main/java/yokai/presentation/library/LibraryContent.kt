@@ -34,6 +34,7 @@ import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -41,6 +42,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -120,6 +124,8 @@ fun LibraryContent(
     unreadBadgeType: Int,
     /** When true, suppress the continue-reading button overlay on covers with unread chapters. */
     hideStartReadingButton: Boolean,
+    /** Mirrors `preferences.useLargeToolbar()` — large title that collapses on scroll. */
+    useLargeToolbar: Boolean,
     isAnyFilterActive: Boolean,
     sheetOpen: Boolean,
     sheetTab: Int,
@@ -307,8 +313,22 @@ fun LibraryContent(
         }
     }
 
+    // Large-toolbar mode (preferences.useLargeToolbar()) renders a Material3 LargeTopAppBar
+    // that collapses on scroll. The scrollBehavior bridges the bar with the lazy grid/list
+    // via nestedScroll. Search swaps the whole bar for the small search overlay regardless of
+    // the user's toolbar preference; collapsing a search bar mid-query would be jarring.
+    val largeBarBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val scrollBehavior: TopAppBarScrollBehavior? = if (useLargeToolbar && !searchActive) {
+        largeBarBehavior
+    } else {
+        null
+    }
     Scaffold(
-        modifier = modifier,
+        modifier = if (scrollBehavior != null) {
+            modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
+        } else {
+            modifier
+        },
         topBar = {
             if (searchActive) {
                 LibrarySearchBar(
@@ -319,46 +339,29 @@ fun LibraryContent(
                         onSearchActiveChange(false)
                     },
                 )
+            } else if (useLargeToolbar) {
+                LargeTopAppBar(
+                    title = { Text(stringResource(MR.strings.library)) },
+                    scrollBehavior = scrollBehavior,
+                    actions = {
+                        LibraryToolbarActions(
+                            isAnyFilterActive = isAnyFilterActive,
+                            onSearch = { onSearchActiveChange(true) },
+                            onOpenFilter = onOpenFilter,
+                            onOpenOverflow = onOpenOverflow,
+                        )
+                    },
+                )
             } else {
                 TopAppBar(
                     title = { Text(stringResource(MR.strings.library)) },
                     actions = {
-                        IconButton(onClick = { onSearchActiveChange(true) }) {
-                            Icon(
-                                imageVector = Icons.Outlined.Search,
-                                contentDescription = stringResource(MR.strings.search),
-                            )
-                        }
-                        Box {
-                            IconButton(onClick = onOpenFilter) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Tune,
-                                    // The dot is purely visual; encode the active state into
-                                    // the icon's contentDescription so TalkBack announces both
-                                    // the action and its state.
-                                    contentDescription = stringResource(
-                                        if (isAnyFilterActive) MR.strings.filters_active
-                                        else MR.strings.filter
-                                    ),
-                                )
-                            }
-                            if (isAnyFilterActive) {
-                                Surface(
-                                    color = MaterialTheme.colorScheme.primary,
-                                    shape = CircleShape,
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding(top = 10.dp, end = 10.dp)
-                                        .size(8.dp),
-                                ) {}
-                            }
-                        }
-                        IconButton(onClick = onOpenOverflow) {
-                            Icon(
-                                imageVector = Icons.Outlined.MoreVert,
-                                contentDescription = stringResource(MR.strings.more),
-                            )
-                        }
+                        LibraryToolbarActions(
+                            isAnyFilterActive = isAnyFilterActive,
+                            onSearch = { onSearchActiveChange(true) },
+                            onOpenFilter = onOpenFilter,
+                            onOpenOverflow = onOpenOverflow,
+                        )
                     },
                 )
             }
@@ -627,6 +630,52 @@ fun LibraryContent(
         LibraryOverflowMenu(
             expanded = overflowOpen,
             onDismiss = onDismissOverflow,
+        )
+    }
+}
+
+/**
+ * Toolbar action cluster shared by both the small [TopAppBar] and [LargeTopAppBar] branches.
+ * Search, filter (with active-state dot encoded in the icon's contentDescription), overflow.
+ */
+@Composable
+private fun LibraryToolbarActions(
+    isAnyFilterActive: Boolean,
+    onSearch: () -> Unit,
+    onOpenFilter: () -> Unit,
+    onOpenOverflow: () -> Unit,
+) {
+    IconButton(onClick = onSearch) {
+        Icon(
+            imageVector = Icons.Outlined.Search,
+            contentDescription = stringResource(MR.strings.search),
+        )
+    }
+    Box {
+        IconButton(onClick = onOpenFilter) {
+            Icon(
+                imageVector = Icons.Outlined.Tune,
+                contentDescription = stringResource(
+                    if (isAnyFilterActive) MR.strings.filters_active
+                    else MR.strings.filter,
+                ),
+            )
+        }
+        if (isAnyFilterActive) {
+            Surface(
+                color = MaterialTheme.colorScheme.primary,
+                shape = CircleShape,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 10.dp, end = 10.dp)
+                    .size(8.dp),
+            ) {}
+        }
+    }
+    IconButton(onClick = onOpenOverflow) {
+        Icon(
+            imageVector = Icons.Outlined.MoreVert,
+            contentDescription = stringResource(MR.strings.more),
         )
     }
 }

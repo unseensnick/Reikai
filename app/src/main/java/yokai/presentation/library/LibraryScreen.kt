@@ -80,6 +80,7 @@ class LibraryScreen : Screen {
         val showEmptyCategoriesWhileFiltering by preferences.showEmptyCategoriesWhileFiltering().collectAsState()
         val showAllCategories by preferences.showAllCategories().collectAsState()
         val hideStartReadingButton by preferences.hideStartReadingButton().collectAsState()
+        val useLargeToolbar by preferences.useLargeToolbar().collectAsState()
         val hopperGravityPref = remember { preferences.hopperGravity() }
         val hopperGravity by hopperGravityPref.changes()
             .collectAsState(initial = hopperGravityPref.get())
@@ -246,6 +247,7 @@ class LibraryScreen : Screen {
             showLanguageBadge = showLanguageBadge,
             unreadBadgeType = unreadBadgeType,
             hideStartReadingButton = hideStartReadingButton,
+            useLargeToolbar = useLargeToolbar,
             isAnyFilterActive = filterState.isAnyActive,
             sheetOpen = sheetOpen,
             sheetTab = sheetTab,

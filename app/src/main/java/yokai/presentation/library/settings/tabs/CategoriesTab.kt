@@ -3,11 +3,18 @@ package yokai.presentation.library.settings.tabs
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -156,52 +163,60 @@ fun CategoriesTab(onDismissSheet: () -> Unit = {}) {
             entries = groupByEntries,
             onValueChange = { preferences.groupLibraryBy().set(it) },
         )
+
         // Expand / collapse all only operates on BY_DEFAULT grouping. The pref is a
         // Set<String> of category IDs the legacy treats as collapsed
         // (see LibraryPresenter.toggleAllCategoryVisibility). Dynamic grouping uses
         // collapsedDynamicCategories keyed by group-name, which the Compose path doesn't
         // enumerate yet; we defer the dynamic branch until Phase 6 ports multi-source grouping.
+        //
+        // The two action buttons share a row: expand/collapse-all carries a leading chevron
+        // matching the legacy filter sheet's expand_categories MaterialButton (app:icon =
+        // ic_expand_more_24dp), and add/edit-categories sits beside it. No divider between
+        // them since they are now a single action cluster.
         val allExpanded = collapsedCategories.isEmpty()
-        TextButton(
-            onClick = {
-                if (groupLibraryBy != LibraryGroup.BY_DEFAULT) return@TextButton
-                scope.launch {
-                    if (allExpanded) {
-                        val ids = getCategories.await().map { it.id.toString() }.toMutableSet()
-                        preferences.collapsedCategories().set(ids)
-                    } else {
-                        preferences.collapsedCategories().set(mutableSetOf())
-                    }
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp),
-            enabled = groupLibraryBy == LibraryGroup.BY_DEFAULT && allCategories.isNotEmpty(),
-        ) {
-            Text(
-                text = stringResource(
-                    if (allExpanded) MR.strings.collapse_all_categories
-                    else MR.strings.expand_all_categories,
-                ),
-                style = MaterialTheme.typography.labelLarge,
-            )
-        }
-
-        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp),
-            horizontalArrangement = Arrangement.Center,
+                .padding(horizontal = 4.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            TextButton(
+                onClick = {
+                    if (groupLibraryBy != LibraryGroup.BY_DEFAULT) return@TextButton
+                    scope.launch {
+                        if (allExpanded) {
+                            val ids = getCategories.await().map { it.id.toString() }.toMutableSet()
+                            preferences.collapsedCategories().set(ids)
+                        } else {
+                            preferences.collapsedCategories().set(mutableSetOf())
+                        }
+                    }
+                },
+                enabled = groupLibraryBy == LibraryGroup.BY_DEFAULT && allCategories.isNotEmpty(),
+                modifier = Modifier.weight(1f),
+            ) {
+                Icon(
+                    imageVector = if (allExpanded) Icons.Outlined.ExpandMore else Icons.Outlined.ExpandLess,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(
+                        if (allExpanded) MR.strings.collapse_all_categories
+                        else MR.strings.expand_all_categories,
+                    ),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
             TextButton(
                 onClick = {
                     router.pushController(CategoryController().withFadeTransaction())
                     onDismissSheet()
                 },
+                modifier = Modifier.weight(1f),
             ) {
                 Text(
                     text = stringResource(MR.strings.add_edit_categories),
