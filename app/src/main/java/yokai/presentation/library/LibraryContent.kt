@@ -313,15 +313,24 @@ fun LibraryContent(
         }
     }
 
-    // Topbar scroll behavior matches the legacy CoordinatorLayout setup. Both the small and
-    // large variants fully hide on scroll-down and reappear on scroll-up
-    // (enterAlwaysScrollBehavior). The large title was previously set to
-    // exitUntilCollapsedScrollBehavior so the bar collapsed to a small toolbar then stayed
-    // pinned; on-device the user wants the same full-hide behavior the small variant uses.
-    // Search active overrides both: pin the bar so the keyboard target stays put while the
-    // user is typing.
+    // Topbar scroll behavior matches the legacy CoordinatorLayout setup:
+    //   - useLargeToolbar = true → LargeTopAppBar collapses to a small bar on scroll
+    //     (exitUntilCollapsedScrollBehavior), matching the legacy CollapsingToolbarLayout
+    //     with scroll|exitUntilCollapsed flags. The large "Library" title shrinks into the
+    //     small bar's title slot as the user scrolls up, then the small bar stays pinned.
+    //   - useLargeToolbar = false → small TopAppBar fully hides on scroll
+    //     (enterAlwaysScrollBehavior), matching the legacy plain-toolbar scroll|enterAlways
+    //     flags. Bar disappears on scroll up, reappears on scroll down.
+    //   - searchActive overrides both: pin the bar so the keyboard target stays put.
+    // The Scaffold modifier carries the matching nestedScroll connection so the lazy grid /
+    // list / staggered grid drive the bar via vertical scroll deltas.
+    val exitUntilCollapsedBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val enterAlwaysBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    val scrollBehavior: TopAppBarScrollBehavior? = if (searchActive) null else enterAlwaysBehavior
+    val scrollBehavior: TopAppBarScrollBehavior? = when {
+        searchActive -> null
+        useLargeToolbar -> exitUntilCollapsedBehavior
+        else -> enterAlwaysBehavior
+    }
     Scaffold(
         modifier = if (scrollBehavior != null) {
             modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
