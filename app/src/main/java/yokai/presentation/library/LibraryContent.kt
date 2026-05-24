@@ -225,6 +225,15 @@ fun LibraryContent(
             else -> gridState.scrollToItem(idx)
         }
     }
+    val isScrollInProgress by remember(isList, isStaggered) {
+        derivedStateOf {
+            when {
+                isList -> listState.isScrollInProgress
+                isStaggered -> staggeredGridState.isScrollInProgress
+                else -> gridState.isScrollInProgress
+            }
+        }
+    }
 
     val activeCategory by remember(categoryOffsets) {
         derivedStateOf {
@@ -237,14 +246,24 @@ fun LibraryContent(
         activeCategory != null &&
         !searchActive
 
-    // Autohide on user drag only, not on any scroll. The hopper's own up/down/picker actions
-    // trigger programmatic scrollToItem, which do not fire drag interactions; using
-    // isScrollInProgress instead would hide the hopper on every tap and break rapid rhythm.
+    // Autohide tracks the full drag → fling → settle lifecycle so the hopper stays hidden
+    // through the fling after the user lifts their finger, matching the legacy RecyclerView
+    // scroll listener behavior. Just watching isScrollInProgress would also hide the hopper
+    // for programmatic scrolls (hopper button taps), so we latch on drag start and clear on
+    // scroll settle: the hopper's scrollToItem calls are instant and never set the drag bit,
+    // so userInitiatedScroll stays false for those.
     val isUserDragging by scrollInteractionSource.collectIsDraggedAsState()
+    var userInitiatedScroll by remember { mutableStateOf(false) }
+    LaunchedEffect(isUserDragging) {
+        if (isUserDragging) userInitiatedScroll = true
+    }
+    LaunchedEffect(isScrollInProgress) {
+        if (!isScrollInProgress) userInitiatedScroll = false
+    }
     val hopperVisible by remember(hideHopper, autohideHopper, library, searchActive) {
         derivedStateOf {
             val base = !searchActive && !hideHopper && library.size > 1
-            if (autohideHopper) base && !isUserDragging else base
+            if (autohideHopper) base && !userInitiatedScroll else base
         }
     }
 
