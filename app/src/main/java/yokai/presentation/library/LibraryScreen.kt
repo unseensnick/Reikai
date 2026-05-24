@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalConfiguration
@@ -19,11 +20,15 @@ import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.library.filter.FilterBottomSheet
 import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
+import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import eu.kanade.tachiyomi.util.chapter.ChapterSort
 import eu.kanade.tachiyomi.util.compose.LocalRouter
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.track.interactor.GetTrack
 import yokai.presentation.library.manga.MangaLibraryFilter
 import yokai.presentation.library.manga.MangaLibraryFilter.MangaFilterState
@@ -51,7 +56,9 @@ class LibraryScreen : Screen {
         val trackManager: TrackManager = remember { Injekt.get() }
         val downloadManager: DownloadManager = remember { Injekt.get() }
         val getTrack: GetTrack = remember { Injekt.get() }
+        val getChapter: GetChapter = remember { Injekt.get() }
         val router = LocalRouter.currentOrThrow
+        val coroutineScope = rememberCoroutineScope()
 
         val libraryLayout by preferences.libraryLayout().collectAsState()
         val uniformGrid by remember { Injekt.get<yokai.domain.ui.UiPreferences>().uniformGrid() }.collectAsState()
@@ -71,6 +78,7 @@ class LibraryScreen : Screen {
         val showLanguageBadge by preferences.languageBadge().collectAsState()
         val unreadBadgeType by preferences.unreadBadgeType().collectAsState()
         val showEmptyCategoriesWhileFiltering by preferences.showEmptyCategoriesWhileFiltering().collectAsState()
+        val hideStartReadingButton by preferences.hideStartReadingButton().collectAsState()
         val hopperGravityPref = remember { preferences.hopperGravity() }
         val hopperGravity by hopperGravityPref.changes()
             .collectAsState(initial = hopperGravityPref.get())
@@ -228,6 +236,7 @@ class LibraryScreen : Screen {
             showDownloadBadge = showDownloadBadge,
             showLanguageBadge = showLanguageBadge,
             unreadBadgeType = unreadBadgeType,
+            hideStartReadingButton = hideStartReadingButton,
             isAnyFilterActive = filterState.isAnyActive,
             sheetOpen = sheetOpen,
             sheetTab = sheetTab,
@@ -266,6 +275,19 @@ class LibraryScreen : Screen {
                 if (pool.isNotEmpty()) {
                     val random = pool.random().libraryManga.manga
                     router.pushController(MangaDetailsController(random).withFadeTransaction())
+                }
+            },
+            onContinueReading = { manga ->
+                // Mirror legacy LibraryController.startReading: load all chapters, pick the
+                // next-unread via ChapterSort, then launch ReaderActivity. Manga with no
+                // remaining unread chapters silently no-op (the button is gated on unread > 0
+                // upstream so this is only reachable in a race where the count changes).
+                coroutineScope.launch {
+                    val chapters = getChapter.awaitAll(manga)
+                    val next = ChapterSort(manga).getNextUnreadChapter(chapters, false)
+                        ?: return@launch
+                    val activity = router.activity ?: return@launch
+                    activity.startActivity(ReaderActivity.newIntent(activity, manga, next))
                 }
             },
             onOpenFilter = { sheetTab = 0; sheetOpen = true },

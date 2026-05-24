@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.data.database.models.Category
+import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COMFORTABLE_GRID
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COMPACT_GRID
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COVER_ONLY_GRID
@@ -117,6 +118,8 @@ fun LibraryContent(
     showDownloadBadge: Boolean,
     showLanguageBadge: Boolean,
     unreadBadgeType: Int,
+    /** When true, suppress the continue-reading button overlay on covers with unread chapters. */
+    hideStartReadingButton: Boolean,
     isAnyFilterActive: Boolean,
     sheetOpen: Boolean,
     sheetTab: Int,
@@ -137,6 +140,8 @@ fun LibraryContent(
     onOpenSheetAt: (Int) -> Unit,
     /** Navigate to a random series from the library. No-op when the library is empty. */
     onOpenRandomSeries: () -> Unit,
+    /** Invoked when the user taps the continue-reading button on a cover with unread chapters. */
+    onContinueReading: (Manga) -> Unit,
     onOpenFilter: () -> Unit,
     onOpenOverflow: () -> Unit,
     onDismissSheet: () -> Unit,
@@ -463,6 +468,8 @@ fun LibraryContent(
                                     showDownloadBadge = showDownloadBadge,
                                     showLanguageBadge = showLanguageBadge,
                                     unreadBadgeType = unreadBadgeType,
+                                    hideStartReadingButton = hideStartReadingButton,
+                                    onContinueReading = onContinueReading,
                                     coverAspectRatio = null,
                                 )
                             }
@@ -502,6 +509,8 @@ fun LibraryContent(
                                     showDownloadBadge = showDownloadBadge,
                                     showLanguageBadge = showLanguageBadge,
                                     unreadBadgeType = unreadBadgeType,
+                                    hideStartReadingButton = hideStartReadingButton,
+                                    onContinueReading = onContinueReading,
                                 )
                             }
                         }
@@ -688,6 +697,8 @@ private fun LibraryGridCell(
     showDownloadBadge: Boolean,
     showLanguageBadge: Boolean,
     unreadBadgeType: Int,
+    hideStartReadingButton: Boolean,
+    onContinueReading: (Manga) -> Unit,
     coverAspectRatio: Float? = MangaCoverRatio.BOOK,
 ) {
     val manga = item.libraryManga.manga
@@ -705,6 +716,17 @@ private fun LibraryGridCell(
         0
     }
     val lang = if (showLanguageBadge) item.language.takeIf { it.isNotBlank() } else null
+    // Continue-reading button: only when the user has not hidden it AND the manga has unread
+    // chapters. Skip the cover-only layout's button entirely so the cover stays unobstructed.
+    val continueReadingClick = if (
+        !hideStartReadingButton &&
+        item.libraryManga.unread > 0 &&
+        libraryLayout != LAYOUT_COVER_ONLY_GRID
+    ) {
+        { onContinueReading(manga) }
+    } else {
+        null
+    }
     // Skip per-cover loading indicator: with large libraries each Coil state transition is a
     // recompose, and the cover placeholder color is enough visual cue.
     when (libraryLayout) {
@@ -717,6 +739,7 @@ private fun LibraryGridCell(
             showOutline = outlineOnCovers,
             coverAspectRatio = coverAspectRatio,
             unreadDot = unreadDot,
+            onClickContinueReading = continueReadingClick,
             showLoadingIndicator = false,
         )
         LAYOUT_COVER_ONLY_GRID -> MangaCompactGridItem(
@@ -741,6 +764,7 @@ private fun LibraryGridCell(
             showOutline = outlineOnCovers,
             coverAspectRatio = coverAspectRatio,
             unreadDot = unreadDot,
+            onClickContinueReading = continueReadingClick,
             showLoadingIndicator = false,
         )
     }
