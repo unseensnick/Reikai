@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.icerock.moko.resources.compose.stringResource
@@ -39,6 +40,7 @@ import eu.kanade.tachiyomi.core.storage.preference.collectAsState
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsLibraryController
 import eu.kanade.tachiyomi.util.compose.LocalRouter
+import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -85,6 +87,14 @@ fun LibraryDisplayOptionsSheet(
     val filterOrder by preferences.filterOrder().collectAsState()
     val router = LocalRouter.currentOrThrow
     val maxSheetHeight = (LocalConfiguration.current.screenHeightDp / 2).dp
+    // containerColor reads ?attr/background straight off the theme (same pattern as the top
+    // bar and CategoryPickerSheet). createMdc3Theme does not surface the legacy Reikai
+    // custom attr as any M3 ColorScheme token; reading the same attr the library body uses
+    // keeps the sheet visually flush with the content above it.
+    val context = LocalContext.current
+    val sheetContainerColor = androidx.compose.runtime.remember(context) {
+        Color(context.getResourceColor(eu.kanade.tachiyomi.R.attr.background))
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -95,6 +105,7 @@ fun LibraryDisplayOptionsSheet(
         // on tablets that's centered with breathing room either side, on phones it's full
         // width (screen narrower than the cap).
         dragHandle = null,
+        containerColor = sheetContainerColor,
     ) {
         Row(
             modifier = Modifier
