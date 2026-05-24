@@ -32,7 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.icerock.moko.resources.compose.stringResource
@@ -91,11 +90,11 @@ fun LibraryDisplayOptionsSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         // Suppress the default drag handle. The title row + tab strip serve as the affordance
-        // and keep the sheet header from feeling stacked vertically.
+        // and keep the sheet header from feeling stacked vertically. sheetMaxWidth left at the
+        // M3 default (640.dp) so the sheet renders at the same width as CategoryPickerSheet —
+        // on tablets that's centered with breathing room either side, on phones it's full
+        // width (screen narrower than the cap).
         dragHandle = null,
-        // Default sheetMaxWidth is 640.dp, which leaves gaps on either side on wider tablets.
-        // Force full-width so the sheet hugs both edges like the legacy sheet.
-        sheetMaxWidth = Dp.Unspecified,
     ) {
         Row(
             modifier = Modifier

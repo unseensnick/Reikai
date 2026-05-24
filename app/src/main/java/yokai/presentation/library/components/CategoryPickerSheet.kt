@@ -23,7 +23,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.icerock.moko.resources.compose.stringResource
@@ -48,15 +47,16 @@ fun CategoryPickerSheet(
 ) {
     // Faithful port of the legacy MaterialMenuSheet sizing: opens fully expanded showing as
     // much content as the cap allows, drag-down or tap-outside dismisses. No drag handle (the
-    // title row is the affordance), full-width on tablets, and content capped at half-screen
-    // so long category lists scroll inside instead of pushing the sheet to ~95% height.
+    // title row is the affordance) and content capped at half-screen so long category lists
+    // scroll inside instead of pushing the sheet to ~95% height. sheetMaxWidth left at the
+    // M3 default (640.dp) so tablets see the sheet centered rather than hugging the screen
+    // edges. LibraryDisplayOptionsSheet matches this so both sheets render at identical width.
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val maxSheetHeight = (LocalConfiguration.current.screenHeightDp / 2).dp
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         dragHandle = null,
-        sheetMaxWidth = Dp.Unspecified,
     ) {
         Text(
             text = stringResource(MR.strings.jump_to_category),
