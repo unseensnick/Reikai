@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,6 +21,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -44,10 +46,12 @@ fun CategoryPickerSheet(
     onSelect: (Category) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    // Same sheet-shape choices as LibraryDisplayOptionsSheet so both sheets feel consistent:
-    // PartiallyExpanded ~50% screen as the starting state, no drag handle (the title row
-    // carries the affordance), and full-width on tablets via Dp.Unspecified.
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+    // Faithful port of the legacy MaterialMenuSheet sizing: opens fully expanded showing as
+    // much content as the cap allows, drag-down or tap-outside dismisses. No drag handle (the
+    // title row is the affordance), full-width on tablets, and content capped at half-screen
+    // so long category lists scroll inside instead of pushing the sheet to ~95% height.
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val maxSheetHeight = (LocalConfiguration.current.screenHeightDp / 2).dp
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -60,9 +64,11 @@ fun CategoryPickerSheet(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
         )
         HorizontalDivider()
-        // LazyColumn natively scrolls; combined with the partial / expanded sheet states the
-        // list scrolls within whichever height the sheet currently sits at.
-        LazyColumn(modifier = Modifier.fillMaxWidth()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = maxSheetHeight),
+        ) {
             items(categories, key = { it.id ?: 0 }) { category ->
                 CategoryPickerRow(
                     name = category.name,
