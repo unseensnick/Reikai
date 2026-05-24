@@ -1,18 +1,28 @@
 package yokai.presentation.library.settings.tabs
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.core.storage.preference.collectAsState
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.ui.category.CategoryController
+import eu.kanade.tachiyomi.util.compose.LocalRouter
+import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
@@ -28,8 +38,9 @@ import yokai.presentation.component.preference.widget.SwitchPreferenceWidget
  * is out of Phase 3 scope.
  */
 @Composable
-fun CategoriesTab() {
+fun CategoriesTab(onDismissSheet: () -> Unit = {}) {
     val preferences: PreferencesHelper = remember { Injekt.get() }
+    val router = LocalRouter.currentOrThrow
 
     val showAllCategories by preferences.showAllCategories().collectAsState()
     val showCategoryInTitle by preferences.showCategoryInTitle().collectAsState()
@@ -102,6 +113,25 @@ fun CategoriesTab() {
             entries = hopperLongPressEntries,
             onValueChange = { preferences.hopperLongPressAction().set(it) },
         )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(
+                onClick = {
+                    router.pushController(CategoryController().withFadeTransaction())
+                    onDismissSheet()
+                },
+            ) {
+                Text(
+                    text = stringResource(MR.strings.add_edit_categories),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
     }
 }
 

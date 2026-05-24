@@ -1,15 +1,10 @@
 package yokai.presentation.library.settings.tabs
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.SwapVert
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -17,9 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.compose.stringResource
@@ -52,6 +45,9 @@ import yokai.presentation.library.settings.FilterReorderList
 fun FilterTab(
     detectedMangaTypes: Set<Int> = emptySet(),
     loggedTrackerNames: List<String> = emptyList(),
+    reorderMode: Boolean = false,
+    filterOrder: String,
+    onFilterOrderChanged: (String) -> Unit,
 ) {
     val preferences: PreferencesHelper = remember { Injekt.get() }
 
@@ -62,7 +58,6 @@ fun FilterTab(
     val filterContentType by preferences.filterContentType().collectAsState()
     val filterMangaType by preferences.filterMangaType().collectAsState()
     val filterTracked by preferences.filterTracked().collectAsState()
-    val filterOrder by preferences.filterOrder().collectAsState()
 
     // FILTER_TRACKER is the JVM static String the legacy sheet stores the selected tracker
     // name in. Not a Flow, so we mirror it into a state that resets on each FilterTab entry
@@ -70,32 +65,16 @@ fun FilterTab(
     // they stay synchronised.
     var trackerName by remember { mutableStateOf(FilterBottomSheet.FILTER_TRACKER) }
 
-    var reorderMode by rememberSaveable { mutableStateOf(false) }
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(bottom = 16.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            TextButton(onClick = { reorderMode = !reorderMode }) {
-                Icon(Icons.Outlined.SwapVert, contentDescription = null)
-                Text(
-                    text = stringResource(MR.strings.reorder),
-                    modifier = Modifier.padding(start = 4.dp),
-                )
-            }
-        }
-
         if (reorderMode) {
             FilterReorderList(
                 order = filterOrder,
-                onOrderChanged = { preferences.filterOrder().set(it) },
+                onOrderChanged = onFilterOrderChanged,
             )
             return@Column
         }
