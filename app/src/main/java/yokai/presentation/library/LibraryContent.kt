@@ -51,6 +51,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -78,6 +79,7 @@ import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COMPACT_GRID
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COVER_ONLY_GRID
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_LIST
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
+import eu.kanade.tachiyomi.util.system.getResourceColor
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
@@ -422,18 +424,27 @@ fun LibraryContent(
         else -> enterAlwaysBehavior.nestedScrollConnection
     }
     // Single source of truth for top bar colors so all three variants (LargeTopAppBar +
-    // small TopAppBar + search bar) share the same theme tokens. surfaceContainer matches the
-    // legacy bottom_nav (BottomNavigationView) which resolves to that token through
-    // createMdc3Theme; using it everywhere keeps the top and bottom nav surfaces visually
-    // consistent across themes / follow-system / pure-black. The same TopAppBarColors type
-    // is accepted by both small and large variants — M3 deprecated the separate
-    // largeTopAppBarColors() factory in favor of topAppBarColors().
+    // small TopAppBar + search bar) share the same surface, and that surface matches the
+    // legacy bottom_nav exactly. The legacy bottom_nav style (Widget.Tachiyomi.BottomNavigationView)
+    // sets android:background="?colorPrimaryVariant", which is a Material 2 attr that
+    // createMdc3Theme does not map to any M3 ColorScheme token. We therefore read the attr
+    // straight off the theme; text/icons read ?actionBarTintColor (the legacy toolbar tint
+    // attr) for the same reason. Both are pulled from the Activity's resources, so theme
+    // switches, follow-system dark mode, and pure-black flow through after the activity's
+    // recreate() pass — same path the legacy bottom_nav uses.
+    val barContext = LocalContext.current
+    val barContainerColor = remember(barContext) {
+        Color(barContext.getResourceColor(eu.kanade.tachiyomi.R.attr.colorPrimaryVariant))
+    }
+    val barContentColor = remember(barContext) {
+        Color(barContext.getResourceColor(eu.kanade.tachiyomi.R.attr.actionBarTintColor))
+    }
     val libraryTopBarColors = TopAppBarDefaults.topAppBarColors(
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-        titleContentColor = MaterialTheme.colorScheme.onSurface,
-        navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-        actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        containerColor = barContainerColor,
+        scrolledContainerColor = barContainerColor,
+        titleContentColor = barContentColor,
+        navigationIconContentColor = barContentColor,
+        actionIconContentColor = barContentColor,
     )
 
     Scaffold(
