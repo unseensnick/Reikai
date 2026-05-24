@@ -7,12 +7,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -21,27 +24,33 @@ import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.core.storage.preference.collectAsState
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.category.CategoryController
+import eu.kanade.tachiyomi.ui.library.LibraryGroup
 import eu.kanade.tachiyomi.util.compose.LocalRouter
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
+import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import yokai.domain.category.interactor.GetCategories
 import yokai.i18n.MR
 import yokai.presentation.component.preference.widget.ListPreferenceWidget
 import yokai.presentation.component.preference.widget.SwitchPreferenceWidget
 
 /**
- * Categories tab: visibility toggles for the active-category chip, all-categories grouping,
- * dynamic-categories-at-bottom, the empty-while-filtering option, plus two list-dialogs for the
- * hopper (visibility + long-press action). Same preferences the legacy
- * [eu.kanade.tachiyomi.ui.library.display.LibraryCategoryView] writes. The "Add categories"
- * button is intentionally omitted; that screen is a separate Conductor controller and a port
- * is out of Phase 3 scope.
+ * Categories tab. Top section carries the library-shaping actions that used to live in the
+ * legacy filter sheet's bottom toolbar: "Group library by" (dialog) and an Expand / Collapse
+ * all categories toggle. Below that, the legacy display sub-view's toggles and lists in the
+ * same order they appear in [eu.kanade.tachiyomi.ui.library.display.LibraryCategoryView].
  */
 @Composable
 fun CategoriesTab(onDismissSheet: () -> Unit = {}) {
     val preferences: PreferencesHelper = remember { Injekt.get() }
+    val getCategories: GetCategories = remember { Injekt.get() }
     val router = LocalRouter.currentOrThrow
+    val scope = rememberCoroutineScope()
 
+    val groupLibraryBy by preferences.groupLibraryBy().collectAsState()
+    val collapsedCategories by preferences.collapsedCategories().collectAsState()
+    val allCategories by remember { getCategories.subscribe() }.collectAsState(initial = emptyList())
     val showAllCategories by preferences.showAllCategories().collectAsState()
     val showCategoryInTitle by preferences.showCategoryInTitle().collectAsState()
     val collapsedDynamicAtBottom by preferences.collapsedDynamicAtBottom().collectAsState()
@@ -49,6 +58,17 @@ fun CategoriesTab(onDismissSheet: () -> Unit = {}) {
     val hideHopper by preferences.hideHopper().collectAsState()
     val autohideHopper by preferences.autohideHopper().collectAsState()
     val hopperLongPressAction by preferences.hopperLongPressAction().collectAsState()
+
+    val groupByEntries: Map<Int, String> = mapOf(
+        LibraryGroup.BY_DEFAULT to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_DEFAULT)),
+        LibraryGroup.BY_TAG to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_TAG)),
+        LibraryGroup.BY_SOURCE to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_SOURCE)),
+        LibraryGroup.BY_STATUS to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_STATUS)),
+        LibraryGroup.BY_TRACK_STATUS to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_TRACK_STATUS)),
+        LibraryGroup.BY_AUTHOR to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_AUTHOR)),
+        LibraryGroup.BY_LANGUAGE to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_LANGUAGE)),
+        LibraryGroup.UNGROUPED to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.UNGROUPED)),
+    )
 
     // Mirrors the legacy hideHopperSpinner: index 0 = always shown, 1 = autohide on scroll,
     // 2 = always hidden. Encoded as (hideHopper * 2) + autohideHopper, clamped to [0, 2].
@@ -72,7 +92,49 @@ fun CategoriesTab(onDismissSheet: () -> Unit = {}) {
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
+        ListPreferenceWidget(
+            value = groupLibraryBy,
+            title = stringResource(MR.strings.group_library_by),
+            subtitle = groupByEntries[groupLibraryBy],
+            icon = null,
+            entries = groupByEntries,
+            onValueChange = { preferences.groupLibraryBy().set(it) },
+        )
+        // Expand / collapse all only operates on BY_DEFAULT grouping. The pref is a
+        // Set<String> of category IDs the legacy treats as collapsed
+        // (see LibraryPresenter.toggleAllCategoryVisibility). Dynamic grouping uses
+        // collapsedDynamicCategories keyed by group-name, which the Compose path doesn't
+        // enumerate yet; we defer the dynamic branch until Phase 6 ports multi-source grouping.
+        val allExpanded = collapsedCategories.isEmpty()
+        TextButton(
+            onClick = {
+                if (groupLibraryBy != LibraryGroup.BY_DEFAULT) return@TextButton
+                scope.launch {
+                    if (allExpanded) {
+                        val ids = getCategories.await().map { it.id.toString() }.toMutableSet()
+                        preferences.collapsedCategories().set(ids)
+                    } else {
+                        preferences.collapsedCategories().set(mutableSetOf())
+                    }
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
+            enabled = groupLibraryBy == LibraryGroup.BY_DEFAULT && allCategories.isNotEmpty(),
+        ) {
+            Text(
+                text = stringResource(
+                    if (allExpanded) MR.strings.collapse_all_categories
+                    else MR.strings.expand_all_categories,
+                ),
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
         SwitchPreferenceWidget(
             title = stringResource(MR.strings.always_show_current_category),
             checked = showCategoryInTitle,

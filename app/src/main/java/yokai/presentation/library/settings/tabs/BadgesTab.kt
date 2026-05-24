@@ -1,6 +1,7 @@
 package yokai.presentation.library.settings.tabs
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,6 +46,7 @@ fun BadgesTab() {
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         // Legacy unreadBadgeType values: -1 hide, 2 show unread badges (dot), 1 show count.
         // Order matches the legacy RadioGroup top-to-bottom.

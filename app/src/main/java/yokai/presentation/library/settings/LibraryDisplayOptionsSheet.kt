@@ -16,6 +16,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -73,7 +74,15 @@ fun LibraryDisplayOptionsSheet(
     detectedMangaTypes: Set<Int> = emptySet(),
     loggedTrackerNames: List<String> = emptyList(),
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // confirmValueChange vetoes the Hidden state, which disables the drag-to-dismiss gesture.
+    // The previous setup dismissed too easily — a small downward drag at the top of the
+    // scrollable content would slip through to the sheet's drag handler and close it. Outside
+    // taps still dismiss via onDismissRequest (M3 scrim handler does not route through
+    // confirmValueChange), so users keep a way out.
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { it != SheetValue.Hidden },
+    )
     var selectedTab by rememberSaveable { mutableIntStateOf(initialTab) }
     var filterReorderMode by rememberSaveable { mutableStateOf(false) }
     val preferences: PreferencesHelper = Injekt.get()
@@ -172,6 +181,7 @@ fun LibraryDisplayOptionsSheet(
                     reorderMode = filterReorderMode,
                     filterOrder = filterOrder,
                     onFilterOrderChanged = { preferences.filterOrder().set(it) },
+                    onApply = onDismiss,
                 )
                 TAB_DISPLAY -> DisplayTab()
                 TAB_BADGES -> BadgesTab()

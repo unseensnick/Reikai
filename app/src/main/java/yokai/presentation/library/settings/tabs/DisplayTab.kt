@@ -67,6 +67,7 @@ fun DisplayTab() {
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         LayoutRadioRow(MR.strings.list, LAYOUT_LIST, libraryLayout) { preferences.libraryLayout().set(it) }
         LayoutRadioRow(MR.strings.compact_grid, LAYOUT_COMPACT_GRID, libraryLayout) { preferences.libraryLayout().set(it) }
