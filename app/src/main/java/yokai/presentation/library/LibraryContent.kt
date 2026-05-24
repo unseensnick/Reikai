@@ -475,24 +475,24 @@ fun LibraryContent(
                     )
                 }
             } else {
-                // Colors are spelled out (rather than relying on the M3 defaults) so the bar
-                // tracks the user's theme through createMdc3Theme exactly the same way the
-                // legacy AppBarLayout does. Tokens mirror legacy main_activity.xml:
-                //   - containerColor = surface (legacy AppBarLayout sets bg to ?colorSurface)
-                //   - title / icons = onSurface / onSurfaceVariant (M3 equivalents of
-                //     legacy ?actionBarTintColor; createMdc3Theme keeps both pulled from the
-                //     same active XML attrs so themes / pure-black / follow-system flow in)
-                //   - scrolledContainerColor pinned to surface as well so the bar does not
-                //     elevation-tint to surfaceContainer mid-scroll; legacy keeps a flat
-                //     surface color on scroll.
+                // Tokens picked to match the Scaffold body. M3 Scaffold defaults its
+                // containerColor to colorScheme.background; TopAppBar defaults to
+                // colorScheme.surface. In Reikai themes (which carry over the legacy
+                // `?android:colorBackground` and `?attr/colorSurface` as distinct values via
+                // createMdc3Theme), those two tokens differ, so the M3 default produced a
+                // visibly lighter bar over a darker body. Pinning containerColor to
+                // background flattens the bar into the body the same way the legacy
+                // AppBarLayout did with its theme background. scrolledContainerColor matches
+                // so no elevation tint kicks in mid-scroll; the on-* tokens stay as the
+                // contentColorFor pairings expected by M3 for legibility on background.
                 TopAppBar(
                     title = { Text(stringResource(MR.strings.library)) },
                     scrollBehavior = scrollBehavior,
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        scrolledContainerColor = MaterialTheme.colorScheme.surface,
-                        titleContentColor = MaterialTheme.colorScheme.onSurface,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+                        containerColor = MaterialTheme.colorScheme.background,
+                        scrolledContainerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
                         actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     ),
                     actions = {
