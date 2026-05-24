@@ -87,6 +87,17 @@ fun CategoriesTab(onDismissSheet: () -> Unit = {}) {
         4 to stringResource(MR.strings.open_random_series),
     )
 
+    // Order mirrors the legacy library_category_layout.xml row order so users moving between
+    // the two paths see the same affordances in the same positions:
+    //   1. always_show_current_category, show_all_categories, move_dynamic_to_bottom,
+    //      show_categories_while_filtering, hide_category_hopper, category_hopper_long_press
+    //   2. Divider
+    //   3. Library-shape actions: group_library_by, expand/collapse-all (which the legacy
+    //      surfaces in the Filter sheet's action bar; we keep them here so the Categories tab
+    //      remains self-contained, but separate them visually since they reshape the library
+    //      rather than tweaking display).
+    //   4. Divider
+    //   5. add_edit_categories button.
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -94,47 +105,6 @@ fun CategoriesTab(onDismissSheet: () -> Unit = {}) {
             .padding(bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        ListPreferenceWidget(
-            value = groupLibraryBy,
-            title = stringResource(MR.strings.group_library_by),
-            subtitle = groupByEntries[groupLibraryBy],
-            icon = null,
-            entries = groupByEntries,
-            onValueChange = { preferences.groupLibraryBy().set(it) },
-        )
-        // Expand / collapse all only operates on BY_DEFAULT grouping. The pref is a
-        // Set<String> of category IDs the legacy treats as collapsed
-        // (see LibraryPresenter.toggleAllCategoryVisibility). Dynamic grouping uses
-        // collapsedDynamicCategories keyed by group-name, which the Compose path doesn't
-        // enumerate yet; we defer the dynamic branch until Phase 6 ports multi-source grouping.
-        val allExpanded = collapsedCategories.isEmpty()
-        TextButton(
-            onClick = {
-                if (groupLibraryBy != LibraryGroup.BY_DEFAULT) return@TextButton
-                scope.launch {
-                    if (allExpanded) {
-                        val ids = getCategories.await().map { it.id.toString() }.toMutableSet()
-                        preferences.collapsedCategories().set(ids)
-                    } else {
-                        preferences.collapsedCategories().set(mutableSetOf())
-                    }
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp),
-            enabled = groupLibraryBy == LibraryGroup.BY_DEFAULT && allCategories.isNotEmpty(),
-        ) {
-            Text(
-                text = stringResource(
-                    if (allExpanded) MR.strings.collapse_all_categories
-                    else MR.strings.expand_all_categories,
-                ),
-                style = MaterialTheme.typography.labelLarge,
-            )
-        }
-        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-
         SwitchPreferenceWidget(
             title = stringResource(MR.strings.always_show_current_category),
             checked = showCategoryInTitle,
@@ -175,6 +145,51 @@ fun CategoriesTab(onDismissSheet: () -> Unit = {}) {
             entries = hopperLongPressEntries,
             onValueChange = { preferences.hopperLongPressAction().set(it) },
         )
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+        ListPreferenceWidget(
+            value = groupLibraryBy,
+            title = stringResource(MR.strings.group_library_by),
+            subtitle = groupByEntries[groupLibraryBy],
+            icon = null,
+            entries = groupByEntries,
+            onValueChange = { preferences.groupLibraryBy().set(it) },
+        )
+        // Expand / collapse all only operates on BY_DEFAULT grouping. The pref is a
+        // Set<String> of category IDs the legacy treats as collapsed
+        // (see LibraryPresenter.toggleAllCategoryVisibility). Dynamic grouping uses
+        // collapsedDynamicCategories keyed by group-name, which the Compose path doesn't
+        // enumerate yet; we defer the dynamic branch until Phase 6 ports multi-source grouping.
+        val allExpanded = collapsedCategories.isEmpty()
+        TextButton(
+            onClick = {
+                if (groupLibraryBy != LibraryGroup.BY_DEFAULT) return@TextButton
+                scope.launch {
+                    if (allExpanded) {
+                        val ids = getCategories.await().map { it.id.toString() }.toMutableSet()
+                        preferences.collapsedCategories().set(ids)
+                    } else {
+                        preferences.collapsedCategories().set(mutableSetOf())
+                    }
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
+            enabled = groupLibraryBy == LibraryGroup.BY_DEFAULT && allCategories.isNotEmpty(),
+        ) {
+            Text(
+                text = stringResource(
+                    if (allExpanded) MR.strings.collapse_all_categories
+                    else MR.strings.expand_all_categories,
+                ),
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()

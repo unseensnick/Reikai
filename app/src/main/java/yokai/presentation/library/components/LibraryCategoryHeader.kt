@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.icerock.moko.resources.compose.stringResource
 import yokai.i18n.MR
 
@@ -68,7 +69,10 @@ fun LibraryCategoryHeader(
         }
         Text(
             text = if (showItemCount) "$name ($itemCount)" else name,
-            style = MaterialTheme.typography.titleMedium,
+            // Legacy library_category_header_item.xml uses ?textAppearanceTitleMedium with an
+            // explicit android:textSize="18sp" override. MaterialTheme.typography.titleMedium
+            // defaults to 16sp; copy with fontSize = 18.sp to match the legacy weight.
+            style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
             modifier = Modifier
                 .weight(1f)
                 .padding(start = if (collapsible) 8.dp else 0.dp),

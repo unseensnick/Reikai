@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -17,8 +18,6 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -203,11 +202,16 @@ fun MangaComfortableGridItem(
                 }
             },
         )
+        // Below-cover comfortable title. Legacy manga_grid_item.xml uses
+        // ?textAppearanceBodySmall (12sp) with lineHeight=15sp; mirror that exactly so the
+        // two-line text block under each cover matches the legacy height.
         GridItemTitle(
             modifier = Modifier.padding(4.dp),
             title = title,
-            style = MaterialTheme.typography.titleSmall.copy(
+            style = MaterialTheme.typography.bodySmall.copy(
                 color = MaterialTheme.colorScheme.onBackground,
+                fontSize = 12.sp,
+                lineHeight = 15.sp,
             ),
             minLines = 2,
         )
@@ -294,25 +298,29 @@ fun ContinueReadingButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    // Visuals mirror the legacy round_play_background drawable and ic_start_reading_24dp:
-    //   - 42dp interactive target so the visible 30dp button matches the legacy FrameLayout
-    //     (50dp - 6dp margins * 2 = 30dp visible) instead of the Material default 24dp.
-    //   - 0xAD212121 fill + 0.1dp #EDEDED stroke from round_play_background.
-    //   - ic_start_reading_24dp drawable, white tint, 6dp inset (matches the ImageView's
-    //     padding="6dp" in manga_grid_item.xml).
-    IconButton(
+    // Mirrors the legacy manga_grid_item.xml play button precisely:
+    //   FrameLayout 50dp wrapping an ImageView 30dp with 6dp marginTop/End/Bottom (no start
+    //   margin) → visible 30dp circular button anchored to the bottom-right of the cover.
+    //   Background = round_play_background.xml: 32dp rect with 16dp corner radius (= circle),
+    //     0xAD212121 fill, 0.1dp #EDEDED stroke.
+    //   Icon = ic_start_reading_24dp, white tint, with 6dp ImageView padding so the 24dp
+    //     drawable renders at 18dp.
+    // Rolling a Box (not IconButton) because M3 IconButton bakes in its own minimum size and
+    // its own internal Surface shape; layering .size().padding().border() on top of that gave
+    // an over-sized button with a soft-rectangle outline on device. The Box composes the same
+    // visuals from scratch and keeps the tap target exactly 30dp like the legacy ImageView.
+    Box(
         modifier = modifier
-            .size(42.dp)
-            .padding(6.dp)
-            .border(BorderStroke(0.1.dp, Color(0xFFEDEDED)), CircleShape),
-        onClick = onClick,
-        shape = CircleShape,
-        colors = IconButtonDefaults.iconButtonColors().copy(
-            containerColor = Color(0xAD212121),
-        ),
+            .padding(top = 6.dp, end = 6.dp, bottom = 6.dp)
+            .size(30.dp)
+            .clip(CircleShape)
+            .background(Color(0xAD212121))
+            .border(BorderStroke(0.1.dp, Color(0xFFEDEDED)), CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
         Icon(
-            modifier = Modifier.padding(6.dp),
+            modifier = Modifier.size(18.dp),
             painter = painterResource(id = eu.kanade.tachiyomi.R.drawable.ic_start_reading_24dp),
             contentDescription = stringResource(MR.strings.start_reading),
             tint = Color.White,
@@ -337,13 +345,17 @@ private fun BoxScope.CoverTextOverlay(
             .fillMaxWidth()
             .align(Alignment.BottomCenter),
     )
+    // Compact-overlay title rendered on the cover gradient. Legacy compact_title is
+    // ?textAppearanceLabelMedium with android:textSize="13sp", maxLines 2; mirror that here so
+    // the cover overlay text reads the same in both paths.
     GridItemTitle(
         modifier = Modifier
             .align(Alignment.BottomStart)
             .padding(8.dp),
         title = title,
-        style = MaterialTheme.typography.titleSmall.copy(
+        style = MaterialTheme.typography.labelMedium.copy(
             color = Color.White,
+            fontSize = 13.sp,
             shadow = Shadow(
                 color = Color.Black,
                 blurRadius = 4f,
@@ -361,11 +373,12 @@ private fun GridItemTitle(
     modifier: Modifier = Modifier,
     maxLines: Int = 2,
 ) {
+    // Font size + lineHeight come from [style] so each call site (compact overlay vs
+    // comfortable below-cover) can match its legacy counterpart. Previously this hardcoded
+    // 12.sp / 18.sp which silently overrode any size passed via the style.
     Text(
         modifier = modifier,
         text = title,
-        fontSize = 12.sp,
-        lineHeight = 18.sp,
         minLines = minLines,
         maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
