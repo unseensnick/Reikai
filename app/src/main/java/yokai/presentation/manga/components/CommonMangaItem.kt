@@ -114,6 +114,7 @@ fun BadgeSegments(
                 backgroundColor = MaterialTheme.colorScheme.tertiary,
                 text = downloadCount.toString(),
                 textColor = MaterialTheme.colorScheme.onTertiary,
+                contentDescription = stringResource(MR.strings._downloaded, downloadCount),
             )
         )
     }
@@ -127,6 +128,7 @@ fun BadgeSegments(
                     backgroundColor = MaterialTheme.colorScheme.secondary,
                     text = unreadCount.toString(),
                     textColor = MaterialTheme.colorScheme.onSecondary,
+                    contentDescription = stringResource(MR.strings._unread, unreadCount),
                 )
             }
         )

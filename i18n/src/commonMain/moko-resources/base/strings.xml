@@ -161,6 +161,7 @@
     <string name="collapse_category">Collapse category</string>
     <string name="reorder_filters">Reorder filters</string>
     <string name="_unread">%d unread</string>
+    <string name="_downloaded">%d downloaded</string>
     <string name="search_globally">Search \"%1$s\" globally</string>
 
     <string name="read_progress">Read progress</string>
@@ -1164,6 +1165,7 @@
     <string name="exclude_">Exclude: %s</string>
     <string name="fast">Fast</string>
     <string name="filter">Filter</string>
+    <string name="filters_active">Filter, active</string>
     <string name="forward">Forward</string>
     <string name="free">Free</string>
     <string name="hide">Hide</string>

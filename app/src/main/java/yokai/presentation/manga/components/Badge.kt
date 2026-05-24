@@ -26,6 +26,8 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Density
@@ -61,6 +63,12 @@ data class BadgeSegment(
             backgroundColor: Color = Color.Transparent,
             textColor: Color = Color.Black,
             fontSize: TextUnit = 13.sp,
+            /**
+             * Optional override for the announcement TalkBack reads. Pass a phrase like
+             * "5 downloads" so the count gets meaningful context; null falls back to the
+             * literal [text], which reads as a bare number.
+             */
+            contentDescription: String? = null,
         ): BadgeSegment {
             return BadgeSegment(
                 backgroundColor = backgroundColor,
@@ -74,6 +82,11 @@ data class BadgeSegment(
                                 includeFontPadding = false
                             ),
                         ),
+                        modifier = if (contentDescription != null) {
+                            Modifier.semantics { this.contentDescription = contentDescription }
+                        } else {
+                            Modifier
+                        },
                     )
                 }
             )

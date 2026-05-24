@@ -333,7 +333,13 @@ fun LibraryContent(
                             IconButton(onClick = onOpenFilter) {
                                 Icon(
                                     imageVector = Icons.Outlined.Tune,
-                                    contentDescription = stringResource(MR.strings.filter),
+                                    // The dot is purely visual; encode the active state into
+                                    // the icon's contentDescription so TalkBack announces both
+                                    // the action and its state.
+                                    contentDescription = stringResource(
+                                        if (isAnyFilterActive) MR.strings.filters_active
+                                        else MR.strings.filter
+                                    ),
                                 )
                             }
                             if (isAnyFilterActive) {

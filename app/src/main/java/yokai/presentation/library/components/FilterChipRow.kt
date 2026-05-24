@@ -16,6 +16,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
@@ -75,6 +79,7 @@ private fun LibraryPillChip(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
+    val isSelected = selected
     val shape = RoundedCornerShape(percent = 50)
     val containerColor = if (selected) {
         MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
@@ -98,6 +103,13 @@ private fun LibraryPillChip(
         color = containerColor,
         contentColor = contentColor,
         border = border,
+        // Color is the only visual cue for selected state on the pill, so expose it
+        // explicitly via semantics so TalkBack announces the chip as selected/unselected
+        // alongside its text label.
+        modifier = Modifier.semantics {
+            role = Role.RadioButton
+            this.selected = isSelected
+        },
     ) {
         Text(
             text = text,
