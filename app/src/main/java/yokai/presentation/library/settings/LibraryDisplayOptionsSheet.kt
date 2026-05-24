@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Settings
@@ -30,6 +31,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.icerock.moko.resources.compose.stringResource
@@ -76,6 +79,7 @@ fun LibraryDisplayOptionsSheet(
     val preferences: PreferencesHelper = Injekt.get()
     val filterOrder by preferences.filterOrder().collectAsState()
     val router = LocalRouter.currentOrThrow
+    val maxSheetHeight = (LocalConfiguration.current.screenHeightDp / 2).dp
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -83,6 +87,9 @@ fun LibraryDisplayOptionsSheet(
         // Suppress the default drag handle. The title row + tab strip serve as the affordance
         // and keep the sheet header from feeling stacked vertically.
         dragHandle = null,
+        // Default sheetMaxWidth is 640.dp, which leaves gaps on either side on wider tablets.
+        // Force full-width so the sheet hugs both edges like the legacy sheet.
+        sheetMaxWidth = Dp.Unspecified,
     ) {
         Row(
             modifier = Modifier
@@ -150,7 +157,14 @@ fun LibraryDisplayOptionsSheet(
                 )
             }
         }
-        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        // Cap the body at half the screen height so the sheet does not balloon to ~95% on
+        // tablets. Tab content uses its own verticalScroll so overflow scrolls naturally.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = maxSheetHeight)
+                .padding(horizontal = 16.dp),
+        ) {
             when (selectedTab) {
                 TAB_FILTER -> FilterTab(
                     detectedMangaTypes = detectedMangaTypes,

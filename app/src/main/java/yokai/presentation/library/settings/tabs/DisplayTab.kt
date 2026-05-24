@@ -28,6 +28,7 @@ import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COMFORTABLE_G
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COMPACT_GRID
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COVER_ONLY_GRID
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_LIST
+import kotlin.math.max
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import uy.kohesive.injekt.Injekt
@@ -140,9 +141,17 @@ private fun GridSizeRow(
     // Mirror the legacy slider mapping: pref Float is converted to a slider int 0..7 via
     // (pref + 0.5) * 2, so the default pref of 1.0f sits at slider position 3 (mid).
     val sliderValue = ((gridSizeFloat + 0.5f) * 2f).coerceIn(0f, 7f)
-    val cellMinSizeDp = (128f * 1.5f.pow(gridSizeFloat)).roundToInt().coerceIn(72, 320)
-    val screenWidthDp = LocalConfiguration.current.screenWidthDp
-    val columns = (screenWidthDp / cellMinSizeDp).coerceAtLeast(1)
+    val config = LocalConfiguration.current
+    // Several consecutive slider stops can map to the same column count in one orientation,
+    // which reads as "duplicate steps". Showing both Portrait and Landscape labels makes the
+    // alt axis differences visible so the user can tell adjacent stops apart. Mirrors the
+    // legacy slider labelFormatter ("Portrait: X • Landscape: Y").
+    val portraitWidth = minOf(config.screenWidthDp, config.screenHeightDp)
+    val landscapeWidth = maxOf(config.screenWidthDp, config.screenHeightDp)
+    val portraitCols = columnsForGridValue(sliderValue, portraitWidth)
+    val landscapeCols = columnsForGridValue(sliderValue, landscapeWidth)
+    val portraitLabel = stringResource(MR.strings.portrait)
+    val landscapeLabel = stringResource(MR.strings.landscape)
 
     Row(
         modifier = Modifier
@@ -157,7 +166,7 @@ private fun GridSizeRow(
                 style = MaterialTheme.typography.bodyLarge,
             )
             Text(
-                text = stringResource(MR.strings._per_row, columns),
+                text = "$portraitLabel: $portraitCols • $landscapeLabel: $landscapeCols",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -174,4 +183,27 @@ private fun GridSizeRow(
             Text(stringResource(MR.strings.reset))
         }
     }
+}
+
+/**
+ * Direct port of [eu.kanade.tachiyomi.util.view.numberOfRowsForValue] for the grid-size slider.
+ * Returns the column count for a given screen-width-in-dp at the given slider value (0..7).
+ *
+ * Formula (matches legacy):
+ *   value    = (rawValue / 2) - 0.5
+ *   size     = 1.5 ^ value
+ *   trueSize = MULTIPLE * round(size * 100 / MULTIPLE) / 100, with MULTIPLE = 25
+ *   columns  = round((widthDp / 100) / trueSize), floored to 1
+ *
+ * The discretisation to MULTIPLE / 100 (i.e. 0.25 increments) is what makes adjacent slider
+ * stops occasionally land on the same column count; showing both orientations in the subtitle
+ * is the legacy's mitigation, and we follow suit.
+ */
+internal fun columnsForGridValue(rawValue: Float, screenWidthDp: Int): Int {
+    val multiple = 25f
+    val value = (rawValue / 2f) - 0.5f
+    val size = 1.5f.pow(value)
+    val trueSize = multiple * (size * 100f / multiple).roundToInt() / 100f
+    val dpUnits = (screenWidthDp / 100f).roundToInt()
+    return max(1, (dpUnits / trueSize).roundToInt())
 }

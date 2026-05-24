@@ -79,7 +79,7 @@ fun LibraryContent(
     allCategories: List<Category>,
     categoryItemCounts: Map<Int, Int>,
     showCategoryItemCounts: Boolean,
-    cellMinSizeDp: Int,
+    columns: Int,
     libraryLayout: Int,
     searchActive: Boolean,
     searchQuery: String,
@@ -280,7 +280,7 @@ fun LibraryContent(
                 .onSizeChanged { parentWidthPx = it.width },
         ) {
             LazyLibraryGrid(
-                cellMinSizeDp = cellMinSizeDp,
+                columns = columns,
                 state = gridState,
                 contentPadding = PaddingValues(0.dp),
             ) {

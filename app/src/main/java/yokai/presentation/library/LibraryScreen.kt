@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalConfiguration
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.tachiyomi.core.storage.preference.collectAsState
@@ -16,8 +17,6 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.library.filter.FilterBottomSheet
-import kotlin.math.pow
-import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -26,6 +25,7 @@ import yokai.presentation.library.manga.MangaLibraryFilter
 import yokai.presentation.library.manga.MangaLibraryFilter.MangaFilterState
 import yokai.presentation.library.manga.MangaLibraryScreenModel
 import yokai.presentation.library.manga.MangaLibrarySearch
+import yokai.presentation.library.settings.tabs.columnsForGridValue
 import yokai.util.lang.getString
 
 /**
@@ -57,11 +57,14 @@ class LibraryScreen : Screen {
         val hopperGravity by hopperGravityPref.changes()
             .collectAsState(initial = hopperGravityPref.get())
 
-        // Cell size derived from preferences.gridSize() (a Float). Smaller pref = denser grid;
-        // legacy uses `1.5f.pow(value)` as the cell-scale multiplier and a 128.dp baseline,
-        // which lines up with Phase 1's adaptive 128.dp default at pref=0.
+        // Column count derived from preferences.gridSize() via the legacy formula (see
+        // [columnsForGridValue] for the math). Pref Float maps to a slider int 0..7; we use the
+        // current screen width to compute exactly the column count shown in the Display tab's
+        // "Portrait: X • Landscape: Y" subtitle, so the user sees the grid render the same N
+        // they pick in the picker.
         val gridSizePref by preferences.gridSize().collectAsState()
-        val cellMinSizeDp = (128f * 1.5f.pow(gridSizePref)).roundToInt().coerceIn(72, 320)
+        val sliderValue = ((gridSizePref + 0.5f) * 2f).coerceIn(0f, 7f)
+        val columns = columnsForGridValue(sliderValue, LocalConfiguration.current.screenWidthDp)
 
         // Filter prefs collected reactively so chip taps in the sheet flow through to the grid
         // without dismiss-and-reopen.
@@ -154,7 +157,7 @@ class LibraryScreen : Screen {
             allCategories = allCategories,
             categoryItemCounts = categoryItemCounts,
             showCategoryItemCounts = showCategoryItemCounts,
-            cellMinSizeDp = cellMinSizeDp,
+            columns = columns,
             libraryLayout = libraryLayout,
             searchActive = searchActive,
             searchQuery = searchQuery,
