@@ -157,6 +157,8 @@
     <string name="open_random_series_global">Open a random series (Global)</string>
     <string name="expand_all_categories">Expand all categories</string>
     <string name="collapse_all_categories">Collapse all categories</string>
+    <string name="expand_category">Expand category</string>
+    <string name="collapse_category">Collapse category</string>
     <string name="reorder_filters">Reorder filters</string>
     <string name="_unread">%d unread</string>
     <string name="search_globally">Search \"%1$s\" globally</string>

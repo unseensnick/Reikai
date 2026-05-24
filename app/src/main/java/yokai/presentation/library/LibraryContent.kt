@@ -77,6 +77,7 @@ import yokai.presentation.library.components.CategoryPickerSheet
 import yokai.presentation.library.components.LazyLibraryGrid
 import yokai.presentation.library.components.LazyLibraryList
 import yokai.presentation.library.components.LazyLibraryStaggeredGrid
+import yokai.presentation.library.components.LibraryCategoryHeader
 import yokai.presentation.library.components.LibraryOverflowMenu
 import yokai.presentation.library.settings.LibraryDisplayOptionsSheet
 import yokai.presentation.manga.components.Badge
@@ -92,6 +93,15 @@ fun LibraryContent(
     library: Map<Category, List<LibraryItem.Manga>>,
     allCategories: List<Category>,
     categoryItemCounts: Map<Int, Int>,
+    /**
+     * Per-category item count for the in-grid header. Sourced from the post-filter,
+     * pre-collapse library so collapsing a category does not zero out its header count.
+     */
+    displayedHeaderCounts: Map<Int, Int>,
+    /** Category IDs the user has collapsed via the header chevron. */
+    collapsedIds: Set<Int>,
+    /** Whether the header chevron is interactive (false for dynamic groupings). */
+    collapsibleHeaders: Boolean,
     showCategoryItemCounts: Boolean,
     columns: Int,
     libraryLayout: Int,
@@ -116,6 +126,7 @@ fun LibraryContent(
     onSearchActiveChange: (Boolean) -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onHopperGravityChange: (Int) -> Unit,
+    onToggleCategoryCollapse: (Category) -> Unit,
     onOpenFilter: () -> Unit,
     onOpenOverflow: () -> Unit,
     onDismissSheet: () -> Unit,
@@ -348,10 +359,13 @@ fun LibraryContent(
                                 key = "header:${category.id ?: 0}",
                                 contentType = "library_category_header",
                             ) {
-                                Text(
-                                    text = category.name,
-                                    modifier = Modifier.padding(start = 12.dp, top = 16.dp, bottom = 4.dp),
-                                    style = MaterialTheme.typography.titleMedium,
+                                LibraryCategoryHeader(
+                                    name = category.name,
+                                    itemCount = displayedHeaderCounts[category.id ?: 0] ?: 0,
+                                    showItemCount = showCategoryItemCounts,
+                                    isCollapsed = category.id != null && category.id in collapsedIds,
+                                    collapsible = collapsibleHeaders,
+                                    onClick = { onToggleCategoryCollapse(category) },
                                 )
                             }
                             items(
@@ -416,10 +430,13 @@ fun LibraryContent(
                                 span = StaggeredGridItemSpan.FullLine,
                                 contentType = "library_category_header",
                             ) {
-                                Text(
-                                    text = category.name,
-                                    modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp),
-                                    style = MaterialTheme.typography.titleMedium,
+                                LibraryCategoryHeader(
+                                    name = category.name,
+                                    itemCount = displayedHeaderCounts[category.id ?: 0] ?: 0,
+                                    showItemCount = showCategoryItemCounts,
+                                    isCollapsed = category.id != null && category.id in collapsedIds,
+                                    collapsible = collapsibleHeaders,
+                                    onClick = { onToggleCategoryCollapse(category) },
                                 )
                             }
                             items(
@@ -454,10 +471,13 @@ fun LibraryContent(
                                 span = { GridItemSpan(maxLineSpan) },
                                 contentType = "library_category_header",
                             ) {
-                                Text(
-                                    text = category.name,
-                                    modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp),
-                                    style = MaterialTheme.typography.titleMedium,
+                                LibraryCategoryHeader(
+                                    name = category.name,
+                                    itemCount = displayedHeaderCounts[category.id ?: 0] ?: 0,
+                                    showItemCount = showCategoryItemCounts,
+                                    isCollapsed = category.id != null && category.id in collapsedIds,
+                                    collapsible = collapsibleHeaders,
+                                    onClick = { onToggleCategoryCollapse(category) },
                                 )
                             }
                             items(

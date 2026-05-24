@@ -51,6 +51,9 @@ class LibraryScreen : Screen {
         val libraryLayout by preferences.libraryLayout().collectAsState()
         val uniformGrid by remember { Injekt.get<yokai.domain.ui.UiPreferences>().uniformGrid() }.collectAsState()
         val useStaggeredGrid by preferences.useStaggeredGrid().collectAsState()
+        val groupLibraryBy by preferences.groupLibraryBy().collectAsState()
+        val collapsedCategories by preferences.collapsedCategories().collectAsState()
+        val collapsedCategoriesPref = remember { preferences.collapsedCategories() }
         val showCategoryInTitle by preferences.showCategoryInTitle().collectAsState()
         val showCategoryItemCounts by preferences.categoryNumberOfItems().collectAsState()
         val hideHopper by preferences.hideHopper().collectAsState()
@@ -165,7 +168,7 @@ class LibraryScreen : Screen {
         // library (search or filters), re-introduce categories that were filtered to empty so
         // their headers remain visible. Matches the legacy preference. The map sums work
         // because Category instances are stable across the library / filteredLibrary maps.
-        val displayedLibrary = if (
+        val postFilterLibrary = if (
             showEmptyCategoriesWhileFiltering &&
             (searchQuery.isNotEmpty() || filterState.isAnyActive)
         ) {
@@ -174,10 +177,36 @@ class LibraryScreen : Screen {
             filteredLibrary
         }
 
+        // Header counts are sourced from the pre-collapse, post-filter map so collapsing a
+        // category does not zero out its header. Counts shown on the header therefore reflect
+        // how many of the user's filtered items live in that category.
+        val displayedHeaderCounts = remember(postFilterLibrary) {
+            postFilterLibrary.entries.associate { (cat, items) -> (cat.id ?: 0) to items.size }
+        }
+
+        // Collapse only kicks in for default grouping (groupLibraryBy = BY_DEFAULT). Dynamic
+        // groupings have their own collapse pref (collapsedDynamicCategories) which Phase 6
+        // will wire alongside multi-source grouping; until then the header is non-interactive
+        // for dynamic groups.
+        val collapsible = groupLibraryBy == eu.kanade.tachiyomi.ui.library.LibraryGroup.BY_DEFAULT
+        val collapsedIds = remember(collapsedCategories) {
+            collapsedCategories.mapNotNullTo(HashSet()) { it.toIntOrNull() }
+        }
+        val displayedLibrary = if (collapsible && collapsedIds.isNotEmpty()) {
+            postFilterLibrary.mapValues { (cat, items) ->
+                if (cat.id != null && cat.id in collapsedIds) emptyList() else items
+            }
+        } else {
+            postFilterLibrary
+        }
+
         LibraryContent(
             library = displayedLibrary,
             allCategories = allCategories,
             categoryItemCounts = categoryItemCounts,
+            displayedHeaderCounts = displayedHeaderCounts,
+            collapsedIds = collapsedIds,
+            collapsibleHeaders = collapsible,
             showCategoryItemCounts = showCategoryItemCounts,
             columns = columns,
             libraryLayout = libraryLayout,
@@ -202,6 +231,12 @@ class LibraryScreen : Screen {
             onSearchActiveChange = { searchActive = it },
             onSearchQueryChange = { searchQuery = it },
             onHopperGravityChange = { hopperGravityPref.set(it) },
+            onToggleCategoryCollapse = { category ->
+                val id = category.id?.toString() ?: return@LibraryContent
+                val current = collapsedCategoriesPref.get().toMutableSet()
+                if (!current.add(id)) current.remove(id)
+                collapsedCategoriesPref.set(current)
+            },
             onOpenFilter = { sheetTab = 0; sheetOpen = true },
             onOpenOverflow = { overflowOpen = true },
             onDismissSheet = { sheetOpen = false },
