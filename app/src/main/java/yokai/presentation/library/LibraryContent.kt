@@ -31,6 +31,8 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -44,7 +46,12 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -314,26 +321,77 @@ fun LibraryContent(
     }
 
     // Topbar scroll behavior matches the legacy CoordinatorLayout setup:
-    //   - useLargeToolbar = true → LargeTopAppBar collapses to a small bar on scroll
-    //     (exitUntilCollapsedScrollBehavior), matching the legacy CollapsingToolbarLayout
-    //     with scroll|exitUntilCollapsed flags. The large "Library" title shrinks into the
-    //     small bar's title slot as the user scrolls up, then the small bar stays pinned.
+    //   - useLargeToolbar = true → two-stage behavior matching legacy
+    //     scroll|enterAlways|enterAlwaysCollapsed flags:
+    //       Stage 1: LargeTopAppBar collapses from large to small via
+    //                exitUntilCollapsedScrollBehavior.
+    //       Stage 2: Once fully collapsed, the bar slides further up by its own collapsed
+    //                height (hideOffsetPx), driven by the custom NestedScrollConnection
+    //                below. On reverse scroll, the small bar reappears first (enterAlways),
+    //                then the large title expands back at the top.
     //   - useLargeToolbar = false → small TopAppBar fully hides on scroll
     //     (enterAlwaysScrollBehavior), matching the legacy plain-toolbar scroll|enterAlways
-    //     flags. Bar disappears on scroll up, reappears on scroll down.
+    //     flags.
     //   - searchActive overrides both: pin the bar so the keyboard target stays put.
-    // The Scaffold modifier carries the matching nestedScroll connection so the lazy grid /
-    // list / staggered grid drive the bar via vertical scroll deltas.
-    val exitUntilCollapsedBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val collapseBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val enterAlwaysBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val collapsedBarHeightPx = with(density) { 64.dp.toPx() }
+    var hideOffsetPx by remember { mutableFloatStateOf(0f) }
+    val layoutDirection = LocalLayoutDirection.current
+
+    // Stage-2 connection: lets the LargeTopAppBar's collapseBehavior consume scroll first;
+    // anything left over (after the bar is fully collapsed) drives hideOffsetPx toward
+    // -collapsedBarHeightPx, sliding the small bar off-screen. On reverse scroll the small bar
+    // is un-hidden first before the large title is allowed to expand back.
+    val twoStageConnection = remember(collapseBehavior, collapsedBarHeightPx) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                val dy = available.y
+                if (dy == 0f) return Offset.Zero
+                return if (dy < 0f) {
+                    val consumed = collapseBehavior.nestedScrollConnection.onPreScroll(available, source)
+                    val remaining = dy - consumed.y
+                    if (remaining == 0f) {
+                        consumed
+                    } else {
+                        val before = hideOffsetPx
+                        hideOffsetPx = (before + remaining).coerceIn(-collapsedBarHeightPx, 0f)
+                        Offset(0f, consumed.y + (hideOffsetPx - before))
+                    }
+                } else {
+                    if (hideOffsetPx < 0f) {
+                        val before = hideOffsetPx
+                        hideOffsetPx = (before + dy).coerceAtMost(0f)
+                        val consumedByHide = hideOffsetPx - before
+                        val remaining = dy - consumedByHide
+                        if (remaining == 0f) {
+                            Offset(0f, consumedByHide)
+                        } else {
+                            val consumedByExpand = collapseBehavior.nestedScrollConnection
+                                .onPreScroll(available.copy(y = remaining), source)
+                            Offset(0f, consumedByHide + consumedByExpand.y)
+                        }
+                    } else {
+                        collapseBehavior.nestedScrollConnection.onPreScroll(available, source)
+                    }
+                }
+            }
+        }
+    }
+
     val scrollBehavior: TopAppBarScrollBehavior? = when {
         searchActive -> null
-        useLargeToolbar -> exitUntilCollapsedBehavior
+        useLargeToolbar -> collapseBehavior
         else -> enterAlwaysBehavior
     }
+    val activeNestedScroll: NestedScrollConnection? = when {
+        searchActive -> null
+        useLargeToolbar -> twoStageConnection
+        else -> enterAlwaysBehavior.nestedScrollConnection
+    }
     Scaffold(
-        modifier = if (scrollBehavior != null) {
-            modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
+        modifier = if (activeNestedScroll != null) {
+            modifier.nestedScroll(activeNestedScroll)
         } else {
             modifier
         },
@@ -348,18 +406,28 @@ fun LibraryContent(
                     },
                 )
             } else if (useLargeToolbar) {
-                LargeTopAppBar(
-                    title = { Text(stringResource(MR.strings.library)) },
-                    scrollBehavior = scrollBehavior,
-                    actions = {
-                        LibraryToolbarActions(
-                            isAnyFilterActive = isAnyFilterActive,
-                            onSearch = { onSearchActiveChange(true) },
-                            onOpenFilter = onOpenFilter,
-                            onOpenOverflow = onOpenOverflow,
-                        )
+                // Wrap in an offset Box so the entire bar can slide up by hideOffsetPx after
+                // the LargeTopAppBar has fully collapsed. The bar's measured height stays
+                // unchanged so the Scaffold's contentPadding remains stable; the content
+                // compensates by adjusting its own top padding below.
+                Box(
+                    modifier = Modifier.offset {
+                        IntOffset(0, hideOffsetPx.roundToInt())
                     },
-                )
+                ) {
+                    LargeTopAppBar(
+                        title = { Text(stringResource(MR.strings.library)) },
+                        scrollBehavior = scrollBehavior,
+                        actions = {
+                            LibraryToolbarActions(
+                                isAnyFilterActive = isAnyFilterActive,
+                                onSearch = { onSearchActiveChange(true) },
+                                onOpenFilter = onOpenFilter,
+                                onOpenOverflow = onOpenOverflow,
+                            )
+                        },
+                    )
+                }
             } else {
                 TopAppBar(
                     title = { Text(stringResource(MR.strings.library)) },
@@ -376,9 +444,27 @@ fun LibraryContent(
             }
         },
     ) { contentPadding ->
+        // In two-stage mode (useLargeToolbar), compensate the content's top padding by
+        // hideOffsetPx so the content slides up to fill the gap left by the sliding bar. The
+        // Scaffold's contentPadding does not move with the offset Box wrapper above, so
+        // without this adjustment a gap would appear above the grid as the bar hides.
+        val adjustedContentPadding = if (useLargeToolbar && hideOffsetPx < 0f) {
+            val topPx = with(density) { contentPadding.calculateTopPadding().toPx() }
+            val adjustedTop = with(density) {
+                (topPx + hideOffsetPx).coerceAtLeast(0f).toDp()
+            }
+            PaddingValues(
+                start = contentPadding.calculateStartPadding(layoutDirection),
+                top = adjustedTop,
+                end = contentPadding.calculateEndPadding(layoutDirection),
+                bottom = contentPadding.calculateBottomPadding(),
+            )
+        } else {
+            contentPadding
+        }
         Box(
             modifier = Modifier
-                .padding(contentPadding)
+                .padding(adjustedContentPadding)
                 .onSizeChanged { parentWidthPx = it.width },
         ) {
             when {
