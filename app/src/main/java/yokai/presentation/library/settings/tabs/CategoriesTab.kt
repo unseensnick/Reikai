@@ -41,6 +41,7 @@ import yokai.domain.category.interactor.GetCategories
 import yokai.i18n.MR
 import yokai.presentation.component.preference.widget.ListPreferenceWidget
 import yokai.presentation.component.preference.widget.SwitchPreferenceWidget
+import yokai.presentation.library.components.GroupLibraryByPicker
 
 /**
  * Categories tab. Top section carries the library-shaping actions that used to live in the
@@ -155,13 +156,10 @@ fun CategoriesTab(onDismissSheet: () -> Unit = {}) {
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
-        ListPreferenceWidget(
-            value = groupLibraryBy,
-            title = stringResource(MR.strings.group_library_by),
-            subtitle = groupByEntries[groupLibraryBy],
-            icon = null,
+        GroupLibraryByPicker(
+            selected = groupLibraryBy,
             entries = groupByEntries,
-            onValueChange = { preferences.groupLibraryBy().set(it) },
+            onSelect = { preferences.groupLibraryBy().set(it) },
         )
 
         // Expand / collapse all only operates on BY_DEFAULT grouping. The pref is a

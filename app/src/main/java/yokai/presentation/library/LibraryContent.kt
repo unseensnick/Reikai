@@ -313,15 +313,20 @@ fun LibraryContent(
         }
     }
 
-    // Large-toolbar mode (preferences.useLargeToolbar()) renders a Material3 LargeTopAppBar
-    // that collapses on scroll. The scrollBehavior bridges the bar with the lazy grid/list
-    // via nestedScroll. Search swaps the whole bar for the small search overlay regardless of
-    // the user's toolbar preference; collapsing a search bar mid-query would be jarring.
-    val largeBarBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val scrollBehavior: TopAppBarScrollBehavior? = if (useLargeToolbar && !searchActive) {
-        largeBarBehavior
-    } else {
-        null
+    // Topbar scroll behavior matches the legacy CoordinatorLayout setup:
+    //   - useLargeToolbar = true → LargeTopAppBar collapses to a small bar on scroll
+    //     (exitUntilCollapsedScrollBehavior), matching CollapsingToolbarLayout.
+    //   - useLargeToolbar = false → small TopAppBar fully hides on scroll
+    //     (enterAlwaysScrollBehavior), matching the typical scroll|enterAlways flags.
+    //   - searchActive overrides both: pin the search bar so the keyboard target stays put.
+    // The Scaffold modifier carries the matching nestedScroll connection so the lazy grid /
+    // list / staggered grid drive the bar via vertical scroll deltas.
+    val exitUntilCollapsedBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val enterAlwaysBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val scrollBehavior: TopAppBarScrollBehavior? = when {
+        searchActive -> null
+        useLargeToolbar -> exitUntilCollapsedBehavior
+        else -> enterAlwaysBehavior
     }
     Scaffold(
         modifier = if (scrollBehavior != null) {
@@ -355,6 +360,7 @@ fun LibraryContent(
             } else {
                 TopAppBar(
                     title = { Text(stringResource(MR.strings.library)) },
+                    scrollBehavior = scrollBehavior,
                     actions = {
                         LibraryToolbarActions(
                             isAnyFilterActive = isAnyFilterActive,
