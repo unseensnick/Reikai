@@ -18,4 +18,8 @@ CLAUDE.local.md
 # Per-developer skill installs (npx skills add ...)
 .agents/
 .claude/skills/
+.claude/launch.json
 skills-lock.json
+/node_modules/
+package-lock.json
+package.json
