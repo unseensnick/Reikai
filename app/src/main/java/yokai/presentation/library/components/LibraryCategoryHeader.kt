@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -43,25 +42,34 @@ fun LibraryCategoryHeader(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Spacing mirrors library_category_header_item.xml:
+    //   - Start space 6dp + chevron marginStart 8dp = 14dp before the chevron.
+    //   - Title marginTop 28dp + paddingTop 4dp ≈ 32dp above the title baseline; bottom is
+    //     marginBottom 6dp + paddingBottom 4dp ≈ 10dp. Translating that into the Row's
+    //     vertical padding gives ~24.dp top / ~8.dp bottom, which matches the airier section
+    //     break the legacy shows above each category in screenshots.
+    //   - No divider under the header in legacy; the next item's own spacing is the visual
+    //     break, not a hairline.
     val rowModifier = modifier
         .fillMaxWidth()
         .then(if (collapsible) Modifier.clickable(onClick = onClick) else Modifier)
-        .padding(horizontal = 8.dp, vertical = 8.dp)
+        .padding(start = 14.dp, end = 8.dp, top = 24.dp, bottom = 8.dp)
     Row(
         modifier = rowModifier,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (collapsible) {
             // Legacy positions the chevron on the start (left) edge of the header row, before
-            // the title. The caret rotates to convey state; the contentDescription describes
-            // the action a tap performs so TalkBack users know what activating the row does.
+            // the title. The drawable is 14dp wide; matching the visual weight matters since
+            // the larger Material default (20dp+) reads as a heavy button rather than a
+            // subtle expand affordance.
             val collapseLabel = stringResource(MR.strings.collapse_category)
             val expandLabel = stringResource(MR.strings.expand_category)
             Icon(
                 imageVector = if (isCollapsed) Icons.Outlined.ExpandMore else Icons.Outlined.ExpandLess,
                 contentDescription = null,
                 modifier = Modifier
-                    .size(20.dp)
+                    .size(14.dp)
                     .semantics {
                         contentDescription = if (isCollapsed) expandLabel else collapseLabel
                     },
@@ -78,8 +86,4 @@ fun LibraryCategoryHeader(
                 .padding(start = if (collapsible) 8.dp else 0.dp),
         )
     }
-    HorizontalDivider(
-        thickness = 0.5.dp,
-        color = MaterialTheme.colorScheme.outlineVariant,
-    )
 }
