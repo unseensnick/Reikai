@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Settings
@@ -16,7 +15,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SecondaryTabRow
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -32,7 +30,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -74,21 +71,19 @@ fun LibraryDisplayOptionsSheet(
     detectedMangaTypes: Set<Int> = emptySet(),
     loggedTrackerNames: List<String> = emptyList(),
 ) {
-    // confirmValueChange vetoes the Hidden state, which disables the drag-to-dismiss gesture.
-    // The previous setup dismissed too easily — a small downward drag at the top of the
-    // scrollable content would slip through to the sheet's drag handler and close it. Outside
-    // taps still dismiss via onDismissRequest (M3 scrim handler does not route through
-    // confirmValueChange), so users keep a way out.
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true,
-        confirmValueChange = { it != SheetValue.Hidden },
-    )
+    // skipPartiallyExpanded = false adds an intermediate ~50% PartiallyExpanded state. The
+    // sheet shows at PartiallyExpanded first, so users see roughly half the screen by default
+    // and can drag up to fully expand. Drag-down from Partial dismisses but it's a single
+    // bigger gesture rather than the over-sensitive direct dismiss the previous setup had.
+    // confirmValueChange is intentionally NOT used: blocking Hidden also blocks the scrim's
+    // tap-outside dismiss (M3's onDismissRequest only fires after a successful Hidden
+    // transition), which leaves users stuck without the back gesture.
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     var selectedTab by rememberSaveable { mutableIntStateOf(initialTab) }
     var filterReorderMode by rememberSaveable { mutableStateOf(false) }
     val preferences: PreferencesHelper = Injekt.get()
     val filterOrder by preferences.filterOrder().collectAsState()
     val router = LocalRouter.currentOrThrow
-    val maxSheetHeight = (LocalConfiguration.current.screenHeightDp / 2).dp
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -166,12 +161,12 @@ fun LibraryDisplayOptionsSheet(
                 )
             }
         }
-        // Cap the body at half the screen height so the sheet does not balloon to ~95% on
-        // tablets. Tab content uses its own verticalScroll so overflow scrolls naturally.
+        // Height is managed by the sheet's PartiallyExpanded / Expanded states (configured
+        // via skipPartiallyExpanded = false above). The sheet shows at PartiallyExpanded
+        // ~50% screen height; the user can drag up to expand or down to dismiss.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = maxSheetHeight)
                 .padding(horizontal = 16.dp),
         ) {
             when (selectedTab) {

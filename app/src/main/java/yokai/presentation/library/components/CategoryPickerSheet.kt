@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.icerock.moko.resources.compose.stringResource
@@ -43,10 +44,15 @@ fun CategoryPickerSheet(
     onSelect: (Category) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState()
+    // Same sheet-shape choices as LibraryDisplayOptionsSheet so both sheets feel consistent:
+    // PartiallyExpanded ~50% screen as the starting state, no drag handle (the title row
+    // carries the affordance), and full-width on tablets via Dp.Unspecified.
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        dragHandle = null,
+        sheetMaxWidth = Dp.Unspecified,
     ) {
         Text(
             text = stringResource(MR.strings.jump_to_category),
@@ -54,7 +60,9 @@ fun CategoryPickerSheet(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
         )
         HorizontalDivider()
-        LazyColumn {
+        // LazyColumn natively scrolls; combined with the partial / expanded sheet states the
+        // list scrolls within whichever height the sheet currently sits at.
+        LazyColumn(modifier = Modifier.fillMaxWidth()) {
             items(categories, key = { it.id ?: 0 }) { category ->
                 CategoryPickerRow(
                     name = category.name,

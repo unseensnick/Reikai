@@ -87,6 +87,10 @@ fun LibraryContent(
     hideHopper: Boolean,
     autohideHopper: Boolean,
     hopperGravity: Int,
+    outlineOnCovers: Boolean,
+    showDownloadBadge: Boolean,
+    showLanguageBadge: Boolean,
+    unreadBadgeType: Int,
     isAnyFilterActive: Boolean,
     sheetOpen: Boolean,
     sheetTab: Int,
@@ -308,6 +312,17 @@ fun LibraryContent(
                         // grid scope so it is a stable cache key.
                         val coverData = remember(manga.id) { manga.cover() }
                         val title = remember(manga.id) { manga.title }
+                        // unreadBadgeType: -1 hide, 1 show count, 2 show dot. BadgeSegments
+                        // currently only renders the count form, so 1 and 2 both show count
+                        // until a dot variant is added. Pass 0 when hidden so the badge slot
+                        // collapses.
+                        val unreadCount = if (unreadBadgeType > 0) item.libraryManga.unread else 0
+                        val downloadCount = if (showDownloadBadge) {
+                            item.downloadCount.toInt().coerceAtLeast(0)
+                        } else {
+                            0
+                        }
+                        val lang = if (showLanguageBadge) item.language.takeIf { it.isNotBlank() } else null
                         // Skip the per-cover loading indicator. With large libraries each Coil state
                         // transition triggers a recompose, which adds up to noticeable cold-start
                         // lag; the cover placeholder color is enough visual cue while loading.
@@ -316,6 +331,10 @@ fun LibraryContent(
                                 MangaCompactGridItem(
                                     coverData = coverData,
                                     title = title,
+                                    lang = lang,
+                                    unreadCount = unreadCount,
+                                    downloadCount = downloadCount,
+                                    showOutline = outlineOnCovers,
                                     showLoadingIndicator = false,
                                 )
                             }
@@ -325,6 +344,10 @@ fun LibraryContent(
                                 MangaComfortableGridItem(
                                     coverData = coverData,
                                     title = title,
+                                    lang = lang,
+                                    unreadCount = unreadCount,
+                                    downloadCount = downloadCount,
+                                    showOutline = outlineOnCovers,
                                     showLoadingIndicator = false,
                                 )
                             }

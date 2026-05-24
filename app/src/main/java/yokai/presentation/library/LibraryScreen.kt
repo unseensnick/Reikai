@@ -48,11 +48,18 @@ class LibraryScreen : Screen {
         val downloadManager: DownloadManager = remember { Injekt.get() }
         val getTrack: GetTrack = remember { Injekt.get() }
 
-        val libraryLayout = preferences.libraryLayout().get()
-        val showCategoryInTitle = preferences.showCategoryInTitle().get()
-        val showCategoryItemCounts = preferences.categoryNumberOfItems().get()
-        val hideHopper = preferences.hideHopper().get()
-        val autohideHopper = preferences.autohideHopper().get()
+        val libraryLayout by preferences.libraryLayout().collectAsState()
+        val showCategoryInTitle by preferences.showCategoryInTitle().collectAsState()
+        val showCategoryItemCounts by preferences.categoryNumberOfItems().collectAsState()
+        val hideHopper by preferences.hideHopper().collectAsState()
+        val autohideHopper by preferences.autohideHopper().collectAsState()
+        // Per-cover badge / outline prefs collected reactively so toggles in the Display
+        // options sheet propagate to the grid immediately.
+        val outlineOnCovers by remember { Injekt.get<yokai.domain.ui.UiPreferences>().outlineOnCovers() }.collectAsState()
+        val showDownloadBadge by preferences.downloadBadge().collectAsState()
+        val showLanguageBadge by preferences.languageBadge().collectAsState()
+        val unreadBadgeType by preferences.unreadBadgeType().collectAsState()
+        val showEmptyCategoriesWhileFiltering by preferences.showEmptyCategoriesWhileFiltering().collectAsState()
         val hopperGravityPref = remember { preferences.hopperGravity() }
         val hopperGravity by hopperGravityPref.changes()
             .collectAsState(initial = hopperGravityPref.get())
@@ -152,8 +159,21 @@ class LibraryScreen : Screen {
             library.entries.associate { (cat, items) -> (cat.id ?: 0) to items.size }
         }
 
+        // showEmptyCategoriesWhileFiltering: when on AND the user is actively narrowing the
+        // library (search or filters), re-introduce categories that were filtered to empty so
+        // their headers remain visible. Matches the legacy preference. The map sums work
+        // because Category instances are stable across the library / filteredLibrary maps.
+        val displayedLibrary = if (
+            showEmptyCategoriesWhileFiltering &&
+            (searchQuery.isNotEmpty() || filterState.isAnyActive)
+        ) {
+            library.mapValues { (cat, _) -> filteredLibrary[cat].orEmpty() }
+        } else {
+            filteredLibrary
+        }
+
         LibraryContent(
-            library = filteredLibrary,
+            library = displayedLibrary,
             allCategories = allCategories,
             categoryItemCounts = categoryItemCounts,
             showCategoryItemCounts = showCategoryItemCounts,
@@ -165,6 +185,10 @@ class LibraryScreen : Screen {
             hideHopper = hideHopper,
             autohideHopper = autohideHopper,
             hopperGravity = hopperGravity,
+            outlineOnCovers = outlineOnCovers,
+            showDownloadBadge = showDownloadBadge,
+            showLanguageBadge = showLanguageBadge,
+            unreadBadgeType = unreadBadgeType,
             isAnyFilterActive = filterState.isAnyActive,
             sheetOpen = sheetOpen,
             sheetTab = sheetTab,
