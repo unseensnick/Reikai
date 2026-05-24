@@ -79,6 +79,8 @@ import yokai.presentation.library.components.LazyLibraryList
 import yokai.presentation.library.components.LazyLibraryStaggeredGrid
 import yokai.presentation.library.components.LibraryOverflowMenu
 import yokai.presentation.library.settings.LibraryDisplayOptionsSheet
+import yokai.presentation.manga.components.Badge
+import yokai.presentation.manga.components.BadgeSegments
 import yokai.presentation.manga.components.MangaComfortableGridItem
 import yokai.presentation.manga.components.MangaCompactGridItem
 import yokai.presentation.manga.components.MangaCoverRatio
@@ -370,10 +372,33 @@ fun LibraryContent(
                                         else -> "$author, $artist"
                                     }
                                 }
+                                // Same badge inputs as the grid; legacy list rows render the
+                                // unread / download chips on the trailing side, mirroring
+                                // manga_list_item.xml. The Badge component itself is reused so
+                                // visuals match the grid badges.
+                                val unreadCount = if (unreadBadgeType > 0) item.libraryManga.unread else 0
+                                val unreadDot = unreadBadgeType == 2
+                                val downloadCount = if (showDownloadBadge) {
+                                    item.downloadCount.toInt().coerceAtLeast(0)
+                                } else {
+                                    0
+                                }
+                                val lang = if (showLanguageBadge) item.language.takeIf { it.isNotBlank() } else null
+                                val segments = BadgeSegments(
+                                    lang = lang,
+                                    unreadCount = unreadCount,
+                                    downloadCount = downloadCount,
+                                    unreadDot = unreadDot,
+                                )
                                 MangaListItem(
                                     coverData = coverData,
                                     title = title,
                                     subtitle = subtitle.takeIf { it.isNotEmpty() },
+                                    trailing = if (segments.isNotEmpty()) {
+                                        { Badge(segments = segments) }
+                                    } else {
+                                        null
+                                    },
                                 )
                             }
                         }
