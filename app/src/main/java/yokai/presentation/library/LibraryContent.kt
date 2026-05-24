@@ -425,16 +425,16 @@ fun LibraryContent(
     }
     // Single source of truth for top bar colors so all three variants (LargeTopAppBar +
     // small TopAppBar + search bar) share the same surface, and that surface matches the
-    // legacy bottom_nav exactly. The legacy bottom_nav style (Widget.Tachiyomi.BottomNavigationView)
-    // sets android:background="?colorPrimaryVariant", which is a Material 2 attr that
-    // createMdc3Theme does not map to any M3 ColorScheme token. We therefore read the attr
-    // straight off the theme; text/icons read ?actionBarTintColor (the legacy toolbar tint
-    // attr) for the same reason. Both are pulled from the Activity's resources, so theme
-    // switches, follow-system dark mode, and pure-black flow through after the activity's
-    // recreate() pass — same path the legacy bottom_nav uses.
+    // legacy library content area exactly. library_controller.xml sets
+    // android:background="?background", which is a custom Reikai theme attr (R.attr.background
+    // in eu.kanade.tachiyomi). createMdc3Theme does not surface that attr as any M3
+    // ColorScheme token, so we read it straight off the theme; text/icons read
+    // ?actionBarTintColor (the legacy toolbar tint attr) for the same reason. Both pull from
+    // the activity's resources so theme switches, follow-system dark mode, and pure-black
+    // propagate via the activity's recreate() pass — same path the legacy library uses.
     val barContext = LocalContext.current
     val barContainerColor = remember(barContext) {
-        Color(barContext.getResourceColor(eu.kanade.tachiyomi.R.attr.colorPrimaryVariant))
+        Color(barContext.getResourceColor(eu.kanade.tachiyomi.R.attr.background))
     }
     val barContentColor = remember(barContext) {
         Color(barContext.getResourceColor(eu.kanade.tachiyomi.R.attr.actionBarTintColor))
