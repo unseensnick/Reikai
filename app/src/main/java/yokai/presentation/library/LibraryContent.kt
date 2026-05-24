@@ -475,9 +475,26 @@ fun LibraryContent(
                     )
                 }
             } else {
+                // Colors are spelled out (rather than relying on the M3 defaults) so the bar
+                // tracks the user's theme through createMdc3Theme exactly the same way the
+                // legacy AppBarLayout does. Tokens mirror legacy main_activity.xml:
+                //   - containerColor = surface (legacy AppBarLayout sets bg to ?colorSurface)
+                //   - title / icons = onSurface / onSurfaceVariant (M3 equivalents of
+                //     legacy ?actionBarTintColor; createMdc3Theme keeps both pulled from the
+                //     same active XML attrs so themes / pure-black / follow-system flow in)
+                //   - scrolledContainerColor pinned to surface as well so the bar does not
+                //     elevation-tint to surfaceContainer mid-scroll; legacy keeps a flat
+                //     surface color on scroll.
                 TopAppBar(
                     title = { Text(stringResource(MR.strings.library)) },
                     scrollBehavior = scrollBehavior,
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        scrolledContainerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+                        actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ),
                     actions = {
                         LibraryToolbarActions(
                             isAnyFilterActive = isAnyFilterActive,
