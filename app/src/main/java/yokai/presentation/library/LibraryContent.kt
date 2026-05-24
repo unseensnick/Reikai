@@ -339,10 +339,18 @@ fun LibraryContent(
     var hideOffsetPx by remember { mutableFloatStateOf(0f) }
     val layoutDirection = LocalLayoutDirection.current
 
-    // Stage-2 connection: lets the LargeTopAppBar's collapseBehavior consume scroll first;
-    // anything left over (after the bar is fully collapsed) drives hideOffsetPx toward
-    // -collapsedBarHeightPx, sliding the small bar off-screen. On reverse scroll the small bar
-    // is un-hidden first before the large title is allowed to expand back.
+    // Stage-2 connection: chains the collapse and hide phases.
+    //
+    // Scroll-up (dy < 0): the LargeTopAppBar's collapseBehavior consumes first via its
+    // onPreScroll (it only intercepts negative y). Once the bar is fully collapsed, that
+    // handler returns Zero; the leftover drives hideOffsetPx toward -collapsedBarHeightPx,
+    // sliding the small bar off-screen.
+    //
+    // Scroll-down (dy > 0): collapseBehavior's onPreScroll is a no-op on positive y; expansion
+    // happens in its onPostScroll. So we handle un-hide (hideOffsetPx → 0) in pre-scroll
+    // ourselves, then delegate post-scroll wholesale. Once un-hidden, the collapseBehavior's
+    // own onPostScroll expands the large title when the lazy grid hits the top and there is
+    // leftover positive available.y to consume.
     val twoStageConnection = remember(collapseBehavior, collapsedBarHeightPx) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
@@ -359,22 +367,39 @@ fun LibraryContent(
                         Offset(0f, consumed.y + (hideOffsetPx - before))
                     }
                 } else {
+                    // dy > 0: un-hide first. Expansion of the large title happens in post-
+                    // scroll, not here, since collapseBehavior.onPreScroll returns Zero for
+                    // positive y.
                     if (hideOffsetPx < 0f) {
                         val before = hideOffsetPx
                         hideOffsetPx = (before + dy).coerceAtMost(0f)
-                        val consumedByHide = hideOffsetPx - before
-                        val remaining = dy - consumedByHide
-                        if (remaining == 0f) {
-                            Offset(0f, consumedByHide)
-                        } else {
-                            val consumedByExpand = collapseBehavior.nestedScrollConnection
-                                .onPreScroll(available.copy(y = remaining), source)
-                            Offset(0f, consumedByHide + consumedByExpand.y)
-                        }
+                        Offset(0f, hideOffsetPx - before)
                     } else {
-                        collapseBehavior.nestedScrollConnection.onPreScroll(available, source)
+                        Offset.Zero
                     }
                 }
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset {
+                // Delegate post-scroll to collapseBehavior: scroll-up keeps heightOffset in
+                // sync via the consumed delta, scroll-down expands the large title when the
+                // lazy grid overscrolls at the top.
+                return collapseBehavior.nestedScrollConnection.onPostScroll(consumed, available, source)
+            }
+
+            override suspend fun onPreFling(available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
+                return collapseBehavior.nestedScrollConnection.onPreFling(available)
+            }
+
+            override suspend fun onPostFling(
+                consumed: androidx.compose.ui.unit.Velocity,
+                available: androidx.compose.ui.unit.Velocity,
+            ): androidx.compose.ui.unit.Velocity {
+                return collapseBehavior.nestedScrollConnection.onPostFling(consumed, available)
             }
         }
     }
