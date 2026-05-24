@@ -52,10 +52,6 @@ import yokai.i18n.MR
 import yokai.presentation.library.components.LazyLibraryStaggeredGrid
 import yokai.domain.manga.models.MangaCover as MangaCoverModel
 
-// TODO:
-// - custom cover ratio support for staggered grid
-// - list manga item
-
 @Composable
 fun BadgeSegments(
     lang: String? = null,
@@ -133,11 +129,18 @@ fun MangaComfortableGridItem(
     badgeSegments: List<BadgeSegment> = listOf(),
     isSelected: Boolean = false,
     showOutline: Boolean = false,
+    /**
+     * Aspect ratio applied to the cover box. Default [MangaCoverRatio.BOOK] matches a 2:3 cover
+     * thumbnail, which is what fixed-column grids and most browse surfaces need. Pass `null`
+     * (staggered grid + uniform-grid pref off) to let the cover render at its intrinsic ratio.
+     */
+    coverAspectRatio: Float? = MangaCoverRatio.BOOK,
     onClickContinueReading: (() -> Unit)? = null,
     showLoadingIndicator: Boolean = true,
 ) {
     Column {
         MangaGridCover(
+            aspectRatio = coverAspectRatio,
             border = if (showOutline) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
             cover = {
                 Box {
@@ -210,10 +213,13 @@ fun MangaCompactGridItem(
      * the legacy view where `compactTitle` + `gradient` are hidden in cover-only mode.
      */
     showTitle: Boolean = true,
+    /** See [MangaComfortableGridItem.coverAspectRatio]. */
+    coverAspectRatio: Float? = MangaCoverRatio.BOOK,
     onClickContinueReading: (() -> Unit)? = null,
     showLoadingIndicator: Boolean = true,
 ) {
     MangaGridCover(
+        aspectRatio = coverAspectRatio,
         border = if (showOutline) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
         cover = {
             Box {
@@ -345,6 +351,12 @@ private fun GridItemTitle(
 fun MangaGridCover(
     modifier: Modifier = Modifier,
     border: BorderStroke? = null,
+    /**
+     * Cover aspect ratio. Default 2:3 (book) for fixed-column grids; pass `null` in the
+     * staggered grid path (when the user has turned `uniformGrid` off) to let each cover render
+     * at the image's intrinsic ratio so adjacent items vary in height.
+     */
+    aspectRatio: Float? = MangaCoverRatio.BOOK,
     cover: @Composable BoxScope.() -> Unit = {},
     badgeSegments: List<BadgeSegment> = listOf(),
     content: @Composable (BoxScope.() -> Unit)? = null,
@@ -352,7 +364,7 @@ fun MangaGridCover(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(MangaCoverRatio.BOOK)
+            .then(if (aspectRatio != null) Modifier.aspectRatio(aspectRatio) else Modifier)
             .clip(RoundedCornerShape(12.dp))
             .then(if (border != null) Modifier.border(border, RoundedCornerShape(12.dp)) else Modifier),
     ) {

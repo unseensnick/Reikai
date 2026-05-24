@@ -22,6 +22,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
@@ -73,10 +76,12 @@ import yokai.presentation.library.components.CategoryHopper
 import yokai.presentation.library.components.CategoryPickerSheet
 import yokai.presentation.library.components.LazyLibraryGrid
 import yokai.presentation.library.components.LazyLibraryList
+import yokai.presentation.library.components.LazyLibraryStaggeredGrid
 import yokai.presentation.library.components.LibraryOverflowMenu
 import yokai.presentation.library.settings.LibraryDisplayOptionsSheet
 import yokai.presentation.manga.components.MangaComfortableGridItem
 import yokai.presentation.manga.components.MangaCompactGridItem
+import yokai.presentation.manga.components.MangaCoverRatio
 import yokai.presentation.manga.components.MangaListItem
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -88,6 +93,8 @@ fun LibraryContent(
     showCategoryItemCounts: Boolean,
     columns: Int,
     libraryLayout: Int,
+    uniformGrid: Boolean,
+    useStaggeredGrid: Boolean,
     searchActive: Boolean,
     searchQuery: String,
     showCategoryInTitle: Boolean,
@@ -121,14 +128,19 @@ fun LibraryContent(
     }
 
     val isList = libraryLayout == LAYOUT_LIST
+    // uniformGrid wins over useStaggeredGrid: the legacy display sheet greys out the staggered
+    // switch when uniformGrid is on (LibraryDisplayView.initGeneralPreferences sets
+    // staggeredGrid.isEnabled = !uniformGrid). Mirror that here so a leftover useStaggeredGrid
+    // pref does not silently override a user who later turned uniformGrid back on.
+    val isStaggered = !isList && useStaggeredGrid && !uniformGrid
     val gridState = rememberLazyGridState()
+    val staggeredGridState = rememberLazyStaggeredGridState()
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
-    // Precomputed map of (lazy-scroll header index) -> Category. Both the LazyGrid and
-    // LazyColumn paths emit one header item followed by N item entries per category, so each
-    // header's index = sum of (1 + items.size) for all preceding categories regardless of
-    // container.
+    // Precomputed map of (lazy-scroll header index) -> Category. Each layout emits one header
+    // item followed by N item entries per category, so each header's index = sum of
+    // (1 + items.size) for all preceding categories regardless of container.
     val categoryOffsets = remember(library) {
         var offset = 0
         library.map { (cat, items) ->
@@ -139,19 +151,35 @@ fun LibraryContent(
     }
 
     // Generalized accessors so the hopper / chip code stays layout-agnostic.
-    val firstVisibleItemIndex by remember(isList) {
+    val firstVisibleItemIndex by remember(isList, isStaggered) {
         derivedStateOf {
-            if (isList) listState.firstVisibleItemIndex else gridState.firstVisibleItemIndex
+            when {
+                isList -> listState.firstVisibleItemIndex
+                isStaggered -> staggeredGridState.firstVisibleItemIndex
+                else -> gridState.firstVisibleItemIndex
+            }
         }
     }
-    val firstVisibleItemScrollOffset by remember(isList) {
+    val firstVisibleItemScrollOffset by remember(isList, isStaggered) {
         derivedStateOf {
-            if (isList) listState.firstVisibleItemScrollOffset else gridState.firstVisibleItemScrollOffset
+            when {
+                isList -> listState.firstVisibleItemScrollOffset
+                isStaggered -> staggeredGridState.firstVisibleItemScrollOffset
+                else -> gridState.firstVisibleItemScrollOffset
+            }
         }
     }
-    val scrollInteractionSource = if (isList) listState.interactionSource else gridState.interactionSource
+    val scrollInteractionSource = when {
+        isList -> listState.interactionSource
+        isStaggered -> staggeredGridState.interactionSource
+        else -> gridState.interactionSource
+    }
     val scrollTo: suspend (Int) -> Unit = { idx ->
-        if (isList) listState.scrollToItem(idx) else gridState.scrollToItem(idx)
+        when {
+            isList -> listState.scrollToItem(idx)
+            isStaggered -> staggeredGridState.scrollToItem(idx)
+            else -> gridState.scrollToItem(idx)
+        }
     }
 
     val activeCategory by remember(categoryOffsets) {
@@ -307,129 +335,119 @@ fun LibraryContent(
                 .padding(contentPadding)
                 .onSizeChanged { parentWidthPx = it.width },
         ) {
-            if (isList) {
-                LazyLibraryList(
-                    state = listState,
-                    contentPadding = PaddingValues(0.dp),
-                ) {
-                    library.forEach { (category, mangaItems) ->
-                        item(
-                            key = "header:${category.id ?: 0}",
-                            contentType = "library_category_header",
-                        ) {
-                            Text(
-                                text = category.name,
-                                modifier = Modifier.padding(start = 12.dp, top = 16.dp, bottom = 4.dp),
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                        }
-                        items(
-                            items = mangaItems,
-                            key = { it.libraryManga.manga.id ?: 0L },
-                            contentType = { "library_list_item" },
-                        ) { item ->
-                            val manga = item.libraryManga.manga
-                            val coverData = remember(manga.id) { manga.cover() }
-                            val title = remember(manga.id) { manga.title }
-                            val subtitle = remember(manga.id) {
-                                val author = manga.author?.trim().orEmpty()
-                                val artist = manga.artist?.trim().orEmpty()
-                                when {
-                                    author.isEmpty() -> artist
-                                    artist.isEmpty() || artist == author -> author
-                                    author.contains(artist, true) -> author
-                                    else -> "$author, $artist"
-                                }
+            when {
+                isList -> {
+                    LazyLibraryList(
+                        state = listState,
+                        contentPadding = PaddingValues(0.dp),
+                    ) {
+                        library.forEach { (category, mangaItems) ->
+                            item(
+                                key = "header:${category.id ?: 0}",
+                                contentType = "library_category_header",
+                            ) {
+                                Text(
+                                    text = category.name,
+                                    modifier = Modifier.padding(start = 12.dp, top = 16.dp, bottom = 4.dp),
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
                             }
-                            MangaListItem(
-                                coverData = coverData,
-                                title = title,
-                                subtitle = subtitle.takeIf { it.isNotEmpty() },
-                            )
+                            items(
+                                items = mangaItems,
+                                key = { it.libraryManga.manga.id ?: 0L },
+                                contentType = { "library_list_item" },
+                            ) { item ->
+                                val manga = item.libraryManga.manga
+                                val coverData = remember(manga.id) { manga.cover() }
+                                val title = remember(manga.id) { manga.title }
+                                val subtitle = remember(manga.id) {
+                                    val author = manga.author?.trim().orEmpty()
+                                    val artist = manga.artist?.trim().orEmpty()
+                                    when {
+                                        author.isEmpty() -> artist
+                                        artist.isEmpty() || artist == author -> author
+                                        author.contains(artist, true) -> author
+                                        else -> "$author, $artist"
+                                    }
+                                }
+                                MangaListItem(
+                                    coverData = coverData,
+                                    title = title,
+                                    subtitle = subtitle.takeIf { it.isNotEmpty() },
+                                )
+                            }
                         }
                     }
                 }
-            } else {
-                LazyLibraryGrid(
-                    columns = columns,
-                    state = gridState,
-                    contentPadding = PaddingValues(0.dp),
-                ) {
-                    library.forEach { (category, mangaItems) ->
-                        item(
-                            key = "header:${category.id ?: 0}",
-                            span = { GridItemSpan(maxLineSpan) },
-                            contentType = "library_category_header",
-                        ) {
-                            Text(
-                                text = category.name,
-                                modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp),
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                        }
-                        items(
-                            items = mangaItems,
-                            key = { it.libraryManga.manga.id ?: 0L },
-                            contentType = { "library_grid_item" },
-                        ) { item ->
-                            val manga = item.libraryManga.manga
-                            // Avoid recomputing the cover wrapper and the title getter (which
-                            // hits the Injekt-backed CustomMangaManager for favorited manga)
-                            // on every recompose triggered by Coil state updates. manga.id is
-                            // unique within the lazy grid scope so it is a stable cache key.
-                            val coverData = remember(manga.id) { manga.cover() }
-                            val title = remember(manga.id) { manga.title }
-                            // unreadBadgeType: -1 hide, 1 show count, 2 show dot. BadgeSegments
-                            // currently only renders the count form, so 1 and 2 both show count
-                            // until a dot variant is added. Pass 0 when hidden so the badge slot
-                            // collapses.
-                            val unreadCount = if (unreadBadgeType > 0) item.libraryManga.unread else 0
-                            val downloadCount = if (showDownloadBadge) {
-                                item.downloadCount.toInt().coerceAtLeast(0)
-                            } else {
-                                0
+                isStaggered -> {
+                    LazyLibraryStaggeredGrid(
+                        columns = columns,
+                        state = staggeredGridState,
+                        contentPadding = PaddingValues(0.dp),
+                    ) {
+                        library.forEach { (category, mangaItems) ->
+                            item(
+                                key = "header:${category.id ?: 0}",
+                                span = StaggeredGridItemSpan.FullLine,
+                                contentType = "library_category_header",
+                            ) {
+                                Text(
+                                    text = category.name,
+                                    modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp),
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
                             }
-                            val lang = if (showLanguageBadge) item.language.takeIf { it.isNotBlank() } else null
-                            // Skip the per-cover loading indicator. With large libraries each
-                            // Coil state transition triggers a recompose; the cover placeholder
-                            // color is enough visual cue while loading.
-                            when (libraryLayout) {
-                                LAYOUT_COMFORTABLE_GRID -> {
-                                    MangaComfortableGridItem(
-                                        coverData = coverData,
-                                        title = title,
-                                        lang = lang,
-                                        unreadCount = unreadCount,
-                                        downloadCount = downloadCount,
-                                        showOutline = outlineOnCovers,
-                                        showLoadingIndicator = false,
-                                    )
-                                }
-                                LAYOUT_COVER_ONLY_GRID -> {
-                                    MangaCompactGridItem(
-                                        coverData = coverData,
-                                        title = title,
-                                        lang = lang,
-                                        unreadCount = unreadCount,
-                                        downloadCount = downloadCount,
-                                        showOutline = outlineOnCovers,
-                                        showTitle = false,
-                                        showLoadingIndicator = false,
-                                    )
-                                }
-                                else -> {
-                                    // LAYOUT_COMPACT_GRID — default for the grid path. The
-                                    // List layout is handled in the isList branch above.
-                                    MangaCompactGridItem(
-                                        coverData = coverData,
-                                        title = title,
-                                        lang = lang,
-                                        unreadCount = unreadCount,
-                                        downloadCount = downloadCount,
-                                        showOutline = outlineOnCovers,
-                                        showLoadingIndicator = false,
-                                    )
-                                }
+                            items(
+                                items = mangaItems,
+                                key = { it.libraryManga.manga.id ?: 0L },
+                                contentType = { "library_grid_item" },
+                            ) { item ->
+                                // Staggered + uniformGrid=false: drop the cover aspect-ratio so
+                                // each cell sizes to its image's intrinsic ratio.
+                                LibraryGridCell(
+                                    item = item,
+                                    libraryLayout = libraryLayout,
+                                    outlineOnCovers = outlineOnCovers,
+                                    showDownloadBadge = showDownloadBadge,
+                                    showLanguageBadge = showLanguageBadge,
+                                    unreadBadgeType = unreadBadgeType,
+                                    coverAspectRatio = null,
+                                )
+                            }
+                        }
+                    }
+                }
+                else -> {
+                    LazyLibraryGrid(
+                        columns = columns,
+                        state = gridState,
+                        contentPadding = PaddingValues(0.dp),
+                    ) {
+                        library.forEach { (category, mangaItems) ->
+                            item(
+                                key = "header:${category.id ?: 0}",
+                                span = { GridItemSpan(maxLineSpan) },
+                                contentType = "library_category_header",
+                            ) {
+                                Text(
+                                    text = category.name,
+                                    modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp),
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                            }
+                            items(
+                                items = mangaItems,
+                                key = { it.libraryManga.manga.id ?: 0L },
+                                contentType = { "library_grid_item" },
+                            ) { item ->
+                                LibraryGridCell(
+                                    item = item,
+                                    libraryLayout = libraryLayout,
+                                    outlineOnCovers = outlineOnCovers,
+                                    showDownloadBadge = showDownloadBadge,
+                                    showLanguageBadge = showLanguageBadge,
+                                    unreadBadgeType = unreadBadgeType,
+                                )
                             }
                         }
                     }
@@ -572,4 +590,76 @@ private fun LibrarySearchBar(
             }
         },
     )
+}
+
+/**
+ * Per-cell rendering shared between [LazyLibraryGrid] and [LazyLibraryStaggeredGrid]. Resolves
+ * the badge / cover prefs into the right [MangaCompactGridItem] / [MangaComfortableGridItem]
+ * call without duplicating the body across the two grid scopes (their `items` overloads have
+ * incompatible scope types so the call sites cannot share code directly).
+ *
+ * @param coverAspectRatio passed through to the underlying cell. Null lets the cover render at
+ *   its image's intrinsic ratio (staggered grid with `uniformGrid` off); the default 2:3 is
+ *   used by the fixed grid.
+ */
+@Composable
+private fun LibraryGridCell(
+    item: LibraryItem.Manga,
+    libraryLayout: Int,
+    outlineOnCovers: Boolean,
+    showDownloadBadge: Boolean,
+    showLanguageBadge: Boolean,
+    unreadBadgeType: Int,
+    coverAspectRatio: Float? = MangaCoverRatio.BOOK,
+) {
+    val manga = item.libraryManga.manga
+    // manga.id keys both lookups: cover() rebuilds a thin wrapper and title hits the
+    // Injekt-backed CustomMangaManager for favorited entries; both are stable per row.
+    val coverData = remember(manga.id) { manga.cover() }
+    val title = remember(manga.id) { manga.title }
+    // unreadBadgeType: -1 hide, 1 show count, 2 show dot. BadgeSegments currently only renders
+    // the count form, so 1 and 2 both show count until a dot variant is added (Round 2).
+    val unreadCount = if (unreadBadgeType > 0) item.libraryManga.unread else 0
+    val downloadCount = if (showDownloadBadge) {
+        item.downloadCount.toInt().coerceAtLeast(0)
+    } else {
+        0
+    }
+    val lang = if (showLanguageBadge) item.language.takeIf { it.isNotBlank() } else null
+    // Skip per-cover loading indicator: with large libraries each Coil state transition is a
+    // recompose, and the cover placeholder color is enough visual cue.
+    when (libraryLayout) {
+        LAYOUT_COMFORTABLE_GRID -> MangaComfortableGridItem(
+            coverData = coverData,
+            title = title,
+            lang = lang,
+            unreadCount = unreadCount,
+            downloadCount = downloadCount,
+            showOutline = outlineOnCovers,
+            coverAspectRatio = coverAspectRatio,
+            showLoadingIndicator = false,
+        )
+        LAYOUT_COVER_ONLY_GRID -> MangaCompactGridItem(
+            coverData = coverData,
+            title = title,
+            lang = lang,
+            unreadCount = unreadCount,
+            downloadCount = downloadCount,
+            showOutline = outlineOnCovers,
+            showTitle = false,
+            coverAspectRatio = coverAspectRatio,
+            showLoadingIndicator = false,
+        )
+        // LAYOUT_COMPACT_GRID default; LAYOUT_LIST is rendered by the isList branch upstream.
+        else -> MangaCompactGridItem(
+            coverData = coverData,
+            title = title,
+            lang = lang,
+            unreadCount = unreadCount,
+            downloadCount = downloadCount,
+            showOutline = outlineOnCovers,
+            coverAspectRatio = coverAspectRatio,
+            showLoadingIndicator = false,
+        )
+    }
 }

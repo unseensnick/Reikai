@@ -13,7 +13,9 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridScope
+import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -78,12 +80,16 @@ internal fun LazyLibraryStaggeredGrid(
     modifier: Modifier = Modifier,
     columns: Int,
     contentPadding: PaddingValues,
+    state: LazyStaggeredGridState = rememberLazyStaggeredGridState(),
     content: LazyStaggeredGridScope.() -> Unit,
 ) {
     FastScrollLazyVerticalStaggeredGrid(
         columns = if (columns == 0) StaggeredGridCells.Adaptive(128.dp) else StaggeredGridCells.Fixed(columns),
         modifier = modifier,
-        thumbColor = MaterialTheme.colorScheme.outline,
+        state = state,
+        // Match LazyLibraryGrid's muted thumb; the underlying default uses primary which reads
+        // too vivid against the grid.
+        thumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
         contentPadding = contentPadding + PaddingValues(8.dp),
         verticalItemSpacing = CommonMangaItemDefaults.GridVerticalSpacer,
         horizontalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridHorizontalSpacer),

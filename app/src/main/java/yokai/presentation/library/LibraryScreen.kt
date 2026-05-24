@@ -49,6 +49,8 @@ class LibraryScreen : Screen {
         val getTrack: GetTrack = remember { Injekt.get() }
 
         val libraryLayout by preferences.libraryLayout().collectAsState()
+        val uniformGrid by remember { Injekt.get<yokai.domain.ui.UiPreferences>().uniformGrid() }.collectAsState()
+        val useStaggeredGrid by preferences.useStaggeredGrid().collectAsState()
         val showCategoryInTitle by preferences.showCategoryInTitle().collectAsState()
         val showCategoryItemCounts by preferences.categoryNumberOfItems().collectAsState()
         val hideHopper by preferences.hideHopper().collectAsState()
@@ -179,6 +181,8 @@ class LibraryScreen : Screen {
             showCategoryItemCounts = showCategoryItemCounts,
             columns = columns,
             libraryLayout = libraryLayout,
+            uniformGrid = uniformGrid,
+            useStaggeredGrid = useStaggeredGrid,
             searchActive = searchActive,
             searchQuery = searchQuery,
             showCategoryInTitle = showCategoryInTitle,
