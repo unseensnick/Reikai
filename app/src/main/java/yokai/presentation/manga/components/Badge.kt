@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -72,6 +74,28 @@ data class BadgeSegment(
                                 includeFontPadding = false
                             ),
                         ),
+                    )
+                }
+            )
+        }
+
+        /**
+         * Small filled circle segment, used for the unread-badge "dot" mode where the legacy
+         * shows just an indicator instead of the unread chapter count.
+         */
+        fun dot(
+            color: Color,
+            dotSize: Dp = 8.dp,
+        ): BadgeSegment {
+            return BadgeSegment(
+                backgroundColor = Color.Transparent,
+                contentPadding = PaddingValues(horizontal = 4.dp),
+                content = {
+                    Box(
+                        modifier = Modifier
+                            .size(dotSize)
+                            .clip(CircleShape)
+                            .background(color),
                     )
                 }
             )

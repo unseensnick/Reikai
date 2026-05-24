@@ -57,10 +57,20 @@ fun BadgeSegments(
     lang: String? = null,
     unreadCount: Int = 0,
     downloadCount: Int = 0,
+    /**
+     * Render the unread badge as a small dot instead of a count chip. Matches the legacy
+     * `unreadBadgeType = 2` mode. When true, [unreadCount] is only used as a presence check;
+     * the dot itself has no text.
+     */
+    unreadDot: Boolean = false,
     extraBadgeSegments: List<BadgeSegment> = listOf(),
 ) = buildList {
     val context = LocalContext.current
 
+    // Each badge segment is independent: previously the download / unread segments were nested
+    // inside the language-flag block, so turning the language badge off (or running on a manga
+    // whose source language had no flag asset) silently dropped the download and unread badges
+    // too. Lifting them out matches the legacy behaviour where each badge has its own switch.
     if (!lang.isNullOrBlank()) {
         val resources = Utils.resourcesForContext(context)
         val flagId = resources.getIdentifier(
@@ -95,27 +105,31 @@ fun BadgeSegments(
                     }
                 )
             )
-
-            if (downloadCount > 0) {
-                add(
-                    BadgeSegment.text(
-                        backgroundColor = MaterialTheme.colorScheme.tertiary,
-                        text = downloadCount.toString(),
-                        textColor = MaterialTheme.colorScheme.onTertiary,
-                    )
-                )
-            }
-
-            if (unreadCount > 0) {
-                add(
-                    BadgeSegment.text(
-                        backgroundColor = MaterialTheme.colorScheme.secondary,
-                        text = unreadCount.toString(),
-                        textColor = MaterialTheme.colorScheme.onSecondary,
-                    )
-                )
-            }
         }
+    }
+
+    if (downloadCount > 0) {
+        add(
+            BadgeSegment.text(
+                backgroundColor = MaterialTheme.colorScheme.tertiary,
+                text = downloadCount.toString(),
+                textColor = MaterialTheme.colorScheme.onTertiary,
+            )
+        )
+    }
+
+    if (unreadCount > 0) {
+        add(
+            if (unreadDot) {
+                BadgeSegment.dot(color = MaterialTheme.colorScheme.secondary)
+            } else {
+                BadgeSegment.text(
+                    backgroundColor = MaterialTheme.colorScheme.secondary,
+                    text = unreadCount.toString(),
+                    textColor = MaterialTheme.colorScheme.onSecondary,
+                )
+            }
+        )
     }
 } + extraBadgeSegments
 
@@ -135,6 +149,8 @@ fun MangaComfortableGridItem(
      * (staggered grid + uniform-grid pref off) to let the cover render at its intrinsic ratio.
      */
     coverAspectRatio: Float? = MangaCoverRatio.BOOK,
+    /** When true, the unread badge renders as a dot instead of a chapter count. */
+    unreadDot: Boolean = false,
     onClickContinueReading: (() -> Unit)? = null,
     showLoadingIndicator: Boolean = true,
 ) {
@@ -175,6 +191,7 @@ fun MangaComfortableGridItem(
                 lang = lang,
                 unreadCount = unreadCount,
                 downloadCount = downloadCount,
+                unreadDot = unreadDot,
                 extraBadgeSegments = badgeSegments,
             ),
             content = {
@@ -215,6 +232,8 @@ fun MangaCompactGridItem(
     showTitle: Boolean = true,
     /** See [MangaComfortableGridItem.coverAspectRatio]. */
     coverAspectRatio: Float? = MangaCoverRatio.BOOK,
+    /** See [MangaComfortableGridItem.unreadDot]. */
+    unreadDot: Boolean = false,
     onClickContinueReading: (() -> Unit)? = null,
     showLoadingIndicator: Boolean = true,
 ) {
@@ -251,6 +270,7 @@ fun MangaCompactGridItem(
             lang = lang,
             unreadCount = unreadCount,
             downloadCount = downloadCount,
+            unreadDot = unreadDot,
             extraBadgeSegments = badgeSegments,
         ),
         content = {

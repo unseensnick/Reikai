@@ -617,9 +617,10 @@ private fun LibraryGridCell(
     // Injekt-backed CustomMangaManager for favorited entries; both are stable per row.
     val coverData = remember(manga.id) { manga.cover() }
     val title = remember(manga.id) { manga.title }
-    // unreadBadgeType: -1 hide, 1 show count, 2 show dot. BadgeSegments currently only renders
-    // the count form, so 1 and 2 both show count until a dot variant is added (Round 2).
+    // unreadBadgeType: -1 hide, 1 show count, 2 show dot. Pass 0 unread when hidden so the
+    // badge slot collapses; otherwise the cell decides between count and dot via [unreadDot].
     val unreadCount = if (unreadBadgeType > 0) item.libraryManga.unread else 0
+    val unreadDot = unreadBadgeType == 2
     val downloadCount = if (showDownloadBadge) {
         item.downloadCount.toInt().coerceAtLeast(0)
     } else {
@@ -637,6 +638,7 @@ private fun LibraryGridCell(
             downloadCount = downloadCount,
             showOutline = outlineOnCovers,
             coverAspectRatio = coverAspectRatio,
+            unreadDot = unreadDot,
             showLoadingIndicator = false,
         )
         LAYOUT_COVER_ONLY_GRID -> MangaCompactGridItem(
@@ -648,6 +650,7 @@ private fun LibraryGridCell(
             showOutline = outlineOnCovers,
             showTitle = false,
             coverAspectRatio = coverAspectRatio,
+            unreadDot = unreadDot,
             showLoadingIndicator = false,
         )
         // LAYOUT_COMPACT_GRID default; LAYOUT_LIST is rendered by the isList branch upstream.
@@ -659,6 +662,7 @@ private fun LibraryGridCell(
             downloadCount = downloadCount,
             showOutline = outlineOnCovers,
             coverAspectRatio = coverAspectRatio,
+            unreadDot = unreadDot,
             showLoadingIndicator = false,
         )
     }
