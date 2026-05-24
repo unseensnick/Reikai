@@ -19,13 +19,13 @@ import yokai.presentation.core.util.plus
 @Composable
 internal fun LazyLibraryGrid(
     modifier: Modifier = Modifier,
-    columns: Int,
+    cellMinSizeDp: Int = 128,
     contentPadding: PaddingValues,
     state: LazyGridState = rememberLazyGridState(),
     content: LazyGridScope.() -> Unit,
 ) {
     FastScrollLazyVerticalGrid(
-        columns = if (columns == 0) GridCells.Adaptive(128.dp) else GridCells.Fixed(columns),
+        columns = GridCells.Adaptive(cellMinSizeDp.dp),
         modifier = modifier,
         state = state,
         // Muted, theme-adaptive gray matching the legacy fast_scroller_handle_idle look.

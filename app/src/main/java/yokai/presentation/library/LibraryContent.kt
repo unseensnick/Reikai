@@ -15,17 +15,22 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -62,6 +67,8 @@ import yokai.presentation.library.components.ActiveCategoryChip
 import yokai.presentation.library.components.CategoryHopper
 import yokai.presentation.library.components.CategoryPickerSheet
 import yokai.presentation.library.components.LazyLibraryGrid
+import yokai.presentation.library.components.LibraryOverflowMenu
+import yokai.presentation.library.settings.LibraryDisplayOptionsSheet
 import yokai.presentation.manga.components.MangaComfortableGridItem
 import yokai.presentation.manga.components.MangaCompactGridItem
 
@@ -72,7 +79,7 @@ fun LibraryContent(
     allCategories: List<Category>,
     categoryItemCounts: Map<Int, Int>,
     showCategoryItemCounts: Boolean,
-    columns: Int,
+    cellMinSizeDp: Int,
     libraryLayout: Int,
     searchActive: Boolean,
     searchQuery: String,
@@ -80,9 +87,20 @@ fun LibraryContent(
     hideHopper: Boolean,
     autohideHopper: Boolean,
     hopperGravity: Int,
+    isAnyFilterActive: Boolean,
+    sheetOpen: Boolean,
+    sheetTab: Int,
+    overflowOpen: Boolean,
+    detectedMangaTypes: Set<Int>,
+    loggedTrackerNames: List<String>,
     onSearchActiveChange: (Boolean) -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onHopperGravityChange: (Int) -> Unit,
+    onOpenFilter: () -> Unit,
+    onOpenOverflow: () -> Unit,
+    onDismissSheet: () -> Unit,
+    onDismissOverflow: () -> Unit,
+    onSheetTabChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // System back closes search before exiting the library.
@@ -227,6 +245,30 @@ fun LibraryContent(
                                 contentDescription = stringResource(MR.strings.search),
                             )
                         }
+                        Box {
+                            IconButton(onClick = onOpenFilter) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Tune,
+                                    contentDescription = stringResource(MR.strings.filter),
+                                )
+                            }
+                            if (isAnyFilterActive) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    shape = CircleShape,
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(top = 10.dp, end = 10.dp)
+                                        .size(8.dp),
+                                ) {}
+                            }
+                        }
+                        IconButton(onClick = onOpenOverflow) {
+                            Icon(
+                                imageVector = Icons.Outlined.MoreVert,
+                                contentDescription = stringResource(MR.strings.more),
+                            )
+                        }
                     },
                 )
             }
@@ -238,7 +280,7 @@ fun LibraryContent(
                 .onSizeChanged { parentWidthPx = it.width },
         ) {
             LazyLibraryGrid(
-                columns = columns,
+                cellMinSizeDp = cellMinSizeDp,
                 state = gridState,
                 contentPadding = PaddingValues(0.dp),
             ) {
@@ -360,6 +402,18 @@ fun LibraryContent(
                 onDismiss = { pickerOpen = false },
             )
         }
+        if (sheetOpen) {
+            LibraryDisplayOptionsSheet(
+                initialTab = sheetTab,
+                onDismiss = onDismissSheet,
+                detectedMangaTypes = detectedMangaTypes,
+                loggedTrackerNames = loggedTrackerNames,
+            )
+        }
+        LibraryOverflowMenu(
+            expanded = overflowOpen,
+            onDismiss = onDismissOverflow,
+        )
     }
 }
 
