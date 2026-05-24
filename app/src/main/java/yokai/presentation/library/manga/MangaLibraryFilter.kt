@@ -54,15 +54,22 @@ object MangaLibraryFilter {
         getDownloadCount: (Manga) -> Int,
         getTracks: suspend (Long) -> List<Track>,
         isLewd: (Manga) -> Boolean = { it.isLewd() },
+        /**
+         * When true, categories whose items were entirely filtered out are kept as empty entries
+         * rather than dropped. Wired to the `showAllCategories` preference, which asks for every
+         * category header to remain visible regardless of filter state. Distinct from the screen-
+         * level `showEmptyCategoriesWhileFiltering` toggle, which re-introduces empty entries
+         * only when the user is actively narrowing the library.
+         */
+        keepEmptyCategories: Boolean = false,
     ): Map<Category, List<LibraryItem.Manga>> {
         if (!state.isAnyActive) return library
-        return library
-            .mapValues { (_, items) ->
-                items.filter {
-                    matches(it, state, sourceManager, loggedServiceNames, getDownloadCount, getTracks, isLewd)
-                }
+        val filtered = library.mapValues { (_, items) ->
+            items.filter {
+                matches(it, state, sourceManager, loggedServiceNames, getDownloadCount, getTracks, isLewd)
             }
-            .filterValues { it.isNotEmpty() }
+        }
+        return if (keepEmptyCategories) filtered else filtered.filterValues { it.isNotEmpty() }
     }
 
     /**

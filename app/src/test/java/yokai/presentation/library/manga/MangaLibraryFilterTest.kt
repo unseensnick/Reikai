@@ -487,6 +487,45 @@ class MangaLibraryFilterTest {
         assertEquals(3, result.size)
     }
 
+    @Test
+    fun `keepEmptyCategories preserves categories whose items were entirely filtered out`() = runBlocking {
+        val library = libraryOf(
+            "Reading" to listOf(item(1, unread = 5)),
+            "Completed" to listOf(item(2, unread = 0)),
+        )
+        val result = MangaLibraryFilter.filter(
+            library = library,
+            state = MangaFilterState(unread = STATE_INCLUDE),
+            sourceManager = mockSourceManager(),
+            loggedServiceNames = emptyMap(),
+            getDownloadCount = { 0 },
+            getTracks = { emptyList() },
+            keepEmptyCategories = true,
+        )
+        // "Completed" had its one item filtered out but the key stays.
+        assertEquals(2, result.size)
+        assertEquals(listOf(1L), result.flatIds())
+        assertTrue(result.values.any { it.isEmpty() })
+    }
+
+    @Test
+    fun `keepEmptyCategories defaults to false so empties drop`() = runBlocking {
+        val library = libraryOf(
+            "Reading" to listOf(item(1, unread = 5)),
+            "Completed" to listOf(item(2, unread = 0)),
+        )
+        val result = MangaLibraryFilter.filter(
+            library = library,
+            state = MangaFilterState(unread = STATE_INCLUDE),
+            sourceManager = mockSourceManager(),
+            loggedServiceNames = emptyMap(),
+            getDownloadCount = { 0 },
+            getTracks = { emptyList() },
+        )
+        assertEquals(1, result.size)
+        assertEquals(listOf(1L), result.flatIds())
+    }
+
     // --- helpers -------------------------------------------------------------------------------
 
     private fun Map<Category, List<LibraryItem.Manga>>.flatIds(): List<Long> =

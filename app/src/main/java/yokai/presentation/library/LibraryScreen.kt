@@ -78,6 +78,7 @@ class LibraryScreen : Screen {
         val showLanguageBadge by preferences.languageBadge().collectAsState()
         val unreadBadgeType by preferences.unreadBadgeType().collectAsState()
         val showEmptyCategoriesWhileFiltering by preferences.showEmptyCategoriesWhileFiltering().collectAsState()
+        val showAllCategories by preferences.showAllCategories().collectAsState()
         val hideStartReadingButton by preferences.hideStartReadingButton().collectAsState()
         val hopperGravityPref = remember { preferences.hopperGravity() }
         val hopperGravity by hopperGravityPref.changes()
@@ -152,6 +153,7 @@ class LibraryScreen : Screen {
             initialValue = searchedLibrary,
             key1 = searchedLibrary,
             key2 = filterState,
+            key3 = showAllCategories,
         ) {
             value = if (!filterState.isAnyActive) searchedLibrary
             else kotlinx.coroutines.withContext(Dispatchers.Default) {
@@ -162,6 +164,7 @@ class LibraryScreen : Screen {
                     loggedServiceNames = loggedServiceNames,
                     getDownloadCount = { manga -> downloadManager.getDownloadCount(manga) },
                     getTracks = { mangaId -> getTrack.awaitAllByMangaId(mangaId) },
+                    keepEmptyCategories = showAllCategories,
                 )
             }
         }
@@ -178,17 +181,23 @@ class LibraryScreen : Screen {
             library.entries.associate { (cat, items) -> (cat.id ?: 0) to items.size }
         }
 
-        // showEmptyCategoriesWhileFiltering: when on AND the user is actively narrowing the
-        // library (search or filters), re-introduce categories that were filtered to empty so
-        // their headers remain visible. Matches the legacy preference. The map sums work
-        // because Category instances are stable across the library / filteredLibrary maps.
-        val postFilterLibrary = if (
+        // Filter pipeline for category visibility:
+        //
+        //  - showAllCategories = true → always keep every category key, even if no manga match.
+        //    The filter call already respects this via keepEmptyCategories, but search has its
+        //    own .filterValues drop, so we also re-introduce keys at the screen level. This
+        //    covers the search-only path where the filter never runs.
+        //  - showAllCategories = false + showEmptyCategoriesWhileFiltering = true while
+        //    actively narrowing (search query or active filter) → re-introduce empties so the
+        //    user keeps category headers visible while they hunt for a specific result.
+        //  - Otherwise → drop empties (current default).
+        val postFilterLibrary = when {
+            showAllCategories ->
+                library.mapValues { (cat, _) -> filteredLibrary[cat].orEmpty() }
             showEmptyCategoriesWhileFiltering &&
-            (searchQuery.isNotEmpty() || filterState.isAnyActive)
-        ) {
-            library.mapValues { (cat, _) -> filteredLibrary[cat].orEmpty() }
-        } else {
-            filteredLibrary
+                (searchQuery.isNotEmpty() || filterState.isAnyActive) ->
+                library.mapValues { (cat, _) -> filteredLibrary[cat].orEmpty() }
+            else -> filteredLibrary
         }
 
         // Header counts are sourced from the pre-collapse, post-filter map so collapsing a
