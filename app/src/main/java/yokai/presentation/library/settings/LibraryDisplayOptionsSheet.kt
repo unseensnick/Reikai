@@ -19,6 +19,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.compose.stringResource
 import yokai.i18n.MR
+import yokai.presentation.library.settings.tabs.BadgesTab
+import yokai.presentation.library.settings.tabs.CategoriesTab
+import yokai.presentation.library.settings.tabs.DisplayTab
 import yokai.presentation.library.settings.tabs.FilterTab
 
 /**
@@ -63,13 +66,9 @@ fun LibraryDisplayOptionsSheet(
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             when (selectedTab) {
                 TAB_FILTER -> FilterTab()
-                // Other tabs land in commit 4. Placeholder text keeps the surface compilable
-                // and visually distinguishable until then.
-                else -> Text(
-                    text = "Coming soon",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(vertical = 24.dp),
-                )
+                TAB_DISPLAY -> DisplayTab()
+                TAB_BADGES -> BadgesTab()
+                TAB_CATEGORIES -> CategoriesTab()
             }
         }
     }
