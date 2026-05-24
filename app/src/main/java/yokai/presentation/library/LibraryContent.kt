@@ -335,7 +335,14 @@ fun LibraryContent(
     //   - searchActive overrides both: pin the bar so the keyboard target stays put.
     val collapseBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val enterAlwaysBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    val collapsedBarHeightPx = with(density) { 64.dp.toPx() }
+    // Measured at the topBar wrapper below via onSizeChanged. The hide stage slides the bar
+    // up by this amount; using the measured value (instead of the 64.dp collapsed-content
+    // height) is critical because TopAppBarDefaults.windowInsets adds the system status-bar
+    // inset above the bar content, and that extra strip must scroll off too. Tracks the
+    // CURRENT collapsed bar height: while the bar is mid-collapse this would over-hide, but
+    // hideOffsetPx only goes negative once collapseBehavior has saturated, by which point the
+    // bar is at its small height.
+    var collapsedBarHeightPx by remember { mutableFloatStateOf(0f) }
     var hideOffsetPx by remember { mutableFloatStateOf(0f) }
     val layoutDirection = LocalLayoutDirection.current
 
@@ -351,7 +358,7 @@ fun LibraryContent(
     // ourselves, then delegate post-scroll wholesale. Once un-hidden, the collapseBehavior's
     // own onPostScroll expands the large title when the lazy grid hits the top and there is
     // leftover positive available.y to consume.
-    val twoStageConnection = remember(collapseBehavior, collapsedBarHeightPx) {
+    val twoStageConnection = remember(collapseBehavior) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 val dy = available.y
@@ -434,11 +441,25 @@ fun LibraryContent(
                 // Wrap in an offset Box so the entire bar can slide up by hideOffsetPx after
                 // the LargeTopAppBar has fully collapsed. The bar's measured height stays
                 // unchanged so the Scaffold's contentPadding remains stable; the content
-                // compensates by adjusting its own top padding below.
+                // compensates by adjusting its own top padding below. We measure the wrapper
+                // continuously so hideOffsetPx's lower bound tracks the bar's CURRENT visible
+                // height — which is the collapsed-content height + status-bar inset added by
+                // TopAppBarDefaults.windowInsets. A hardcoded 64.dp left the status-bar strip
+                // visible on devices with non-trivial top insets (tablets, notch phones).
                 Box(
-                    modifier = Modifier.offset {
-                        IntOffset(0, hideOffsetPx.roundToInt())
-                    },
+                    modifier = Modifier
+                        .offset { IntOffset(0, hideOffsetPx.roundToInt()) }
+                        .onSizeChanged { size ->
+                            // Only record the FINAL collapsed height: while the LargeTopAppBar
+                            // is mid-collapse (heightOffset > heightOffsetLimit) the measured
+                            // size is larger than the collapsed state. We're only interested
+                            // in the collapsed-state height so we keep the smallest size we
+                            // have seen so far.
+                            val newHeight = size.height.toFloat()
+                            if (collapsedBarHeightPx == 0f || newHeight < collapsedBarHeightPx) {
+                                collapsedBarHeightPx = newHeight
+                            }
+                        },
                 ) {
                     LargeTopAppBar(
                         title = { Text(stringResource(MR.strings.library)) },
