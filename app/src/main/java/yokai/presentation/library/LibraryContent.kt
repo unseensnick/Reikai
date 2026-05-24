@@ -13,6 +13,7 @@ import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -704,14 +705,14 @@ fun LibraryContent(
                         .padding(top = 6.dp),
                 )
             }
-            // fillMaxWidth: the CategoryHopper's horizontal position uses Modifier.offset, a
-            // graphics-only offset that does NOT extend the parent's measured layout bounds.
-            // Without fillMaxWidth, AnimatedVisibility wraps to the hopper's intrinsic width,
-            // so the offset (e.g. 20.dp edge padding at gravity = 0) lands the right rounded
-            // corner just outside AnimatedVisibility's bounds — and the wrapper's enter/exit
-            // path clips the overflow during the autohide transition, briefly cropping the
-            // right side. Filling the parent width keeps the offset comfortably inside
-            // AnimatedVisibility's bounds at every gravity so no clipping occurs.
+            // fillMaxWidth on AnimatedVisibility gives the hopper's graphics-layer offset
+            // somewhere to land without clipping (previous bug: at gravity = 0 the 20.dp
+            // edge-padding offset put the right rounded corner just past the wrapper's
+            // intrinsic bounds, and the enter/exit pipeline clipped it during the autohide
+            // transition). The CategoryHopper itself then has wrapContentWidth so the Surface
+            // sizes to its 3 button row instead of filling the now-wide constraints — without
+            // that, the hopper stretched across the screen since the Surface defaults to
+            // filling the available width.
             AnimatedVisibility(
                 visible = hopperVisible,
                 modifier = Modifier
@@ -749,6 +750,7 @@ fun LibraryContent(
                         }
                     },
                     modifier = Modifier
+                        .wrapContentWidth(align = Alignment.Start)
                         .offset { IntOffset(hopperX.value.roundToInt(), 0) }
                         .onSizeChanged { hopperWidthPx = it.width }
                         .draggable(
