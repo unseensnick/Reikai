@@ -50,18 +50,14 @@ fun LibraryCategoryHeader(
         modifier = rowModifier,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = if (showItemCount) "$name ($itemCount)" else name,
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.weight(1f),
-        )
         if (collapsible) {
+            // Legacy positions the chevron on the start (left) edge of the header row, before
+            // the title. The caret rotates to convey state; the contentDescription describes
+            // the action a tap performs so TalkBack users know what activating the row does.
             val collapseLabel = stringResource(MR.strings.collapse_category)
             val expandLabel = stringResource(MR.strings.expand_category)
             Icon(
                 imageVector = if (isCollapsed) Icons.Outlined.ExpandMore else Icons.Outlined.ExpandLess,
-                // Caret direction conveys state visually; describe the action a tap performs
-                // so TalkBack users know what activating the row will do.
                 contentDescription = null,
                 modifier = Modifier
                     .size(20.dp)
@@ -70,6 +66,13 @@ fun LibraryCategoryHeader(
                     },
             )
         }
+        Text(
+            text = if (showItemCount) "$name ($itemCount)" else name,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = if (collapsible) 8.dp else 0.dp),
+        )
     }
     HorizontalDivider(
         thickness = 0.5.dp,

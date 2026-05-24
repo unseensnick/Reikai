@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -296,9 +294,15 @@ fun ContinueReadingButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
+    // Visuals mirror the legacy round_play_background drawable and ic_start_reading_24dp:
+    //   - 42dp interactive target so the visible 30dp button matches the legacy FrameLayout
+    //     (50dp - 6dp margins * 2 = 30dp visible) instead of the Material default 24dp.
+    //   - 0xAD212121 fill + 0.1dp #EDEDED stroke from round_play_background.
+    //   - ic_start_reading_24dp drawable, white tint, 6dp inset (matches the ImageView's
+    //     padding="6dp" in manga_grid_item.xml).
     IconButton(
         modifier = modifier
-            .size(36.dp)
+            .size(42.dp)
             .padding(6.dp)
             .border(BorderStroke(0.1.dp, Color(0xFFEDEDED)), CircleShape),
         onClick = onClick,
@@ -308,8 +312,8 @@ fun ContinueReadingButton(
         ),
     ) {
         Icon(
-            modifier = Modifier.padding(4.dp),
-            imageVector = Icons.AutoMirrored.Default.MenuBook,
+            modifier = Modifier.padding(6.dp),
+            painter = painterResource(id = eu.kanade.tachiyomi.R.drawable.ic_start_reading_24dp),
             contentDescription = stringResource(MR.strings.start_reading),
             tint = Color.White,
         )
