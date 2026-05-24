@@ -127,6 +127,16 @@ fun LibraryContent(
     onSearchQueryChange: (String) -> Unit,
     onHopperGravityChange: (Int) -> Unit,
     onToggleCategoryCollapse: (Category) -> Unit,
+    /**
+     * Pref value (0..4) for the hopper center-button long-press. Matches the legacy options:
+     * 0 = search, 1 = expand/collapse all, 2 = display options, 3 = group by, 4 = random.
+     */
+    hopperLongPressAction: Int,
+    onExpandCollapseAllCategories: () -> Unit,
+    /** Open the Display options sheet on a specific tab (0 filter / 1 display / 2 badges / 3 categories). */
+    onOpenSheetAt: (Int) -> Unit,
+    /** Navigate to a random series from the library. No-op when the library is empty. */
+    onOpenRandomSeries: () -> Unit,
     onOpenFilter: () -> Unit,
     onOpenOverflow: () -> Unit,
     onDismissSheet: () -> Unit,
@@ -518,6 +528,29 @@ fun LibraryContent(
                     onUpClick = onHopperUp,
                     onCenterClick = { pickerOpen = true },
                     onDownClick = onHopperDown,
+                    // Long-press up = jump to the first item (matches legacy
+                    // hopper.upCategory.setOnLongClickListener).
+                    onUpLongClick = { coroutineScope.launch { scrollTo(0) } },
+                    // Long-press down = jump to the last item. categoryOffsets tracks the
+                    // header index + items.size for each category, so the total item count is
+                    // the last offset + 1 + items.size of the trailing category.
+                    onDownLongClick = {
+                        val lastEntry = library.entries.lastOrNull() ?: return@CategoryHopper
+                        val lastOffset = (categoryOffsets.lastOrNull()?.first ?: 0) + lastEntry.value.size
+                        coroutineScope.launch { scrollTo(lastOffset) }
+                    },
+                    // Long-press center dispatches by user pref. Indices match
+                    // CategoriesTab.hopperLongPressEntries.
+                    onCenterLongClick = {
+                        when (hopperLongPressAction) {
+                            0 -> onSearchActiveChange(true)
+                            1 -> onExpandCollapseAllCategories()
+                            // 1 = Display tab, 3 = Categories tab where the Group by row lives.
+                            2 -> onOpenSheetAt(1)
+                            3 -> onOpenSheetAt(3)
+                            4 -> onOpenRandomSeries()
+                        }
+                    },
                     modifier = Modifier
                         .offset { IntOffset(hopperX.value.roundToInt(), 0) }
                         .onSizeChanged { hopperWidthPx = it.width }

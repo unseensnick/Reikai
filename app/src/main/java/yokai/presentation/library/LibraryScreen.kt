@@ -11,12 +11,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalConfiguration
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.tachiyomi.core.storage.preference.collectAsState
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.library.filter.FilterBottomSheet
+import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
+import eu.kanade.tachiyomi.util.compose.LocalRouter
+import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import kotlinx.coroutines.Dispatchers
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -47,6 +51,7 @@ class LibraryScreen : Screen {
         val trackManager: TrackManager = remember { Injekt.get() }
         val downloadManager: DownloadManager = remember { Injekt.get() }
         val getTrack: GetTrack = remember { Injekt.get() }
+        val router = LocalRouter.currentOrThrow
 
         val libraryLayout by preferences.libraryLayout().collectAsState()
         val uniformGrid by remember { Injekt.get<yokai.domain.ui.UiPreferences>().uniformGrid() }.collectAsState()
@@ -58,6 +63,7 @@ class LibraryScreen : Screen {
         val showCategoryItemCounts by preferences.categoryNumberOfItems().collectAsState()
         val hideHopper by preferences.hideHopper().collectAsState()
         val autohideHopper by preferences.autohideHopper().collectAsState()
+        val hopperLongPressAction by preferences.hopperLongPressAction().collectAsState()
         // Per-cover badge / outline prefs collected reactively so toggles in the Display
         // options sheet propagate to the grid immediately.
         val outlineOnCovers by remember { Injekt.get<yokai.domain.ui.UiPreferences>().outlineOnCovers() }.collectAsState()
@@ -236,6 +242,31 @@ class LibraryScreen : Screen {
                 val current = collapsedCategoriesPref.get().toMutableSet()
                 if (!current.add(id)) current.remove(id)
                 collapsedCategoriesPref.set(current)
+            },
+            hopperLongPressAction = hopperLongPressAction,
+            onExpandCollapseAllCategories = {
+                // Mirror the Categories tab Expand/Collapse all toggle: when nothing is
+                // collapsed, collapse every category id; otherwise clear the set. Only
+                // meaningful under BY_DEFAULT grouping, but the long-press action is global so
+                // we apply the toggle unconditionally; under dynamic grouping the pref simply
+                // has no visible effect until the user switches back to default.
+                val all = library.keys.mapNotNull { it.id?.toString() }.toSet()
+                val current = collapsedCategoriesPref.get()
+                collapsedCategoriesPref.set(if (current.isEmpty()) all else emptySet())
+            },
+            onOpenSheetAt = { tabIndex ->
+                sheetTab = tabIndex
+                sheetOpen = true
+            },
+            onOpenRandomSeries = {
+                // Random pick from the post-collapse displayed library: collapsed categories
+                // are implicitly hidden, so picking a manga the user just chose to hide would
+                // feel inconsistent. Empty library (no favorited manga) silently no-ops.
+                val pool = displayedLibrary.values.asSequence().flatten().toList()
+                if (pool.isNotEmpty()) {
+                    val random = pool.random().libraryManga.manga
+                    router.pushController(MangaDetailsController(random).withFadeTransaction())
+                }
             },
             onOpenFilter = { sheetTab = 0; sheetOpen = true },
             onOpenOverflow = { overflowOpen = true },
