@@ -421,6 +421,21 @@ fun LibraryContent(
         useLargeToolbar -> twoStageConnection
         else -> enterAlwaysBehavior.nestedScrollConnection
     }
+    // Single source of truth for top bar colors so all three variants (LargeTopAppBar +
+    // small TopAppBar + search bar) share the same theme tokens. surfaceContainer matches the
+    // legacy bottom_nav (BottomNavigationView) which resolves to that token through
+    // createMdc3Theme; using it everywhere keeps the top and bottom nav surfaces visually
+    // consistent across themes / follow-system / pure-black. The same TopAppBarColors type
+    // is accepted by both small and large variants — M3 deprecated the separate
+    // largeTopAppBarColors() factory in favor of topAppBarColors().
+    val libraryTopBarColors = TopAppBarDefaults.topAppBarColors(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+        titleContentColor = MaterialTheme.colorScheme.onSurface,
+        navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+        actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+
     Scaffold(
         modifier = if (activeNestedScroll != null) {
             modifier.nestedScroll(activeNestedScroll)
@@ -436,6 +451,7 @@ fun LibraryContent(
                         onSearchQueryChange("")
                         onSearchActiveChange(false)
                     },
+                    colors = libraryTopBarColors,
                 )
             } else if (useLargeToolbar) {
                 // Wrap in an offset Box so the entire bar can slide up by hideOffsetPx after
@@ -464,6 +480,7 @@ fun LibraryContent(
                     LargeTopAppBar(
                         title = { Text(stringResource(MR.strings.library)) },
                         scrollBehavior = scrollBehavior,
+                        colors = libraryTopBarColors,
                         actions = {
                             LibraryToolbarActions(
                                 isAnyFilterActive = isAnyFilterActive,
@@ -475,22 +492,10 @@ fun LibraryContent(
                     )
                 }
             } else {
-                // Tokens picked to match the legacy bottom_nav (BottomNavigationView), which
-                // uses Material's default styling — that resolves to surfaceContainer through
-                // createMdc3Theme. Pinning the top bar to the same token keeps both nav
-                // surfaces (top and bottom) visually consistent across themes. The on-* tokens
-                // stay as the M3 contentColorFor(surfaceContainer) pairings so labels and
-                // icons remain legible on whatever shade the theme produces.
                 TopAppBar(
                     title = { Text(stringResource(MR.strings.library)) },
                     scrollBehavior = scrollBehavior,
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        titleContentColor = MaterialTheme.colorScheme.onSurface,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-                        actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    ),
+                    colors = libraryTopBarColors,
                     actions = {
                         LibraryToolbarActions(
                             isAnyFilterActive = isAnyFilterActive,
@@ -840,6 +845,7 @@ private fun LibrarySearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
     onClose: () -> Unit,
+    colors: androidx.compose.material3.TopAppBarColors,
 ) {
     val focusRequester = remember { FocusRequester() }
     // Auto-focus on first composition so the keyboard appears immediately when the user taps
@@ -850,6 +856,7 @@ private fun LibrarySearchBar(
     }
 
     TopAppBar(
+        colors = colors,
         navigationIcon = {
             // Visual lead, not interactive; tapping the magnifier here would be redundant since
             // the bar is already expanded. Use the X to close.
