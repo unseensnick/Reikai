@@ -704,10 +704,19 @@ fun LibraryContent(
                         .padding(top = 6.dp),
                 )
             }
+            // fillMaxWidth: the CategoryHopper's horizontal position uses Modifier.offset, a
+            // graphics-only offset that does NOT extend the parent's measured layout bounds.
+            // Without fillMaxWidth, AnimatedVisibility wraps to the hopper's intrinsic width,
+            // so the offset (e.g. 20.dp edge padding at gravity = 0) lands the right rounded
+            // corner just outside AnimatedVisibility's bounds — and the wrapper's enter/exit
+            // path clips the overflow during the autohide transition, briefly cropping the
+            // right side. Filling the parent width keeps the offset comfortably inside
+            // AnimatedVisibility's bounds at every gravity so no clipping occurs.
             AnimatedVisibility(
                 visible = hopperVisible,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
+                    .fillMaxWidth()
                     .padding(bottom = 12.dp),
                 enter = fadeIn(),
                 exit = fadeOut(),
