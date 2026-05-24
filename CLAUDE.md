@@ -4,9 +4,11 @@ Android manga reader. Personal fork of [Yōkai](https://github.com/null2264/yoka
 
 ## Working approach
 
-**Plan before acting.** Before starting any task, think through what needs to change and why — which files are affected, what the failure modes are, and whether the approach is sound. Use `EnterPlanMode` for non-trivial tasks to draft and get approval before touching code.
+**Investigate before planning when context is thin.** If you aren't confident you understand the surrounding code, conventions, or constraints for a task (e.g., porting a screen from legacy to Compose + Voyager, touching an unfamiliar module, changing cross-cutting infrastructure), do a thorough investigation first: read the relevant files, trace the existing pattern, check `refs/` for upstream equivalents. Only present a plan once you're truly confident in it, then wait for approval before executing.
 
-**Stop and replan when blocked.** If you hit an unexpected problem mid-task — a failing constraint, a broken assumption, an error you don't fully understand — stop all changes immediately and surface the blocker. Do not circumvent it (deleting a test, silencing a lint error, skipping a hook, or forcing past a tool denial). Replan from scratch with the new information.
+**Plan before acting.** Once you have enough context, think through what needs to change and why: which files are affected, what the failure modes are, and whether the approach is sound. Use `EnterPlanMode` for non-trivial tasks to draft and get approval before touching code.
+
+**Stop and replan when blocked.** If you hit an unexpected problem mid-task (a failing constraint, a broken assumption, an error you don't fully understand), stop all changes immediately and surface the blocker. Do not circumvent it (deleting a test, silencing a lint error, skipping a hook, or forcing past a tool denial). Replan from scratch with the new information.
 
 **Offload long or hard tasks to subagents.** When a task requires deep codebase exploration, multi-file research, or extended multi-step work, spawn a subagent (`Agent` tool) to do that work. This keeps the main context window clean and avoids polluting conversation state with intermediate search noise.
 
