@@ -107,6 +107,7 @@ import yokai.presentation.library.components.LazyLibraryStaggeredGrid
 import yokai.presentation.component.EmptyScreen
 import yokai.presentation.library.components.LibraryCategoryHeader
 import yokai.presentation.library.components.LibraryOverflowMenu
+import yokai.presentation.library.components.SelectionAppBar
 import yokai.presentation.library.settings.LibraryDisplayOptionsSheet
 import yokai.presentation.manga.components.Badge
 import yokai.presentation.manga.components.BadgeSegments
@@ -173,6 +174,11 @@ fun LibraryContent(
     overflowOpen: Boolean,
     detectedMangaTypes: Set<Int>,
     loggedTrackerNames: List<String>,
+    /**
+     * Currently selected manga ids. Non-empty switches the top bar to [SelectionAppBar] and
+     * tints each selected cover via the cell's `isSelected` flag.
+     */
+    selection: Set<Long>,
     onSearchActiveChange: (Boolean) -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onHopperGravityChange: (Int) -> Unit,
@@ -227,12 +233,22 @@ fun LibraryContent(
      * dispatches the update if not already queued.
      */
     onRefreshCategory: (Category) -> Unit,
+    /** Toggle long-pressed manga in the selection set. C2 onward. */
+    onToggleSelection: (Long) -> Unit,
+    /** Clear the selection set. Wired to the SelectionAppBar close icon and BackHandler. */
+    onClearSelection: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // System back closes search before exiting the library.
+    // Selection clear takes priority over search close: both are back-press affordances, but a
+    // user mid-action with a selected set probably wants to clear that first before exiting
+    // search. Compose stacks BackHandlers in declaration order with the latest declared at the
+    // top of the stack, so declare selection AFTER search and selection wins.
     BackHandler(enabled = searchActive) {
         onSearchQueryChange("")
         onSearchActiveChange(false)
+    }
+    BackHandler(enabled = selection.isNotEmpty()) {
+        onClearSelection()
     }
 
     val isList = libraryLayout == LAYOUT_LIST
@@ -611,7 +627,17 @@ fun LibraryContent(
             )
         },
         topBar = {
-            if (searchActive) {
+            if (selection.isNotEmpty()) {
+                // Contextual bar preempts search / large / small. Search state can stay alive
+                // underneath: once the user clears selection the search bar reappears if they
+                // had toggled it on. Mirrors how the legacy ActionMode replaces the toolbar
+                // without dismissing the search query.
+                SelectionAppBar(
+                    selectionCount = selection.size,
+                    onClose = onClearSelection,
+                    colors = libraryTopBarColors,
+                )
+            } else if (searchActive) {
                 LibrarySearchBar(
                     query = searchQuery,
                     onQueryChange = onSearchQueryChange,
@@ -958,7 +984,9 @@ fun LibraryContent(
                                     coverData = coverData,
                                     title = title,
                                     subtitle = subtitle.takeIf { it.isNotEmpty() },
+                                    isSelected = manga.id != null && manga.id in selection,
                                     onClick = { onMangaClick(manga) },
+                                    onLongClick = { manga.id?.let(onToggleSelection) },
                                     trailing = if (segments.isNotEmpty()) {
                                         { Badge(segments = segments) }
                                     } else {
@@ -1006,6 +1034,7 @@ fun LibraryContent(
                             ) { item ->
                                 // Staggered + uniformGrid=false: drop the cover aspect-ratio so
                                 // each cell sizes to its image's intrinsic ratio.
+                                val mangaId = item.libraryManga.manga.id
                                 LibraryGridCell(
                                     item = item,
                                     libraryLayout = libraryLayout,
@@ -1014,7 +1043,9 @@ fun LibraryContent(
                                     showLanguageBadge = showLanguageBadge,
                                     unreadBadgeType = unreadBadgeType,
                                     hideStartReadingButton = hideStartReadingButton,
+                                    isSelected = mangaId != null && mangaId in selection,
                                     onMangaClick = onMangaClick,
+                                    onMangaLongClick = { m -> m.id?.let(onToggleSelection) },
                                     onContinueReading = onContinueReading,
                                     coverAspectRatio = null,
                                 )
@@ -1065,6 +1096,7 @@ fun LibraryContent(
                                 // which reads the legacy `MangaCoverMetadata` cache and falls
                                 // back to BOOK before the first paint, so the cell never
                                 // collapses to 0 height during async image load.
+                                val mangaId = item.libraryManga.manga.id
                                 LibraryGridCell(
                                     item = item,
                                     libraryLayout = libraryLayout,
@@ -1073,7 +1105,9 @@ fun LibraryContent(
                                     showLanguageBadge = showLanguageBadge,
                                     unreadBadgeType = unreadBadgeType,
                                     hideStartReadingButton = hideStartReadingButton,
+                                    isSelected = mangaId != null && mangaId in selection,
                                     onMangaClick = onMangaClick,
+                                    onMangaLongClick = { m -> m.id?.let(onToggleSelection) },
                                     onContinueReading = onContinueReading,
                                     coverAspectRatio = if (uniformGrid) MangaCoverRatio.BOOK else null,
                                 )
@@ -1371,7 +1405,9 @@ private fun LibraryGridCell(
     showLanguageBadge: Boolean,
     unreadBadgeType: Int,
     hideStartReadingButton: Boolean,
+    isSelected: Boolean,
     onMangaClick: (Manga) -> Unit,
+    onMangaLongClick: (Manga) -> Unit,
     onContinueReading: (Manga) -> Unit,
     /**
      * Cover aspect ratio. Default 2:3 (book) for the regular grid path; pass `null` for the
@@ -1400,6 +1436,7 @@ private fun LibraryGridCell(
     val lang = if (showLanguageBadge) item.language.takeIf { it.isNotBlank() } else null
     val isLocal = remember(manga.id) { manga.isLocal() }
     val onClick = { onMangaClick(manga) }
+    val onLongClick = { onMangaLongClick(manga) }
     // Continue-reading button: only when the user has not hidden it AND the manga has unread
     // chapters. Skip the cover-only layout's button entirely so the cover stays unobstructed.
     val continueReadingClick = if (
@@ -1420,11 +1457,13 @@ private fun LibraryGridCell(
             lang = lang,
             unreadCount = unreadCount,
             downloadCount = downloadCount,
+            isSelected = isSelected,
             showOutline = outlineOnCovers,
             coverAspectRatio = coverAspectRatio,
             unreadDot = unreadDot,
             isLocal = isLocal,
             onClick = onClick,
+            onLongClick = onLongClick,
             onClickContinueReading = continueReadingClick,
             showLoadingIndicator = false,
         )
@@ -1434,12 +1473,14 @@ private fun LibraryGridCell(
             lang = lang,
             unreadCount = unreadCount,
             downloadCount = downloadCount,
+            isSelected = isSelected,
             showOutline = outlineOnCovers,
             showTitle = false,
             coverAspectRatio = coverAspectRatio,
             unreadDot = unreadDot,
             isLocal = isLocal,
             onClick = onClick,
+            onLongClick = onLongClick,
             showLoadingIndicator = false,
         )
         // LAYOUT_COMPACT_GRID default; LAYOUT_LIST is rendered by the isList branch upstream.
@@ -1449,11 +1490,13 @@ private fun LibraryGridCell(
             lang = lang,
             unreadCount = unreadCount,
             downloadCount = downloadCount,
+            isSelected = isSelected,
             showOutline = outlineOnCovers,
             coverAspectRatio = coverAspectRatio,
             unreadDot = unreadDot,
             isLocal = isLocal,
             onClick = onClick,
+            onLongClick = onLongClick,
             onClickContinueReading = continueReadingClick,
             showLoadingIndicator = false,
         )

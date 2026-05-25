@@ -131,6 +131,7 @@ class LibraryScreen : Screen {
         val isRunning = (state as? LibraryTabState.Loaded)?.isRunning ?: false
         val inQueueCategoryIds = (state as? LibraryTabState.Loaded)?.inQueueCategoryIds ?: emptySet()
         val currentCategoryOrder = (state as? LibraryTabState.Loaded)?.currentCategoryOrder ?: 0
+        val selection = (state as? LibraryTabState.Loaded)?.selection ?: emptySet()
 
         val snackbarHostState = remember { SnackbarHostState() }
         // Cancel-action strings need a Composable scope for stringResource; capture once outside
@@ -322,6 +323,7 @@ class LibraryScreen : Screen {
             overflowOpen = overflowOpen,
             detectedMangaTypes = detectedMangaTypes,
             loggedTrackerNames = loggedTrackerNames,
+            selection = selection,
             onSearchActiveChange = { searchActive = it },
             onSearchQueryChange = { searchQuery = it },
             onHopperGravityChange = { hopperGravityPref.set(it) },
@@ -430,6 +432,8 @@ class LibraryScreen : Screen {
                     }
                 }
             },
+            onToggleSelection = { id -> screenModel.toggleSelection(id) },
+            onClearSelection = { screenModel.clearSelection() },
             onRefreshCategory = { category ->
                 // Mirrors LibraryController.updateCategory (lines 1763-1802). Snackbar wording
                 // is decided BEFORE the dispatch so the user sees "already in queue" or

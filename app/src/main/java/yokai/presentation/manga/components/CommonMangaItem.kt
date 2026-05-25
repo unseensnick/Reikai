@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -172,14 +173,18 @@ fun MangaComfortableGridItem(
     /** When true, render a "Local" chip in place of the download count. */
     isLocal: Boolean = false,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
     onClickContinueReading: (() -> Unit)? = null,
     showLoadingIndicator: Boolean = true,
 ) {
     Column(
-        modifier = if (onClick != null) {
-            Modifier.clickable(onClick = onClick)
-        } else {
-            Modifier
+        modifier = when {
+            onClick != null && onLongClick != null -> Modifier.combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+            )
+            onClick != null -> Modifier.clickable(onClick = onClick)
+            else -> Modifier
         },
     ) {
         MangaGridCover(
@@ -280,11 +285,19 @@ fun MangaCompactGridItem(
     /** See [MangaComfortableGridItem.isLocal]. */
     isLocal: Boolean = false,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
     onClickContinueReading: (() -> Unit)? = null,
     showLoadingIndicator: Boolean = true,
 ) {
     MangaGridCover(
-        modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
+        modifier = when {
+            onClick != null && onLongClick != null -> Modifier.combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+            )
+            onClick != null -> Modifier.clickable(onClick = onClick)
+            else -> Modifier
+        },
         aspectRatio = coverAspectRatio,
         // See MangaComfortableGridItem note above.
         freeformMangaId = coverData.mangaId,
