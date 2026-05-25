@@ -75,11 +75,14 @@ fun LibraryCategoryHeader(
     //     break the legacy shows above each category in screenshots.
     //   - No divider under the header in legacy; the next item's own spacing is the visual
     //     break, not a hairline.
-    // In selection mode the row's tap toggles the whole-category selection (matches legacy
-    // checkbox click handler at refs/yokai/.../LibraryHeaderHolder.kt:354-356); collapse is
-    // unreachable during selection mode. Outside selection mode, behavior is unchanged.
+    // Select-all-in-category circle is hidden on collapsed categories so the user can't
+    // toggle invisible manga in/out of selection without expanding first. Mirrors legacy
+    // LibraryHeaderHolder.kt:382-383 which gates the checkbox on !category.isHidden. With the
+    // circle hidden, the row's tap falls back to the collapse toggle so the user can expand
+    // the category to reveal its contents (and the circle).
+    val showSelectAllCircle = selectionActive && !isCollapsed
     val rowClick = when {
-        selectionActive && onToggleCategorySelection != null -> onToggleCategorySelection
+        showSelectAllCircle && onToggleCategorySelection != null -> onToggleCategorySelection
         collapsible -> onClick
         else -> null
     }
@@ -91,7 +94,7 @@ fun LibraryCategoryHeader(
         modifier = rowModifier,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (selectionActive) {
+        if (showSelectAllCircle) {
             // Select-all-in-category circle: filled CheckCircle when every manga in this
             // category is in the selection set, hollow RadioButtonUnchecked otherwise. Same
             // drawable swap as legacy at refs/yokai/.../LibraryHeaderHolder.kt:358-373.
@@ -126,7 +129,7 @@ fun LibraryCategoryHeader(
             style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
             modifier = Modifier
                 .weight(1f)
-                .padding(start = if (selectionActive || collapsible) 8.dp else 0.dp),
+                .padding(start = if (showSelectAllCircle || collapsible) 8.dp else 0.dp),
         )
         if (onRefreshClick != null) {
             HeaderRefreshButton(
