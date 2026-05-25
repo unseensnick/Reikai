@@ -701,30 +701,9 @@ fun LibraryContent(
                             ),
                         )
                     }
-                    add(
-                        yokai.presentation.library.components.SelectionAction(
-                            label = stringResource(MR.strings.mark_as_read),
-                            onClick = onConfirmAndMarkRead,
-                        ),
-                    )
-                    add(
-                        yokai.presentation.library.components.SelectionAction(
-                            label = stringResource(MR.strings.mark_as_unread),
-                            onClick = onConfirmAndMarkUnread,
-                        ),
-                    )
-                    add(
-                        yokai.presentation.library.components.SelectionAction(
-                            label = stringResource(MR.strings.download_unread),
-                            onClick = onDownloadUnread,
-                        ),
-                    )
-                    add(
-                        yokai.presentation.library.components.SelectionAction(
-                            label = stringResource(MR.strings.share),
-                            onClick = onShareSelection,
-                        ),
-                    )
+                    // Overflow order mirrors Reikai legacy library_selection.xml below the
+                    // ifRoom group: merge_selected, unmerge_selected (when applicable),
+                    // download_unread, mark_as_read, mark_as_unread, share.
                     add(
                         yokai.presentation.library.components.SelectionAction(
                             label = stringResource(MR.strings.merge_selected),
@@ -740,6 +719,30 @@ fun LibraryContent(
                             ),
                         )
                     }
+                    add(
+                        yokai.presentation.library.components.SelectionAction(
+                            label = stringResource(MR.strings.download_unread),
+                            onClick = onDownloadUnread,
+                        ),
+                    )
+                    add(
+                        yokai.presentation.library.components.SelectionAction(
+                            label = stringResource(MR.strings.mark_as_read),
+                            onClick = onConfirmAndMarkRead,
+                        ),
+                    )
+                    add(
+                        yokai.presentation.library.components.SelectionAction(
+                            label = stringResource(MR.strings.mark_as_unread),
+                            onClick = onConfirmAndMarkUnread,
+                        ),
+                    )
+                    add(
+                        yokai.presentation.library.components.SelectionAction(
+                            label = stringResource(MR.strings.share),
+                            onClick = onShareSelection,
+                        ),
+                    )
                 }
                 SelectionAppBar(
                     selectionCount = selection.size,
