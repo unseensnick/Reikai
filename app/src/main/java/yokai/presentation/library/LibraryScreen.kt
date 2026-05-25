@@ -605,7 +605,9 @@ class LibraryScreen : Screen {
                 // bucketing across multi-manga selections. updateLibrary is unnecessary in the
                 // Compose path: the screen model collects getLibraryManga.subscribe(), which
                 // re-emits when the category mapping changes.
-                val mangas = screenModel.selectedMangaList()
+                // F13/D2: expanded to include merged-group siblings so moving a leader carries
+                // the rest of the group along, matching legacy `LibraryController.kt:2253-2262`.
+                val mangas = screenModel.selectedMangaListWithMergedSiblings()
                 if (mangas.isEmpty()) return@LibraryContent
                 val activity = router.activity ?: return@LibraryContent
                 coroutineScope.launch {
@@ -779,7 +781,11 @@ class LibraryScreen : Screen {
                         colors = dialogButtonColors,
                         onClick = {
                             deleteConfirmOpen = false
-                            val mangas = screenModel.selectedMangaList()
+                            // F13/D3: expanded so the snackbar's undo / cleanup branches
+                            // cover every member of any merge group the selection touches.
+                            // The downstream removeFromLibrary() also uses the expanded
+                            // resolver internally; the two converge on the same set.
+                            val mangas = screenModel.selectedMangaListWithMergedSiblings()
                             if (mangas.isEmpty()) return@TextButton
                             if (removeFromLibrary) {
                                 screenModel.removeFromLibrary()

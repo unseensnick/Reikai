@@ -206,6 +206,43 @@ class MangaLibraryScreenModel :
             .toList()
     }
 
+    /**
+     * Expand a set of selected manga ids to include every member of any manual-merge group
+     * that contains at least one selected manga. Reads `preferences.mangaManualMerges()`
+     * directly; the Phase 6 plan replaces this with a read from `LibraryItem.Manga.relatedMangaIds`
+     * once that field lands on the data model.
+     */
+    private fun expandSelectionWithMergedSiblings(ids: Set<Long>): Set<Long> {
+        if (ids.isEmpty()) return ids
+        val merges = preferences.mangaManualMerges().get()
+        if (merges.isEmpty()) return ids
+        return merges
+            .asSequence()
+            .map { entry -> entry.split(",").mapNotNull { it.trim().toLongOrNull() } }
+            .filter { members -> members.any { it in ids } }
+            .flatten()
+            .toSet() + ids
+    }
+
+    /**
+     * Like [selectedMangaList] but pulls in every member of any merge group the selection
+     * touches. Used by delete + move-to-category + merge so a merged-group leader doesn't get
+     * an action applied to it in isolation, orphaning the siblings. Mirrors legacy expansion
+     * via `LibraryMangaItem.relatedMangaIds` at `LibraryController.kt:2120-2129` (merge),
+     * `:2210-2220` (delete), `:2253-2262` (move).
+     */
+    fun selectedMangaListWithMergedSiblings(): List<Manga> {
+        val loaded = state.value as? LibraryTabState.Loaded ?: return emptyList()
+        val expanded = expandSelectionWithMergedSiblings(loaded.selection)
+        if (expanded.isEmpty()) return emptyList()
+        return loaded.library.values
+            .asSequence()
+            .flatten()
+            .map { it.libraryManga.manga }
+            .filter { it.id in expanded }
+            .toList()
+    }
+
     fun shareSelection(): List<String> =
         MangaLibraryActions.share(selectedMangaList(), sourceManager)
 
@@ -251,7 +288,11 @@ class MangaLibraryScreenModel :
      * [confirmDeletion]. State reload happens reactively via getLibraryManga.subscribe().
      */
     fun removeFromLibrary(): List<Manga> {
-        val mangas = selectedMangaList()
+        // Expanded: a delete on a merged-group leader pulls every sibling along, matching
+        // legacy `deleteMangasFromLibrary` at `LibraryController.kt:2210-2220`. The expanded
+        // list also flows through the undo snackbar → confirmDeletion / reAddToLibrary so
+        // every member gets undone or cleaned up uniformly.
+        val mangas = selectedMangaListWithMergedSiblings()
         screenModelScope.launchIO {
             MangaLibraryActions.removeFromLibrary(mangas, updateManga)
         }
@@ -287,18 +328,10 @@ class MangaLibraryScreenModel :
         val ids = (state.value as? LibraryTabState.Loaded)?.selection?.toList().orEmpty()
         if (ids.size < 2) return
         screenModelScope.launchIO {
-            // Expand selection to include every member of any existing merge group a selected
-            // manga belongs to. Without this, merging [m1, m4] when m1 is already in group
-            // [m1, m2, m3] would drop the [m1, m2, m3] entry (the merge logic prunes any entry
-            // mentioning the merge ids) and orphan m2 and m3. Mirrors legacy expansion via
-            // LibraryMangaItem.relatedMangaIds at LibraryController.kt:2120-2129.
-            val idSet = ids.toSet()
-            val expandedIds = preferences.mangaManualMerges().get()
-                .asSequence()
-                .map { entry -> entry.split(",").mapNotNull { it.trim().toLongOrNull() } }
-                .filter { members -> members.any { it in idSet } }
-                .flatten()
-                .toSet() + idSet
+            // Expand to include every member of any merge group the selection touches; without
+            // this, merging [m1, m4] when m1 is already in group [m1, m2, m3] would drop the
+            // old entry (collision pruning) and orphan m2 and m3.
+            val expandedIds = expandSelectionWithMergedSiblings(ids.toSet())
             val sorted = MangaLibraryActions.merge(expandedIds.toList(), preferences)
             if (preferences.syncTrackerLinksGrouped().get()) {
                 MangaLibraryActions.reconcileGroupTrackers(
