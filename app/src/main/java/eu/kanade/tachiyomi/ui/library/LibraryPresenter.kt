@@ -1417,6 +1417,49 @@ class LibraryPresenter(
     }
 
     /**
+     * Library multi-select unmerge. New behavior for the library action mode; the per-pair
+     * unmerge format mirrors [eu.kanade.tachiyomi.ui.manga.MangaDetailsPresenter.removeFromGroup]
+     * so the same-title auto-grouping pass in `refreshRelatedMangaIds` cannot re-form the split.
+     *
+     * For each merge entry containing any [targetIds]:
+     *  - Record pair-unmerges between every target and every other group member (including
+     *    pairs between two targets removed from the same group).
+     *  - Drop the merge entry. If 2+ members survive (none of them targeted), re-insert a fresh
+     *    entry for the survivors so they stay explicitly merged.
+     */
+    fun unmergeMangas(targetIds: List<Long>) {
+        if (targetIds.isEmpty()) return
+        val targetSet = targetIds.toSet()
+
+        val originalMerges = preferences.mangaManualMerges().get()
+        val updatedMerges = LinkedHashSet<String>()
+        val unmerges = preferences.mangaManualUnmerges().get().toMutableSet()
+
+        for (entry in originalMerges) {
+            val members = entry.split(",").mapNotNull { it.trim().toLongOrNull() }.toSet()
+            val targetsInGroup = members.intersect(targetSet)
+            if (targetsInGroup.isEmpty()) {
+                updatedMerges.add(entry)
+                continue
+            }
+            for (target in targetsInGroup) {
+                for (other in members) {
+                    if (other == target) continue
+                    val pair = if (target < other) "$target,$other" else "$other,$target"
+                    unmerges.add(pair)
+                }
+            }
+            val survivors = members - targetsInGroup
+            if (survivors.size >= 2) {
+                updatedMerges.add(survivors.sorted().joinToString(","))
+            }
+        }
+
+        preferences.mangaManualMerges().set(updatedMerges)
+        preferences.mangaManualUnmerges().set(unmerges)
+    }
+
+    /**
      * Propagate trackers across [ids] and cache the group's canonical key so the auto-grouping
      * pass in [applySourceGrouping] doesn't repeat the work later. Used by both the manual
      * [mergeMangas] path (immediate, for snappy UX) and the auto-merge path via
