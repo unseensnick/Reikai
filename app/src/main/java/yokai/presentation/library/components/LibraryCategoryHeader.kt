@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -53,6 +55,17 @@ fun LibraryCategoryHeader(
     modifier: Modifier = Modifier,
     isRefreshing: Boolean = false,
     onRefreshClick: (() -> Unit)? = null,
+    /**
+     * When true, the header is in multi-select mode: the chevron is replaced with a
+     * select-all-in-category circle, and tapping the row toggles every manga in the category
+     * in/out of the selection set. Mirrors the legacy `LibraryHeaderHolder.notifyStatus`
+     * MULTI-mode behavior at refs/yokai/.../LibraryHeaderHolder.kt:382-383.
+     */
+    selectionActive: Boolean = false,
+    /** True when every manga in this category is currently selected. */
+    allSelected: Boolean = false,
+    /** Toggle every manga in this category in/out of the selection set. */
+    onToggleCategorySelection: (() -> Unit)? = null,
 ) {
     // Spacing mirrors library_category_header_item.xml:
     //   - Start space 6dp + chevron marginStart 8dp = 14dp before the chevron.
@@ -62,15 +75,33 @@ fun LibraryCategoryHeader(
     //     break the legacy shows above each category in screenshots.
     //   - No divider under the header in legacy; the next item's own spacing is the visual
     //     break, not a hairline.
+    // In selection mode the row's tap toggles the whole-category selection (matches legacy
+    // checkbox click handler at refs/yokai/.../LibraryHeaderHolder.kt:354-356); collapse is
+    // unreachable during selection mode. Outside selection mode, behavior is unchanged.
+    val rowClick = when {
+        selectionActive && onToggleCategorySelection != null -> onToggleCategorySelection
+        collapsible -> onClick
+        else -> null
+    }
     val rowModifier = modifier
         .fillMaxWidth()
-        .then(if (collapsible) Modifier.clickable(onClick = onClick) else Modifier)
+        .then(if (rowClick != null) Modifier.clickable(onClick = rowClick) else Modifier)
         .padding(start = 14.dp, end = 8.dp, top = 24.dp, bottom = 8.dp)
     Row(
         modifier = rowModifier,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (collapsible) {
+        if (selectionActive) {
+            // Select-all-in-category circle: filled CheckCircle when every manga in this
+            // category is in the selection set, hollow RadioButtonUnchecked otherwise. Same
+            // drawable swap as legacy at refs/yokai/.../LibraryHeaderHolder.kt:358-373.
+            Icon(
+                imageVector = if (allSelected) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                contentDescription = stringResource(MR.strings.select_all),
+                tint = if (allSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+        } else if (collapsible) {
             // Legacy positions the chevron on the start (left) edge of the header row, before
             // the title. The drawable is 14dp wide; matching the visual weight matters since
             // the larger Material default (20dp+) reads as a heavy button rather than a
@@ -95,7 +126,7 @@ fun LibraryCategoryHeader(
             style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
             modifier = Modifier
                 .weight(1f)
-                .padding(start = if (collapsible) 8.dp else 0.dp),
+                .padding(start = if (selectionActive || collapsible) 8.dp else 0.dp),
         )
         if (onRefreshClick != null) {
             HeaderRefreshButton(

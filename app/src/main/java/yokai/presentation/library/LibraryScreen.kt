@@ -488,6 +488,7 @@ class LibraryScreen : Screen {
             },
             onToggleSelection = { id -> screenModel.toggleSelection(id) },
             onClearSelection = { screenModel.clearSelection() },
+            onToggleCategorySelection = { categoryId -> screenModel.toggleCategorySelection(categoryId) },
             onShareSelection = {
                 // Faithful port of legacy LibraryController.shareManga at LibraryController.kt:2174.
                 // Local-source manga are filtered out inside MangaLibraryActions.share; if the

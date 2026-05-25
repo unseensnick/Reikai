@@ -168,6 +168,29 @@ class MangaLibraryScreenModel :
     }
 
     /**
+     * Toggle every manga in a category in / out of the selection set, matching the legacy
+     * select-all-in-category checkbox at refs/yokai/.../LibraryHeaderHolder.kt:354-356. If every
+     * manga in the category is already selected, remove them all; otherwise add the missing
+     * ones (covers the partial-already-selected case without first deselecting).
+     */
+    fun toggleCategorySelection(categoryId: Int) {
+        mutableState.update { current ->
+            if (current !is LibraryTabState.Loaded) return@update current
+            val categoryEntry = current.library.entries.firstOrNull { it.key.id == categoryId }
+                ?: return@update current
+            val categoryIds = categoryEntry.value.mapNotNull { it.libraryManga.manga.id }.toSet()
+            if (categoryIds.isEmpty()) return@update current
+            val allSelected = categoryIds.all { it in current.selection }
+            val newSelection = if (allSelected) {
+                current.selection - categoryIds
+            } else {
+                current.selection + categoryIds
+            }
+            current.copy(selection = newSelection)
+        }
+    }
+
+    /**
      * Resolve current selection ids to their backing [Manga] entries via state.library. No DB
      * call needed: every selected manga is, by definition, currently rendered in the grid.
      */

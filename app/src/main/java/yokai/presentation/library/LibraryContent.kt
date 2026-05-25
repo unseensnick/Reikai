@@ -264,6 +264,8 @@ fun LibraryContent(
     onMerge: () -> Unit,
     /** C7: split the current selection out of its existing merge group(s). */
     onUnmerge: () -> Unit,
+    /** F4: toggle every manga in a category in/out of the selection (header circle tap). */
+    onToggleCategorySelection: (Int) -> Unit,
     /**
      * C7: true when the selection has 2+ items (merge requires at least two to combine).
      * Drives the merge menu entry's `enabled` flag.
@@ -1032,6 +1034,8 @@ fun LibraryContent(
                                     key = "header:${category.id ?: 0}",
                                     contentType = "library_category_header",
                                 ) {
+                                    val allSelectedInCategory = mangaItems.isNotEmpty() &&
+                                        mangaItems.all { it.libraryManga.manga.id in selection }
                                     LibraryCategoryHeader(
                                         name = category.name,
                                         itemCount = displayedHeaderCounts[category.id ?: 0] ?: 0,
@@ -1044,6 +1048,11 @@ fun LibraryContent(
                                             { onRefreshCategory(category) }
                                         } else {
                                             null
+                                        },
+                                        selectionActive = selection.isNotEmpty(),
+                                        allSelected = allSelectedInCategory,
+                                        onToggleCategorySelection = {
+                                            category.id?.let { onToggleCategorySelection(it) }
                                         },
                                     )
                                 }
@@ -1123,6 +1132,8 @@ fun LibraryContent(
                                     span = StaggeredGridItemSpan.FullLine,
                                     contentType = "library_category_header",
                                 ) {
+                                    val allSelectedInCategory = mangaItems.isNotEmpty() &&
+                                        mangaItems.all { it.libraryManga.manga.id in selection }
                                     LibraryCategoryHeader(
                                         name = category.name,
                                         itemCount = displayedHeaderCounts[category.id ?: 0] ?: 0,
@@ -1135,6 +1146,11 @@ fun LibraryContent(
                                             { onRefreshCategory(category) }
                                         } else {
                                             null
+                                        },
+                                        selectionActive = selection.isNotEmpty(),
+                                        allSelected = allSelectedInCategory,
+                                        onToggleCategorySelection = {
+                                            category.id?.let { onToggleCategorySelection(it) }
                                         },
                                     )
                                 }
@@ -1180,6 +1196,8 @@ fun LibraryContent(
                                     span = { GridItemSpan(maxLineSpan) },
                                     contentType = "library_category_header",
                                 ) {
+                                    val allSelectedInCategory = mangaItems.isNotEmpty() &&
+                                        mangaItems.all { it.libraryManga.manga.id in selection }
                                     LibraryCategoryHeader(
                                         name = category.name,
                                         itemCount = displayedHeaderCounts[category.id ?: 0] ?: 0,
@@ -1192,6 +1210,11 @@ fun LibraryContent(
                                             { onRefreshCategory(category) }
                                         } else {
                                             null
+                                        },
+                                        selectionActive = selection.isNotEmpty(),
+                                        allSelected = allSelectedInCategory,
+                                        onToggleCategorySelection = {
+                                            category.id?.let { onToggleCategorySelection(it) }
                                         },
                                     )
                                 }

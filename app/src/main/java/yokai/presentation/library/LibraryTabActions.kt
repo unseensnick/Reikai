@@ -46,4 +46,7 @@ interface LibraryTabActions {
 
     /** Split selected manga out of their existing merge group(s). */
     fun onUnmerge()
+
+    /** Toggle every manga in a category in / out of the selection set. */
+    fun onToggleCategorySelection(categoryId: Int)
 }
