@@ -30,12 +30,13 @@ import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridS
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.HeartBroken
+import androidx.compose.material.icons.outlined.CallMerge
+import androidx.compose.material.icons.outlined.CallSplit
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.SwapCalls
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
@@ -674,9 +675,11 @@ fun LibraryContent(
                 //
                 // Action order matches the legacy library_selection.xml row order for the
                 // showAsAction="never" group: download-unread, mark-read, mark-unread, share.
-                // Mirror legacy library_selection.xml's showAsAction layout: move-to-categories,
-                // Remove, and Migrate are `ifRoom` (bar IconButtons); the rest land in the
-                // MoreVert overflow. SelectionAppBar splits the list on action.icon presence.
+                // Bar: Move | Delete | Merge-or-Unmerge | overflow.
+                // The third bar slot is a single state-aware button: when canUnmerge it
+                // flips to Unmerge (CallSplit icon) and dispatches the wholesale-dissolve
+                // action; otherwise it shows Merge (CallMerge icon), enabled only when 2+
+                // are selected. Migrate moves to the overflow per user request.
                 val actionsList = buildList {
                     add(
                         yokai.presentation.library.components.SelectionAction(
@@ -692,30 +695,29 @@ fun LibraryContent(
                             onClick = onConfirmAndDelete,
                         ),
                     )
-                    if (selectionHasRemoteSources) {
-                        add(
-                            yokai.presentation.library.components.SelectionAction(
-                                label = stringResource(MR.strings.migrate),
-                                icon = Icons.Outlined.SwapCalls,
-                                onClick = onMigrate,
-                            ),
-                        )
-                    }
-                    // Overflow order mirrors Reikai legacy library_selection.xml below the
-                    // ifRoom group: merge_selected, unmerge_selected (when applicable),
-                    // download_unread, mark_as_read, mark_as_unread, share.
-                    add(
-                        yokai.presentation.library.components.SelectionAction(
-                            label = stringResource(MR.strings.merge_selected),
-                            enabled = canMerge,
-                            onClick = onMerge,
-                        ),
-                    )
                     if (canUnmerge) {
                         add(
                             yokai.presentation.library.components.SelectionAction(
                                 label = stringResource(MR.strings.unmerge_selected),
+                                icon = Icons.Outlined.CallSplit,
                                 onClick = onUnmerge,
+                            ),
+                        )
+                    } else {
+                        add(
+                            yokai.presentation.library.components.SelectionAction(
+                                label = stringResource(MR.strings.merge_selected),
+                                icon = Icons.Outlined.CallMerge,
+                                enabled = canMerge,
+                                onClick = onMerge,
+                            ),
+                        )
+                    }
+                    if (selectionHasRemoteSources) {
+                        add(
+                            yokai.presentation.library.components.SelectionAction(
+                                label = stringResource(MR.strings.migrate),
+                                onClick = onMigrate,
                             ),
                         )
                     }
