@@ -3,9 +3,13 @@ package yokai.presentation.library.manga
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.tachiyomi.data.database.models.Category
+import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.LibraryManga
 import eu.kanade.tachiyomi.data.download.DownloadCache
+import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.domain.manga.models.Manga
+import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
 import eu.kanade.tachiyomi.util.system.launchIO
 import kotlinx.coroutines.flow.collectLatest
@@ -13,8 +17,11 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.category.interactor.GetCategories
+import yokai.domain.chapter.interactor.GetChapter
+import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.manga.interactor.GetLibraryManga
 import yokai.presentation.library.LibraryTabState
+import yokai.presentation.library.manga.actions.MangaLibraryActions
 
 /**
  * Compose library screen model. Collects categories, library manga, the download-cache
@@ -36,6 +43,10 @@ class MangaLibraryScreenModel :
     private val getLibraryManga: GetLibraryManga by injectLazy()
     private val downloadCache: DownloadCache by injectLazy()
     private val libraryUpdater: MangaLibraryUpdater by injectLazy()
+    private val sourceManager: SourceManager by injectLazy()
+    private val downloadManager: DownloadManager by injectLazy()
+    private val getChapter: GetChapter by injectLazy()
+    private val updateChapter: UpdateChapter by injectLazy()
 
     init {
         screenModelScope.launchIO {
@@ -144,6 +155,61 @@ class MangaLibraryScreenModel :
                 current
             }
         }
+    }
+
+    /**
+     * Resolve current selection ids to their backing [Manga] entries via state.library. No DB
+     * call needed: every selected manga is, by definition, currently rendered in the grid.
+     */
+    fun selectedMangaList(): List<Manga> {
+        val loaded = state.value as? LibraryTabState.Loaded ?: return emptyList()
+        val ids = loaded.selection
+        if (ids.isEmpty()) return emptyList()
+        return loaded.library.values
+            .asSequence()
+            .flatten()
+            .map { it.libraryManga.manga }
+            .filter { it.id in ids }
+            .toList()
+    }
+
+    fun shareSelection(): List<String> =
+        MangaLibraryActions.share(selectedMangaList(), sourceManager)
+
+    fun downloadUnreadSelection() {
+        val mangas = selectedMangaList()
+        screenModelScope.launchIO {
+            MangaLibraryActions.downloadUnread(mangas, getChapter, downloadManager)
+        }
+    }
+
+    /**
+     * Apply read / unread to every chapter of the selection. Returns the pre-update snapshot
+     * (Manga -> original chapters) so the caller can offer Undo via [undoMarkReadStatus] or
+     * commit cleanup via [confirmMarkReadStatus].
+     */
+    suspend fun markReadStatus(markRead: Boolean): Map<Manga, List<Chapter>> =
+        MangaLibraryActions.markReadStatus(
+            mangas = selectedMangaList(),
+            markRead = markRead,
+            getChapter = getChapter,
+            updateChapter = updateChapter,
+        )
+
+    fun undoMarkReadStatus(snapshot: Map<Manga, List<Chapter>>) {
+        screenModelScope.launchIO {
+            MangaLibraryActions.undoMarkReadStatus(snapshot, updateChapter)
+        }
+    }
+
+    fun confirmMarkReadStatus(snapshot: Map<Manga, List<Chapter>>, markRead: Boolean) {
+        MangaLibraryActions.confirmMarkReadStatus(
+            snapshot = snapshot,
+            markRead = markRead,
+            removeAfterMarkedAsRead = preferences.removeAfterMarkedAsRead().get(),
+            downloadManager = downloadManager,
+            sourceManager = sourceManager,
+        )
     }
 
     private data class Snapshot(

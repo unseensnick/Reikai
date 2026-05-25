@@ -124,6 +124,10 @@ class LibraryScreen : Screen {
         // showGroupOptions() which opens just the picker, not the full Display options sheet.
         var groupByDialogOpen by remember { mutableStateOf(false) }
 
+        // C3: mark-as-read / mark-as-unread confirmation dialog state. Null = closed; non-null
+        // carries the `markRead` flag the dialog dispatches on confirm.
+        var markReadConfirmFor by remember { mutableStateOf<Boolean?>(null) }
+
         val library = when (val s = state) {
             is LibraryTabState.Loading -> emptyMap()
             is LibraryTabState.Loaded -> s.library
@@ -141,6 +145,10 @@ class LibraryScreen : Screen {
         val addingToQueueFmt = stringResource(MR.strings.adding_category_to_queue)
         val alreadyInQueueFmt = stringResource(MR.strings._already_in_queue)
         val cancelText = stringResource(MR.strings.cancel)
+        // C3 snackbar texts captured once at the Composable scope.
+        val markedAsReadText = stringResource(MR.strings.marked_as_read)
+        val markedAsUnreadText = stringResource(MR.strings.marked_as_unread)
+        val undoText = stringResource(MR.strings.undo)
 
         val sourceNames = remember(library) {
             library.values
@@ -434,6 +442,35 @@ class LibraryScreen : Screen {
             },
             onToggleSelection = { id -> screenModel.toggleSelection(id) },
             onClearSelection = { screenModel.clearSelection() },
+            onShareSelection = {
+                // Faithful port of legacy LibraryController.shareManga at LibraryController.kt:2174.
+                // Local-source manga are filtered out inside MangaLibraryActions.share; if the
+                // entire selection is local, the URL list is empty and we no-op (no chooser).
+                // Unlike legacy (which leaves the action mode alive after a share, per scout
+                // finding #3), the Compose port dismisses selection on dispatch for consistency
+                // with every other action.
+                val urls = screenModel.shareSelection()
+                if (urls.isNotEmpty()) {
+                    val activity = router.activity ?: return@LibraryContent
+                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                        type = "text/*"
+                        putExtra(android.content.Intent.EXTRA_TEXT, urls.joinToString("\n"))
+                    }
+                    val chooserTitle = activity.getString(MR.strings.share)
+                    activity.startActivity(android.content.Intent.createChooser(intent, chooserTitle))
+                }
+                screenModel.clearSelection()
+            },
+            onDownloadUnread = {
+                // Faithful port of legacy LibraryController:2088. Silent: no snackbar, no dialog;
+                // the download notification surfaces progress. Selection clears immediately on
+                // dispatch, matching every other action except mark-read / delete (which keep
+                // selection alive until their undo snackbar resolves).
+                screenModel.downloadUnreadSelection()
+                screenModel.clearSelection()
+            },
+            onConfirmAndMarkRead = { markReadConfirmFor = true },
+            onConfirmAndMarkUnread = { markReadConfirmFor = false },
             onRefreshCategory = { category ->
                 // Mirrors LibraryController.updateCategory (lines 1763-1802). Snackbar wording
                 // is decided BEFORE the dispatch so the user sees "already in queue" or
@@ -470,6 +507,56 @@ class LibraryScreen : Screen {
                 entries = yokai.presentation.library.components.rememberGroupByEntries(),
                 onSelect = { preferences.groupLibraryBy().set(it) },
                 onDismiss = { groupByDialogOpen = false },
+            )
+        }
+
+        // C3: mark-as-read / mark-as-unread confirmation dialog + undo snackbar. Faithful port of
+        // LibraryController.kt:2091-2107 (the AlertDialog) + :2142-2172 (the snackbar with undo
+        // and the dismissal-triggered confirm cleanup).
+        markReadConfirmFor?.let { markRead ->
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { markReadConfirmFor = null },
+                text = {
+                    androidx.compose.material3.Text(
+                        text = stringResource(
+                            if (markRead) MR.strings.mark_all_chapters_as_read
+                            else MR.strings.mark_all_chapters_as_unread,
+                        ),
+                    )
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            markReadConfirmFor = null
+                            coroutineScope.launch {
+                                val snapshot = screenModel.markReadStatus(markRead = markRead)
+                                screenModel.clearSelection()
+                                val message = if (markRead) markedAsReadText else markedAsUnreadText
+                                val result = snackbarHostState.showSnackbar(
+                                    message = message,
+                                    actionLabel = undoText,
+                                    duration = SnackbarDuration.Long,
+                                )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    screenModel.undoMarkReadStatus(snapshot)
+                                } else {
+                                    screenModel.confirmMarkReadStatus(snapshot, markRead)
+                                }
+                            }
+                        },
+                    ) {
+                        androidx.compose.material3.Text(
+                            text = stringResource(
+                                if (markRead) MR.strings.mark_as_read else MR.strings.mark_as_unread,
+                            ),
+                        )
+                    }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { markReadConfirmFor = null }) {
+                        androidx.compose.material3.Text(text = cancelText)
+                    }
+                },
             )
         }
     }

@@ -19,4 +19,16 @@ interface LibraryTabActions {
 
     /** Clear all selected items. Triggered by back press or the contextual bar's close icon. */
     fun onClearSelection()
+
+    /** Open the Android share sheet for every selected manga's HTTP source URL. */
+    fun onShareSelection()
+
+    /** Bulk download every unread chapter for the selected manga. */
+    fun onDownloadUnread()
+
+    /** Show the confirmation dialog before bulk mark-as-read; on confirm, dispatch. */
+    fun onConfirmAndMarkRead()
+
+    /** Show the confirmation dialog before bulk mark-as-unread; on confirm, dispatch. */
+    fun onConfirmAndMarkUnread()
 }
