@@ -180,8 +180,25 @@ class MangaDetailsPresenter(
     private var relatedMangasFetched: Boolean = false
     private val relatedMangasMutex = Mutex()
 
+    /**
+     * Serialises [markChaptersRead] so a rapid second invocation (e.g. another range selection
+     * while the first DB write is in flight) waits for the first write + re-read to settle.
+     * Without this, the two passes interleave inside [presenterScope.launchNonCancellableIO]
+     * and the second pass's `getChapters()` can read mid-write, leaving the in-memory list
+     * out of sync with the database.
+     */
+    private val markReadMutex = Mutex()
+
     /** Dedupe guard for [refreshRelatedMangaIds] — see KDoc on that function. */
     @Volatile private var lastRelatedMangaIdsRefreshMs: Long = 0L
+
+    /**
+     * Number of merge-pref entries the last [refreshRelatedMangaIds] call self-healed via the
+     * tracker-overlap check. The controller reads + consumes this on attach to decide whether
+     * to surface a "cleaned up N bad merges" snackbar. Reset to 0 after each read so a deduped
+     * refresh call inside the dedup window doesn't double-notify.
+     */
+    @Volatile var lastMergeCleanupCount: Int = 0
 
 //    private val currentMangaInternal: MutableStateFlow<Manga?> = MutableStateFlow(null)
 //    val currentManga get() = currentMangaInternal.asStateFlow()
@@ -261,9 +278,13 @@ class MangaDetailsPresenter(
             downloadManager.queueState.collectLatest(::onQueueUpdate)
         }
 
-        runBlocking {
-            tracks = getTrack.awaitAllByMangaId(mangaId)
-        }
+        // Pull the cached tracks off-main instead of blocking. The previous runBlocking made
+        // every new presenter (e.g., source-chip switches) wait on a DB round-trip before its
+        // view could resume drawing; with rapid switches these stacked and queued the user's
+        // next tap (the tracker chip in particular). fetchTracks runs the same query plus
+        // setTrackItems and the view refresh, so the bottom sheet renders correctly once it
+        // resolves; until then the sheet shows the existing empty trackList for a frame.
+        presenterScope.launchIO { fetchTracks() }
     }
 
     /**
@@ -884,24 +905,26 @@ class MangaDetailsPresenter(
         pagesLeft: Int? = null,
     ) {
         presenterScope.launchNonCancellableIO {
-            val updates = selectedChapters.map {
-                it.read = read
-                if (!read) {
-                    it.last_page_read = lastRead ?: 0
-                    it.pages_left = pagesLeft ?: 0
+            markReadMutex.withLock {
+                val updates = selectedChapters.map {
+                    it.read = read
+                    if (!read) {
+                        it.last_page_read = lastRead ?: 0
+                        it.pages_left = pagesLeft ?: 0
+                    }
+                    it.toProgressUpdate()
                 }
-                it.toProgressUpdate()
-            }
-            updateChapter.awaitAll(updates)
-            if (read && deleteNow && preferences.removeAfterMarkedAsRead().get()) {
-                deleteChapters(selectedChapters, false)
-            }
-            getChapters()
-            withUIContext { view?.updateChapters() }
-            if (read && deleteNow) {
-                val latestReadChapter = selectedChapters.maxByOrNull { it.chapter_number.toInt() }?.chapter
-                updateTrackChapterMarkedAsRead(preferences, latestReadChapter, manga.id) {
-                    fetchTracks()
+                updateChapter.awaitAll(updates)
+                if (read && deleteNow && preferences.removeAfterMarkedAsRead().get()) {
+                    deleteChapters(selectedChapters, false)
+                }
+                getChapters()
+                withUIContext { view?.updateChapters() }
+                if (read && deleteNow) {
+                    val latestReadChapter = selectedChapters.maxByOrNull { it.chapter_number.toInt() }?.chapter
+                    updateTrackChapterMarkedAsRead(preferences, latestReadChapter, manga.id) {
+                        fetchTracks()
+                    }
                 }
             }
         }
@@ -1337,6 +1360,11 @@ class MangaDetailsPresenter(
                         }
                     }
                 asyncList.awaitAll()
+                // Two-way sync above (syncChaptersWithTrackServiceTwoWay) may have written
+                // updated chapter read flags into the DB; re-read the chapter list so the UI
+                // reflects those changes immediately, not on the next manual refresh.
+                getChapters()
+                withUIContext { view?.updateChapters() }
                 fetchTracks()
             }
         }
@@ -1524,17 +1552,28 @@ class MangaDetailsPresenter(
         val targetTitle = manga.title.lowercase().trim()
         if (targetTitle.isEmpty()) return false
 
-        val mergesPrefs = preferences.mangaManualMerges().get()
-        val unmergesPrefs = preferences.mangaManualUnmerges().get()
+        // Self-heal manual merges that look like data corruption (e.g., a past accidental
+        // multi-select-merge or an id collision after manga deletion). For every merge entry
+        // referencing the target, pair-check each sibling id against the target's tracker
+        // (sync_id, media_id) keys: a verified sibling shares at least one local tracker entry
+        // OR has none on either side (no evidence). Suspect siblings (both tracked but no
+        // overlap) get dropped from the merge entry and recorded in mangaManualUnmerges so the
+        // same-title path can't re-add them on the next pass. Counted into lastMergeCleanupCount
+        // so the controller can surface a snackbar once per attach.
+        val (mergesPrefs, unmergesPrefs) = applyMergePrefHealing(targetId)
 
         val merged = mergesPrefs.flatMap { entry ->
             val ids = entry.split(",").mapNotNull { it.trim().toLongOrNull() }
             if (targetId in ids) ids else emptyList()
         }.toSet()
 
+        // Per-item `it.title.lowercase().trim()` was the dominant per-attach cost on large
+        // libraries (one allocation per favourited manga). `equals(ignoreCase = true)` does the
+        // case-insensitive compare without allocating, and `trim()` is a near-noop when the
+        // title has no leading/trailing whitespace (returns the same instance).
         val sameTitle = getManga.awaitFavorites()
             .asSequence()
-            .filter { it.id != null && it.title.lowercase().trim() == targetTitle }
+            .filter { it.id != null && it.title.trim().equals(targetTitle, ignoreCase = true) }
             .mapNotNull { it.id }
             .toSet()
 
@@ -1553,6 +1592,114 @@ class MangaDetailsPresenter(
         relatedMangaIds = filtered
         return true
     }
+
+    /**
+     * Walks every merge pref entry that references [targetId], pair-checks each sibling against
+     * the target's tracker (sync_id, media_id) set, and rewrites the merges + unmerges prefs to
+     * drop suspect siblings. Returns the post-cleanup snapshots of both prefs so the caller can
+     * proceed from the cleaned state without re-reading. Counts dropped pairs into
+     * [lastMergeCleanupCount] so the controller can show a snackbar after the attach pass.
+     *
+     * Verification rule per pair (target, sibling):
+     *  - either side has no local tracker rows → verified (no evidence to drop)
+     *  - both have rows AND at least one (sync_id, media_id) matches → verified
+     *  - both have rows but no overlap → suspect, drop
+     *
+     * Entry-level rewrite: a 4-member merge "10,15,20,25" where only 25 is suspect from 10's
+     * POV becomes "10,15,20"; 25 is also added to the unmerges set paired with each of the
+     * remaining members so the same-title path doesn't re-admit it. Entries shrunk below 2
+     * members are dropped entirely.
+     */
+    private suspend fun applyMergePrefHealing(targetId: Long): Pair<Set<String>, Set<String>> {
+        val originalMerges = preferences.mangaManualMerges().get()
+        val originalUnmerges = preferences.mangaManualUnmerges().get()
+        if (originalMerges.isEmpty()) {
+            lastMergeCleanupCount = 0
+            return originalMerges to originalUnmerges
+        }
+
+        // Pre-parse entries once + collect unique siblings across every entry referencing the
+        // target so we run at most one local-tracker query per id. Skip the whole cleanup pass
+        // (including the target's own tracker lookup) when no merge entry mentions the target;
+        // that's the common case for a user with many merges that don't involve THIS manga.
+        val parsedEntries = originalMerges.map { entry ->
+            val ids = entry.split(",").mapNotNull { it.trim().toLongOrNull() }
+            entry to ids
+        }
+        val relevantEntries = parsedEntries.filter { (_, ids) -> targetId in ids }
+        if (relevantEntries.isEmpty()) {
+            lastMergeCleanupCount = 0
+            return originalMerges to originalUnmerges
+        }
+        val uniqueSiblings = relevantEntries
+            .flatMap { (_, ids) -> ids }
+            .filterTo(HashSet()) { it != targetId }
+
+        // Parallel tracker lookups: one async per (target + unique sibling), awaited together.
+        // Each call routes through SQLDelight on Dispatchers.IO inside the handler, so we run
+        // them concurrently instead of serially. For a user with N siblings this cuts attach
+        // latency from N * round-trip to ~1 round-trip plus the slowest in-flight query.
+        val trackerKeysByMangaId: Map<Long, Set<Pair<Long, Long>>> = coroutineScope {
+            val ids = uniqueSiblings + targetId
+            ids.map { id -> id to async { trackerKeysFor(id) } }
+                .associate { (id, deferred) -> id to deferred.await() }
+        }
+        val targetKeys = trackerKeysByMangaId.getValue(targetId)
+
+        val cleanedMerges = LinkedHashSet<String>(originalMerges.size)
+        val addedUnmerges = mutableSetOf<String>()
+        var droppedSiblings = 0
+
+        for ((entry, ids) in parsedEntries) {
+            if (targetId !in ids) {
+                cleanedMerges += entry
+                continue
+            }
+            val verifiedIds = mutableListOf<Long>()
+            val suspectIds = mutableListOf<Long>()
+            for (id in ids) {
+                if (id == targetId) {
+                    verifiedIds += id
+                    continue
+                }
+                val siblingKeys = trackerKeysByMangaId[id].orEmpty()
+                val verified = targetKeys.isEmpty() ||
+                    siblingKeys.isEmpty() ||
+                    targetKeys.any { it in siblingKeys }
+                if (verified) {
+                    verifiedIds += id
+                } else {
+                    suspectIds += id
+                    droppedSiblings++
+                }
+            }
+            for (suspectId in suspectIds) {
+                for (verifiedId in verifiedIds) {
+                    val pair = if (suspectId < verifiedId) "$suspectId,$verifiedId" else "$verifiedId,$suspectId"
+                    addedUnmerges += pair
+                }
+            }
+            if (verifiedIds.size >= 2) {
+                cleanedMerges += verifiedIds.sorted().joinToString(",")
+            }
+        }
+
+        return if (droppedSiblings == 0) {
+            lastMergeCleanupCount = 0
+            originalMerges to originalUnmerges
+        } else {
+            val newUnmerges = (originalUnmerges + addedUnmerges).toSet()
+            preferences.mangaManualMerges().set(cleanedMerges)
+            preferences.mangaManualUnmerges().set(newUnmerges)
+            lastMergeCleanupCount = droppedSiblings
+            cleanedMerges to newUnmerges
+        }
+    }
+
+    /** Local tracker (sync_id, media_id) set for [mangaId]. Empty when the manga isn't tracked. */
+    private suspend fun trackerKeysFor(mangaId: Long): Set<Pair<Long, Long>> =
+        getTrack.awaitAllByMangaId(mangaId)
+            .mapTo(HashSet()) { it.sync_id to it.media_id }
 
     suspend fun availableSources(): List<Pair<Long, eu.kanade.tachiyomi.source.Source>> {
         val unmerges = preferences.mangaManualUnmerges().get()

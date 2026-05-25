@@ -759,6 +759,17 @@ class MangaDetailsController :
             // Small delay so any in-flight `favorite = true` write settles before we query.
             delay(150L)
             presenter.refreshRelatedMangaIds()
+            // Surface the merge auto-cleanup outcome via snackbar once per attach. Consumed
+            // here (reset to 0) so a deduped refresh inside the same window doesn't notify
+            // again. See MangaDetailsPresenter.applyMergePrefHealing for the heuristic.
+            val cleaned = presenter.lastMergeCleanupCount
+            if (cleaned > 0) {
+                presenter.lastMergeCleanupCount = 0
+                view?.snack(
+                    view!!.context.getString(MR.strings.cleaned_n_suspicious_merges, cleaned),
+                    Snackbar.LENGTH_LONG,
+                )
+            }
             updateHeader()
         }
         // Kick off the related-mangas fetch. One-shot per presenter instance, so calling on
@@ -766,16 +777,14 @@ class MangaDetailsController :
         presenter.fetchRelatedMangasFromSource()
         if (!returningFromReader) return
         returningFromReader = false
-        runBlocking {
-            val itemAnimator = binding.recycler.itemAnimator
-            val chapters = withTimeoutOrNull(1000) { presenter.getChaptersNow() } ?: return@runBlocking
-            binding.recycler.itemAnimator = null
-            tabletAdapter?.notifyItemChanged(0)
-            adapter?.setChapters(chapters)
-            addMangaHeader()
-            updateFab()
-            binding.recycler.itemAnimator = itemAnimator
-        }
+        // The Reader writes chapter progress (read flag, last_page_read) via
+        // `viewModelScope.launchNonCancellableIO { saveChapterProgress(...) }`, which the
+        // activity-finish lifecycle does not await. Reading chapters here in `onAttach`
+        // (before `onActivityResumed`) racy-reads the DB and frequently lands stale data.
+        // Skip the eager read and rely on `onActivityResumed`'s `fetchChapters` call, which
+        // runs strictly later in the lifecycle and is the same code path a manual refresh
+        // would use. The Reader-side write-await is a separate fix the user can request when
+        // a recurring "chapter not marked read on first return" case shows up.
     }
 
     override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {

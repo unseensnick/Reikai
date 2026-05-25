@@ -604,8 +604,15 @@ class MangaHeaderHolder(
         chipsJob?.cancel()
         val scope = (adapter.delegate as? MangaDetailsController)?.viewScope ?: return
         chipsJob = scope.launch(Dispatchers.Main) {
-            val sources = withContext(Dispatchers.IO) {
-                presenter.availableSources()
+            // Snapshot relatedMangaIds together with availableSources so the chip click hands
+            // the freshly-opened controller exactly the array the chips were drawn from.
+            // presenter.relatedMangaIds is mutable (refreshRelatedMangaIds can overwrite it
+            // from a background callback); re-reading it inside the click closure was letting
+            // that background drift influence which "sister" entry the new controller's
+            // downstream code resolved, which manifested as tapping a chip for source X and
+            // landing on a different favourited manga.
+            val (sources, snapshotRelatedIds) = withContext(Dispatchers.IO) {
+                presenter.availableSources() to presenter.relatedMangaIds.copyOf()
             }
             chipGroup.removeAllViews()
             for ((id, src) in sources) {
@@ -619,7 +626,7 @@ class MangaHeaderHolder(
                             controller?.router?.replaceTopController(
                                 MangaDetailsController(
                                     id,
-                                    relatedMangaIds = presenter.relatedMangaIds,
+                                    relatedMangaIds = snapshotRelatedIds,
                                 ).withFadeTransaction(),
                             )
                         }
