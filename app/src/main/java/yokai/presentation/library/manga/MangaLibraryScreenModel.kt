@@ -66,13 +66,18 @@ class MangaLibraryScreenModel :
                     } else {
                         emptySet()
                     }
-                    mutableState.update {
+                    mutableState.update { current ->
+                        // Preserve selection across reload emissions so a download-cache tick or
+                        // library update mid-action doesn't drop the user's selection set.
+                        val carriedSelection =
+                            (current as? LibraryTabState.Loaded)?.selection ?: emptySet()
                         LibraryTabState.Loaded(
                             library = library,
                             totalItemCount = library.values.sumOf { it.size },
                             isRunning = snap.isRunning,
                             inQueueCategoryIds = inQueue,
                             currentCategoryOrder = snap.currentCategoryOrder,
+                            selection = carriedSelection,
                         )
                     }
                 }
@@ -105,6 +110,41 @@ class MangaLibraryScreenModel :
     fun isCategoryInQueue(categoryId: Int?): Boolean = libraryUpdater.isCategoryInQueue(categoryId)
 
     fun isRunning(): Boolean = libraryUpdater.isRunning()
+
+    fun toggleSelection(mangaId: Long) {
+        mutableState.update { current ->
+            if (current is LibraryTabState.Loaded) {
+                val next = if (mangaId in current.selection) {
+                    current.selection - mangaId
+                } else {
+                    current.selection + mangaId
+                }
+                current.copy(selection = next)
+            } else {
+                current
+            }
+        }
+    }
+
+    fun clearSelection() {
+        mutableState.update { current ->
+            if (current is LibraryTabState.Loaded && current.selection.isNotEmpty()) {
+                current.copy(selection = emptySet())
+            } else {
+                current
+            }
+        }
+    }
+
+    fun setSelection(mangaIds: Set<Long>) {
+        mutableState.update { current ->
+            if (current is LibraryTabState.Loaded) {
+                current.copy(selection = mangaIds)
+            } else {
+                current
+            }
+        }
+    }
 
     private data class Snapshot(
         val categories: List<Category>,

@@ -34,5 +34,11 @@ sealed interface LibraryTabState<out T : LibraryItem> {
          * `presenter.currentCategory` semantics.
          */
         val currentCategoryOrder: Int = 0,
+        /**
+         * Manga ids that are currently selected in multi-select action mode. Empty when the
+         * action bar is not active. Carried forward across reload emissions so a download-cache
+         * tick or library update does not drop the user's selection mid-action.
+         */
+        val selection: Set<Long> = emptySet(),
     ) : LibraryTabState<T>
 }
