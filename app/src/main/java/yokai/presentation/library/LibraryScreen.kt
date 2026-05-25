@@ -128,6 +128,9 @@ class LibraryScreen : Screen {
         // C3: mark-as-read / mark-as-unread confirmation dialog state. Null = closed; non-null
         // carries the `markRead` flag the dialog dispatches on confirm.
         var markReadConfirmFor by remember { mutableStateOf<Boolean?>(null) }
+        // C5: delete-from-library dialog state. True = open. Within the dialog, the user
+        // toggles whether to remove from library (always also deletes downloads).
+        var deleteConfirmOpen by remember { mutableStateOf(false) }
 
         val library = when (val s = state) {
             is LibraryTabState.Loading -> emptyMap()
@@ -150,6 +153,11 @@ class LibraryScreen : Screen {
         val markedAsReadText = stringResource(MR.strings.marked_as_read)
         val markedAsUnreadText = stringResource(MR.strings.marked_as_unread)
         val undoText = stringResource(MR.strings.undo)
+        // C5 dialog + snackbar texts.
+        val removedFromLibraryText = stringResource(MR.strings.removed_from_library)
+        val removeText = stringResource(MR.strings.remove)
+        val removeFromLibraryLabel = stringResource(MR.strings.remove_from_library)
+        val removeDownloadsLabel = stringResource(MR.strings.remove_downloads)
 
         val sourceNames = remember(library) {
             library.values
@@ -472,6 +480,7 @@ class LibraryScreen : Screen {
             },
             onConfirmAndMarkRead = { markReadConfirmFor = true },
             onConfirmAndMarkUnread = { markReadConfirmFor = false },
+            onConfirmAndDelete = { deleteConfirmOpen = true },
             onMoveToCategories = {
                 // C4: bridge to legacy SetCategoriesSheet via the existing
                 // `List<Manga>.moveCategories(activity, onMangaMoved)` extension at
@@ -571,6 +580,78 @@ class LibraryScreen : Screen {
                 },
                 dismissButton = {
                     androidx.compose.material3.TextButton(onClick = { markReadConfirmFor = null }) {
+                        androidx.compose.material3.Text(text = cancelText)
+                    }
+                },
+            )
+        }
+
+        // C5: delete confirmation dialog + undo snackbar. Faithful port of
+        // LibraryController.kt:2057-2086 (dialog) + :2187-2222 (undo snackbar) + presenter
+        // confirmDeletion at LibraryPresenter.kt:1465. Downloads are always deleted (the
+        // checkbox is rendered disabled-but-checked to mirror legacy's disableItems); only
+        // "Remove from library" is toggleable. Two outcomes:
+        //   - Both checked (default): immediate favorite=false, snackbar with Undo; on Undo
+        //     reAddToLibrary, on dismiss confirmDeletion(coverCacheToo=true) runs the full
+        //     destructive cleanup (tracks, downloads, cover).
+        //   - Library unchecked: confirmDeletion(coverCacheToo=false) runs immediately and
+        //     wipes downloaded chapters only; no snackbar.
+        if (deleteConfirmOpen) {
+            var removeFromLibrary by remember { mutableStateOf(true) }
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { deleteConfirmOpen = false },
+                title = { androidx.compose.material3.Text(text = removeText) },
+                text = {
+                    androidx.compose.foundation.layout.Column {
+                        androidx.compose.foundation.layout.Row(
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        ) {
+                            androidx.compose.material3.Checkbox(checked = true, enabled = false, onCheckedChange = null)
+                            androidx.compose.material3.Text(text = removeDownloadsLabel)
+                        }
+                        androidx.compose.foundation.layout.Row(
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        ) {
+                            androidx.compose.material3.Checkbox(
+                                checked = removeFromLibrary,
+                                onCheckedChange = { removeFromLibrary = it },
+                            )
+                            androidx.compose.material3.Text(text = removeFromLibraryLabel)
+                        }
+                    }
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            deleteConfirmOpen = false
+                            val mangas = screenModel.selectedMangaList()
+                            if (mangas.isEmpty()) return@TextButton
+                            if (removeFromLibrary) {
+                                screenModel.removeFromLibrary()
+                                screenModel.clearSelection()
+                                coroutineScope.launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = removedFromLibraryText,
+                                        actionLabel = undoText,
+                                        duration = SnackbarDuration.Long,
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        screenModel.reAddToLibrary(mangas)
+                                    } else {
+                                        screenModel.confirmDeletion(mangas, coverCacheToo = true)
+                                    }
+                                }
+                            } else {
+                                screenModel.confirmDeletion(mangas, coverCacheToo = false)
+                                screenModel.clearSelection()
+                            }
+                        },
+                    ) {
+                        androidx.compose.material3.Text(text = removeText)
+                    }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { deleteConfirmOpen = false }) {
                         androidx.compose.material3.Text(text = cancelText)
                     }
                 },

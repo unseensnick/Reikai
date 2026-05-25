@@ -20,8 +20,11 @@ import yokai.domain.category.interactor.GetCategories
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.manga.interactor.GetLibraryManga
+import yokai.domain.manga.interactor.UpdateManga
+import yokai.domain.track.interactor.DeleteTrack
 import yokai.presentation.library.LibraryTabState
 import yokai.presentation.library.manga.actions.MangaLibraryActions
+import eu.kanade.tachiyomi.data.cache.CoverCache
 
 /**
  * Compose library screen model. Collects categories, library manga, the download-cache
@@ -47,6 +50,9 @@ class MangaLibraryScreenModel :
     private val downloadManager: DownloadManager by injectLazy()
     private val getChapter: GetChapter by injectLazy()
     private val updateChapter: UpdateChapter by injectLazy()
+    private val updateManga: UpdateManga by injectLazy()
+    private val deleteTrack: DeleteTrack by injectLazy()
+    private val coverCache: CoverCache by injectLazy()
 
     init {
         screenModelScope.launchIO {
@@ -210,6 +216,44 @@ class MangaLibraryScreenModel :
             downloadManager = downloadManager,
             sourceManager = sourceManager,
         )
+    }
+
+    /**
+     * Path 1 (full nuke): flip favorite=false immediately, return the captured selection so
+     * the caller can offer Undo via [reAddToLibrary] or commit destructive cleanup via
+     * [confirmDeletion]. State reload happens reactively via getLibraryManga.subscribe().
+     */
+    fun removeFromLibrary(): List<Manga> {
+        val mangas = selectedMangaList()
+        screenModelScope.launchIO {
+            MangaLibraryActions.removeFromLibrary(mangas, updateManga)
+        }
+        return mangas
+    }
+
+    fun reAddToLibrary(mangas: List<Manga>) {
+        screenModelScope.launchIO {
+            MangaLibraryActions.reAddToLibrary(mangas, updateManga)
+        }
+    }
+
+    /**
+     * Destructive cleanup. coverCacheToo = true on the full-nuke path (cover removal + tracker
+     * reconciliation invalidation + track delete + download delete); false on the
+     * downloads-only path (skip cover, skip tracks, still wipes downloaded chapters).
+     */
+    fun confirmDeletion(mangas: List<Manga>, coverCacheToo: Boolean = true) {
+        screenModelScope.launchIO {
+            MangaLibraryActions.confirmDeletion(
+                mangas = mangas,
+                coverCacheToo = coverCacheToo,
+                sourceManager = sourceManager,
+                downloadManager = downloadManager,
+                coverCache = coverCache,
+                deleteTrack = deleteTrack,
+                preferences = preferences,
+            )
+        }
     }
 
     private data class Snapshot(

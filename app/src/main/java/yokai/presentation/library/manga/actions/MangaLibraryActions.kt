@@ -1,13 +1,19 @@
 package yokai.presentation.library.manga.actions
 
+import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.database.models.Chapter
+import eu.kanade.tachiyomi.data.database.models.removeCover
 import eu.kanade.tachiyomi.data.download.DownloadManager
+import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.online.HttpSource
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.chapter.models.ChapterUpdate
+import yokai.domain.manga.interactor.UpdateManga
+import yokai.domain.manga.models.MangaUpdate
+import yokai.domain.track.interactor.DeleteTrack
 
 /**
  * Compose-side ports of the legacy `LibraryPresenter` selection actions, kept as pure suspend
@@ -99,6 +105,54 @@ object MangaLibraryActions {
         snapshot.forEach { (manga, chapters) ->
             val source = sourceManager.get(manga.source) ?: return@forEach
             downloadManager.deleteChapters(chapters, manga, source)
+        }
+    }
+
+    /**
+     * Mark every selected manga `favorite = false`. Reversible via [reAddToLibrary] while the
+     * undo snackbar is alive; destructive cleanup runs in [confirmDeletion] on snackbar dismiss.
+     * Faithful port of `LibraryPresenter.removeMangaFromLibrary` at `LibraryPresenter.kt:1380`.
+     */
+    suspend fun removeFromLibrary(mangas: List<Manga>, updateManga: UpdateManga) {
+        val updates = mangas.distinctBy { it.id }
+            .mapNotNull { m -> m.id?.let { MangaUpdate(it, favorite = false) } }
+        updateManga.awaitAll(updates)
+    }
+
+    /** Undo of [removeFromLibrary]: flip favorite back to true. */
+    suspend fun reAddToLibrary(mangas: List<Manga>, updateManga: UpdateManga) {
+        val updates = mangas.distinctBy { it.id }
+            .mapNotNull { m -> m.id?.let { MangaUpdate(it, favorite = true) } }
+        updateManga.awaitAll(updates)
+    }
+
+    /**
+     * Destructive cleanup. Called either on snackbar dismissal (full library remove path) or
+     * directly when the user chose "delete downloads only." When [coverCacheToo] is true, also
+     * invalidates the cover cache and the multi-source tracker-reconciliation cache for these
+     * manga ids (Reikai fork: `preferences.invalidateTrackerReconciliationFor`). Faithful port
+     * of `LibraryPresenter.confirmDeletion` at `LibraryPresenter.kt:1465`.
+     */
+    suspend fun confirmDeletion(
+        mangas: List<Manga>,
+        coverCacheToo: Boolean,
+        sourceManager: SourceManager,
+        downloadManager: DownloadManager,
+        coverCache: CoverCache,
+        deleteTrack: DeleteTrack,
+        preferences: PreferencesHelper,
+    ) {
+        val ids = mangas.mapNotNull { it.id }
+        preferences.invalidateTrackerReconciliationFor(ids)
+        mangas.distinctBy { it.id }.forEach { manga ->
+            if (coverCacheToo) {
+                manga.removeCover(coverCache)
+            }
+            val source = sourceManager.get(manga.source) as? HttpSource
+            if (source != null) {
+                downloadManager.deleteManga(manga, source)
+            }
+            manga.id?.let { deleteTrack.awaitForMangaAll(it) }
         }
     }
 }

@@ -34,4 +34,7 @@ interface LibraryTabActions {
 
     /** Open the category picker sheet (legacy SetCategoriesSheet) for the selection. */
     fun onMoveToCategories()
+
+    /** Show the delete-from-library confirmation dialog. */
+    fun onConfirmAndDelete()
 }

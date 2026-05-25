@@ -247,6 +247,8 @@ fun LibraryContent(
     onConfirmAndMarkUnread: () -> Unit,
     /** C4: open the SetCategoriesSheet for the selection (bridges to legacy dialog). */
     onMoveToCategories: () -> Unit,
+    /** C5: show the delete confirmation dialog (Remove from library / also delete downloads). */
+    onConfirmAndDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // Selection clear takes priority over search close: both are back-press affordances, but a
@@ -670,6 +672,10 @@ fun LibraryContent(
                     yokai.presentation.library.components.SelectionAction(
                         label = shareLabel,
                         onClick = onShareSelection,
+                    ),
+                    yokai.presentation.library.components.SelectionAction(
+                        label = stringResource(MR.strings.remove),
+                        onClick = onConfirmAndDelete,
                     ),
                 )
                 SelectionAppBar(
