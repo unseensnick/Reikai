@@ -40,5 +40,17 @@ sealed interface LibraryTabState<out T : LibraryItem> {
          * tick or library update does not drop the user's selection mid-action.
          */
         val selection: Set<Long> = emptySet(),
+        /**
+         * Bumped by the screen model on every optimistic sort update so StateFlow's
+         * distinct-until-changed never elides a sort emission. Necessary because
+         * `CategoryImpl.equals` compares by `name` (not reference), so a cloned Category with
+         * the same name reads as equal — and if the re-sorted item list happens to produce the
+         * same order as before (single-item category, coincidentally identical ordering), the
+         * Loaded data class would compare equal and the UI would never recompose.
+         *
+         * Carried forward unchanged on emissions that originate from the reactive combine; only
+         * optimistic sort writes bump it.
+         */
+        val sortEpoch: Int = 0,
     ) : LibraryTabState<T>
 }

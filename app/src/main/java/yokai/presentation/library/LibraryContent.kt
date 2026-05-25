@@ -90,6 +90,7 @@ import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.domain.manga.models.Manga
+import eu.kanade.tachiyomi.ui.library.LibrarySort
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COMFORTABLE_GRID
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COMPACT_GRID
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COVER_ONLY_GRID
@@ -109,6 +110,7 @@ import yokai.i18n.MR
 import yokai.presentation.library.components.ActiveCategoryChip
 import yokai.presentation.library.components.CategoryHopper
 import yokai.presentation.library.components.CategoryPickerSheet
+import yokai.presentation.library.components.CategorySortSheet
 import yokai.presentation.library.components.LazyLibraryGrid
 import yokai.presentation.library.components.LazyLibraryList
 import yokai.presentation.library.components.LazyLibraryStaggeredGrid
@@ -241,6 +243,11 @@ fun LibraryContent(
      * dispatches the update if not already queued.
      */
     onRefreshCategory: (Category) -> Unit,
+    /**
+     * Phase 6: user picked a sort mode for [Category] from the per-category sort sheet. Routed
+     * through `MangaLibraryScreenModel.setSort` which handles direction toggle + write routing.
+     */
+    onSortChange: (Category, LibrarySort) -> Unit,
     /** Toggle long-pressed manga in the selection set. C2 onward. */
     onToggleSelection: (Long) -> Unit,
     /** Clear the selection set. Wired to the SelectionAppBar close icon and BackHandler. */
@@ -287,6 +294,16 @@ fun LibraryContent(
     // user mid-action with a selected set probably wants to clear that first before exiting
     // search. Compose stacks BackHandlers in declaration order with the latest declared at the
     // top of the stack, so declare selection AFTER search and selection wins.
+    // Per-category sort sheet target. Set to the tapped category's id when the user taps a
+    // header's sort affordance; cleared on dismiss or after a mode is picked. Top-level state
+    // so a single sheet hosts all category headers across the three layout variants.
+    //
+    // Keying on id (not the Category instance) so the sheet always renders against the freshest
+    // Category snapshot from `library` on every recomposition. Otherwise capturing the Category
+    // reference at tap-time would let the sheet show stale sortingMode / isAscending values
+    // after a setSort write propagates between sheet sessions.
+    var sortingCategoryId by remember { mutableStateOf<Int?>(null) }
+
     BackHandler(enabled = searchActive) {
         onSearchQueryChange("")
         onSearchActiveChange(false)
@@ -1104,7 +1121,13 @@ fun LibraryContent(
                             // entirely. Reclaims the vertical space for covers.
                             if (!singleCategoryMode) {
                                 item(
-                                    key = "header:${category.id ?: 0}",
+                                    // Sort char + ascending bit are folded into the key so the
+                                    // header slot is rebuilt when the user changes per-category
+                                    // sort. Without this, LazyColumn reuses the slot's stored
+                                    // composition (the captured Category reference is the same
+                                    // after an in-place mangaSort mutation), and the sort label
+                                    // stays on the previous mode even though the library re-sorts.
+                                    key = "header:${category.id ?: 0}:${category.mangaSort ?: '-'}",
                                     contentType = "library_category_header",
                                 ) {
                                     val allSelectedInCategory = mangaItems.isNotEmpty() &&
@@ -1127,6 +1150,10 @@ fun LibraryContent(
                                         onToggleCategorySelection = {
                                             category.id?.let { onToggleCategorySelection(it) }
                                         },
+                                        sortMode = category.sortingMode() ?: LibrarySort.DragAndDrop,
+                                        sortAscending = category.isAscending(),
+                                        sortIsDynamic = category.isDynamic,
+                                        onSortClick = { category.id?.let { sortingCategoryId = it } },
                                     )
                                 }
                             }
@@ -1201,7 +1228,10 @@ fun LibraryContent(
                             // Header suppressed in single-category mode; see list-branch note above.
                             if (!singleCategoryMode) {
                                 item(
-                                    key = "header:${category.id ?: 0}",
+                                    // Sort char + ascending bit are folded into the key so the
+                                    // header slot is rebuilt when the user changes per-category
+                                    // sort (see list-branch note above for the rationale).
+                                    key = "header:${category.id ?: 0}:${category.mangaSort ?: '-'}",
                                     span = StaggeredGridItemSpan.FullLine,
                                     contentType = "library_category_header",
                                 ) {
@@ -1225,6 +1255,10 @@ fun LibraryContent(
                                         onToggleCategorySelection = {
                                             category.id?.let { onToggleCategorySelection(it) }
                                         },
+                                        sortMode = category.sortingMode() ?: LibrarySort.DragAndDrop,
+                                        sortAscending = category.isAscending(),
+                                        sortIsDynamic = category.isDynamic,
+                                        onSortClick = { category.id?.let { sortingCategoryId = it } },
                                     )
                                 }
                             }
@@ -1265,7 +1299,10 @@ fun LibraryContent(
                             // Header suppressed in single-category mode; see list-branch note above.
                             if (!singleCategoryMode) {
                                 item(
-                                    key = "header:${category.id ?: 0}",
+                                    // Sort char + ascending bit are folded into the key so the
+                                    // header slot is rebuilt when the user changes per-category
+                                    // sort (see list-branch note above for the rationale).
+                                    key = "header:${category.id ?: 0}:${category.mangaSort ?: '-'}",
                                     span = { GridItemSpan(maxLineSpan) },
                                     contentType = "library_category_header",
                                 ) {
@@ -1289,6 +1326,10 @@ fun LibraryContent(
                                         onToggleCategorySelection = {
                                             category.id?.let { onToggleCategorySelection(it) }
                                         },
+                                        sortMode = category.sortingMode() ?: LibrarySort.DragAndDrop,
+                                        sortAscending = category.isAscending(),
+                                        sortIsDynamic = category.isDynamic,
+                                        onSortClick = { category.id?.let { sortingCategoryId = it } },
                                     )
                                 }
                             }
@@ -1491,6 +1532,27 @@ fun LibraryContent(
             expanded = overflowOpen,
             onDismiss = onDismissOverflow,
         )
+        sortingCategoryId?.let { catId ->
+            // Look up the category from the latest `library` map rather than capturing the
+            // Category instance at tap-time. The library map is re-passed on every state
+            // emission, so `target` here is always the freshest snapshot of the category, even
+            // if Compose's LazyColumn item lambda captured an older reference.
+            val target = library.keys.firstOrNull { it.id == catId }
+            if (target == null) {
+                sortingCategoryId = null
+            } else {
+                CategorySortSheet(
+                    currentMode = target.sortingMode(),
+                    currentAscending = target.isAscending(),
+                    isDynamic = target.isDynamic,
+                    onModeSelected = { mode ->
+                        onSortChange(target, mode)
+                        sortingCategoryId = null
+                    },
+                    onDismiss = { sortingCategoryId = null },
+                )
+            }
+        }
     }
 }
 

@@ -644,6 +644,10 @@ class LibraryScreen : Screen {
                     }
                 }
             },
+            // C6: per-category sort picker dispatch. The screen-model handles the same-mode
+            // direction flip, the Random reseed, and the routing per category type (regular →
+            // DB, default → defaultMangaOrder pref, dynamic → library-wide sort prefs).
+            onSortChange = { category, mode -> screenModel.setSort(category, mode) },
         )
 
         if (groupByDialogOpen) {

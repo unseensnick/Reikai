@@ -3,6 +3,7 @@ package yokai.presentation.library.manga
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.tachiyomi.data.database.models.Category
+import eu.kanade.tachiyomi.data.database.models.CategoryImpl
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.LibraryManga
 import eu.kanade.tachiyomi.data.download.DownloadCache
@@ -18,6 +19,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.category.interactor.GetCategories
+import yokai.domain.category.interactor.UpdateCategories
+import yokai.domain.category.models.CategoryUpdate
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.library.LibraryPreferences
@@ -29,6 +32,7 @@ import yokai.domain.track.interactor.InsertTrack
 import yokai.presentation.library.LibraryTabState
 import yokai.presentation.library.manga.actions.MangaLibraryActions
 import eu.kanade.tachiyomi.data.cache.CoverCache
+import kotlin.random.Random
 
 /**
  * Compose library screen model. Collects categories, library manga, the download-cache
@@ -60,6 +64,7 @@ class MangaLibraryScreenModel :
     private val coverCache: CoverCache by injectLazy()
     private val getTrack: GetTrack by injectLazy()
     private val insertTrack: InsertTrack by injectLazy()
+    private val updateCategories: UpdateCategories by injectLazy()
 
     init {
         screenModelScope.launchIO {
@@ -106,8 +111,14 @@ class MangaLibraryScreenModel :
                 .collectLatest { snap ->
                     // Recreate per emission so a locale change between subscriptions picks up the
                     // re-translated "Default" string, matching legacy LibraryPresenter behavior.
+                    // The default category's sort lives in `preferences.defaultMangaOrder` rather
+                    // than the categories table; legacy reads it at LibraryPresenter.kt:1320-1322.
                     val defaultCategory = Category.createDefault(preferences.context).apply {
                         order = -1
+                        val defOrder = snap.sortPrefs.defaultMangaOrder
+                        if (defOrder.firstOrNull()?.isLetter() == true) {
+                            mangaSort = defOrder.first()
+                        }
                     }
                     val sectioned = MangaLibrarySectioner.section(
                         libraryManga = snap.libraryManga,
@@ -142,9 +153,12 @@ class MangaLibraryScreenModel :
                     }
                     mutableState.update { current ->
                         // Preserve selection across reload emissions so a download-cache tick or
-                        // library update mid-action doesn't drop the user's selection set.
-                        val carriedSelection =
-                            (current as? LibraryTabState.Loaded)?.selection ?: emptySet()
+                        // library update mid-action doesn't drop the user's selection set. Also
+                        // carry sortEpoch forward unchanged; combine-driven emissions never bump
+                        // it (only optimistic sort writes do, see setSort).
+                        val loaded = current as? LibraryTabState.Loaded
+                        val carriedSelection = loaded?.selection ?: emptySet()
+                        val carriedSortEpoch = loaded?.sortEpoch ?: 0
                         LibraryTabState.Loaded(
                             library = library,
                             totalItemCount = library.values.sumOf { it.size },
@@ -152,6 +166,7 @@ class MangaLibraryScreenModel :
                             inQueueCategoryIds = inQueue,
                             currentCategoryOrder = snap.currentCategoryOrder,
                             selection = carriedSelection,
+                            sortEpoch = carriedSortEpoch,
                         )
                     }
                 }
@@ -184,6 +199,114 @@ class MangaLibraryScreenModel :
     fun isCategoryInQueue(categoryId: Int?): Boolean = libraryUpdater.isCategoryInQueue(categoryId)
 
     fun isRunning(): Boolean = libraryUpdater.isRunning()
+
+    /**
+     * Apply a sort change to a category. Tapping the currently-selected mode flips direction;
+     * tapping a different mode uses the mode's natural default (ascending for most modes,
+     * descending for `hasInvertedSort` ones like LastRead and TotalChapters). Random always
+     * re-rolls the seed so subsequent renders shuffle anew (mirrors legacy
+     * `LibraryHeaderHolder.kt:349`).
+     *
+     * Persistence is routed per category type:
+     *  - All-category sentinel (`id == -1`) and dynamic categories write library-wide prefs
+     *    so every dynamic group stays in sync (legacy `LibraryPresenter.sortCategory` at
+     *    `LibraryPresenter.kt:1560-1566`).
+     *  - Default category (`id == 0`) writes `defaultMangaOrder` (legacy at `:1569`).
+     *  - Regular categories persist via [updateCategories] (legacy at `:1571-1577`).
+     */
+    fun setSort(category: Category, mode: LibrarySort) {
+        // Re-resolve the category from current state so the direction-toggle reads the freshest
+        // sortingMode / isAscending values. The passed-in category may be a snapshot from the
+        // composition that opened the sort sheet, while state has since updated from a previous
+        // setSort write (race between async DB / pref propagation and the next user tap).
+        val catId = category.id ?: return
+        val current = (state.value as? LibraryTabState.Loaded)?.library?.keys
+            ?.firstOrNull { it.id == catId }
+            ?: category
+
+        if (mode == LibrarySort.Random) {
+            libraryPreferences.randomSortSeed().set(Random.nextInt())
+        }
+        val ascending = if (mode == current.sortingMode() && mode.isDirectional) {
+            !current.isAscending()
+        } else {
+            !mode.hasInvertedSort
+        }
+        val newSortChar = if (ascending) mode.categoryValue else mode.categoryValueDescending
+
+        // Persist (DB write or pref write). DB writes are fire-and-forget; reactivity catches
+        // up via getCategories.subscribe and pref writes via sortPrefsFlow.
+        when {
+            current.id == -1 || current.isDynamic -> {
+                preferences.librarySortingMode().set(mode.mainValue)
+                preferences.librarySortingAscending().set(ascending)
+            }
+            current.id == 0 -> {
+                preferences.defaultMangaOrder().set(newSortChar.toString())
+            }
+            else -> {
+                screenModelScope.launchIO {
+                    updateCategories.awaitOne(
+                        CategoryUpdate(
+                            id = catId.toLong(),
+                            mangaOrder = newSortChar.toString(),
+                        ),
+                    )
+                }
+            }
+        }
+
+        // Mirror legacy `requestSortUpdate` (LibraryPresenter.kt:1579): build a fresh Category
+        // with the new sort and replace it in the library map so the UI updates the moment the
+        // user taps a mode, rather than waiting for the reactive DB / pref round-trip. The
+        // eventual reactive emission carries the same data; StateFlow elides it via equals.
+        //
+        // Cloning (instead of mutating `current.mangaSort` in place) is what makes this work
+        // visibly on the LazyColumn header slots. With in-place mutation, the captured Category
+        // reference stays the same and Compose's slot reuse can render the previous tap's
+        // sortMode label even after a key change. Replacing the Category with a new instance
+        // forces every captured reference to be fresh, so the header recomposes with the new
+        // sortingMode / isAscending. Random's seed write already triggers a full pipeline re-run
+        // via sortPrefsFlow, so the optimistic step would be redundant (and items shuffle on
+        // every Random tap anyway).
+        if (mode == LibrarySort.Random) return
+        val loaded = state.value as? LibraryTabState.Loaded ?: return
+        val clonedCategory = CategoryImpl().also {
+            it.id = current.id
+            it.name = current.name
+            it.order = current.order
+            it.flags = current.flags
+            it.mangaOrder = current.mangaOrder
+            it.mangaSort = newSortChar
+            it.isAlone = current.isAlone
+            it.isHidden = current.isHidden
+            it.isDynamic = current.isDynamic
+            it.sourceId = current.sourceId
+            it.langId = current.langId
+            it.isSystem = current.isSystem
+        }
+        val replacedLibrary = loaded.library.mapKeys { (cat, _) ->
+            if (cat.id == catId) clonedCategory else cat
+        }
+        val resorted = MangaLibrarySort.sort(
+            library = replacedLibrary,
+            libraryDefaultMode = LibrarySort.valueOf(preferences.librarySortingMode().get())
+                ?: LibrarySort.Title,
+            libraryDefaultAscending = preferences.librarySortingAscending().get(),
+            randomSeed = libraryPreferences.randomSortSeed().get().toLong(),
+            removeArticles = preferences.removeArticles().get(),
+        )
+        // Bump sortEpoch so StateFlow.update always emits, even if the new library map compares
+        // equal to the old (CategoryImpl.equals is by name; a cloned Category reads as equal to
+        // the original, and a same-order sorted list reads as equal to the previous list). The
+        // epoch guarantees uniqueness so the optimistic sort always reaches the UI.
+        mutableState.update { c ->
+            if (c is LibraryTabState.Loaded) c.copy(
+                library = resorted,
+                sortEpoch = c.sortEpoch + 1,
+            ) else c
+        }
+    }
 
     fun toggleSelection(mangaId: Long) {
         mutableState.update { current ->
@@ -406,20 +529,27 @@ class MangaLibraryScreenModel :
     }
 
     /**
-     * Bundles the four sort prefs into a single combine() input so the main pipeline's
+     * Bundles the sort-related prefs into a single combine() input so the main pipeline's
      * `.combine(...)` chain stays shallow. Read by [MangaLibrarySort] inside collectLatest.
+     *
+     * Uses the typed 5-arg `combine` overload (the kotlinx-coroutines limit) so each input keeps
+     * its own type; the vararg overload requires a reified common type and would collapse Int /
+     * Boolean / String to their intersection (Comparable<*> & Serializable), producing a
+     * compiler warning and unstable behaviour.
      */
     private fun sortPrefsFlow() = combine(
         preferences.librarySortingMode().changes(),
         preferences.librarySortingAscending().changes(),
         libraryPreferences.randomSortSeed().changes(),
         preferences.removeArticles().changes(),
-    ) { modeInt, ascending, seed, removeArticles ->
+        preferences.defaultMangaOrder().changes(),
+    ) { modeInt, ascending, seed, removeArticles, defaultMangaOrder ->
         SortPrefs(
             mode = LibrarySort.valueOf(modeInt) ?: LibrarySort.Title,
             ascending = ascending,
             randomSeed = seed.toLong(),
             removeArticles = removeArticles,
+            defaultMangaOrder = defaultMangaOrder,
         )
     }
 
@@ -428,12 +558,19 @@ class MangaLibraryScreenModel :
         val ascending: Boolean,
         val randomSeed: Long,
         val removeArticles: Boolean,
+        val defaultMangaOrder: String,
     ) {
         companion object {
             // Placeholder used in the first combine() before sortPrefsFlow() emits. The chained
             // .combine(sortPrefsFlow()) below overwrites this before any downstream emission, so
             // these values never reach collectLatest.
-            val DEFAULT = SortPrefs(LibrarySort.Title, ascending = true, randomSeed = 0L, removeArticles = false)
+            val DEFAULT = SortPrefs(
+                mode = LibrarySort.Title,
+                ascending = true,
+                randomSeed = 0L,
+                removeArticles = false,
+                defaultMangaOrder = "",
+            )
         }
     }
 

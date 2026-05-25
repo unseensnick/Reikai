@@ -4,15 +4,20 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -24,10 +29,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.ui.library.LibrarySort
 import yokai.i18n.MR
 
 /**
@@ -66,6 +73,18 @@ fun LibraryCategoryHeader(
     allSelected: Boolean = false,
     /** Toggle every manga in this category in/out of the selection set. */
     onToggleCategorySelection: (() -> Unit)? = null,
+    /**
+     * Current sort mode for this category (drives the affordance label + direction arrow). Pass
+     * null to hide the sort affordance entirely. Mirrors the legacy `category_sort` TextView at
+     * `library_category_header_item.xml:132-158`.
+     */
+    sortMode: LibrarySort? = null,
+    /** Direction the sort is currently running in; only consulted when [sortMode] is set. */
+    sortAscending: Boolean = true,
+    /** True if the category is a dynamic group (drives the sort label dynamic-string fork). */
+    sortIsDynamic: Boolean = false,
+    /** Tapped to open the per-category sort picker. Pass null to hide the sort affordance. */
+    onSortClick: (() -> Unit)? = null,
 ) {
     // Spacing mirrors library_category_header_item.xml:
     //   - Start space 6dp + chevron marginStart 8dp = 14dp before the chevron.
@@ -131,10 +150,62 @@ fun LibraryCategoryHeader(
                 .weight(1f)
                 .padding(start = if (showSelectAllCircle || collapsible) 8.dp else 0.dp),
         )
+        if (sortMode != null && onSortClick != null) {
+            HeaderSortAffordance(
+                mode = sortMode,
+                ascending = sortAscending,
+                isDynamic = sortIsDynamic,
+                onClick = onSortClick,
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+        }
         if (onRefreshClick != null) {
             HeaderRefreshButton(
                 isRefreshing = isRefreshing,
                 onClick = onRefreshClick,
+            )
+        }
+    }
+}
+
+/**
+ * Sort affordance for a category header. Renders the current sort mode's localized label
+ * followed by a direction arrow (for directional modes). Tapping opens the picker sheet.
+ * Mirrors the legacy `category_sort` TextView at `library_category_header_item.xml:132-158`:
+ * 12sp body text, rounded ripple background, directional drawable end.
+ */
+@Composable
+private fun HeaderSortAffordance(
+    mode: LibrarySort,
+    ascending: Boolean,
+    isDynamic: Boolean,
+    onClick: () -> Unit,
+) {
+    val accent = MaterialTheme.colorScheme.onBackground
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(mode.stringRes(isDynamic)),
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+            color = accent,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (mode.isDirectional) {
+            Spacer(modifier = Modifier.width(4.dp))
+            // Same arrow convention as CategorySortSheet: ascending = down, descending = up,
+            // flipped for hasInvertedSort modes so the visual feel matches the perceived order.
+            val pointsDown = ascending xor mode.hasInvertedSort
+            Icon(
+                imageVector = if (pointsDown) Icons.Outlined.ArrowDownward else Icons.Outlined.ArrowUpward,
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size(14.dp),
             )
         }
     }
