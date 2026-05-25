@@ -63,6 +63,7 @@ fun CategoriesTab(onDismissSheet: () -> Unit = {}) {
     val showAllCategories by preferences.showAllCategories().collectAsState()
     val showCategoryInTitle by preferences.showCategoryInTitle().collectAsState()
     val collapsedDynamicAtBottom by preferences.collapsedDynamicAtBottom().collectAsState()
+    val autoMergeSameTitle by preferences.autoMergeSameTitle().collectAsState()
     val showEmptyCategoriesWhileFiltering by preferences.showEmptyCategoriesWhileFiltering().collectAsState()
     val hideHopper by preferences.hideHopper().collectAsState()
     val autohideHopper by preferences.autohideHopper().collectAsState()
@@ -121,6 +122,12 @@ fun CategoriesTab(onDismissSheet: () -> Unit = {}) {
             subtitle = stringResource(MR.strings.when_grouping_by_sources_tags),
             checked = collapsedDynamicAtBottom,
             onCheckedChanged = { preferences.collapsedDynamicAtBottom().set(it) },
+        )
+        SwitchPreferenceWidget(
+            title = stringResource(MR.strings.auto_merge_same_title),
+            subtitle = stringResource(MR.strings.auto_merge_same_title_summary),
+            checked = autoMergeSameTitle,
+            onCheckedChanged = { preferences.autoMergeSameTitle().set(it) },
         )
         SwitchPreferenceWidget(
             title = stringResource(MR.strings.show_categories_while_filtering),

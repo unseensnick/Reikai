@@ -159,6 +159,12 @@ class SettingsLibraryController : SettingsLegacyController() {
                     true
                 }
             }
+            switchPreference {
+                key = Keys.autoMergeSameTitle
+                titleRes = MR.strings.auto_merge_same_title
+                summaryRes = MR.strings.auto_merge_same_title_summary
+                defaultValue = true
+            }
         }
 
         preferenceCategory {

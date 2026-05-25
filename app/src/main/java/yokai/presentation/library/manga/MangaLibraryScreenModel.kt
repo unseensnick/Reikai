@@ -67,18 +67,53 @@ class MangaLibraryScreenModel :
                 libraryUpdater.isRunningFlow(),
                 preferences.lastUsedCategory().changes(),
             ) { categories, libraryManga, _, isRunning, currentCategoryOrder ->
-                Snapshot(categories, libraryManga, isRunning, currentCategoryOrder)
+                // Empty merge / unmerge sets are placeholders; the chained .combine() below
+                // overwrites both before the snapshot reaches collectLatest (combine waits for
+                // every upstream flow before producing).
+                Snapshot(
+                    categories = categories,
+                    libraryManga = libraryManga,
+                    isRunning = isRunning,
+                    currentCategoryOrder = currentCategoryOrder,
+                    manualMerges = emptySet(),
+                    manualUnmerges = emptySet(),
+                    autoMergeSameTitle = true,
+                )
             }
+                // The 5-arg combine is the kotlinx-coroutines typed-lambda limit. Chain the
+                // grouping prefs in via binary .combine() so the screen reactively re-collapses
+                // merge groups when the user merges / unmerges from the action bar (legacy
+                // mutates these prefs without ripple-updating the DB, so a getLibraryManga
+                // re-emission isn't guaranteed). The autoMergeSameTitle toggle is also live-
+                // observed so flipping the Display sheet switch re-renders immediately.
+                .combine(preferences.mangaManualMerges().changes()) { snap, merges ->
+                    snap.copy(manualMerges = merges)
+                }
+                .combine(preferences.mangaManualUnmerges().changes()) { snap, unmerges ->
+                    snap.copy(manualUnmerges = unmerges)
+                }
+                .combine(preferences.autoMergeSameTitle().changes()) { snap, autoMerge ->
+                    snap.copy(autoMergeSameTitle = autoMerge)
+                }
                 .collectLatest { snap ->
                     // Recreate per emission so a locale change between subscriptions picks up the
                     // re-translated "Default" string, matching legacy LibraryPresenter behavior.
                     val defaultCategory = Category.createDefault(preferences.context).apply {
                         order = -1
                     }
-                    val library = MangaLibrarySectioner.section(
+                    val sectioned = MangaLibrarySectioner.section(
                         libraryManga = snap.libraryManga,
                         userCategories = snap.categories,
                         defaultCategory = defaultCategory,
+                    )
+                    // Collapse merged-manga groups (manual merge + same-title auto-merge) into
+                    // a single rendered entry per group, stamped with relatedMangaIds. Mirrors
+                    // legacy LibraryPresenter.applySourceGrouping at LibraryPresenter.kt:943-997.
+                    val library = MangaLibraryGrouping.collapse(
+                        library = sectioned,
+                        manualMerges = snap.manualMerges,
+                        manualUnmerges = snap.manualUnmerges,
+                        autoMergeSameTitle = snap.autoMergeSameTitle,
                     )
                     val inQueue = if (snap.isRunning) {
                         library.keys.mapNotNullTo(HashSet()) { cat ->
@@ -357,5 +392,8 @@ class MangaLibraryScreenModel :
         val libraryManga: List<LibraryManga>,
         val isRunning: Boolean,
         val currentCategoryOrder: Int,
+        val manualMerges: Set<String>,
+        val manualUnmerges: Set<String>,
+        val autoMergeSameTitle: Boolean,
     )
 }

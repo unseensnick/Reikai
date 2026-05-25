@@ -958,10 +958,16 @@ class LibraryPresenter(
             val key = ids.joinToString(",")
             ids.forEach { mergeKey[it] = key }
         }
+        val autoMergeSameTitle = preferences.autoMergeSameTitle().get()
         val buckets = LinkedHashMap<String, MutableList<LibraryMangaItem>>()
         for (item in items) {
             val id = item.manga.manga.id ?: continue
-            val key = mergeKey[id] ?: item.manga.manga.title.lowercase().trim()
+            // Items in a manual merge group share a canonical key. Otherwise, fall back to the
+            // lowercase title when auto-merge is on (legacy quirk), or to a per-item unique key
+            // when it's off (so each card stays standalone).
+            val key = mergeKey[id]
+                ?: if (autoMergeSameTitle) item.manga.manga.title.lowercase().trim()
+                else "id:$id"
             buckets.getOrPut(key) { mutableListOf() }.add(item)
         }
         val result = mutableListOf<LibraryMangaItem>()

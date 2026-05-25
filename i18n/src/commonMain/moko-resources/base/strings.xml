@@ -148,6 +148,8 @@
     <string name="getting_started_guide">Getting started guide</string>
     <string name="show_all_categories">Show all categories</string>
     <string name="move_dynamic_to_bottom">Move collapsed dynamic categories to bottom</string>
+    <string name="auto_merge_same_title">Auto-merge same titles</string>
+    <string name="auto_merge_same_title_summary">Combine same-titled manga from different sources into one cover</string>
     <string name="show_number_of_items">Show number of items</string>
     <string name="when_grouping_by_sources_tags">When grouping library by sources, status, etc.</string>
     <string name="always_show_current_category">Always show current category</string>

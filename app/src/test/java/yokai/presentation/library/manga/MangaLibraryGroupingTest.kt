@@ -168,6 +168,44 @@ class MangaLibraryGroupingTest {
     }
 
     @Test
+    fun `auto-merge can be disabled to keep same-title manga as separate cards`() {
+        val library = libraryOf(
+            "Default" to listOf(
+                item(1, title = "Naruto", totalChapters = 700),
+                item(2, title = "Naruto", totalChapters = 700),
+            ),
+        )
+        val result = MangaLibraryGrouping.collapse(
+            library = library,
+            manualMerges = emptySet(),
+            manualUnmerges = emptySet(),
+            autoMergeSameTitle = false,
+        )
+        assertEquals(listOf(1L, 2L), result.flatIds())
+        result.flatItems().forEach { assertEquals(0, it.relatedMangaIds.size) }
+    }
+
+    @Test
+    fun `manual merges still apply when auto-merge is disabled`() {
+        val library = libraryOf(
+            "Default" to listOf(
+                item(1, title = "Alpha", totalChapters = 50),
+                item(2, title = "Beta", totalChapters = 100),
+            ),
+        )
+        val result = MangaLibraryGrouping.collapse(
+            library = library,
+            manualMerges = setOf("1,2"),
+            manualUnmerges = emptySet(),
+            autoMergeSameTitle = false,
+        )
+        // Manual merge still collapses 1 and 2. The auto-merge opt-out only suppresses the
+        // title-based bucket fallback.
+        assertEquals(listOf(2L), result.flatIds())
+        assertEquals(2, result.flatItems().first().relatedMangaIds.size)
+    }
+
+    @Test
     fun `merge key takes priority over title bucket for items in the merge`() {
         val library = libraryOf(
             "Default" to listOf(

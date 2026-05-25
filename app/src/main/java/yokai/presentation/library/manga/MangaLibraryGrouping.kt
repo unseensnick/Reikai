@@ -25,17 +25,22 @@ object MangaLibraryGrouping {
      * @param manualMerges raw set of `"id,id,id"` entries from `preferences.mangaManualMerges`.
      * @param manualUnmerges raw set of `"smallerId,largerId"` entries from
      *   `preferences.mangaManualUnmerges`.
+     * @param autoMergeSameTitle when true (legacy behavior), items with no manual merge entry
+     *   fall back to a lowercase-title bucket key so same-titled manga from different sources
+     *   collapse implicitly. When false, every non-manual item gets a unique bucket key so
+     *   only explicit manual merges collapse. Controlled by `preferences.autoMergeSameTitle`.
      */
     fun collapse(
         library: Map<Category, List<LibraryItem.Manga>>,
         manualMerges: Set<String>,
         manualUnmerges: Set<String>,
+        autoMergeSameTitle: Boolean = true,
     ): Map<Category, List<LibraryItem.Manga>> {
         if (library.isEmpty()) return library
         val mergeKey = parseMergeKeys(manualMerges)
         val unmergedPairs = parseUnmergedPairs(manualUnmerges)
         return library.mapValues { (_, items) ->
-            collapseCategory(items, mergeKey, unmergedPairs)
+            collapseCategory(items, mergeKey, unmergedPairs, autoMergeSameTitle)
         }
     }
 
@@ -66,13 +71,19 @@ object MangaLibraryGrouping {
         items: List<LibraryItem.Manga>,
         mergeKey: Map<Long, String>,
         unmergedPairs: Set<Pair<Long, Long>>,
+        autoMergeSameTitle: Boolean,
     ): List<LibraryItem.Manga> {
         if (items.size <= 1) return items
 
         val buckets = LinkedHashMap<String, MutableList<LibraryItem.Manga>>()
         for (item in items) {
             val id = item.libraryManga.manga.id ?: continue
-            val key = mergeKey[id] ?: item.libraryManga.manga.title.lowercase().trim()
+            // Items in a manual merge group share a canonical key. Otherwise, fall back to the
+            // lowercase title when auto-merge is on (legacy quirk), or to a per-item unique key
+            // when it's off (so each card stays standalone).
+            val key = mergeKey[id]
+                ?: if (autoMergeSameTitle) item.libraryManga.manga.title.lowercase().trim()
+                else "id:$id"
             buckets.getOrPut(key) { mutableListOf() }.add(item)
         }
 
