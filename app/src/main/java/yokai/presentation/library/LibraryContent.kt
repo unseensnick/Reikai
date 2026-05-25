@@ -31,8 +31,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.HeartBroken
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.SwapCalls
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
@@ -669,66 +672,78 @@ fun LibraryContent(
                 //
                 // Action order matches the legacy library_selection.xml row order for the
                 // showAsAction="never" group: download-unread, mark-read, mark-unread, share.
-                val moveToCategoryLabel = stringResource(MR.strings.move_to_categories)
-                val shareLabel = stringResource(MR.strings.share)
-                val downloadLabel = stringResource(MR.strings.download_unread)
-                val markReadLabel = stringResource(MR.strings.mark_as_read)
-                val markUnreadLabel = stringResource(MR.strings.mark_as_unread)
-                val overflowActions = listOf(
-                    yokai.presentation.library.components.SelectionAction(
-                        label = moveToCategoryLabel,
-                        onClick = onMoveToCategories,
-                    ),
-                    yokai.presentation.library.components.SelectionAction(
-                        label = markReadLabel,
-                        onClick = onConfirmAndMarkRead,
-                    ),
-                    yokai.presentation.library.components.SelectionAction(
-                        label = markUnreadLabel,
-                        onClick = onConfirmAndMarkUnread,
-                    ),
-                    yokai.presentation.library.components.SelectionAction(
-                        label = downloadLabel,
-                        onClick = onDownloadUnread,
-                    ),
-                    yokai.presentation.library.components.SelectionAction(
-                        label = shareLabel,
-                        onClick = onShareSelection,
-                    ),
-                    yokai.presentation.library.components.SelectionAction(
-                        label = stringResource(MR.strings.remove),
-                        onClick = onConfirmAndDelete,
-                    ),
-                ) + if (selectionHasRemoteSources) {
-                    listOf(
+                // Mirror legacy library_selection.xml's showAsAction layout: move-to-categories,
+                // Remove, and Migrate are `ifRoom` (bar IconButtons); the rest land in the
+                // MoreVert overflow. SelectionAppBar splits the list on action.icon presence.
+                val actionsList = buildList {
+                    add(
                         yokai.presentation.library.components.SelectionAction(
-                            label = stringResource(MR.strings.migrate),
-                            onClick = onMigrate,
+                            label = stringResource(MR.strings.move_to_categories),
+                            icon = Icons.Outlined.Label,
+                            onClick = onMoveToCategories,
                         ),
                     )
-                } else {
-                    emptyList()
-                } + listOf(
-                    yokai.presentation.library.components.SelectionAction(
-                        label = stringResource(MR.strings.merge_selected),
-                        enabled = canMerge,
-                        onClick = onMerge,
-                    ),
-                ) + if (canUnmerge) {
-                    listOf(
+                    add(
                         yokai.presentation.library.components.SelectionAction(
-                            label = stringResource(MR.strings.unmerge_selected),
-                            onClick = onUnmerge,
+                            label = stringResource(MR.strings.remove),
+                            icon = Icons.Outlined.Delete,
+                            onClick = onConfirmAndDelete,
                         ),
                     )
-                } else {
-                    emptyList()
+                    if (selectionHasRemoteSources) {
+                        add(
+                            yokai.presentation.library.components.SelectionAction(
+                                label = stringResource(MR.strings.migrate),
+                                icon = Icons.Outlined.SwapCalls,
+                                onClick = onMigrate,
+                            ),
+                        )
+                    }
+                    add(
+                        yokai.presentation.library.components.SelectionAction(
+                            label = stringResource(MR.strings.mark_as_read),
+                            onClick = onConfirmAndMarkRead,
+                        ),
+                    )
+                    add(
+                        yokai.presentation.library.components.SelectionAction(
+                            label = stringResource(MR.strings.mark_as_unread),
+                            onClick = onConfirmAndMarkUnread,
+                        ),
+                    )
+                    add(
+                        yokai.presentation.library.components.SelectionAction(
+                            label = stringResource(MR.strings.download_unread),
+                            onClick = onDownloadUnread,
+                        ),
+                    )
+                    add(
+                        yokai.presentation.library.components.SelectionAction(
+                            label = stringResource(MR.strings.share),
+                            onClick = onShareSelection,
+                        ),
+                    )
+                    add(
+                        yokai.presentation.library.components.SelectionAction(
+                            label = stringResource(MR.strings.merge_selected),
+                            enabled = canMerge,
+                            onClick = onMerge,
+                        ),
+                    )
+                    if (canUnmerge) {
+                        add(
+                            yokai.presentation.library.components.SelectionAction(
+                                label = stringResource(MR.strings.unmerge_selected),
+                                onClick = onUnmerge,
+                            ),
+                        )
+                    }
                 }
                 SelectionAppBar(
                     selectionCount = selection.size,
                     onClose = onClearSelection,
                     colors = libraryTopBarColors,
-                    overflowActions = overflowActions,
+                    actions = actionsList,
                 )
             } else if (searchActive) {
                 LibrarySearchBar(
@@ -1078,7 +1093,11 @@ fun LibraryContent(
                                     title = title,
                                     subtitle = subtitle.takeIf { it.isNotEmpty() },
                                     isSelected = manga.id != null && manga.id in selection,
-                                    onClick = { onMangaClick(manga) },
+                                    onClick = if (selection.isNotEmpty()) {
+                                        { manga.id?.let(onToggleSelection) }
+                                    } else {
+                                        { onMangaClick(manga) }
+                                    },
                                     onLongClick = { manga.id?.let(onToggleSelection) },
                                     trailing = if (segments.isNotEmpty()) {
                                         { Badge(segments = segments) }
@@ -1137,6 +1156,7 @@ fun LibraryContent(
                                     unreadBadgeType = unreadBadgeType,
                                     hideStartReadingButton = hideStartReadingButton,
                                     isSelected = mangaId != null && mangaId in selection,
+                                    selectionActive = selection.isNotEmpty(),
                                     onMangaClick = onMangaClick,
                                     onMangaLongClick = { m -> m.id?.let(onToggleSelection) },
                                     onContinueReading = onContinueReading,
@@ -1199,6 +1219,7 @@ fun LibraryContent(
                                     unreadBadgeType = unreadBadgeType,
                                     hideStartReadingButton = hideStartReadingButton,
                                     isSelected = mangaId != null && mangaId in selection,
+                                    selectionActive = selection.isNotEmpty(),
                                     onMangaClick = onMangaClick,
                                     onMangaLongClick = { m -> m.id?.let(onToggleSelection) },
                                     onContinueReading = onContinueReading,
@@ -1499,6 +1520,13 @@ private fun LibraryGridCell(
     unreadBadgeType: Int,
     hideStartReadingButton: Boolean,
     isSelected: Boolean,
+    /**
+     * True when at least one library item is currently selected. In selection mode a tap on a
+     * cell toggles its membership in the set (matching the legacy `ActionMode` behavior);
+     * outside selection mode a tap navigates to manga details. Also suppresses the
+     * continue-reading overlay so an in-mode tap on the play button doesn't bypass selection.
+     */
+    selectionActive: Boolean,
     onMangaClick: (Manga) -> Unit,
     onMangaLongClick: (Manga) -> Unit,
     onContinueReading: (Manga) -> Unit,
@@ -1528,11 +1556,18 @@ private fun LibraryGridCell(
     }
     val lang = if (showLanguageBadge) item.language.takeIf { it.isNotBlank() } else null
     val isLocal = remember(manga.id) { manga.isLocal() }
-    val onClick = { onMangaClick(manga) }
+    // In selection mode, route tap to the toggle handler (legacy ActionMode behavior).
+    val onClick = if (selectionActive) {
+        { onMangaLongClick(manga) }
+    } else {
+        { onMangaClick(manga) }
+    }
     val onLongClick = { onMangaLongClick(manga) }
     // Continue-reading button: only when the user has not hidden it AND the manga has unread
-    // chapters. Skip the cover-only layout's button entirely so the cover stays unobstructed.
+    // chapters AND we're not in selection mode (selection mode claims all cell taps). Skip the
+    // cover-only layout's button entirely so the cover stays unobstructed.
     val continueReadingClick = if (
+        !selectionActive &&
         !hideStartReadingButton &&
         item.libraryManga.unread > 0 &&
         libraryLayout != LAYOUT_COVER_ONLY_GRID

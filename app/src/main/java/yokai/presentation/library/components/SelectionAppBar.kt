@@ -1,6 +1,5 @@
 package yokai.presentation.library.components
 
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.MoreVert
@@ -17,29 +16,34 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.vector.ImageVector
 import dev.icerock.moko.resources.compose.stringResource
 import yokai.i18n.MR
 
 /**
- * A single entry in the contextual app bar's overflow menu. Mirrors the menu items inflated
- * from `R.menu.library_selection` on the legacy path; each entry has a label, a click handler,
- * and an optional `enabled` flag so commits can light up actions conditionally (e.g., merge is
- * disabled below two selections; migrate hides when every selection is local-source).
+ * A single entry in the contextual app bar's actions surface. Mirrors the menu items inflated
+ * from `R.menu.library_selection` on the legacy path. When [icon] is non-null the entry
+ * renders as an `IconButton` in the bar (legacy `showAsAction="ifRoom"` equivalent); when null
+ * it lands in the MoreVert overflow dropdown (legacy `showAsAction="never"` equivalent).
+ *
+ * [enabled] dims the entry without removing it; callers omit entries that should be hidden
+ * entirely (e.g., migrate when every selection is local-source).
  */
 data class SelectionAction(
     val label: String,
     val enabled: Boolean = true,
+    val icon: ImageVector? = null,
     val onClick: () -> Unit,
 )
 
 /**
  * Contextual top bar shown while at least one library item is selected. Mirrors the legacy
  * `ActionMode` started by `LibraryController.createActionModeIfNeeded` at
- * `LibraryController.kt:2000-2008`: a back/close affordance, "Selected: N" title, and a
- * MoreVert-driven dropdown that holds the menu items inflated from `R.menu.library_selection`.
+ * `LibraryController.kt:2000-2008`: a back/close affordance, "Selected: N" title, primary
+ * actions rendered as IconButtons (ifRoom equivalent), and a MoreVert dropdown for the rest.
  *
- * Per-commit growth: actions are passed in via [overflowActions] so each new action in C3-C7
- * just appends to the caller's list; the bar itself stays a stable shell.
+ * Splits [actions] on the presence of [SelectionAction.icon]: icon-carrying entries become
+ * bar IconButtons in order; the rest fall into the overflow dropdown in their original order.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,9 +51,10 @@ fun SelectionAppBar(
     selectionCount: Int,
     onClose: () -> Unit,
     colors: TopAppBarColors,
-    overflowActions: List<SelectionAction> = emptyList(),
-    actions: @Composable RowScope.() -> Unit = {},
+    actions: List<SelectionAction> = emptyList(),
 ) {
+    val barActions = actions.filter { it.icon != null }
+    val overflow = actions.filter { it.icon == null }
     TopAppBar(
         title = {
             Text(text = stringResource(MR.strings.selected_).format(selectionCount))
@@ -63,9 +68,16 @@ fun SelectionAppBar(
             }
         },
         actions = {
-            actions()
-            if (overflowActions.isNotEmpty()) {
-                SelectionOverflowMenu(actions = overflowActions)
+            barActions.forEach { action ->
+                IconButton(onClick = action.onClick, enabled = action.enabled) {
+                    Icon(
+                        imageVector = action.icon!!,
+                        contentDescription = action.label,
+                    )
+                }
+            }
+            if (overflow.isNotEmpty()) {
+                SelectionOverflowMenu(actions = overflow)
             }
         },
         colors = colors,
