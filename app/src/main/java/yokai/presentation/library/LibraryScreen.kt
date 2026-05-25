@@ -265,7 +265,15 @@ class LibraryScreen : Screen {
                 .toMap()
         }
 
-        val searchedLibrary = remember(library, searchQuery, sourceNames, seriesTypes) {
+        // `Map<Category, ...>.equals` is content-only (ignores iteration order) and
+        // `CategoryImpl.equals` is name-based, so two libraries that differ only by category
+        // order compare equal. `remember(library, ...)` therefore returns cached values across a
+        // pure `categorySortOrder` change, even though the iteration order is meaningfully
+        // different. Read the pref off the current state and include it as a remember key for
+        // every library-derived val whose contents depend on iteration order, so a sort-order
+        // toggle correctly invalidates the cache.
+        val effectiveCategorySortOrder = (state as? LibraryTabState.Loaded)?.categorySortOrder ?: 0
+        val searchedLibrary = remember(library, effectiveCategorySortOrder, searchQuery, sourceNames, seriesTypes) {
             MangaLibrarySearch.search(library, searchQuery, sourceNames, seriesTypes)
         }
 
@@ -313,8 +321,8 @@ class LibraryScreen : Screen {
             loggedServiceNames.values.toList()
         }
 
-        val allCategories = remember(library) { library.keys.toList() }
-        val categoryItemCounts = remember(library) {
+        val allCategories = remember(library, effectiveCategorySortOrder) { library.keys.toList() }
+        val categoryItemCounts = remember(library, effectiveCategorySortOrder) {
             library.entries.associate { (cat, items) -> (cat.id ?: 0) to items.size }
         }
 
@@ -616,6 +624,7 @@ class LibraryScreen : Screen {
                     }
                 }
             },
+            categorySortOrder = effectiveCategorySortOrder,
             onRefreshCategory = { category ->
                 // Mirrors LibraryController.updateCategory (lines 1763-1802). Snackbar wording
                 // is decided BEFORE the dispatch so the user sees "already in queue" or

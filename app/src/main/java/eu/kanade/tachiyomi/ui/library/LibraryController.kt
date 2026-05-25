@@ -749,7 +749,23 @@ open class LibraryController(
             true
         }
         binding.roundedCategoryHopper.categoryButton.setOnClickListener {
-            val items = presenter.categories.map { category ->
+            // Honor the Reikai-fork categorySortOrder pref so the jump-to-category sheet matches
+            // the order the user sees in the library list. Mirrors the comparator at
+            // LibraryPresenter.kt:781-793 (the .toSortedMap that orders the rendered library).
+            val sortedCategories = presenter.categories.sortedWith(
+                Comparator { a, b ->
+                    when {
+                        a.id == 0 -> -1
+                        b.id == 0 -> 1
+                        else -> when (preferences.categorySortOrder().get()) {
+                            1 -> a.name.lowercase().compareTo(b.name.lowercase())
+                            2 -> b.name.lowercase().compareTo(a.name.lowercase())
+                            else -> a.order.compareTo(b.order)
+                        }
+                    }
+                },
+            )
+            val items = sortedCategories.map { category ->
                 MaterialMenuSheet.MenuSheetItem(
                     category.order,
                     text = category.name +

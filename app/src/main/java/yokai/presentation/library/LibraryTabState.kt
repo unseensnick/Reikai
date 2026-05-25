@@ -52,5 +52,14 @@ sealed interface LibraryTabState<out T : LibraryItem> {
          * optimistic sort writes bump it.
          */
         val sortEpoch: Int = 0,
+        /**
+         * Tracked so the state varies when the Reikai-fork `preferences.categorySortOrder`
+         * pref changes. `Map<Category, ...>.equals` ignores iteration order (it compares
+         * key-value pairs unordered) and `CategoryImpl.equals` is name-based, so a sort-order
+         * change alone produces a library map that compares equal to the previous one — the
+         * UI would never re-render the new category sequence. Including this here forces the
+         * Loaded equality check to detect the change.
+         */
+        val categorySortOrder: Int = 0,
     ) : LibraryTabState<T>
 }

@@ -65,6 +65,65 @@ class MangaLibrarySectionerTest {
     }
 
     @Test
+    fun `categorySortOrder 1 sorts user categories alphabetically with default pinned at top`() {
+        val result = MangaLibrarySectioner.section(
+            libraryManga = listOf(
+                libraryManga(1, "X", categoryId = 0),
+                libraryManga(2, "Y", categoryId = 10),
+                libraryManga(3, "Z", categoryId = 20),
+            ),
+            userCategories = listOf(
+                userCategory(10, "Reading", order = 0),
+                userCategory(20, "Action", order = 1),
+            ),
+            defaultCategory = defaultCategory(),
+            categorySortOrder = 1,
+        )
+        // Default (id 0) first, then user categories in A→Z order: Action, Reading.
+        val ids = result.keys.map { it.id }
+        assertEquals(listOf(0, 20, 10), ids)
+    }
+
+    @Test
+    fun `categorySortOrder 2 sorts user categories Z to A with default pinned at top`() {
+        val result = MangaLibrarySectioner.section(
+            libraryManga = listOf(
+                libraryManga(1, "X", categoryId = 0),
+                libraryManga(2, "Y", categoryId = 10),
+                libraryManga(3, "Z", categoryId = 20),
+            ),
+            userCategories = listOf(
+                userCategory(10, "Action", order = 0),
+                userCategory(20, "Reading", order = 1),
+            ),
+            defaultCategory = defaultCategory(),
+            categorySortOrder = 2,
+        )
+        // Default first, then Z→A: Reading, Action.
+        val ids = result.keys.map { it.id }
+        assertEquals(listOf(0, 20, 10), ids)
+    }
+
+    @Test
+    fun `categorySortOrder defaults to manual when 0 or unspecified`() {
+        val result = MangaLibrarySectioner.section(
+            libraryManga = listOf(
+                libraryManga(1, "Y", categoryId = 10),
+                libraryManga(2, "Z", categoryId = 20),
+            ),
+            userCategories = listOf(
+                userCategory(20, "Action", order = 1),
+                userCategory(10, "Reading", order = 0),
+            ),
+            defaultCategory = defaultCategory(),
+            categorySortOrder = 0,
+        )
+        // Manual order: Reading (order=0), Action (order=1). Alphabetically these would flip.
+        val ids = result.keys.map { it.id }
+        assertEquals(listOf(10, 20), ids)
+    }
+
+    @Test
     fun `default category appears first then user categories by order field`() {
         val result = MangaLibrarySectioner.section(
             libraryManga = listOf(

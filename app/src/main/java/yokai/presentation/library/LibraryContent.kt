@@ -248,6 +248,14 @@ fun LibraryContent(
      * through `MangaLibraryScreenModel.setSort` which handles direction toggle + write routing.
      */
     onSortChange: (Category, LibrarySort) -> Unit,
+    /**
+     * Reikai-fork `preferences.categorySortOrder` (0 manual, 1 A→Z, 2 Z→A). Passed through so
+     * iteration-order-dependent `remember(library, ...)` calls inside this composable invalidate
+     * when the sort pref changes. `Map<Category, ...>.equals` is content-only and ignores
+     * iteration order, so without this key the remembers (e.g. `categoryOffsets`) would keep
+     * returning the previous order's value after a sort toggle.
+     */
+    categorySortOrder: Int,
     /** Toggle long-pressed manga in the selection set. C2 onward. */
     onToggleSelection: (Long) -> Unit,
     /** Clear the selection set. Wired to the SelectionAppBar close icon and BackHandler. */
@@ -356,8 +364,11 @@ fun LibraryContent(
 
     // Precomputed map of (lazy-scroll header index) -> Category. Each layout emits one header
     // item followed by N item entries per category, so each header's index = sum of
-    // (1 + items.size) for all preceding categories regardless of container.
-    val categoryOffsets = remember(library) {
+    // (1 + items.size) for all preceding categories regardless of container. Includes
+    // categorySortOrder as a key because library equality is content-only and ignores
+    // iteration order; without this, the offsets keep the old category order after a
+    // categorySortOrder toggle.
+    val categoryOffsets = remember(library, categorySortOrder) {
         var offset = 0
         library.map { (cat, items) ->
             val start = offset

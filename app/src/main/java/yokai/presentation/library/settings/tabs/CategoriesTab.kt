@@ -68,6 +68,7 @@ fun CategoriesTab(onDismissSheet: () -> Unit = {}) {
     val hideHopper by preferences.hideHopper().collectAsState()
     val autohideHopper by preferences.autohideHopper().collectAsState()
     val hopperLongPressAction by preferences.hopperLongPressAction().collectAsState()
+    val categorySortOrder by preferences.categorySortOrder().collectAsState()
 
     val groupByEntries = rememberGroupByEntries()
 
@@ -87,6 +88,14 @@ fun CategoriesTab(onDismissSheet: () -> Unit = {}) {
         3 to stringResource(MR.strings.group_library_by),
         4 to stringResource(MR.strings.open_random_series),
         5 to stringResource(MR.strings.open_random_series_global),
+    )
+
+    // Reikai-fork pref: how the category list itself is ordered. Default category is always
+    // pinned at the top regardless. Mirrors the SettingsLibraryController intListPreference.
+    val categorySortOrderEntries: Map<Int, String> = mapOf(
+        0 to stringResource(MR.strings.category_sort_off),
+        1 to stringResource(MR.strings.category_sort_a_to_z),
+        2 to stringResource(MR.strings.category_sort_z_to_a),
     )
 
     // Order mirrors the legacy library_category_layout.xml row order so users moving between
@@ -155,6 +164,15 @@ fun CategoriesTab(onDismissSheet: () -> Unit = {}) {
         )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+        ListPreferenceWidget(
+            value = categorySortOrder,
+            title = stringResource(MR.strings.pref_category_sort_order),
+            subtitle = categorySortOrderEntries[categorySortOrder],
+            icon = null,
+            entries = categorySortOrderEntries,
+            onValueChange = { preferences.categorySortOrder().set(it) },
+        )
 
         GroupLibraryByPicker(
             selected = groupLibraryBy,

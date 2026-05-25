@@ -87,6 +87,7 @@ class MangaLibraryScreenModel :
                     manualUnmerges = emptySet(),
                     autoMergeSameTitle = true,
                     sortPrefs = SortPrefs.DEFAULT,
+                    categorySortOrder = 0,
                 )
             }
                 // The 5-arg combine is the kotlinx-coroutines typed-lambda limit. Chain the
@@ -108,6 +109,12 @@ class MangaLibraryScreenModel :
                 .combine(sortPrefsFlow()) { snap, sortPrefs ->
                     snap.copy(sortPrefs = sortPrefs)
                 }
+                // categorySortOrder is Reikai-fork (per-library, not per-category). Chained
+                // separately from sortPrefsFlow since it shapes the category-list order, not
+                // the in-category manga sort.
+                .combine(preferences.categorySortOrder().changes()) { snap, categorySortOrder ->
+                    snap.copy(categorySortOrder = categorySortOrder)
+                }
                 .collectLatest { snap ->
                     // Recreate per emission so a locale change between subscriptions picks up the
                     // re-translated "Default" string, matching legacy LibraryPresenter behavior.
@@ -124,6 +131,7 @@ class MangaLibraryScreenModel :
                         libraryManga = snap.libraryManga,
                         userCategories = snap.categories,
                         defaultCategory = defaultCategory,
+                        categorySortOrder = snap.categorySortOrder,
                     )
                     // Collapse merged-manga groups (manual merge + same-title auto-merge) into
                     // a single rendered entry per group, stamped with relatedMangaIds. Mirrors
@@ -155,7 +163,9 @@ class MangaLibraryScreenModel :
                         // Preserve selection across reload emissions so a download-cache tick or
                         // library update mid-action doesn't drop the user's selection set. Also
                         // carry sortEpoch forward unchanged; combine-driven emissions never bump
-                        // it (only optimistic sort writes do, see setSort).
+                        // it (only optimistic sort writes do, see setSort). categorySortOrder
+                        // is reflected into state so a pref change visibly re-emits even when
+                        // the library map compares equal to its previous value.
                         val loaded = current as? LibraryTabState.Loaded
                         val carriedSelection = loaded?.selection ?: emptySet()
                         val carriedSortEpoch = loaded?.sortEpoch ?: 0
@@ -167,6 +177,7 @@ class MangaLibraryScreenModel :
                             currentCategoryOrder = snap.currentCategoryOrder,
                             selection = carriedSelection,
                             sortEpoch = carriedSortEpoch,
+                            categorySortOrder = snap.categorySortOrder,
                         )
                     }
                 }
@@ -583,5 +594,7 @@ class MangaLibraryScreenModel :
         val manualUnmerges: Set<String>,
         val autoMergeSameTitle: Boolean,
         val sortPrefs: SortPrefs,
+        /** Reikai-fork `preferences.categorySortOrder`: 0 manual, 1 A→Z, 2 Z→A. */
+        val categorySortOrder: Int,
     )
 }
