@@ -8,6 +8,12 @@ import android.provider.Settings
 import android.webkit.WebStorage
 import android.webkit.WebView
 import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -74,6 +80,8 @@ import rikka.sui.Sui
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
+import kotlin.coroutines.resume
+import yokai.domain.DialogHostState
 import yokai.domain.base.BasePreferences
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.extension.interactor.TrustExtension
@@ -510,6 +518,10 @@ object SettingsAdvancedScreen : ComposableSettings() {
     @Composable
     private fun getLibraryGroup(basePreferences: BasePreferences): Preference.PreferenceGroup {
         val context = LocalContext.current
+        val preferences: PreferencesHelper = remember { Injekt.get() }
+        val getManga: GetManga = remember { Injekt.get() }
+        val alertDialog = LocalDialogHostState.currentOrThrow
+        val scope = rememberCoroutineScope()
 
         val children = buildList {
             add(Preference.PreferenceItem.TextPreference(
@@ -521,6 +533,35 @@ object SettingsAdvancedScreen : ComposableSettings() {
                 title = stringResource(MR.strings.refresh_tracking_metadata),
                 subtitle = stringResource(MR.strings.updates_tracking_details),
                 onClick = { LibraryUpdateJob.startNow(context, target = LibraryUpdateJob.Target.TRACKING) },
+            ))
+            add(Preference.PreferenceItem.TextPreference(
+                title = stringResource(MR.strings.clear_all_manual_merges),
+                subtitle = stringResource(MR.strings.clear_all_manual_merges_summary),
+                onClick = {
+                    scope.launch {
+                        // 3-button dialog so the user picks the scope at clear-time:
+                        //  - Manual only: clear mangaManualMerges, leave auto-grouping alone.
+                        //  - All including auto-grouped: also walk current favorites and add an
+                        //    unmerge pair for every same-title duplicate so the auto-grouping
+                        //    stops re-creating bad pairs. Same-title auto-grouping still applies
+                        //    to NEW favorites added later (their fresh ids aren't in any unmerge
+                        //    pair, so they auto-group on first encounter).
+                        // mangaManualUnmerges accumulates either way; the user's explicit
+                        // "do not auto-group" rules from past long-presses stay respected.
+                        val choice = chooseClearMergesScope(alertDialog)
+                        when (choice) {
+                            ClearMergesChoice.MANUAL_ONLY -> {
+                                preferences.mangaManualMerges().set(emptySet())
+                                context.toast(MR.strings.cleared_all_manual_merges)
+                            }
+                            ClearMergesChoice.ALL_INCLUDING_AUTO -> {
+                                clearAllMergesIncludingAuto(preferences, getManga)
+                                context.toast(MR.strings.cleared_all_merges_including_auto)
+                            }
+                            ClearMergesChoice.CANCEL -> Unit
+                        }
+                    }
+                },
             ))
             if (BuildConfig.FLAVOR == "dev" || BuildConfig.DEBUG) {
                 add(Preference.PreferenceItem.SwitchPreference(
@@ -652,4 +693,88 @@ object SettingsAdvancedScreen : ComposableSettings() {
             preferenceItems = children,
         )
     }
+}
+
+private enum class ClearMergesChoice { CANCEL, MANUAL_ONLY, ALL_INCLUDING_AUTO }
+
+/**
+ * 3-button confirm dialog for the "Clear all manual merges" setting. The user chooses scope at
+ * confirm time instead of needing a separate settings entry per scope.
+ */
+private suspend fun chooseClearMergesScope(dialogHostState: DialogHostState): ClearMergesChoice =
+    dialogHostState.dialog<ClearMergesChoice> { cont ->
+        AlertDialog(
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = {
+                Text(
+                    text = stringResource(MR.strings.clear_all_manual_merges),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(MR.strings.clear_all_manual_merges_confirm),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            onDismissRequest = { if (cont.isActive) cont.resume(ClearMergesChoice.CANCEL) },
+            confirmButton = {
+                // Stacked horizontally so "All" sits next to "Manual only", with Cancel below
+                // as the dismiss button. The two action labels make the trade-off explicit.
+                Row(horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = {
+                        if (cont.isActive) cont.resume(ClearMergesChoice.MANUAL_ONLY)
+                    }) {
+                        Text(stringResource(MR.strings.clear_manual_only_action))
+                    }
+                    TextButton(onClick = {
+                        if (cont.isActive) cont.resume(ClearMergesChoice.ALL_INCLUDING_AUTO)
+                    }) {
+                        Text(stringResource(MR.strings.clear_all_incl_auto_action))
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    if (cont.isActive) cont.resume(ClearMergesChoice.CANCEL)
+                }) {
+                    Text(stringResource(MR.strings.cancel))
+                }
+            },
+        )
+    }
+
+/**
+ * Wipes `mangaManualMerges` AND walks every favourited manga to find same-title duplicates,
+ * adding an unmerge pair for each so the auto-grouping path can't re-create the same groups.
+ * Auto-grouping for NEW favourites added later still works because their ids don't appear in
+ * any unmerge pair, so they auto-group on first encounter with an existing same-title entry.
+ */
+private suspend fun clearAllMergesIncludingAuto(
+    preferences: PreferencesHelper,
+    getManga: GetManga,
+) {
+    val favorites = getManga.awaitFavorites()
+    val byTitle = HashMap<String, MutableList<Long>>()
+    for (m in favorites) {
+        val id = m.id ?: continue
+        val key = m.title.trim().lowercase()
+        if (key.isEmpty()) continue
+        byTitle.getOrPut(key) { mutableListOf() } += id
+    }
+
+    val newUnmerges = mutableSetOf<String>()
+    for ((_, ids) in byTitle) {
+        if (ids.size < 2) continue
+        val sorted = ids.sorted()
+        for (i in sorted.indices) {
+            for (j in (i + 1) until sorted.size) {
+                newUnmerges += "${sorted[i]},${sorted[j]}"
+            }
+        }
+    }
+
+    val existingUnmerges = preferences.mangaManualUnmerges().get()
+    preferences.mangaManualMerges().set(emptySet())
+    preferences.mangaManualUnmerges().set(existingUnmerges + newUnmerges)
 }

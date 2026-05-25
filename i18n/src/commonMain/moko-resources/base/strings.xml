@@ -1276,6 +1276,14 @@
     <string name="merge_selected">Merge selected</string>
     <string name="manage_sources">Manage sources</string>
     <string name="remove_from_group">Remove from group</string>
+    <string name="cleaned_n_suspicious_merges">Cleaned up %1$d suspicious merge(s) for this series</string>
+    <string name="clear_all_manual_merges">Clear all manual merges</string>
+    <string name="clear_all_manual_merges_summary">Remove every saved multi-source group. Sources will only stay grouped via the same-title auto-grouping going forward; you can re-merge specific entries via long-press in the library.</string>
+    <string name="clear_all_manual_merges_confirm">Clear manual merges only, or also stop the current same-title auto-grouped pairs from regrouping? Auto-grouping still applies to new favourites added later either way.</string>
+    <string name="cleared_all_manual_merges">Cleared all manual merges</string>
+    <string name="cleared_all_merges_including_auto">Cleared manual merges and unmerged current auto-grouped pairs</string>
+    <string name="clear_manual_only_action">Manual only</string>
+    <string name="clear_all_incl_auto_action">All incl. auto</string>
     <string name="split_selected_sources">Split selected</string>
     <string name="remove_selected_from_library">Remove selected from library</string>
     <string name="sources_split_from_group">%1$d sources split from group</string>
