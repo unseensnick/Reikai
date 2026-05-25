@@ -42,6 +42,7 @@ import yokai.i18n.MR
 import yokai.presentation.component.preference.widget.ListPreferenceWidget
 import yokai.presentation.component.preference.widget.SwitchPreferenceWidget
 import yokai.presentation.library.components.GroupLibraryByPicker
+import yokai.presentation.library.components.rememberGroupByEntries
 
 /**
  * Categories tab. Top section carries the library-shaping actions that used to live in the
@@ -67,16 +68,7 @@ fun CategoriesTab(onDismissSheet: () -> Unit = {}) {
     val autohideHopper by preferences.autohideHopper().collectAsState()
     val hopperLongPressAction by preferences.hopperLongPressAction().collectAsState()
 
-    val groupByEntries: Map<Int, String> = mapOf(
-        LibraryGroup.BY_DEFAULT to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_DEFAULT)),
-        LibraryGroup.BY_TAG to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_TAG)),
-        LibraryGroup.BY_SOURCE to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_SOURCE)),
-        LibraryGroup.BY_STATUS to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_STATUS)),
-        LibraryGroup.BY_TRACK_STATUS to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_TRACK_STATUS)),
-        LibraryGroup.BY_AUTHOR to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_AUTHOR)),
-        LibraryGroup.BY_LANGUAGE to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_LANGUAGE)),
-        LibraryGroup.UNGROUPED to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.UNGROUPED)),
-    )
+    val groupByEntries = rememberGroupByEntries()
 
     // Mirrors the legacy hideHopperSpinner: index 0 = always shown, 1 = autohide on scroll,
     // 2 = always hidden. Encoded as (hideHopper * 2) + autohideHopper, clamped to [0, 2].
@@ -93,6 +85,7 @@ fun CategoriesTab(onDismissSheet: () -> Unit = {}) {
         2 to stringResource(MR.strings.display_options),
         3 to stringResource(MR.strings.group_library_by),
         4 to stringResource(MR.strings.open_random_series),
+        5 to stringResource(MR.strings.open_random_series_global),
     )
 
     // Order mirrors the legacy library_category_layout.xml row order so users moving between

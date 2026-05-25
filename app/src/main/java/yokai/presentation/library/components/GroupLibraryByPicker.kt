@@ -96,42 +96,81 @@ fun GroupLibraryByPicker(
     }
 
     if (dialogOpen) {
-        AlertDialog(
-            onDismissRequest = { dialogOpen = false },
-            title = { Text(text = title) },
-            text = {
-                Box {
-                    val state = rememberLazyListState()
-                    LazyColumn(state = state) {
-                        entries.forEach { (groupKey, groupLabel) ->
-                            item {
-                                GroupRow(
-                                    label = groupLabel,
-                                    iconRes = LibraryGroup.groupTypeDrawableRes(groupKey),
-                                    isSelected = groupKey == selected,
-                                    onSelected = {
-                                        onSelect(groupKey)
-                                        dialogOpen = false
-                                    },
-                                )
-                            }
-                        }
-                    }
-                    if (state.canScrollBackward) {
-                        HorizontalDivider(modifier = Modifier.align(Alignment.TopCenter))
-                    }
-                    if (state.canScrollForward) {
-                        HorizontalDivider(modifier = Modifier.align(Alignment.BottomCenter))
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { dialogOpen = false }) {
-                    Text(text = androidStringResource(AR.string.cancel))
-                }
-            },
+        GroupLibraryByDialog(
+            selected = selected,
+            entries = entries,
+            onSelect = onSelect,
+            onDismiss = { dialogOpen = false },
         )
     }
+}
+
+/**
+ * Standalone Group-library-by picker dialog. Extracted from [GroupLibraryByPicker] so the
+ * hopper long-press path (`hopperLongPressAction = 3`) can open just the dialog without the
+ * sheet's trigger row, matching legacy `LibraryController.showGroupOptions()`. The Categories
+ * tab still uses [GroupLibraryByPicker] which renders the trigger row + this dialog as a unit.
+ */
+/**
+ * Builds the standard label map for [GroupLibraryByPicker] / [GroupLibraryByDialog]. Shared
+ * so the in-sheet picker and the hopper-long-press dialog don't drift in entry order or label
+ * source.
+ */
+@Composable
+fun rememberGroupByEntries(): Map<Int, String> = mapOf(
+    LibraryGroup.BY_DEFAULT to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_DEFAULT)),
+    LibraryGroup.BY_TAG to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_TAG)),
+    LibraryGroup.BY_SOURCE to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_SOURCE)),
+    LibraryGroup.BY_STATUS to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_STATUS)),
+    LibraryGroup.BY_TRACK_STATUS to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_TRACK_STATUS)),
+    LibraryGroup.BY_AUTHOR to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_AUTHOR)),
+    LibraryGroup.BY_LANGUAGE to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.BY_LANGUAGE)),
+    LibraryGroup.UNGROUPED to stringResource(LibraryGroup.groupTypeStringRes(LibraryGroup.UNGROUPED)),
+)
+
+@Composable
+fun GroupLibraryByDialog(
+    selected: Int,
+    entries: Map<Int, String>,
+    onSelect: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val title = stringResource(MR.strings.group_library_by)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = title) },
+        text = {
+            Box {
+                val state = rememberLazyListState()
+                LazyColumn(state = state) {
+                    entries.forEach { (groupKey, groupLabel) ->
+                        item {
+                            GroupRow(
+                                label = groupLabel,
+                                iconRes = LibraryGroup.groupTypeDrawableRes(groupKey),
+                                isSelected = groupKey == selected,
+                                onSelected = {
+                                    onSelect(groupKey)
+                                    onDismiss()
+                                },
+                            )
+                        }
+                    }
+                }
+                if (state.canScrollBackward) {
+                    HorizontalDivider(modifier = Modifier.align(Alignment.TopCenter))
+                }
+                if (state.canScrollForward) {
+                    HorizontalDivider(modifier = Modifier.align(Alignment.BottomCenter))
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = androidStringResource(AR.string.cancel))
+            }
+        },
+    )
 }
 
 @Composable

@@ -120,6 +120,9 @@ class LibraryScreen : Screen {
         var sheetOpen by rememberSaveable { mutableStateOf(false) }
         var sheetTab by rememberSaveable { mutableIntStateOf(0) }
         var overflowOpen by remember { mutableStateOf(false) }
+        // Standalone Group library by picker dialog (hopper long-press index 3). Matches legacy
+        // showGroupOptions() which opens just the picker, not the full Display options sheet.
+        var groupByDialogOpen by remember { mutableStateOf(false) }
 
         val library = when (val s = state) {
             is LibraryTabState.Loading -> emptyMap()
@@ -353,6 +356,19 @@ class LibraryScreen : Screen {
                     router.pushController(MangaDetailsController(random).withFadeTransaction())
                 }
             },
+            onOpenRandomInCategory = { category ->
+                // In-category random for hopper long-press index 4. Falls back to the global
+                // pool when no category is resolvable (search active, no items in scope).
+                val pool = when {
+                    category != null -> displayedLibrary[category].orEmpty()
+                    else -> displayedLibrary.values.asSequence().flatten().toList()
+                }
+                if (pool.isNotEmpty()) {
+                    val random = pool.random().libraryManga.manga
+                    router.pushController(MangaDetailsController(random).withFadeTransaction())
+                }
+            },
+            onOpenGroupByPicker = { groupByDialogOpen = true },
             onContinueReading = { manga ->
                 // Mirror legacy LibraryController.startReading: load all chapters, pick the
                 // next-unread via ChapterSort, then launch ReaderActivity. Manga with no
@@ -443,5 +459,14 @@ class LibraryScreen : Screen {
                 }
             },
         )
+
+        if (groupByDialogOpen) {
+            yokai.presentation.library.components.GroupLibraryByDialog(
+                selected = groupLibraryBy,
+                entries = yokai.presentation.library.components.rememberGroupByEntries(),
+                onSelect = { preferences.groupLibraryBy().set(it) },
+                onDismiss = { groupByDialogOpen = false },
+            )
+        }
     }
 }

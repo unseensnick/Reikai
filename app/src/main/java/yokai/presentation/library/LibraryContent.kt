@@ -185,8 +185,20 @@ fun LibraryContent(
     onExpandCollapseAllCategories: () -> Unit,
     /** Open the Display options sheet on a specific tab (0 filter / 1 display / 2 badges / 3 categories). */
     onOpenSheetAt: (Int) -> Unit,
-    /** Navigate to a random series from the library. No-op when the library is empty. */
+    /** Navigate to a random series from the entire library (global). Matches legacy hopper long-press index 5. */
     onOpenRandomSeries: () -> Unit,
+    /**
+     * Navigate to a random series within the currently-active category. Matches legacy hopper
+     * long-press index 4 (`openRandomManga(false)`). Receiver gets the active category and is
+     * expected to no-op when it can't resolve one (search active, empty library).
+     */
+    onOpenRandomInCategory: (Category?) -> Unit,
+    /**
+     * Open the standalone Group library by picker dialog. Matches legacy hopper long-press
+     * index 3 (`showGroupOptions()`), which opens just the small picker rather than the full
+     * Display options sheet.
+     */
+    onOpenGroupByPicker: () -> Unit,
     /** Invoked when the user taps the continue-reading button on a cover with unread chapters. */
     onContinueReading: (Manga) -> Unit,
     /** Tap on a manga cell (grid cover or list row). Routes to the manga details screen. */
@@ -432,6 +444,13 @@ fun LibraryContent(
             val maxX = (parentWidthPx - hopperWidthPx - edgePaddingPx).coerceAtLeast(minX)
             hopperX.snapTo((hopperX.value + delta).coerceIn(minX, maxX))
         }
+    }
+    // Vertical fling state for the hopper: accumulates raw drag pixels so onDragStopped can
+    // check the legacy thresholds (50 px distance + 100 px/s velocity). No drag-follow; legacy
+    // doesn't translate the hopper vertically either, only horizontally for gravity feedback.
+    var hopperVerticalDragPx by remember { mutableFloatStateOf(0f) }
+    val hopperVerticalDraggableState = rememberDraggableState { delta ->
+        hopperVerticalDragPx += delta
     }
 
     // Topbar scroll behavior matches the legacy CoordinatorLayout setup:
@@ -1116,15 +1135,21 @@ fun LibraryContent(
                         }
                     },
                     // Long-press center dispatches by user pref. Indices match
-                    // CategoriesTab.hopperLongPressEntries.
+                    // CategoriesTab.hopperLongPressEntries and legacy LibraryController.kt:779
+                    // dispatch order.
                     onCenterLongClick = {
                         when (hopperLongPressAction) {
                             0 -> onSearchActiveChange(true)
                             1 -> onExpandCollapseAllCategories()
-                            // 1 = Display tab, 3 = Categories tab where the Group by row lives.
+                            // Display options sheet tab index 1 = Display tab.
                             2 -> onOpenSheetAt(1)
-                            3 -> onOpenSheetAt(3)
-                            4 -> onOpenRandomSeries()
+                            // Opens the standalone Group library by dialog, matching legacy
+                            // showGroupOptions() rather than the full Categories tab.
+                            3 -> onOpenGroupByPicker()
+                            // In-category random matches legacy `openRandomManga(false)`.
+                            4 -> onOpenRandomInCategory(activeCategory)
+                            // Global random matches legacy `openRandomManga(true)`.
+                            5 -> onOpenRandomSeries()
                         }
                     },
                     modifier = Modifier
@@ -1153,6 +1178,31 @@ fun LibraryContent(
                                     }
                                 } else {
                                     hopperX.animateTo(rest, animationSpec = tween(200))
+                                }
+                            },
+                        )
+                        // Vertical fling on the hopper opens the Display options sheet, matching
+                        // legacy LibraryGestureDetector.onFling at refs/yokai/.../LibraryGestureDetector.kt:53-58.
+                        // Same raw-pixel thresholds (50 px distance, 100 px/s velocity). Down-fling
+                        // is a no-op: legacy hides a peeked filter sheet, but Compose's Display
+                        // options is a full ModalBottomSheet, not peeked, so there's nothing to
+                        // hide via this gesture. Coexists with the horizontal gravity-reposition
+                        // draggable above via Compose orientation-lock: only one wins per gesture
+                        // based on the initial motion direction past touch slop.
+                        .draggable(
+                            orientation = Orientation.Vertical,
+                            state = hopperVerticalDraggableState,
+                            onDragStarted = { hopperVerticalDragPx = 0f },
+                            onDragStopped = { velocity ->
+                                val totalDistance = hopperVerticalDragPx
+                                hopperVerticalDragPx = 0f
+                                if (totalDistance < 0f &&
+                                    abs(totalDistance) > 50f &&
+                                    abs(velocity) > 100f
+                                ) {
+                                    // Sheet tab 0 = Filter, matches legacy controller.showSheet()
+                                    // which opens the filter bottom sheet.
+                                    onOpenSheetAt(0)
                                 }
                             },
                         ),
