@@ -22,6 +22,8 @@ import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.manga.interactor.GetLibraryManga
 import yokai.domain.manga.interactor.UpdateManga
 import yokai.domain.track.interactor.DeleteTrack
+import yokai.domain.track.interactor.GetTrack
+import yokai.domain.track.interactor.InsertTrack
 import yokai.presentation.library.LibraryTabState
 import yokai.presentation.library.manga.actions.MangaLibraryActions
 import eu.kanade.tachiyomi.data.cache.CoverCache
@@ -53,6 +55,8 @@ class MangaLibraryScreenModel :
     private val updateManga: UpdateManga by injectLazy()
     private val deleteTrack: DeleteTrack by injectLazy()
     private val coverCache: CoverCache by injectLazy()
+    private val getTrack: GetTrack by injectLazy()
+    private val insertTrack: InsertTrack by injectLazy()
 
     init {
         screenModelScope.launchIO {
@@ -253,6 +257,30 @@ class MangaLibraryScreenModel :
                 deleteTrack = deleteTrack,
                 preferences = preferences,
             )
+        }
+    }
+
+    fun mergeSelection() {
+        val ids = (state.value as? LibraryTabState.Loaded)?.selection?.toList().orEmpty()
+        if (ids.size < 2) return
+        screenModelScope.launchIO {
+            val sorted = MangaLibraryActions.merge(ids, preferences)
+            if (preferences.syncTrackerLinksGrouped().get()) {
+                MangaLibraryActions.reconcileGroupTrackers(
+                    ids = sorted,
+                    getTrack = getTrack,
+                    insertTrack = insertTrack,
+                    preferences = preferences,
+                )
+            }
+        }
+    }
+
+    fun unmergeSelection() {
+        val ids = (state.value as? LibraryTabState.Loaded)?.selection?.toList().orEmpty()
+        if (ids.isEmpty()) return
+        screenModelScope.launchIO {
+            MangaLibraryActions.unmerge(ids, preferences)
         }
     }
 

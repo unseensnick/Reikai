@@ -257,6 +257,20 @@ fun LibraryContent(
      * LibraryController.kt:2042.
      */
     selectionHasRemoteSources: Boolean,
+    /** C7: merge the current selection into one group. */
+    onMerge: () -> Unit,
+    /** C7: split the current selection out of its existing merge group(s). */
+    onUnmerge: () -> Unit,
+    /**
+     * C7: true when the selection has 2+ items (merge requires at least two to combine).
+     * Drives the merge menu entry's `enabled` flag.
+     */
+    canMerge: Boolean,
+    /**
+     * C7: true when every selected manga is part of an existing manual-merge group. Used to
+     * show / hide the unmerge menu entry (no point offering unmerge when nothing is grouped).
+     */
+    canUnmerge: Boolean,
     modifier: Modifier = Modifier,
 ) {
     // Selection clear takes priority over search close: both are back-press affordances, but a
@@ -690,6 +704,21 @@ fun LibraryContent(
                         yokai.presentation.library.components.SelectionAction(
                             label = stringResource(MR.strings.migrate),
                             onClick = onMigrate,
+                        ),
+                    )
+                } else {
+                    emptyList()
+                } + listOf(
+                    yokai.presentation.library.components.SelectionAction(
+                        label = stringResource(MR.strings.merge_selected),
+                        enabled = canMerge,
+                        onClick = onMerge,
+                    ),
+                ) + if (canUnmerge) {
+                    listOf(
+                        yokai.presentation.library.components.SelectionAction(
+                            label = stringResource(MR.strings.unmerge_selected),
+                            onClick = onUnmerge,
                         ),
                     )
                 } else {

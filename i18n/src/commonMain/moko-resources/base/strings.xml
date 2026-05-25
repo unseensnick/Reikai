@@ -1274,6 +1274,7 @@
     <string name="category_sort_a_to_z">A→Z</string>
     <string name="category_sort_z_to_a">Z→A</string>
     <string name="merge_selected">Merge selected</string>
+    <string name="unmerge_selected">Unmerge selected</string>
     <string name="manage_sources">Manage sources</string>
     <string name="remove_from_group">Remove from group</string>
     <string name="cleaned_n_suspicious_merges">Cleaned up %1$d suspicious merge(s) for this series</string>

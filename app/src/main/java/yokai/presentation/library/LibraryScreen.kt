@@ -158,6 +158,26 @@ class LibraryScreen : Screen {
             }
         }
 
+        // C7: merge requires 2+ selected; unmerge requires every selected manga to already be in
+        // a manual-merge group. The unmerge gate reads mangaManualMerges reactively so toggling
+        // a merge from another surface (manga details page) updates the menu without re-entering
+        // the library.
+        val mangaManualMerges by preferences.mangaManualMerges().changes()
+            .collectAsState(initial = preferences.mangaManualMerges().get())
+        val canMerge = selection.size >= 2
+        val canUnmerge = remember(selection, mangaManualMerges) {
+            if (selection.isEmpty()) {
+                false
+            } else {
+                val allMergedIds = mangaManualMerges
+                    .asSequence()
+                    .flatMap { entry -> entry.split(",").asSequence() }
+                    .mapNotNull { it.trim().toLongOrNull() }
+                    .toSet()
+                selection.all { it in allMergedIds }
+            }
+        }
+
         val snackbarHostState = remember { SnackbarHostState() }
         // Cancel-action strings need a Composable scope for stringResource; capture once outside
         // the snackbar lambdas so we don't recompute per dispatch.
@@ -499,6 +519,21 @@ class LibraryScreen : Screen {
             onConfirmAndMarkUnread = { markReadConfirmFor = false },
             onConfirmAndDelete = { deleteConfirmOpen = true },
             selectionHasRemoteSources = selectionHasRemoteSources,
+            canMerge = canMerge,
+            canUnmerge = canUnmerge,
+            onMerge = {
+                // C7: merge dispatch. mergeSelection() guards on size >= 2 internally so the
+                // disabled menu state is a UX hint, not the only enforcement.
+                screenModel.mergeSelection()
+                screenModel.clearSelection()
+            },
+            onUnmerge = {
+                // C7: unmerge dispatch. Splits selected manga out of every merge group they
+                // belong to; pair-unmerges block the same-title auto-grouping pass from
+                // re-forming the group on next refreshRelatedMangaIds.
+                screenModel.unmergeSelection()
+                screenModel.clearSelection()
+            },
             onMigrate = {
                 // Faithful port of LibraryController.kt:2109-2117. Pure navigation, no presenter
                 // call. Filter out LocalSource manga (already gated at the visibility layer, but

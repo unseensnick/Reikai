@@ -14,6 +14,8 @@ import yokai.domain.chapter.models.ChapterUpdate
 import yokai.domain.manga.interactor.UpdateManga
 import yokai.domain.manga.models.MangaUpdate
 import yokai.domain.track.interactor.DeleteTrack
+import yokai.domain.track.interactor.GetTrack
+import yokai.domain.track.interactor.InsertTrack
 
 /**
  * Compose-side ports of the legacy `LibraryPresenter` selection actions, kept as pure suspend
@@ -153,6 +155,128 @@ object MangaLibraryActions {
                 downloadManager.deleteManga(manga, source)
             }
             manga.id?.let { deleteTrack.awaitForMangaAll(it) }
+        }
+    }
+
+    /**
+     * Manual merge. Faithful port of `LibraryPresenter.mergeMangas` at `LibraryPresenter.kt:1390`:
+     * sorts ids, drops any existing merge entries that mention any of these ids (collision
+     * avoidance), inserts the new entry, and strips only the unmerge pairs wholly contained in
+     * the new merge set so an earlier full-group unmerge isn't silently undone.
+     *
+     * Returns the sorted ids so the caller can decide whether to run [reconcileGroupTrackers]
+     * based on `preferences.syncTrackerLinksGrouped()`. Requires `ids.size >= 2`.
+     */
+    fun merge(ids: List<Long>, preferences: PreferencesHelper): List<Long> {
+        val sorted = ids.sorted()
+        val sortedSet = sorted.toSet()
+        val newEntry = sorted.joinToString(",")
+
+        val merges = preferences.mangaManualMerges().get().toMutableSet()
+        merges.removeAll { entry ->
+            entry.split(",").any { part -> part.trim().toLongOrNull() in sortedSet }
+        }
+        merges.add(newEntry)
+        preferences.mangaManualMerges().set(merges)
+
+        val unmerges = preferences.mangaManualUnmerges().get().toMutableSet()
+        unmerges.removeAll { entry ->
+            val parts = entry.split(",").mapNotNull { it.trim().toLongOrNull() }
+            parts.isNotEmpty() && parts.all { it in sortedSet }
+        }
+        preferences.mangaManualUnmerges().set(unmerges)
+
+        return sorted
+    }
+
+    /**
+     * Library multi-select unmerge. New behavior, no legacy library equivalent — the per-pair
+     * unmerge format is mirrored from `MangaDetailsPresenter.removeFromGroup(targetIds)` at
+     * `MangaDetailsPresenter.kt:1744`. For each merge entry containing any of [targetIds]:
+     *
+     *  - Record pair-unmerges between every target and every other group member so the same-title
+     *    auto-grouping pass in `refreshRelatedMangaIds` cannot re-form the group.
+     *  - Drop the merge entry; if 2+ members survive (none of them targeted), re-insert a fresh
+     *    entry for the survivors so they stay explicitly merged.
+     *
+     * Entries with no target overlap are passed through unchanged. Pair format is
+     * `"smallerId,largerId"` — see `MangaDetailsPresenter.kt:1584`.
+     */
+    fun unmerge(targetIds: List<Long>, preferences: PreferencesHelper) {
+        if (targetIds.isEmpty()) return
+        val targetSet = targetIds.toSet()
+
+        val originalMerges = preferences.mangaManualMerges().get()
+        val updatedMerges = LinkedHashSet<String>()
+        val unmerges = preferences.mangaManualUnmerges().get().toMutableSet()
+
+        for (entry in originalMerges) {
+            val members = entry.split(",").mapNotNull { it.trim().toLongOrNull() }.toSet()
+            val targetsInGroup = members.intersect(targetSet)
+            if (targetsInGroup.isEmpty()) {
+                updatedMerges.add(entry)
+                continue
+            }
+            // Record pair-unmerges for every (target, other) pair in this group, including
+            // pairs between two targets removed from the same group.
+            for (target in targetsInGroup) {
+                for (other in members) {
+                    if (other == target) continue
+                    val pair = if (target < other) "$target,$other" else "$other,$target"
+                    unmerges.add(pair)
+                }
+            }
+            val survivors = members - targetsInGroup
+            if (survivors.size >= 2) {
+                updatedMerges.add(survivors.sorted().joinToString(","))
+            }
+        }
+
+        preferences.mangaManualMerges().set(updatedMerges)
+        preferences.mangaManualUnmerges().set(unmerges)
+    }
+
+    /**
+     * Faithful port of `LibraryPresenter.reconcileGroupTrackers` + `propagateTracksAcrossGroup`
+     * at `LibraryPresenter.kt:1425-1462`. Propagates the strict-majority tracker binding per
+     * service across every manga in [ids] and caches the canonical group key so the auto-group
+     * pass in [applySourceGrouping] doesn't repeat the work.
+     */
+    suspend fun reconcileGroupTrackers(
+        ids: List<Long>,
+        getTrack: GetTrack,
+        insertTrack: InsertTrack,
+        preferences: PreferencesHelper,
+    ) {
+        propagateTracksAcrossGroup(ids, getTrack, insertTrack)
+        val key = ids.sorted().joinToString(",")
+        preferences.trackerSyncReconciledGroups().set(
+            preferences.trackerSyncReconciledGroups().get() + key,
+        )
+    }
+
+    private suspend fun propagateTracksAcrossGroup(
+        ids: List<Long>,
+        getTrack: GetTrack,
+        insertTrack: InsertTrack,
+    ) {
+        if (ids.size < 2) return
+        val allTracks = ids.flatMap { id -> getTrack.awaitAllByMangaId(id) }
+        if (allTracks.isEmpty()) return
+        val canonicalBySyncId = allTracks
+            .groupBy { it.sync_id }
+            .mapValues { (_, list) ->
+                val byMediaId = list.groupBy { it.media_id }
+                val winner = byMediaId.maxByOrNull { it.value.size } ?: return@mapValues null
+                val hasTie = byMediaId.values.any { it !== winner.value && it.size == winner.value.size }
+                if (hasTie) null else winner.value.first()
+            }
+        ids.forEach { mangaId ->
+            canonicalBySyncId.values.forEach { canonical ->
+                canonical ?: return@forEach
+                if (canonical.manga_id == mangaId) return@forEach
+                insertTrack.await(canonical.copyForSibling(mangaId))
+            }
         }
     }
 }

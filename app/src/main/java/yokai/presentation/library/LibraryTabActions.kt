@@ -40,4 +40,10 @@ interface LibraryTabActions {
 
     /** Push the PreMigrationController for non-local selected manga. */
     fun onMigrate()
+
+    /** Merge selected manga into one group (requires selection.size >= 2). */
+    fun onMerge()
+
+    /** Split selected manga out of their existing merge group(s). */
+    fun onUnmerge()
 }
