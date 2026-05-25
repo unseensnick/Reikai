@@ -60,6 +60,7 @@ Android Studio (`Build → Make/Rebuild`). Java 17, `minSdk 23`, `targetSdk 36`.
 ## Skills for common flows
 
 - `/scout` — investigate a non-trivial task before planning; produces a findings report grounded in `file:line` citations. Use before ports, migrations, or cross-cutting changes.
+- `/tighten` — trim verbose prose, walls of text, journey narration, and WHAT comments from docs (and, on ask, code comments) without losing vital info. Always plans before editing.
 - `/port-audit` — audit a legacy-to-Compose port for behavioral parity. Use after a phase ships to catch missing or divergent features.
 - `/ship` — scan, stage, commit, push, PR with Reikai conventions (no `Co-Authored-By`, no `## Test plan`, `--repo unseensnick/Reikai --base main`).
 - `/debug-fix` — bug-hunt workflow (`--fast` for hotfixes).
