@@ -12,6 +12,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalConfiguration
@@ -689,25 +691,33 @@ class LibraryScreen : Screen {
                 title = { androidx.compose.material3.Text(text = removeText) },
                 text = {
                     androidx.compose.foundation.layout.Column {
-                        // F11: legacy parity with disableItems at
-                        // MaterialAlertDialogExtensions.kt:50. The "Remove downloads" row is
-                        // visually greyed (alpha 0.5 on the Row matches Android's default
-                        // disabled-row treatment via child.isEnabled=false) but the Checkbox
-                        // itself stays enabled so a tap produces ripple feedback. The
-                        // no-op onCheckedChange keeps the box checked regardless of tap.
+                        // F11: whole-row clickable mirrors the existing LabeledCheckbox pattern
+                        // at component/LabeledCheckbox.kt:27-50. TalkBack reads each row as a
+                        // single Checkbox via role = Role.Checkbox. The "Remove downloads" row
+                        // is greyed (alpha 0.5) and its onClick is a no-op so taps just show
+                        // ripple feedback, mirroring legacy disableItems at
+                        // MaterialAlertDialogExtensions.kt:50 (greyed row + tappable surface).
                         androidx.compose.foundation.layout.Row(
                             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                            modifier = Modifier.alpha(0.5f),
+                            modifier = Modifier
+                                .alpha(0.5f)
+                                .fillMaxWidth()
+                                .clickable(role = androidx.compose.ui.semantics.Role.Checkbox) {},
                         ) {
-                            androidx.compose.material3.Checkbox(checked = true, onCheckedChange = {})
+                            androidx.compose.material3.Checkbox(checked = true, onCheckedChange = null)
                             androidx.compose.material3.Text(text = removeDownloadsLabel)
                         }
                         androidx.compose.foundation.layout.Row(
                             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(role = androidx.compose.ui.semantics.Role.Checkbox) {
+                                    removeFromLibrary = !removeFromLibrary
+                                },
                         ) {
                             androidx.compose.material3.Checkbox(
                                 checked = removeFromLibrary,
-                                onCheckedChange = { removeFromLibrary = it },
+                                onCheckedChange = null,
                             )
                             androidx.compose.material3.Text(text = removeFromLibraryLabel)
                         }
