@@ -4,7 +4,9 @@ Android manga reader. Personal fork of [Yōkai](https://github.com/null2264/yoka
 
 ## Working approach
 
-**Investigate before planning when context is thin.** If you aren't confident you understand the surrounding code, conventions, or constraints for a task (e.g., porting a screen from legacy to Compose + Voyager, touching an unfamiliar module, changing cross-cutting infrastructure), do a thorough investigation first: read the relevant files, trace the existing pattern, check `refs/` for upstream equivalents. Only present a plan once you're truly confident in it, then wait for approval before executing.
+**Investigate before planning when context is thin.** If you aren't confident you understand the surrounding code, conventions, or constraints for a task (e.g., porting a screen from legacy to Compose + Voyager, touching an unfamiliar module, changing cross-cutting infrastructure), do a thorough investigation first: read the relevant files, trace the existing pattern, check `refs/` for upstream equivalents. For non-trivial work, invoke `/scout` to produce a grounded findings report before forming a plan. Only present a plan once you're truly confident in it, then wait for approval before executing.
+
+**Cite before you claim.** Every concrete claim about the codebase, framework, or upstream (a function name, a file path, a flag, "X calls Y", "the theme bridges Z", "legacy persists this") must come with a `file:line` citation from current code that you just read. If you can't cite it, you don't know it: read first, claim second. Memory and Handoff content are hypotheses, not facts; a memory that names a function or file is true only if it still exists in current code. When a stale memory is found, surface it for pruning instead of acting on it.
 
 **Plan before acting.** Once you have enough context, think through what needs to change and why: which files are affected, what the failure modes are, and whether the approach is sound. Use `EnterPlanMode` for non-trivial tasks to draft and get approval before touching code.
 
@@ -57,6 +59,8 @@ Android Studio (`Build → Make/Rebuild`). Java 17, `minSdk 23`, `targetSdk 36`.
 
 ## Skills for common flows
 
-- `/ship` — scan → stage → commit → push → PR with Reikai conventions (no `Co-Authored-By`, no `## Test plan`, `--repo unseensnick/Reikai --base main`).
+- `/scout` — investigate a non-trivial task before planning; produces a findings report grounded in `file:line` citations. Use before ports, migrations, or cross-cutting changes.
+- `/port-audit` — audit a legacy-to-Compose port for behavioral parity. Use after a phase ships to catch missing or divergent features.
+- `/ship` — scan, stage, commit, push, PR with Reikai conventions (no `Co-Authored-By`, no `## Test plan`, `--repo unseensnick/Reikai --base main`).
 - `/debug-fix` — bug-hunt workflow (`--fast` for hotfixes).
 - `/pr-review`, `/refactor`, `/test-writer`, `/tdd`, `/explain`, `/context-budget`.
