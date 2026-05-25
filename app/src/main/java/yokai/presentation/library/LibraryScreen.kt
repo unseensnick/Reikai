@@ -14,6 +14,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
@@ -723,18 +725,25 @@ class LibraryScreen : Screen {
                 containerColor = dialogContainerColor,
                 title = { androidx.compose.material3.Text(text = removeText) },
                 text = {
-                    androidx.compose.foundation.layout.Column {
-                        // F11: whole-row clickable mirrors the existing LabeledCheckbox pattern
-                        // at component/LabeledCheckbox.kt:27-50. TalkBack reads each row as a
-                        // single Checkbox via role = Role.Checkbox. The "Remove downloads" row
-                        // is greyed (alpha 0.5) and its onClick is a no-op so taps just show
-                        // ripple feedback, mirroring legacy disableItems at
-                        // MaterialAlertDialogExtensions.kt:50 (greyed row + tappable surface).
+                    // F11 / F12 visual: row geometry mirrors the existing LabeledCheckbox
+                    // pattern at component/LabeledCheckbox.kt:27-50 (heightIn min 48dp,
+                    // Arrangement.spacedBy(Size.small) for checkbox-to-text gap). Column gets
+                    // vertical spacing between rows so they don't visually crowd each other,
+                    // matching the legacy ListView's per-row vertical breathing room.
+                    androidx.compose.foundation.layout.Column(
+                        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
+                            yokai.presentation.theme.Size.small,
+                        ),
+                    ) {
                         androidx.compose.foundation.layout.Row(
                             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
+                                yokai.presentation.theme.Size.small,
+                            ),
                             modifier = Modifier
                                 .alpha(0.5f)
                                 .fillMaxWidth()
+                                .heightIn(min = 48.dp)
                                 .clickable(role = androidx.compose.ui.semantics.Role.Checkbox) {},
                         ) {
                             androidx.compose.material3.Checkbox(
@@ -746,8 +755,12 @@ class LibraryScreen : Screen {
                         }
                         androidx.compose.foundation.layout.Row(
                             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
+                                yokai.presentation.theme.Size.small,
+                            ),
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .heightIn(min = 48.dp)
                                 .clickable(role = androidx.compose.ui.semantics.Role.Checkbox) {
                                     removeFromLibrary = !removeFromLibrary
                                 },
