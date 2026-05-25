@@ -675,11 +675,10 @@ fun LibraryContent(
                 //
                 // Action order matches the legacy library_selection.xml row order for the
                 // showAsAction="never" group: download-unread, mark-read, mark-unread, share.
-                // Bar: Move | Delete | Merge-or-Unmerge | overflow.
-                // The third bar slot is a single state-aware button: when canUnmerge it
-                // flips to Unmerge (CallSplit icon) and dispatches the wholesale-dissolve
-                // action; otherwise it shows Merge (CallMerge icon), enabled only when 2+
-                // are selected. Migrate moves to the overflow per user request.
+                // Bar: Move | Delete | Merge | Unmerge (conditional) | overflow.
+                // Merge is always visible (dimmed when < 2 selected); Unmerge appears only
+                // when every selected manga is in a merge group, matching the legacy
+                // visibility gate. Migrate stays in the overflow.
                 val actionsList = buildList {
                     add(
                         yokai.presentation.library.components.SelectionAction(
@@ -695,21 +694,20 @@ fun LibraryContent(
                             onClick = onConfirmAndDelete,
                         ),
                     )
+                    add(
+                        yokai.presentation.library.components.SelectionAction(
+                            label = stringResource(MR.strings.merge_selected),
+                            icon = Icons.Outlined.CallMerge,
+                            enabled = canMerge,
+                            onClick = onMerge,
+                        ),
+                    )
                     if (canUnmerge) {
                         add(
                             yokai.presentation.library.components.SelectionAction(
                                 label = stringResource(MR.strings.unmerge_selected),
                                 icon = Icons.Outlined.CallSplit,
                                 onClick = onUnmerge,
-                            ),
-                        )
-                    } else {
-                        add(
-                            yokai.presentation.library.components.SelectionAction(
-                                label = stringResource(MR.strings.merge_selected),
-                                icon = Icons.Outlined.CallMerge,
-                                enabled = canMerge,
-                                onClick = onMerge,
                             ),
                         )
                     }
