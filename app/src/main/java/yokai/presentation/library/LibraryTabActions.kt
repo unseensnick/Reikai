@@ -37,4 +37,7 @@ interface LibraryTabActions {
 
     /** Show the delete-from-library confirmation dialog. */
     fun onConfirmAndDelete()
+
+    /** Push the PreMigrationController for non-local selected manga. */
+    fun onMigrate()
 }

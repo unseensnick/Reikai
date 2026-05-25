@@ -249,6 +249,14 @@ fun LibraryContent(
     onMoveToCategories: () -> Unit,
     /** C5: show the delete confirmation dialog (Remove from library / also delete downloads). */
     onConfirmAndDelete: () -> Unit,
+    /** C6: push PreMigrationController for the non-local manga in selection. */
+    onMigrate: () -> Unit,
+    /**
+     * C6: true when at least one selected manga is from a remote (HttpSource) source. Used to
+     * hide the migrate menu entry when every selection is `LocalSource`, matching legacy at
+     * LibraryController.kt:2042.
+     */
+    selectionHasRemoteSources: Boolean,
     modifier: Modifier = Modifier,
 ) {
     // Selection clear takes priority over search close: both are back-press affordances, but a
@@ -677,7 +685,16 @@ fun LibraryContent(
                         label = stringResource(MR.strings.remove),
                         onClick = onConfirmAndDelete,
                     ),
-                )
+                ) + if (selectionHasRemoteSources) {
+                    listOf(
+                        yokai.presentation.library.components.SelectionAction(
+                            label = stringResource(MR.strings.migrate),
+                            onClick = onMigrate,
+                        ),
+                    )
+                } else {
+                    emptyList()
+                }
                 SelectionAppBar(
                     selectionCount = selection.size,
                     onClose = onClearSelection,

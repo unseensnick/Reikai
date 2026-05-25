@@ -24,7 +24,9 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.library.filter.FilterBottomSheet
+import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
+import eu.kanade.tachiyomi.ui.migration.manga.design.PreMigrationController
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.util.chapter.ChapterSort
 import eu.kanade.tachiyomi.util.compose.LocalRouter
@@ -140,6 +142,21 @@ class LibraryScreen : Screen {
         val inQueueCategoryIds = (state as? LibraryTabState.Loaded)?.inQueueCategoryIds ?: emptySet()
         val currentCategoryOrder = (state as? LibraryTabState.Loaded)?.currentCategoryOrder ?: 0
         val selection = (state as? LibraryTabState.Loaded)?.selection ?: emptySet()
+
+        // C6: derived flag for migrate visibility. True when at least one selected manga has a
+        // non-local source. Mirrors LibraryController.kt:2042
+        // (`migrate.isVisible = selectedMangas.any { it.source != LocalSource.ID }`).
+        val selectionHasRemoteSources = remember(selection, library) {
+            if (selection.isEmpty()) {
+                false
+            } else {
+                library.values.asSequence()
+                    .flatten()
+                    .map { it.libraryManga.manga }
+                    .filter { it.id in selection }
+                    .any { it.source != LocalSource.ID }
+            }
+        }
 
         val snackbarHostState = remember { SnackbarHostState() }
         // Cancel-action strings need a Composable scope for stringResource; capture once outside
@@ -481,6 +498,22 @@ class LibraryScreen : Screen {
             onConfirmAndMarkRead = { markReadConfirmFor = true },
             onConfirmAndMarkUnread = { markReadConfirmFor = false },
             onConfirmAndDelete = { deleteConfirmOpen = true },
+            selectionHasRemoteSources = selectionHasRemoteSources,
+            onMigrate = {
+                // Faithful port of LibraryController.kt:2109-2117. Pure navigation, no presenter
+                // call. Filter out LocalSource manga (already gated at the visibility layer, but
+                // keep the inner filter defensive in case the gate races).
+                val ids = screenModel.selectedMangaList()
+                    .filter { it.source != LocalSource.ID }
+                    .mapNotNull { it.id }
+                if (ids.isEmpty()) return@LibraryContent
+                PreMigrationController.navigateToMigration(
+                    preferences.skipPreMigration().get(),
+                    router,
+                    ids,
+                )
+                screenModel.clearSelection()
+            },
             onMoveToCategories = {
                 // C4: bridge to legacy SetCategoriesSheet via the existing
                 // `List<Manga>.moveCategories(activity, onMangaMoved)` extension at
