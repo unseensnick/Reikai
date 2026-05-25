@@ -190,17 +190,19 @@ object MangaLibraryActions {
     }
 
     /**
-     * Library multi-select unmerge. New behavior, no legacy library equivalent — the per-pair
-     * unmerge format is mirrored from `MangaDetailsPresenter.removeFromGroup(targetIds)` at
-     * `MangaDetailsPresenter.kt:1744`. For each merge entry containing any of [targetIds]:
+     * Library multi-select unmerge. Dissolves the **entire merge group** of any selected manga.
+     * Picking one member is enough: the whole group breaks apart, and every pair within the
+     * original group is recorded in `mangaManualUnmerges` so the same-title auto-grouping pass
+     * in `refreshRelatedMangaIds` cannot re-form the group.
      *
-     *  - Record pair-unmerges between every target and every other group member so the same-title
-     *    auto-grouping pass in `refreshRelatedMangaIds` cannot re-form the group.
-     *  - Drop the merge entry; if 2+ members survive (none of them targeted), re-insert a fresh
-     *    entry for the survivors so they stay explicitly merged.
+     * This is wholesale-dissolve semantics, distinct from the per-source-chip
+     * `MangaDetailsPresenter.removeFromGroup` at `MangaDetailsPresenter.kt:1744` which removes
+     * only the specific targeted manga from a group (leaving survivors merged). Library
+     * multi-select callers want the wholesale flavour: pick any cover from a merged set and
+     * have them all split apart in one tap. Pair format is `"smallerId,largerId"`, matching
+     * the format both `MangaDetailsPresenter.kt:1584` and the auto-grouping pass consume.
      *
-     * Entries with no target overlap are passed through unchanged. Pair format is
-     * `"smallerId,largerId"` — see `MangaDetailsPresenter.kt:1584`.
+     * Entries with no target overlap are passed through unchanged.
      */
     fun unmerge(targetIds: List<Long>, preferences: PreferencesHelper) {
         if (targetIds.isEmpty()) return
@@ -211,25 +213,23 @@ object MangaLibraryActions {
         val unmerges = preferences.mangaManualUnmerges().get().toMutableSet()
 
         for (entry in originalMerges) {
-            val members = entry.split(",").mapNotNull { it.trim().toLongOrNull() }.toSet()
-            val targetsInGroup = members.intersect(targetSet)
-            if (targetsInGroup.isEmpty()) {
+            val members = entry.split(",").mapNotNull { it.trim().toLongOrNull() }.distinct()
+            val anyTargetInGroup = members.any { it in targetSet }
+            if (!anyTargetInGroup) {
                 updatedMerges.add(entry)
                 continue
             }
-            // Record pair-unmerges for every (target, other) pair in this group, including
-            // pairs between two targets removed from the same group.
-            for (target in targetsInGroup) {
-                for (other in members) {
-                    if (other == target) continue
-                    val pair = if (target < other) "$target,$other" else "$other,$target"
+            // Dissolve the entire group: write a pair-unmerge for every pair of original
+            // members so the same-title pass cannot quietly re-form the group on next refresh.
+            for (i in members.indices) {
+                for (j in (i + 1) until members.size) {
+                    val a = members[i]
+                    val b = members[j]
+                    val pair = if (a < b) "$a,$b" else "$b,$a"
                     unmerges.add(pair)
                 }
             }
-            val survivors = members - targetsInGroup
-            if (survivors.size >= 2) {
-                updatedMerges.add(survivors.sorted().joinToString(","))
-            }
+            // Entry is dropped (not re-added with survivors): the whole group is gone.
         }
 
         preferences.mangaManualMerges().set(updatedMerges)

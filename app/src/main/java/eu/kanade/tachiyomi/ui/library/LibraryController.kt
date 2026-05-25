@@ -2042,8 +2042,9 @@ open class LibraryController(
         categoryItem.isVisible = presenter.isCategoryMoreThanOne()
         migrationItem.isVisible = selectedMangas.any { it.source != LocalSource.ID }
         shareItem.isVisible = migrationItem.isVisible
-        // Unmerge is visible only when every selected manga is part of an existing manual-merge
-        // group (else there's nothing to split). Reads the same pref the Compose path consults.
+        // Unmerge is visible when at least one selected manga is part of an existing
+        // manual-merge group. Unmerge dissolves the whole group, so a single representative is
+        // enough. Reads the same pref the Compose path consults.
         unmergeItem.isVisible = selectedMangas.isNotEmpty() && run {
             val selectedIds = selectedMangas.mapNotNull { it.id }
             if (selectedIds.isEmpty()) return@run false
@@ -2052,7 +2053,7 @@ open class LibraryController(
                 .flatMap { entry -> entry.split(",").asSequence() }
                 .mapNotNull { it.trim().toLongOrNull() }
                 .toSet()
-            selectedIds.all { it in mergedIds }
+            selectedIds.any { it in mergedIds }
         }
         if (count == 0) {
             destroyActionModeIfNeeded()

@@ -169,12 +169,14 @@ class LibraryScreen : Screen {
             if (selection.isEmpty()) {
                 false
             } else {
+                // F6: any one selected manga in a merge group is enough — unmerge dissolves
+                // the entire group, so picking a single representative is sufficient.
                 val allMergedIds = mangaManualMerges
                     .asSequence()
                     .flatMap { entry -> entry.split(",").asSequence() }
                     .mapNotNull { it.trim().toLongOrNull() }
                     .toSet()
-                selection.all { it in allMergedIds }
+                selection.any { it in allMergedIds }
             }
         }
 

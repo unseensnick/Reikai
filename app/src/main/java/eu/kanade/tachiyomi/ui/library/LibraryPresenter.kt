@@ -1417,15 +1417,16 @@ class LibraryPresenter(
     }
 
     /**
-     * Library multi-select unmerge. New behavior for the library action mode; the per-pair
-     * unmerge format mirrors [eu.kanade.tachiyomi.ui.manga.MangaDetailsPresenter.removeFromGroup]
-     * so the same-title auto-grouping pass in `refreshRelatedMangaIds` cannot re-form the split.
+     * Library multi-select unmerge. Dissolves the **entire merge group** of any selected
+     * manga; picking one member is enough. Every pair in the original group gets recorded in
+     * [mangaManualUnmerges] so the same-title auto-grouping pass in
+     * [eu.kanade.tachiyomi.ui.manga.MangaDetailsPresenter.refreshRelatedMangaIds] cannot
+     * quietly re-form the split.
      *
-     * For each merge entry containing any [targetIds]:
-     *  - Record pair-unmerges between every target and every other group member (including
-     *    pairs between two targets removed from the same group).
-     *  - Drop the merge entry. If 2+ members survive (none of them targeted), re-insert a fresh
-     *    entry for the survivors so they stay explicitly merged.
+     * Distinct from [eu.kanade.tachiyomi.ui.manga.MangaDetailsPresenter.removeFromGroup] at
+     * `MangaDetailsPresenter.kt:1744`, which removes only the specific manga from a group and
+     * keeps survivors merged. Library multi-select callers want wholesale-dissolve semantics:
+     * pick any cover from a merged set and have all members split apart in one tap.
      */
     fun unmergeMangas(targetIds: List<Long>) {
         if (targetIds.isEmpty()) return
@@ -1436,22 +1437,19 @@ class LibraryPresenter(
         val unmerges = preferences.mangaManualUnmerges().get().toMutableSet()
 
         for (entry in originalMerges) {
-            val members = entry.split(",").mapNotNull { it.trim().toLongOrNull() }.toSet()
-            val targetsInGroup = members.intersect(targetSet)
-            if (targetsInGroup.isEmpty()) {
+            val members = entry.split(",").mapNotNull { it.trim().toLongOrNull() }.distinct()
+            val anyTargetInGroup = members.any { it in targetSet }
+            if (!anyTargetInGroup) {
                 updatedMerges.add(entry)
                 continue
             }
-            for (target in targetsInGroup) {
-                for (other in members) {
-                    if (other == target) continue
-                    val pair = if (target < other) "$target,$other" else "$other,$target"
+            for (i in members.indices) {
+                for (j in (i + 1) until members.size) {
+                    val a = members[i]
+                    val b = members[j]
+                    val pair = if (a < b) "$a,$b" else "$b,$a"
                     unmerges.add(pair)
                 }
-            }
-            val survivors = members - targetsInGroup
-            if (survivors.size >= 2) {
-                updatedMerges.add(survivors.sorted().joinToString(","))
             }
         }
 
