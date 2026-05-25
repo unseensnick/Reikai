@@ -128,6 +128,13 @@ object MangaCoverMetadata {
         return coverRatioMap[manga.id]
     }
 
+    /** mangaId-keyed lookup for call sites that only have the id (e.g. the Compose `MangaCover`
+     *  composable, which receives the lightweight `yokai.domain.manga.models.MangaCover` model). */
+    fun getRatio(mangaId: Long?): Float? {
+        mangaId ?: return null
+        return coverRatioMap[mangaId]
+    }
+
     fun setVibrantColor(mangaId: Long?, @ColorInt color: Int?) {
         mangaId ?: return
 

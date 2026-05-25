@@ -18,5 +18,21 @@ sealed interface LibraryTabState<out T : LibraryItem> {
     data class Loaded<T : LibraryItem>(
         val library: Map<Category, List<T>>,
         val totalItemCount: Int,
+        /** Whether `LibraryUpdateJob` is currently running. */
+        val isRunning: Boolean = false,
+        /**
+         * Category IDs whose updates are queued (mid-update or pending) for the running job.
+         * Re-derived per `isRunningFlow` tick by walking loaded categories and calling
+         * `LibraryUpdater.isCategoryInQueue`, mirroring `LibraryController.kt:621-625`.
+         */
+        val inQueueCategoryIds: Set<Int> = emptySet(),
+        /**
+         * Order (not id) of the category the user is currently focused on, backed by
+         * `preferences.lastUsedCategory()`. The Compose port keeps this in sync with the
+         * visible category via a scroll-anchored write in `LibraryContent`. Used as the
+         * pull-to-refresh target when `showAllCategories = false`, matching legacy
+         * `presenter.currentCategory` semantics.
+         */
+        val currentCategoryOrder: Int = 0,
     ) : LibraryTabState<T>
 }

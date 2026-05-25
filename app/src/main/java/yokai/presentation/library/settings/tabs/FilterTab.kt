@@ -108,8 +108,14 @@ fun FilterTab(
                         label = stringResource(MR.strings.read_progress),
                         options = listOf(
                             FilterChipOption(0, stringResource(MR.strings.all)),
-                            FilterChipOption(4, stringResource(MR.strings.not_started)),
-                            FilterChipOption(3, stringResource(MR.strings.in_progress)),
+                            // Legacy FilterBottomSheet.setFilterStates maps pref 3 -> "Not started",
+                            // pref 4 -> "In progress" (unreadProgress.setup(R.string.not_started,
+                            // R.string.in_progress) with state = unreadP - 3). Preserve that mapping
+                            // so existing prefs continue to point at the right chip and so the
+                            // filter logic in MangaLibraryFilter (which uses the same 3/4 values)
+                            // matches the user's intent.
+                            FilterChipOption(3, stringResource(MR.strings.not_started)),
+                            FilterChipOption(4, stringResource(MR.strings.in_progress)),
                         ),
                         selected = if (filterUnread in setOf(3, 4)) filterUnread else 0,
                         onSelect = { preferences.filterUnread().set(it) },

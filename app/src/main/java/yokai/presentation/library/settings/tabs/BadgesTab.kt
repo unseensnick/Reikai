@@ -48,15 +48,18 @@ fun BadgesTab() {
             .padding(bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        // Legacy unreadBadgeType values: -1 hide, 2 show unread badges (dot), 1 show count.
-        // Order matches the legacy RadioGroup top-to-bottom.
-        UnreadBadgeRadioRow(MR.strings.hide_unread_badges, -1, unreadBadgeType) {
+        // Legacy `unreadBadgeType` values, matching the legacy RadioGroup's child-index binding
+        // (see LibraryBadgesView.initGeneralPreferences and library_badges_layout.xml):
+        //   0 = hide, 1 = show unread badges (dot), 2 = show unread count.
+        // LibraryHolder.setUnreadBadge keys rendering off these values; the Compose grid cells
+        // must agree (see `unreadDot` derivation in LibraryContent / LibraryGridCell).
+        UnreadBadgeRadioRow(MR.strings.hide_unread_badges, 0, unreadBadgeType) {
             preferences.unreadBadgeType().set(it)
         }
-        UnreadBadgeRadioRow(MR.strings.show_unread_badges, 2, unreadBadgeType) {
+        UnreadBadgeRadioRow(MR.strings.show_unread_badges, 1, unreadBadgeType) {
             preferences.unreadBadgeType().set(it)
         }
-        UnreadBadgeRadioRow(MR.strings.show_unread_count, 1, unreadBadgeType) {
+        UnreadBadgeRadioRow(MR.strings.show_unread_count, 2, unreadBadgeType) {
             preferences.unreadBadgeType().set(it)
         }
         SwitchPreferenceWidget(

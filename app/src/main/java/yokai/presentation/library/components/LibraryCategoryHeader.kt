@@ -1,24 +1,31 @@
 package yokai.presentation.library.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.icerock.moko.resources.compose.stringResource
+import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
 
 /**
@@ -30,7 +37,10 @@ import yokai.i18n.MR
  *  - When [collapsible] is true (groupLibraryBy = BY_DEFAULT), the whole row is clickable
  *    and a chevron indicates state. Dynamic grouping (BY_SOURCE / BY_TAG / etc.) renders the
  *    header non-interactively to match the legacy view where only default categories collapse.
- *  - A thin divider underneath separates the header from its items.
+ *  - When [onRefreshClick] is non-null, a trailing per-category refresh affordance renders
+ *    after the title. Spinner replaces the icon while [isRefreshing] is true. Visibility is
+ *    decided by the caller to match legacy `LibraryHeaderHolder.notifyStatus` (`isSingleCategory`
+ *    + `showAllCategories` + dynamic-category gates).
  */
 @Composable
 fun LibraryCategoryHeader(
@@ -41,6 +51,8 @@ fun LibraryCategoryHeader(
     collapsible: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    isRefreshing: Boolean = false,
+    onRefreshClick: (() -> Unit)? = null,
 ) {
     // Spacing mirrors library_category_header_item.xml:
     //   - Start space 6dp + chevron marginStart 8dp = 14dp before the chevron.
@@ -85,5 +97,52 @@ fun LibraryCategoryHeader(
                 .weight(1f)
                 .padding(start = if (collapsible) 8.dp else 0.dp),
         )
+        if (onRefreshClick != null) {
+            HeaderRefreshButton(
+                isRefreshing = isRefreshing,
+                onClick = onRefreshClick,
+            )
+        }
+    }
+}
+
+/**
+ * Trailing refresh affordance. Raw [Box] instead of M3 `IconButton` to match legacy's exact
+ * 42dp × 32dp footprint (library_category_header_item.xml). `IconButton`'s 48dp minimum and
+ * rounded-rectangle defaults would fight the inner padding asymmetry. Same Phase-3 lesson
+ * as `ContinueReadingButton`.
+ *
+ * While refreshing, the click is disabled (matches legacy `setRefreshing(true)`'s
+ * `isClickable = false` at LibraryHeaderHolder.kt:248-262) and the icon swaps for a 20dp
+ * progress indicator coloured `colorScheme.secondary` to match legacy
+ * `runningDrawable.setColorSchemeColors(R.attr.colorSecondary)`.
+ */
+@Composable
+private fun HeaderRefreshButton(
+    isRefreshing: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(width = 42.dp, height = 32.dp)
+            .clip(CircleShape)
+            .clickable(enabled = !isRefreshing, onClick = onClick)
+            .padding(PaddingValues(start = 6.dp, end = 16.dp, top = 6.dp, bottom = 6.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (isRefreshing) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+        } else {
+            Icon(
+                painter = painterResource(R.drawable.ic_refresh_24dp),
+                contentDescription = stringResource(MR.strings.update),
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(20.dp),
+            )
+        }
     }
 }

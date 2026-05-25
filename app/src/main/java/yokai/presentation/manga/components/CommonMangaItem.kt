@@ -56,10 +56,17 @@ fun BadgeSegments(
     downloadCount: Int = 0,
     /**
      * Render the unread badge as a small dot instead of a count chip. Matches the legacy
-     * `unreadBadgeType = 2` mode. When true, [unreadCount] is only used as a presence check;
-     * the dot itself has no text.
+     * `unreadBadgeType = 1` mode (see `LibraryHolder.setUnreadBadge`). When true, [unreadCount]
+     * is only used as a presence check; the dot itself has no text.
      */
     unreadDot: Boolean = false,
+    /**
+     * When true, render a tertiary-coloured "Local" chip in place of the download-count chip.
+     * Mirrors legacy `LibraryBadge` which uses the same view slot for both states and sentinels
+     * local-source manga by passing `downloads = -2` so the slot text becomes the localised
+     * "Local" label.
+     */
+    isLocal: Boolean = false,
     extraBadgeSegments: List<BadgeSegment> = listOf(),
 ) = buildList {
     val context = LocalContext.current
@@ -105,7 +112,18 @@ fun BadgeSegments(
         }
     }
 
-    if (downloadCount > 0) {
+    if (isLocal) {
+        // Local takes the slot the download count would normally occupy: legacy renders the two
+        // states into the same view and never both at once.
+        add(
+            BadgeSegment.text(
+                backgroundColor = MaterialTheme.colorScheme.tertiary,
+                text = stringResource(MR.strings.local),
+                textColor = MaterialTheme.colorScheme.onTertiary,
+                contentDescription = stringResource(MR.strings.local),
+            )
+        )
+    } else if (downloadCount > 0) {
         add(
             BadgeSegment.text(
                 backgroundColor = MaterialTheme.colorScheme.tertiary,
@@ -150,10 +168,19 @@ fun MangaComfortableGridItem(
     coverAspectRatio: Float? = MangaCoverRatio.BOOK,
     /** When true, the unread badge renders as a dot instead of a chapter count. */
     unreadDot: Boolean = false,
+    /** When true, render a "Local" chip in place of the download count. */
+    isLocal: Boolean = false,
+    onClick: (() -> Unit)? = null,
     onClickContinueReading: (() -> Unit)? = null,
     showLoadingIndicator: Boolean = true,
 ) {
-    Column {
+    Column(
+        modifier = if (onClick != null) {
+            Modifier.clickable(onClick = onClick)
+        } else {
+            Modifier
+        },
+    ) {
         MangaGridCover(
             aspectRatio = coverAspectRatio,
             border = if (showOutline) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
@@ -191,6 +218,7 @@ fun MangaComfortableGridItem(
                 unreadCount = unreadCount,
                 downloadCount = downloadCount,
                 unreadDot = unreadDot,
+                isLocal = isLocal,
                 extraBadgeSegments = badgeSegments,
             ),
             content = {
@@ -238,10 +266,14 @@ fun MangaCompactGridItem(
     coverAspectRatio: Float? = MangaCoverRatio.BOOK,
     /** See [MangaComfortableGridItem.unreadDot]. */
     unreadDot: Boolean = false,
+    /** See [MangaComfortableGridItem.isLocal]. */
+    isLocal: Boolean = false,
+    onClick: (() -> Unit)? = null,
     onClickContinueReading: (() -> Unit)? = null,
     showLoadingIndicator: Boolean = true,
 ) {
     MangaGridCover(
+        modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
         aspectRatio = coverAspectRatio,
         border = if (showOutline) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
         cover = {
@@ -275,6 +307,7 @@ fun MangaCompactGridItem(
             unreadCount = unreadCount,
             downloadCount = downloadCount,
             unreadDot = unreadDot,
+            isLocal = isLocal,
             extraBadgeSegments = badgeSegments,
         ),
         content = {

@@ -1,5 +1,8 @@
 package yokai.presentation.library
 
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -10,10 +13,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalConfiguration
+import dev.icerock.moko.resources.compose.stringResource
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.tachiyomi.core.storage.preference.collectAsState
+import eu.kanade.tachiyomi.data.database.models.seriesType
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.track.TrackManager
@@ -30,6 +35,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.track.interactor.GetTrack
+import yokai.i18n.MR
 import yokai.presentation.library.manga.MangaLibraryFilter
 import yokai.presentation.library.manga.MangaLibraryFilter.MangaFilterState
 import yokai.presentation.library.manga.MangaLibraryScreenModel
@@ -119,6 +125,18 @@ class LibraryScreen : Screen {
             is LibraryTabState.Loading -> emptyMap()
             is LibraryTabState.Loaded -> s.library
         }
+        val isRunning = (state as? LibraryTabState.Loaded)?.isRunning ?: false
+        val inQueueCategoryIds = (state as? LibraryTabState.Loaded)?.inQueueCategoryIds ?: emptySet()
+        val currentCategoryOrder = (state as? LibraryTabState.Loaded)?.currentCategoryOrder ?: 0
+
+        val snackbarHostState = remember { SnackbarHostState() }
+        // Cancel-action strings need a Composable scope for stringResource; capture once outside
+        // the snackbar lambdas so we don't recompute per dispatch.
+        val updatingLibraryText = stringResource(MR.strings.updating_library)
+        val updatingCategoryFmt = stringResource(MR.strings.updating_)
+        val addingToQueueFmt = stringResource(MR.strings.adding_category_to_queue)
+        val alreadyInQueueFmt = stringResource(MR.strings._already_in_queue)
+        val cancelText = stringResource(MR.strings.cancel)
 
         val sourceNames = remember(library) {
             library.values
@@ -129,8 +147,25 @@ class LibraryScreen : Screen {
                 .associateWith { sourceManager.getOrStub(it).name }
         }
 
-        val searchedLibrary = remember(library, searchQuery, sourceNames) {
-            MangaLibrarySearch.search(library, searchQuery, sourceNames)
+        // seriesType is derived from genre tags + source name, so it changes when the library is
+        // refreshed (genre updates can land via tracker sync or source-side metadata refreshes).
+        // Recompute per-library map so it stays in sync with the rendered cells. Pure string
+        // build per manga — cheap relative to the search itself.
+        val seriesContext = preferences.context
+        val seriesTypes = remember(library, seriesContext) {
+            library.values
+                .asSequence()
+                .flatten()
+                .mapNotNull { item ->
+                    val m = item.libraryManga.manga
+                    val id = m.id ?: return@mapNotNull null
+                    id to m.seriesType(seriesContext, sourceManager)
+                }
+                .toMap()
+        }
+
+        val searchedLibrary = remember(library, searchQuery, sourceNames, seriesTypes) {
+            MangaLibrarySearch.search(library, searchQuery, sourceNames, seriesTypes)
         }
 
         // The filter is suspend (track lookups) but we want a synchronous Compose result. Run
@@ -224,8 +259,34 @@ class LibraryScreen : Screen {
             postFilterLibrary
         }
 
+        // Faithful port of legacy LibraryPresenter.kt:327-340 / 352-372: when showAllCategories
+        // is off AND the library is grouped by default (user categories) AND there is more than
+        // one category, render only the active category's items. The active category is the one
+        // whose order matches the last-used pref (same backing pref legacy reads). Hopper and
+        // category picker dispatch through onActiveCategoryChange to switch which category is
+        // rendered, mirroring presenter.setCurrentCategory in legacy.
+        val lastUsedCategoryOrder by preferences.lastUsedCategory().collectAsState()
+        val singleCategoryMode = !showAllCategories &&
+            groupLibraryBy == eu.kanade.tachiyomi.ui.library.LibraryGroup.BY_DEFAULT &&
+            allCategories.size > 1
+        val activeCategoryInSingleMode = if (singleCategoryMode) {
+            // Resolve the active category against the unfiltered user-category list so the pref
+            // still picks a target even when the active category filtered to empty (legacy
+            // renders the active category as empty in that case rather than jumping to another).
+            allCategories.firstOrNull { it.order == lastUsedCategoryOrder }
+                ?: allCategories.first()
+        } else {
+            null
+        }
+        val finalLibrary = if (activeCategoryInSingleMode != null) {
+            mapOf(activeCategoryInSingleMode to (displayedLibrary[activeCategoryInSingleMode].orEmpty()))
+        } else {
+            displayedLibrary
+        }
+
         LibraryContent(
-            library = displayedLibrary,
+            library = finalLibrary,
+            singleCategoryMode = singleCategoryMode,
             allCategories = allCategories,
             categoryItemCounts = categoryItemCounts,
             displayedHeaderCounts = displayedHeaderCounts,
@@ -249,6 +310,10 @@ class LibraryScreen : Screen {
             hideStartReadingButton = hideStartReadingButton,
             useLargeToolbar = useLargeToolbar,
             isAnyFilterActive = filterState.isAnyActive,
+            showAllCategories = showAllCategories,
+            isRunning = isRunning,
+            inQueueCategoryIds = inQueueCategoryIds,
+            snackbarHostState = snackbarHostState,
             sheetOpen = sheetOpen,
             sheetTab = sheetTab,
             overflowOpen = overflowOpen,
@@ -301,11 +366,82 @@ class LibraryScreen : Screen {
                     activity.startActivity(ReaderActivity.newIntent(activity, manga, next))
                 }
             },
+            onMangaClick = { manga ->
+                // Same destination + transition as legacy LibraryController.openManga (which
+                // does router.pushController(MangaDetailsController(manga).withFadeTransaction())).
+                // Routes through the existing Conductor router for now since no Compose-side
+                // manga details Voyager screen exists yet.
+                router.pushController(MangaDetailsController(manga).withFadeTransaction())
+            },
             onOpenFilter = { sheetTab = 0; sheetOpen = true },
             onOpenOverflow = { overflowOpen = true },
             onDismissSheet = { sheetOpen = false },
             onDismissOverflow = { overflowOpen = false },
             onSheetTabChange = { sheetTab = it },
+            onActiveCategoryChange = { category ->
+                // Skip the default category (order = -1, injected by MangaLibrarySectioner when
+                // a user has no real categories) so we never persist a synthetic order to the
+                // legacy-shared pref.
+                if (category.order >= 0) {
+                    preferences.lastUsedCategory().set(category.order)
+                }
+            },
+            onPullToRefresh = {
+                // Faithful port of legacy LibraryController.setSwipeRefresh (lines 702-717):
+                //   - !showAllCategories + BY_DEFAULT grouping → refresh currentCategory
+                //   - !showAllCategories + dynamic grouping → updateCategory(0); unreachable in
+                //     Compose Phase 4 because dynamic grouping is Phase 6 work, folded into the
+                //     all-categories branch as a defensive default.
+                //   - showAllCategories → refresh all categories.
+                //
+                // The isRunning guard happens upstream in LibraryContent (PTR is disabled while
+                // running); legacy mirrors this via the `!LibraryUpdateJob.isRunning(context)`
+                // check before dispatching.
+                val target = if (showAllCategories) {
+                    null
+                } else {
+                    allCategories.find { it.order == currentCategoryOrder }
+                }
+                screenModel.refresh(target)
+                coroutineScope.launch {
+                    val result = snackbarHostState.showSnackbar(
+                        message = updatingLibraryText,
+                        actionLabel = cancelText,
+                        duration = SnackbarDuration.Short,
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        screenModel.stopRefresh()
+                    }
+                }
+            },
+            onRefreshCategory = { category ->
+                // Mirrors LibraryController.updateCategory (lines 1763-1802). Snackbar wording
+                // is decided BEFORE the dispatch so the user sees "already in queue" or
+                // "adding to queue" depending on the live job state.
+                val inQueue = screenModel.isCategoryInQueue(category.id)
+                val wasRunning = screenModel.isRunning()
+                val message = when {
+                    inQueue -> alreadyInQueueFmt.format(category.name)
+                    wasRunning -> addingToQueueFmt.format(category.name)
+                    else -> updatingCategoryFmt.format(category.name)
+                }
+                if (!inQueue) {
+                    // mangaToUse is omitted here intentionally — dynamic categories aren't
+                    // rendered in Compose Phase 4, so the dynamic branch is unreachable. Phase 6
+                    // extends LibraryUpdater to thread that list through.
+                    screenModel.refresh(category)
+                }
+                coroutineScope.launch {
+                    val result = snackbarHostState.showSnackbar(
+                        message = message,
+                        actionLabel = cancelText,
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        screenModel.stopRefresh()
+                    }
+                }
+            },
         )
     }
 }

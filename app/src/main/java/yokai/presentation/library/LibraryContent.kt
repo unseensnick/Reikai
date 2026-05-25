@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.HeartBroken
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
@@ -40,6 +41,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -47,6 +50,9 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -80,9 +86,14 @@ import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COMPACT_GRID
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COVER_ONLY_GRID
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_LIST
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
+import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.system.getResourceColor
+import eu.kanade.tachiyomi.util.system.openInBrowser
+import eu.kanade.tachiyomi.widget.EmptyView
 import kotlin.math.abs
+import kotlin.math.pow
 import kotlin.math.roundToInt
+import kotlin.math.sign
 import kotlinx.coroutines.launch
 import yokai.domain.manga.models.cover
 import yokai.i18n.MR
@@ -92,6 +103,7 @@ import yokai.presentation.library.components.CategoryPickerSheet
 import yokai.presentation.library.components.LazyLibraryGrid
 import yokai.presentation.library.components.LazyLibraryList
 import yokai.presentation.library.components.LazyLibraryStaggeredGrid
+import yokai.presentation.component.EmptyScreen
 import yokai.presentation.library.components.LibraryCategoryHeader
 import yokai.presentation.library.components.LibraryOverflowMenu
 import yokai.presentation.library.settings.LibraryDisplayOptionsSheet
@@ -137,6 +149,24 @@ fun LibraryContent(
     /** Mirrors `preferences.useLargeToolbar()` — large title that collapses on scroll. */
     useLargeToolbar: Boolean,
     isAnyFilterActive: Boolean,
+    /**
+     * `preferences.showAllCategories()`. Gates per-header refresh-icon visibility
+     * (legacy `isSingleCategory = ... || !showAllCategories` at LibraryCategoryAdapter.kt:64-65).
+     */
+    showAllCategories: Boolean,
+    /**
+     * True when only the active category is being rendered (legacy `showAllCategories = false`
+     * + grouped by default + >1 category). When true, [library] contains exactly one entry, the
+     * per-category header is skipped, and the hopper / picker switch which category renders by
+     * writing through [onActiveCategoryChange] instead of scrolling.
+     */
+    singleCategoryMode: Boolean,
+    /** Whether [eu.kanade.tachiyomi.data.library.LibraryUpdateJob] is currently running. */
+    isRunning: Boolean,
+    /** Category IDs currently mid-update; drives the spinner on each header's refresh icon. */
+    inQueueCategoryIds: Set<Int>,
+    /** Shared host owned by [LibraryScreen]. Snackbars for PTR + per-category refresh land here. */
+    snackbarHostState: SnackbarHostState,
     sheetOpen: Boolean,
     sheetTab: Int,
     overflowOpen: Boolean,
@@ -158,11 +188,32 @@ fun LibraryContent(
     onOpenRandomSeries: () -> Unit,
     /** Invoked when the user taps the continue-reading button on a cover with unread chapters. */
     onContinueReading: (Manga) -> Unit,
+    /** Tap on a manga cell (grid cover or list row). Routes to the manga details screen. */
+    onMangaClick: (Manga) -> Unit,
     onOpenFilter: () -> Unit,
     onOpenOverflow: () -> Unit,
     onDismissSheet: () -> Unit,
     onDismissOverflow: () -> Unit,
     onSheetTabChange: (Int) -> Unit,
+    /**
+     * Fires when the first visible category changes due to scroll, hopper navigation, or
+     * picker selection. Receiver persists this to `preferences.lastUsedCategory()`, matching
+     * legacy `LibraryController.kt:347-351` where the scroll listener writes the same pref.
+     * This keeps `presenter.currentCategory` / Compose's `currentCategoryOrder` in sync with
+     * the visible category across both libraries.
+     */
+    onActiveCategoryChange: (Category) -> Unit,
+    /**
+     * Pull-to-refresh dispatcher. Receiver decides the target (active category vs all) per
+     * legacy `setSwipeRefresh` branch and shows the appropriate snackbar.
+     */
+    onPullToRefresh: () -> Unit,
+    /**
+     * Per-category refresh dispatcher (tap on a category header's refresh icon). Receiver
+     * branches snackbar wording on already-in-queue / adding-to-queue / starting state, then
+     * dispatches the update if not already queued.
+     */
+    onRefreshCategory: (Category) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // System back closes search before exiting the library.
@@ -241,8 +292,20 @@ fun LibraryContent(
         }
     }
 
+    // Mirror legacy LibraryController.kt:347-351 (scroll listener) + :1405 (scrollToHeader
+    // direct write): every time the visible category changes (natural scroll, hopper picker
+    // tap, hopper up/down nav), write its order to preferences.lastUsedCategory(). This is the
+    // backing for presenter.currentCategory in legacy, so keeping it in sync via Compose lets
+    // pull-to-refresh's currentCategoryOrder lookup target the right category AND ensures the
+    // legacy library opens on the right category if the user toggles back.
+    LaunchedEffect(activeCategory) {
+        activeCategory?.let { onActiveCategoryChange(it) }
+    }
+
+    // singleCategoryMode keeps the chip visible because library.size == 1 in that mode but the
+    // user still needs to see which of their categories is active (and tap it to switch).
     val showChip = showCategoryInTitle &&
-        library.size > 1 &&
+        (library.size > 1 || singleCategoryMode) &&
         activeCategory != null &&
         !searchActive
 
@@ -260,9 +323,13 @@ fun LibraryContent(
     LaunchedEffect(isScrollInProgress) {
         if (!isScrollInProgress) userInitiatedScroll = false
     }
-    val hopperVisible by remember(hideHopper, autohideHopper, library, searchActive) {
+    // Hopper appears whenever the user has >1 category to switch between, whether they're all
+    // rendered (show-all mode, library.size > 1) or only one at a time (single mode,
+    // allCategories.size > 1 but library.size == 1).
+    val hopperVisible by remember(hideHopper, autohideHopper, library, allCategories, searchActive) {
         derivedStateOf {
-            val base = !searchActive && !hideHopper && library.size > 1
+            val multipleCategories = library.size > 1 || allCategories.size > 1
+            val base = !searchActive && !hideHopper && multipleCategories
             if (autohideHopper) base && !userInitiatedScroll else base
         }
     }
@@ -281,30 +348,54 @@ fun LibraryContent(
     // firstVisibleItemIndex so each queued click resolved to a stale target. scrollToItem
     // resolves in a single frame, so each tap immediately advances firstVisibleItemIndex and
     // the next tap reads the updated state. Matches the legacy scrollToPositionWithOffset.
-    val onHopperUp = {
-        val activeIdx = categoryOffsets.indexOfLast { it.first <= firstVisibleItemIndex }
-        if (activeIdx >= 0) {
-            val activeHeaderIdx = categoryOffsets[activeIdx].first
-            val pastHeader = firstVisibleItemIndex > activeHeaderIdx ||
-                firstVisibleItemScrollOffset > 0
-            val target = when {
-                pastHeader -> activeHeaderIdx
-                activeIdx > 0 -> categoryOffsets[activeIdx - 1].first
-                else -> null
+    val onHopperUp = if (singleCategoryMode) {
+        // Switch the active category by writing through onActiveCategoryChange instead of
+        // scrolling. No-wrap matches legacy: at the first category, up is a no-op.
+        {
+            val active = activeCategory
+            val currentIdx = if (active != null) allCategories.indexOfFirst { it.id == active.id } else -1
+            if (currentIdx > 0) {
+                onActiveCategoryChange(allCategories[currentIdx - 1])
             }
-            target?.let { idx ->
+            Unit
+        }
+    } else {
+        {
+            val activeIdx = categoryOffsets.indexOfLast { it.first <= firstVisibleItemIndex }
+            if (activeIdx >= 0) {
+                val activeHeaderIdx = categoryOffsets[activeIdx].first
+                val pastHeader = firstVisibleItemIndex > activeHeaderIdx ||
+                    firstVisibleItemScrollOffset > 0
+                val target = when {
+                    pastHeader -> activeHeaderIdx
+                    activeIdx > 0 -> categoryOffsets[activeIdx - 1].first
+                    else -> null
+                }
+                target?.let { idx ->
+                    coroutineScope.launch { scrollTo(idx) }
+                }
+            }
+            Unit
+        }
+    }
+    val onHopperDown = if (singleCategoryMode) {
+        {
+            val active = activeCategory
+            val currentIdx = if (active != null) allCategories.indexOfFirst { it.id == active.id } else -1
+            if (currentIdx >= 0 && currentIdx < allCategories.lastIndex) {
+                onActiveCategoryChange(allCategories[currentIdx + 1])
+            }
+            Unit
+        }
+    } else {
+        {
+            val activeIdx = categoryOffsets.indexOfLast { it.first <= firstVisibleItemIndex }
+            val nextHeader = categoryOffsets.getOrNull(activeIdx + 1)?.first
+            nextHeader?.let { idx ->
                 coroutineScope.launch { scrollTo(idx) }
             }
+            Unit
         }
-        Unit
-    }
-    val onHopperDown = {
-        val activeIdx = categoryOffsets.indexOfLast { it.first <= firstVisibleItemIndex }
-        val nextHeader = categoryOffsets.getOrNull(activeIdx + 1)?.first
-        nextHeader?.let { idx ->
-            coroutineScope.launch { scrollTo(idx) }
-        }
-        Unit
     }
 
     var pickerOpen by remember { mutableStateOf(false) }
@@ -467,11 +558,37 @@ fun LibraryContent(
         actionIconContentColor = barContentColor,
     )
 
+    // Per-header refresh-icon visibility mirrors LibraryHeaderHolder.notifyStatus:
+    //  - hide entirely when category.id is null or non-positive (dynamic categories use
+    //    negative IDs; Compose Phase 4 cannot render those, but the guard matches legacy),
+    //  - hide when the library has only one category OR showAllCategories = false
+    //    (legacy `isSingleCategory = ... || !showAllCategories`),
+    //  - BUT still show while that category is mid-refresh, matching legacy's `isReloading`
+    //    branch where `updateButton.isVisible = true` is unconditional.
+    val isSingleCategoryGate = library.size <= 1 || !showAllCategories
+    val showHeaderRefreshIcon: (Category) -> Boolean = remember(library.size, showAllCategories, inQueueCategoryIds) {
+        gate@{ category ->
+            val id = category.id ?: return@gate false
+            if (id <= 0) return@gate false
+            if (isSingleCategoryGate && id !in inQueueCategoryIds) return@gate false
+            true
+        }
+    }
+
     Scaffold(
         modifier = if (activeNestedScroll != null) {
             modifier.nestedScroll(activeNestedScroll)
         } else {
             modifier
+        },
+        snackbarHost = {
+            // Reserve space above the hopper when it is visible so snackbars don't slide under
+            // it. Mirrors legacy `anchorView = binding.categoryHopperFrame` floating behavior.
+            // Hopper-hidden states (hideHopper pref or autohide engaged) drop the reserve to 0.
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.padding(bottom = if (hopperVisible) 80.dp else 0.dp),
+            )
         },
         topBar = {
             if (searchActive) {
@@ -557,12 +674,174 @@ fun LibraryContent(
         } else {
             contentPadding
         }
+        // Pull-to-refresh wraps all three lazy branches. Gate `enabled` on:
+        //  - !isRunning: legacy `setSwipeRefresh` early-returns when LibraryUpdateJob.isRunning,
+        //  - !pickerOpen: legacy disables swipeRefresh while the category picker is up
+        //    (LibraryController.kt:1351 `binding.swipeRefresh.isEnabled = !show`).
+        // Indicator colors match the legacy `SwipeRefreshLayout.setStyle()` extension
+        // (ViewExtensions.kt:336-339): arrow = ?attr/actionBarTintColor, container =
+        // ?attr/colorPrimaryVariant. createMdc3Theme doesn't surface those legacy custom attrs
+        // as M3 ColorScheme tokens, so we read them straight off the activity theme via the
+        // same `Context.getResourceColor(...)` pattern Phase 3 uses for the top bar background.
+        val pullToRefreshState = rememberPullToRefreshState()
+        val ptrEnabled = !isRunning && !pickerOpen
+        val ptrArrowColor = remember(barContext) {
+            Color(barContext.getResourceColor(eu.kanade.tachiyomi.R.attr.actionBarTintColor))
+        }
+        val ptrContainerColor = remember(barContext) {
+            Color(barContext.getResourceColor(eu.kanade.tachiyomi.R.attr.colorPrimaryVariant))
+        }
+        PullToRefreshBox(
+            isRefreshing = isRunning,
+            onRefresh = { if (ptrEnabled) onPullToRefresh() },
+            state = pullToRefreshState,
+            modifier = Modifier.padding(adjustedContentPadding),
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    isRefreshing = isRunning,
+                    state = pullToRefreshState,
+                    containerColor = ptrContainerColor,
+                    color = ptrArrowColor,
+                )
+            },
+        ) {
+        // Empty-state gate, mirroring legacy LibraryController.onNextLibraryUpdate:
+        //   - actually empty library → broken-heart icon + "Library is empty" + Getting started
+        //     guide button (opens the tachiyomi docs URL via the activity Context).
+        //   - empty due to active filter or non-empty search query → broken-heart + "No matches
+        //     for filters", no CTA.
+        // Search-narrowing is treated as a filter for the purposes of this gate (legacy
+        // doesn't, since search runs through a separate path, but we render search hits inline
+        // and the most useful message in the empty-search-results case is "no matches").
+        val emptyLibrary = library.values.all { it.isEmpty() }
+        val isNarrowing = isAnyFilterActive || searchQuery.isNotEmpty()
+        // EmptyScreen's tablet branch lays the icon and message out in a row, which on a Fold-6
+        // sized tablet leaves the icon floating left of a paragraph of text. Legacy renders the
+        // empty library as a centered column on every form factor (icon above text above CTA);
+        // force that layout here regardless of screen width so the empty state reads the same.
+        val isTabletMode = false
+        // Single-category-mode horizontal swipe to switch active category. Faithful port of
+        // legacy LibraryCategoryGestureDetector (refs/yokai + Reikai, files identical):
+        //
+        //  1. Resistance curve, not 1:1 finger-follow. translationX =
+        //     abs(distance/50)^1.7 * sign(distance). At a 150px drag the grid only moves ~6.5px;
+        //     at 600px it moves ~67px. Gives the legacy "rubber band" feel rather than dragging
+        //     a sheet of paper. Earlier polish iteration shipped 1:1 follow and users perceived
+        //     it as wrong vs legacy.
+        //  2. Raw-pixel thresholds (not dp). MotionEvent distances in legacy are raw pixels;
+        //     thresholds 150 (= SWIPE_THRESHOLD * 3) and 100 (= SWIPE_VELOCITY_THRESHOLD) are
+        //     raw px, density-independent. Matching this preserves the exact gesture cadence
+        //     across device densities.
+        //  3. Direction-change cancel. Legacy commit 32222476e0 added
+        //     `sign(diffX) == sign(velocityX)` so a swipe that flicks back at the end (drag
+        //     right, then accelerate left) does not trigger a switch.
+        //  4. Hopper touch-start exclusion (legacy onDown at lines 25-38). Achieved here by
+        //     mounting Modifier.draggable on the INNER offset Box rather than the outer Box:
+        //     the hopper card and ActiveCategoryChip are siblings of the inner Box and absorb
+        //     pointer events first via Compose z-order, so swipes starting on them never reach
+        //     the draggable. The top app bar lives in the Scaffold's topBar slot, already
+        //     outside this content area.
+        //
+        // Deferred (matches Phase 3 hopper-drag deferral): RTL flip
+        // (legacy `(diffX >= 0).xor(isLTR)`) and Compose's drag-slop window vs legacy's 50px
+        // vertical-abort. Compose's Orientation.Horizontal slop ownership handles the
+        // vertical-abort intent at a different threshold; revisit if anyone reports it.
+        val resistancePivotPx = 50f
+        val resistancePower = 1.7f
+        val swipeDistanceThresholdPx = 150f
+        val swipeVelocityThresholdPx = 100f
+        var rawDragDistancePx by remember { mutableFloatStateOf(0f) }
+        val swipeOffset = remember { Animatable(0f) }
+        val swipeDraggableState = rememberDraggableState { delta ->
+            rawDragDistancePx += delta
+            val raw = rawDragDistancePx
+            val displayed = if (raw == 0f) {
+                0f
+            } else {
+                (abs(raw) / resistancePivotPx).pow(resistancePower) * sign(raw)
+            }
+            // Animatable.snapTo is suspend; launch on the existing coroutineScope. Per-delta
+            // launches serialize via the draggable's internal mutex, so order is preserved.
+            coroutineScope.launch { swipeOffset.snapTo(displayed) }
+        }
+        val swipeStateForCallback = androidx.compose.runtime.rememberUpdatedState(
+            Triple(activeCategory, allCategories, onActiveCategoryChange),
+        )
         Box(
             modifier = Modifier
-                .padding(adjustedContentPadding)
                 .onSizeChanged { parentWidthPx = it.width },
         ) {
+          Box(
+            // Drag-follow with resistance curve (see comment block above). Reading
+            // swipeOffset.value inside Modifier.offset registers a state read in the
+            // deferred-offset lambda so the translate updates per frame without
+            // recomposing the content tree. Modifier.draggable lives on THIS inner Box
+            // (not the outer) so the chip and hopper, which are siblings rendered above
+            // this Box, intercept touches before the draggable sees them.
+            modifier = Modifier
+                .offset { IntOffset(swipeOffset.value.roundToInt(), 0) }
+                .draggable(
+                    state = swipeDraggableState,
+                    orientation = Orientation.Horizontal,
+                    enabled = singleCategoryMode,
+                    onDragStarted = {
+                        rawDragDistancePx = 0f
+                        // Cancel any in-flight snap-back so a quick follow-up swipe starts
+                        // from exactly where the finger lands.
+                        swipeOffset.stop()
+                    },
+                    onDragStopped = { velocity ->
+                        val totalDistance = rawDragDistancePx
+                        rawDragDistancePx = 0f
+                        // Direction-change cancel: legacy
+                        // `sign(diffX) == sign(velocityX)` at LibraryCategoryGestureDetector.kt:87.
+                        // sign(0) is 0; the threshold check below rules out zero-distance cases.
+                        val sameDirection = sign(totalDistance) == sign(velocity)
+                        if (sameDirection &&
+                            abs(totalDistance) > swipeDistanceThresholdPx &&
+                            abs(velocity) > swipeVelocityThresholdPx
+                        ) {
+                            val (active, cats, dispatch) = swipeStateForCallback.value
+                            val activeId = active?.id
+                            if (activeId != null) {
+                                val currentIdx = cats.indexOfFirst { it.id == activeId }
+                                if (currentIdx >= 0) {
+                                    // Swipe-left (totalDistance < 0) → next category, matches
+                                    // legacy `jumpToNextCategory(next=true)` under LTR.
+                                    val targetIdx = if (totalDistance < 0) currentIdx + 1 else currentIdx - 1
+                                    cats.getOrNull(targetIdx)?.let(dispatch)
+                                }
+                            }
+                        }
+                        // Always animate back to 0, whether or not the switch fired. Matches
+                        // LibraryCategoryGestureDetector.kt:91-94.
+                        swipeOffset.animateTo(0f, tween(durationMillis = 150))
+                    },
+                ),
+          ) {
             when {
+                emptyLibrary && isNarrowing -> EmptyScreen(
+                    image = Icons.Filled.HeartBroken,
+                    message = stringResource(MR.strings.no_matches_for_filters),
+                    isTablet = isTabletMode,
+                )
+                emptyLibrary -> {
+                    val emptyContext = LocalContext.current
+                    EmptyScreen(
+                        image = Icons.Filled.HeartBroken,
+                        message = stringResource(MR.strings.library_is_empty_add_from_browse),
+                        isTablet = isTabletMode,
+                        actions = listOf(
+                            // Matches legacy LibraryController.onNextLibraryUpdate (line 1154).
+                            EmptyView.Action(MR.strings.getting_started_guide) {
+                                emptyContext.openInBrowser(
+                                    "https://tachiyomi.org/docs/guides/getting-started#_2-adding-sources",
+                                )
+                            },
+                        ),
+                    )
+                }
                 isList -> {
                     LazyLibraryList(
                         state = listState,
@@ -580,6 +859,12 @@ fun LibraryContent(
                                     isCollapsed = category.id != null && category.id in collapsedIds,
                                     collapsible = collapsibleHeaders,
                                     onClick = { onToggleCategoryCollapse(category) },
+                                    isRefreshing = category.id != null && category.id in inQueueCategoryIds,
+                                    onRefreshClick = if (showHeaderRefreshIcon(category)) {
+                                        { onRefreshCategory(category) }
+                                    } else {
+                                        null
+                                    },
                                 )
                             }
                             items(
@@ -604,24 +889,29 @@ fun LibraryContent(
                                 // unread / download chips on the trailing side, mirroring
                                 // manga_list_item.xml. The Badge component itself is reused so
                                 // visuals match the grid badges.
+                                // unreadBadgeType matches the legacy RadioGroup binding (see
+                                // LibraryHolder.setUnreadBadge): 0/negative = hide, 1 = dot, 2 = count.
                                 val unreadCount = if (unreadBadgeType > 0) item.libraryManga.unread else 0
-                                val unreadDot = unreadBadgeType == 2
+                                val unreadDot = unreadBadgeType == 1
                                 val downloadCount = if (showDownloadBadge) {
                                     item.downloadCount.toInt().coerceAtLeast(0)
                                 } else {
                                     0
                                 }
                                 val lang = if (showLanguageBadge) item.language.takeIf { it.isNotBlank() } else null
+                                val isLocal = remember(manga.id) { manga.isLocal() }
                                 val segments = BadgeSegments(
                                     lang = lang,
                                     unreadCount = unreadCount,
                                     downloadCount = downloadCount,
                                     unreadDot = unreadDot,
+                                    isLocal = isLocal,
                                 )
                                 MangaListItem(
                                     coverData = coverData,
                                     title = title,
                                     subtitle = subtitle.takeIf { it.isNotEmpty() },
+                                    onClick = { onMangaClick(manga) },
                                     trailing = if (segments.isNotEmpty()) {
                                         { Badge(segments = segments) }
                                     } else {
@@ -651,6 +941,12 @@ fun LibraryContent(
                                     isCollapsed = category.id != null && category.id in collapsedIds,
                                     collapsible = collapsibleHeaders,
                                     onClick = { onToggleCategoryCollapse(category) },
+                                    isRefreshing = category.id != null && category.id in inQueueCategoryIds,
+                                    onRefreshClick = if (showHeaderRefreshIcon(category)) {
+                                        { onRefreshCategory(category) }
+                                    } else {
+                                        null
+                                    },
                                 )
                             }
                             items(
@@ -668,6 +964,7 @@ fun LibraryContent(
                                     showLanguageBadge = showLanguageBadge,
                                     unreadBadgeType = unreadBadgeType,
                                     hideStartReadingButton = hideStartReadingButton,
+                                    onMangaClick = onMangaClick,
                                     onContinueReading = onContinueReading,
                                     coverAspectRatio = null,
                                 )
@@ -694,6 +991,12 @@ fun LibraryContent(
                                     isCollapsed = category.id != null && category.id in collapsedIds,
                                     collapsible = collapsibleHeaders,
                                     onClick = { onToggleCategoryCollapse(category) },
+                                    isRefreshing = category.id != null && category.id in inQueueCategoryIds,
+                                    onRefreshClick = if (showHeaderRefreshIcon(category)) {
+                                        { onRefreshCategory(category) }
+                                    } else {
+                                        null
+                                    },
                                 )
                             }
                             items(
@@ -701,6 +1004,14 @@ fun LibraryContent(
                                 key = { it.libraryManga.manga.id ?: 0L },
                                 contentType = { "library_grid_item" },
                             ) { item ->
+                                // Faithful port of AutofitRecyclerView.useStaggered + the
+                                // adjustViewBounds path in LibraryGridHolder: when uniform is
+                                // on, force every cell to BOOK; when uniform is off, drop the
+                                // outer ratio so the cell wraps to the cover's intrinsic size.
+                                // The actual stable-height fallback lives inside `MangaCover`,
+                                // which reads the legacy `MangaCoverMetadata` cache and falls
+                                // back to BOOK before the first paint, so the cell never
+                                // collapses to 0 height during async image load.
                                 LibraryGridCell(
                                     item = item,
                                     libraryLayout = libraryLayout,
@@ -709,13 +1020,16 @@ fun LibraryContent(
                                     showLanguageBadge = showLanguageBadge,
                                     unreadBadgeType = unreadBadgeType,
                                     hideStartReadingButton = hideStartReadingButton,
+                                    onMangaClick = onMangaClick,
                                     onContinueReading = onContinueReading,
+                                    coverAspectRatio = if (uniformGrid) MangaCoverRatio.BOOK else null,
                                 )
                             }
                         }
                     }
                 }
             }
+          }
             if (showChip) {
                 ActiveCategoryChip(
                     name = activeCategory!!.name,
@@ -746,15 +1060,26 @@ fun LibraryContent(
                     onCenterClick = { pickerOpen = true },
                     onDownClick = onHopperDown,
                     // Long-press up = jump to the first item (matches legacy
-                    // hopper.upCategory.setOnLongClickListener).
-                    onUpLongClick = { coroutineScope.launch { scrollTo(0) } },
+                    // hopper.upCategory.setOnLongClickListener). In single-category mode, jump
+                    // to the first user category instead, since there is no scroll axis to
+                    // navigate.
+                    onUpLongClick = if (singleCategoryMode) {
+                        { allCategories.firstOrNull()?.let(onActiveCategoryChange) }
+                    } else {
+                        { coroutineScope.launch { scrollTo(0) } }
+                    },
                     // Long-press down = jump to the last item. categoryOffsets tracks the
                     // header index + items.size for each category, so the total item count is
-                    // the last offset + 1 + items.size of the trailing category.
-                    onDownLongClick = {
-                        val lastEntry = library.entries.lastOrNull() ?: return@CategoryHopper
-                        val lastOffset = (categoryOffsets.lastOrNull()?.first ?: 0) + lastEntry.value.size
-                        coroutineScope.launch { scrollTo(lastOffset) }
+                    // the last offset + 1 + items.size of the trailing category. In single
+                    // mode, jump to the last user category instead.
+                    onDownLongClick = if (singleCategoryMode) {
+                        { allCategories.lastOrNull()?.let(onActiveCategoryChange) }
+                    } else {
+                        {
+                            val lastEntry = library.entries.lastOrNull() ?: return@CategoryHopper
+                            val lastOffset = (categoryOffsets.lastOrNull()?.first ?: 0) + lastEntry.value.size
+                            coroutineScope.launch { scrollTo(lastOffset) }
+                        }
                     },
                     // Long-press center dispatches by user pref. Indices match
                     // CategoriesTab.hopperLongPressEntries.
@@ -800,6 +1125,7 @@ fun LibraryContent(
                 )
             }
         }
+        }
         if (pickerOpen) {
             CategoryPickerSheet(
                 categories = allCategories,
@@ -807,12 +1133,18 @@ fun LibraryContent(
                 showItemCounts = showCategoryItemCounts,
                 activeCategoryId = activeCategory?.id,
                 onSelect = { category ->
-                    val target = categoryOffsets.firstOrNull { it.second.id == category.id }?.first
-                    target?.let { idx ->
-                        // Instant jump matches legacy scrollToHeader (uses
-                        // scrollToPositionWithOffset). animateScrollToItem jitters when items
-                        // between source and target need to be measured.
-                        coroutineScope.launch { scrollTo(idx) }
+                    if (singleCategoryMode) {
+                        // Re-render the library with a different active category instead of
+                        // scrolling (no scroll axis exists when only one category is rendered).
+                        onActiveCategoryChange(category)
+                    } else {
+                        val target = categoryOffsets.firstOrNull { it.second.id == category.id }?.first
+                        target?.let { idx ->
+                            // Instant jump matches legacy scrollToHeader (uses
+                            // scrollToPositionWithOffset). animateScrollToItem jitters when items
+                            // between source and target need to be measured.
+                            coroutineScope.launch { scrollTo(idx) }
+                        }
                     }
                     pickerOpen = false
                 },
@@ -955,7 +1287,15 @@ private fun LibraryGridCell(
     showLanguageBadge: Boolean,
     unreadBadgeType: Int,
     hideStartReadingButton: Boolean,
+    onMangaClick: (Manga) -> Unit,
     onContinueReading: (Manga) -> Unit,
+    /**
+     * Cover aspect ratio. Default 2:3 (book) for the regular grid path; pass `null` for the
+     * staggered grid so each cover renders at its image's intrinsic ratio. Regular-grid callers
+     * with Uniform grid covers off should pass the per-cover cached ratio from
+     * [MangaCoverMetadata] (BOOK fallback), not `null`, so the cell has a stable height while
+     * Coil's AsyncImage is still loading the placeholder. See `LibraryGridHolder.setFreeformCoverRatio`.
+     */
     coverAspectRatio: Float? = MangaCoverRatio.BOOK,
 ) {
     val manga = item.libraryManga.manga
@@ -963,16 +1303,19 @@ private fun LibraryGridCell(
     // Injekt-backed CustomMangaManager for favorited entries; both are stable per row.
     val coverData = remember(manga.id) { manga.cover() }
     val title = remember(manga.id) { manga.title }
-    // unreadBadgeType: -1 hide, 1 show count, 2 show dot. Pass 0 unread when hidden so the
-    // badge slot collapses; otherwise the cell decides between count and dot via [unreadDot].
+    // unreadBadgeType matches the legacy RadioGroup binding (see LibraryHolder.setUnreadBadge):
+    // 0 (or negative) = hide, 1 = dot, 2 = count. Pass 0 unread when hidden so the badge slot
+    // collapses; otherwise the cell decides between count and dot via [unreadDot].
     val unreadCount = if (unreadBadgeType > 0) item.libraryManga.unread else 0
-    val unreadDot = unreadBadgeType == 2
+    val unreadDot = unreadBadgeType == 1
     val downloadCount = if (showDownloadBadge) {
         item.downloadCount.toInt().coerceAtLeast(0)
     } else {
         0
     }
     val lang = if (showLanguageBadge) item.language.takeIf { it.isNotBlank() } else null
+    val isLocal = remember(manga.id) { manga.isLocal() }
+    val onClick = { onMangaClick(manga) }
     // Continue-reading button: only when the user has not hidden it AND the manga has unread
     // chapters. Skip the cover-only layout's button entirely so the cover stays unobstructed.
     val continueReadingClick = if (
@@ -996,6 +1339,8 @@ private fun LibraryGridCell(
             showOutline = outlineOnCovers,
             coverAspectRatio = coverAspectRatio,
             unreadDot = unreadDot,
+            isLocal = isLocal,
+            onClick = onClick,
             onClickContinueReading = continueReadingClick,
             showLoadingIndicator = false,
         )
@@ -1009,6 +1354,8 @@ private fun LibraryGridCell(
             showTitle = false,
             coverAspectRatio = coverAspectRatio,
             unreadDot = unreadDot,
+            isLocal = isLocal,
+            onClick = onClick,
             showLoadingIndicator = false,
         )
         // LAYOUT_COMPACT_GRID default; LAYOUT_LIST is rendered by the isList branch upstream.
@@ -1021,6 +1368,8 @@ private fun LibraryGridCell(
             showOutline = outlineOnCovers,
             coverAspectRatio = coverAspectRatio,
             unreadDot = unreadDot,
+            isLocal = isLocal,
+            onClick = onClick,
             onClickContinueReading = continueReadingClick,
             showLoadingIndicator = false,
         )

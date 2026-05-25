@@ -129,6 +129,57 @@ class MangaLibrarySearchTest {
         assertTrue(result.isEmpty())
     }
 
+    @Test
+    fun `series-type query matches even when no genre tag literally names the type`() {
+        val library = libraryOf(
+            "Default" to listOf(
+                item(1, title = "Solo Leveling", genre = "Action, Adventure"),
+                item(2, title = "Berserk", genre = "Action, Adventure"),
+            ),
+        )
+        val result = MangaLibrarySearch.search(
+            library,
+            query = "manhwa",
+            seriesTypes = mapOf(1L to "manhwa", 2L to "manga"),
+        )
+        assertEquals(1, result.values.flatten().size)
+        assertEquals(1L, result.values.flatten().first().libraryManga.manga.id)
+    }
+
+    @Test
+    fun `dash-prefix excludes by series type as well as genre`() {
+        val library = libraryOf(
+            "Default" to listOf(
+                item(1, title = "Solo Leveling", genre = "Action, Adventure"),
+                item(2, title = "Berserk", genre = "Action, Adventure"),
+            ),
+        )
+        val result = MangaLibrarySearch.search(
+            library,
+            query = "-manhwa",
+            seriesTypes = mapOf(1L to "manhwa", 2L to "manga"),
+        )
+        assertEquals(1, result.values.flatten().size)
+        assertEquals(2L, result.values.flatten().first().libraryManga.manga.id)
+    }
+
+    @Test
+    fun `comma query mixes genre and series-type fragments`() {
+        val library = libraryOf(
+            "Default" to listOf(
+                item(1, title = "A", genre = "Action, Adventure"),
+                item(2, title = "B", genre = "Romance, Drama"),
+            ),
+        )
+        val result = MangaLibrarySearch.search(
+            library,
+            query = "action, manhwa",
+            seriesTypes = mapOf(1L to "manhwa", 2L to "manga"),
+        )
+        assertEquals(1, result.values.flatten().size)
+        assertEquals(1L, result.values.flatten().first().libraryManga.manga.id)
+    }
+
     private fun libraryOf(
         vararg pairs: Pair<String, List<LibraryItem.Manga>>,
     ): Map<eu.kanade.tachiyomi.data.database.models.Category, List<LibraryItem.Manga>> =

@@ -3,6 +3,7 @@ package yokai.presentation.library.manga
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.tachiyomi.data.database.models.Category
+import eu.kanade.tachiyomi.data.database.models.LibraryManga
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
@@ -16,14 +17,16 @@ import yokai.domain.manga.interactor.GetLibraryManga
 import yokai.presentation.library.LibraryTabState
 
 /**
- * Phase 1 screen model. Collects library manga and user categories, runs them through
- * [MangaLibrarySectioner], and emits [LibraryTabState] for the Compose library to render.
+ * Compose library screen model. Collects categories, library manga, the download-cache
+ * invalidation flow, the [LibraryUpdateJob] running flag, and the `lastUsedCategory`
+ * preference; folds them through [MangaLibrarySectioner] and surfaces [LibraryTabState] to
+ * the UI.
  *
- * The download-cache flow is folded in now (even though Phase 1 doesn't yet render download
- * badges) so that later phases can extend the combine block without restructuring it. Pattern
- * mirrors [yokai.presentation.extension.repo.ExtensionRepoScreenModel]: `injectLazy()` for
- * dependencies, `screenModelScope.launchIO { ... collectLatest { mutableState.update { ... } } }`
- * for flow collection.
+ * `updateFlow` is subscribed in a sibling block: on its `null` (completion) emission we
+ * re-derive `inQueueCategoryIds` because [LibraryUpdater.isRunningFlow] only flips when the
+ * LAST manga finishes, but `categoryInQueue` may drop individual categories mid-update.
+ * The `STARTING_UPDATE_SOURCE` sentinel and real manga ids are ignored: per-row state
+ * already rides on `getLibraryManga.subscribe()` re-emissions when the DB changes.
  */
 class MangaLibraryScreenModel :
     StateScreenModel<LibraryTabState<LibraryItem.Manga>>(LibraryTabState.Loading) {
@@ -32,6 +35,7 @@ class MangaLibraryScreenModel :
     private val getCategories: GetCategories by injectLazy()
     private val getLibraryManga: GetLibraryManga by injectLazy()
     private val downloadCache: DownloadCache by injectLazy()
+    private val libraryUpdater: MangaLibraryUpdater by injectLazy()
 
     init {
         screenModelScope.launchIO {
@@ -39,25 +43,73 @@ class MangaLibraryScreenModel :
                 getCategories.subscribe(),
                 getLibraryManga.subscribe(),
                 downloadCache.changes,
-            ) { categories, libraryManga, _ -> categories to libraryManga }
-                .collectLatest { (categories, libraryManga) ->
+                libraryUpdater.isRunningFlow(),
+                preferences.lastUsedCategory().changes(),
+            ) { categories, libraryManga, _, isRunning, currentCategoryOrder ->
+                Snapshot(categories, libraryManga, isRunning, currentCategoryOrder)
+            }
+                .collectLatest { snap ->
                     // Recreate per emission so a locale change between subscriptions picks up the
                     // re-translated "Default" string, matching legacy LibraryPresenter behavior.
                     val defaultCategory = Category.createDefault(preferences.context).apply {
                         order = -1
                     }
                     val library = MangaLibrarySectioner.section(
-                        libraryManga = libraryManga,
-                        userCategories = categories,
+                        libraryManga = snap.libraryManga,
+                        userCategories = snap.categories,
                         defaultCategory = defaultCategory,
                     )
+                    val inQueue = if (snap.isRunning) {
+                        library.keys.mapNotNullTo(HashSet()) { cat ->
+                            cat.id?.takeIf { libraryUpdater.isCategoryInQueue(it) }
+                        }
+                    } else {
+                        emptySet()
+                    }
                     mutableState.update {
                         LibraryTabState.Loaded(
                             library = library,
                             totalItemCount = library.values.sumOf { it.size },
+                            isRunning = snap.isRunning,
+                            inQueueCategoryIds = inQueue,
+                            currentCategoryOrder = snap.currentCategoryOrder,
                         )
                     }
                 }
         }
+
+        // updateFlow's null emission signals job completion: kick a re-derivation of the in-queue
+        // set so headers stop spinning the moment WorkManager flips isRunning -> false. Mid-update
+        // category drops are handled by the isRunningFlow path via the combine above (each tick
+        // re-walks categoryInQueue). Real manga ids and the -5L sentinel don't affect UI state we
+        // own; the existing getLibraryManga subscription handles row data refresh.
+        screenModelScope.launchIO {
+            libraryUpdater.updateFlow.collectLatest { mangaId ->
+                if (mangaId == null) {
+                    mutableState.update { current ->
+                        if (current is LibraryTabState.Loaded) {
+                            current.copy(inQueueCategoryIds = emptySet(), isRunning = false)
+                        } else {
+                            current
+                        }
+                    }
+                }
+            }
+        }
     }
+
+    fun refresh(category: Category?): Boolean = libraryUpdater.startNow(category)
+
+    fun stopRefresh() = libraryUpdater.stop()
+
+    fun isCategoryInQueue(categoryId: Int?): Boolean = libraryUpdater.isCategoryInQueue(categoryId)
+
+    fun isRunning(): Boolean = libraryUpdater.isRunning()
+
+    private data class Snapshot(
+        val categories: List<Category>,
+        val libraryManga: List<LibraryManga>,
+        val isRunning: Boolean,
+        val currentCategoryOrder: Int,
+    )
 }

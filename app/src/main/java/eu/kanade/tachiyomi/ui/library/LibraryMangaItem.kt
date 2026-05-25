@@ -171,12 +171,32 @@ class LibraryMangaItem(
 
     override fun equals(other: Any?): Boolean {
         if (other is LibraryMangaItem) {
-            return manga.manga.id == other.manga.manga.id && manga.category == other.manga.category
+            // Identity-style fields drive whether this is the SAME row (id + category), but the
+            // adapter also asks equals when diffing for rebind. Include the badge-driving fields
+            // so a fresh LibraryManga with updated read/unread/bookmark counts is treated as
+            // unequal to the previous instance and the holder gets a chance to re-read them.
+            // Adapter's setItems already notifyDataSetChanged-rebinds the visible window, but
+            // call sites that diff (legacy refresh paths, recent FlexibleAdapter updates) need
+            // the value-equality contract to be correct too.
+            return manga.manga.id == other.manga.manga.id &&
+                manga.category == other.manga.category &&
+                manga.unread == other.manga.unread &&
+                manga.read == other.manga.read &&
+                manga.bookmarkCount == other.manga.bookmarkCount &&
+                manga.hasRead == other.manga.hasRead &&
+                manga.totalChapters == other.manga.totalChapters
         }
         return false
     }
 
     override fun hashCode(): Int {
-        return 31 * manga.manga.id.hashCode() + header!!.hashCode()
+        var result = manga.manga.id.hashCode()
+        result = 31 * result + (header?.hashCode() ?: 0)
+        result = 31 * result + manga.unread
+        result = 31 * result + manga.read
+        result = 31 * result + manga.bookmarkCount
+        result = 31 * result + manga.hasRead.hashCode()
+        result = 31 * result + manga.totalChapters
+        return result
     }
 }

@@ -88,16 +88,21 @@ fun DisplayTab() {
         )
         // Custom row so the title can carry the styled BETA tag; SwitchPreferenceWidget only
         // takes a plain String. Reuses TextPreferenceWidget's titleAnnotated slot.
+        // Disabled when uniform grid is on: render-side already gives uniformGrid precedence over
+        // staggered, so the toggle would be inert anyway. Mirrors LibraryDisplayView setting
+        // staggeredGrid.isEnabled = !uniformGrid.
         TextPreferenceWidget(
             titleAnnotated = stringResource(MR.strings.use_staggered_grid).addBetaTag(useSuperScript = false),
             widget = {
                 Switch(
                     checked = useStaggeredGrid,
                     onCheckedChange = null,
+                    enabled = !uniformGrid,
                     modifier = Modifier.padding(start = 16.dp),
                 )
             },
             onPreferenceClick = { preferences.useStaggeredGrid().set(!useStaggeredGrid) },
+            enabled = !uniformGrid,
         )
         SwitchPreferenceWidget(
             title = stringResource(MR.strings.show_outline_around_covers),

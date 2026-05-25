@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import yokai.util.secondaryItemAlpha
@@ -21,9 +22,15 @@ fun TextPreferenceWidget(
     iconTint: Color = MaterialTheme.colorScheme.primary,
     widget: @Composable (() -> Unit)? = null,
     onPreferenceClick: (() -> Unit)? = null,
+    /**
+     * When false, the click handler is dropped and the row is rendered at reduced alpha.
+     * Mirrors the legacy `View.isEnabled = false` look for dependent prefs (e.g. staggered grid
+     * row while uniform grid is on, [eu.kanade.tachiyomi.ui.library.display.LibraryDisplayView]).
+     */
+    enabled: Boolean = true,
 ) {
     BasePreferenceWidget(
-        modifier = modifier,
+        modifier = if (enabled) modifier else modifier.alpha(0.38f),
         title = title,
         titleAnnotated = titleAnnotated,
         subcomponent = if (!subtitle.isNullOrBlank()) {
@@ -51,7 +58,7 @@ fun TextPreferenceWidget(
         } else {
             null
         },
-        onClick = onPreferenceClick,
+        onClick = onPreferenceClick.takeIf { enabled },
         widget = widget,
     )
 }
