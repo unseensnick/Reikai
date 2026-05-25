@@ -16,7 +16,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import eu.kanade.tachiyomi.util.system.getResourceColor
 import dev.icerock.moko.resources.compose.stringResource
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
@@ -193,6 +196,30 @@ class LibraryScreen : Screen {
         // confirmMarkReadStatus) on screenModelScope. Matches legacy's controller-change
         // listener at MainActivity.kt:680 which dismisses the undo snackbar on any push.
         val dismissPendingSnackbar = { snackbarHostState.currentSnackbarData?.dismiss(); Unit }
+
+        // F12: direct reads of the user's selected XML theme attrs for AlertDialog +
+        // Checkbox + TextButton colors. Compose M3 AlertDialog applies tonal-elevation via
+        // colorScheme.surfaceTint (defaults to colorScheme.primary), which produces a
+        // different tint than the legacy elevationOverlayColor = ?colorSecondary at
+        // styles.xml:200. Pinning the container + content colors to direct attr reads keeps
+        // dialogs visually consistent with the legacy library across every user theme.
+        val themeContext = LocalContext.current
+        val dialogContainerColor = remember(themeContext) {
+            Color(themeContext.getResourceColor(eu.kanade.tachiyomi.R.attr.colorSurface))
+        }
+        val dialogAccentColor = remember(themeContext) {
+            Color(themeContext.getResourceColor(eu.kanade.tachiyomi.R.attr.colorPrimary))
+        }
+        val dialogOnAccentColor = remember(themeContext) {
+            Color(themeContext.getResourceColor(eu.kanade.tachiyomi.R.attr.colorOnPrimary))
+        }
+        val dialogCheckboxColors = androidx.compose.material3.CheckboxDefaults.colors(
+            checkedColor = dialogAccentColor,
+            checkmarkColor = dialogOnAccentColor,
+        )
+        val dialogButtonColors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+            contentColor = dialogAccentColor,
+        )
         // Cancel-action strings need a Composable scope for stringResource; capture once outside
         // the snackbar lambdas so we don't recompute per dispatch.
         val updatingLibraryText = stringResource(MR.strings.updating_library)
@@ -630,6 +657,7 @@ class LibraryScreen : Screen {
         markReadConfirmFor?.let { markRead ->
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { markReadConfirmFor = null },
+                containerColor = dialogContainerColor,
                 text = {
                     androidx.compose.material3.Text(
                         text = stringResource(
@@ -640,6 +668,7 @@ class LibraryScreen : Screen {
                 },
                 confirmButton = {
                     androidx.compose.material3.TextButton(
+                        colors = dialogButtonColors,
                         onClick = {
                             markReadConfirmFor = null
                             coroutineScope.launch {
@@ -667,7 +696,10 @@ class LibraryScreen : Screen {
                     }
                 },
                 dismissButton = {
-                    androidx.compose.material3.TextButton(onClick = { markReadConfirmFor = null }) {
+                    androidx.compose.material3.TextButton(
+                        colors = dialogButtonColors,
+                        onClick = { markReadConfirmFor = null },
+                    ) {
                         androidx.compose.material3.Text(text = cancelText)
                     }
                 },
@@ -688,6 +720,7 @@ class LibraryScreen : Screen {
             var removeFromLibrary by remember { mutableStateOf(true) }
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { deleteConfirmOpen = false },
+                containerColor = dialogContainerColor,
                 title = { androidx.compose.material3.Text(text = removeText) },
                 text = {
                     androidx.compose.foundation.layout.Column {
@@ -704,7 +737,11 @@ class LibraryScreen : Screen {
                                 .fillMaxWidth()
                                 .clickable(role = androidx.compose.ui.semantics.Role.Checkbox) {},
                         ) {
-                            androidx.compose.material3.Checkbox(checked = true, onCheckedChange = null)
+                            androidx.compose.material3.Checkbox(
+                                checked = true,
+                                onCheckedChange = null,
+                                colors = dialogCheckboxColors,
+                            )
                             androidx.compose.material3.Text(text = removeDownloadsLabel)
                         }
                         androidx.compose.foundation.layout.Row(
@@ -718,6 +755,7 @@ class LibraryScreen : Screen {
                             androidx.compose.material3.Checkbox(
                                 checked = removeFromLibrary,
                                 onCheckedChange = null,
+                                colors = dialogCheckboxColors,
                             )
                             androidx.compose.material3.Text(text = removeFromLibraryLabel)
                         }
@@ -725,6 +763,7 @@ class LibraryScreen : Screen {
                 },
                 confirmButton = {
                     androidx.compose.material3.TextButton(
+                        colors = dialogButtonColors,
                         onClick = {
                             deleteConfirmOpen = false
                             val mangas = screenModel.selectedMangaList()
@@ -754,7 +793,10 @@ class LibraryScreen : Screen {
                     }
                 },
                 dismissButton = {
-                    androidx.compose.material3.TextButton(onClick = { deleteConfirmOpen = false }) {
+                    androidx.compose.material3.TextButton(
+                        colors = dialogButtonColors,
+                        onClick = { deleteConfirmOpen = false },
+                    ) {
                         androidx.compose.material3.Text(text = cancelText)
                     }
                 },

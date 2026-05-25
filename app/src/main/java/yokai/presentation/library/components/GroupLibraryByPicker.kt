@@ -29,6 +29,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource as androidStringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -36,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.ui.library.LibraryGroup
+import eu.kanade.tachiyomi.util.system.getResourceColor
 import yokai.i18n.MR
 import android.R as AR
 
@@ -136,8 +139,19 @@ fun GroupLibraryByDialog(
     onDismiss: () -> Unit,
 ) {
     val title = stringResource(MR.strings.group_library_by)
+    // F12: same direct-attr theme pattern as the library's other dialogs (see
+    // LibraryScreen.kt's mark-read + delete dialogs). Pins container + button colors to the
+    // user's selected XML theme attrs so this dialog matches the legacy library across themes.
+    val context = LocalContext.current
+    val dialogContainerColor = remember(context) {
+        Color(context.getResourceColor(eu.kanade.tachiyomi.R.attr.colorSurface))
+    }
+    val dialogAccentColor = remember(context) {
+        Color(context.getResourceColor(eu.kanade.tachiyomi.R.attr.colorPrimary))
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = dialogContainerColor,
         title = { Text(text = title) },
         text = {
             Box {
@@ -166,7 +180,12 @@ fun GroupLibraryByDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                    contentColor = dialogAccentColor,
+                ),
+            ) {
                 Text(text = androidStringResource(AR.string.cancel))
             }
         },

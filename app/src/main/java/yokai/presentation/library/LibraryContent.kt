@@ -668,6 +668,13 @@ fun LibraryContent(
         navigationIconContentColor = barContentColor,
         actionIconContentColor = barContentColor,
     )
+    // F12: snackbar action button text reads `?attr/colorPrimary` directly so the Undo /
+    // Cancel button on every library snackbar matches the user's selected theme, instead of
+    // M3's colorScheme.inversePrimary default (which is derived from primary but renders
+    // differently in some Reikai themes).
+    val snackbarActionColor = remember(barContext) {
+        Color(barContext.getResourceColor(eu.kanade.tachiyomi.R.attr.colorPrimary))
+    }
 
     // Per-header refresh-icon visibility mirrors LibraryHeaderHolder.notifyStatus:
     //  - hide entirely when category.id is null or non-positive (dynamic categories use
@@ -696,9 +703,18 @@ fun LibraryContent(
             // Reserve space above the hopper when it is visible so snackbars don't slide under
             // it. Mirrors legacy `anchorView = binding.categoryHopperFrame` floating behavior.
             // Hopper-hidden states (hideHopper pref or autohide engaged) drop the reserve to 0.
+            // F12: custom snackbar slot so the Undo / Cancel action button text pulls from the
+            // user's selected `?attr/colorPrimary` (matches legacy snackbars across themes)
+            // instead of M3's colorScheme.inversePrimary default.
             SnackbarHost(
                 hostState = snackbarHostState,
                 modifier = Modifier.padding(bottom = if (hopperVisible) 80.dp else 0.dp),
+                snackbar = { data ->
+                    androidx.compose.material3.Snackbar(
+                        snackbarData = data,
+                        actionColor = snackbarActionColor,
+                    )
+                },
             )
         },
         topBar = {
