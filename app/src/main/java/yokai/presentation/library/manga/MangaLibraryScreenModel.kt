@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.SourceManager
+import eu.kanade.tachiyomi.ui.library.LibrarySort
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
 import eu.kanade.tachiyomi.util.system.launchIO
 import kotlinx.coroutines.flow.collectLatest
@@ -19,6 +20,7 @@ import uy.kohesive.injekt.injectLazy
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.chapter.interactor.UpdateChapter
+import yokai.domain.library.LibraryPreferences
 import yokai.domain.manga.interactor.GetLibraryManga
 import yokai.domain.manga.interactor.UpdateManga
 import yokai.domain.track.interactor.DeleteTrack
@@ -44,6 +46,7 @@ class MangaLibraryScreenModel :
     StateScreenModel<LibraryTabState<LibraryItem.Manga>>(LibraryTabState.Loading) {
 
     private val preferences: PreferencesHelper by injectLazy()
+    private val libraryPreferences: LibraryPreferences by injectLazy()
     private val getCategories: GetCategories by injectLazy()
     private val getLibraryManga: GetLibraryManga by injectLazy()
     private val downloadCache: DownloadCache by injectLazy()
@@ -78,6 +81,7 @@ class MangaLibraryScreenModel :
                     manualMerges = emptySet(),
                     manualUnmerges = emptySet(),
                     autoMergeSameTitle = true,
+                    sortPrefs = SortPrefs.DEFAULT,
                 )
             }
                 // The 5-arg combine is the kotlinx-coroutines typed-lambda limit. Chain the
@@ -85,7 +89,8 @@ class MangaLibraryScreenModel :
                 // merge groups when the user merges / unmerges from the action bar (legacy
                 // mutates these prefs without ripple-updating the DB, so a getLibraryManga
                 // re-emission isn't guaranteed). The autoMergeSameTitle toggle is also live-
-                // observed so flipping the Display sheet switch re-renders immediately.
+                // observed so flipping the Display sheet switch re-renders immediately. The
+                // sort prefs are bundled into a single SortPrefs flow to keep the chain shallow.
                 .combine(preferences.mangaManualMerges().changes()) { snap, merges ->
                     snap.copy(manualMerges = merges)
                 }
@@ -94,6 +99,9 @@ class MangaLibraryScreenModel :
                 }
                 .combine(preferences.autoMergeSameTitle().changes()) { snap, autoMerge ->
                     snap.copy(autoMergeSameTitle = autoMerge)
+                }
+                .combine(sortPrefsFlow()) { snap, sortPrefs ->
+                    snap.copy(sortPrefs = sortPrefs)
                 }
                 .collectLatest { snap ->
                     // Recreate per emission so a locale change between subscriptions picks up the
@@ -109,11 +117,21 @@ class MangaLibraryScreenModel :
                     // Collapse merged-manga groups (manual merge + same-title auto-merge) into
                     // a single rendered entry per group, stamped with relatedMangaIds. Mirrors
                     // legacy LibraryPresenter.applySourceGrouping at LibraryPresenter.kt:943-997.
-                    val library = MangaLibraryGrouping.collapse(
+                    val grouped = MangaLibraryGrouping.collapse(
                         library = sectioned,
                         manualMerges = snap.manualMerges,
                         manualUnmerges = snap.manualUnmerges,
                         autoMergeSameTitle = snap.autoMergeSameTitle,
+                    )
+                    // Per-category sort (9 modes), with library-wide default as the fallback for
+                    // categories whose mangaSort is unset. Pipeline order matches legacy:
+                    // group, filter (Compose-side at render), sort.
+                    val library = MangaLibrarySort.sort(
+                        library = grouped,
+                        libraryDefaultMode = snap.sortPrefs.mode,
+                        libraryDefaultAscending = snap.sortPrefs.ascending,
+                        randomSeed = snap.sortPrefs.randomSeed,
+                        removeArticles = snap.sortPrefs.removeArticles,
                     )
                     val inQueue = if (snap.isRunning) {
                         library.keys.mapNotNullTo(HashSet()) { cat ->
@@ -387,6 +405,38 @@ class MangaLibraryScreenModel :
         }
     }
 
+    /**
+     * Bundles the four sort prefs into a single combine() input so the main pipeline's
+     * `.combine(...)` chain stays shallow. Read by [MangaLibrarySort] inside collectLatest.
+     */
+    private fun sortPrefsFlow() = combine(
+        preferences.librarySortingMode().changes(),
+        preferences.librarySortingAscending().changes(),
+        libraryPreferences.randomSortSeed().changes(),
+        preferences.removeArticles().changes(),
+    ) { modeInt, ascending, seed, removeArticles ->
+        SortPrefs(
+            mode = LibrarySort.valueOf(modeInt) ?: LibrarySort.Title,
+            ascending = ascending,
+            randomSeed = seed.toLong(),
+            removeArticles = removeArticles,
+        )
+    }
+
+    private data class SortPrefs(
+        val mode: LibrarySort,
+        val ascending: Boolean,
+        val randomSeed: Long,
+        val removeArticles: Boolean,
+    ) {
+        companion object {
+            // Placeholder used in the first combine() before sortPrefsFlow() emits. The chained
+            // .combine(sortPrefsFlow()) below overwrites this before any downstream emission, so
+            // these values never reach collectLatest.
+            val DEFAULT = SortPrefs(LibrarySort.Title, ascending = true, randomSeed = 0L, removeArticles = false)
+        }
+    }
+
     private data class Snapshot(
         val categories: List<Category>,
         val libraryManga: List<LibraryManga>,
@@ -395,5 +445,6 @@ class MangaLibraryScreenModel :
         val manualMerges: Set<String>,
         val manualUnmerges: Set<String>,
         val autoMergeSameTitle: Boolean,
+        val sortPrefs: SortPrefs,
     )
 }

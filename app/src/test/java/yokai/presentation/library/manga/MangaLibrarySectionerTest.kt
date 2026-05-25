@@ -48,7 +48,9 @@ class MangaLibrarySectionerTest {
     }
 
     @Test
-    fun `manga within a category are sorted by title case insensitively`() {
+    fun `manga within a category preserve insertion order (sorting is downstream)`() {
+        // Per-category sort moved to MangaLibrarySort. The sectioner preserves input order so
+        // downstream grouping + sort have a deterministic starting point.
         val result = MangaLibrarySectioner.section(
             libraryManga = listOf(
                 libraryManga(1, "Charlie", categoryId = 0),
@@ -58,8 +60,8 @@ class MangaLibrarySectionerTest {
             userCategories = emptyList(),
             defaultCategory = defaultCategory(),
         )
-        val titles = result.entries.first().value.map { it.libraryManga.manga.title }
-        assertEquals(listOf("alpha", "Bravo", "Charlie"), titles)
+        val ids = result.entries.first().value.map { it.libraryManga.manga.id }
+        assertEquals(listOf(1L, 2L, 3L), ids)
     }
 
     @Test

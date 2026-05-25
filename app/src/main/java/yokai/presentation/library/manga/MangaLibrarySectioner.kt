@@ -5,12 +5,11 @@ import eu.kanade.tachiyomi.data.database.models.LibraryManga
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
 
 /**
- * Phase 1 grouper. Arranges library manga into category sections with default title sort.
- *
- * Mirrors the legacy presenter's default-category injection and category order. Omits everything
- * that requires later-phase UI: no filter, no source / tag grouping, no hidden placeholders, no
- * custom sort modes. Those land in their respective phases as parallel sibling files under this
- * package.
+ * Arranges library manga into category sections. Per-category sorting happens downstream in
+ * [MangaLibrarySort]; this sectioner only does the bucket-by-category step plus default-category
+ * injection and the (still-hardcoded) category-list ordering by [Category.order]. Filtering
+ * runs in the Compose layer; grouping ([MangaLibraryGrouping]) and sorting run between the
+ * sectioner and the rendered state.
  */
 object MangaLibrarySectioner {
 
@@ -38,7 +37,6 @@ object MangaLibrarySectioner {
 
         return orderedCategories.associateWith { category ->
             (mangaByCategoryId[category.id] ?: emptyList())
-                .sortedBy { it.manga.title.lowercase() }
                 .map { LibraryItem.Manga(libraryManga = it) }
         }
     }
