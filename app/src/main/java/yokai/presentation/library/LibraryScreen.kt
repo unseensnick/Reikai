@@ -184,6 +184,11 @@ class LibraryScreen : Screen {
         }
 
         val snackbarHostState = remember { SnackbarHostState() }
+        // F10: dismissing the snackbar before navigating away triggers the showSnackbar
+        // coroutine's Dismissed branch, which queues the cleanup commit (confirmDeletion /
+        // confirmMarkReadStatus) on screenModelScope. Matches legacy's controller-change
+        // listener at MainActivity.kt:680 which dismisses the undo snackbar on any push.
+        val dismissPendingSnackbar = { snackbarHostState.currentSnackbarData?.dismiss(); Unit }
         // Cancel-action strings need a Composable scope for stringResource; capture once outside
         // the snackbar lambdas so we don't recompute per dispatch.
         val updatingLibraryText = stringResource(MR.strings.updating_library)
@@ -414,6 +419,7 @@ class LibraryScreen : Screen {
                 val pool = displayedLibrary.values.asSequence().flatten().toList()
                 if (pool.isNotEmpty()) {
                     val random = pool.random().libraryManga.manga
+                    dismissPendingSnackbar()
                     router.pushController(MangaDetailsController(random).withFadeTransaction())
                 }
             },
@@ -426,6 +432,7 @@ class LibraryScreen : Screen {
                 }
                 if (pool.isNotEmpty()) {
                     val random = pool.random().libraryManga.manga
+                    dismissPendingSnackbar()
                     router.pushController(MangaDetailsController(random).withFadeTransaction())
                 }
             },
@@ -440,6 +447,7 @@ class LibraryScreen : Screen {
                     val next = ChapterSort(manga).getNextUnreadChapter(chapters, false)
                         ?: return@launch
                     val activity = router.activity ?: return@launch
+                    dismissPendingSnackbar()
                     activity.startActivity(ReaderActivity.newIntent(activity, manga, next))
                 }
             },
@@ -448,6 +456,7 @@ class LibraryScreen : Screen {
                 // does router.pushController(MangaDetailsController(manga).withFadeTransaction())).
                 // Routes through the existing Conductor router for now since no Compose-side
                 // manga details Voyager screen exists yet.
+                dismissPendingSnackbar()
                 router.pushController(MangaDetailsController(manga).withFadeTransaction())
             },
             onOpenFilter = { sheetTab = 0; sheetOpen = true },
@@ -548,6 +557,7 @@ class LibraryScreen : Screen {
                     .filter { it.source != LocalSource.ID }
                     .mapNotNull { it.id }
                 if (ids.isEmpty()) return@LibraryContent
+                dismissPendingSnackbar()
                 PreMigrationController.navigateToMigration(
                     preferences.skipPreMigration().get(),
                     router,

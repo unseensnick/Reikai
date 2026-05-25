@@ -74,6 +74,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -289,6 +293,37 @@ fun LibraryContent(
     }
     BackHandler(enabled = selection.isNotEmpty()) {
         onClearSelection()
+    }
+
+    // F10: legacy parity with MainActivity.setUndoSnackBar dismissal triggers
+    // (MainActivity.kt:227-237, :680, :998, :1390-1418). When the undo snackbar dismisses,
+    // the existing showSnackbar coroutine returns SnackbarResult.Dismissed and the cleanup
+    // branch runs (confirmDeletion / confirmMarkReadStatus), queued on screenModelScope which
+    // survives the LibraryScreen composition. Three triggers added:
+    //
+    //   1. ON_PAUSE (lifecycle observer below): app going to background or another activity
+    //      being launched (Reader, share chooser) dismisses the snackbar.
+    //   2. Tap outside snackbar bounds (pointerInput wrapper on content): mirrors legacy's
+    //      dispatchTouchEvent-driven dismissal after a 1-second grace.
+    //   3. Navigation (LibraryScreen-side): each router.pushController call dismisses first.
+    //      Handled in LibraryScreen's callbacks, not here.
+    var snackbarShownAtMs by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(snackbarHostState.currentSnackbarData) {
+        snackbarShownAtMs = if (snackbarHostState.currentSnackbarData != null) {
+            System.currentTimeMillis()
+        } else {
+            null
+        }
+    }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner, snackbarHostState) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) {
+                snackbarHostState.currentSnackbarData?.dismiss()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     val isList = libraryLayout == LAYOUT_LIST
@@ -854,7 +889,26 @@ fun LibraryContent(
             isRefreshing = isRunning,
             onRefresh = { if (ptrEnabled) onPullToRefresh() },
             state = pullToRefreshState,
-            modifier = Modifier.padding(adjustedContentPadding),
+            modifier = Modifier
+                .padding(adjustedContentPadding)
+                // F10: tap anywhere in the content area dismisses the undo snackbar after the
+                // 1-second grace (matches MainActivity.dispatchTouchEvent at MainActivity.kt:1390
+                // -1418). Initial-pass + requireUnconsumed=false observes without consuming, so
+                // the underlying lazy grid / hopper / chip still handle the same touch normally.
+                // Taps that land on the snackbar itself are intercepted by Scaffold's z-ordered
+                // snackbarHost slot before this pointerInput sees them.
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        val data = snackbarHostState.currentSnackbarData
+                        val shownAt = snackbarShownAtMs
+                        if (data != null && shownAt != null &&
+                            System.currentTimeMillis() - shownAt > 1000L
+                        ) {
+                            data.dismiss()
+                        }
+                    }
+                },
             indicator = {
                 PullToRefreshDefaults.Indicator(
                     modifier = Modifier.align(Alignment.TopCenter),
