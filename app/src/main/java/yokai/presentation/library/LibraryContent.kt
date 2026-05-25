@@ -245,6 +245,8 @@ fun LibraryContent(
     onConfirmAndMarkRead: () -> Unit,
     /** C3: show the mark-all-as-unread confirmation dialog. */
     onConfirmAndMarkUnread: () -> Unit,
+    /** C4: open the SetCategoriesSheet for the selection (bridges to legacy dialog). */
+    onMoveToCategories: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // Selection clear takes priority over search close: both are back-press affordances, but a
@@ -643,14 +645,15 @@ fun LibraryContent(
                 //
                 // Action order matches the legacy library_selection.xml row order for the
                 // showAsAction="never" group: download-unread, mark-read, mark-unread, share.
+                val moveToCategoryLabel = stringResource(MR.strings.move_to_categories)
                 val shareLabel = stringResource(MR.strings.share)
                 val downloadLabel = stringResource(MR.strings.download_unread)
                 val markReadLabel = stringResource(MR.strings.mark_as_read)
                 val markUnreadLabel = stringResource(MR.strings.mark_as_unread)
                 val overflowActions = listOf(
                     yokai.presentation.library.components.SelectionAction(
-                        label = downloadLabel,
-                        onClick = onDownloadUnread,
+                        label = moveToCategoryLabel,
+                        onClick = onMoveToCategories,
                     ),
                     yokai.presentation.library.components.SelectionAction(
                         label = markReadLabel,
@@ -659,6 +662,10 @@ fun LibraryContent(
                     yokai.presentation.library.components.SelectionAction(
                         label = markUnreadLabel,
                         onClick = onConfirmAndMarkUnread,
+                    ),
+                    yokai.presentation.library.components.SelectionAction(
+                        label = downloadLabel,
+                        onClick = onDownloadUnread,
                     ),
                     yokai.presentation.library.components.SelectionAction(
                         label = shareLabel,

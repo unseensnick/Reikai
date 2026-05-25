@@ -31,4 +31,7 @@ interface LibraryTabActions {
 
     /** Show the confirmation dialog before bulk mark-as-unread; on confirm, dispatch. */
     fun onConfirmAndMarkUnread()
+
+    /** Open the category picker sheet (legacy SetCategoriesSheet) for the selection. */
+    fun onMoveToCategories()
 }

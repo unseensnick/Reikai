@@ -28,6 +28,7 @@ import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.util.chapter.ChapterSort
 import eu.kanade.tachiyomi.util.compose.LocalRouter
+import eu.kanade.tachiyomi.util.moveCategories
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -471,6 +472,22 @@ class LibraryScreen : Screen {
             },
             onConfirmAndMarkRead = { markReadConfirmFor = true },
             onConfirmAndMarkUnread = { markReadConfirmFor = false },
+            onMoveToCategories = {
+                // C4: bridge to legacy SetCategoriesSheet via the existing
+                // `List<Manga>.moveCategories(activity, onMangaMoved)` extension at
+                // MangaExtensions.kt:117. The sheet already handles common / mixed category
+                // bucketing across multi-manga selections. updateLibrary is unnecessary in the
+                // Compose path: the screen model collects getLibraryManga.subscribe(), which
+                // re-emits when the category mapping changes.
+                val mangas = screenModel.selectedMangaList()
+                if (mangas.isEmpty()) return@LibraryContent
+                val activity = router.activity ?: return@LibraryContent
+                coroutineScope.launch {
+                    mangas.moveCategories(activity) {
+                        screenModel.clearSelection()
+                    }
+                }
+            },
             onRefreshCategory = { category ->
                 // Mirrors LibraryController.updateCategory (lines 1763-1802). Snackbar wording
                 // is decided BEFORE the dispatch so the user sees "already in queue" or
