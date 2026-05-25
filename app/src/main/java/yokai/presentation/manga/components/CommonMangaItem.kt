@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImagePainter
 import dev.icerock.moko.resources.compose.stringResource
 import dev.icerock.moko.resources.desc.Utils
+import eu.kanade.tachiyomi.util.manga.MangaCoverMetadata
 import yokai.i18n.MR
 import yokai.presentation.library.components.LazyLibraryStaggeredGrid
 import yokai.domain.manga.models.MangaCover as MangaCoverModel
@@ -183,6 +184,9 @@ fun MangaComfortableGridItem(
     ) {
         MangaGridCover(
             aspectRatio = coverAspectRatio,
+            // Only consulted when coverAspectRatio is null (Uniform grid covers off); lets the
+            // parent cell resolve its ratio from this manga's cached intrinsic ratio.
+            freeformMangaId = coverData.mangaId,
             border = if (showOutline) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
             cover = {
                 Box {
@@ -282,6 +286,8 @@ fun MangaCompactGridItem(
     MangaGridCover(
         modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
         aspectRatio = coverAspectRatio,
+        // See MangaComfortableGridItem note above.
+        freeformMangaId = coverData.mangaId,
         border = if (showOutline) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
         cover = {
             Box {
@@ -434,19 +440,52 @@ fun MangaGridCover(
     modifier: Modifier = Modifier,
     border: BorderStroke? = null,
     /**
-     * Cover aspect ratio. Default 2:3 (book) for fixed-column grids; pass `null` in the
-     * staggered grid path (when the user has turned `uniformGrid` off) to let each cover render
-     * at the image's intrinsic ratio so adjacent items vary in height.
+     * Cover aspect ratio. Default 2:3 (BOOK) for fixed-column grids; pass `null` in the
+     * freeform path (`Uniform grid covers` off) so each cell's ratio is resolved from the
+     * cached intrinsic ratio of [freeformMangaId] (or BOOK on cache miss), then clamped to a
+     * safe band so weirdly-shaped covers don't break the grid.
      */
     aspectRatio: Float? = MangaCoverRatio.BOOK,
+    /**
+     * Manga id used to look up the cached intrinsic ratio when [aspectRatio] is null.
+     * Ignored otherwise. Library cells pass `coverData.mangaId`; non-library callers can
+     * leave it null and accept the BOOK fallback for their freeform paths.
+     */
+    freeformMangaId: Long? = null,
     cover: @Composable BoxScope.() -> Unit = {},
     badgeSegments: List<BadgeSegment> = listOf(),
     content: @Composable (BoxScope.() -> Unit)? = null,
 ) {
+    // Always resolve a concrete aspect ratio so the cell has a stable height from frame 1.
+    // The previous "no aspectRatio modifier when null" branch left the cell unconstrained,
+    // which collapsed to 0 height once `MangaCover.fillContainer = true` was added at the
+    // child level (the child fills its parent, but the parent had no height to fill). With a
+    // ratio always applied here, the child's fillMaxSize + centerCrop fills the cell on both
+    // the uniform-ON and uniform-OFF paths, no double-aspect-ratio competition.
+    //
+    // Freeform clamp matches legacy LibraryGridHolder.setFreeformCoverRatio
+    // (refs/yokai/.../LibraryGridHolder.kt:166-193), which bounded cell heights to
+    // itemWidth × [1.2, 2.0]. Inverted to Compose's width/height ratio domain that's
+    // [0.5, 0.833]. Prevents pathologically tall covers (webtoon banners) from stretching a
+    // single row, and prevents near-square covers from rendering shorter than their neighbors.
+    //
+    // Memoized at cell-mount time (keyed on aspectRatio + freeformMangaId): without this,
+    // every Coil onSuccess that writes to MangaCoverMetadata triggers the next composition of
+    // this cell to re-read a different ratio and re-measure, cascading into the LazyGrid as
+    // a layout pass per cover-loaded. Matches legacy `setFreeformCoverRatio`'s read-at-bind
+    // semantics. Cells that mount before their cover's cache entry exists keep the BOOK
+    // fallback for that session; remount (scroll away + back, or screen reopen) picks up the
+    // populated cache.
+    val effectiveRatio = remember(aspectRatio, freeformMangaId) {
+        aspectRatio ?: run {
+            val cached = freeformMangaId?.let { MangaCoverMetadata.getRatio(it) }
+            (cached ?: MangaCoverRatio.BOOK).coerceIn(FREEFORM_MIN_RATIO, FREEFORM_MAX_RATIO)
+        }
+    }
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .then(if (aspectRatio != null) Modifier.aspectRatio(aspectRatio) else Modifier)
+            .aspectRatio(effectiveRatio)
             .clip(RoundedCornerShape(12.dp))
             .then(if (border != null) Modifier.border(border, RoundedCornerShape(12.dp)) else Modifier),
     ) {
@@ -459,6 +498,13 @@ fun MangaGridCover(
         )
     }
 }
+
+// Width/height bounds for freeform covers (`Uniform grid covers` off). The legacy floor +
+// ceiling at LibraryGridHolder.setFreeformCoverRatio were expressed as height bounds
+// (itemWidth × 1.2 .. itemWidth × 2.0); Compose's Modifier.aspectRatio takes width/height,
+// so we invert: 1/2.0 = 0.5 (max-height = 2× width) .. 1/1.2 ≈ 0.833 (min-height = 1.2× width).
+private const val FREEFORM_MIN_RATIO = 0.5f
+private const val FREEFORM_MAX_RATIO = 0.833f
 
 @Preview
 @Composable
