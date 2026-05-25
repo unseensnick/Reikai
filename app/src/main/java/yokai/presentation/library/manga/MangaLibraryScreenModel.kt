@@ -287,7 +287,19 @@ class MangaLibraryScreenModel :
         val ids = (state.value as? LibraryTabState.Loaded)?.selection?.toList().orEmpty()
         if (ids.size < 2) return
         screenModelScope.launchIO {
-            val sorted = MangaLibraryActions.merge(ids, preferences)
+            // Expand selection to include every member of any existing merge group a selected
+            // manga belongs to. Without this, merging [m1, m4] when m1 is already in group
+            // [m1, m2, m3] would drop the [m1, m2, m3] entry (the merge logic prunes any entry
+            // mentioning the merge ids) and orphan m2 and m3. Mirrors legacy expansion via
+            // LibraryMangaItem.relatedMangaIds at LibraryController.kt:2120-2129.
+            val idSet = ids.toSet()
+            val expandedIds = preferences.mangaManualMerges().get()
+                .asSequence()
+                .map { entry -> entry.split(",").mapNotNull { it.trim().toLongOrNull() } }
+                .filter { members -> members.any { it in idSet } }
+                .flatten()
+                .toSet() + idSet
+            val sorted = MangaLibraryActions.merge(expandedIds.toList(), preferences)
             if (preferences.syncTrackerLinksGrouped().get()) {
                 MangaLibraryActions.reconcileGroupTrackers(
                     ids = sorted,

@@ -169,14 +169,17 @@ class LibraryScreen : Screen {
             if (selection.isEmpty()) {
                 false
             } else {
-                // F6: any one selected manga in a merge group is enough — unmerge dissolves
-                // the entire group, so picking a single representative is sufficient.
+                // Unmerge only when EVERY selected manga is in a merge group. If a standalone
+                // is in the mix, the user probably wants to add it to the existing group via
+                // Merge, not dissolve the group. mergeSelection() expands selection to include
+                // every group member so the existing group survives the merge's "drop entries
+                // containing any of these ids" pruning.
                 val allMergedIds = mangaManualMerges
                     .asSequence()
                     .flatMap { entry -> entry.split(",").asSequence() }
                     .mapNotNull { it.trim().toLongOrNull() }
                     .toSet()
-                selection.any { it in allMergedIds }
+                selection.all { it in allMergedIds }
             }
         }
 
