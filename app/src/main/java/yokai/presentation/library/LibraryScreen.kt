@@ -12,6 +12,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalConfiguration
 import dev.icerock.moko.resources.compose.stringResource
 import cafe.adriel.voyager.core.model.rememberScreenModel
@@ -687,10 +689,17 @@ class LibraryScreen : Screen {
                 title = { androidx.compose.material3.Text(text = removeText) },
                 text = {
                     androidx.compose.foundation.layout.Column {
+                        // F11: legacy parity with disableItems at
+                        // MaterialAlertDialogExtensions.kt:50. The "Remove downloads" row is
+                        // visually greyed (alpha 0.5 on the Row matches Android's default
+                        // disabled-row treatment via child.isEnabled=false) but the Checkbox
+                        // itself stays enabled so a tap produces ripple feedback. The
+                        // no-op onCheckedChange keeps the box checked regardless of tap.
                         androidx.compose.foundation.layout.Row(
                             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            modifier = Modifier.alpha(0.5f),
                         ) {
-                            androidx.compose.material3.Checkbox(checked = true, enabled = false, onCheckedChange = null)
+                            androidx.compose.material3.Checkbox(checked = true, onCheckedChange = {})
                             androidx.compose.material3.Text(text = removeDownloadsLabel)
                         }
                         androidx.compose.foundation.layout.Row(
