@@ -12,6 +12,7 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.offset
@@ -768,6 +769,18 @@ fun LibraryContent(
         val swipeStateForCallback = androidx.compose.runtime.rememberUpdatedState(
             Triple(activeCategory, allCategories, onActiveCategoryChange),
         )
+        // Safety-net snap-back. The onDragStopped lambda also animates swipeOffset back to 0,
+        // but on a successful swipe the dispatch triggers a pref write → screen-model state
+        // emission → recomposition cycle that can interrupt the in-flight Animatable (covers
+        // observed landing at the post-drag offset after the swap). Keying a LaunchedEffect on
+        // activeCategory guarantees that whenever the visible category changes (whether from
+        // swipe, hopper picker, or hopper nav), the offset resets to 0 in a stable scope that
+        // recomposition can't tear down.
+        LaunchedEffect(activeCategory) {
+            if (swipeOffset.value != 0f) {
+                swipeOffset.animateTo(0f, tween(durationMillis = 150))
+            }
+        }
         Box(
             modifier = Modifier
                 .onSizeChanged { parentWidthPx = it.width },
@@ -779,7 +792,15 @@ fun LibraryContent(
             // recomposing the content tree. Modifier.draggable lives on THIS inner Box
             // (not the outer) so the chip and hopper, which are siblings rendered above
             // this Box, intercept touches before the draggable sees them.
+            //
+            // fillMaxSize: without it the Box wraps the lazy grid's content size, so a
+            // category with only a few items leaves the empty space below outside the
+            // swipe hit area (legacy works from anywhere on the library; on-device
+            // feedback flagged the "must drag on cover" feel). With fillMaxSize the gesture
+            // surface spans the full available height; the chip and hopper sit above this
+            // Box via z-order so their touch handlers still win first.
             modifier = Modifier
+                .fillMaxSize()
                 .offset { IntOffset(swipeOffset.value.roundToInt(), 0) }
                 .draggable(
                     state = swipeDraggableState,
@@ -848,24 +869,31 @@ fun LibraryContent(
                         contentPadding = PaddingValues(0.dp),
                     ) {
                         library.forEach { (category, mangaItems) ->
-                            item(
-                                key = "header:${category.id ?: 0}",
-                                contentType = "library_category_header",
-                            ) {
-                                LibraryCategoryHeader(
-                                    name = category.name,
-                                    itemCount = displayedHeaderCounts[category.id ?: 0] ?: 0,
-                                    showItemCount = showCategoryItemCounts,
-                                    isCollapsed = category.id != null && category.id in collapsedIds,
-                                    collapsible = collapsibleHeaders,
-                                    onClick = { onToggleCategoryCollapse(category) },
-                                    isRefreshing = category.id != null && category.id in inQueueCategoryIds,
-                                    onRefreshClick = if (showHeaderRefreshIcon(category)) {
-                                        { onRefreshCategory(category) }
-                                    } else {
-                                        null
-                                    },
-                                )
+                            // Match legacy: in single-category mode the header is rendered with
+                            // blank text + hidden chevron + hidden refresh icon (LibraryHeaderHolder
+                            // at refs/yokai/.../LibraryHeaderHolder.kt:181-185, :384-405), so users
+                            // see nothing above the grid. Compose-proper equivalent: skip the item
+                            // entirely. Reclaims the vertical space for covers.
+                            if (!singleCategoryMode) {
+                                item(
+                                    key = "header:${category.id ?: 0}",
+                                    contentType = "library_category_header",
+                                ) {
+                                    LibraryCategoryHeader(
+                                        name = category.name,
+                                        itemCount = displayedHeaderCounts[category.id ?: 0] ?: 0,
+                                        showItemCount = showCategoryItemCounts,
+                                        isCollapsed = category.id != null && category.id in collapsedIds,
+                                        collapsible = collapsibleHeaders,
+                                        onClick = { onToggleCategoryCollapse(category) },
+                                        isRefreshing = category.id != null && category.id in inQueueCategoryIds,
+                                        onRefreshClick = if (showHeaderRefreshIcon(category)) {
+                                            { onRefreshCategory(category) }
+                                        } else {
+                                            null
+                                        },
+                                    )
+                                }
                             }
                             items(
                                 items = mangaItems,
@@ -929,25 +957,28 @@ fun LibraryContent(
                         contentPadding = PaddingValues(0.dp),
                     ) {
                         library.forEach { (category, mangaItems) ->
-                            item(
-                                key = "header:${category.id ?: 0}",
-                                span = StaggeredGridItemSpan.FullLine,
-                                contentType = "library_category_header",
-                            ) {
-                                LibraryCategoryHeader(
-                                    name = category.name,
-                                    itemCount = displayedHeaderCounts[category.id ?: 0] ?: 0,
-                                    showItemCount = showCategoryItemCounts,
-                                    isCollapsed = category.id != null && category.id in collapsedIds,
-                                    collapsible = collapsibleHeaders,
-                                    onClick = { onToggleCategoryCollapse(category) },
-                                    isRefreshing = category.id != null && category.id in inQueueCategoryIds,
-                                    onRefreshClick = if (showHeaderRefreshIcon(category)) {
-                                        { onRefreshCategory(category) }
-                                    } else {
-                                        null
-                                    },
-                                )
+                            // Header suppressed in single-category mode; see list-branch note above.
+                            if (!singleCategoryMode) {
+                                item(
+                                    key = "header:${category.id ?: 0}",
+                                    span = StaggeredGridItemSpan.FullLine,
+                                    contentType = "library_category_header",
+                                ) {
+                                    LibraryCategoryHeader(
+                                        name = category.name,
+                                        itemCount = displayedHeaderCounts[category.id ?: 0] ?: 0,
+                                        showItemCount = showCategoryItemCounts,
+                                        isCollapsed = category.id != null && category.id in collapsedIds,
+                                        collapsible = collapsibleHeaders,
+                                        onClick = { onToggleCategoryCollapse(category) },
+                                        isRefreshing = category.id != null && category.id in inQueueCategoryIds,
+                                        onRefreshClick = if (showHeaderRefreshIcon(category)) {
+                                            { onRefreshCategory(category) }
+                                        } else {
+                                            null
+                                        },
+                                    )
+                                }
                             }
                             items(
                                 items = mangaItems,
@@ -979,25 +1010,28 @@ fun LibraryContent(
                         contentPadding = PaddingValues(0.dp),
                     ) {
                         library.forEach { (category, mangaItems) ->
-                            item(
-                                key = "header:${category.id ?: 0}",
-                                span = { GridItemSpan(maxLineSpan) },
-                                contentType = "library_category_header",
-                            ) {
-                                LibraryCategoryHeader(
-                                    name = category.name,
-                                    itemCount = displayedHeaderCounts[category.id ?: 0] ?: 0,
-                                    showItemCount = showCategoryItemCounts,
-                                    isCollapsed = category.id != null && category.id in collapsedIds,
-                                    collapsible = collapsibleHeaders,
-                                    onClick = { onToggleCategoryCollapse(category) },
-                                    isRefreshing = category.id != null && category.id in inQueueCategoryIds,
-                                    onRefreshClick = if (showHeaderRefreshIcon(category)) {
-                                        { onRefreshCategory(category) }
-                                    } else {
-                                        null
-                                    },
-                                )
+                            // Header suppressed in single-category mode; see list-branch note above.
+                            if (!singleCategoryMode) {
+                                item(
+                                    key = "header:${category.id ?: 0}",
+                                    span = { GridItemSpan(maxLineSpan) },
+                                    contentType = "library_category_header",
+                                ) {
+                                    LibraryCategoryHeader(
+                                        name = category.name,
+                                        itemCount = displayedHeaderCounts[category.id ?: 0] ?: 0,
+                                        showItemCount = showCategoryItemCounts,
+                                        isCollapsed = category.id != null && category.id in collapsedIds,
+                                        collapsible = collapsibleHeaders,
+                                        onClick = { onToggleCategoryCollapse(category) },
+                                        isRefreshing = category.id != null && category.id in inQueueCategoryIds,
+                                        onRefreshClick = if (showHeaderRefreshIcon(category)) {
+                                            { onRefreshCategory(category) }
+                                        } else {
+                                            null
+                                        },
+                                    )
+                                }
                             }
                             items(
                                 items = mangaItems,

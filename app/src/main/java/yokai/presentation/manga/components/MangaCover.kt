@@ -2,6 +2,7 @@ package yokai.presentation.manga.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -31,6 +32,16 @@ fun MangaCover(
     contentScale: ContentScale = ContentScale.Crop,
     onClick: (() -> Unit)? = null,
     onState: ((AsyncImagePainter.State) -> Unit)? = null,
+    /**
+     * When true, fill the parent's bounds via [Modifier.fillMaxSize] instead of pinning the
+     * image to its own aspect ratio. Use this when the caller (e.g., the library's
+     * [yokai.presentation.manga.components.MangaGridCover]) already constrains both dimensions:
+     * applying an internal aspect ratio on top would letterbox the image inside the cell when
+     * the cover's intrinsic ratio differs from the cell's. Matches legacy
+     * `manga_grid_item.xml`'s cover_thumbnail using `match_parent` + `centerCrop` to fill the
+     * card edge-to-edge.
+     */
+    fillContainer: Boolean = false,
 ) {
     // When the caller hasn't pinned a specific ratio (e.g., the staggered grid path which wants
     // covers to render at their intrinsic aspect after load), fall back to the cached per-cover
@@ -66,7 +77,7 @@ fun MangaCover(
         },
         onError = { state -> onState?.invoke(state) },
         modifier = modifier
-            .aspectRatio(effectiveRatio)
+            .then(if (fillContainer) Modifier.fillMaxSize() else Modifier.aspectRatio(effectiveRatio))
             .clip(shape)
             .then(
                 if (onClick != null) {

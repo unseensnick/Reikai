@@ -199,6 +199,12 @@ fun MangaComfortableGridItem(
                             onState = { state ->
                                 isLoading = state is AsyncImagePainter.State.Loading
                             },
+                            // Parent MangaGridCover already pins the cell to a BOOK aspect
+                            // ratio; let the image fill that cell via centerCrop instead of
+                            // pinning its own ratio (which letterboxes when the cover's
+                            // intrinsic ratio differs from BOOK). Matches legacy's
+                            // match_parent + centerCrop cover_thumbnail behavior.
+                            fillContainer = true,
                         )
                         if (isLoading) {
                             LoadingIndicator(modifier = Modifier.align(Alignment.Center))
@@ -209,6 +215,7 @@ fun MangaComfortableGridItem(
                                 .fillMaxWidth()
                                 .alpha(if (isSelected) 0.34f else 1.0f),
                             data = coverData,
+                            fillContainer = true,
                         )
                     }
                 }
@@ -288,6 +295,8 @@ fun MangaCompactGridItem(
                         onState = { state ->
                             isLoading = state is AsyncImagePainter.State.Loading
                         },
+                        // See MangaComfortableGridItem note above.
+                        fillContainer = true,
                     )
                     if (isLoading) {
                         LoadingIndicator(modifier = Modifier.align(Alignment.Center))
@@ -298,6 +307,7 @@ fun MangaCompactGridItem(
                             .fillMaxWidth()
                             .alpha(if (isSelected) 0.34f else 1.0f),
                         data = coverData,
+                        fillContainer = true,
                     )
                 }
             }
