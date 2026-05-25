@@ -61,5 +61,22 @@ sealed interface LibraryTabState<out T : LibraryItem> {
          * Loaded equality check to detect the change.
          */
         val categorySortOrder: Int = 0,
+        /**
+         * Tracked so the state varies when `preferences.collapsedDynamicCategories` changes.
+         * Without this, toggling a dynamic header's chevron rebuilds the library map with new
+         * synthetic Category objects (different `isHidden`), but `CategoryImpl.equals` is
+         * name-based and `Map.equals` is content-only — the new map compares equal to the
+         * old, the Loaded data class compares equal, and `MutableState.value`'s
+         * structural-equivalent setter elides the emission. The UI then never sees the new
+         * collapsed/expanded state until some other invalidation (tab switch, scroll) forces
+         * a recompose. Including the actual pref set here guarantees `.equals` differs.
+         */
+        val collapsedDynamicCategories: Set<String> = emptySet(),
+        /**
+         * Tracked alongside [collapsedDynamicCategories] for the same reason: toggling the
+         * "Move collapsed to bottom" pref changes the sorted category iteration order, which
+         * `Map.equals` doesn't see.
+         */
+        val collapsedDynamicAtBottom: Boolean = false,
     ) : LibraryTabState<T>
 }

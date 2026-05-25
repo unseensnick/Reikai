@@ -336,13 +336,19 @@ class LibraryScreen : Screen {
         //    actively narrowing (search query or active filter) → re-introduce empties so the
         //    user keeps category headers visible while they hunt for a specific result.
         //  - Otherwise → drop empties (current default).
+        // Always re-key via state.library so iteration order AND category instance freshness
+        // come from the latest state, not from the produceState-cached filteredLibrary. The
+        // cache is content-equal across iteration-order or isHidden-only changes (Map.equals
+        // is order-independent and CategoryImpl.equals is name-based), so using filteredLibrary
+        // directly would render with stale synthetic categories after a dynamic collapse toggle
+        // or a categorySortOrder flip. Empty categories are dropped only when neither the
+        // showAllCategories pref nor the showEmptyCategoriesWhileFiltering escape applies.
+        val rekeyedLibrary = library.mapValues { (cat, _) -> filteredLibrary[cat].orEmpty() }
         val postFilterLibrary = when {
-            showAllCategories ->
-                library.mapValues { (cat, _) -> filteredLibrary[cat].orEmpty() }
+            showAllCategories -> rekeyedLibrary
             showEmptyCategoriesWhileFiltering &&
-                (searchQuery.isNotEmpty() || filterState.isAnyActive) ->
-                library.mapValues { (cat, _) -> filteredLibrary[cat].orEmpty() }
-            else -> filteredLibrary
+                (searchQuery.isNotEmpty() || filterState.isAnyActive) -> rekeyedLibrary
+            else -> rekeyedLibrary.filterValues { it.isNotEmpty() }
         }
 
         // Header counts are sourced from the pre-collapse, post-filter map so collapsing a
@@ -352,20 +358,21 @@ class LibraryScreen : Screen {
             postFilterLibrary.entries.associate { (cat, items) -> (cat.id ?: 0) to items.size }
         }
 
-        // Collapse only kicks in for default grouping (groupLibraryBy = BY_DEFAULT). Dynamic
-        // groupings have their own collapse pref (collapsedDynamicCategories) which Phase 6
-        // will wire alongside multi-source grouping; until then the header is non-interactive
-        // for dynamic groups.
-        val collapsible = groupLibraryBy == eu.kanade.tachiyomi.ui.library.LibraryGroup.BY_DEFAULT
+        // Header collapse is available for both default and dynamic groupings as of Phase 6 C9.
+        // Default categories key their collapsed state on Category.id (collapsedCategories pref);
+        // dynamic categories carry `isHidden` directly, populated by MangaLibraryDynamicGrouping
+        // from preferences.collapsedDynamicCategories.
+        val collapsibleHeaders = true
         val collapsedIds = remember(collapsedCategories) {
             collapsedCategories.mapNotNullTo(HashSet()) { it.toIntOrNull() }
         }
-        val displayedLibrary = if (collapsible && collapsedIds.isNotEmpty()) {
-            postFilterLibrary.mapValues { (cat, items) ->
-                if (cat.id != null && cat.id in collapsedIds) emptyList() else items
+        val displayedLibrary = postFilterLibrary.mapValues { (cat, items) ->
+            val collapsed = if (cat.isDynamic) {
+                cat.isHidden
+            } else {
+                cat.id != null && cat.id in collapsedIds
             }
-        } else {
-            postFilterLibrary
+            if (collapsed) emptyList() else items
         }
 
         // Faithful port of legacy LibraryPresenter.kt:327-340 / 352-372: when showAllCategories
@@ -400,7 +407,7 @@ class LibraryScreen : Screen {
             categoryItemCounts = categoryItemCounts,
             displayedHeaderCounts = displayedHeaderCounts,
             collapsedIds = collapsedIds,
-            collapsibleHeaders = collapsible,
+            collapsibleHeaders = collapsibleHeaders,
             showCategoryItemCounts = showCategoryItemCounts,
             columns = columns,
             libraryLayout = libraryLayout,
@@ -433,10 +440,16 @@ class LibraryScreen : Screen {
             onSearchQueryChange = { searchQuery = it },
             onHopperGravityChange = { hopperGravityPref.set(it) },
             onToggleCategoryCollapse = { category ->
-                val id = category.id?.toString() ?: return@LibraryContent
-                val current = collapsedCategoriesPref.get().toMutableSet()
-                if (!current.add(id)) current.remove(id)
-                collapsedCategoriesPref.set(current)
+                // Dynamic categories use the dynamicHeaderKey string set; default categories
+                // use the legacy Category.id-as-string set. Route accordingly.
+                if (category.isDynamic) {
+                    screenModel.toggleDynamicCategoryCollapse(category)
+                } else {
+                    val id = category.id?.toString() ?: return@LibraryContent
+                    val current = collapsedCategoriesPref.get().toMutableSet()
+                    if (!current.add(id)) current.remove(id)
+                    collapsedCategoriesPref.set(current)
+                }
             },
             hopperLongPressAction = hopperLongPressAction,
             onExpandCollapseAllCategories = {

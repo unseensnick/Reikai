@@ -91,10 +91,14 @@ object MangaLibraryDynamicGrouping {
         }
 
         // Step 2: bucket manga by category name. A manga can appear in multiple buckets
-        // (BY_TAG and BY_AUTHOR with multiple comma-separated values).
+        // (BY_TAG and BY_AUTHOR with multiple comma-separated values). `names.distinct()`
+        // guards against the same bucket name appearing twice for one manga, which would put
+        // the manga into the same bucket twice and break LazyColumn's unique-key contract.
+        // Concrete trigger: `capitalizeWords` collapsing case variants of the same genre (e.g.
+        // "Action, action" -> ["Action", "Action"]).
         val bucketsByName = LinkedHashMap<String, MutableList<LibraryManga>>()
         for ((lm, names) in mangaWithNames) {
-            for (name in names) {
+            for (name in names.distinct()) {
                 bucketsByName.getOrPut(name) { mutableListOf() }.add(lm)
             }
         }

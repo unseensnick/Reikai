@@ -9,11 +9,19 @@ import eu.kanade.tachiyomi.data.database.models.LibraryManga
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.domain.manga.models.Manga
+import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.SourceManager
+import eu.kanade.tachiyomi.ui.library.LibraryGroup
 import eu.kanade.tachiyomi.ui.library.LibrarySort
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
+import eu.kanade.tachiyomi.util.isLocal
+import eu.kanade.tachiyomi.util.mapStatus
 import eu.kanade.tachiyomi.util.system.launchIO
+import yokai.i18n.MR
+import yokai.util.lang.getString
+import java.util.Locale
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
@@ -65,6 +73,7 @@ class MangaLibraryScreenModel :
     private val getTrack: GetTrack by injectLazy()
     private val insertTrack: InsertTrack by injectLazy()
     private val updateCategories: UpdateCategories by injectLazy()
+    private val trackManager: TrackManager by injectLazy()
 
     init {
         screenModelScope.launchIO {
@@ -88,6 +97,7 @@ class MangaLibraryScreenModel :
                     autoMergeSameTitle = true,
                     sortPrefs = SortPrefs.DEFAULT,
                     categorySortOrder = 0,
+                    groupingPrefs = GroupingPrefs.DEFAULT,
                 )
             }
                 // The 5-arg combine is the kotlinx-coroutines typed-lambda limit. Chain the
@@ -115,43 +125,143 @@ class MangaLibraryScreenModel :
                 .combine(preferences.categorySortOrder().changes()) { snap, categorySortOrder ->
                     snap.copy(categorySortOrder = categorySortOrder)
                 }
+                // Dynamic grouping prefs: the group-by mode, the collapsed-dynamic-categories
+                // set, and the collapsed-at-bottom toggle. Bundled into a single combine so the
+                // main chain stays shallow.
+                .combine(groupingPrefsFlow()) { snap, groupingPrefs ->
+                    snap.copy(groupingPrefs = groupingPrefs)
+                }
                 .collectLatest { snap ->
-                    // Recreate per emission so a locale change between subscriptions picks up the
-                    // re-translated "Default" string, matching legacy LibraryPresenter behavior.
-                    // The default category's sort lives in `preferences.defaultMangaOrder` rather
-                    // than the categories table; legacy reads it at LibraryPresenter.kt:1320-1322.
-                    val defaultCategory = Category.createDefault(preferences.context).apply {
-                        order = -1
-                        val defOrder = snap.sortPrefs.defaultMangaOrder
-                        if (defOrder.firstOrNull()?.isLetter() == true) {
-                            mangaSort = defOrder.first()
+                    // Build the rendered library map. Branches per groupLibraryBy:
+                    //   BY_DEFAULT: sectioner (by Category) -> merge collapse -> per-cat sort.
+                    //   Dynamic (BY_SOURCE / BY_LANGUAGE / BY_TAG / BY_AUTHOR / BY_STATUS /
+                    //     BY_TRACK_STATUS): pre-resolve per-manga metadata -> dynamic grouping
+                    //     builds synthetic categories -> sort items within each synthetic cat.
+                    val library: Map<Category, List<LibraryItem.Manga>> =
+                        if (snap.groupingPrefs.groupLibraryBy == LibraryGroup.BY_DEFAULT) {
+                            // Recreate per emission so a locale change between subscriptions picks
+                            // up the re-translated "Default" string, matching legacy behavior.
+                            // The default category's sort lives in `preferences.defaultMangaOrder`
+                            // rather than the categories table; legacy reads it at
+                            // LibraryPresenter.kt:1320-1322.
+                            val defaultCategory = Category.createDefault(preferences.context)
+                                .apply {
+                                    order = -1
+                                    val defOrder = snap.sortPrefs.defaultMangaOrder
+                                    if (defOrder.firstOrNull()?.isLetter() == true) {
+                                        mangaSort = defOrder.first()
+                                    }
+                                }
+                            val sectioned = MangaLibrarySectioner.section(
+                                libraryManga = snap.libraryManga,
+                                userCategories = snap.categories,
+                                defaultCategory = defaultCategory,
+                                categorySortOrder = snap.categorySortOrder,
+                            )
+                            // Collapse merged-manga groups (manual merge + same-title auto-merge)
+                            // into a single rendered entry per group, stamped with relatedMangaIds.
+                            // Mirrors legacy LibraryPresenter.applySourceGrouping at
+                            // LibraryPresenter.kt:943-997.
+                            val grouped = MangaLibraryGrouping.collapse(
+                                library = sectioned,
+                                manualMerges = snap.manualMerges,
+                                manualUnmerges = snap.manualUnmerges,
+                                autoMergeSameTitle = snap.autoMergeSameTitle,
+                            )
+                            // Per-category sort (9 modes), with library-wide default as fallback.
+                            MangaLibrarySort.sort(
+                                library = grouped,
+                                libraryDefaultMode = snap.sortPrefs.mode,
+                                libraryDefaultAscending = snap.sortPrefs.ascending,
+                                randomSeed = snap.sortPrefs.randomSeed,
+                                removeArticles = snap.sortPrefs.removeArticles,
+                            )
+                        } else {
+                            // Dynamic grouping. Pre-resolve per-manga metadata that the legacy
+                            // resolves inline inside getDynamicLibraryItems at
+                            // LibraryPresenter.kt:1128-1296. Suspends only when the active group
+                            // type actually needs tracker data, so the common BY_SOURCE /
+                            // BY_TAG / BY_AUTHOR / BY_STATUS / BY_LANGUAGE paths stay synchronous.
+                            val groupType = snap.groupingPrefs.groupLibraryBy
+                            val unknownLabel = preferences.context.getString(MR.strings.unknown)
+                            val notTrackedLabel =
+                                preferences.context.getString(MR.strings.not_tracked)
+
+                            val sourceMeta = if (groupType == LibraryGroup.BY_SOURCE) {
+                                snap.libraryManga.mapNotNull { lm ->
+                                    val id = lm.manga.id ?: return@mapNotNull null
+                                    val source = sourceManager.getOrStub(lm.manga.source)
+                                    id to (source.name to source.id)
+                                }.toMap()
+                            } else emptyMap()
+
+                            val languageCodes = if (groupType == LibraryGroup.BY_LANGUAGE) {
+                                snap.libraryManga.mapNotNull { lm ->
+                                    val id = lm.manga.id ?: return@mapNotNull null
+                                    val lang = languageOf(lm.manga) ?: return@mapNotNull null
+                                    id to lang
+                                }.toMap()
+                            } else emptyMap()
+
+                            val statusNames = if (groupType == LibraryGroup.BY_STATUS) {
+                                snap.libraryManga.mapNotNull { lm ->
+                                    val id = lm.manga.id ?: return@mapNotNull null
+                                    id to preferences.context.mapStatus(lm.manga.status)
+                                }.toMap()
+                            } else emptyMap()
+
+                            val trackStatuses = if (groupType == LibraryGroup.BY_TRACK_STATUS) {
+                                val loggedServices =
+                                    trackManager.services.filter { it.isLogged }
+                                snap.libraryManga.mapNotNull { lm ->
+                                    val mangaId = lm.manga.id ?: return@mapNotNull null
+                                    val tracks = getTrack.awaitAllByMangaId(mangaId)
+                                    val track = tracks.find { t ->
+                                        loggedServices.any { it.id == t.sync_id }
+                                    }
+                                    val service =
+                                        loggedServices.find { it.id == track?.sync_id }
+                                    if (track != null && service != null) {
+                                        val status = if (loggedServices.size > 1) {
+                                            service.getGlobalStatus(track.status)
+                                        } else {
+                                            service.getStatus(track.status)
+                                        }
+                                        mangaId to status
+                                    } else null
+                                }.toMap()
+                            } else emptyMap()
+
+                            val dynamic = MangaLibraryDynamicGrouping.build(
+                                libraryManga = snap.libraryManga,
+                                groupType = groupType,
+                                librarySortingMode = snap.sortPrefs.mode.mainValue,
+                                librarySortingAscending = snap.sortPrefs.ascending,
+                                collapsedDynamicCategories =
+                                    snap.groupingPrefs.collapsedDynamicCategories,
+                                collapsedDynamicAtBottom =
+                                    snap.groupingPrefs.collapsedDynamicAtBottom,
+                                unknownLabel = unknownLabel,
+                                notTrackedLabel = notTrackedLabel,
+                                sourceMeta = sourceMeta,
+                                trackStatuses = trackStatuses,
+                                languageCodes = languageCodes,
+                                statusNames = statusNames,
+                                languageDisplay = ::languageDisplay,
+                                trackingStatusOrder = ::mapTrackingOrder,
+                            )
+
+                            // Sort manga within each synthetic category. createCustom already set
+                            // each category's mangaSort to the library-wide default, so the sort
+                            // helper reads that per-category mode.
+                            MangaLibrarySort.sort(
+                                library = dynamic,
+                                libraryDefaultMode = snap.sortPrefs.mode,
+                                libraryDefaultAscending = snap.sortPrefs.ascending,
+                                randomSeed = snap.sortPrefs.randomSeed,
+                                removeArticles = snap.sortPrefs.removeArticles,
+                            )
                         }
-                    }
-                    val sectioned = MangaLibrarySectioner.section(
-                        libraryManga = snap.libraryManga,
-                        userCategories = snap.categories,
-                        defaultCategory = defaultCategory,
-                        categorySortOrder = snap.categorySortOrder,
-                    )
-                    // Collapse merged-manga groups (manual merge + same-title auto-merge) into
-                    // a single rendered entry per group, stamped with relatedMangaIds. Mirrors
-                    // legacy LibraryPresenter.applySourceGrouping at LibraryPresenter.kt:943-997.
-                    val grouped = MangaLibraryGrouping.collapse(
-                        library = sectioned,
-                        manualMerges = snap.manualMerges,
-                        manualUnmerges = snap.manualUnmerges,
-                        autoMergeSameTitle = snap.autoMergeSameTitle,
-                    )
-                    // Per-category sort (9 modes), with library-wide default as the fallback for
-                    // categories whose mangaSort is unset. Pipeline order matches legacy:
-                    // group, filter (Compose-side at render), sort.
-                    val library = MangaLibrarySort.sort(
-                        library = grouped,
-                        libraryDefaultMode = snap.sortPrefs.mode,
-                        libraryDefaultAscending = snap.sortPrefs.ascending,
-                        randomSeed = snap.sortPrefs.randomSeed,
-                        removeArticles = snap.sortPrefs.removeArticles,
-                    )
                     val inQueue = if (snap.isRunning) {
                         library.keys.mapNotNullTo(HashSet()) { cat ->
                             cat.id?.takeIf { libraryUpdater.isCategoryInQueue(it) }
@@ -164,8 +274,10 @@ class MangaLibraryScreenModel :
                         // library update mid-action doesn't drop the user's selection set. Also
                         // carry sortEpoch forward unchanged; combine-driven emissions never bump
                         // it (only optimistic sort writes do, see setSort). categorySortOrder
-                        // is reflected into state so a pref change visibly re-emits even when
-                        // the library map compares equal to its previous value.
+                        // AND collapsedDynamicCategories / collapsedDynamicAtBottom are reflected
+                        // into state so a pref change visibly re-emits even when the library map
+                        // compares equal to its previous value (see LibraryTabState.Loaded
+                        // KDoc for the CategoryImpl.equals / Map.equals gotcha).
                         val loaded = current as? LibraryTabState.Loaded
                         val carriedSelection = loaded?.selection ?: emptySet()
                         val carriedSortEpoch = loaded?.sortEpoch ?: 0
@@ -178,6 +290,8 @@ class MangaLibraryScreenModel :
                             selection = carriedSelection,
                             sortEpoch = carriedSortEpoch,
                             categorySortOrder = snap.categorySortOrder,
+                            collapsedDynamicCategories = snap.groupingPrefs.collapsedDynamicCategories,
+                            collapsedDynamicAtBottom = snap.groupingPrefs.collapsedDynamicAtBottom,
                         )
                     }
                 }
@@ -564,6 +678,78 @@ class MangaLibraryScreenModel :
         )
     }
 
+    /**
+     * Bundles the three dynamic-grouping prefs so the main combine chain stays shallow.
+     */
+    private fun groupingPrefsFlow() = combine(
+        preferences.groupLibraryBy().changes(),
+        preferences.collapsedDynamicCategories().changes(),
+        preferences.collapsedDynamicAtBottom().changes(),
+    ) { groupBy, collapsed, atBottom -> GroupingPrefs(groupBy, collapsed, atBottom) }
+
+    private data class GroupingPrefs(
+        val groupLibraryBy: Int,
+        val collapsedDynamicCategories: Set<String>,
+        val collapsedDynamicAtBottom: Boolean,
+    ) {
+        companion object {
+            val DEFAULT = GroupingPrefs(
+                groupLibraryBy = LibraryGroup.BY_DEFAULT,
+                collapsedDynamicCategories = emptySet(),
+                collapsedDynamicAtBottom = false,
+            )
+        }
+    }
+
+    /**
+     * Resolves a manga's source language. Mirrors legacy [eu.kanade.tachiyomi.ui.library.LibraryPresenter.getLanguage]
+     * at `LibraryPresenter.kt:666-672`.
+     */
+    private fun languageOf(manga: Manga): String? =
+        if (manga.isLocal()) LocalSource.getMangaLang(manga) else sourceManager.get(manga.source)?.lang
+
+    /**
+     * Resolves a language code into a localized display name (e.g. "en" → "English"). Mirrors
+     * the inline expression at legacy `LibraryPresenter.kt:1226-1230`.
+     */
+    private fun languageDisplay(langCode: String): String {
+        val locale = Locale.forLanguageTag(langCode)
+        return locale.getDisplayName(locale).replaceFirstChar { it.uppercase(locale) }
+    }
+
+    /**
+     * Maps a tracker status name to a sort-prefix so BY_TRACK_STATUS orders by intent (Reading
+     * first, Dropped last) rather than alphabetically. Mirrors legacy
+     * [eu.kanade.tachiyomi.ui.library.LibraryPresenter.mapTrackingOrder] at
+     * `LibraryPresenter.kt:1302-1314`.
+     */
+    private fun mapTrackingOrder(status: String): String = with(preferences.context) {
+        when (status) {
+            getString(MR.strings.reading), getString(MR.strings.currently_reading) -> "1"
+            getString(MR.strings.rereading) -> "2"
+            getString(MR.strings.plan_to_read), getString(MR.strings.want_to_read) -> "3"
+            getString(MR.strings.on_hold), getString(MR.strings.paused) -> "4"
+            getString(MR.strings.completed) -> "5"
+            getString(MR.strings.dropped) -> "6"
+            else -> "7"
+        }
+    }
+
+    /**
+     * Toggle the collapse state of a dynamic category. Writes to `collapsedDynamicCategories`
+     * keyed by [Category.dynamicHeaderKey] (mirrors legacy
+     * `LibraryPresenter.kt:1653-1677`). Default-grouping categories use a separate
+     * `collapsedCategories` pref keyed by integer category id and are handled by the existing
+     * `onToggleCategoryCollapse` callback in `LibraryScreen`.
+     */
+    fun toggleDynamicCategoryCollapse(category: Category) {
+        if (!category.isDynamic) return
+        val key = category.dynamicHeaderKey()
+        val current = preferences.collapsedDynamicCategories().get().toMutableSet()
+        if (!current.add(key)) current.remove(key)
+        preferences.collapsedDynamicCategories().set(current)
+    }
+
     private data class SortPrefs(
         val mode: LibrarySort,
         val ascending: Boolean,
@@ -596,5 +782,7 @@ class MangaLibraryScreenModel :
         val sortPrefs: SortPrefs,
         /** Reikai-fork `preferences.categorySortOrder`: 0 manual, 1 A→Z, 2 Z→A. */
         val categorySortOrder: Int,
+        /** groupLibraryBy mode + collapsed-dynamic state, bundled for chain shallowness. */
+        val groupingPrefs: GroupingPrefs,
     )
 }

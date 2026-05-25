@@ -1138,7 +1138,7 @@ fun LibraryContent(
                                     // composition (the captured Category reference is the same
                                     // after an in-place mangaSort mutation), and the sort label
                                     // stays on the previous mode even though the library re-sorts.
-                                    key = "header:${category.id ?: 0}:${category.mangaSort ?: '-'}",
+                                    key = "header:${category.id ?: 0}:${category.mangaSort ?: '-'}:${category.isHidden}",
                                     contentType = "library_category_header",
                                 ) {
                                     val allSelectedInCategory = mangaItems.isNotEmpty() &&
@@ -1147,7 +1147,7 @@ fun LibraryContent(
                                         name = category.name,
                                         itemCount = displayedHeaderCounts[category.id ?: 0] ?: 0,
                                         showItemCount = showCategoryItemCounts,
-                                        isCollapsed = category.id != null && category.id in collapsedIds,
+                                        isCollapsed = if (category.isDynamic) category.isHidden else (category.id != null && category.id in collapsedIds),
                                         collapsible = collapsibleHeaders,
                                         onClick = { onToggleCategoryCollapse(category) },
                                         isRefreshing = category.id != null && category.id in inQueueCategoryIds,
@@ -1170,7 +1170,11 @@ fun LibraryContent(
                             }
                             items(
                                 items = mangaItems,
-                                key = { it.libraryManga.manga.id ?: 0L },
+                                // Composite key so the same manga can legitimately appear in
+                                // multiple dynamic categories (BY_TAG / BY_AUTHOR) without the
+                                // LazyColumn complaining about duplicate keys. Per-category
+                                // disambiguation prefix: "<categoryId>:<mangaId>".
+                                key = { "${category.id ?: 0}:${it.libraryManga.manga.id ?: 0L}" },
                                 contentType = { "library_list_item" },
                             ) { item ->
                                 val manga = item.libraryManga.manga
@@ -1242,7 +1246,7 @@ fun LibraryContent(
                                     // Sort char + ascending bit are folded into the key so the
                                     // header slot is rebuilt when the user changes per-category
                                     // sort (see list-branch note above for the rationale).
-                                    key = "header:${category.id ?: 0}:${category.mangaSort ?: '-'}",
+                                    key = "header:${category.id ?: 0}:${category.mangaSort ?: '-'}:${category.isHidden}",
                                     span = StaggeredGridItemSpan.FullLine,
                                     contentType = "library_category_header",
                                 ) {
@@ -1252,7 +1256,7 @@ fun LibraryContent(
                                         name = category.name,
                                         itemCount = displayedHeaderCounts[category.id ?: 0] ?: 0,
                                         showItemCount = showCategoryItemCounts,
-                                        isCollapsed = category.id != null && category.id in collapsedIds,
+                                        isCollapsed = if (category.isDynamic) category.isHidden else (category.id != null && category.id in collapsedIds),
                                         collapsible = collapsibleHeaders,
                                         onClick = { onToggleCategoryCollapse(category) },
                                         isRefreshing = category.id != null && category.id in inQueueCategoryIds,
@@ -1275,7 +1279,11 @@ fun LibraryContent(
                             }
                             items(
                                 items = mangaItems,
-                                key = { it.libraryManga.manga.id ?: 0L },
+                                // Composite key so the same manga can legitimately appear in
+                                // multiple dynamic categories (BY_TAG / BY_AUTHOR) without the
+                                // LazyColumn complaining about duplicate keys. Per-category
+                                // disambiguation prefix: "<categoryId>:<mangaId>".
+                                key = { "${category.id ?: 0}:${it.libraryManga.manga.id ?: 0L}" },
                                 contentType = { "library_grid_item" },
                             ) { item ->
                                 // Staggered + uniformGrid=false: drop the cover aspect-ratio so
@@ -1313,7 +1321,7 @@ fun LibraryContent(
                                     // Sort char + ascending bit are folded into the key so the
                                     // header slot is rebuilt when the user changes per-category
                                     // sort (see list-branch note above for the rationale).
-                                    key = "header:${category.id ?: 0}:${category.mangaSort ?: '-'}",
+                                    key = "header:${category.id ?: 0}:${category.mangaSort ?: '-'}:${category.isHidden}",
                                     span = { GridItemSpan(maxLineSpan) },
                                     contentType = "library_category_header",
                                 ) {
@@ -1323,7 +1331,7 @@ fun LibraryContent(
                                         name = category.name,
                                         itemCount = displayedHeaderCounts[category.id ?: 0] ?: 0,
                                         showItemCount = showCategoryItemCounts,
-                                        isCollapsed = category.id != null && category.id in collapsedIds,
+                                        isCollapsed = if (category.isDynamic) category.isHidden else (category.id != null && category.id in collapsedIds),
                                         collapsible = collapsibleHeaders,
                                         onClick = { onToggleCategoryCollapse(category) },
                                         isRefreshing = category.id != null && category.id in inQueueCategoryIds,
@@ -1346,7 +1354,11 @@ fun LibraryContent(
                             }
                             items(
                                 items = mangaItems,
-                                key = { it.libraryManga.manga.id ?: 0L },
+                                // Composite key so the same manga can legitimately appear in
+                                // multiple dynamic categories (BY_TAG / BY_AUTHOR) without the
+                                // LazyColumn complaining about duplicate keys. Per-category
+                                // disambiguation prefix: "<categoryId>:<mangaId>".
+                                key = { "${category.id ?: 0}:${it.libraryManga.manga.id ?: 0L}" },
                                 contentType = { "library_grid_item" },
                             ) { item ->
                                 // Faithful port of AutofitRecyclerView.useStaggered + the
