@@ -1,5 +1,6 @@
 package yokai.presentation.manga.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -46,6 +47,13 @@ fun MangaListItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .then(
+                if (isSelected) {
+                    Modifier.background(MaterialTheme.colorScheme.secondary)
+                } else {
+                    Modifier
+                },
+            )
             .then(
                 when {
                     onClick != null && onLongClick != null -> Modifier.combinedClickable(

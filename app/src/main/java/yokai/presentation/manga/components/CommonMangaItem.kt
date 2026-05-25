@@ -187,12 +187,32 @@ fun MangaComfortableGridItem(
             else -> Modifier
         },
     ) {
+        // Selection frame port of refs/yokai library_grid_selector.xml +
+        // LibraryGridHolder.kt:108-122: 4dp colorSecondary fill behind the cover, plus a 3dp
+        // colorSecondary stroke. Selection border overrides the outline-on-covers preference
+        // border so the user sees one clear selection cue (not two competing strokes).
+        Box(
+            modifier = if (isSelected) {
+                Modifier
+                    .background(
+                        color = MaterialTheme.colorScheme.secondary,
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                    .padding(4.dp)
+            } else {
+                Modifier
+            },
+        ) {
         MangaGridCover(
             aspectRatio = coverAspectRatio,
             // Only consulted when coverAspectRatio is null (Uniform grid covers off); lets the
             // parent cell resolve its ratio from this manga's cached intrinsic ratio.
             freeformMangaId = coverData.mangaId,
-            border = if (showOutline) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
+            border = when {
+                isSelected -> BorderStroke(3.dp, MaterialTheme.colorScheme.secondary)
+                showOutline -> BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                else -> null
+            },
             cover = {
                 Box {
                     if (showLoadingIndicator) {
@@ -246,6 +266,7 @@ fun MangaComfortableGridItem(
                 }
             },
         )
+        }
         // Below-cover comfortable title. Legacy manga_grid_item.xml uses
         // ?textAppearanceBodySmall (12sp) with lineHeight=15sp; mirror that exactly so the
         // two-line text block under each cover matches the legacy height.
@@ -289,6 +310,19 @@ fun MangaCompactGridItem(
     onClickContinueReading: (() -> Unit)? = null,
     showLoadingIndicator: Boolean = true,
 ) {
+    // Selection frame: same port as MangaComfortableGridItem.
+    Box(
+        modifier = if (isSelected) {
+            Modifier
+                .background(
+                    color = MaterialTheme.colorScheme.secondary,
+                    shape = RoundedCornerShape(12.dp),
+                )
+                .padding(4.dp)
+        } else {
+            Modifier
+        },
+    ) {
     MangaGridCover(
         modifier = when {
             onClick != null && onLongClick != null -> Modifier.combinedClickable(
@@ -301,7 +335,11 @@ fun MangaCompactGridItem(
         aspectRatio = coverAspectRatio,
         // See MangaComfortableGridItem note above.
         freeformMangaId = coverData.mangaId,
-        border = if (showOutline) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
+        border = when {
+            isSelected -> BorderStroke(3.dp, MaterialTheme.colorScheme.secondary)
+            showOutline -> BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            else -> null
+        },
         cover = {
             Box {
                 if (showLoadingIndicator) {
@@ -353,6 +391,7 @@ fun MangaCompactGridItem(
             }
         },
     )
+    }
 }
 
 @Composable
