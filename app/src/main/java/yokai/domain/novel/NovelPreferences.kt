@@ -19,6 +19,20 @@ class NovelPreferences(
      */
     fun installedPluginUrls() = preferenceStore.getStringSet("ln_installed_plugin_urls", emptySet())
 
+    /**
+     * Set of plugin REPO URLs (i.e. `plugins.min.json` registries) the user has added through
+     * Browse → Extension repos → Light novels (Phase 8 follow-up CR1).
+     *
+     * Deliberately distinct from [installedPluginUrls]:
+     *   - This pref tracks REPOS (sources of plugins).
+     *   - That pref tracks the individual `.js` URLs the user has actually installed.
+     * Deleting a repo here does NOT auto-uninstall the plugins it provided, matching the
+     * lnreader upstream behavior. The Compose Browse → Extensions → Light novels sub-tab
+     * (CR6) aggregates plugins across every URL in this set; the per-plugin install /
+     * uninstall actions write through to [installedPluginUrls].
+     */
+    fun addedRepoUrls() = preferenceStore.getStringSet("novel_added_repo_urls", emptySet())
+
     // Reader rendering preferences. Stored globally for the spike; future polish may add
     // per-novel overrides if needed.
     fun readerFontSize() = preferenceStore.getInt("ln_reader_font_size_sp", 16)
