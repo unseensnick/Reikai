@@ -2,6 +2,7 @@ package yokai.presentation.library.novels.actions
 
 import co.touchlab.kermit.Logger
 import yokai.domain.novel.NovelChapterRepository
+import yokai.domain.novel.NovelPreferences
 import yokai.domain.novel.NovelRepository
 import yokai.domain.novel.NovelTrackRepository
 import yokai.domain.novel.models.Novel
@@ -135,5 +136,80 @@ object NovelLibraryActions {
         novels.distinctBy { it.id }.forEach { novel ->
             novel.id?.let { novelTrackRepository.deleteAllForNovel(it) }
         }
+    }
+
+    /**
+     * Manual merge. Verbatim port of [yokai.presentation.library.manga.actions.MangaLibraryActions.merge]
+     * with `mangaManualMerges` / `mangaManualUnmerges` swapped for the C23 novel keys.
+     *
+     * Sorts ids, drops any existing merge entries that mention any of these ids (collision
+     * avoidance), inserts the new entry, and strips only the unmerge pairs wholly contained
+     * in the new merge set so an earlier full-group unmerge isn't silently undone. Returns
+     * the sorted ids. Requires `ids.size >= 2`.
+     *
+     * Decision #5: no `reconcileGroupTrackers` call on the novel side; the caller in C32
+     * doesn't conditionally invoke any tracker reconciliation. The return value is kept on
+     * the surface so the screen model can use it for snackbar text / undo state.
+     */
+    fun merge(ids: List<Long>, novelPreferences: NovelPreferences): List<Long> {
+        val sorted = ids.sorted()
+        val sortedSet = sorted.toSet()
+        val newEntry = sorted.joinToString(",")
+
+        val merges = novelPreferences.novelManualMerges().get().toMutableSet()
+        merges.removeAll { entry ->
+            entry.split(",").any { part -> part.trim().toLongOrNull() in sortedSet }
+        }
+        merges.add(newEntry)
+        novelPreferences.novelManualMerges().set(merges)
+
+        val unmerges = novelPreferences.novelManualUnmerges().get().toMutableSet()
+        unmerges.removeAll { entry ->
+            val parts = entry.split(",").mapNotNull { it.trim().toLongOrNull() }
+            parts.isNotEmpty() && parts.all { it in sortedSet }
+        }
+        novelPreferences.novelManualUnmerges().set(unmerges)
+
+        return sorted
+    }
+
+    /**
+     * Library multi-select unmerge. Verbatim port of
+     * [yokai.presentation.library.manga.actions.MangaLibraryActions.unmerge].
+     *
+     * Wholesale-dissolve semantics: picking one member of a merged group is enough; the whole
+     * group breaks apart, and every pair within the original group is recorded in
+     * `novelManualUnmerges` so the same-title auto-grouping pass in [NovelLibraryGrouping]
+     * (C21) cannot re-form the group. Pair format `"smallerId,largerId"` matches what
+     * [NovelLibraryGrouping] consumes. Entries with no target overlap are passed through
+     * unchanged.
+     */
+    fun unmerge(targetIds: List<Long>, novelPreferences: NovelPreferences) {
+        if (targetIds.isEmpty()) return
+        val targetSet = targetIds.toSet()
+
+        val originalMerges = novelPreferences.novelManualMerges().get()
+        val updatedMerges = LinkedHashSet<String>()
+        val unmerges = novelPreferences.novelManualUnmerges().get().toMutableSet()
+
+        for (entry in originalMerges) {
+            val members = entry.split(",").mapNotNull { it.trim().toLongOrNull() }.distinct()
+            val anyTargetInGroup = members.any { it in targetSet }
+            if (!anyTargetInGroup) {
+                updatedMerges.add(entry)
+                continue
+            }
+            for (i in members.indices) {
+                for (j in (i + 1) until members.size) {
+                    val a = members[i]
+                    val b = members[j]
+                    val pair = if (a < b) "$a,$b" else "$b,$a"
+                    unmerges.add(pair)
+                }
+            }
+        }
+
+        novelPreferences.novelManualMerges().set(updatedMerges)
+        novelPreferences.novelManualUnmerges().set(unmerges)
     }
 }
