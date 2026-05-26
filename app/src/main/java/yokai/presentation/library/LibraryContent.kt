@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -221,6 +222,18 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
      * Display options sheet.
      */
     onOpenGroupByPicker: () -> Unit,
+    /**
+     * Rendered immediately under the normal `TopAppBar` / `LargeTopAppBar` (same Surface chrome,
+     * no spacing gap), making it part of the top app bar visually rather than a floating row
+     * above it. Hidden when the bar swaps to [SelectionAppBar] or [LibrarySearchBar] — those
+     * preempt the entire top chrome (Material convention; matches the legacy ActionMode that
+     * also hides tabs during selection).
+     *
+     * Used by [yokai.presentation.library.LibraryScreen] (Phase 8 C9 follow-up) to host the
+     * Manga / Light novels [androidx.compose.material3.PrimaryTabRow]. Default `{}` keeps the
+     * composable usable from any future single-tab caller.
+     */
+    topBarBelow: @Composable () -> Unit = {},
     /**
      * Per-tab list-row renderer. Called inside the LazyColumn `items{}` block with the item, its
      * computed selection state, whether selection mode is active, and a [Modifier] carrying
@@ -862,30 +875,54 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                     colors = libraryTopBarColors,
                 )
             } else if (useLargeToolbar) {
-                // Wrap in an offset Box so the entire bar can slide up by hideOffsetPx after
-                // the LargeTopAppBar has fully collapsed. The bar's measured height stays
-                // unchanged so the Scaffold's contentPadding remains stable; the content
-                // compensates by adjusting its own top padding below. We measure the wrapper
-                // continuously so hideOffsetPx's lower bound tracks the bar's CURRENT visible
-                // height — which is the collapsed-content height + status-bar inset added by
-                // TopAppBarDefaults.windowInsets. A hardcoded 64.dp left the status-bar strip
-                // visible on devices with non-trivial top insets (tablets, notch phones).
-                Box(
-                    modifier = Modifier
-                        .offset { IntOffset(0, hideOffsetPx.roundToInt()) }
-                        .onSizeChanged { size ->
-                            // Only record the FINAL collapsed height: while the LargeTopAppBar
-                            // is mid-collapse (heightOffset > heightOffsetLimit) the measured
-                            // size is larger than the collapsed state. We're only interested
-                            // in the collapsed-state height so we keep the smallest size we
-                            // have seen so far.
-                            val newHeight = size.height.toFloat()
-                            if (collapsedBarHeightPx == 0f || newHeight < collapsedBarHeightPx) {
-                                collapsedBarHeightPx = newHeight
-                            }
-                        },
-                ) {
-                    LargeTopAppBar(
+                // Column so [topBarBelow] (the tab row, when hosted by the Phase 8 tabbed shell)
+                // sits flush under the LargeTopAppBar inside the same Scaffold topBar slot. The
+                // Scaffold then measures the combined height and adjusts contentPadding
+                // accordingly, so the grid scrolls beneath both rows correctly.
+                Column {
+                    // Wrap the LargeTopAppBar in an offset Box so the bar can slide up by
+                    // hideOffsetPx after full collapse. The bar's measured height stays
+                    // unchanged so the Scaffold's contentPadding remains stable; the content
+                    // compensates by adjusting its own top padding below. Measured continuously
+                    // so hideOffsetPx's lower bound tracks the bar's CURRENT visible height —
+                    // which is the collapsed-content height + status-bar inset added by
+                    // TopAppBarDefaults.windowInsets. A hardcoded 64.dp left the status-bar
+                    // strip visible on devices with non-trivial top insets (tablets, notch
+                    // phones).
+                    Box(
+                        modifier = Modifier
+                            .offset { IntOffset(0, hideOffsetPx.roundToInt()) }
+                            .onSizeChanged { size ->
+                                // Only record the FINAL collapsed height: while the
+                                // LargeTopAppBar is mid-collapse (heightOffset >
+                                // heightOffsetLimit) the measured size is larger than the
+                                // collapsed state. We're only interested in the collapsed-state
+                                // height so we keep the smallest size we have seen so far.
+                                val newHeight = size.height.toFloat()
+                                if (collapsedBarHeightPx == 0f || newHeight < collapsedBarHeightPx) {
+                                    collapsedBarHeightPx = newHeight
+                                }
+                            },
+                    ) {
+                        LargeTopAppBar(
+                            title = { Text(stringResource(MR.strings.library)) },
+                            scrollBehavior = scrollBehavior,
+                            colors = libraryTopBarColors,
+                            actions = {
+                                LibraryToolbarActions(
+                                    isAnyFilterActive = isAnyFilterActive,
+                                    onSearch = { onSearchActiveChange(true) },
+                                    onOpenFilter = onOpenFilter,
+                                    onOpenOverflow = onOpenOverflow,
+                                )
+                            },
+                        )
+                    }
+                    topBarBelow()
+                }
+            } else {
+                Column {
+                    TopAppBar(
                         title = { Text(stringResource(MR.strings.library)) },
                         scrollBehavior = scrollBehavior,
                         colors = libraryTopBarColors,
@@ -898,21 +935,8 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                             )
                         },
                     )
+                    topBarBelow()
                 }
-            } else {
-                TopAppBar(
-                    title = { Text(stringResource(MR.strings.library)) },
-                    scrollBehavior = scrollBehavior,
-                    colors = libraryTopBarColors,
-                    actions = {
-                        LibraryToolbarActions(
-                            isAnyFilterActive = isAnyFilterActive,
-                            onSearch = { onSearchActiveChange(true) },
-                            onOpenFilter = onOpenFilter,
-                            onOpenOverflow = onOpenOverflow,
-                        )
-                    },
-                )
             }
         },
     ) { contentPadding ->

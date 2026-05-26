@@ -1,14 +1,9 @@
 package yokai.presentation.library
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,7 +16,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -99,29 +93,28 @@ class LibraryScreen : Screen {
             uiPrefs.libraryActiveTab().set(activeTab)
         }
 
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Tab row at the very top. The per-tab content below still owns its own collapsing
-            // TopAppBar (with the "Library" title + search + overflow), matching the Phase 1-6
-            // visual + accessibility of the manga path. Title placement consolidation can
-            // happen in a follow-up if the double-title becomes a UX issue on-device.
-            Surface(tonalElevation = 0.dp) {
-                PrimaryTabRow(selectedTabIndex = activeTab) {
-                    Tab(
-                        selected = activeTab == 0,
-                        onClick = { activeTab = 0 },
-                        text = { Text(stringResource(MR.strings.manga)) },
-                    )
-                    Tab(
-                        selected = activeTab == 1,
-                        onClick = { activeTab = 1 },
-                        text = { Text(stringResource(MR.strings.light_novels)) },
-                    )
-                }
+        // Tab row hoisted to a shared composable. Each per-tab content passes it through to
+        // LibraryContent.topBarBelow so the tabs render flush under the Scaffold's TopAppBar
+        // instead of floating as a separate row above it. Selection / search modes still
+        // preempt the whole top chrome (LibraryContent hides topBarBelow then), matching the
+        // legacy ActionMode convention that also hides tabs during selection.
+        val tabRow: @Composable () -> Unit = {
+            PrimaryTabRow(selectedTabIndex = activeTab) {
+                Tab(
+                    selected = activeTab == 0,
+                    onClick = { activeTab = 0 },
+                    text = { Text(stringResource(MR.strings.manga)) },
+                )
+                Tab(
+                    selected = activeTab == 1,
+                    onClick = { activeTab = 1 },
+                    text = { Text(stringResource(MR.strings.light_novels)) },
+                )
             }
-            when (activeTab) {
-                0 -> MangaLibraryTabContent(mangaScreenModel)
-                else -> NovelLibraryTabContent(novelScreenModel)
-            }
+        }
+        when (activeTab) {
+            0 -> MangaLibraryTabContent(mangaScreenModel, tabRow)
+            else -> NovelLibraryTabContent(novelScreenModel, tabRow)
         }
     }
 
@@ -143,7 +136,10 @@ class LibraryScreen : Screen {
      *   "not yet wired" snackbar so the menu entry exists but doesn't lie about working.
      */
     @Composable
-    private fun NovelLibraryTabContent(screenModel: NovelLibraryScreenModel) {
+    private fun NovelLibraryTabContent(
+        screenModel: NovelLibraryScreenModel,
+        tabRow: @Composable () -> Unit,
+    ) {
         val state by screenModel.state.collectAsState()
         val preferences: PreferencesHelper = remember { Injekt.get() }
         val novelPrefs: yokai.domain.novel.NovelPreferences = remember {
@@ -416,6 +412,7 @@ class LibraryScreen : Screen {
 
         LibraryContent(
             library = finalLibrary,
+            topBarBelow = tabRow,
             singleCategoryMode = singleCategoryMode,
             allCategories = allCategories,
             categoryItemCounts = categoryItemCounts,
@@ -757,7 +754,10 @@ class LibraryScreen : Screen {
     }
 
     @Composable
-    private fun MangaLibraryTabContent(screenModel: MangaLibraryScreenModel) {
+    private fun MangaLibraryTabContent(
+        screenModel: MangaLibraryScreenModel,
+        tabRow: @Composable () -> Unit,
+    ) {
         val state by screenModel.state.collectAsState()
         val preferences: PreferencesHelper = remember { Injekt.get() }
         val sourceManager: SourceManager = remember { Injekt.get() }
@@ -1149,6 +1149,7 @@ class LibraryScreen : Screen {
 
         LibraryContent(
             library = finalLibrary,
+            topBarBelow = tabRow,
             singleCategoryMode = singleCategoryMode,
             allCategories = allCategories,
             categoryItemCounts = categoryItemCounts,
