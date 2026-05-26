@@ -20,7 +20,7 @@ class NovelCategoryImpl : NovelCategory {
 
     override var isDynamic: Boolean = false
 
-    override var sourceId: Long? = null
+    override var sourceId: String? = null
 
     override var langId: String? = null
 

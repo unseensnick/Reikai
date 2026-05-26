@@ -27,7 +27,12 @@ interface NovelCategory : Serializable {
 
     var isDynamic: Boolean
 
-    var sourceId: Long?
+    /**
+     * Source identifier for BY_SOURCE dynamic categories. String-typed (unlike manga's Long)
+     * because lnreader plugin ids are strings (e.g. `royalroad`, `novelbin`). Round-trips
+     * through [dynamicHeaderKey].
+     */
+    var sourceId: String?
 
     var langId: String?
 
