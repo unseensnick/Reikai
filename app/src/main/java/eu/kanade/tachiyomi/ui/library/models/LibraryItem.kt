@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.library.models
 
 import androidx.compose.runtime.Immutable
 import eu.kanade.tachiyomi.data.database.models.LibraryManga
+import eu.kanade.tachiyomi.data.database.models.LibraryNovel
 
 sealed interface LibraryItem {
     @Immutable
@@ -59,6 +60,50 @@ sealed interface LibraryItem {
             result = 31 * result + unreadCount.hashCode()
             result = 31 * result + language.hashCode()
             result = 31 * result + relatedMangaIds.contentHashCode()
+            return result
+        }
+    }
+
+    /**
+     * Novel-side parallel of [Manga]. Marked [Immutable] for the same Compose-skip reason: the
+     * embedded [LibraryNovel] holds a [yokai.domain.novel.models.Novel] data class whose stability
+     * Compose can prove, but the surrounding wrapper still needs the annotation so the screen
+     * model's re-emissions skip recompose when contents are unchanged.
+     */
+    @Immutable
+    data class Novel(
+        val libraryNovel: LibraryNovel,
+        val isLocal: Boolean = false,
+        val downloadCount: Long = -1,
+        val unreadCount: Long = -1,
+        val language: String = "",
+        /**
+         * Novel IDs in the merge group represented by this entry, including the primary's own ID.
+         * Mirrors [Manga.relatedMangaIds] one-for-one; the novel library's grouping pass populates
+         * it the same way and the multi-select expand-with-siblings pass consumes it identically.
+         */
+        val relatedNovelIds: LongArray = LongArray(0),
+    ) : LibraryItem {
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is Novel) return false
+            if (libraryNovel != other.libraryNovel) return false
+            if (isLocal != other.isLocal) return false
+            if (downloadCount != other.downloadCount) return false
+            if (unreadCount != other.unreadCount) return false
+            if (language != other.language) return false
+            if (!relatedNovelIds.contentEquals(other.relatedNovelIds)) return false
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = libraryNovel.hashCode()
+            result = 31 * result + isLocal.hashCode()
+            result = 31 * result + downloadCount.hashCode()
+            result = 31 * result + unreadCount.hashCode()
+            result = 31 * result + language.hashCode()
+            result = 31 * result + relatedNovelIds.contentHashCode()
             return result
         }
     }
