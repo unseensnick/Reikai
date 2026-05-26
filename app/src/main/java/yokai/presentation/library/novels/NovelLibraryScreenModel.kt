@@ -425,6 +425,11 @@ class NovelLibraryScreenModel :
      * Stub passthrough per Decision #4. Capture the selection synchronously before launchIO
      * so the wiring matches the live actions; the underlying [NovelLibraryActions.downloadUnread]
      * is a no-op until novel downloads ship.
+     *
+     * TODO(unseensnick): when Decision #4 undefers (novel downloads ship), swap
+     * [selectedNovelList] for [selectedNovelListWithMergedSiblings] so a download on a
+     * merged-group leader pulls every sibling. This is the same Phase 6 C11 lesson
+     * [removeFromLibrary] already inherits. Latent today because downloads are a no-op.
      */
     fun downloadUnreadSelection() {
         val novels = selectedNovelList()
