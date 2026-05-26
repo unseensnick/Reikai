@@ -58,8 +58,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
+import org.koin.mp.KoinPlatform
 import yokai.data.DatabaseHandler
 import yokai.domain.novel.NovelChapterRepository
 import yokai.domain.novel.NovelPreferences
@@ -96,14 +97,14 @@ import yokai.util.lang.getString
  * `services/updates/index.ts:199-235`.
  */
 class NovelUpdateJob(private val context: Context, workerParams: WorkerParameters) :
-    CoroutineWorker(context, workerParams) {
+    CoroutineWorker(context, workerParams), KoinComponent {
 
-    private val getNovelCategories: GetNovelCategories = Injekt.get()
-    private val novelRepository: NovelRepository = Injekt.get()
-    private val novelChapterRepository: NovelChapterRepository = Injekt.get()
-    private val novelSourceManager: NovelSourceManager = Injekt.get()
-    private val novelPreferences: NovelPreferences = Injekt.get()
-    private val handler: DatabaseHandler = Injekt.get()
+    private val getNovelCategories: GetNovelCategories by inject()
+    private val novelRepository: NovelRepository by inject()
+    private val novelChapterRepository: NovelChapterRepository by inject()
+    private val novelSourceManager: NovelSourceManager by inject()
+    private val novelPreferences: NovelPreferences by inject()
+    private val handler: DatabaseHandler by inject()
 
     private var extraDeferredJobs = mutableListOf<Deferred<Any>>()
 
@@ -520,8 +521,9 @@ class NovelUpdateJob(private val context: Context, workerParams: WorkerParameter
 
         fun setupTask(context: Context, prefInterval: Int? = null) {
             // Per Decision #2 the novel auto-update cadence is independent of the manga one:
-            // read from NovelPreferences, never from PreferencesHelper.
-            val preferences = Injekt.get<NovelPreferences>()
+            // read from NovelPreferences, never from PreferencesHelper. NovelPreferences is
+            // Koin-only (see PreferenceModule:41), so static access goes through KoinPlatform.
+            val preferences = KoinPlatform.getKoin().get<NovelPreferences>()
             val interval = prefInterval ?: preferences.libraryUpdateInterval().get()
             if (interval > 0) {
                 val restrictions = preferences.libraryUpdateDeviceRestriction().get()

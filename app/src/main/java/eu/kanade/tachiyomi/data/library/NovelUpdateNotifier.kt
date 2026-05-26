@@ -31,7 +31,9 @@ import eu.kanade.tachiyomi.util.system.notificationManager
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import uy.kohesive.injekt.injectLazy
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
+import eu.kanade.tachiyomi.data.database.models.LibraryNovel
 import yokai.domain.novel.NovelPreferences
 import yokai.domain.novel.models.Novel
 import yokai.domain.novel.models.NovelChapter
@@ -55,9 +57,9 @@ import android.R as AR
  *   `NotificationReceiver.cancelNovelLibraryUpdatePendingBroadcast`, which is currently a no-op
  *   stub; C14d replaces the receiver's body with `NovelUpdateJob.stop(context)`.
  */
-class NovelUpdateNotifier(private val context: Context) {
+class NovelUpdateNotifier(private val context: Context) : KoinComponent {
 
-    private val preferences: NovelPreferences by injectLazy()
+    private val preferences: NovelPreferences by inject()
 
     private val cancelIntent by lazy {
         NotificationReceiver.cancelNovelLibraryUpdatePendingBroadcast(context)
@@ -155,15 +157,18 @@ class NovelUpdateNotifier(private val context: Context) {
     }
 
     /**
-     * Shows the notification containing the result of the update done by the job.
+     * Shows the notification containing the result of the update done by the job. Keyed by
+     * [LibraryNovel] (not [Novel]) to mirror [LibraryUpdateNotifier.showResultNotification]'s
+     * signature, so the call site in [NovelUpdateJob] passes its `newUpdates` map directly.
      */
     @OptIn(DelicateCoroutinesApi::class)
-    fun showResultNotification(newUpdates: Map<Novel, Array<NovelChapter>>) {
+    fun showResultNotification(newUpdates: Map<LibraryNovel, Array<NovelChapter>>) {
         val updates = newUpdates.toMap()
         GlobalScope.launch {
             val notifications = ArrayList<Pair<Notification, Int>>()
             if (!preferences.hideNotificationContent().get()) {
-                updates.forEach { (novel, chapters) ->
+                updates.forEach { (libraryNovel, chapters) ->
+                    val novel = libraryNovel.novel
                     val chapterNames = chapters.map { it.name }
                     notifications.add(
                         Pair(
@@ -233,12 +238,12 @@ class NovelUpdateNotifier(private val context: Context) {
                                 setStyle(
                                     NotificationCompat.BigTextStyle()
                                         .bigText(
-                                            updates.keys.joinToString("\n") { it.title.chop(45) },
+                                            updates.keys.joinToString("\n") { it.novel.title.chop(45) },
                                         ),
                                 )
                             }
                         } else if (!preferences.hideNotificationContent().get()) {
-                            setContentText(updates.keys.first().title.chop(45))
+                            setContentText(updates.keys.first().novel.title.chop(45))
                         }
                         priority = NotificationCompat.PRIORITY_HIGH
                         setGroup(Notifications.GROUP_NEW_NOVEL_CHAPTERS)
