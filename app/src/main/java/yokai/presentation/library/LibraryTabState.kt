@@ -2,7 +2,6 @@ package yokai.presentation.library
 
 import androidx.compose.runtime.Immutable
 import eu.kanade.tachiyomi.data.database.models.Category
-import eu.kanade.tachiyomi.data.database.models.LibraryManga
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
 
 /**
@@ -79,18 +78,5 @@ sealed interface LibraryTabState<out T : LibraryItem> {
          * `Map.equals` doesn't see.
          */
         val collapsedDynamicAtBottom: Boolean = false,
-        /**
-         * Full pre-collapse libraryManga snapshot. `MangaLibraryGrouping.collapse` drops
-         * merge-group siblings from the rendered [library] (only the chosen leader item
-         * survives), so multi-select actions that need to operate on every sibling (delete,
-         * move to categories, undo / re-add) can't resolve sibling [eu.kanade.tachiyomi.domain.manga.models.Manga]
-         * objects from `library.values` alone — they'd only find the leader. The screen model
-         * carries the pre-collapse list here so `selectedMangaListWithMergedSiblings` can look
-         * up siblings by id. Mirrors legacy `presenter.getLibraryMangaById(it)?.manga` at
-         * `LibraryController.kt:2234` (delete), `:2277` (move).
-         *
-         * Empty for tabs that don't need sibling resolution (or before the first emission).
-         */
-        val libraryMangaForResolve: List<LibraryManga> = emptyList(),
     ) : LibraryTabState<T>
 }

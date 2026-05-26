@@ -75,6 +75,17 @@ class MangaLibraryScreenModel :
     private val updateCategories: UpdateCategories by injectLazy()
     private val trackManager: TrackManager by injectLazy()
 
+    /**
+     * Pre-collapse libraryManga snapshot used by [selectedMangaListWithMergedSiblings] to
+     * resolve merge-group sibling [Manga] objects that [MangaLibraryGrouping.collapse] dropped
+     * from the rendered library (only leaders survive there). Updated alongside every state
+     * emission below. Kept off [LibraryTabState] because no composable consumes it; it's a
+     * screen-model-internal concern. Mirrors legacy
+     * `presenter.getLibraryMangaById(it)?.manga` at `LibraryController.kt:2234` (delete) /
+     * `:2277` (move).
+     */
+    private var libraryMangaForResolve: List<LibraryManga> = emptyList()
+
     init {
         screenModelScope.launchIO {
             combine(
@@ -269,6 +280,7 @@ class MangaLibraryScreenModel :
                     } else {
                         emptySet()
                     }
+                    libraryMangaForResolve = snap.libraryManga
                     mutableState.update { current ->
                         // Preserve selection across reload emissions so a download-cache tick or
                         // library update mid-action doesn't drop the user's selection set. Also
@@ -292,7 +304,6 @@ class MangaLibraryScreenModel :
                             categorySortOrder = snap.categorySortOrder,
                             collapsedDynamicCategories = snap.groupingPrefs.collapsedDynamicCategories,
                             collapsedDynamicAtBottom = snap.groupingPrefs.collapsedDynamicAtBottom,
-                            libraryMangaForResolve = snap.libraryManga,
                         )
                     }
                 }
@@ -602,10 +613,10 @@ class MangaLibraryScreenModel :
      * (delete) / `:2277` (move).
      */
     fun selectedMangaListWithMergedSiblings(): List<Manga> {
-        val loaded = state.value as? LibraryTabState.Loaded ?: return emptyList()
+        if (state.value !is LibraryTabState.Loaded) return emptyList()
         val expanded = expandSelectionWithMergedSiblings()
         if (expanded.isEmpty()) return emptyList()
-        return loaded.libraryMangaForResolve
+        return libraryMangaForResolve
             .asSequence()
             .map { it.manga }
             .filter { it.id in expanded }
