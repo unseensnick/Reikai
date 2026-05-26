@@ -1,9 +1,18 @@
 package yokai.presentation.library
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -12,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -56,6 +66,7 @@ import yokai.presentation.library.manga.MangaLibraryGridCell
 import yokai.presentation.library.manga.MangaLibraryListItem
 import yokai.presentation.library.manga.MangaLibraryScreenModel
 import yokai.presentation.library.manga.MangaLibrarySearch
+import yokai.presentation.library.novels.NovelLibraryScreenModel
 import yokai.presentation.library.settings.tabs.columnsForGridValue
 import yokai.util.lang.getString
 
@@ -71,7 +82,682 @@ class LibraryScreen : Screen {
 
     @Composable
     override fun Content() {
-        val screenModel = rememberScreenModel { MangaLibraryScreenModel() }
+        val uiPrefs = remember { Injekt.get<yokai.domain.ui.UiPreferences>() }
+        // Both screen models live at the LibraryScreen scope so a tab switch does not destroy
+        // the inactive one (Voyager's rememberScreenModel is keyed per-Screen instance).
+        // Selection, scroll position, filters, and search state per-tab survive a switch +
+        // come back exactly as the user left them.
+        val mangaScreenModel = rememberScreenModel { MangaLibraryScreenModel() }
+        val novelScreenModel = rememberScreenModel { NovelLibraryScreenModel() }
+        var activeTab by rememberSaveable {
+            mutableIntStateOf(uiPrefs.libraryActiveTab().get().coerceIn(0, 1))
+        }
+        // Persist the active tab so cold start lands on whichever the user last viewed (Phase 8
+        // C1 added the underlying int pref). LaunchedEffect writes on every change; the pref
+        // store debounces if needed.
+        LaunchedEffect(activeTab) {
+            uiPrefs.libraryActiveTab().set(activeTab)
+        }
+
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Tab row at the very top. The per-tab content below still owns its own collapsing
+            // TopAppBar (with the "Library" title + search + overflow), matching the Phase 1-6
+            // visual + accessibility of the manga path. Title placement consolidation can
+            // happen in a follow-up if the double-title becomes a UX issue on-device.
+            Surface(tonalElevation = 0.dp) {
+                PrimaryTabRow(selectedTabIndex = activeTab) {
+                    Tab(
+                        selected = activeTab == 0,
+                        onClick = { activeTab = 0 },
+                        text = { Text(stringResource(MR.strings.manga)) },
+                    )
+                    Tab(
+                        selected = activeTab == 1,
+                        onClick = { activeTab = 1 },
+                        text = { Text(stringResource(MR.strings.light_novels)) },
+                    )
+                }
+            }
+            when (activeTab) {
+                0 -> MangaLibraryTabContent(mangaScreenModel)
+                else -> NovelLibraryTabContent(novelScreenModel)
+            }
+        }
+    }
+
+    /**
+     * Novel tab body. Mirrors [MangaLibraryTabContent] for novels: collects novel + shared
+     * display prefs, runs the library through [NovelLibrarySearch] then [NovelLibraryFilter],
+     * threads the filtered map into the generic [LibraryContent] with novel-side renderer
+     * lambdas + callbacks routed through [NovelLibraryScreenModel] / [NovelLibraryActions].
+     *
+     * Diverges from manga in places locked by Phase 7 decisions:
+     * - **No migrate** (Decision #1): `onMigrate` no-ops; `selectionHasRemoteSources` always
+     *   false so the menu entry stays hidden.
+     * - **No mangaType / contentType / NSFW filter** (Decision #3): [NovelLibraryFilter] has no
+     *   such state; `detectedMangaTypes` is empty.
+     * - **No language filter dimension** (no language field on Novel).
+     * - **Download-unread stub** (Decision #4): dispatches the screen-model action which is a
+     *   no-op until novel downloads ship.
+     * - **No `moveCategories` bridge** yet on the novel side; `onMoveToCategories` shows a
+     *   "not yet wired" snackbar so the menu entry exists but doesn't lie about working.
+     */
+    @Composable
+    private fun NovelLibraryTabContent(screenModel: NovelLibraryScreenModel) {
+        val state by screenModel.state.collectAsState()
+        val preferences: PreferencesHelper = remember { Injekt.get() }
+        val novelPrefs: yokai.domain.novel.NovelPreferences = remember {
+            org.koin.core.context.GlobalContext.get().get()
+        }
+        val novelSourceManager: yokai.novel.source.NovelSourceManager = remember {
+            org.koin.core.context.GlobalContext.get().get()
+        }
+        val novelTrackRepository: yokai.domain.novel.NovelTrackRepository = remember {
+            org.koin.core.context.GlobalContext.get().get()
+        }
+        val router = LocalRouter.currentOrThrow
+        val coroutineScope = rememberCoroutineScope()
+
+        // Shared display prefs (same as manga side — these are visual prefs that apply
+        // uniformly to library cells regardless of content type).
+        val libraryLayout by preferences.libraryLayout().collectAsState()
+        val uniformGrid by remember { Injekt.get<yokai.domain.ui.UiPreferences>().uniformGrid() }.collectAsState()
+        val useStaggeredGrid by preferences.useStaggeredGrid().collectAsState()
+        val showCategoryInTitle by preferences.showCategoryInTitle().collectAsState()
+        val showCategoryItemCounts by preferences.categoryNumberOfItems().collectAsState()
+        val hideHopper by preferences.hideHopper().collectAsState()
+        val autohideHopper by preferences.autohideHopper().collectAsState()
+        val hopperLongPressAction by preferences.hopperLongPressAction().collectAsState()
+        val outlineOnCovers by remember { Injekt.get<yokai.domain.ui.UiPreferences>().outlineOnCovers() }.collectAsState()
+        val showDownloadBadge by preferences.downloadBadge().collectAsState()
+        val showLanguageBadge by preferences.languageBadge().collectAsState()
+        val unreadBadgeType by preferences.unreadBadgeType().collectAsState()
+        val hideStartReadingButton by preferences.hideStartReadingButton().collectAsState()
+        val useLargeToolbar by preferences.useLargeToolbar().collectAsState()
+        val hopperGravityPref = remember { preferences.hopperGravity() }
+        val hopperGravity by hopperGravityPref.changes()
+            .collectAsState(initial = hopperGravityPref.get())
+
+        val gridSizePref by preferences.gridSize().collectAsState()
+        val sliderValue = ((gridSizePref + 0.5f) * 2f).coerceIn(0f, 7f)
+        val columns = columnsForGridValue(sliderValue, LocalConfiguration.current.screenWidthDp)
+
+        // Novel-specific prefs (Phase 7 C23). Filter / sort / grouping / show-all-categories
+        // live on NovelPreferences so the manga + novel libraries stay independently
+        // configurable.
+        val groupLibraryBy by novelPrefs.groupLibraryBy().collectAsState()
+        val collapsedCategories by novelPrefs.collapsedCategories().collectAsState()
+        val collapsedCategoriesPref = remember { novelPrefs.collapsedCategories() }
+        val showEmptyCategoriesWhileFiltering by novelPrefs.showEmptyCategoriesWhileFiltering().collectAsState()
+        val showAllCategories by novelPrefs.showAllCategories().collectAsState()
+
+        val filterUnread by novelPrefs.filterUnread().collectAsState()
+        val filterDownloaded by novelPrefs.filterDownloaded().collectAsState()
+        val filterCompleted by novelPrefs.filterCompleted().collectAsState()
+        val filterBookmarked by novelPrefs.filterBookmarked().collectAsState()
+        val filterTracked by novelPrefs.filterTracked().collectAsState()
+
+        var searchActive by rememberSaveable { mutableStateOf(false) }
+        var searchQuery by rememberSaveable { mutableStateOf("") }
+
+        var sheetOpen by rememberSaveable { mutableStateOf(false) }
+        var sheetTab by rememberSaveable { mutableIntStateOf(0) }
+        var overflowOpen by remember { mutableStateOf(false) }
+        var groupByDialogOpen by remember { mutableStateOf(false) }
+
+        var markReadConfirmFor by remember { mutableStateOf<Boolean?>(null) }
+        var deleteConfirmOpen by remember { mutableStateOf(false) }
+
+        val library = when (val s = state) {
+            is LibraryTabState.Loading -> emptyMap()
+            is LibraryTabState.Loaded -> s.library
+        }
+        val isRunning = (state as? LibraryTabState.Loaded)?.isRunning ?: false
+        val inQueueCategoryIds = (state as? LibraryTabState.Loaded)?.inQueueCategoryIds ?: emptySet()
+        val currentCategoryOrder = (state as? LibraryTabState.Loaded)?.currentCategoryOrder ?: 0
+        val selection = (state as? LibraryTabState.Loaded)?.selection ?: emptySet()
+
+        // Decision #1: novels have no migrate path, so the gate is always false (menu entry
+        // stays hidden via LibraryContent's `selectionHasRemoteSources` consumer).
+        val selectionHasRemoteSources = false
+
+        val novelManualMerges by novelPrefs.novelManualMerges().changes()
+            .collectAsState(initial = novelPrefs.novelManualMerges().get())
+        val canMerge = selection.size >= 2
+        val canUnmerge = remember(selection, novelManualMerges) {
+            if (selection.isEmpty()) {
+                false
+            } else {
+                val allMergedIds = novelManualMerges
+                    .asSequence()
+                    .flatMap { entry -> entry.split(",").asSequence() }
+                    .mapNotNull { it.trim().toLongOrNull() }
+                    .toSet()
+                selection.all { it in allMergedIds }
+            }
+        }
+
+        val snackbarHostState = remember { SnackbarHostState() }
+        val dismissPendingSnackbar = { snackbarHostState.currentSnackbarData?.dismiss(); Unit }
+
+        // Dialog colors pinned to legacy theme attrs (mirrors manga path C12 / F12).
+        val themeContext = LocalContext.current
+        val dialogContainerColor = remember(themeContext) {
+            Color(themeContext.getResourceColor(eu.kanade.tachiyomi.R.attr.colorSurface))
+        }
+        val dialogAccentColor = remember(themeContext) {
+            Color(themeContext.getResourceColor(eu.kanade.tachiyomi.R.attr.colorPrimary))
+        }
+        val dialogOnAccentColor = remember(themeContext) {
+            Color(themeContext.getResourceColor(eu.kanade.tachiyomi.R.attr.colorOnPrimary))
+        }
+        val dialogCheckboxColors = androidx.compose.material3.CheckboxDefaults.colors(
+            checkedColor = dialogAccentColor,
+            checkmarkColor = dialogOnAccentColor,
+        )
+        val dialogButtonColors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+            contentColor = dialogAccentColor,
+        )
+
+        val updatingLibraryText = stringResource(MR.strings.updating_library)
+        val updatingCategoryFmt = stringResource(MR.strings.updating_)
+        val addingToQueueFmt = stringResource(MR.strings.adding_category_to_queue)
+        val alreadyInQueueFmt = stringResource(MR.strings._already_in_queue)
+        val cancelText = stringResource(MR.strings.cancel)
+        val markedAsReadText = stringResource(MR.strings.marked_as_read)
+        val markedAsUnreadText = stringResource(MR.strings.marked_as_unread)
+        val undoText = stringResource(MR.strings.undo)
+        val removedFromLibraryText = stringResource(MR.strings.removed_from_library)
+        val removeText = stringResource(MR.strings.remove)
+        val removeFromLibraryLabel = stringResource(MR.strings.remove_from_library)
+        val removeDownloadsLabel = stringResource(MR.strings.remove_downloads)
+
+        // Novel source names map (lnreader plugin id → display name). Keyed by String per
+        // Decision #1 (lnreader source ids are strings, unlike manga's Long).
+        val sourceNames = remember(library) {
+            library.values
+                .asSequence()
+                .flatten()
+                .map { it.libraryNovel.novel.source }
+                .distinct()
+                .associateWith { novelSourceManager.get(it)?.name.orEmpty() }
+        }
+
+        val effectiveCategorySortOrder = (state as? LibraryTabState.Loaded)?.categorySortOrder ?: 0
+        val searchedLibrary = remember(library, effectiveCategorySortOrder, searchQuery, sourceNames) {
+            yokai.presentation.library.novels.NovelLibrarySearch.search(library, searchQuery, sourceNames)
+        }
+
+        val filterState = yokai.presentation.library.novels.NovelLibraryFilter.NovelFilterState(
+            downloaded = filterDownloaded,
+            unread = filterUnread,
+            completed = filterCompleted,
+            tracked = filterTracked,
+            bookmarked = filterBookmarked,
+            tracker = "",
+        )
+        // No `TrackManager` on the novel side yet (Decision #5). Pass an empty
+        // logged-services map; the tracked filter then matches purely on presence/absence of
+        // novel_tracks rows. When novel tracker UI ships, swap in a real services map.
+        val loggedServiceNames: Map<Long, String> = emptyMap()
+        val filteredLibrary by androidx.compose.runtime.produceState(
+            initialValue = searchedLibrary,
+            key1 = searchedLibrary,
+            key2 = filterState,
+            key3 = showAllCategories,
+        ) {
+            value = if (!filterState.isAnyActive) searchedLibrary
+            else kotlinx.coroutines.withContext(Dispatchers.Default) {
+                yokai.presentation.library.novels.NovelLibraryFilter.filter(
+                    library = searchedLibrary,
+                    state = filterState,
+                    loggedServiceNames = loggedServiceNames,
+                    // No novel download manager yet (Decision #4); fall back to the cached
+                    // item.downloadCount only. The filter helper already prefers item.downloadCount
+                    // when it's not -1, so this lambda is rarely consulted.
+                    getDownloadCount = { 0 },
+                    getTracks = { novelId -> novelTrackRepository.getByNovelId(novelId) },
+                    keepEmptyCategories = showAllCategories,
+                )
+            }
+        }
+
+        val detectedMangaTypes = emptySet<Int>()
+        val loggedTrackerNames = emptyList<String>()
+
+        val allCategories = remember(library, effectiveCategorySortOrder) { library.keys.toList() }
+        val categoryItemCounts = remember(library, effectiveCategorySortOrder) {
+            library.entries.associate { (cat, items) -> (cat.id ?: 0) to items.size }
+        }
+
+        val rekeyedLibrary = library.mapValues { (cat, _) -> filteredLibrary[cat].orEmpty() }
+        val postFilterLibrary = when {
+            showAllCategories -> rekeyedLibrary
+            showEmptyCategoriesWhileFiltering &&
+                (searchQuery.isNotEmpty() || filterState.isAnyActive) -> rekeyedLibrary
+            else -> rekeyedLibrary.filterValues { it.isNotEmpty() }
+        }
+
+        val displayedHeaderCounts = remember(postFilterLibrary) {
+            postFilterLibrary.entries.associate { (cat, items) -> (cat.id ?: 0) to items.size }
+        }
+
+        val collapsibleHeaders = true
+        val collapsedIds = remember(collapsedCategories) {
+            collapsedCategories.mapNotNullTo(HashSet()) { it.toIntOrNull() }
+        }
+        val displayedLibrary = postFilterLibrary.mapValues { (cat, items) ->
+            val collapsed = if (cat.isDynamic) {
+                cat.isHidden
+            } else {
+                cat.id != null && cat.id in collapsedIds
+            }
+            if (collapsed) emptyList() else items
+        }
+
+        val lastUsedCategoryOrder by novelPrefs.lastUsedNovelCategory().collectAsState()
+        val singleCategoryMode = !showAllCategories &&
+            groupLibraryBy == eu.kanade.tachiyomi.ui.library.LibraryGroup.BY_DEFAULT &&
+            allCategories.size > 1
+        val activeCategoryInSingleMode = if (singleCategoryMode) {
+            allCategories.firstOrNull { it.order == lastUsedCategoryOrder }
+                ?: allCategories.first()
+        } else {
+            null
+        }
+        val finalLibrary = if (activeCategoryInSingleMode != null) {
+            mapOf(activeCategoryInSingleMode to (displayedLibrary[activeCategoryInSingleMode].orEmpty()))
+        } else {
+            displayedLibrary
+        }
+
+        // Per-tab callbacks. Novel "open details" routes to the existing NovelDetailsController
+        // (Phase 7 debug entry). When a Compose-side novel details Voyager screen lands, swap
+        // this for a Navigator.push.
+        val onNovelClick: (yokai.domain.novel.models.Novel) -> Unit = { novel ->
+            dismissPendingSnackbar()
+            router.pushController(
+                eu.kanade.tachiyomi.ui.setting.controllers.debug.NovelDetailsController(
+                    sourceId = novel.source,
+                    novelUrl = novel.url,
+                ).withFadeTransaction(),
+            )
+        }
+
+        val novelListItemRenderer: @Composable (LibraryItem.Novel, Boolean, Boolean, Modifier) -> Unit = { item, isSelected, selectionActive, modifier ->
+            yokai.presentation.library.novels.NovelLibraryListItem(
+                item = item,
+                isSelected = isSelected,
+                selectionActive = selectionActive,
+                modifier = modifier,
+                showDownloadBadge = showDownloadBadge,
+                showLanguageBadge = showLanguageBadge,
+                unreadBadgeType = unreadBadgeType,
+                onNovelClick = onNovelClick,
+                onToggleSelection = { id -> screenModel.toggleSelection(id) },
+            )
+        }
+        val novelGridItemRenderer: @Composable (LibraryItem.Novel, Boolean, Boolean, Modifier, Float?) -> Unit = { item, isSelected, selectionActive, modifier, coverAspectRatio ->
+            yokai.presentation.library.novels.NovelLibraryGridCell(
+                item = item,
+                libraryLayout = libraryLayout,
+                outlineOnCovers = outlineOnCovers,
+                showDownloadBadge = showDownloadBadge,
+                showLanguageBadge = showLanguageBadge,
+                unreadBadgeType = unreadBadgeType,
+                isSelected = isSelected,
+                modifier = modifier,
+                selectionActive = selectionActive,
+                onNovelClick = onNovelClick,
+                onNovelLongClick = { n -> n.id?.let { screenModel.toggleSelection(it) } },
+                coverAspectRatio = coverAspectRatio,
+            )
+        }
+
+        LibraryContent(
+            library = finalLibrary,
+            singleCategoryMode = singleCategoryMode,
+            allCategories = allCategories,
+            categoryItemCounts = categoryItemCounts,
+            displayedHeaderCounts = displayedHeaderCounts,
+            collapsedIds = collapsedIds,
+            collapsibleHeaders = collapsibleHeaders,
+            showCategoryItemCounts = showCategoryItemCounts,
+            columns = columns,
+            libraryLayout = libraryLayout,
+            uniformGrid = uniformGrid,
+            useStaggeredGrid = useStaggeredGrid,
+            searchActive = searchActive,
+            searchQuery = searchQuery,
+            showCategoryInTitle = showCategoryInTitle,
+            hideHopper = hideHopper,
+            autohideHopper = autohideHopper,
+            hopperGravity = hopperGravity,
+            outlineOnCovers = outlineOnCovers,
+            showDownloadBadge = showDownloadBadge,
+            showLanguageBadge = showLanguageBadge,
+            unreadBadgeType = unreadBadgeType,
+            hideStartReadingButton = hideStartReadingButton,
+            useLargeToolbar = useLargeToolbar,
+            isAnyFilterActive = filterState.isAnyActive,
+            showAllCategories = showAllCategories,
+            isRunning = isRunning,
+            inQueueCategoryIds = inQueueCategoryIds,
+            snackbarHostState = snackbarHostState,
+            sheetOpen = sheetOpen,
+            sheetTab = sheetTab,
+            overflowOpen = overflowOpen,
+            detectedMangaTypes = detectedMangaTypes,
+            loggedTrackerNames = loggedTrackerNames,
+            selection = selection,
+            onSearchActiveChange = { searchActive = it },
+            onSearchQueryChange = { searchQuery = it },
+            onHopperGravityChange = { hopperGravityPref.set(it) },
+            onToggleCategoryCollapse = { category ->
+                if (category.isDynamic) {
+                    screenModel.toggleDynamicCategoryCollapse(category)
+                } else {
+                    val id = category.id?.toString() ?: return@LibraryContent
+                    val current = collapsedCategoriesPref.get().toMutableSet()
+                    if (!current.add(id)) current.remove(id)
+                    collapsedCategoriesPref.set(current)
+                }
+            },
+            hopperLongPressAction = hopperLongPressAction,
+            onExpandCollapseAllCategories = {
+                val all = library.keys.mapNotNull { it.id?.toString() }.toSet()
+                val current = collapsedCategoriesPref.get()
+                collapsedCategoriesPref.set(if (current.isEmpty()) all else emptySet())
+            },
+            onOpenSheetAt = { tabIndex ->
+                sheetTab = tabIndex
+                sheetOpen = true
+            },
+            onOpenRandomSeries = {
+                val pool = displayedLibrary.values.asSequence().flatten().toList()
+                if (pool.isNotEmpty()) {
+                    val random = pool.random().libraryNovel.novel
+                    dismissPendingSnackbar()
+                    onNovelClick(random)
+                }
+            },
+            onOpenRandomInCategory = { category ->
+                val pool = when {
+                    category != null -> displayedLibrary[category].orEmpty()
+                    else -> displayedLibrary.values.asSequence().flatten().toList()
+                }
+                if (pool.isNotEmpty()) {
+                    val random = pool.random().libraryNovel.novel
+                    dismissPendingSnackbar()
+                    onNovelClick(random)
+                }
+            },
+            onOpenGroupByPicker = { groupByDialogOpen = true },
+            listItemRenderer = novelListItemRenderer,
+            gridItemRenderer = novelGridItemRenderer,
+            onOpenFilter = { sheetTab = 0; sheetOpen = true },
+            onOpenOverflow = { overflowOpen = true },
+            onDismissSheet = { sheetOpen = false },
+            onDismissOverflow = { overflowOpen = false },
+            onSheetTabChange = { sheetTab = it },
+            onActiveCategoryChange = { category ->
+                if (category.order >= 0) {
+                    novelPrefs.lastUsedNovelCategory().set(category.order)
+                }
+            },
+            onPullToRefresh = {
+                val target = if (showAllCategories) {
+                    null
+                } else {
+                    allCategories.find { it.order == currentCategoryOrder }
+                }
+                screenModel.refresh(target)
+                coroutineScope.launch {
+                    val result = snackbarHostState.showSnackbar(
+                        message = updatingLibraryText,
+                        actionLabel = cancelText,
+                        duration = SnackbarDuration.Short,
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        screenModel.stopRefresh()
+                    }
+                }
+            },
+            onToggleSelection = { id -> screenModel.toggleSelection(id) },
+            onClearSelection = { screenModel.clearSelection() },
+            onToggleCategorySelection = { categoryId -> screenModel.toggleCategorySelection(categoryId) },
+            onShareSelection = {
+                val urls = screenModel.shareSelection()
+                if (urls.isNotEmpty()) {
+                    val activity = router.activity ?: return@LibraryContent
+                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                        type = "text/*"
+                        putExtra(android.content.Intent.EXTRA_TEXT, urls.joinToString("\n"))
+                    }
+                    val chooserTitle = activity.getString(MR.strings.share)
+                    activity.startActivity(android.content.Intent.createChooser(intent, chooserTitle))
+                }
+                screenModel.clearSelection()
+            },
+            onDownloadUnread = {
+                // Decision #4: stub. The screen-model action is a no-op until novel downloads
+                // ship. UI surface stays consistent with manga so the menu entry is reachable
+                // (and a future undefer wires real behavior without a UI change).
+                screenModel.downloadUnreadSelection()
+                screenModel.clearSelection()
+            },
+            onConfirmAndMarkRead = { markReadConfirmFor = true },
+            onConfirmAndMarkUnread = { markReadConfirmFor = false },
+            onConfirmAndDelete = { deleteConfirmOpen = true },
+            selectionHasRemoteSources = selectionHasRemoteSources,
+            canMerge = canMerge,
+            canUnmerge = canUnmerge,
+            onMerge = {
+                screenModel.mergeSelection()
+                screenModel.clearSelection()
+            },
+            onUnmerge = {
+                screenModel.unmergeSelection()
+                screenModel.clearSelection()
+            },
+            onMigrate = {
+                // Decision #1: novels don't migrate. Gate above keeps the menu entry hidden.
+            },
+            onMoveToCategories = {
+                // No novel-side moveCategories bridge yet (manga side bridges to the legacy
+                // SetCategoriesSheet via List<Manga>.moveCategories). Show a snackbar so the
+                // menu entry stays reachable but doesn't lie about working. Phase 8b /
+                // follow-up wires the actual bridge.
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = "Move to category — coming for novels",
+                        duration = SnackbarDuration.Short,
+                    )
+                }
+            },
+            categorySortOrder = effectiveCategorySortOrder,
+            onRefreshCategory = { category ->
+                val inQueue = screenModel.isCategoryInQueue(category.id)
+                val wasRunning = screenModel.isRunning()
+                val message = when {
+                    inQueue -> alreadyInQueueFmt.format(category.name)
+                    wasRunning -> addingToQueueFmt.format(category.name)
+                    else -> updatingCategoryFmt.format(category.name)
+                }
+                if (!inQueue) {
+                    screenModel.refresh(category)
+                }
+                coroutineScope.launch {
+                    val result = snackbarHostState.showSnackbar(
+                        message = message,
+                        actionLabel = cancelText,
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        screenModel.stopRefresh()
+                    }
+                }
+            },
+            onSortChange = { category, mode -> screenModel.setSort(category, mode) },
+        )
+
+        if (groupByDialogOpen) {
+            yokai.presentation.library.components.GroupLibraryByDialog(
+                selected = groupLibraryBy,
+                entries = yokai.presentation.library.components.rememberGroupByEntries(),
+                onSelect = { novelPrefs.groupLibraryBy().set(it) },
+                onDismiss = { groupByDialogOpen = false },
+            )
+        }
+
+        markReadConfirmFor?.let { markRead ->
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { markReadConfirmFor = null },
+                containerColor = dialogContainerColor,
+                text = {
+                    androidx.compose.material3.Text(
+                        text = stringResource(
+                            if (markRead) MR.strings.mark_all_chapters_as_read
+                            else MR.strings.mark_all_chapters_as_unread,
+                        ),
+                    )
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        colors = dialogButtonColors,
+                        onClick = {
+                            markReadConfirmFor = null
+                            coroutineScope.launch {
+                                val snapshot = screenModel.markReadStatus(markRead = markRead)
+                                screenModel.clearSelection()
+                                val message = if (markRead) markedAsReadText else markedAsUnreadText
+                                val result = snackbarHostState.showSnackbar(
+                                    message = message,
+                                    actionLabel = undoText,
+                                    duration = SnackbarDuration.Long,
+                                )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    screenModel.undoMarkReadStatus(snapshot)
+                                } else {
+                                    screenModel.confirmMarkReadStatus(snapshot, markRead)
+                                }
+                            }
+                        },
+                    ) {
+                        androidx.compose.material3.Text(
+                            text = stringResource(
+                                if (markRead) MR.strings.mark_as_read else MR.strings.mark_as_unread,
+                            ),
+                        )
+                    }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(
+                        colors = dialogButtonColors,
+                        onClick = { markReadConfirmFor = null },
+                    ) {
+                        androidx.compose.material3.Text(text = cancelText)
+                    }
+                },
+            )
+        }
+
+        if (deleteConfirmOpen) {
+            var removeFromLibrary by remember { mutableStateOf(true) }
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { deleteConfirmOpen = false },
+                containerColor = dialogContainerColor,
+                title = { androidx.compose.material3.Text(text = removeText) },
+                text = {
+                    androidx.compose.foundation.layout.Column(
+                        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
+                            yokai.presentation.theme.Size.small,
+                        ),
+                    ) {
+                        androidx.compose.foundation.layout.Row(
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
+                                yokai.presentation.theme.Size.small,
+                            ),
+                            modifier = Modifier
+                                .alpha(0.5f)
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .clickable(role = androidx.compose.ui.semantics.Role.Checkbox) {},
+                        ) {
+                            androidx.compose.material3.Checkbox(
+                                checked = true,
+                                onCheckedChange = null,
+                                colors = dialogCheckboxColors,
+                            )
+                            androidx.compose.material3.Text(text = removeDownloadsLabel)
+                        }
+                        androidx.compose.foundation.layout.Row(
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
+                                yokai.presentation.theme.Size.small,
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .clickable(role = androidx.compose.ui.semantics.Role.Checkbox) {
+                                    removeFromLibrary = !removeFromLibrary
+                                },
+                        ) {
+                            androidx.compose.material3.Checkbox(
+                                checked = removeFromLibrary,
+                                onCheckedChange = null,
+                                colors = dialogCheckboxColors,
+                            )
+                            androidx.compose.material3.Text(text = removeFromLibraryLabel)
+                        }
+                    }
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        colors = dialogButtonColors,
+                        onClick = {
+                            deleteConfirmOpen = false
+                            val novels = screenModel.selectedNovelListWithMergedSiblings()
+                            if (novels.isEmpty()) return@TextButton
+                            if (removeFromLibrary) {
+                                screenModel.removeFromLibrary()
+                                screenModel.clearSelection()
+                                coroutineScope.launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = removedFromLibraryText,
+                                        actionLabel = undoText,
+                                        duration = SnackbarDuration.Long,
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        screenModel.reAddToLibrary(novels)
+                                    } else {
+                                        screenModel.confirmDeletion(novels, coverCacheToo = true)
+                                    }
+                                }
+                            } else {
+                                screenModel.confirmDeletion(novels, coverCacheToo = false)
+                                screenModel.clearSelection()
+                            }
+                        },
+                    ) {
+                        androidx.compose.material3.Text(text = removeText)
+                    }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(
+                        colors = dialogButtonColors,
+                        onClick = { deleteConfirmOpen = false },
+                    ) {
+                        androidx.compose.material3.Text(text = cancelText)
+                    }
+                },
+            )
+        }
+    }
+
+    @Composable
+    private fun MangaLibraryTabContent(screenModel: MangaLibraryScreenModel) {
         val state by screenModel.state.collectAsState()
         val preferences: PreferencesHelper = remember { Injekt.get() }
         val sourceManager: SourceManager = remember { Injekt.get() }
