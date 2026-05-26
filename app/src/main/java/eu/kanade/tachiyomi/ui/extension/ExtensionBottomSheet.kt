@@ -7,9 +7,14 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.view.WindowInsetsCompat.Type.systemBars
 import androidx.core.view.updatePaddingRelative
 import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager.widget.ViewPager
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.tabs.TabLayout
 import eu.davidea.flexibleadapter.FlexibleAdapter
@@ -74,8 +79,16 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
     private var extAdapter: ExtensionAdapter? = null
     private var migAdapter: FlexibleAdapter<IFlexible<*>>? = null
 
-    val adapters
-        get() = listOf(extAdapter, migAdapter)
+    /** Page-indexed: 0 = manga ext, 1 = LN (Compose, no FlexibleAdapter), 2 = migration. */
+    val adapters: List<FlexibleAdapter<IFlexible<*>>?>
+        get() = listOf(extAdapter, null, migAdapter)
+
+    private var lnComposeView: ComposeView? = null
+
+    /** Unfiltered caches so [pushMigrationData] can re-apply the shared toolbar search on
+     *  every [controller]'s extQuery change without losing the source-of-truth list. */
+    private var migrationSources: List<SourceItem> = emptyList()
+    private var migrationManga: List<MangaItem>? = null
 
     val presenter = ExtensionBottomPresenter()
     var currentSourceTitle: String? = null
@@ -90,7 +103,7 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
     val extensionFrameLayout: RecyclerWithScrollerView?
         get() = binding.pager.findViewWithTag("TabbedRecycler0") as? RecyclerWithScrollerView
     val migrationFrameLayout: RecyclerWithScrollerView?
-        get() = binding.pager.findViewWithTag("TabbedRecycler1") as? RecyclerWithScrollerView
+        get() = binding.pager.findViewWithTag("TabbedRecycler2") as? RecyclerWithScrollerView
 
     var isExpanding = false
 
@@ -119,6 +132,7 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
             val bottomH = bottomBar?.height ?: insets.getInsets(systemBars()).bottom
             extensionFrameLayout?.binding?.recycler?.updatePaddingRelative(bottom = bottomH)
             migrationFrameLayout?.binding?.recycler?.updatePaddingRelative(bottom = bottomH)
+            lnComposeView?.updatePaddingRelative(bottom = bottomH)
         }
         binding.tabs.addOnTabSelectedListener(
             object : TabLayout.OnTabSelectedListener {
@@ -128,23 +142,15 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
                         this@ExtensionBottomSheet.sheetBehavior?.expand()
                     }
                     this@ExtensionBottomSheet.controller.updateTitleAndMenu()
-                    when (tab?.position) {
-                        0 -> extensionFrameLayout
-                        else -> migrationFrameLayout
-                    }?.binding?.recycler?.isNestedScrollingEnabled = true
-                    when (tab?.position) {
-                        0 -> extensionFrameLayout
-                        else -> migrationFrameLayout
-                    }?.binding?.recycler?.requestLayout()
+                    val rv = activeRecyclerView(tab?.position)
+                    rv?.isNestedScrollingEnabled = true
+                    rv?.requestLayout()
                     sheetBehavior?.isDraggable = true
                 }
 
                 override fun onTabUnselected(tab: TabLayout.Tab?) {
-                    when (tab?.position) {
-                        0 -> extensionFrameLayout
-                        else -> migrationFrameLayout
-                    }?.binding?.recycler?.isNestedScrollingEnabled = false
-                    if (tab?.position == 1) {
+                    activeRecyclerView(tab?.position)?.isNestedScrollingEnabled = false
+                    if (tab?.position == 2) {
                         presenter.deselectSource()
                     }
                 }
@@ -152,20 +158,30 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
                 override fun onTabReselected(tab: TabLayout.Tab?) {
                     isExpanding = !sheetBehavior.isExpanded()
                     this@ExtensionBottomSheet.sheetBehavior?.expand()
-                    when (tab?.position) {
-                        0 -> extensionFrameLayout
-                        else -> migrationFrameLayout
-                    }?.binding?.recycler?.isNestedScrollingEnabled = true
+                    val rv = activeRecyclerView(tab?.position)
+                    rv?.isNestedScrollingEnabled = true
                     sheetBehavior?.isDraggable = true
                     if (!isExpanding) {
-                        when (tab?.position) {
-                            0 -> extensionFrameLayout
-                            else -> migrationFrameLayout
-                        }?.binding?.recycler?.smoothScrollToTop()
+                        rv?.smoothScrollToTop()
                     }
                 }
             },
         )
+        // Lazy-mount the LN Compose surface on first selection of page 1 so the LnPluginHost
+        // WebView doesn't spin up just because the sheet opened. Page 1 is always retained in
+        // memory once instantiated (3 pages, ViewPager offscreenPageLimit = 1), so the field
+        // and mount-once-via-tag combo holds across subsequent page swipes.
+        binding.pager.addOnPageChangeListener(object : ViewPager.SimpleOnPageChangeListener() {
+            override fun onPageSelected(position: Int) {
+                if (position == 1) {
+                    val cv = lnComposeView ?: return
+                    if (cv.tag != COMPOSE_MOUNTED_TAG) {
+                        mountLnContent(cv)
+                        cv.tag = COMPOSE_MOUNTED_TAG
+                    }
+                }
+            }
+        })
         presenter.onCreate()
         updateExtTitle()
 
@@ -181,12 +197,35 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
     }
 
     fun isOnView(view: View): Boolean {
-        return "TabbedRecycler${binding.pager.currentItem}" == view.tag
+        val current = binding.pager.currentItem
+        return when (view.tag) {
+            "TabbedRecycler$current", "TabbedCompose$current" -> true
+            else -> false
+        }
     }
 
     fun updatedNestedRecyclers() {
-        listOf(extensionFrameLayout, migrationFrameLayout).forEachIndexed { index, recyclerWithScrollerBinding ->
-            recyclerWithScrollerBinding?.binding?.recycler?.isNestedScrollingEnabled = binding.pager.currentItem == index
+        val current = binding.pager.currentItem
+        extensionFrameLayout?.binding?.recycler?.isNestedScrollingEnabled = current == 0
+        migrationFrameLayout?.binding?.recycler?.isNestedScrollingEnabled = current == 2
+    }
+
+    /** Returns the RV for the currently-active outer tab, or null for the LN tab (no RV). */
+    private fun activeRecyclerView(position: Int?): RecyclerView? = when (position) {
+        0 -> extensionFrameLayout?.binding?.recycler
+        2 -> migrationFrameLayout?.binding?.recycler
+        else -> null
+    }
+
+    private fun mountLnContent(composeView: ComposeView) {
+        composeView.setViewCompositionStrategy(
+            ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed,
+        )
+        composeView.setContent {
+            yokai.presentation.theme.YokaiTheme {
+                val query by controller.extQuery.collectAsState()
+                yokai.presentation.extension.browse.LnPluginBrowseContent(searchQuery = query)
+            }
         }
     }
 
@@ -288,7 +327,7 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
                     openTrustDialog(extension)
                 }
             }
-            else -> {
+            2 -> {
                 val item = migAdapter?.getItem(position) ?: return false
 
                 if (item is MangaItem) {
@@ -361,7 +400,9 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
             migrationFrameLayout?.onBind(migAdapter!!)
             migAdapter?.stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
         }
-        migAdapter?.updateDataSet(sources, changingAdapters)
+        migrationSources = sources
+        migrationManga = null
+        pushMigrationData(changingAdapters)
         controller.updateTitleAndMenu()
     }
 
@@ -373,31 +414,59 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
             migrationFrameLayout?.onBind(migAdapter!!)
             migAdapter?.stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
         }
-        migAdapter?.updateDataSet(manga, changingAdapters)
+        migrationManga = manga
+        pushMigrationData(changingAdapters)
         controller.updateTitleAndMenu()
     }
 
+    /** Re-apply the shared toolbar search to whichever migration list is current (source-list
+     *  or per-source manga-list). Called from setters above and from [drawExtensions] so a
+     *  text-change event refreshes both the manga ext list and the migration list in one pass. */
+    private fun pushMigrationData(changingAdapters: Boolean = false) {
+        val query = controller.extQuery.value
+        when (val adapter = migAdapter) {
+            is SourceAdapter -> {
+                val filtered = if (query.isBlank()) migrationSources else migrationSources.filter {
+                    it.source.name.contains(query, ignoreCase = true)
+                }
+                adapter.updateDataSet(filtered, changingAdapters)
+            }
+            is MangaAdapter -> {
+                val data = migrationManga
+                val filtered = when {
+                    data == null -> null
+                    query.isBlank() -> data
+                    else -> data.filter { it.manga.title.contains(query, ignoreCase = true) }
+                }
+                adapter.updateDataSet(filtered, changingAdapters)
+            }
+            else -> Unit
+        }
+    }
+
     fun drawExtensions() {
-        if (controller.extQuery.isNotBlank()) {
+        val query = controller.extQuery.value
+        if (query.isNotBlank()) {
             extAdapter?.updateDataSet(
                 extensions.filter {
-                    it.extension.name.contains(controller.extQuery, ignoreCase = true)
+                    it.extension.name.contains(query, ignoreCase = true)
                 },
             )
         } else {
             extAdapter?.updateDataSet(extensions)
         }
+        pushMigrationData()
         updateExtTitle()
         updateExtUpdateAllButton()
     }
 
     fun canStillGoBack(): Boolean {
-        return (binding.tabs.selectedTabPosition == 1 && migAdapter is MangaAdapter) ||
+        return (binding.tabs.selectedTabPosition == 2 && migAdapter is MangaAdapter) ||
             (binding.tabs.selectedTabPosition == 0 && binding.sheetToolbar.hasExpandedActionView())
     }
 
     fun canGoBack(): Boolean {
-        return if (binding.tabs.selectedTabPosition == 1 && migAdapter is MangaAdapter) {
+        return if (binding.tabs.selectedTabPosition == 2 && migAdapter is MangaAdapter) {
             presenter.deselectSource()
             false
         } else if (binding.sheetToolbar.hasExpandedActionView()) {
@@ -458,42 +527,34 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
     private inner class TabbedSheetAdapter : RecyclerViewPagerAdapter() {
 
         init {
-            // Disable view pool recycling: position 0 (Extensions) and position 1 (Migration)
-            // use structurally different views (wrapper with sub-tabs vs. bare RecyclerWithScroller),
-            // and the parent's pool would otherwise hand a wrapper view to position 1.
+            // Disable view pool recycling: the three pages have structurally different views
+            // (RV / ComposeView / RV) and the parent's pool would otherwise hand a ComposeView
+            // to an RV position (or vice versa) when a page is destroyed and recreated.
             recycle = false
         }
 
-        override fun getCount(): Int {
-            return 2
-        }
+        override fun getCount(): Int = 3
 
-        override fun getPageTitle(position: Int): CharSequence {
-            return context.getString(
-                when (position) {
-                    0 -> MR.strings.extensions
-                    else -> MR.strings.migration
-                },
-            )
-        }
+        override fun getPageTitle(position: Int): CharSequence = context.getString(
+            when (position) {
+                0 -> MR.strings.manga
+                1 -> MR.strings.light_novels
+                else -> MR.strings.migration
+            },
+        )
 
-        // Override the position-aware factory directly so position 0 returns the Extensions
-        // wrapper (Manga / Light novels nested sub-tabs) and position 1 returns the existing
-        // bare RecyclerWithScrollerView for Migration.
         override fun createView(container: ViewGroup, position: Int): View {
             val view = when (position) {
-                0 -> createExtensionsView(container)
+                1 -> createLnComposeView(container)
                 else -> createView(container)
             }
             bindView(view, position)
             return view
         }
 
-        /**
-         * Migration tab page: existing bare [RecyclerWithScrollerView] layout, bit-identical.
-         * Also used as a defensive default (parent's abstract requires this signature) — never
-         * called for position 0 because [createView] above intercepts.
-         */
+        /** Bare [RecyclerWithScrollerView] page used by both the Manga ext tab (0) and the
+         *  Migration tab (2). Default implementation required by the parent class; never
+         *  called for the LN page since [createView] intercepts position 1. */
         override fun createView(container: ViewGroup): View {
             val binding = RecyclerWithScrollerBinding.inflate(
                 LayoutInflater.from(container.context),
@@ -504,130 +565,52 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
             val height = this@ExtensionBottomSheet.controller.activityBinding?.bottomNav?.height
                 ?: view.rootWindowInsetsCompat?.getInsets(systemBars())?.bottom ?: 0
             view.setUp(this@ExtensionBottomSheet, binding, height)
-
             return view
         }
 
-        /**
-         * Phase 8 follow-up CR6: Extensions tab page wraps the existing
-         * [RecyclerWithScrollerView] in a [LinearLayout] with an inner [TabLayout] (Manga /
-         * Light novels) + a [FrameLayout] hosting the manga RV and a [ComposeView] for the LN
-         * aggregate plugin list.
-         *
-         * The inner RV keeps its tag (`TabbedRecycler0`) so the existing
-         * `extensionFrameLayout` getter (findViewWithTag) continues to resolve it via
-         * recursion through the wrapper.
-         *
-         * The LN [ComposeView] mounts [LnPluginBrowseContent] inside [YokaiTheme]; lifecycle
-         * teardown is handled by `ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed`
-         * mirroring [BaseComposeController].
-         */
-        private fun createExtensionsView(container: ViewGroup): View {
-            val inflater = LayoutInflater.from(container.context)
-            val wrapper = inflater.inflate(
-                eu.kanade.tachiyomi.R.layout.extensions_tab_with_subtabs,
-                container,
-                false,
-            ) as android.widget.LinearLayout
-
-            val innerTabs = wrapper.findViewById<TabLayout>(eu.kanade.tachiyomi.R.id.inner_tabs)
-            val composeView = wrapper.findViewById<androidx.compose.ui.platform.ComposeView>(
-                eu.kanade.tachiyomi.R.id.ln_compose,
-            )
-            // The included recycler_with_scroller layout exposes its root via the recycler_layout
-            // id (defined in recycler_with_scroller.xml). Find the inner RV through that.
-            val innerRv = wrapper.findViewById<RecyclerWithScrollerView>(
-                eu.kanade.tachiyomi.R.id.recycler_layout,
-            )
-            val innerBinding = RecyclerWithScrollerBinding.bind(innerRv)
-            val height = this@ExtensionBottomSheet.controller.activityBinding?.bottomNav?.height
-                ?: innerRv.rootWindowInsetsCompat?.getInsets(systemBars())?.bottom ?: 0
-            innerRv.setUp(this@ExtensionBottomSheet, innerBinding, height)
-
-            innerTabs.addTab(innerTabs.newTab().setText(context.getString(MR.strings.manga)))
-            innerTabs.addTab(innerTabs.newTab().setText(context.getString(MR.strings.light_novels)))
-            innerTabs.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
-                override fun onTabSelected(tab: TabLayout.Tab) {
-                    when (tab.position) {
-                        0 -> {
-                            innerRv.visibility = View.VISIBLE
-                            composeView.visibility = View.GONE
-                        }
-                        else -> {
-                            innerRv.visibility = View.GONE
-                            composeView.visibility = View.VISIBLE
-                            // Lazy-mount the Compose surface on first LN sub-tab selection so the
-                            // WebView (LnPluginHost) doesn't spin up until needed.
-                            if (composeView.tag != COMPOSE_MOUNTED_TAG) {
-                                composeView.setViewCompositionStrategy(
-                                    androidx.compose.ui.platform.ViewCompositionStrategy
-                                        .DisposeOnViewTreeLifecycleDestroyed,
-                                )
-                                composeView.setContent {
-                                    yokai.presentation.theme.YokaiTheme {
-                                        yokai.presentation.extension.browse.LnPluginBrowseContent()
-                                    }
-                                }
-                                composeView.tag = COMPOSE_MOUNTED_TAG
-                            }
-                        }
-                    }
-                }
-
-                override fun onTabUnselected(tab: TabLayout.Tab) {}
-                override fun onTabReselected(tab: TabLayout.Tab) {}
-            })
-
-            return wrapper
+        /** LN tab page: a bare [ComposeView]. Composition is deferred to first selection of
+         *  this page (see [mountLnContent] hook in onCreate) so the LnPluginHost WebView only
+         *  spins up when the user actually navigates to LN. */
+        private fun createLnComposeView(container: ViewGroup): View {
+            val cv = ComposeView(container.context).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                )
+            }
+            this@ExtensionBottomSheet.lnComposeView = cv
+            return cv
         }
 
-        /**
-         * Binds a view with a position.
-         *
-         * @param view the view to bind.
-         * @param position the position in the adapter.
-         */
         override fun bindView(view: View, position: Int) {
-            val rv = innerRecyclerOf(view, position) ?: return
+            if (position == 1) {
+                // LN page has no FlexibleAdapter; tag it so isOnView() can identify it and
+                // skip adapter binding entirely.
+                view.tag = "TabbedCompose1"
+                return
+            }
+            val rv = view as? RecyclerWithScrollerView ?: return
             rv.onBind(adapters[position]!!)
             rv.tag = "TabbedRecycler$position"
             boundViews.add(rv)
         }
 
-        /**
-         * Recycles a view.
-         *
-         * @param view the view to recycle.
-         * @param position the position in the adapter.
-         */
         override fun recycleView(view: View, position: Int) {
-            val rv = innerRecyclerOf(view, position) ?: return
+            if (position == 1) {
+                if (view === this@ExtensionBottomSheet.lnComposeView) {
+                    this@ExtensionBottomSheet.lnComposeView = null
+                }
+                return
+            }
+            val rv = view as? RecyclerWithScrollerView ?: return
             boundViews.remove(rv)
         }
 
-        /**
-         * Returns the position of the view.
-         */
         override fun getItemPosition(obj: Any): Int {
-            // `obj` is the view returned from createView — for position 0 that's the wrapper
-            // LinearLayout (find the RV inside); for position 1 it's the RV directly.
-            val rv = when (obj) {
-                is RecyclerWithScrollerView -> obj
-                is View -> obj.findViewById<RecyclerWithScrollerView>(eu.kanade.tachiyomi.R.id.recycler_layout)
-                else -> null
-            } ?: return POSITION_NONE
+            if (obj is ComposeView) return 1
+            val rv = obj as? RecyclerWithScrollerView ?: return POSITION_NONE
             val index = adapters.indexOfFirst { it == rv.binding?.recycler?.adapter }
             return if (index == -1) POSITION_NONE else index
-        }
-
-        /**
-         * Resolve the inner [RecyclerWithScrollerView] for a given page view. Position 0
-         * returns the wrapper's inner RV (via the recycler_layout id from the included
-         * recycler_with_scroller layout); position 1 returns the view as-is.
-         */
-        private fun innerRecyclerOf(view: View, position: Int): RecyclerWithScrollerView? = when (position) {
-            0 -> view.findViewById(eu.kanade.tachiyomi.R.id.recycler_layout)
-            else -> view as? RecyclerWithScrollerView
         }
     }
 

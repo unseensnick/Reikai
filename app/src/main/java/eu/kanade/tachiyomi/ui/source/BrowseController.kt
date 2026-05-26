@@ -68,6 +68,9 @@ import eu.kanade.tachiyomi.util.view.toolbarHeight
 import eu.kanade.tachiyomi.util.view.updateGradiantBGRadius
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import eu.kanade.tachiyomi.widget.LinearLayoutManagerAccurateOffset
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -107,8 +110,11 @@ class BrowseController :
      */
     private var adapter: SourceAdapter? = null
 
-    var extQuery = ""
-        private set
+    private val _extQuery = MutableStateFlow("")
+
+    /** Search query shared across the Extensions sheet tabs (Manga ext, LN plugins, Migration).
+     *  Subscribed by the LN Compose tab; read synchronously by manga ext + migration filters. */
+    val extQuery: StateFlow<String> = _extQuery.asStateFlow()
 
     var headerHeight = 0
 
@@ -436,17 +442,17 @@ class BrowseController :
 
             // Change hint to show global search.
             searchView.queryHint = view?.context?.getString(MR.strings.search_extensions)
-            if (extQuery.isNotEmpty()) {
+            if (extQuery.value.isNotEmpty()) {
                 searchView.setOnQueryTextListener(null)
                 searchItem.expandActionView()
-                searchView.setQuery(extQuery, true)
+                searchView.setQuery(extQuery.value, true)
                 searchView.clearFocus()
             } else {
                 searchItem.collapseActionView()
             }
             // Create query listener which opens the global search view.
             setOnQueryTextChangeListener(searchView) {
-                extQuery = it ?: ""
+                _extQuery.value = it ?: ""
                 binding.bottomSheet.root.drawExtensions()
                 true
             }

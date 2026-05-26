@@ -23,7 +23,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -66,6 +65,7 @@ import yokai.novel.registry.LnRegistryEntry
  */
 @Composable
 fun LnPluginBrowseContent(
+    searchQuery: String,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
@@ -87,7 +87,6 @@ fun LnPluginBrowseContent(
         val host = remember { LnPluginHost(context, networkHelper.client) }
         DisposableEffect(host) { onDispose { host.destroy() } }
 
-        var search by remember { mutableStateOf("") }
         var lastFailedToastCount by remember { mutableStateOf(0) }
 
         // Surface a one-shot toast when a fresh derive pass had failed repos. Only fires on the
@@ -119,16 +118,6 @@ fun LnPluginBrowseContent(
             contentColor = sheetContent,
         ) {
         Column(modifier = Modifier.fillMaxSize().padding(contentPadding)) {
-            OutlinedTextField(
-                value = search,
-                onValueChange = { search = it },
-                label = { Text("Search plugins") },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            )
-
             when (val s = state) {
                 LnPluginBrowseScreenModel.State.Loading -> {
                     Box(
@@ -144,7 +133,7 @@ fun LnPluginBrowseContent(
                     } else {
                         PluginList(
                             state = s,
-                            search = search,
+                            search = searchQuery,
                             busyEntryIds = busyEntryIds,
                             onInstall = { entry -> screenModel.install(host, entry) },
                             onUninstall = { entry -> screenModel.uninstall(entry) },
