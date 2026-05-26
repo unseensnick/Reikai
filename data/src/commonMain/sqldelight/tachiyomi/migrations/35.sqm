@@ -1,0 +1,40 @@
+-- Create library_novel_view. Phase 7 migration 34 added the underlying novel tables +
+-- columns but never created the view defined in `data/view/library_novel_view.sq`. Fresh
+-- installs work because SQLDelight applies the `.sq` CREATE statements at first-run; upgrade
+-- paths skip them. The bug stayed latent through Phase 7 (no UI consumer) and surfaced in
+-- Phase 8 when the Compose Novels tab tried to query the view.
+--
+-- DROP IF EXISTS guards a partial-migration scenario where a tester manually created the view
+-- (e.g. via the Phase 7 debug NovelLibraryScreen path which would not have triggered the
+-- crash because it queried `novels` directly via the repository). Matches the manga
+-- library_view convention used by migrations 20-31.
+
+DROP VIEW IF EXISTS library_novel_view;
+
+CREATE VIEW library_novel_view AS
+SELECT
+    N.*,
+    coalesce(C.total, 0) AS total,
+    coalesce(C.read_count, 0) AS has_read,
+    coalesce(C.bookmark_count, 0) AS bookmark_count,
+    coalesce(NC.category_id, 0) AS category,
+    coalesce(C.latestUpload, 0) AS latestUpload,
+    coalesce(N.last_read_at, 0) AS lastRead,
+    coalesce(C.lastFetch, 0) AS lastFetch
+FROM novels AS N
+LEFT JOIN (
+    SELECT
+        novel_chapters.novel_id,
+        count(*) AS total,
+        sum(read) AS read_count,
+        sum(bookmark) AS bookmark_count,
+        coalesce(max(novel_chapters.date_upload), 0) AS latestUpload,
+        coalesce(max(novel_chapters.date_fetch), 0) AS lastFetch
+    FROM novel_chapters
+    GROUP BY novel_chapters.novel_id
+) AS C
+ON N._id = C.novel_id
+LEFT JOIN (SELECT * FROM novels_categories) AS NC
+ON NC.novel_id = N._id
+WHERE N.favorite = 1
+ORDER BY N.title;
