@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.manga.related.browse
 
 import android.app.Activity
 import eu.kanade.tachiyomi.data.database.models.Category
+import eu.kanade.tachiyomi.data.database.models.sortedByLibraryCategoryPref
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.recommendation.RECOMMENDS_SOURCE
 import eu.kanade.tachiyomi.domain.manga.models.Manga
@@ -131,6 +132,11 @@ class BulkAddToLibraryHandler(
         skippedTrackerCount: Int,
         onDone: () -> Unit,
     ) {
+        // categorySortOrder applied so the sheet's category list matches the library list
+        // order the user is familiar with (off / A→Z / Z→A). preselected is computed below
+        // from `sortedCategories.map { ... }` so index alignment with the sheet is preserved.
+        val sortedCategories = categories
+            .sortedByLibraryCategoryPref(preferences.categorySortOrder().get())
         // Compute common+mixed preselection (mirrors List<Manga>.moveCategories in MangaExtensions).
         // Freshly-added manga have no existing categories yet, so both sets are typically empty
         // and every checkbox starts UNCHECKED — but the reduce is correct for the general case
@@ -143,7 +149,7 @@ class BulkAddToLibraryHandler(
             .orEmpty()
             .toSet()
         val mixedCategories = mangaCategories.flatten().distinct().subtract(commonCategories)
-        val preselected = categories.map {
+        val preselected = sortedCategories.map {
             when (it) {
                 in commonCategories -> TriStateCheckBox.State.CHECKED
                 in mixedCategories -> TriStateCheckBox.State.IGNORE
@@ -155,7 +161,7 @@ class BulkAddToLibraryHandler(
             SetCategoriesSheet(
                 activity,
                 resolved,
-                categories.toMutableList(),
+                sortedCategories.toMutableList(),
                 preselected,
                 addingToLibrary = true,
             ) {

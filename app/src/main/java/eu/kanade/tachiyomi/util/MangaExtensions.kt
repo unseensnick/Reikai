@@ -12,6 +12,7 @@ import com.google.android.material.snackbar.BaseTransientBottomBar
 import com.google.android.material.snackbar.Snackbar
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.data.database.models.seriesType
+import eu.kanade.tachiyomi.data.database.models.sortedByLibraryCategoryPref
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.track.EnhancedTrackService
 import eu.kanade.tachiyomi.data.track.TrackManager
@@ -95,7 +96,14 @@ suspend fun Manga.moveCategories(
     onMangaMoved: () -> Unit,
 ) {
     val getCategories: GetCategories = Injekt.get()
+    val preferences: PreferencesHelper = Injekt.get()
+    // Honor the Reikai-fork `categorySortOrder` pref so the move-to-categories sheet's list
+    // matches the order the user sees in the library (off / A→Z / Z→A). The sheet itself is
+    // a dumb renderer — sort happens here at the data layer so every entry point picks it up
+    // (this single-manga path is reached from manga details "Edit categories" and from the
+    // legacy library multi-select fallback).
     val categories = getCategories.await()
+        .sortedByLibraryCategoryPref(preferences.categorySortOrder().get())
     val categoriesForManga = this.id?.let { mangaId -> getCategories.awaitByMangaId(mangaId) }.orEmpty()
     val ids = categoriesForManga.mapNotNull { it.id }.toTypedArray()
     withUIContext {
@@ -121,7 +129,12 @@ suspend fun List<Manga>.moveCategories(
     if (this.isEmpty()) return
 
     val getCategories: GetCategories = Injekt.get()
+    val preferences: PreferencesHelper = Injekt.get()
+    // categorySortOrder applied here; the preselected array below is computed via
+    // `categories.map { ... }` AFTER the sort, so index alignment with the sheet's
+    // `categories` list is preserved. See CategorySortExtensions.kt for the comparator.
     val categories = getCategories.await()
+        .sortedByLibraryCategoryPref(preferences.categorySortOrder().get())
     val mangaCategories = map { manga ->
         manga.id?.let { mangaId -> getCategories.awaitByMangaId(mangaId) }.orEmpty()
     }
@@ -351,6 +364,11 @@ private suspend fun Manga.showSetCategoriesSheet(
     onMangaMoved: () -> Unit,
     getCategories: GetCategories = Injekt.get(),
 ) {
+    val preferences: PreferencesHelper = Injekt.get()
+    // categorySortOrder applied so the "Always ask" add-to-library sheet matches the
+    // library list order. Mirrors the sort in the other moveCategories paths above.
+    val sortedCategories = categories
+        .sortedByLibraryCategoryPref(preferences.categorySortOrder().get())
     val categoriesForManga = getCategories.awaitByMangaId(this.id!!)
     val ids = categoriesForManga.mapNotNull { it.id }.toTypedArray()
 
@@ -358,7 +376,7 @@ private suspend fun Manga.showSetCategoriesSheet(
         SetCategoriesSheet(
             activity,
             this@showSetCategoriesSheet,
-            categories.toMutableList(),
+            sortedCategories.toMutableList(),
             ids,
             true,
         ) {
