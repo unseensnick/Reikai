@@ -53,4 +53,60 @@ class NovelPreferences(
     fun hideNotificationContent() = preferenceStore.getBoolean("ln_hide_notification_content", false)
     /** 0 = never, 1 = ask, 2 = always. Mirrors manga's deleteRemovedChapters. */
     fun deleteRemovedChapters() = preferenceStore.getInt("ln_delete_removed_chapters", 0)
+
+    // ----------------------------------------------------------------------------------------
+    // Compose-library state, filter, sort, group, merge preferences (Phase 7C / 7E feed).
+    //
+    // Key prefix convention shift: these use `novel_` / `pref_novel_` per the Phase 7 plan
+    // (C23), while the older keys above use `ln_` from the Slice C / Slice E spike. Each pref
+    // is independent so the inconsistency is purely cosmetic; reorganising the older keys
+    // would orphan any user data the spike produced.
+    //
+    // Defaults match the manga side (PreferencesHelper) so a dual-library user gets the same
+    // out-of-box behavior on both tabs.
+    // ----------------------------------------------------------------------------------------
+
+    // Filter sheet. 0 = ignore, 1 = include, 2 = exclude (unread also uses 3 / 4 for the
+    // read-progress refinement). Consumed by NovelLibraryFilter (C19).
+    fun filterDownloaded() = preferenceStore.getInt("pref_novel_filter_downloaded_key", 0)
+    fun filterUnread() = preferenceStore.getInt("pref_novel_filter_unread_key", 0)
+    fun filterCompleted() = preferenceStore.getInt("pref_novel_filter_completed_key", 0)
+    fun filterBookmarked() = preferenceStore.getInt("pref_novel_filter_bookmarked_key", 0)
+    fun filterTracked() = preferenceStore.getInt("pref_novel_filter_tracked_key", 0)
+
+    // Library-wide sort. Per-category overrides live on novel_categories.sort and read through
+    // NovelCategory.novelSort. Consumed by NovelLibrarySort (C20).
+    fun librarySortingMode() = preferenceStore.getInt("novel_library_sorting_mode", 0)
+    fun librarySortingAscending() = preferenceStore.getBoolean("novel_library_sorting_ascending", true)
+
+    // Grouping. Consumed by NovelLibrarySectioner (C17), NovelLibraryGrouping (C21), and
+    // NovelLibraryDynamicGrouping (C22). `groupLibraryBy` mirrors LibraryGroup.BY_* ints
+    // (0 = BY_DEFAULT). NovelLibraryDynamicGrouping rejects BY_LANGUAGE (no language field on
+    // Novel) and returns empty; the future screen model should hide that chip on the novel side.
+    fun groupLibraryBy() = preferenceStore.getInt("novel_group_library_by", 0)
+    fun collapsedCategories() = preferenceStore.getStringSet("novel_collapsed_categories", mutableSetOf())
+    fun collapsedDynamicCategories() =
+        preferenceStore.getStringSet("novel_collapsed_dynamic_categories", mutableSetOf())
+    fun collapsedDynamicAtBottom() = preferenceStore.getBoolean("novel_collapsed_dynamic_at_bottom", false)
+    /** 0 = manual drag-and-drop order, 1 = A->Z, 2 = Z->A. Mirrors the Reikai-fork manga pref. */
+    fun categorySortOrder() = preferenceStore.getInt("pref_novel_category_sort_order", 0)
+
+    // Merge / unmerge. Raw String sets parsed by NovelLibraryGrouping (C21). Each entry is
+    // "id,id[,id...]" for merges, "smallerId,largerId" for unmerges. Auto-merge collapses
+    // same-titled novels across sources when on (the legacy default).
+    fun novelManualMerges() = preferenceStore.getStringSet("novel_manual_merges", emptySet())
+    fun novelManualUnmerges() = preferenceStore.getStringSet("novel_manual_unmerges", emptySet())
+    fun autoMergeSameTitle() = preferenceStore.getBoolean("novel_auto_merge_same_title", true)
+
+    // Screen state. lastUsedNovelCategory persists which category tab was last visible so the
+    // user lands back on it after process death. showAllCategories renders every category
+    // header even when one is filtered to empty. showEmptyCategoriesWhileFiltering keeps
+    // emptied categories visible during an active filter narrow. filterOrder is the
+    // reorderable filter-chip order (empty default; the future filter sheet UI will seed a
+    // default ordering on first open).
+    fun lastUsedNovelCategory() = preferenceStore.getInt("last_used_novel_category", 0)
+    fun showAllCategories() = preferenceStore.getBoolean("novel_show_all_categories", true)
+    fun showEmptyCategoriesWhileFiltering() =
+        preferenceStore.getBoolean("novel_show_empty_categories_filtering", false)
+    fun filterOrder() = preferenceStore.getString("novel_filter_order", "")
 }
