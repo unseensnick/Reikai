@@ -3,17 +3,16 @@ package eu.kanade.tachiyomi.data.database.models
 import android.content.Context
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.ui.library.LibrarySort
-import java.io.Serializable
 import yokai.i18n.MR
 import yokai.util.lang.getString
 
-interface Category : Serializable {
+interface Category : ILibraryCategory {
 
-    var id: Int?
+    override var id: Int?
 
-    var name: String
+    override var name: String
 
-    var order: Int
+    override var order: Int
 
     var flags: Int
 
@@ -23,9 +22,9 @@ interface Category : Serializable {
 
     var isAlone: Boolean
 
-    var isHidden: Boolean
+    override var isHidden: Boolean
 
-    var isDynamic: Boolean
+    override var isDynamic: Boolean
 
     var sourceId: Long?
 
@@ -33,11 +32,11 @@ interface Category : Serializable {
 
     var isSystem: Boolean
 
-    fun isAscending(): Boolean {
+    override fun isAscending(): Boolean {
         return ((mangaSort?.minus('a') ?: 0) % 2) != 1
     }
 
-    fun sortingMode(): LibrarySort? = LibrarySort.valueOf(mangaSort)
+    override fun sortingMode(): LibrarySort? = LibrarySort.valueOf(mangaSort)
 
     val isDragAndDrop
         get() = (
@@ -56,7 +55,7 @@ interface Category : Serializable {
         if (mangaSort != null) mangaSort.toString() else mangaOrder.joinToString("/")
 
     // For dynamic categories
-    fun dynamicHeaderKey(): String {
+    override fun dynamicHeaderKey(): String {
         if (!isDynamic) throw IllegalStateException("This category is not a dynamic category")
 
         return when {

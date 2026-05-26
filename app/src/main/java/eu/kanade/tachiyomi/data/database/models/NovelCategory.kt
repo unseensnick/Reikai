@@ -3,17 +3,16 @@ package eu.kanade.tachiyomi.data.database.models
 import android.content.Context
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.ui.library.LibrarySort
-import java.io.Serializable
 import yokai.i18n.MR
 import yokai.util.lang.getString
 
-interface NovelCategory : Serializable {
+interface NovelCategory : ILibraryCategory {
 
-    var id: Int?
+    override var id: Int?
 
-    var name: String
+    override var name: String
 
-    var order: Int
+    override var order: Int
 
     var flags: Int
 
@@ -23,9 +22,9 @@ interface NovelCategory : Serializable {
 
     var isAlone: Boolean
 
-    var isHidden: Boolean
+    override var isHidden: Boolean
 
-    var isDynamic: Boolean
+    override var isDynamic: Boolean
 
     /**
      * Source identifier for BY_SOURCE dynamic categories. String-typed (unlike manga's Long)
@@ -38,11 +37,11 @@ interface NovelCategory : Serializable {
 
     var isSystem: Boolean
 
-    fun isAscending(): Boolean {
+    override fun isAscending(): Boolean {
         return ((novelSort?.minus('a') ?: 0) % 2) != 1
     }
 
-    fun sortingMode(): LibrarySort? = LibrarySort.valueOf(novelSort)
+    override fun sortingMode(): LibrarySort? = LibrarySort.valueOf(novelSort)
 
     val isDragAndDrop
         get() = (
@@ -60,7 +59,7 @@ interface NovelCategory : Serializable {
     fun novelOrderToString(): String =
         if (novelSort != null) novelSort.toString() else novelOrder.joinToString("/")
 
-    fun dynamicHeaderKey(): String {
+    override fun dynamicHeaderKey(): String {
         if (!isDynamic) throw IllegalStateException("This category is not a dynamic category")
 
         return when {
