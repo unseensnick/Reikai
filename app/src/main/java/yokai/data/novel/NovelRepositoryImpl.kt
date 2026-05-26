@@ -1,6 +1,8 @@
 package yokai.data.novel
 
 import co.touchlab.kermit.Logger
+import eu.kanade.tachiyomi.data.database.models.LibraryNovel
+import eu.kanade.tachiyomi.data.database.models.NovelInCategory
 import kotlinx.coroutines.flow.Flow
 import yokai.data.DatabaseHandler
 import yokai.domain.novel.NovelRepository
@@ -85,4 +87,26 @@ class NovelRepositoryImpl(private val handler: DatabaseHandler) : NovelRepositor
         Logger.e(e) { "Failed to update novel id=${novel.id}" }
         false
     }
+
+    override suspend fun getLibraryNovel(): List<LibraryNovel> =
+        handler.awaitList { library_novel_viewQueries.findAll(LibraryNovel::mapper) }
+
+    override fun getLibraryNovelAsFlow(): Flow<List<LibraryNovel>> =
+        handler.subscribeToList { library_novel_viewQueries.findAll(LibraryNovel::mapper) }
+
+    override suspend fun setCategories(novelId: Long, categoryIds: List<Long>) =
+        handler.await(inTransaction = true) {
+            novels_categoriesQueries.delete(novelId)
+            categoryIds.forEach { id ->
+                novels_categoriesQueries.insert(novelId, id)
+            }
+        }
+
+    override suspend fun setMultipleNovelCategories(novelIds: List<Long>, novelCategories: List<NovelInCategory>) =
+        handler.await(inTransaction = true) {
+            novels_categoriesQueries.deleteBulk(novelIds)
+            novelCategories.forEach {
+                novels_categoriesQueries.insert(it.novel_id, it.category_id.toLong())
+            }
+        }
 }
