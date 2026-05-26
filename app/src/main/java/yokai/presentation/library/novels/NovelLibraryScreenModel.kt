@@ -410,6 +410,76 @@ class NovelLibraryScreenModel :
     }
 
     // ----------------------------------------------------------------------------------------
+    // Refresh + dynamic-category collapse (C29).
+    // ----------------------------------------------------------------------------------------
+
+    /**
+     * Dispatch a refresh for [category] (or all categories when null). Mirrors manga's
+     * `MangaLibraryScreenModel.refresh`:
+     *
+     * - Real categories (`id >= 0`, `isDynamic == false`): forwarded as-is. The worker
+     *   resolves the bucket from the DB via `novel.category == id`.
+     * - Dynamic categories (`isDynamic == true`, synthetic negative id): the worker can't
+     *   resolve a synthetic id back to a DB filter, so we look up the bucket in the current
+     *   loaded library and hand the worker the novel list directly via `novelsToUse`.
+     *
+     * **Optimistic spinner** (Phase 6 lesson): as soon as we dispatch, we add the category id
+     * to `inQueueCategoryIds` and flip `isRunning` so the per-header spinner appears without
+     * waiting for the [NovelLibraryUpdater.isRunningFlow] tick + reactive snap re-derivation.
+     * Without this, the spinner lags a few hundred milliseconds after tap. The reactive
+     * derivation later replaces the set with the worker-populated
+     * [NovelUpdateJob.categoryInQueue], which includes synthetic ids thanks to the C14d
+     * `!= -1` sentinel check.
+     */
+    fun refresh(category: NovelCategory?): Boolean {
+        val novelsToUse = if (category?.isDynamic == true) {
+            val loaded = state.value as? NovelLibraryTabState.Loaded ?: return false
+            loaded.library.entries
+                .firstOrNull { it.key.id == category.id }
+                ?.value
+                ?.map { it.libraryNovel }
+                ?: return false
+        } else {
+            null
+        }
+        val started = novelLibraryUpdater.startNow(category, novelsToUse = novelsToUse)
+        category?.id?.let { catId ->
+            mutableState.update { current ->
+                if (current is NovelLibraryTabState.Loaded) {
+                    current.copy(
+                        inQueueCategoryIds = current.inQueueCategoryIds + catId,
+                        isRunning = true,
+                    )
+                } else {
+                    current
+                }
+            }
+        }
+        return started
+    }
+
+    fun stopRefresh() = novelLibraryUpdater.stop()
+
+    fun isCategoryInQueue(categoryId: Int?): Boolean = novelLibraryUpdater.isCategoryInQueue(categoryId)
+
+    fun isRunning(): Boolean = novelLibraryUpdater.isRunning()
+
+    /**
+     * Toggle the collapse state of a dynamic category. Writes to
+     * [NovelPreferences.collapsedDynamicCategories] keyed by [NovelCategory.dynamicHeaderKey].
+     * Default-grouping categories use a separate `collapsedCategories` pref keyed by integer
+     * category id (handled by the future Compose `onToggleCategoryCollapse` callback in the
+     * Novels tab).
+     */
+    fun toggleDynamicCategoryCollapse(category: NovelCategory) {
+        if (!category.isDynamic) return
+        val key = category.dynamicHeaderKey()
+        val current = novelPreferences.collapsedDynamicCategories().get().toMutableSet()
+        if (!current.add(key)) current.remove(key)
+        novelPreferences.collapsedDynamicCategories().set(current)
+    }
+
+    // ----------------------------------------------------------------------------------------
     // Sort writes (C28). Per-category SQL update for regular categories; library-wide pref
     // write for synthetic (default + dynamic) ones; optimistic state update + sortEpoch bump
     // so the UI re-renders without waiting for the reactive DB / pref round-trip.
