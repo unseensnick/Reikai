@@ -5,11 +5,24 @@ import eu.kanade.tachiyomi.data.database.models.LibraryManga
 import eu.kanade.tachiyomi.data.database.models.LibraryNovel
 
 sealed interface LibraryItem {
-    @Immutable
-    data class Blank(val mangaCount: Int = 0) : LibraryItem
+    /**
+     * Domain id of the underlying [eu.kanade.tachiyomi.domain.manga.models.Manga] or
+     * [yokai.domain.novel.models.Novel]. Null for [Blank] / [Hidden] placeholders. Exposed at
+     * the sealed-interface level so the shared Compose library composable can key LazyColumn
+     * cells, look up selection membership, and dispatch click callbacks without case-splitting
+     * on the concrete variant.
+     */
+    val itemId: Long?
 
     @Immutable
-    data class Hidden(val title: String, val hiddenItems: List<LibraryItem>) : LibraryItem
+    data class Blank(val mangaCount: Int = 0) : LibraryItem {
+        override val itemId: Long? = null
+    }
+
+    @Immutable
+    data class Hidden(val title: String, val hiddenItems: List<LibraryItem>) : LibraryItem {
+        override val itemId: Long? = null
+    }
 
     /**
      * Marked [Immutable] so Compose can skip recomposes when the same item is re-emitted by the
@@ -36,6 +49,8 @@ sealed interface LibraryItem {
          */
         val relatedMangaIds: LongArray = LongArray(0),
     ) : LibraryItem {
+
+        override val itemId: Long? get() = libraryManga.manga.id
 
         // LongArray properties use reference equality in the data class default, which would
         // defeat the @Immutable skip-on-equal recompose pass whenever the screen model re-emits
@@ -84,6 +99,8 @@ sealed interface LibraryItem {
          */
         val relatedNovelIds: LongArray = LongArray(0),
     ) : LibraryItem {
+
+        override val itemId: Long? get() = libraryNovel.novel.id
 
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
