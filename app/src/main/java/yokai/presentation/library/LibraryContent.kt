@@ -119,11 +119,9 @@ import yokai.presentation.library.components.LibraryCategoryHeader
 import yokai.presentation.library.components.LibraryOverflowMenu
 import yokai.presentation.library.components.SelectionAppBar
 import yokai.presentation.library.settings.LibraryDisplayOptionsSheet
-import yokai.presentation.manga.components.Badge
-import yokai.presentation.manga.components.BadgeSegments
 import yokai.presentation.library.manga.MangaLibraryGridCell
+import yokai.presentation.library.manga.MangaLibraryListItem
 import yokai.presentation.manga.components.MangaCoverRatio
-import yokai.presentation.manga.components.MangaListItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1181,62 +1179,14 @@ fun LibraryContent(
                                 key = { "${category.id ?: 0}:${it.libraryManga.manga.id ?: 0L}" },
                                 contentType = { "library_list_item" },
                             ) { item ->
-                                val manga = item.libraryManga.manga
-                                val coverData = remember(manga.id) { manga.cover() }
-                                val title = remember(manga.id) { manga.title }
-                                val subtitle = remember(manga.id) {
-                                    val author = manga.author?.trim().orEmpty()
-                                    val artist = manga.artist?.trim().orEmpty()
-                                    when {
-                                        author.isEmpty() -> artist
-                                        artist.isEmpty() || artist == author -> author
-                                        author.contains(artist, true) -> author
-                                        else -> "$author, $artist"
-                                    }
-                                }
-                                // Same badge inputs as the grid; legacy list rows render the
-                                // unread / download chips on the trailing side, mirroring
-                                // manga_list_item.xml. The Badge component itself is reused so
-                                // visuals match the grid badges.
-                                // unreadBadgeType matches the legacy RadioGroup binding (see
-                                // LibraryHolder.setUnreadBadge): 0/negative = hide, 1 = dot, 2 = count.
-                                val unreadCount = if (unreadBadgeType > 0) item.libraryManga.unread else 0
-                                val unreadDot = unreadBadgeType == 1
-                                val downloadCount = if (showDownloadBadge) {
-                                    item.downloadCount.toInt().coerceAtLeast(0)
-                                } else {
-                                    0
-                                }
-                                val lang = if (showLanguageBadge) item.language.takeIf { it.isNotBlank() } else null
-                                val isLocal = remember(manga.id) { manga.isLocal() }
-                                val segments = BadgeSegments(
-                                    lang = lang,
-                                    unreadCount = unreadCount,
-                                    downloadCount = downloadCount,
-                                    unreadDot = unreadDot,
-                                    isLocal = isLocal,
-                                )
-                                MangaListItem(
-                                    coverData = coverData,
-                                    title = title,
-                                    // animateItem keeps row drops/swaps smooth instead of
-                                    // pop-jumping when a merge / unmerge / sort change reshapes
-                                    // the list. Safe to apply unconditionally: it only runs
-                                    // when the lazy column actually relocates a row.
-                                    modifier = Modifier.animateItem(),
-                                    subtitle = subtitle.takeIf { it.isNotEmpty() },
-                                    isSelected = manga.id != null && manga.id in selection,
-                                    onClick = if (selection.isNotEmpty()) {
-                                        { manga.id?.let(onToggleSelection) }
-                                    } else {
-                                        { onMangaClick(manga) }
-                                    },
-                                    onLongClick = { manga.id?.let(onToggleSelection) },
-                                    trailing = if (segments.isNotEmpty()) {
-                                        { Badge(segments = segments) }
-                                    } else {
-                                        null
-                                    },
+                                MangaLibraryListItem(
+                                    item = item,
+                                    selection = selection,
+                                    showDownloadBadge = showDownloadBadge,
+                                    showLanguageBadge = showLanguageBadge,
+                                    unreadBadgeType = unreadBadgeType,
+                                    onMangaClick = onMangaClick,
+                                    onToggleSelection = onToggleSelection,
                                 )
                             }
                         }
