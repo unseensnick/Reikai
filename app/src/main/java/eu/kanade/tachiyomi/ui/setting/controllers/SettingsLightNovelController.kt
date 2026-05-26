@@ -3,8 +3,6 @@ package eu.kanade.tachiyomi.ui.setting.controllers
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.ui.setting.SettingsLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.debug.LnPluginHostProbeController
-import eu.kanade.tachiyomi.ui.setting.controllers.debug.LnRepoBrowseController
-import eu.kanade.tachiyomi.ui.novel.browse.NovelBrowseController
 import eu.kanade.tachiyomi.ui.setting.controllers.debug.NovelTrackProbeController
 import eu.kanade.tachiyomi.ui.setting.onClick
 import eu.kanade.tachiyomi.ui.setting.preference
@@ -13,10 +11,16 @@ import yokai.i18n.MR
 import eu.kanade.tachiyomi.ui.setting.titleMRes as titleRes
 
 /**
- * Beta-only settings shelf for the WIP light-novel reader. Hosts the five LN debug screens
- * (probe, repo browse, browse, library, track probe) one tap deeper than they used to be from
- * the Debug menu so testers can reach them without drilling through Advanced. Will be removed
- * once the bottom-nav Novels tab covers everything and the debug screens stop earning rent.
+ * Beta-only settings shelf for the WIP light-novel reader. After Phase 8 follow-up CR11 this
+ * shrinks to two genuinely-debug-only entries (plugin host probe + tracker probe) — the
+ * repo-browse and novel-browse rows moved to proper user-facing UIs under Browse:
+ *   - Repo URL management: Browse → Extension repos → Light novels tab.
+ *   - Plugin install: Browse → main bottom sheet → Extensions tab → Light novels sub-tab.
+ *   - Source catalogs: Browse → main view → Light novel sources tab → tap a source.
+ *
+ * The remaining two entries stay because no proper-UI replacement exists yet (plugin host
+ * probe is a development-only diagnostic; tracker probe is a placeholder until the novel
+ * tracker UI ships).
  */
 class SettingsLightNovelController : SettingsLegacyController() {
 
@@ -26,14 +30,6 @@ class SettingsLightNovelController : SettingsLegacyController() {
         preference {
             title = LnPluginHostProbeController.title
             onClick { router.pushController(LnPluginHostProbeController().withFadeTransaction()) }
-        }
-        preference {
-            title = LnRepoBrowseController.title
-            onClick { router.pushController(LnRepoBrowseController().withFadeTransaction()) }
-        }
-        preference {
-            title = NovelBrowseController.title
-            onClick { router.pushController(NovelBrowseController().withFadeTransaction()) }
         }
         preference {
             title = NovelTrackProbeController.title
