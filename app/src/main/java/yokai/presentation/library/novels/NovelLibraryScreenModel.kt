@@ -21,6 +21,7 @@ import yokai.domain.novel.NovelPreferences
 import yokai.domain.novel.NovelRepository
 import yokai.domain.novel.NovelTrackRepository
 import yokai.domain.novel.interactor.GetNovelCategories
+import yokai.domain.novel.models.Novel
 import yokai.i18n.MR
 import yokai.novel.source.NovelSourceManager
 import yokai.presentation.library.novels.state.NovelLibraryTabState
@@ -256,6 +257,92 @@ class NovelLibraryScreenModel :
             removeArticles = snap.sortPrefs.removeArticles,
         )
     }
+
+    // ----------------------------------------------------------------------------------------
+    // Selection state + mutators (C26). Pure state updates; no DB touches.
+    // ----------------------------------------------------------------------------------------
+
+    fun toggleSelection(novelId: Long) {
+        mutableState.update { current ->
+            if (current is NovelLibraryTabState.Loaded) {
+                val next = if (novelId in current.selection) {
+                    current.selection - novelId
+                } else {
+                    current.selection + novelId
+                }
+                current.copy(selection = next)
+            } else {
+                current
+            }
+        }
+    }
+
+    fun clearSelection() {
+        mutableState.update { current ->
+            if (current is NovelLibraryTabState.Loaded && current.selection.isNotEmpty()) {
+                current.copy(selection = emptySet())
+            } else {
+                current
+            }
+        }
+    }
+
+    fun setSelection(novelIds: Set<Long>) {
+        mutableState.update { current ->
+            if (current is NovelLibraryTabState.Loaded) {
+                current.copy(selection = novelIds)
+            } else {
+                current
+            }
+        }
+    }
+
+    /**
+     * Toggle every novel in a category in / out of the selection set. Mirrors manga's
+     * select-all-in-category checkbox: if every novel in the category is already selected,
+     * remove them all; otherwise add the missing ones (covers the partial-already-selected
+     * case without first deselecting).
+     */
+    fun toggleCategorySelection(categoryId: Int) {
+        mutableState.update { current ->
+            if (current !is NovelLibraryTabState.Loaded) return@update current
+            val categoryEntry = current.library.entries.firstOrNull { it.key.id == categoryId }
+                ?: return@update current
+            val categoryIds = categoryEntry.value.mapNotNull { it.libraryNovel.novel.id }.toSet()
+            if (categoryIds.isEmpty()) return@update current
+            val allSelected = categoryIds.all { it in current.selection }
+            val newSelection = if (allSelected) {
+                current.selection - categoryIds
+            } else {
+                current.selection + categoryIds
+            }
+            current.copy(selection = newSelection)
+        }
+    }
+
+    /**
+     * Resolve current selection ids to their backing [Novel] entries via state.library. No DB
+     * call needed: every selected novel is, by definition, currently rendered in the grid.
+     *
+     * For multi-select actions that need to operate on every member of a merged group (delete,
+     * move-to-categories), use the merged-siblings variant landing in C27 instead — calling
+     * this resolver on a collapsed-leader selection silently returns only the leader.
+     */
+    fun selectedNovelList(): List<Novel> {
+        val loaded = state.value as? NovelLibraryTabState.Loaded ?: return emptyList()
+        val ids = loaded.selection
+        if (ids.isEmpty()) return emptyList()
+        return loaded.library.values
+            .asSequence()
+            .flatten()
+            .map { it.libraryNovel.novel }
+            .filter { it.id in ids }
+            .toList()
+    }
+
+    // ----------------------------------------------------------------------------------------
+    // Combine-chain helper flows + helpers below.
+    // ----------------------------------------------------------------------------------------
 
     /**
      * Bundles the sort-related prefs so the main combine chain stays shallow. Drops manga's
