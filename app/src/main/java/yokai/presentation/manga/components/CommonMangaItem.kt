@@ -156,6 +156,7 @@ fun BadgeSegments(
 fun MangaComfortableGridItem(
     coverData: MangaCoverModel,
     title: String,
+    modifier: Modifier = Modifier,
     lang: String? = null,
     unreadCount: Int = 0,
     downloadCount: Int = 0,
@@ -180,14 +181,16 @@ fun MangaComfortableGridItem(
     showLoadingIndicator: Boolean = true,
 ) {
     Column(
-        modifier = when {
-            onClick != null && onLongClick != null -> Modifier.combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick,
-            )
-            onClick != null -> Modifier.clickable(onClick = onClick)
-            else -> Modifier
-        },
+        modifier = modifier.then(
+            when {
+                onClick != null && onLongClick != null -> Modifier.combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick,
+                )
+                onClick != null -> Modifier.clickable(onClick = onClick)
+                else -> Modifier
+            },
+        ),
     ) {
         // Selection frame port of refs/yokai library_grid_selector.xml +
         // LibraryGridHolder.kt:108-122: 4dp colorSecondary fill behind the cover, plus a 3dp
@@ -290,6 +293,7 @@ fun MangaComfortableGridItem(
 fun MangaCompactGridItem(
     coverData: MangaCoverModel,
     title: String,
+    modifier: Modifier = Modifier,
     lang: String? = null,
     unreadCount: Int = 0,
     downloadCount: Int = 0,
@@ -317,16 +321,18 @@ fun MangaCompactGridItem(
 ) {
     // Selection frame: same port as MangaComfortableGridItem.
     Box(
-        modifier = if (isSelected) {
-            Modifier
-                .background(
-                    color = MaterialTheme.colorScheme.secondary,
-                    shape = RoundedCornerShape(12.dp),
-                )
-                .padding(4.dp)
-        } else {
-            Modifier
-        },
+        modifier = modifier.then(
+            if (isSelected) {
+                Modifier
+                    .background(
+                        color = MaterialTheme.colorScheme.secondary,
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                    .padding(4.dp)
+            } else {
+                Modifier
+            },
+        ),
     ) {
     MangaGridCover(
         modifier = when {

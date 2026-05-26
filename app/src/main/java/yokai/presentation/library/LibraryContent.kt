@@ -1147,6 +1147,9 @@ fun LibraryContent(
                                         mangaItems.all { it.libraryManga.manga.id in selection }
                                     LibraryCategoryHeader(
                                         name = category.name,
+                                        // animateItem smooths header reflow when collapse /
+                                        // sort / refresh state changes shift headers up/down.
+                                        modifier = Modifier.animateItem(),
                                         itemCount = displayedHeaderCounts[category.id ?: 0] ?: 0,
                                         showItemCount = showCategoryItemCounts,
                                         isCollapsed = if (category.isDynamic) category.isHidden else (category.id != null && category.id in collapsedIds),
@@ -1217,6 +1220,11 @@ fun LibraryContent(
                                 MangaListItem(
                                     coverData = coverData,
                                     title = title,
+                                    // animateItem keeps row drops/swaps smooth instead of
+                                    // pop-jumping when a merge / unmerge / sort change reshapes
+                                    // the list. Safe to apply unconditionally: it only runs
+                                    // when the lazy column actually relocates a row.
+                                    modifier = Modifier.animateItem(),
                                     subtitle = subtitle.takeIf { it.isNotEmpty() },
                                     isSelected = manga.id != null && manga.id in selection,
                                     onClick = if (selection.isNotEmpty()) {
@@ -1256,6 +1264,9 @@ fun LibraryContent(
                                         mangaItems.all { it.libraryManga.manga.id in selection }
                                     LibraryCategoryHeader(
                                         name = category.name,
+                                        // animateItem smooths header reflow when collapse /
+                                        // sort / refresh state changes shift headers up/down.
+                                        modifier = Modifier.animateItem(),
                                         itemCount = displayedHeaderCounts[category.id ?: 0] ?: 0,
                                         showItemCount = showCategoryItemCounts,
                                         isCollapsed = if (category.isDynamic) category.isHidden else (category.id != null && category.id in collapsedIds),
@@ -1300,6 +1311,10 @@ fun LibraryContent(
                                     unreadBadgeType = unreadBadgeType,
                                     hideStartReadingButton = hideStartReadingButton,
                                     isSelected = mangaId != null && mangaId in selection,
+                                    // animateItem on the grid cell makes merge/unmerge/sort
+                                    // changes slide rather than pop-jump: removed siblings fade
+                                    // out, surviving cards translate into their new positions.
+                                    modifier = Modifier.animateItem(),
                                     selectionActive = selection.isNotEmpty(),
                                     onMangaClick = onMangaClick,
                                     onMangaLongClick = { m -> m.id?.let(onToggleSelection) },
@@ -1331,6 +1346,9 @@ fun LibraryContent(
                                         mangaItems.all { it.libraryManga.manga.id in selection }
                                     LibraryCategoryHeader(
                                         name = category.name,
+                                        // animateItem smooths header reflow when collapse /
+                                        // sort / refresh state changes shift headers up/down.
+                                        modifier = Modifier.animateItem(),
                                         itemCount = displayedHeaderCounts[category.id ?: 0] ?: 0,
                                         showItemCount = showCategoryItemCounts,
                                         isCollapsed = if (category.isDynamic) category.isHidden else (category.id != null && category.id in collapsedIds),
@@ -1381,6 +1399,9 @@ fun LibraryContent(
                                     unreadBadgeType = unreadBadgeType,
                                     hideStartReadingButton = hideStartReadingButton,
                                     isSelected = mangaId != null && mangaId in selection,
+                                    // See above (comfortable grid path); same animateItem
+                                    // rationale for the staggered grid's LazyStaggeredGridItemScope.
+                                    modifier = Modifier.animateItem(),
                                     selectionActive = selection.isNotEmpty(),
                                     onMangaClick = onMangaClick,
                                     onMangaLongClick = { m -> m.id?.let(onToggleSelection) },
@@ -1703,6 +1724,7 @@ private fun LibraryGridCell(
     unreadBadgeType: Int,
     hideStartReadingButton: Boolean,
     isSelected: Boolean,
+    modifier: Modifier = Modifier,
     /**
      * True when at least one library item is currently selected. In selection mode a tap on a
      * cell toggles its membership in the set (matching the legacy `ActionMode` behavior);
@@ -1770,6 +1792,7 @@ private fun LibraryGridCell(
         LAYOUT_COMFORTABLE_GRID -> MangaComfortableGridItem(
             coverData = coverData,
             title = title,
+            modifier = modifier,
             lang = lang,
             unreadCount = unreadCount,
             downloadCount = downloadCount,
@@ -1787,6 +1810,7 @@ private fun LibraryGridCell(
         LAYOUT_COVER_ONLY_GRID -> MangaCompactGridItem(
             coverData = coverData,
             title = title,
+            modifier = modifier,
             lang = lang,
             unreadCount = unreadCount,
             downloadCount = downloadCount,
@@ -1805,6 +1829,7 @@ private fun LibraryGridCell(
         else -> MangaCompactGridItem(
             coverData = coverData,
             title = title,
+            modifier = modifier,
             lang = lang,
             unreadCount = unreadCount,
             downloadCount = downloadCount,
