@@ -336,6 +336,31 @@ class BrowseController :
     }
 
     /**
+     * Bridge the Compose LazyColumn's nested-scroll deltas (forwarded via
+     * `LnSourceListContent.onScrollDelta`) into the activity app bar's Y translation. Mirrors
+     * the core of `scrollViewWith.onScrolled` at ControllerExtensions.kt:512 — translate
+     * `appBar.y` by `-dy` clamped to `[-appBarHeight, 0]`, then call `updateAppBarAfterY`.
+     *
+     * Intentionally minimal vs the manga side:
+     *   - No bottom-nav translation (hideBottomNavOnScroll pref).
+     *   - No toolbar tint flip (colorToolbar).
+     *   - No snap-to-edge on scroll idle.
+     * These can be added if the LN tab's scroll behavior diverges noticeably from the manga
+     * tab in practice. For now this gets the bar collapsing in sync, which is what matters.
+     */
+    private fun translateAppBarOnLnScroll(dy: Int) {
+        if (!isControllerVisible) return
+        val appBar = activityBinding?.appBar ?: return
+        val h = appBar.height
+        if (h <= 0 || dy == 0) return
+        val target = (appBar.y - dy).coerceIn(-h.toFloat(), 0f)
+        if (target != appBar.y) {
+            appBar.y = target
+            appBar.updateAppBarAfterY(null, cancelAnim = false)
+        }
+    }
+
+    /**
      * Toggle visibility between the existing manga `source_recycler` and the LN ComposeView
      * based on the active main-tab position. The LN ComposeView is lazy-mounted on first
      * selection so the [yokai.novel.host.LnPluginHost] (WebView + Coil scope) doesn't spin up
@@ -365,6 +390,7 @@ class BrowseController :
                                             .withFadeTransaction(),
                                     )
                                 },
+                                onScrollDelta = ::translateAppBarOnLnScroll,
                             )
                         }
                     }

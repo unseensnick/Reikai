@@ -12,6 +12,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import kotlin.math.roundToInt
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.LibraryBooks
 import androidx.compose.material3.HorizontalDivider
@@ -66,6 +72,13 @@ fun LnSourceListContent(
     onOpenSource: (NovelSource) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    /**
+     * Optional callback invoked with the per-event scroll delta (dy in RV semantics: positive
+     * when content scrolls down, i.e. user dragged finger up). The legacy [BrowseController]
+     * forwards this to the activity app bar Y translation so the LN list participates in the
+     * same collapse-on-scroll behavior the manga RV gets via `scrollViewWith`.
+     */
+    onScrollDelta: ((Int) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val manager = remember { Injekt.get<NovelSourceManager>() }
@@ -78,6 +91,25 @@ fun LnSourceListContent(
     // sources list reflects everything in NovelPreferences.installedPluginUrls(). Idempotent
     // if the manager is already populated.
     LaunchedEffect(host) { installer.loadInstalled(host) }
+
+    val listState = rememberLazyListState()
+    // Bridge Compose nested-scroll into the activity app bar's collapse mechanism. `consumed.y`
+    // is negative when the user dragged finger up (revealing items below). The RV equivalent
+    // dy is positive in that case, so dy = -consumed.y.
+    val nestedScroll = remember(onScrollDelta) {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset {
+                val cb = onScrollDelta ?: return Offset.Zero
+                val dy = (-consumed.y).roundToInt()
+                if (dy != 0) cb(dy)
+                return Offset.Zero
+            }
+        }
+    }
 
     val bgColor = remember(context) {
         Color(context.getResourceColor(eu.kanade.tachiyomi.R.attr.background))
@@ -94,7 +126,12 @@ fun LnSourceListContent(
             if (sources.isEmpty()) {
                 EmptyState(modifier = Modifier.fillMaxSize())
             } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .nestedScroll(nestedScroll),
+                    state = listState,
+                ) {
                     items(items = sources, key = { it.id }) { source ->
                         SourceRow(source = source, onClick = { onOpenSource(source) })
                         HorizontalDivider()
