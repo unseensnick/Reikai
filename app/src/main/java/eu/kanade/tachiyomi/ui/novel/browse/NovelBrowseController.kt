@@ -1,17 +1,23 @@
 package eu.kanade.tachiyomi.ui.novel.browse
 
+import android.os.Bundle
 import androidx.compose.runtime.Composable
 import eu.kanade.tachiyomi.ui.base.controller.BaseComposeController
 import yokai.presentation.novel.browse.NovelBrowseScreen
 
-class NovelBrowseController : BaseComposeController() {
+class NovelBrowseController(bundle: Bundle? = null) : BaseComposeController(bundle) {
+
+    constructor(sourceId: String) : this(
+        Bundle().apply { putString(ARG_SOURCE_ID, sourceId) },
+    )
 
     @Composable
     override fun ScreenContent() {
-        NovelBrowseScreen()
+        NovelBrowseScreen(initialSourceId = args.getString(ARG_SOURCE_ID))
     }
 
     companion object {
         const val title = "LN browse"
+        private const val ARG_SOURCE_ID = "sourceId"
     }
 }

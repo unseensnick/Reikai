@@ -117,7 +117,7 @@ private sealed interface BrowseState {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NovelBrowseScreen() {
+fun NovelBrowseScreen(initialSourceId: String? = null) {
     val context = LocalContext.current
     val networkHelper = remember { Injekt.get<NetworkHelper>() }
     val installer = remember { Injekt.get<LnPluginInstaller>() }
@@ -129,10 +129,6 @@ fun NovelBrowseScreen() {
     val backPress = LocalBackPress.current
 
     DisposableEffect(host) { onDispose { host.destroy() } }
-
-    LaunchedEffect(host) {
-        try { installer.loadInstalled(host) } catch (_: Throwable) {}
-    }
 
     val sources by manager.sources.collectAsState(initial = manager.getAll())
 
@@ -158,6 +154,14 @@ fun NovelBrowseScreen() {
                 error = "${e.javaClass.simpleName}: ${e.message ?: ""}"
             } finally { loading = false }
         }
+    }
+
+    LaunchedEffect(host) {
+        try { installer.loadInstalled(host) } catch (_: Throwable) {}
+        // When entered with a pre-picked source (Browse → Light novel sources tap), skip the
+        // PickingSource UI and jump straight to the source's catalog.
+        val id = initialSourceId ?: return@LaunchedEffect
+        manager.get(id)?.let { pickSource(it) }
     }
 
     fun runSearch(current: BrowseState.BrowsingNovels, query: String) {
@@ -219,7 +223,12 @@ fun NovelBrowseScreen() {
         error = null
         state = when (val s = state) {
             is BrowseState.PickingSource -> { backPress?.invoke(); return }
-            is BrowseState.BrowsingNovels -> BrowseState.PickingSource
+            is BrowseState.BrowsingNovels -> {
+                // Pre-picked entry has no PickingSource to fall back to: pop the controller so
+                // back returns to the Light novel sources list that launched this screen.
+                if (initialSourceId != null) { backPress?.invoke(); return }
+                BrowseState.PickingSource
+            }
             is BrowseState.ViewingNovel -> s.parent
             is BrowseState.ReadingChapter -> s.parent
         }
@@ -284,7 +293,11 @@ fun NovelBrowseScreen() {
                 Spacer(Modifier.height(8.dp))
             }
             when (val s = state) {
-                is BrowseState.PickingSource -> SourcePicker(sources = sources, onPick = ::pickSource)
+                is BrowseState.PickingSource -> {
+                    if (initialSourceId == null) {
+                        SourcePicker(sources = sources, onPick = ::pickSource)
+                    }
+                }
                 is BrowseState.BrowsingNovels -> NovelList(
                     novels = s.novels,
                     query = s.query,

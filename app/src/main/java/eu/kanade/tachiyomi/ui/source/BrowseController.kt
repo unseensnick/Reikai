@@ -384,9 +384,9 @@ class BrowseController :
                     binding.lnSourcesCompose.setContent {
                         yokai.presentation.theme.YokaiTheme {
                             yokai.presentation.novel.sources.LnSourceListContent(
-                                onOpenSource = { _ ->
+                                onOpenSource = { source ->
                                     router.pushController(
-                                        eu.kanade.tachiyomi.ui.novel.browse.NovelBrowseController()
+                                        eu.kanade.tachiyomi.ui.novel.browse.NovelBrowseController(sourceId = source.id)
                                             .withFadeTransaction(),
                                     )
                                 },
