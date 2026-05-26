@@ -42,6 +42,7 @@ import yokai.data.DatabaseHandler
 import yokai.domain.SplashState
 import yokai.domain.storage.StorageManager
 import yokai.presentation.library.manga.MangaLibraryUpdater
+import yokai.presentation.library.novels.NovelLibraryUpdater
 
 fun appModule(app: Application) = module {
     single { app }
@@ -136,6 +137,7 @@ fun appModule(app: Application) = module {
     // Concrete type, not bound to LibraryUpdater, so Phase 7's NovelLibraryUpdater can register
     // alongside without ambiguity. The interface stays a contract for tab-agnostic composables.
     single { MangaLibraryUpdater(app) }
+    single { NovelLibraryUpdater(app) }
 
     single { CustomMangaManager(app) }
 
