@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.download.DownloadJob
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.data.library.NovelUpdateJob
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.updater.AppDownloadInstallJob
 import eu.kanade.tachiyomi.domain.manga.models.Manga
@@ -187,14 +188,8 @@ class NotificationReceiver : BroadcastReceiver() {
         LibraryUpdateJob.stop(context)
     }
 
-    /**
-     * Stub stop for the novel-side library update. Replaced in Phase 7 C14d (when
-     * `NovelUpdateJob` lands) with `NovelUpdateJob.stop(context)`. Kept as a no-op now so the
-     * progress notification's cancel button has a registered receiver action even before the
-     * job exists; tapping it before C14d does nothing rather than throwing.
-     */
     private fun cancelNovelLibraryUpdate(context: Context) {
-        // No-op until NovelUpdateJob lands.
+        NovelUpdateJob.stop(context)
     }
 
     /**
