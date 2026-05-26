@@ -33,7 +33,13 @@
       "Bash(git show *)",
       "Bash(gh pr *)",
       "Bash(gh issue *)",
-      "Bash(gh run *)"
+      "Bash(gh run *)",
+      "Read(E:\\Code\\yokai-y2k\\app\\**)",
+      "Read(E:\\code\\yokai-y2k\\refs\\**)",
+      "Grep(E:\\Code\\yokai-y2k\\app\\**)",
+      "Grep(E:\\code\\yokai-y2k\\refs\\**)",
+      "Glob(E:\\Code\\yokai-y2k\\app\\**)",
+      "Glob(E:\\code\\yokai-y2k\\refs\\**)"
     ],
     "deny": [
       "Read(**/.env)",
