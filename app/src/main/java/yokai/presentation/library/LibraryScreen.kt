@@ -529,9 +529,12 @@ class LibraryScreen : Screen {
             onPullToRefresh = {
                 // Faithful port of legacy LibraryController.setSwipeRefresh (lines 702-717):
                 //   - !showAllCategories + BY_DEFAULT grouping → refresh currentCategory
-                //   - !showAllCategories + dynamic grouping → updateCategory(0); unreachable in
-                //     Compose Phase 4 because dynamic grouping is Phase 6 work, folded into the
-                //     all-categories branch as a defensive default.
+                //   - !showAllCategories + dynamic grouping → legacy refreshes the focused
+                //     dynamic bucket (updateCategory(0) — first visible header). C10 still
+                //     falls back to a whole-library refresh in this sub-case; a per-bucket
+                //     PTR dispatch needs the focused synthetic Category instance which we
+                //     don't track via allCategories. Known minor gap, acceptable because the
+                //     user can still tap the per-header refresh icon for surgical control.
                 //   - showAllCategories → refresh all categories.
                 //
                 // The isRunning guard happens upstream in LibraryContent (PTR is disabled while
@@ -650,9 +653,9 @@ class LibraryScreen : Screen {
                     else -> updatingCategoryFmt.format(category.name)
                 }
                 if (!inQueue) {
-                    // mangaToUse is omitted here intentionally — dynamic categories aren't
-                    // rendered in Compose Phase 4, so the dynamic branch is unreachable. Phase 6
-                    // extends LibraryUpdater to thread that list through.
+                    // C10: screenModel.refresh handles both real and dynamic (synthetic-id)
+                    // categories — for dynamic, it looks up the bucket's manga list from the
+                    // current state and passes it through as mangaToUse.
                     screenModel.refresh(category)
                 }
                 coroutineScope.launch {

@@ -705,17 +705,19 @@ fun LibraryContent(
     }
 
     // Per-header refresh-icon visibility mirrors LibraryHeaderHolder.notifyStatus:
-    //  - hide entirely when category.id is null or non-positive (dynamic categories use
-    //    negative IDs; Compose Phase 4 cannot render those, but the guard matches legacy),
+    //  - hide entirely when category.id is null,
     //  - hide when the library has only one category OR showAllCategories = false
     //    (legacy `isSingleCategory = ... || !showAllCategories`),
     //  - BUT still show while that category is mid-refresh, matching legacy's `isReloading`
     //    branch where `updateButton.isVisible = true` is unconditional.
+    // C10: removed the `id <= 0` short-circuit that previously hid the affordance on Default
+    // (id == 0) and dynamic (id < 0) categories. Legacy's `notifyStatus` doesn't gate by id
+    // sign — only by single-category mode + reloading state — and Phase 6 wired the refresh
+    // dispatch to handle both id ranges.
     val isSingleCategoryGate = library.size <= 1 || !showAllCategories
     val showHeaderRefreshIcon: (Category) -> Boolean = remember(library.size, showAllCategories, inQueueCategoryIds) {
         gate@{ category ->
             val id = category.id ?: return@gate false
-            if (id <= 0) return@gate false
             if (isSingleCategoryGate && id !in inQueueCategoryIds) return@gate false
             true
         }

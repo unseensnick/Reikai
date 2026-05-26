@@ -180,7 +180,14 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
                         .filter { it.manga.id in savedMangasList }
                         .distinctBy { it.manga.id }
                 val categoryId = inputData.getInt(KEY_CATEGORY, -1)
-                if (categoryId > -1) categoryIds.add(categoryId)
+                // Use `!= -1` (the sentinel returned when KEY_CATEGORY was not set in inputData)
+                // rather than `> -1`. The original check accidentally excluded synthetic dynamic
+                // category ids (negative values like -2, -3 produced by
+                // MangaLibraryDynamicGrouping), which meant their headers never spun while a
+                // dynamic refresh was running from idle. The other in-job path that populates
+                // categoryIds (getMangaToUpdate at line 512) already uses `!= -1`; this aligns
+                // both paths. Real-category ids (>= 0) are unaffected.
+                if (categoryId != -1) categoryIds.add(categoryId)
                 mangas
             } else {
                 getMangaToUpdate()

@@ -317,7 +317,54 @@ class MangaLibraryScreenModel :
         }
     }
 
-    fun refresh(category: Category?): Boolean = libraryUpdater.startNow(category)
+    /**
+     * Dispatch a refresh for [category] (or all categories when null). Mirrors
+     * `LibraryController.updateCategory` at LibraryController.kt:1779-1818:
+     *
+     * - Real categories (`id >= 0`, `isDynamic == false`): forwarded as-is. The worker
+     *   resolves the bucket from the DB via `manga.category == id`.
+     * - Dynamic categories (`isDynamic == true`, synthetic negative id): the worker can't
+     *   resolve a synthetic id back to a DB filter, so we look up the bucket in the current
+     *   loaded library and hand the worker the manga list directly via `mangaToUse`.
+     *
+     * Optimistic in-queue update: as soon as we dispatch, we add [Category.id] to
+     * `inQueueCategoryIds` so the per-header spinner appears without waiting for the
+     * `WorkManager.isRunningFlow` → RUNNING tick + reactive snap re-derivation. Without this,
+     * the spinner can lag a few hundred milliseconds after the tap. The reactive derivation
+     * later replaces the set with the worker-populated `LibraryUpdateJob.categoryIds`, which
+     * (with the C10 legacy fix) correctly includes synthetic ids.
+     */
+    fun refresh(category: Category?): Boolean {
+        val mangaToUse = if (category?.isDynamic == true) {
+            val loaded = state.value as? LibraryTabState.Loaded ?: return false
+            // Look up the bucket by id rather than reference: the Category passed in may be a
+            // clone (per-header sort dispatch already does this elsewhere) and we want the
+            // up-to-date items list from the current render.
+            loaded.library.entries
+                .firstOrNull { it.key.id == category.id }
+                ?.value
+                ?.map { it.libraryManga }
+                ?: return false
+        } else {
+            null
+        }
+        val started = libraryUpdater.startNow(category, mangaToUse = mangaToUse)
+        // Optimistic spinner — applies to all category types. Race-loss case is bounded to a
+        // brief visual flicker (see KDoc).
+        category?.id?.let { catId ->
+            mutableState.update { current ->
+                if (current is LibraryTabState.Loaded) {
+                    current.copy(
+                        inQueueCategoryIds = current.inQueueCategoryIds + catId,
+                        isRunning = true,
+                    )
+                } else {
+                    current
+                }
+            }
+        }
+        return started
+    }
 
     fun stopRefresh() = libraryUpdater.stop()
 
