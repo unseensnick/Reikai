@@ -321,12 +321,76 @@ class NovelLibraryScreenModel :
     }
 
     /**
+     * Expand the current selection to include every member of any merge group the selection
+     * touches. Walks the rendered library, finds items whose id is in the selection, and
+     * unions in each item's [yokai.presentation.library.novels.LibraryItem.Novel.relatedNovelIds]
+     * (stamped by [NovelLibraryGrouping.collapse] for collapsed leaders). Items without
+     * related ids contribute just their own id, so the helper is a no-op for selections that
+     * don't include a merged-group leader.
+     *
+     * **Synchronous-capture rule (Phase 6 C11).** Callers MUST capture this synchronously
+     * BEFORE any `launchIO` block:
+     *
+     * ```kotlin
+     * val expanded = expandSelectionWithMergedSiblings().toList()  // sync capture
+     * if (expanded.isEmpty()) return
+     * screenModelScope.launchIO { NovelLibraryActions.foo(expanded, ...) }
+     * ```
+     *
+     * Why: the UI typically calls `clearSelection()` immediately after dispatching an action.
+     * If expansion happens inside `launchIO`, the clear races and wins — the coroutine reads
+     * an empty selection and the action no-ops silently. Mirrors the manga-side fix at
+     * MangaLibraryScreenModel.kt:712 (Phase 6 commit 84a49f59c).
+     */
+    private fun expandSelectionWithMergedSiblings(): Set<Long> {
+        val loaded = state.value as? NovelLibraryTabState.Loaded ?: return emptySet()
+        val selection = loaded.selection
+        if (selection.isEmpty()) return emptySet()
+        return loaded.library.values
+            .asSequence()
+            .flatten()
+            .filter { it.libraryNovel.novel.id in selection }
+            .flatMap { item ->
+                if (item.relatedNovelIds.isNotEmpty()) {
+                    item.relatedNovelIds.toList()
+                } else {
+                    listOfNotNull(item.libraryNovel.novel.id)
+                }
+            }
+            .toSet()
+    }
+
+    /**
+     * Like [selectedNovelList] but pulls in every member of any merge group the selection
+     * touches. Used by delete + move-to-category so a merged-group leader doesn't get an
+     * action applied to it in isolation, orphaning the siblings (Phase 6 lesson).
+     *
+     * Resolves [Novel] objects from [NovelLibraryTabState.Loaded.libraryNovelForResolve]
+     * (the pre-collapse list) rather than from `library.values` — merge-group siblings are
+     * dropped by [NovelLibraryGrouping.collapse] and only their leaders survive in the
+     * rendered list, so a filter against `library.values` would silently return only the
+     * leader and let downstream delete / move operations skip every sibling. Same
+     * synchronous-capture rule applies (see [expandSelectionWithMergedSiblings]).
+     */
+    fun selectedNovelListWithMergedSiblings(): List<Novel> {
+        val loaded = state.value as? NovelLibraryTabState.Loaded ?: return emptyList()
+        val expanded = expandSelectionWithMergedSiblings()
+        if (expanded.isEmpty()) return emptyList()
+        return loaded.libraryNovelForResolve
+            .asSequence()
+            .map { it.novel }
+            .filter { it.id in expanded }
+            .distinctBy { it.id }
+            .toList()
+    }
+
+    /**
      * Resolve current selection ids to their backing [Novel] entries via state.library. No DB
      * call needed: every selected novel is, by definition, currently rendered in the grid.
      *
      * For multi-select actions that need to operate on every member of a merged group (delete,
-     * move-to-categories), use the merged-siblings variant landing in C27 instead — calling
-     * this resolver on a collapsed-leader selection silently returns only the leader.
+     * move-to-categories), use [selectedNovelListWithMergedSiblings] instead — calling this
+     * resolver on a collapsed-leader selection silently returns only the leader.
      */
     fun selectedNovelList(): List<Novel> {
         val loaded = state.value as? NovelLibraryTabState.Loaded ?: return emptyList()
