@@ -34,10 +34,13 @@ import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.base.controller.BaseLegacyController
 import eu.kanade.tachiyomi.ui.extension.ExtensionFilterController
+import com.google.android.material.tabs.TabLayout
 import eu.kanade.tachiyomi.ui.main.BottomSheetController
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
 import eu.kanade.tachiyomi.ui.main.MainActivity
+import eu.kanade.tachiyomi.ui.base.SmallToolbarInterface
 import eu.kanade.tachiyomi.ui.main.RootSearchInterface
+import eu.kanade.tachiyomi.ui.main.TabbedInterface
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsBrowseController
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsSourcesController
 import eu.kanade.tachiyomi.ui.source.browse.BrowseSourceController
@@ -50,6 +53,7 @@ import eu.kanade.tachiyomi.util.system.rootWindowInsetsCompat
 import eu.kanade.tachiyomi.util.system.spToPx
 import eu.kanade.tachiyomi.util.view.activityBinding
 import eu.kanade.tachiyomi.util.view.checkHeightThen
+import eu.kanade.tachiyomi.util.view.compatToolTipText
 import eu.kanade.tachiyomi.util.view.collapse
 import eu.kanade.tachiyomi.util.view.expand
 import eu.kanade.tachiyomi.util.view.isCollapsed
@@ -88,7 +92,8 @@ class BrowseController :
     SourceAdapter.SourceListener,
     RootSearchInterface,
     FloatingSearchInterface,
-    BottomSheetController {
+    BottomSheetController,
+    TabbedInterface {
 
     private val basePreferences: BasePreferences by injectLazy()
 
@@ -281,7 +286,6 @@ class BrowseController :
         ogRadius = view.resources.getDimension(R.dimen.rounded_radius)
 
         setSheetToolbar()
-        setupSourceTypeTabs()
         presenter.onCreate()
         if (presenter.sourceItems.isNotEmpty()) {
             setSources(presenter.sourceItems, presenter.lastUsedItem)
@@ -293,66 +297,74 @@ class BrowseController :
     }
 
     /**
-     * Phase 8 follow-up CR8: nest Manga sources / Light novel sources as top-level tabs in
-     * Browse's main content. The manga RV stays bit-identical (visible by default); the LN tab
-     * lazy-mounts a ComposeView with [yokai.presentation.novel.sources.LnSourceListContent].
+     * Phase 8 follow-up CR8 (revised): mount Manga sources / Light novel sources as tabs in the
+     * activity's mainTabs (via [TabbedInterface]) so they live IN the app bar and scroll with
+     * its collapse behavior — same pattern as [eu.kanade.tachiyomi.ui.recents.RecentsController].
      *
-     * Onclick on an LN source row pushes [eu.kanade.tachiyomi.ui.novel.browse.NovelBrowseController]
-     * (CR10 moved it out of the debug folder). Future polish: refactor the screen to take a
-     * sourceId so taps land directly on that source's catalog (today the screen surfaces a
-     * source picker inside).
+     * The controller's view tree just owns the swap container (manga RV + LN ComposeView);
+     * which one is visible is driven by the active main-tab position.
      */
     private fun setupSourceTypeTabs() {
-        val tabs = binding.sourceTypeTabs
-        if (tabs.tabCount == 0) {
-            tabs.addTab(tabs.newTab().setText(view?.context?.getString(MR.strings.manga)))
-            tabs.addTab(tabs.newTab().setText(view?.context?.getString(MR.strings.light_novels)))
-        }
+        val tabs = activityBinding?.mainTabs ?: return
+        tabs.removeAllTabs()
         tabs.clearOnTabSelectedListeners()
-        tabs.addOnTabSelectedListener(object : com.google.android.material.tabs.TabLayout.OnTabSelectedListener {
-            override fun onTabSelected(tab: com.google.android.material.tabs.TabLayout.Tab) {
-                when (tab.position) {
-                    0 -> {
-                        binding.sourceRecycler.isVisible = true
-                        binding.lnSourcesCompose.isVisible = false
-                    }
-                    else -> {
-                        binding.sourceRecycler.isVisible = false
-                        binding.lnSourcesCompose.isVisible = true
-                        // Lazy mount the Compose content the first time the LN tab is selected
-                        // so the LnPluginHost (WebView + Coil scope) doesn't spin up until
-                        // needed. Mirrors the same pattern used by the ExtensionBottomSheet
-                        // sub-tabs (Phase 8 follow-up CR6).
-                        if (binding.lnSourcesCompose.tag != "compose_mounted") {
-                            binding.lnSourcesCompose.setViewCompositionStrategy(
-                                androidx.compose.ui.platform.ViewCompositionStrategy
-                                    .DisposeOnViewTreeLifecycleDestroyed,
-                            )
-                            binding.lnSourcesCompose.setContent {
-                                yokai.presentation.theme.YokaiTheme {
-                                    yokai.presentation.novel.sources.LnSourceListContent(
-                                        onOpenSource = { _ ->
-                                            // For now route to the existing NovelBrowseController
-                                            // (which has its own source picker inside). A future
-                                            // polish refactors NovelBrowseScreen to take sourceId
-                                            // so the tap lands on that source's catalog directly.
-                                            router.pushController(
-                                                eu.kanade.tachiyomi.ui.novel.browse.NovelBrowseController()
-                                                    .withFadeTransaction(),
-                                            )
-                                        },
+        val mangaTab = tabs.newTab().setText(view?.context?.getString(MR.strings.manga)).also {
+            it.view.compatToolTipText = null
+        }
+        val novelTab = tabs.newTab().setText(view?.context?.getString(MR.strings.light_novels)).also {
+            it.view.compatToolTipText = null
+        }
+        tabs.addTab(mangaTab, true)
+        tabs.addTab(novelTab, false)
+        tabs.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                applySourceTypeTab(tab?.position ?: 0)
+            }
+            override fun onTabUnselected(tab: TabLayout.Tab?) {}
+            override fun onTabReselected(tab: TabLayout.Tab?) {}
+        })
+        (activity as? MainActivity)?.showTabBar(true)
+        // Default to Manga on entry.
+        applySourceTypeTab(0)
+    }
+
+    /**
+     * Toggle visibility between the existing manga `source_recycler` and the LN ComposeView
+     * based on the active main-tab position. The LN ComposeView is lazy-mounted on first
+     * selection so the [yokai.novel.host.LnPluginHost] (WebView + Coil scope) doesn't spin up
+     * until needed.
+     */
+    private fun applySourceTypeTab(position: Int) {
+        if (!isBindingInitialized) return
+        when (position) {
+            0 -> {
+                binding.sourceRecycler.isVisible = true
+                binding.lnSourcesCompose.isVisible = false
+            }
+            else -> {
+                binding.sourceRecycler.isVisible = false
+                binding.lnSourcesCompose.isVisible = true
+                if (binding.lnSourcesCompose.tag != "compose_mounted") {
+                    binding.lnSourcesCompose.setViewCompositionStrategy(
+                        androidx.compose.ui.platform.ViewCompositionStrategy
+                            .DisposeOnViewTreeLifecycleDestroyed,
+                    )
+                    binding.lnSourcesCompose.setContent {
+                        yokai.presentation.theme.YokaiTheme {
+                            yokai.presentation.novel.sources.LnSourceListContent(
+                                onOpenSource = { _ ->
+                                    router.pushController(
+                                        eu.kanade.tachiyomi.ui.novel.browse.NovelBrowseController()
+                                            .withFadeTransaction(),
                                     )
-                                }
-                            }
-                            binding.lnSourcesCompose.tag = "compose_mounted"
+                                },
+                            )
                         }
                     }
+                    binding.lnSourcesCompose.tag = "compose_mounted"
                 }
             }
-
-            override fun onTabUnselected(tab: com.google.android.material.tabs.TabLayout.Tab) {}
-            override fun onTabReselected(tab: com.google.android.material.tabs.TabLayout.Tab) {}
-        })
+        }
     }
 
     private fun updateSheetMenu() {
@@ -619,9 +631,19 @@ class BrowseController :
                 val searchView = searchItem.actionView as SearchView
                 searchView.clearFocus()
             }
+            // Hide the source-type tab row when leaving Browse (mirrors RecentsController). The
+            // tabs live in the activity's mainTabs; not hiding them would leak into whichever
+            // controller is pushed on top.
+            (activity as? MainActivity)?.showTabBar(
+                show = false,
+                animate = router.backstack.lastOrNull()?.controller !is SmallToolbarInterface,
+            )
         } else {
             binding.bottomSheet.root.presenter.refreshMigrations()
             updateTitleAndMenu()
+            if (isControllerVisible) {
+                setupSourceTypeTabs()
+            }
         }
         setBottomPadding()
     }

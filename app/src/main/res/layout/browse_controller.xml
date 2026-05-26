@@ -1,56 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Phase 8 follow-up CR8: browse_frame_layout switched from a bare FrameLayout to a vertical
-  LinearLayout containing TabLayout (Manga sources / Light novel sources) + a FrameLayout
-  hosting the existing source_recycler (manga) and a hidden ComposeView (LN). The Manga tab
-  preserves the existing RV scroll / search / FAB behavior bit-identically; the LN tab
-  lazy-mounts LnSourceListContent the first time it's selected.
+  Phase 8 follow-up CR8 (revised): the Manga / Light novel sources tab row lives in the
+  activity's app bar (via TabbedInterface + activityBinding.mainTabs) so it follows the
+  collapse-on-scroll behavior the rest of the chrome uses. The controller's view tree just
+  hosts the swap container — the existing source_recycler for manga and a hidden ComposeView
+  for the LN sources list.
 -->
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:id="@+id/browse_layout">
 
-    <LinearLayout
+    <FrameLayout
         android:id="@+id/browse_frame_layout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="?attr/background"
-        android:orientation="vertical">
+        android:background="?attr/background">
 
-        <com.google.android.material.tabs.TabLayout
-            android:id="@+id/source_type_tabs"
-            style="@style/Theme.Widget.Tabs"
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/source_recycler"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@android:color/transparent"
-            app:tabGravity="fill"
-            app:tabIndicatorColor="?attr/colorSecondary"
-            app:tabMaxWidth="0dp"
-            app:tabMode="fixed"
-            app:tabTextColor="@color/tabs_selector_background" />
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            tools:listitem="@layout/source_header_item" />
 
-        <FrameLayout
+        <androidx.compose.ui.platform.ComposeView
+            android:id="@+id/ln_sources_compose"
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="match_parent"
+            android:visibility="gone" />
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/source_recycler"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:clipToPadding="false"
-                tools:listitem="@layout/source_header_item" />
-
-            <androidx.compose.ui.platform.ComposeView
-                android:id="@+id/ln_sources_compose"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:visibility="gone" />
-        </FrameLayout>
-
-    </LinearLayout>
+    </FrameLayout>
 
     <!-- Adding bottom sheet after main content -->
     <include layout="@layout/extensions_bottom_sheet"
