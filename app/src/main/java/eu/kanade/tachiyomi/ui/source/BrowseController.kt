@@ -157,8 +157,15 @@ class BrowseController :
             binding.sourceRecycler,
             afterInsets = {
                 headerHeight = binding.sourceRecycler.paddingTop
-                binding.sourceRecycler.updatePaddingRelative(
-                    bottom = (activityBinding?.bottomNav?.height ?: it.getBottomGestureInsets()) + 58.spToPx,
+                val bottomPad = (activityBinding?.bottomNav?.height ?: it.getBottomGestureInsets()) + 58.spToPx
+                binding.sourceRecycler.updatePaddingRelative(bottom = bottomPad)
+                // Mirror the source RV's top + bottom padding onto the LN ComposeView so its
+                // LazyColumn starts below the activity app bar + tab row and ends above the
+                // bottom nav. scrollViewWith only configures the RV; the sibling ComposeView
+                // needs the same offsets applied manually to render at the right Y.
+                binding.lnSourcesCompose.updatePaddingRelative(
+                    top = headerHeight,
+                    bottom = bottomPad,
                 )
                 if (activityBinding?.bottomNav == null) {
                     setBottomPadding()
