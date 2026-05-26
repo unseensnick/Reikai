@@ -160,6 +160,8 @@ fun MangaComfortableGridItem(
     unreadCount: Int = 0,
     downloadCount: Int = 0,
     badgeSegments: List<BadgeSegment> = listOf(),
+    /** See [MangaGridCover.mergedSourceCount]. */
+    mergedSourceCount: Int = 0,
     isSelected: Boolean = false,
     showOutline: Boolean = false,
     /**
@@ -257,6 +259,7 @@ fun MangaComfortableGridItem(
                 isLocal = isLocal,
                 extraBadgeSegments = badgeSegments,
             ),
+            mergedSourceCount = mergedSourceCount,
             content = {
                 if (onClickContinueReading != null) {
                     ContinueReadingButton(
@@ -291,6 +294,8 @@ fun MangaCompactGridItem(
     unreadCount: Int = 0,
     downloadCount: Int = 0,
     badgeSegments: List<BadgeSegment> = listOf(),
+    /** See [MangaGridCover.mergedSourceCount]. */
+    mergedSourceCount: Int = 0,
     isSelected: Boolean = false,
     showOutline: Boolean = false,
     /**
@@ -377,6 +382,7 @@ fun MangaCompactGridItem(
             isLocal = isLocal,
             extraBadgeSegments = badgeSegments,
         ),
+        mergedSourceCount = mergedSourceCount,
         content = {
             if (onClickContinueReading != null) {
                 ContinueReadingButton(
@@ -506,6 +512,17 @@ fun MangaGridCover(
     freeformMangaId: Long? = null,
     cover: @Composable BoxScope.() -> Unit = {},
     badgeSegments: List<BadgeSegment> = listOf(),
+    /**
+     * Merge-group size for the rendered leader. Rendered at the cover's top-end as a single-
+     * segment [Badge] (same look as the unread / download / language chips at top-start —
+     * 18dp height, cut-corner shape, 13sp text) with a `colorPrimary` background drawn from
+     * legacy's `source_count_badge` styling at `LibraryGridHolder.kt:100-112`. Hidden when
+     * `<= 1`. Overlaps the continue-reading button slot on the compact layout — legacy has
+     * the same overlap and it's acceptable in practice (the chip is small and the button is
+     * conditional on unread state, so the two rarely co-occur in a way that obscures
+     * either).
+     */
+    mergedSourceCount: Int = 0,
     content: @Composable (BoxScope.() -> Unit)? = null,
 ) {
     // Always resolve a concrete aspect ratio so the cell has a stable height from frame 1.
@@ -548,6 +565,27 @@ fun MangaGridCover(
             modifier = Modifier.align(Alignment.TopStart),
             slant = 6.dp,
         )
+        if (mergedSourceCount > 1) {
+            // Render as a single-segment Badge so the source-count chip matches the visual
+            // style of the unread / download / language chips at TopStart: 18dp height, 13sp
+            // text, diagonal cut on the corner pointing INTO the cover. At TopEnd we mirror
+            // the cut to bottom-start so the slope points inward (matching the bottom-end
+            // cut on the TopStart chip's inward edge); otherwise the cut would land on the
+            // cover's outer edge and clash with the cover's rounded mask. `colorPrimary`
+            // background mirrors legacy `source_count_badge`'s `?attr/colorPrimary`.
+            Badge(
+                segments = listOf(
+                    BadgeSegment.text(
+                        backgroundColor = MaterialTheme.colorScheme.primary,
+                        text = mergedSourceCount.toString(),
+                        textColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
+                ),
+                modifier = Modifier.align(Alignment.TopEnd),
+                slant = 6.dp,
+                cutCorner = BadgeCutCorner.BottomStart,
+            )
+        }
     }
 }
 

@@ -62,7 +62,7 @@ data class BadgeSegment(
             text: String,
             backgroundColor: Color = Color.Transparent,
             textColor: Color = Color.Black,
-            fontSize: TextUnit = 13.sp,
+            fontSize: TextUnit = 14.sp,
             /**
              * Optional override for the announcement TalkBack reads. Pass a phrase like
              * "5 downloads" so the count gets meaningful context; null falls back to the
@@ -98,7 +98,7 @@ data class BadgeSegment(
          */
         fun dot(
             color: Color,
-            dotSize: Dp = 8.dp,
+            dotSize: Dp = 10.dp,
         ): BadgeSegment {
             return BadgeSegment(
                 backgroundColor = Color.Transparent,
@@ -116,20 +116,34 @@ data class BadgeSegment(
     }
 }
 
+/** Which bottom corner of the [Badge] gets the 5dp diagonal cut. */
+enum class BadgeCutCorner { BottomEnd, BottomStart }
+
 @Composable
 fun Badge(
     segments: List<BadgeSegment>,
     modifier: Modifier = Modifier,
     slant: Dp = 10.dp,
-    height: Dp = 18.dp,
+    height: Dp = 21.dp,
+    /**
+     * Direction of the badge's 5dp diagonal cut. Default [BadgeCutCorner.BottomEnd] mirrors
+     * the original top-start badge look (cut points into the cover content). Pass
+     * [BadgeCutCorner.BottomStart] for badges anchored at the cover's top-end so the cut
+     * still points inward instead of off the cover's outer edge.
+     */
+    cutCorner: BadgeCutCorner = BadgeCutCorner.BottomEnd,
 ) {
     val slantPx = with(LocalDensity.current) { slant.toPx() }
     val layoutDirection = LocalLayoutDirection.current
+    val clipShape = when (cutCorner) {
+        BadgeCutCorner.BottomEnd -> CutCornerShape(bottomEnd = 5.dp)
+        BadgeCutCorner.BottomStart -> CutCornerShape(bottomStart = 5.dp)
+    }
 
     Row(
         modifier = modifier
             .height(height)
-            .clip(CutCornerShape(bottomEnd = 5.dp)),
+            .clip(clipShape),
         horizontalArrangement = Arrangement.spacedBy(-slant),
         verticalAlignment = Alignment.CenterVertically
     ) {

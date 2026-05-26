@@ -26,11 +26,12 @@ sealed interface LibraryItem {
         val language: String = "",
         /**
          * Manga IDs in the merge group represented by this entry, including the primary's own ID.
-         * Empty when this entry is standalone. Populated by Phase 6's `MangaLibraryGrouping` when
-         * collapsing merged manga; the underlying state is written by Phase 5's merge / unmerge
-         * actions via `preferences.mangaManualMerges`. Drives the count badge when `size > 1`,
-         * and replaces Phase 5's prefs-lookup expansion in
-         * `MangaLibraryScreenModel.expandSelectionWithMergedSiblings`.
+         * Empty when this entry is standalone or when the rendered grouping doesn't collapse
+         * merge groups (dynamic groupings — BY_SOURCE / BY_LANGUAGE / etc. — render each manga
+         * standalone, matching legacy behavior). Populated by [yokai.presentation.library.manga.MangaLibraryGrouping]
+         * when collapsing merged manga in default grouping. Drives the count badge when
+         * `size > 1`, and powers `MangaLibraryScreenModel.expandSelectionWithMergedSiblings`
+         * so a delete / move / merge on a leader pulls every group member along.
          */
         val relatedMangaIds: LongArray = LongArray(0),
     ) : LibraryItem {

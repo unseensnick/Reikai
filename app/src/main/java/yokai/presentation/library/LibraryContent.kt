@@ -1739,6 +1739,11 @@ private fun LibraryGridCell(
     }
     val lang = if (showLanguageBadge) item.language.takeIf { it.isNotBlank() } else null
     val isLocal = remember(manga.id) { manga.isLocal() }
+    // Merge-group size for the source-count badge at the cover's top-end. Populated by
+    // MangaLibraryGrouping.collapse on each rendered leader; empty for standalone items and
+    // for every item in dynamic groupings (which don't collapse). The MangaGridCover pill
+    // hides itself when `<= 1`, so passing the raw size is safe even on standalone items.
+    val mergedSourceCount = item.relatedMangaIds.size
     // In selection mode, route tap to the toggle handler (legacy ActionMode behavior).
     val onClick = if (selectionActive) {
         { onMangaLongClick(manga) }
@@ -1768,6 +1773,7 @@ private fun LibraryGridCell(
             lang = lang,
             unreadCount = unreadCount,
             downloadCount = downloadCount,
+            mergedSourceCount = mergedSourceCount,
             isSelected = isSelected,
             showOutline = outlineOnCovers,
             coverAspectRatio = coverAspectRatio,
@@ -1784,6 +1790,7 @@ private fun LibraryGridCell(
             lang = lang,
             unreadCount = unreadCount,
             downloadCount = downloadCount,
+            mergedSourceCount = mergedSourceCount,
             isSelected = isSelected,
             showOutline = outlineOnCovers,
             showTitle = false,
@@ -1801,6 +1808,7 @@ private fun LibraryGridCell(
             lang = lang,
             unreadCount = unreadCount,
             downloadCount = downloadCount,
+            mergedSourceCount = mergedSourceCount,
             isSelected = isSelected,
             showOutline = outlineOnCovers,
             coverAspectRatio = coverAspectRatio,

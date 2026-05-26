@@ -292,6 +292,7 @@ class MangaLibraryScreenModel :
                             categorySortOrder = snap.categorySortOrder,
                             collapsedDynamicCategories = snap.groupingPrefs.collapsedDynamicCategories,
                             collapsedDynamicAtBottom = snap.groupingPrefs.collapsedDynamicAtBottom,
+                            libraryMangaForResolve = snap.libraryManga,
                         )
                     }
                 }
@@ -555,39 +556,60 @@ class MangaLibraryScreenModel :
     }
 
     /**
-     * Expand a set of selected manga ids to include every member of any manual-merge group
-     * that contains at least one selected manga. Reads `preferences.mangaManualMerges()`
-     * directly; the Phase 6 plan replaces this with a read from `LibraryItem.Manga.relatedMangaIds`
-     * once that field lands on the data model.
+     * Expand the current selection to include every member of any merge group the selection
+     * touches. Walks the rendered library, finds items whose id is in the selection, and
+     * unions in each item's [LibraryItem.Manga.relatedMangaIds]. Items without related ids
+     * (unmerged manga, dynamic-grouping items) contribute just their own id, so the helper is
+     * a no-op for selections that don't include a merged-group leader.
+     *
+     * Mirrors legacy `LibraryController.kt:2150-2161` (merge), `:2226-2236` (delete),
+     * `:2266-2284` (move) — all three legacy paths walk `currentLibraryItems` and expand via
+     * `LibraryMangaItem.relatedMangaIds`. Default grouping stamps related ids on leaders via
+     * [MangaLibraryGrouping.collapse]; dynamic groupings ([MangaLibraryDynamicGrouping.build])
+     * intentionally don't stamp them because each manga renders standalone in a dynamic view
+     * — selection in dynamic view therefore operates on just the manga the user sees, matching
+     * legacy parity.
      */
-    private fun expandSelectionWithMergedSiblings(ids: Set<Long>): Set<Long> {
-        if (ids.isEmpty()) return ids
-        val merges = preferences.mangaManualMerges().get()
-        if (merges.isEmpty()) return ids
-        return merges
+    private fun expandSelectionWithMergedSiblings(): Set<Long> {
+        val loaded = state.value as? LibraryTabState.Loaded ?: return emptySet()
+        val selection = loaded.selection
+        if (selection.isEmpty()) return emptySet()
+        return loaded.library.values
             .asSequence()
-            .map { entry -> entry.split(",").mapNotNull { it.trim().toLongOrNull() } }
-            .filter { members -> members.any { it in ids } }
             .flatten()
-            .toSet() + ids
+            .filter { it.libraryManga.manga.id in selection }
+            .flatMap { item ->
+                if (item.relatedMangaIds.isNotEmpty()) {
+                    item.relatedMangaIds.toList()
+                } else {
+                    listOfNotNull(item.libraryManga.manga.id)
+                }
+            }
+            .toSet()
     }
 
     /**
      * Like [selectedMangaList] but pulls in every member of any merge group the selection
-     * touches. Used by delete + move-to-category + merge so a merged-group leader doesn't get
-     * an action applied to it in isolation, orphaning the siblings. Mirrors legacy expansion
-     * via `LibraryMangaItem.relatedMangaIds` at `LibraryController.kt:2120-2129` (merge),
-     * `:2210-2220` (delete), `:2253-2262` (move).
+     * touches. Used by delete + move-to-category so a merged-group leader doesn't get an
+     * action applied to it in isolation, orphaning the siblings.
+     *
+     * Resolves [Manga] objects from `libraryMangaForResolve` (the full pre-collapse list)
+     * rather than from `library.values` — merge-group siblings are dropped by
+     * [MangaLibraryGrouping.collapse] and only their leaders survive in the rendered list,
+     * so a filter against `library.values` would silently return only the leader and let
+     * downstream delete / move operations skip every sibling. Mirrors legacy
+     * `presenter.getLibraryMangaById(it)?.manga` lookups at `LibraryController.kt:2234`
+     * (delete) / `:2277` (move).
      */
     fun selectedMangaListWithMergedSiblings(): List<Manga> {
         val loaded = state.value as? LibraryTabState.Loaded ?: return emptyList()
-        val expanded = expandSelectionWithMergedSiblings(loaded.selection)
+        val expanded = expandSelectionWithMergedSiblings()
         if (expanded.isEmpty()) return emptyList()
-        return loaded.library.values
+        return loaded.libraryMangaForResolve
             .asSequence()
-            .flatten()
-            .map { it.libraryManga.manga }
+            .map { it.manga }
             .filter { it.id in expanded }
+            .distinctBy { it.id }
             .toList()
     }
 
@@ -673,14 +695,24 @@ class MangaLibraryScreenModel :
     }
 
     fun mergeSelection() {
-        val ids = (state.value as? LibraryTabState.Loaded)?.selection?.toList().orEmpty()
-        if (ids.size < 2) return
+        // Capture the expanded id set SYNCHRONOUSLY before launching the IO coroutine. The
+        // action-bar handler in LibraryScreen calls `mergeSelection()` followed immediately by
+        // `clearSelection()`; if we read state.value.selection from inside the launchIO
+        // (via expandSelectionWithMergedSiblings), clearSelection wins the race and the
+        // expansion sees an empty set, silently dropping the merge. Pre-C11 the same capture
+        // happened via the helper's `ids: Set<Long>` parameter; C11 removed the parameter and
+        // accidentally moved the read inside the coroutine. Keeping the capture synchronous
+        // here matches the pattern unmergeSelection / removeFromLibrary already use.
+        //
+        // Expansion also pulls in every member of any merge group the selection touches —
+        // without this, merging [m1, m4] when m1 is already in group [m1, m2, m3] would drop
+        // the old entry (collision pruning) and orphan m2 and m3. In dynamic groupings the
+        // rendered items don't carry relatedMangaIds, so a merge dispatched from a dynamic
+        // view operates on exactly the manga the user selected — same as legacy.
+        val expandedIds = expandSelectionWithMergedSiblings().toList()
+        if (expandedIds.size < 2) return
         screenModelScope.launchIO {
-            // Expand to include every member of any merge group the selection touches; without
-            // this, merging [m1, m4] when m1 is already in group [m1, m2, m3] would drop the
-            // old entry (collision pruning) and orphan m2 and m3.
-            val expandedIds = expandSelectionWithMergedSiblings(ids.toSet())
-            val sorted = MangaLibraryActions.merge(expandedIds.toList(), preferences)
+            val sorted = MangaLibraryActions.merge(expandedIds, preferences)
             if (preferences.syncTrackerLinksGrouped().get()) {
                 MangaLibraryActions.reconcileGroupTrackers(
                     ids = sorted,
