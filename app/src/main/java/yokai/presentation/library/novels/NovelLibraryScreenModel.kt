@@ -26,8 +26,10 @@ import yokai.domain.novel.interactor.GetNovelCategories
 import yokai.domain.novel.interactor.ReorderNovelCategories
 import yokai.domain.novel.models.Novel
 import yokai.domain.novel.models.NovelCategoryUpdate
+import yokai.domain.novel.models.NovelChapter
 import yokai.i18n.MR
 import yokai.novel.source.NovelSourceManager
+import yokai.presentation.library.novels.actions.NovelLibraryActions
 import yokai.presentation.library.novels.state.NovelLibraryTabState
 import yokai.util.lang.getString
 
@@ -407,6 +409,121 @@ class NovelLibraryScreenModel :
             .map { it.libraryNovel.novel }
             .filter { it.id in ids }
             .toList()
+    }
+
+    // ----------------------------------------------------------------------------------------
+    // Multi-select action wiring (C32). All callers that consume a selection capture it
+    // SYNCHRONOUSLY before any launchIO block — see expandSelectionWithMergedSiblings KDoc for
+    // the Phase 6 race-loss rationale. removeFromLibrary + confirmDeletion go through the
+    // merged-siblings resolver so deleting a collapsed leader pulls every sibling along.
+    // ----------------------------------------------------------------------------------------
+
+    fun shareSelection(): List<String> =
+        NovelLibraryActions.share(selectedNovelList(), novelSourceManager)
+
+    /**
+     * Stub passthrough per Decision #4. Capture the selection synchronously before launchIO
+     * so the wiring matches the live actions; the underlying [NovelLibraryActions.downloadUnread]
+     * is a no-op until novel downloads ship.
+     */
+    fun downloadUnreadSelection() {
+        val novels = selectedNovelList()
+        screenModelScope.launchIO {
+            NovelLibraryActions.downloadUnread(novels)
+        }
+    }
+
+    /**
+     * Apply read / unread to every chapter of the selection. Returns the pre-update snapshot
+     * so the caller can offer Undo via [undoMarkReadStatus] or commit cleanup via
+     * [confirmMarkReadStatus]. Suspends because the underlying call iterates chapters per novel.
+     */
+    suspend fun markReadStatus(markRead: Boolean): Map<Novel, List<NovelChapter>> =
+        NovelLibraryActions.markReadStatus(
+            novels = selectedNovelList(),
+            markRead = markRead,
+            novelChapterRepository = novelChapterRepository,
+        )
+
+    fun undoMarkReadStatus(snapshot: Map<Novel, List<NovelChapter>>) {
+        screenModelScope.launchIO {
+            NovelLibraryActions.undoMarkReadStatus(snapshot, novelChapterRepository)
+        }
+    }
+
+    fun confirmMarkReadStatus(snapshot: Map<Novel, List<NovelChapter>>, markRead: Boolean) {
+        // Body is a no-op until novel downloads ship (Decision #4). Kept on the surface so the
+        // wiring matches manga and the future Compose binding has a stable call to make.
+        NovelLibraryActions.confirmMarkReadStatus(
+            snapshot = snapshot,
+            markRead = markRead,
+            removeAfterMarkedAsRead = preferences.removeAfterMarkedAsRead().get(),
+        )
+    }
+
+    /**
+     * Path 1 (full nuke). Flip `favorite = false` immediately; return the captured (expanded)
+     * selection so the caller can offer Undo via [reAddToLibrary] or commit destructive
+     * cleanup via [confirmDeletion]. State reload happens reactively via
+     * [NovelRepository.getLibraryNovelAsFlow]. Phase 6 sibling-expansion lesson: a delete on a
+     * merged-group leader pulls every sibling along; the expanded list flows through the
+     * snackbar so every member gets undone / cleaned up uniformly.
+     */
+    fun removeFromLibrary(): List<Novel> {
+        val novels = selectedNovelListWithMergedSiblings()
+        screenModelScope.launchIO {
+            NovelLibraryActions.removeFromLibrary(novels, novelRepository)
+        }
+        return novels
+    }
+
+    fun reAddToLibrary(novels: List<Novel>) {
+        screenModelScope.launchIO {
+            NovelLibraryActions.reAddToLibrary(novels, novelRepository)
+        }
+    }
+
+    /**
+     * Destructive cleanup. Calls [NovelTrackRepository.deleteAllForNovel] for each novel per
+     * Decision #5. The `coverCacheToo` parameter is accepted for call-site symmetry with the
+     * manga side but has no effect today — novels have no cover cache or download cleanup
+     * surface yet (Decision #4 + no novel CoverCache).
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun confirmDeletion(novels: List<Novel>, coverCacheToo: Boolean = true) {
+        screenModelScope.launchIO {
+            NovelLibraryActions.confirmDeletion(novels, novelTrackRepository)
+        }
+    }
+
+    /**
+     * Capture the expanded id set SYNCHRONOUSLY before launching the IO coroutine — Phase 6
+     * lesson, see [expandSelectionWithMergedSiblings] KDoc. The action-bar handler in the
+     * future Novels tab will call `mergeSelection()` followed immediately by
+     * `clearSelection()`; without the sync capture, the clear races and the expansion sees an
+     * empty set, silently dropping the merge.
+     *
+     * Decision #5: no [NovelLibraryActions.merge] tracker-reconciliation follow-up — novel
+     * tracker reconciliation is deferred. The sorted-ids return value is currently unused but
+     * preserved on the API surface for future snackbar / undo wiring.
+     */
+    fun mergeSelection() {
+        val expandedIds = expandSelectionWithMergedSiblings().toList()
+        if (expandedIds.size < 2) return
+        screenModelScope.launchIO {
+            NovelLibraryActions.merge(expandedIds, novelPreferences)
+        }
+    }
+
+    fun unmergeSelection() {
+        // Unmerge takes the raw selection (not the expanded set): picking any single member of
+        // a merged group is enough — NovelLibraryActions.unmerge dissolves the whole group it
+        // belongs to.
+        val ids = (state.value as? NovelLibraryTabState.Loaded)?.selection?.toList().orEmpty()
+        if (ids.isEmpty()) return
+        screenModelScope.launchIO {
+            NovelLibraryActions.unmerge(ids, novelPreferences)
+        }
     }
 
     // ----------------------------------------------------------------------------------------
