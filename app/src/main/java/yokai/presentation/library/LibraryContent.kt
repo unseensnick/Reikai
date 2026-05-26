@@ -1140,7 +1140,7 @@ fun LibraryContent(
                                     // composition (the captured Category reference is the same
                                     // after an in-place mangaSort mutation), and the sort label
                                     // stays on the previous mode even though the library re-sorts.
-                                    key = "header:${category.id ?: 0}:${category.mangaSort ?: '-'}:${category.isHidden}",
+                                    key = "header:${category.id ?: 0}:${category.sortingMode()?.categoryValue ?: '-'}:${category.isAscending()}:${category.isHidden}",
                                     contentType = "library_category_header",
                                 ) {
                                     val allSelectedInCategory = mangaItems.isNotEmpty() &&
@@ -1256,7 +1256,7 @@ fun LibraryContent(
                                     // Sort char + ascending bit are folded into the key so the
                                     // header slot is rebuilt when the user changes per-category
                                     // sort (see list-branch note above for the rationale).
-                                    key = "header:${category.id ?: 0}:${category.mangaSort ?: '-'}:${category.isHidden}",
+                                    key = "header:${category.id ?: 0}:${category.sortingMode()?.categoryValue ?: '-'}:${category.isAscending()}:${category.isHidden}",
                                     span = StaggeredGridItemSpan.FullLine,
                                     contentType = "library_category_header",
                                 ) {
@@ -1338,7 +1338,7 @@ fun LibraryContent(
                                     // Sort char + ascending bit are folded into the key so the
                                     // header slot is rebuilt when the user changes per-category
                                     // sort (see list-branch note above for the rationale).
-                                    key = "header:${category.id ?: 0}:${category.mangaSort ?: '-'}:${category.isHidden}",
+                                    key = "header:${category.id ?: 0}:${category.sortingMode()?.categoryValue ?: '-'}:${category.isAscending()}:${category.isHidden}",
                                     span = { GridItemSpan(maxLineSpan) },
                                     contentType = "library_category_header",
                                 ) {

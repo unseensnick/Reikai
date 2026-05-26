@@ -29,8 +29,8 @@ import yokai.domain.novel.models.NovelCategoryUpdate
 import yokai.domain.novel.models.NovelChapter
 import yokai.i18n.MR
 import yokai.novel.source.NovelSourceManager
+import yokai.presentation.library.LibraryTabState
 import yokai.presentation.library.novels.actions.NovelLibraryActions
-import yokai.presentation.library.novels.state.NovelLibraryTabState
 import yokai.util.lang.getString
 
 /**
@@ -57,7 +57,7 @@ import yokai.util.lang.getString
  * Same lesson as C14d.
  */
 class NovelLibraryScreenModel :
-    StateScreenModel<NovelLibraryTabState>(NovelLibraryTabState.Loading), KoinComponent {
+    StateScreenModel<LibraryTabState<LibraryItem.Novel, NovelCategory>>(LibraryTabState.Loading), KoinComponent {
 
     private val context: Application by inject()
     private val preferences: PreferencesHelper by inject()
@@ -69,6 +69,15 @@ class NovelLibraryScreenModel :
     private val novelSourceManager: NovelSourceManager by inject()
     private val novelLibraryUpdater: NovelLibraryUpdater by inject()
     private val reorderNovelCategories: ReorderNovelCategories by inject()
+
+    /**
+     * Pre-collapse libraryNovel snapshot used by [selectedNovelListWithMergedSiblings] to
+     * resolve merge-group sibling [Novel] objects that [NovelLibraryGrouping.collapse] dropped
+     * from the rendered library (only leaders survive). Updated alongside every state emission
+     * below. Kept off [LibraryTabState] because no composable consumes it — mirrors manga side
+     * (Phase 8 C4).
+     */
+    private var libraryNovelForResolve: List<LibraryNovel> = emptyList()
 
     init {
         screenModelScope.launchIO {
@@ -134,11 +143,12 @@ class NovelLibraryScreenModel :
                         emptySet()
                     }
 
+                    libraryNovelForResolve = snap.libraryNovel
                     mutableState.update { current ->
                         // Preserve selection + sortEpoch across reload emissions (Phase 6 lesson:
                         // a reactive re-emit must not wipe in-progress multi-select state).
-                        val loaded = current as? NovelLibraryTabState.Loaded
-                        NovelLibraryTabState.Loaded(
+                        val loaded = current as? LibraryTabState.Loaded
+                        LibraryTabState.Loaded(
                             library = library,
                             totalItemCount = library.values.sumOf { it.size },
                             isRunning = snap.isRunning,
@@ -149,7 +159,6 @@ class NovelLibraryScreenModel :
                             categorySortOrder = snap.categorySortOrder,
                             collapsedDynamicCategories = snap.groupingPrefs.collapsedDynamicCategories,
                             collapsedDynamicAtBottom = snap.groupingPrefs.collapsedDynamicAtBottom,
-                            libraryNovelForResolve = snap.libraryNovel,
                         )
                     }
                 }
@@ -163,7 +172,7 @@ class NovelLibraryScreenModel :
             novelLibraryUpdater.updateFlow.collectLatest { novelId ->
                 if (novelId == null) {
                     mutableState.update { current ->
-                        if (current is NovelLibraryTabState.Loaded) {
+                        if (current is LibraryTabState.Loaded) {
                             current.copy(inQueueCategoryIds = emptySet(), isRunning = false)
                         } else {
                             current
@@ -271,7 +280,7 @@ class NovelLibraryScreenModel :
 
     fun toggleSelection(novelId: Long) {
         mutableState.update { current ->
-            if (current is NovelLibraryTabState.Loaded) {
+            if (current is LibraryTabState.Loaded) {
                 val next = if (novelId in current.selection) {
                     current.selection - novelId
                 } else {
@@ -286,7 +295,7 @@ class NovelLibraryScreenModel :
 
     fun clearSelection() {
         mutableState.update { current ->
-            if (current is NovelLibraryTabState.Loaded && current.selection.isNotEmpty()) {
+            if (current is LibraryTabState.Loaded && current.selection.isNotEmpty()) {
                 current.copy(selection = emptySet())
             } else {
                 current
@@ -296,7 +305,7 @@ class NovelLibraryScreenModel :
 
     fun setSelection(novelIds: Set<Long>) {
         mutableState.update { current ->
-            if (current is NovelLibraryTabState.Loaded) {
+            if (current is LibraryTabState.Loaded) {
                 current.copy(selection = novelIds)
             } else {
                 current
@@ -312,7 +321,7 @@ class NovelLibraryScreenModel :
      */
     fun toggleCategorySelection(categoryId: Int) {
         mutableState.update { current ->
-            if (current !is NovelLibraryTabState.Loaded) return@update current
+            if (current !is LibraryTabState.Loaded) return@update current
             val categoryEntry = current.library.entries.firstOrNull { it.key.id == categoryId }
                 ?: return@update current
             val categoryIds = categoryEntry.value.mapNotNull { it.libraryNovel.novel.id }.toSet()
@@ -350,7 +359,7 @@ class NovelLibraryScreenModel :
      * MangaLibraryScreenModel.kt:712 (Phase 6 commit 84a49f59c).
      */
     private fun expandSelectionWithMergedSiblings(): Set<Long> {
-        val loaded = state.value as? NovelLibraryTabState.Loaded ?: return emptySet()
+        val loaded = state.value as? LibraryTabState.Loaded ?: return emptySet()
         val selection = loaded.selection
         if (selection.isEmpty()) return emptySet()
         return loaded.library.values
@@ -372,7 +381,7 @@ class NovelLibraryScreenModel :
      * touches. Used by delete + move-to-category so a merged-group leader doesn't get an
      * action applied to it in isolation, orphaning the siblings (Phase 6 lesson).
      *
-     * Resolves [Novel] objects from [NovelLibraryTabState.Loaded.libraryNovelForResolve]
+     * Resolves [Novel] objects from the screen-model-private `libraryNovelForResolve` field
      * (the pre-collapse list) rather than from `library.values` — merge-group siblings are
      * dropped by [NovelLibraryGrouping.collapse] and only their leaders survive in the
      * rendered list, so a filter against `library.values` would silently return only the
@@ -380,10 +389,10 @@ class NovelLibraryScreenModel :
      * synchronous-capture rule applies (see [expandSelectionWithMergedSiblings]).
      */
     fun selectedNovelListWithMergedSiblings(): List<Novel> {
-        val loaded = state.value as? NovelLibraryTabState.Loaded ?: return emptyList()
+        if (state.value !is LibraryTabState.Loaded) return emptyList()
         val expanded = expandSelectionWithMergedSiblings()
         if (expanded.isEmpty()) return emptyList()
-        return loaded.libraryNovelForResolve
+        return libraryNovelForResolve
             .asSequence()
             .map { it.novel }
             .filter { it.id in expanded }
@@ -400,7 +409,7 @@ class NovelLibraryScreenModel :
      * resolver on a collapsed-leader selection silently returns only the leader.
      */
     fun selectedNovelList(): List<Novel> {
-        val loaded = state.value as? NovelLibraryTabState.Loaded ?: return emptyList()
+        val loaded = state.value as? LibraryTabState.Loaded ?: return emptyList()
         val ids = loaded.selection
         if (ids.isEmpty()) return emptyList()
         return loaded.library.values
@@ -524,7 +533,7 @@ class NovelLibraryScreenModel :
         // Unmerge takes the raw selection (not the expanded set): picking any single member of
         // a merged group is enough — NovelLibraryActions.unmerge dissolves the whole group it
         // belongs to.
-        val ids = (state.value as? NovelLibraryTabState.Loaded)?.selection?.toList().orEmpty()
+        val ids = (state.value as? LibraryTabState.Loaded)?.selection?.toList().orEmpty()
         if (ids.isEmpty()) return
         screenModelScope.launchIO {
             NovelLibraryActions.unmerge(ids, novelPreferences)
@@ -555,7 +564,7 @@ class NovelLibraryScreenModel :
      */
     fun refresh(category: NovelCategory?): Boolean {
         val novelsToUse = if (category?.isDynamic == true) {
-            val loaded = state.value as? NovelLibraryTabState.Loaded ?: return false
+            val loaded = state.value as? LibraryTabState.Loaded ?: return false
             loaded.library.entries
                 .firstOrNull { it.key.id == category.id }
                 ?.value
@@ -567,7 +576,7 @@ class NovelLibraryScreenModel :
         val started = novelLibraryUpdater.startNow(category, novelsToUse = novelsToUse)
         category?.id?.let { catId ->
             mutableState.update { current ->
-                if (current is NovelLibraryTabState.Loaded) {
+                if (current is LibraryTabState.Loaded) {
                     current.copy(
                         inQueueCategoryIds = current.inQueueCategoryIds + catId,
                         isRunning = true,
@@ -619,7 +628,7 @@ class NovelLibraryScreenModel :
      */
     fun setSort(category: NovelCategory, mode: LibrarySort) {
         val catId = category.id ?: return
-        val current = (state.value as? NovelLibraryTabState.Loaded)?.library?.keys
+        val current = (state.value as? LibraryTabState.Loaded)?.library?.keys
             ?.firstOrNull { it.id == catId }
             ?: category
 
@@ -651,7 +660,7 @@ class NovelLibraryScreenModel :
         }
 
         if (mode == LibrarySort.Random) return
-        val loaded = state.value as? NovelLibraryTabState.Loaded ?: return
+        val loaded = state.value as? LibraryTabState.Loaded ?: return
         val clonedCategory = NovelCategoryImpl().also {
             it.id = current.id
             it.name = current.name
@@ -681,7 +690,7 @@ class NovelLibraryScreenModel :
         // to the old (NovelCategoryImpl.equals is by name; a cloned NovelCategory reads as
         // equal to the original, and a same-order sorted list reads as equal to the previous).
         mutableState.update { c ->
-            if (c is NovelLibraryTabState.Loaded) c.copy(
+            if (c is LibraryTabState.Loaded) c.copy(
                 library = resorted,
                 sortEpoch = c.sortEpoch + 1,
             ) else c

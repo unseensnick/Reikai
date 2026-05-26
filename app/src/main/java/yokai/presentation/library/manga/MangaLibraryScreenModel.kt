@@ -55,7 +55,7 @@ import kotlin.random.Random
  * already rides on `getLibraryManga.subscribe()` re-emissions when the DB changes.
  */
 class MangaLibraryScreenModel :
-    StateScreenModel<LibraryTabState<LibraryItem.Manga>>(LibraryTabState.Loading) {
+    StateScreenModel<LibraryTabState<LibraryItem.Manga, Category>>(LibraryTabState.Loading) {
 
     private val preferences: PreferencesHelper by injectLazy()
     private val libraryPreferences: LibraryPreferences by injectLazy()

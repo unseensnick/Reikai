@@ -1,7 +1,7 @@
 package yokai.presentation.library
 
 import androidx.compose.runtime.Immutable
-import eu.kanade.tachiyomi.data.database.models.Category
+import eu.kanade.tachiyomi.data.database.models.ILibraryCategory
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
 
 /**
@@ -12,11 +12,11 @@ import eu.kanade.tachiyomi.ui.library.models.LibraryItem
  * render either tab's emission.
  */
 @Immutable
-sealed interface LibraryTabState<out T : LibraryItem> {
-    data object Loading : LibraryTabState<Nothing>
+sealed interface LibraryTabState<out T : LibraryItem, out C : ILibraryCategory> {
+    data object Loading : LibraryTabState<Nothing, Nothing>
 
-    data class Loaded<T : LibraryItem>(
-        val library: Map<Category, List<T>>,
+    data class Loaded<T : LibraryItem, C : ILibraryCategory>(
+        val library: Map<C, List<T>>,
         val totalItemCount: Int,
         /** Whether `LibraryUpdateJob` is currently running. */
         val isRunning: Boolean = false,
@@ -78,5 +78,5 @@ sealed interface LibraryTabState<out T : LibraryItem> {
          * `Map.equals` doesn't see.
          */
         val collapsedDynamicAtBottom: Boolean = false,
-    ) : LibraryTabState<T>
+    ) : LibraryTabState<T, C>
 }
