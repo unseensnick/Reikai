@@ -1,0 +1,31 @@
+CREATE VIEW library_novel_view AS
+SELECT
+    N.*,
+    coalesce(C.total, 0) AS total,
+    coalesce(C.read_count, 0) AS has_read,
+    coalesce(C.bookmark_count, 0) AS bookmark_count,
+    coalesce(NC.category_id, 0) AS category,
+    coalesce(C.latestUpload, 0) AS latestUpload,
+    coalesce(N.last_read_at, 0) AS lastRead,
+    coalesce(C.lastFetch, 0) AS lastFetch
+FROM novels AS N
+LEFT JOIN (
+    SELECT
+        novel_chapters.novel_id,
+        count(*) AS total,
+        sum(read) AS read_count,
+        sum(bookmark) AS bookmark_count,
+        coalesce(max(novel_chapters.date_upload), 0) AS latestUpload,
+        coalesce(max(novel_chapters.date_fetch), 0) AS lastFetch
+    FROM novel_chapters
+    GROUP BY novel_chapters.novel_id
+) AS C
+ON N._id = C.novel_id
+LEFT JOIN (SELECT * FROM novels_categories) AS NC
+ON NC.novel_id = N._id
+WHERE N.favorite = 1
+ORDER BY N.title;
+
+findAll:
+SELECT *
+FROM library_novel_view;
