@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import yokai.domain.novel.LnInstalledPluginMetadata
 import yokai.domain.novel.NovelPreferences
 import yokai.novel.host.LnPluginHost
 import yokai.novel.install.LnPluginInstaller
@@ -96,7 +97,15 @@ class LnPluginBrowseScreenModel :
         markBusy(entry.id, true)
         screenModelScope.launchIO {
             try {
-                installer.installFromUrl(host, entry.url)
+                installer.installFromUrl(
+                    host = host,
+                    pluginJsUrl = entry.url,
+                    metadata = LnInstalledPluginMetadata(
+                        pluginId = entry.id,
+                        iconUrl = entry.iconUrl,
+                        version = entry.version,
+                    ),
+                )
             } finally {
                 markBusy(entry.id, false)
             }

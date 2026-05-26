@@ -23,8 +23,12 @@ interface NovelSource {
     val version: String
     val site: String
 
-    /** Icon URL from the registry. Null until phase 3 step 5 wires the install flow. */
-    val icon: String?
+    /**
+     * Absolute CDN URL for the source's icon, resolved at install time from the lnreader registry's
+     * `iconUrl` field. Null for legacy installs whose lazy backfill hasn't matched a repo yet, or
+     * for direct-URL-paste installs that bypass the registry.
+     */
+    val iconUrl: String?
 
     /**
      * Raw `plugin.filters` schema. The host does not interpret this; a future filter-renderer in

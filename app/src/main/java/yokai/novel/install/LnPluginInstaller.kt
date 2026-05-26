@@ -3,8 +3,12 @@ package yokai.novel.install
 import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import okhttp3.Request
+import yokai.domain.novel.LnInstalledPluginMetadata
 import yokai.domain.novel.NovelPreferences
 import yokai.novel.host.LN_HOST_TAG
 import yokai.novel.host.LnPluginHost
@@ -35,14 +39,20 @@ class LnPluginInstaller(
     private val prefs: NovelPreferences,
 ) {
 
-    suspend fun installFromUrl(host: LnPluginHost, pluginJsUrl: String): LnPluginSource {
+    suspend fun installFromUrl(
+        host: LnPluginHost,
+        pluginJsUrl: String,
+        metadata: LnInstalledPluginMetadata? = null,
+    ): LnPluginSource {
         val canonical = canonicalizePluginUrl(pluginJsUrl)
         val src = loader.fetchSource(canonical, forceRefresh = true)
-        val info = host.loadPlugin(scopeIdFromUrl(canonical), src)
+        val info = host.loadPlugin(scopeIdFromUrl(canonical), src, metadata?.iconUrl)
         val source = LnPluginSource(host, info)
         manager.register(source)
-        val current = prefs.installedPluginUrls().get()
-        prefs.installedPluginUrls().set(current + canonical)
+        prefs.installedPluginUrls().set(prefs.installedPluginUrls().get() + canonical)
+        val record = metadata?.copy(pluginId = info.id)
+            ?: LnInstalledPluginMetadata(pluginId = info.id)
+        prefs.installedPluginMetadata().set(prefs.installedPluginMetadata().get() + (canonical to record))
         Logger.i(LN_HOST_TAG) { "installed plugin ${info.id} from $canonical" }
         return source
     }
@@ -51,13 +61,19 @@ class LnPluginInstaller(
      * Re-load every URL in [NovelPreferences.installedPluginUrls] into [host] and register the
      * resulting sources with [NovelSourceManager]. Individual failures are logged and skipped
      * so one bad URL doesn't block the rest.
+     *
+     * Performs a lazy iconUrl backfill for legacy installs (URLs persisted before the metadata
+     * pref existed, or installs that bypassed the registry): fetches each added repo once,
+     * matches by canonical URL, writes the resolved metadata back. Backfill runs only when at
+     * least one URL is missing iconUrl, so steady-state launches incur no extra HTTP work.
      */
     suspend fun loadInstalled(host: LnPluginHost): List<LnPluginSource> {
         val urls = prefs.installedPluginUrls().get()
+        val metadata = backfillIconUrls(urls)
         return urls.mapNotNull { url ->
             try {
                 val src = loader.fetchSource(url, forceRefresh = false)
-                val info = host.loadPlugin(scopeIdFromUrl(url), src)
+                val info = host.loadPlugin(scopeIdFromUrl(url), src, metadata[url]?.iconUrl)
                 val source = LnPluginSource(host, info)
                 manager.register(source)
                 source
@@ -69,14 +85,53 @@ class LnPluginInstaller(
     }
 
     /**
+     * Returns a metadata map covering [urls], populating any URL whose stored metadata lacks an
+     * iconUrl by scanning every added repo's registry once. Writes resolved records back to
+     * persistence so subsequent loads skip the network. Returns the current map unchanged when
+     * nothing needs backfilling.
+     */
+    private suspend fun backfillIconUrls(urls: Set<String>): Map<String, LnInstalledPluginMetadata> {
+        val current = prefs.installedPluginMetadata().get()
+        val needs = urls.filter { current[it]?.iconUrl == null }
+        if (needs.isEmpty()) return current
+        val repos = prefs.addedRepoUrls().get()
+        if (repos.isEmpty()) return current
+        val entries: List<LnRegistryEntry> = coroutineScope {
+            repos.map { repoUrl ->
+                async {
+                    runCatching { fetchRepo(repoUrl) }.getOrElse {
+                        Logger.w(LN_HOST_TAG, it) { "backfill: fetch failed for $repoUrl" }
+                        emptyList()
+                    }
+                }
+            }.awaitAll().flatten()
+        }
+        if (entries.isEmpty()) return current
+        val updated = current.toMutableMap()
+        needs.forEach { pluginUrl ->
+            val match = entries.firstOrNull { canonicalizePluginUrl(it.url) == pluginUrl }
+                ?: return@forEach
+            updated[pluginUrl] = LnInstalledPluginMetadata(
+                pluginId = match.id,
+                iconUrl = match.iconUrl,
+                version = match.version,
+            )
+        }
+        if (updated != current) {
+            prefs.installedPluginMetadata().set(updated.toMap())
+        }
+        return updated
+    }
+
+    /**
      * Remove a plugin's URL from persistence and unregister its source from the manager. The
      * loaded plugin instance stays in the host's WebView until the host is destroyed; that's
      * fine because the source is no longer reachable through the manager.
      */
     suspend fun uninstall(pluginId: String, pluginJsUrl: String) {
         val canonical = canonicalizePluginUrl(pluginJsUrl)
-        val current = prefs.installedPluginUrls().get()
-        prefs.installedPluginUrls().set(current - canonical)
+        prefs.installedPluginUrls().set(prefs.installedPluginUrls().get() - canonical)
+        prefs.installedPluginMetadata().set(prefs.installedPluginMetadata().get() - canonical)
         manager.unregister(pluginId)
         Logger.i(LN_HOST_TAG) { "uninstalled plugin $pluginId (was $canonical)" }
     }

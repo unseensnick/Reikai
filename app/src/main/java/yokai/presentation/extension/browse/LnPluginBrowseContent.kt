@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.LibraryBooks
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
@@ -35,9 +37,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
+import coil3.compose.AsyncImage
 import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.util.system.getResourceColor
@@ -247,6 +252,14 @@ private fun PluginRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        AsyncImage(
+            model = entry.iconUrl,
+            contentDescription = null,
+            modifier = Modifier.size(40.dp),
+            contentScale = ContentScale.Fit,
+            fallback = rememberVectorPainter(Icons.Outlined.LibraryBooks),
+            error = rememberVectorPainter(Icons.Outlined.LibraryBooks),
+        )
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = entry.name,

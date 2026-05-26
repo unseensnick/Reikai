@@ -116,9 +116,10 @@ class LnPluginHost(
         webView.loadUrl("file:///android_asset/lnhost/bootstrap.html")
     }
 
-    suspend fun loadPlugin(pluginId: String, source: String): LnPluginInfo {
+    suspend fun loadPlugin(pluginId: String, source: String, iconUrl: String? = null): LnPluginInfo {
         ready.await()
-        val js = "JSON.stringify(window.__lnhost.loadPlugin(${jsStr(pluginId)}, ${jsStr(source)}))"
+        val js = "JSON.stringify(window.__lnhost.loadPlugin(" +
+            "${jsStr(pluginId)}, ${jsStr(source)}, ${jsStr(iconUrl ?: "")}))"
         val rawJsString = evaluateJsSuspending(js)
         val innerJson = JSON.decodeFromString(String.serializer(), rawJsString)
         return JSON.decodeFromString(LnPluginInfo.serializer(), innerJson)

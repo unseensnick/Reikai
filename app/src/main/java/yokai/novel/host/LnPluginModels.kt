@@ -17,7 +17,7 @@ data class LnPluginInfo(
     val name: String,
     val version: String? = null,
     val site: String? = null,
-    val icon: String? = null,
+    val iconUrl: String? = null,
     /** Raw plugin.filters schema. Pass-through; the host does not interpret it. */
     val filters: JsonObject? = null,
 )

@@ -201,7 +201,7 @@
     return { storage: noop, localStorage: noop, sessionStorage: noop };
   })();
 
-  function loadPlugin(pluginId, rawCode) {
+  function loadPlugin(pluginId, rawCode, iconUrl) {
     try {
       // Pass 1: discover the plugin's intrinsic id. The require resolver shadows @libs/storage
       // with no-ops so plugins that read storage at load time (royalroad, webnovel) don't write
@@ -239,7 +239,9 @@
         name: plugin.name,
         version: plugin.version,
         site: plugin.site,
-        icon: plugin.icon,
+        // Absolute CDN URL is injected from Kotlin (sourced from the lnreader registry's iconUrl);
+        // plugin.icon authored on the JS side is a relative path and not a usable URL by itself.
+        iconUrl: iconUrl || null,
         // Pass the plugin's filter schema through unmodified; the host doesn't interpret it.
         // Future filter UI on the Kotlin side will render this.
         filters: plugin.filters || null,

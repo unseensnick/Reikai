@@ -5,6 +5,9 @@ import eu.kanade.tachiyomi.data.preference.DEVICE_ONLY_ON_WIFI
 import eu.kanade.tachiyomi.data.preference.MANGA_HAS_UNREAD
 import eu.kanade.tachiyomi.data.preference.MANGA_NON_COMPLETED
 import eu.kanade.tachiyomi.data.preference.MANGA_NON_READ
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
 
 class NovelPreferences(
     private val preferenceStore: PreferenceStore,
@@ -18,6 +21,22 @@ class NovelPreferences(
      * add-repo Compose screen lands.
      */
     fun installedPluginUrls() = preferenceStore.getStringSet("ln_installed_plugin_urls", emptySet())
+
+    /**
+     * Per-plugin metadata side-table keyed by the same canonicalized URL as [installedPluginUrls].
+     * Carries the registry's `iconUrl` (so the LN sources list can render real icons) and
+     * `version` (pre-positioned for future update detection). Missing entries default to null
+     * fields; [installedPluginUrls] remains the authoritative installed-set.
+     */
+    fun installedPluginMetadata() = preferenceStore.getObject(
+        key = "ln_installed_plugin_metadata",
+        defaultValue = emptyMap(),
+        serializer = { metadataJson.encodeToString(metadataMapSerializer, it) },
+        deserializer = {
+            runCatching { metadataJson.decodeFromString(metadataMapSerializer, it) }
+                .getOrElse { emptyMap() }
+        },
+    )
 
     /**
      * Set of plugin REPO URLs (i.e. `plugins.min.json` registries) the user has added through
@@ -128,4 +147,10 @@ class NovelPreferences(
     fun showEmptyCategoriesWhileFiltering() =
         preferenceStore.getBoolean("novel_show_empty_categories_filtering", false)
     fun filterOrder() = preferenceStore.getString("novel_filter_order", "")
+
+    companion object {
+        private val metadataMapSerializer =
+            MapSerializer(String.serializer(), LnInstalledPluginMetadata.serializer())
+        private val metadataJson = Json { ignoreUnknownKeys = true }
+    }
 }
