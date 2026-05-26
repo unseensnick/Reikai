@@ -5,6 +5,7 @@ import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.tachiyomi.data.database.models.LibraryNovel
 import eu.kanade.tachiyomi.data.database.models.NovelCategory
+import eu.kanade.tachiyomi.data.database.models.NovelCategoryImpl
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.library.LibraryGroup
 import eu.kanade.tachiyomi.ui.library.LibrarySort
@@ -14,6 +15,7 @@ import eu.kanade.tachiyomi.util.system.launchIO
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
+import kotlin.random.Random
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import yokai.domain.novel.NovelChapterRepository
@@ -21,7 +23,9 @@ import yokai.domain.novel.NovelPreferences
 import yokai.domain.novel.NovelRepository
 import yokai.domain.novel.NovelTrackRepository
 import yokai.domain.novel.interactor.GetNovelCategories
+import yokai.domain.novel.interactor.ReorderNovelCategories
 import yokai.domain.novel.models.Novel
+import yokai.domain.novel.models.NovelCategoryUpdate
 import yokai.i18n.MR
 import yokai.novel.source.NovelSourceManager
 import yokai.presentation.library.novels.state.NovelLibraryTabState
@@ -62,6 +66,7 @@ class NovelLibraryScreenModel :
     private val novelTrackRepository: NovelTrackRepository by inject()
     private val novelSourceManager: NovelSourceManager by inject()
     private val novelLibraryUpdater: NovelLibraryUpdater by inject()
+    private val reorderNovelCategories: ReorderNovelCategories by inject()
 
     init {
         screenModelScope.launchIO {
@@ -405,25 +410,112 @@ class NovelLibraryScreenModel :
     }
 
     // ----------------------------------------------------------------------------------------
+    // Sort writes (C28). Per-category SQL update for regular categories; library-wide pref
+    // write for synthetic (default + dynamic) ones; optimistic state update + sortEpoch bump
+    // so the UI re-renders without waiting for the reactive DB / pref round-trip.
+    // ----------------------------------------------------------------------------------------
+
+    /**
+     * Set [category]'s sort to [mode]. Mirrors the manga side's `setSort` verbatim with two
+     * Phase 7 adaptations:
+     *
+     * - **No `defaultMangaOrder`-equivalent pref** (Decision #6). The synthetic Default
+     *   category has no DB row to persist sort to; tapping a sort on it writes the
+     *   library-wide pref instead, same path as id == -1 / dynamic categories.
+     * - **Per-category writes go through [ReorderNovelCategories]** (the C12 interactor) with
+     *   a [NovelCategoryUpdate], not the manga `UpdateCategories` / `CategoryUpdate` pair.
+     */
+    fun setSort(category: NovelCategory, mode: LibrarySort) {
+        val catId = category.id ?: return
+        val current = (state.value as? NovelLibraryTabState.Loaded)?.library?.keys
+            ?.firstOrNull { it.id == catId }
+            ?: category
+
+        if (mode == LibrarySort.Random) {
+            novelPreferences.randomSortSeed().set(Random.nextInt())
+        }
+        val ascending = if (mode == current.sortingMode() && mode.isDirectional) {
+            !current.isAscending()
+        } else {
+            !mode.hasInvertedSort
+        }
+        val newSortChar = if (ascending) mode.categoryValue else mode.categoryValueDescending
+
+        when {
+            current.id == -1 || current.id == 0 || current.isDynamic -> {
+                novelPreferences.librarySortingMode().set(mode.mainValue)
+                novelPreferences.librarySortingAscending().set(ascending)
+            }
+            else -> {
+                screenModelScope.launchIO {
+                    reorderNovelCategories.awaitOne(
+                        NovelCategoryUpdate(
+                            id = catId.toLong(),
+                            novelOrder = newSortChar.toString(),
+                        ),
+                    )
+                }
+            }
+        }
+
+        if (mode == LibrarySort.Random) return
+        val loaded = state.value as? NovelLibraryTabState.Loaded ?: return
+        val clonedCategory = NovelCategoryImpl().also {
+            it.id = current.id
+            it.name = current.name
+            it.order = current.order
+            it.flags = current.flags
+            it.novelOrder = current.novelOrder
+            it.novelSort = newSortChar
+            it.isAlone = current.isAlone
+            it.isHidden = current.isHidden
+            it.isDynamic = current.isDynamic
+            it.sourceId = current.sourceId
+            it.langId = current.langId
+            it.isSystem = current.isSystem
+        }
+        val replacedLibrary = loaded.library.mapKeys { (cat, _) ->
+            if (cat.id == catId) clonedCategory else cat
+        }
+        val resorted = NovelLibrarySort.sort(
+            library = replacedLibrary,
+            libraryDefaultMode = LibrarySort.valueOf(novelPreferences.librarySortingMode().get())
+                ?: LibrarySort.Title,
+            libraryDefaultAscending = novelPreferences.librarySortingAscending().get(),
+            randomSeed = novelPreferences.randomSortSeed().get().toLong(),
+            removeArticles = preferences.removeArticles().get(),
+        )
+        // Bump sortEpoch so StateFlow.update emits even if the new library map compares equal
+        // to the old (NovelCategoryImpl.equals is by name; a cloned NovelCategory reads as
+        // equal to the original, and a same-order sorted list reads as equal to the previous).
+        mutableState.update { c ->
+            if (c is NovelLibraryTabState.Loaded) c.copy(
+                library = resorted,
+                sortEpoch = c.sortEpoch + 1,
+            ) else c
+        }
+    }
+
+    // ----------------------------------------------------------------------------------------
     // Combine-chain helper flows + helpers below.
     // ----------------------------------------------------------------------------------------
 
     /**
      * Bundles the sort-related prefs so the main combine chain stays shallow. Drops manga's
      * `defaultMangaOrder` (novels rely on per-category sort on the novel_categories rows per
-     * Decision #6) and `randomSortSeed` (deferred to C28 when `setSort()` lands; until then
-     * Random mode produces an identical shuffle each emission, which is unreachable from the
-     * UI until 7E ships).
+     * Decision #6); reads `randomSortSeed` from [NovelPreferences] (added in C28) so a Random
+     * re-roll from [setSort] propagates through this flow on the next emission.
      */
     private fun sortPrefsFlow() = combine(
         novelPreferences.librarySortingMode().changes(),
         novelPreferences.librarySortingAscending().changes(),
+        novelPreferences.randomSortSeed().changes(),
         preferences.removeArticles().changes(),
-    ) { modeInt, ascending, removeArticles ->
+    ) { modeInt, ascending, seed, removeArticles ->
         SortPrefs(
             mode = LibrarySort.valueOf(modeInt) ?: LibrarySort.Title,
             ascending = ascending,
-            randomSeed = 0L,
+            randomSeed = seed.toLong(),
             removeArticles = removeArticles,
         )
     }

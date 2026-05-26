@@ -78,6 +78,11 @@ class NovelPreferences(
     // NovelCategory.novelSort. Consumed by NovelLibrarySort (C20).
     fun librarySortingMode() = preferenceStore.getInt("novel_library_sorting_mode", 0)
     fun librarySortingAscending() = preferenceStore.getBoolean("novel_library_sorting_ascending", true)
+    /** Per-seed shuffle for Random mode. Re-rolled whenever the user taps Random in the sort
+     *  sheet so the order changes; preserved across re-emissions so a reload doesn't reshuffle.
+     *  Stored as Int so the existing PreferenceStore Int writer applies; widened to Long when
+     *  passed to [NovelLibrarySort] which expects a Long seed. */
+    fun randomSortSeed() = preferenceStore.getInt("novel_random_sort_seed", 0)
 
     // Grouping. Consumed by NovelLibrarySectioner (C17), NovelLibraryGrouping (C21), and
     // NovelLibraryDynamicGrouping (C22). `groupLibraryBy` mirrors LibraryGroup.BY_* ints
