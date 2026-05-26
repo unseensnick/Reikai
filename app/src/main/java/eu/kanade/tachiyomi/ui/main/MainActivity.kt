@@ -36,6 +36,7 @@ import androidx.appcompat.view.menu.ActionMenuItemView
 import androidx.appcompat.view.menu.MenuItemImpl
 import androidx.appcompat.widget.ActionMenuView
 import androidx.appcompat.widget.Toolbar
+import androidx.core.animation.addListener
 import androidx.core.animation.doOnEnd
 import androidx.core.content.getSystemService
 import androidx.core.graphics.ColorUtils
@@ -1502,13 +1503,21 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             tA.addUpdateListener { valueAnimator ->
                 binding.tabsFrameLayout.alpha = valueAnimator.animatedValue as Float
             }
-            tA.doOnEnd {
-                binding.tabsFrameLayout.isVisible = show
-                if (!show) {
-                    binding.mainTabs.clearOnTabSelectedListeners()
-                    binding.mainTabs.removeAllTabs()
-                }
-            }
+            // onAnimationEnd fires on cancel too. If a hide animation is cancelled by a new
+            // showTabBar(true), let its end-handler run and it will clear the tabs the new call
+            // just installed.
+            var cancelled = false
+            tA.addListener(
+                onCancel = { cancelled = true },
+                onEnd = {
+                    if (cancelled) return@addListener
+                    binding.tabsFrameLayout.isVisible = show
+                    if (!show) {
+                        binding.mainTabs.clearOnTabSelectedListeners()
+                        binding.mainTabs.removeAllTabs()
+                    }
+                },
+            )
             tA.duration = 100
             tabAnimation = tA
             tA.start()
