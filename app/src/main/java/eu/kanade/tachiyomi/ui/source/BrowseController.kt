@@ -281,6 +281,7 @@ class BrowseController :
         ogRadius = view.resources.getDimension(R.dimen.rounded_radius)
 
         setSheetToolbar()
+        setupSourceTypeTabs()
         presenter.onCreate()
         if (presenter.sourceItems.isNotEmpty()) {
             setSources(presenter.sourceItems, presenter.lastUsedItem)
@@ -289,6 +290,69 @@ class BrowseController :
                 binding.sourceRecycler.scrollToPosition(0)
             }
         }
+    }
+
+    /**
+     * Phase 8 follow-up CR8: nest Manga sources / Light novel sources as top-level tabs in
+     * Browse's main content. The manga RV stays bit-identical (visible by default); the LN tab
+     * lazy-mounts a ComposeView with [yokai.presentation.novel.sources.LnSourceListContent].
+     *
+     * Onclick on an LN source row pushes [eu.kanade.tachiyomi.ui.novel.browse.NovelBrowseController]
+     * (CR10 moved it out of the debug folder). Future polish: refactor the screen to take a
+     * sourceId so taps land directly on that source's catalog (today the screen surfaces a
+     * source picker inside).
+     */
+    private fun setupSourceTypeTabs() {
+        val tabs = binding.sourceTypeTabs
+        if (tabs.tabCount == 0) {
+            tabs.addTab(tabs.newTab().setText(view?.context?.getString(MR.strings.manga)))
+            tabs.addTab(tabs.newTab().setText(view?.context?.getString(MR.strings.light_novels)))
+        }
+        tabs.clearOnTabSelectedListeners()
+        tabs.addOnTabSelectedListener(object : com.google.android.material.tabs.TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: com.google.android.material.tabs.TabLayout.Tab) {
+                when (tab.position) {
+                    0 -> {
+                        binding.sourceRecycler.isVisible = true
+                        binding.lnSourcesCompose.isVisible = false
+                    }
+                    else -> {
+                        binding.sourceRecycler.isVisible = false
+                        binding.lnSourcesCompose.isVisible = true
+                        // Lazy mount the Compose content the first time the LN tab is selected
+                        // so the LnPluginHost (WebView + Coil scope) doesn't spin up until
+                        // needed. Mirrors the same pattern used by the ExtensionBottomSheet
+                        // sub-tabs (Phase 8 follow-up CR6).
+                        if (binding.lnSourcesCompose.tag != "compose_mounted") {
+                            binding.lnSourcesCompose.setViewCompositionStrategy(
+                                androidx.compose.ui.platform.ViewCompositionStrategy
+                                    .DisposeOnViewTreeLifecycleDestroyed,
+                            )
+                            binding.lnSourcesCompose.setContent {
+                                yokai.presentation.theme.YokaiTheme {
+                                    yokai.presentation.novel.sources.LnSourceListContent(
+                                        onOpenSource = { _ ->
+                                            // For now route to the existing NovelBrowseController
+                                            // (which has its own source picker inside). A future
+                                            // polish refactors NovelBrowseScreen to take sourceId
+                                            // so the tap lands on that source's catalog directly.
+                                            router.pushController(
+                                                eu.kanade.tachiyomi.ui.novel.browse.NovelBrowseController()
+                                                    .withFadeTransaction(),
+                                            )
+                                        },
+                                    )
+                                }
+                            }
+                            binding.lnSourcesCompose.tag = "compose_mounted"
+                        }
+                    }
+                }
+            }
+
+            override fun onTabUnselected(tab: com.google.android.material.tabs.TabLayout.Tab) {}
+            override fun onTabReselected(tab: com.google.android.material.tabs.TabLayout.Tab) {}
+        })
     }
 
     private fun updateSheetMenu() {

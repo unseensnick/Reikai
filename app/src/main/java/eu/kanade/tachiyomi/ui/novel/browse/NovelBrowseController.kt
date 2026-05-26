@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.ui.setting.controllers.debug
+package eu.kanade.tachiyomi.ui.novel.browse
 
 import androidx.compose.runtime.Composable
 import eu.kanade.tachiyomi.ui.base.controller.BaseComposeController
