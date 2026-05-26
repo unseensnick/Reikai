@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.ui.setting.controllers.debug
+package eu.kanade.tachiyomi.ui.novel
 
 import android.os.Bundle
 import androidx.compose.runtime.Composable

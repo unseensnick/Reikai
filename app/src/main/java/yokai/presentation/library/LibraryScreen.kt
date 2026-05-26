@@ -373,7 +373,7 @@ class LibraryScreen : Screen {
         val onNovelClick: (yokai.domain.novel.models.Novel) -> Unit = { novel ->
             dismissPendingSnackbar()
             router.pushController(
-                eu.kanade.tachiyomi.ui.setting.controllers.debug.NovelDetailsController(
+                eu.kanade.tachiyomi.ui.novel.NovelDetailsController(
                     sourceId = novel.source,
                     novelUrl = novel.url,
                 ).withFadeTransaction(),
