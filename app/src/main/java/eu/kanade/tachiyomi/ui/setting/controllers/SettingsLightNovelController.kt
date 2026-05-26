@@ -5,7 +5,6 @@ import eu.kanade.tachiyomi.ui.setting.SettingsLegacyController
 import eu.kanade.tachiyomi.ui.setting.controllers.debug.LnPluginHostProbeController
 import eu.kanade.tachiyomi.ui.setting.controllers.debug.LnRepoBrowseController
 import eu.kanade.tachiyomi.ui.setting.controllers.debug.NovelBrowseController
-import eu.kanade.tachiyomi.ui.setting.controllers.debug.NovelLibraryController
 import eu.kanade.tachiyomi.ui.setting.controllers.debug.NovelTrackProbeController
 import eu.kanade.tachiyomi.ui.setting.onClick
 import eu.kanade.tachiyomi.ui.setting.preference
@@ -35,10 +34,6 @@ class SettingsLightNovelController : SettingsLegacyController() {
         preference {
             title = NovelBrowseController.title
             onClick { router.pushController(NovelBrowseController().withFadeTransaction()) }
-        }
-        preference {
-            title = NovelLibraryController.title
-            onClick { router.pushController(NovelLibraryController().withFadeTransaction()) }
         }
         preference {
             title = NovelTrackProbeController.title
