@@ -32,9 +32,13 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <include
-            android:id="@+id/manga_recycler_root"
-            layout="@layout/recycler_with_scroller" />
+        <!--
+          Intentionally NO android:id on the include: the included layout's root carries its
+          own id (`recycler_layout`, defined in recycler_with_scroller.xml). Setting an
+          android:id here would replace that id, breaking the findViewById lookup the adapter
+          uses to resolve the inner RecyclerWithScrollerView.
+        -->
+        <include layout="@layout/recycler_with_scroller" />
 
         <androidx.compose.ui.platform.ComposeView
             android:id="@+id/ln_compose"
