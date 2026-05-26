@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -89,7 +90,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.data.database.models.Category
-import eu.kanade.tachiyomi.domain.manga.models.Manga
+import eu.kanade.tachiyomi.data.database.models.ILibraryCategory
 import eu.kanade.tachiyomi.ui.library.LibrarySort
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COMFORTABLE_GRID
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COMPACT_GRID
@@ -121,13 +122,21 @@ import yokai.presentation.library.components.SelectionAppBar
 import yokai.presentation.library.settings.LibraryDisplayOptionsSheet
 import yokai.presentation.library.manga.MangaLibraryGridCell
 import yokai.presentation.library.manga.MangaLibraryListItem
-import yokai.presentation.manga.components.MangaCoverRatio
+
+/**
+ * Cover aspect ratio used when Uniform grid covers is on. 2:3 (book) matches the legacy
+ * `BOOK_RATIO` baked into `LibraryGridHolder.setFreeformCoverRatio` and is the same value used
+ * by both manga and novel covers (novel-side wrappers in the per-tab renderer pass the same
+ * float through). Defined here so the genericized composable doesn't import
+ * `MangaCoverRatio.BOOK` directly.
+ */
+private const val LIBRARY_COVER_BOOK_RATIO = 2f / 3f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LibraryContent(
-    library: Map<Category, List<LibraryItem.Manga>>,
-    allCategories: List<Category>,
+fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
+    library: Map<C, List<T>>,
+    allCategories: List<C>,
     categoryItemCounts: Map<Int, Int>,
     /**
      * Per-category item count for the in-grid header. Sourced from the post-filter,
@@ -189,7 +198,7 @@ fun LibraryContent(
     onSearchActiveChange: (Boolean) -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onHopperGravityChange: (Int) -> Unit,
-    onToggleCategoryCollapse: (Category) -> Unit,
+    onToggleCategoryCollapse: (C) -> Unit,
     /**
      * Pref value (0..4) for the hopper center-button long-press. Matches the legacy options:
      * 0 = search, 1 = expand/collapse all, 2 = display options, 3 = group by, 4 = random.
@@ -205,17 +214,31 @@ fun LibraryContent(
      * long-press index 4 (`openRandomManga(false)`). Receiver gets the active category and is
      * expected to no-op when it can't resolve one (search active, empty library).
      */
-    onOpenRandomInCategory: (Category?) -> Unit,
+    onOpenRandomInCategory: (C?) -> Unit,
     /**
      * Open the standalone Group library by picker dialog. Matches legacy hopper long-press
      * index 3 (`showGroupOptions()`), which opens just the small picker rather than the full
      * Display options sheet.
      */
     onOpenGroupByPicker: () -> Unit,
-    /** Invoked when the user taps the continue-reading button on a cover with unread chapters. */
-    onContinueReading: (Manga) -> Unit,
-    /** Tap on a manga cell (grid cover or list row). Routes to the manga details screen. */
-    onMangaClick: (Manga) -> Unit,
+    /**
+     * Per-tab list-row renderer. Called inside the LazyColumn `items{}` block with the item, its
+     * computed selection state, whether selection mode is active, and a [Modifier] carrying
+     * `animateItem()` from the items-scope. The lambda closes over the per-tab callbacks (tap =
+     * open details vs toggle selection in selection mode; long-press = toggle selection) plus
+     * badge prefs. Manga tab forwards to [yokai.presentation.library.manga.MangaLibraryListItem];
+     * novel tab forwards to `NovelLibraryListItem` (Phase 8 C8).
+     */
+    listItemRenderer: @Composable (item: T, isSelected: Boolean, selectionActive: Boolean, modifier: Modifier) -> Unit,
+    /**
+     * Per-tab grid-cell renderer. Same closure pattern as [listItemRenderer]; additionally
+     * receives [coverAspectRatio] (null for staggered layout, 2:3 for regular grid with Uniform
+     * grid covers on) which the manga / novel cell helpers pass through to their underlying
+     * grid item composable. The [modifier] carries `animateItem()` from the appropriate grid
+     * items-scope (LazyGridItemScope or LazyStaggeredGridItemScope, both of which expose their
+     * own `animateItem`).
+     */
+    gridItemRenderer: @Composable (item: T, isSelected: Boolean, selectionActive: Boolean, modifier: Modifier, coverAspectRatio: Float?) -> Unit,
     onOpenFilter: () -> Unit,
     onOpenOverflow: () -> Unit,
     onDismissSheet: () -> Unit,
@@ -228,7 +251,7 @@ fun LibraryContent(
      * This keeps `presenter.currentCategory` / Compose's `currentCategoryOrder` in sync with
      * the visible category across both libraries.
      */
-    onActiveCategoryChange: (Category) -> Unit,
+    onActiveCategoryChange: (C) -> Unit,
     /**
      * Pull-to-refresh dispatcher. Receiver decides the target (active category vs all) per
      * legacy `setSwipeRefresh` branch and shows the appropriate snackbar.
@@ -239,12 +262,12 @@ fun LibraryContent(
      * branches snackbar wording on already-in-queue / adding-to-queue / starting state, then
      * dispatches the update if not already queued.
      */
-    onRefreshCategory: (Category) -> Unit,
+    onRefreshCategory: (C) -> Unit,
     /**
      * Phase 6: user picked a sort mode for [Category] from the per-category sort sheet. Routed
      * through `MangaLibraryScreenModel.setSort` which handles direction toggle + write routing.
      */
-    onSortChange: (Category, LibrarySort) -> Unit,
+    onSortChange: (C, LibrarySort) -> Unit,
     /**
      * Reikai-fork `preferences.categorySortOrder` (0 manual, 1 A→Z, 2 Z→A). Passed through so
      * iteration-order-dependent `remember(library, ...)` calls inside this composable invalidate
@@ -712,7 +735,7 @@ fun LibraryContent(
     // sign — only by single-category mode + reloading state — and Phase 6 wired the refresh
     // dispatch to handle both id ranges.
     val isSingleCategoryGate = library.size <= 1 || !showAllCategories
-    val showHeaderRefreshIcon: (Category) -> Boolean = remember(library.size, showAllCategories, inQueueCategoryIds) {
+    val showHeaderRefreshIcon: (ILibraryCategory) -> Boolean = remember(library.size, showAllCategories, inQueueCategoryIds) {
         gate@{ category ->
             val id = category.id ?: return@gate false
             if (isSingleCategoryGate && id !in inQueueCategoryIds) return@gate false
@@ -1141,7 +1164,7 @@ fun LibraryContent(
                                     contentType = "library_category_header",
                                 ) {
                                     val allSelectedInCategory = mangaItems.isNotEmpty() &&
-                                        mangaItems.all { it.libraryManga.manga.id in selection }
+                                        mangaItems.all { it.itemId != null && it.itemId in selection }
                                     LibraryCategoryHeader(
                                         name = category.name,
                                         // animateItem smooths header reflow when collapse /
@@ -1176,18 +1199,12 @@ fun LibraryContent(
                                 // multiple dynamic categories (BY_TAG / BY_AUTHOR) without the
                                 // LazyColumn complaining about duplicate keys. Per-category
                                 // disambiguation prefix: "<categoryId>:<mangaId>".
-                                key = { "${category.id ?: 0}:${it.libraryManga.manga.id ?: 0L}" },
+                                key = { "${category.id ?: 0}:${it.itemId ?: 0L}" },
                                 contentType = { "library_list_item" },
                             ) { item ->
-                                MangaLibraryListItem(
-                                    item = item,
-                                    selection = selection,
-                                    showDownloadBadge = showDownloadBadge,
-                                    showLanguageBadge = showLanguageBadge,
-                                    unreadBadgeType = unreadBadgeType,
-                                    onMangaClick = onMangaClick,
-                                    onToggleSelection = onToggleSelection,
-                                )
+                                val itemId = item.itemId
+                                val isSelected = itemId != null && itemId in selection
+                                listItemRenderer(item, isSelected, selection.isNotEmpty(), Modifier.animateItem())
                             }
                         }
                     }
@@ -1210,7 +1227,7 @@ fun LibraryContent(
                                     contentType = "library_category_header",
                                 ) {
                                     val allSelectedInCategory = mangaItems.isNotEmpty() &&
-                                        mangaItems.all { it.libraryManga.manga.id in selection }
+                                        mangaItems.all { it.itemId != null && it.itemId in selection }
                                     LibraryCategoryHeader(
                                         name = category.name,
                                         // animateItem smooths header reflow when collapse /
@@ -1245,31 +1262,14 @@ fun LibraryContent(
                                 // multiple dynamic categories (BY_TAG / BY_AUTHOR) without the
                                 // LazyColumn complaining about duplicate keys. Per-category
                                 // disambiguation prefix: "<categoryId>:<mangaId>".
-                                key = { "${category.id ?: 0}:${it.libraryManga.manga.id ?: 0L}" },
+                                key = { "${category.id ?: 0}:${it.itemId ?: 0L}" },
                                 contentType = { "library_grid_item" },
                             ) { item ->
                                 // Staggered + uniformGrid=false: drop the cover aspect-ratio so
                                 // each cell sizes to its image's intrinsic ratio.
-                                val mangaId = item.libraryManga.manga.id
-                                MangaLibraryGridCell(
-                                    item = item,
-                                    libraryLayout = libraryLayout,
-                                    outlineOnCovers = outlineOnCovers,
-                                    showDownloadBadge = showDownloadBadge,
-                                    showLanguageBadge = showLanguageBadge,
-                                    unreadBadgeType = unreadBadgeType,
-                                    hideStartReadingButton = hideStartReadingButton,
-                                    isSelected = mangaId != null && mangaId in selection,
-                                    // animateItem on the grid cell makes merge/unmerge/sort
-                                    // changes slide rather than pop-jump: removed siblings fade
-                                    // out, surviving cards translate into their new positions.
-                                    modifier = Modifier.animateItem(),
-                                    selectionActive = selection.isNotEmpty(),
-                                    onMangaClick = onMangaClick,
-                                    onMangaLongClick = { m -> m.id?.let(onToggleSelection) },
-                                    onContinueReading = onContinueReading,
-                                    coverAspectRatio = null,
-                                )
+                                val itemId = item.itemId
+                                val isSelected = itemId != null && itemId in selection
+                                gridItemRenderer(item, isSelected, selection.isNotEmpty(), Modifier.animateItem(), null)
                             }
                         }
                     }
@@ -1292,7 +1292,7 @@ fun LibraryContent(
                                     contentType = "library_category_header",
                                 ) {
                                     val allSelectedInCategory = mangaItems.isNotEmpty() &&
-                                        mangaItems.all { it.libraryManga.manga.id in selection }
+                                        mangaItems.all { it.itemId != null && it.itemId in selection }
                                     LibraryCategoryHeader(
                                         name = category.name,
                                         // animateItem smooths header reflow when collapse /
@@ -1327,35 +1327,25 @@ fun LibraryContent(
                                 // multiple dynamic categories (BY_TAG / BY_AUTHOR) without the
                                 // LazyColumn complaining about duplicate keys. Per-category
                                 // disambiguation prefix: "<categoryId>:<mangaId>".
-                                key = { "${category.id ?: 0}:${it.libraryManga.manga.id ?: 0L}" },
+                                key = { "${category.id ?: 0}:${it.itemId ?: 0L}" },
                                 contentType = { "library_grid_item" },
                             ) { item ->
                                 // Faithful port of AutofitRecyclerView.useStaggered + the
                                 // adjustViewBounds path in LibraryGridHolder: when uniform is
                                 // on, force every cell to BOOK; when uniform is off, drop the
                                 // outer ratio so the cell wraps to the cover's intrinsic size.
-                                // The actual stable-height fallback lives inside `MangaCover`,
-                                // which reads the legacy `MangaCoverMetadata` cache and falls
-                                // back to BOOK before the first paint, so the cell never
-                                // collapses to 0 height during async image load.
-                                val mangaId = item.libraryManga.manga.id
-                                MangaLibraryGridCell(
-                                    item = item,
-                                    libraryLayout = libraryLayout,
-                                    outlineOnCovers = outlineOnCovers,
-                                    showDownloadBadge = showDownloadBadge,
-                                    showLanguageBadge = showLanguageBadge,
-                                    unreadBadgeType = unreadBadgeType,
-                                    hideStartReadingButton = hideStartReadingButton,
-                                    isSelected = mangaId != null && mangaId in selection,
-                                    // See above (comfortable grid path); same animateItem
-                                    // rationale for the staggered grid's LazyStaggeredGridItemScope.
-                                    modifier = Modifier.animateItem(),
-                                    selectionActive = selection.isNotEmpty(),
-                                    onMangaClick = onMangaClick,
-                                    onMangaLongClick = { m -> m.id?.let(onToggleSelection) },
-                                    onContinueReading = onContinueReading,
-                                    coverAspectRatio = if (uniformGrid) MangaCoverRatio.BOOK else null,
+                                // The actual stable-height fallback lives inside the underlying
+                                // grid item composable, which reads the legacy MangaCoverMetadata
+                                // cache and falls back to BOOK before the first paint, so the
+                                // cell never collapses to 0 height during async image load.
+                                val itemId = item.itemId
+                                val isSelected = itemId != null && itemId in selection
+                                gridItemRenderer(
+                                    item,
+                                    isSelected,
+                                    selection.isNotEmpty(),
+                                    Modifier.animateItem(),
+                                    if (uniformGrid) LIBRARY_COVER_BOOK_RATIO else null,
                                 )
                             }
                         }

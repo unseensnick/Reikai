@@ -48,8 +48,12 @@ import uy.kohesive.injekt.api.get
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.track.interactor.GetTrack
 import yokai.i18n.MR
+import eu.kanade.tachiyomi.domain.manga.models.Manga
+import eu.kanade.tachiyomi.ui.library.models.LibraryItem
 import yokai.presentation.library.manga.MangaLibraryFilter
 import yokai.presentation.library.manga.MangaLibraryFilter.MangaFilterState
+import yokai.presentation.library.manga.MangaLibraryGridCell
+import yokai.presentation.library.manga.MangaLibraryListItem
 import yokai.presentation.library.manga.MangaLibraryScreenModel
 import yokai.presentation.library.manga.MangaLibrarySearch
 import yokai.presentation.library.settings.tabs.columnsForGridValue
@@ -400,6 +404,63 @@ class LibraryScreen : Screen {
             displayedLibrary
         }
 
+        // Per-tab callbacks lifted out so the renderer lambdas (below) can close over them.
+        // continueReading: load all chapters via ChapterSort, pick next-unread, launch reader.
+        // Manga with no remaining unread chapters silently no-op (the button is gated on
+        // unread > 0 upstream so this is only reachable in a race where the count changes).
+        val onContinueReading: (Manga) -> Unit = { manga ->
+            coroutineScope.launch {
+                val chapters = getChapter.awaitAll(manga)
+                val next = ChapterSort(manga).getNextUnreadChapter(chapters, false)
+                    ?: return@launch
+                val activity = router.activity ?: return@launch
+                dismissPendingSnackbar()
+                activity.startActivity(ReaderActivity.newIntent(activity, manga, next))
+            }
+        }
+        // mangaClick: same destination + transition as legacy LibraryController.openManga.
+        // Routes through the existing Conductor router for now since no Compose-side manga
+        // details Voyager screen exists yet.
+        val onMangaClick: (Manga) -> Unit = { manga ->
+            dismissPendingSnackbar()
+            router.pushController(MangaDetailsController(manga).withFadeTransaction())
+        }
+
+        // Per-tab renderer lambdas. Phase 8 C7c: LibraryContent is generic; these capture the
+        // manga-side cell helpers + callbacks + badge prefs. Mirror lambdas for the novel tab
+        // land in Phase 8 C9 when the tabbed shell wraps both tabs.
+        val mangaListItemRenderer: @Composable (LibraryItem.Manga, Boolean, Boolean, Modifier) -> Unit = { item, isSelected, selectionActive, modifier ->
+            MangaLibraryListItem(
+                item = item,
+                isSelected = isSelected,
+                selectionActive = selectionActive,
+                modifier = modifier,
+                showDownloadBadge = showDownloadBadge,
+                showLanguageBadge = showLanguageBadge,
+                unreadBadgeType = unreadBadgeType,
+                onMangaClick = onMangaClick,
+                onToggleSelection = { id -> screenModel.toggleSelection(id) },
+            )
+        }
+        val mangaGridItemRenderer: @Composable (LibraryItem.Manga, Boolean, Boolean, Modifier, Float?) -> Unit = { item, isSelected, selectionActive, modifier, coverAspectRatio ->
+            MangaLibraryGridCell(
+                item = item,
+                libraryLayout = libraryLayout,
+                outlineOnCovers = outlineOnCovers,
+                showDownloadBadge = showDownloadBadge,
+                showLanguageBadge = showLanguageBadge,
+                unreadBadgeType = unreadBadgeType,
+                hideStartReadingButton = hideStartReadingButton,
+                isSelected = isSelected,
+                modifier = modifier,
+                selectionActive = selectionActive,
+                onMangaClick = onMangaClick,
+                onMangaLongClick = { m -> m.id?.let { screenModel.toggleSelection(it) } },
+                onContinueReading = onContinueReading,
+                coverAspectRatio = coverAspectRatio,
+            )
+        }
+
         LibraryContent(
             library = finalLibrary,
             singleCategoryMode = singleCategoryMode,
@@ -491,28 +552,8 @@ class LibraryScreen : Screen {
                 }
             },
             onOpenGroupByPicker = { groupByDialogOpen = true },
-            onContinueReading = { manga ->
-                // Mirror legacy LibraryController.startReading: load all chapters, pick the
-                // next-unread via ChapterSort, then launch ReaderActivity. Manga with no
-                // remaining unread chapters silently no-op (the button is gated on unread > 0
-                // upstream so this is only reachable in a race where the count changes).
-                coroutineScope.launch {
-                    val chapters = getChapter.awaitAll(manga)
-                    val next = ChapterSort(manga).getNextUnreadChapter(chapters, false)
-                        ?: return@launch
-                    val activity = router.activity ?: return@launch
-                    dismissPendingSnackbar()
-                    activity.startActivity(ReaderActivity.newIntent(activity, manga, next))
-                }
-            },
-            onMangaClick = { manga ->
-                // Same destination + transition as legacy LibraryController.openManga (which
-                // does router.pushController(MangaDetailsController(manga).withFadeTransaction())).
-                // Routes through the existing Conductor router for now since no Compose-side
-                // manga details Voyager screen exists yet.
-                dismissPendingSnackbar()
-                router.pushController(MangaDetailsController(manga).withFadeTransaction())
-            },
+            listItemRenderer = mangaListItemRenderer,
+            gridItemRenderer = mangaGridItemRenderer,
             onOpenFilter = { sheetTab = 0; sheetOpen = true },
             onOpenOverflow = { overflowOpen = true },
             onDismissSheet = { sheetOpen = false },

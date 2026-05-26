@@ -25,7 +25,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.icerock.moko.resources.compose.stringResource
-import eu.kanade.tachiyomi.data.database.models.Category
+import eu.kanade.tachiyomi.data.database.models.ILibraryCategory
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import yokai.i18n.MR
 
@@ -37,12 +37,12 @@ import yokai.i18n.MR
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CategoryPickerSheet(
-    categories: List<Category>,
+fun <C : ILibraryCategory> CategoryPickerSheet(
+    categories: List<C>,
     itemCounts: Map<Int, Int>,
     showItemCounts: Boolean,
     activeCategoryId: Int?,
-    onSelect: (Category) -> Unit,
+    onSelect: (C) -> Unit,
     onDismiss: () -> Unit,
 ) {
     // Faithful port of the legacy MaterialMenuSheet sizing: opens fully expanded showing as

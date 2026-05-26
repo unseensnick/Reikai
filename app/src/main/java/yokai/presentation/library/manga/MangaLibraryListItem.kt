@@ -1,6 +1,5 @@
 package yokai.presentation.library.manga
 
-import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -18,14 +17,18 @@ import yokai.presentation.manga.components.MangaListItem
  * C7c without dragging in manga-specific imports. The novel-side parallel is
  * [yokai.presentation.library.novels.NovelLibraryListItem] (Phase 8 C8).
  *
- * Caller (`LibraryContent`'s list branch) provides this as the `listItemRenderer` lambda body;
- * the LazyItemScope receiver is required by [Modifier.animateItem] which smooths row drops /
- * swaps when a merge / unmerge / sort change reshapes the list.
+ * The [modifier] should carry `Modifier.animateItem()` from the caller's `items{}` block scope;
+ * scope receivers can't be parameterized polymorphically since [LazyItemScope] (LazyColumn),
+ * [androidx.compose.foundation.lazy.grid.LazyGridItemScope], and
+ * [androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridItemScope] all expose their
+ * own `animateItem`. Caller composes the modifier and passes it through.
  */
 @Composable
-fun LazyItemScope.MangaLibraryListItem(
+fun MangaLibraryListItem(
     item: LibraryItem.Manga,
-    selection: Set<Long>,
+    isSelected: Boolean,
+    selectionActive: Boolean,
+    modifier: Modifier,
     showDownloadBadge: Boolean,
     showLanguageBadge: Boolean,
     unreadBadgeType: Int,
@@ -69,13 +72,12 @@ fun LazyItemScope.MangaLibraryListItem(
     MangaListItem(
         coverData = coverData,
         title = title,
-        // animateItem keeps row drops/swaps smooth instead of pop-jumping when a merge / unmerge
-        // / sort change reshapes the list. Safe to apply unconditionally: it only runs when the
-        // lazy column actually relocates a row.
-        modifier = Modifier.animateItem(),
+        // Caller passes Modifier.animateItem() from the items{} scope so row drops/swaps animate
+        // when a merge / unmerge / sort change reshapes the list.
+        modifier = modifier,
         subtitle = subtitle.takeIf { it.isNotEmpty() },
-        isSelected = manga.id != null && manga.id in selection,
-        onClick = if (selection.isNotEmpty()) {
+        isSelected = isSelected,
+        onClick = if (selectionActive) {
             { manga.id?.let(onToggleSelection) }
         } else {
             { onMangaClick(manga) }
