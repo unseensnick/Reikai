@@ -73,6 +73,8 @@ class NotificationReceiver : BroadcastReceiver() {
             )
             // Cancel library update and dismiss notification
             ACTION_CANCEL_LIBRARY_UPDATE -> cancelLibraryUpdate(context)
+            // Cancel novel library update (Phase 7); body becomes NovelUpdateJob.stop in C14d.
+            ACTION_CANCEL_NOVEL_LIBRARY_UPDATE -> cancelNovelLibraryUpdate(context)
             ACTION_CANCEL_EXTENSION_UPDATE -> cancelExtensionUpdate(context)
             ACTION_START_EXTENSION_INSTALL -> startExtensionUpdater(context, intent)
             ACTION_CANCEL_UPDATE_DOWNLOAD -> cancelDownloadUpdate(context)
@@ -186,6 +188,16 @@ class NotificationReceiver : BroadcastReceiver() {
     }
 
     /**
+     * Stub stop for the novel-side library update. Replaced in Phase 7 C14d (when
+     * `NovelUpdateJob` lands) with `NovelUpdateJob.stop(context)`. Kept as a no-op now so the
+     * progress notification's cancel button has a registered receiver action even before the
+     * job exists; tapping it before C14d does nothing rather than throwing.
+     */
+    private fun cancelNovelLibraryUpdate(context: Context) {
+        // No-op until NovelUpdateJob lands.
+    }
+
+    /**
      * Method called when user wants to stop a library update
      *
      * @param context context of application
@@ -265,6 +277,7 @@ class NotificationReceiver : BroadcastReceiver() {
 
         // Called to cancel library update.
         private const val ACTION_CANCEL_LIBRARY_UPDATE = "$ID.$NAME.CANCEL_LIBRARY_UPDATE"
+        private const val ACTION_CANCEL_NOVEL_LIBRARY_UPDATE = "$ID.$NAME.CANCEL_NOVEL_LIBRARY_UPDATE"
 
         // Called to cancel extension update.
         private const val ACTION_CANCEL_EXTENSION_UPDATE = "$ID.$NAME.CANCEL_EXTENSION_UPDATE"
@@ -565,6 +578,13 @@ class NotificationReceiver : BroadcastReceiver() {
         internal fun cancelLibraryUpdatePendingBroadcast(context: Context): PendingIntent {
             val intent = Intent(context, NotificationReceiver::class.java).apply {
                 action = ACTION_CANCEL_LIBRARY_UPDATE
+            }
+            return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        }
+
+        internal fun cancelNovelLibraryUpdatePendingBroadcast(context: Context): PendingIntent {
+            val intent = Intent(context, NotificationReceiver::class.java).apply {
+                action = ACTION_CANCEL_NOVEL_LIBRARY_UPDATE
             }
             return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         }
