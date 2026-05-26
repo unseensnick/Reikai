@@ -875,35 +875,33 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                     colors = libraryTopBarColors,
                 )
             } else if (useLargeToolbar) {
-                // Column so [topBarBelow] (the tab row, when hosted by the Phase 8 tabbed shell)
-                // sits flush under the LargeTopAppBar inside the same Scaffold topBar slot. The
-                // Scaffold then measures the combined height and adjusts contentPadding
-                // accordingly, so the grid scrolls beneath both rows correctly.
-                Column {
-                    // Wrap the LargeTopAppBar in an offset Box so the bar can slide up by
-                    // hideOffsetPx after full collapse. The bar's measured height stays
-                    // unchanged so the Scaffold's contentPadding remains stable; the content
-                    // compensates by adjusting its own top padding below. Measured continuously
-                    // so hideOffsetPx's lower bound tracks the bar's CURRENT visible height —
-                    // which is the collapsed-content height + status-bar inset added by
-                    // TopAppBarDefaults.windowInsets. A hardcoded 64.dp left the status-bar
-                    // strip visible on devices with non-trivial top insets (tablets, notch
-                    // phones).
-                    Box(
-                        modifier = Modifier
-                            .offset { IntOffset(0, hideOffsetPx.roundToInt()) }
-                            .onSizeChanged { size ->
-                                // Only record the FINAL collapsed height: while the
-                                // LargeTopAppBar is mid-collapse (heightOffset >
-                                // heightOffsetLimit) the measured size is larger than the
-                                // collapsed state. We're only interested in the collapsed-state
-                                // height so we keep the smallest size we have seen so far.
-                                val newHeight = size.height.toFloat()
-                                if (collapsedBarHeightPx == 0f || newHeight < collapsedBarHeightPx) {
-                                    collapsedBarHeightPx = newHeight
-                                }
-                            },
-                    ) {
+                // Wrap [LargeTopAppBar] + [topBarBelow] (the Phase 8 tab row) in a single
+                // offset Box so the whole stack participates in the two-stage collapse + slide.
+                // `onSizeChanged` now measures bar + tab-row height combined, so hideOffsetPx's
+                // lower bound covers BOTH rows — the user scrolls and both rows slide off
+                // together (Material 3 attached-tabs pattern). The Scaffold's contentPadding
+                // includes the combined height; the content compensates for the offset below
+                // via the same path as before.
+                //
+                // Measured continuously so hideOffsetPx tracks the stack's CURRENT visible
+                // height (collapsed-LargeTopAppBar + tab-row + status-bar inset). A hardcoded
+                // value would leave a strip visible on devices with non-trivial top insets.
+                Box(
+                    modifier = Modifier
+                        .offset { IntOffset(0, hideOffsetPx.roundToInt()) }
+                        .onSizeChanged { size ->
+                            // Only record the FINAL collapsed height: while the LargeTopAppBar
+                            // is mid-collapse (heightOffset > heightOffsetLimit) the measured
+                            // size is larger than the collapsed state. We're only interested
+                            // in the collapsed-state height so we keep the smallest size we
+                            // have seen so far.
+                            val newHeight = size.height.toFloat()
+                            if (collapsedBarHeightPx == 0f || newHeight < collapsedBarHeightPx) {
+                                collapsedBarHeightPx = newHeight
+                            }
+                        },
+                ) {
+                    Column {
                         LargeTopAppBar(
                             title = { Text(stringResource(MR.strings.library)) },
                             scrollBehavior = scrollBehavior,
@@ -917,11 +915,19 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                                 )
                             },
                         )
+                        topBarBelow()
                     }
-                    topBarBelow()
                 }
             } else {
-                Column {
+                // Small TopAppBar uses [enterAlwaysBehavior] which handles its own slide via
+                // scrollBehavior.state.heightOffset. Apply the same offset to the Column so the
+                // tab row slides with it; the bar's draw and the row's translation share the
+                // single source of truth in [TopAppBarState].
+                Column(
+                    modifier = Modifier.offset {
+                        IntOffset(0, scrollBehavior?.state?.heightOffset?.roundToInt() ?: 0)
+                    },
+                ) {
                     TopAppBar(
                         title = { Text(stringResource(MR.strings.library)) },
                         scrollBehavior = scrollBehavior,
