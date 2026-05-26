@@ -46,6 +46,15 @@ interface NovelSource {
      *  inside a [NovelItem]. */
     suspend fun parseNovel(novelPath: String): SourceNovel
 
+    /**
+     * Fetch the chapter list for a single page of a paged-novel source (Royal Road volumes, etc.).
+     * Plugins whose chapter lists span multiple endpoints override this; the default returns null,
+     * meaning "this source is single-page, just call [parseNovel]". The update job uses the
+     * non-null vs null result to decide whether to fan out across pages. Mirrors lnreader's
+     * `Plugin.parsePage` (refs/lnreader-main/src/services/updates/index.ts:222-233).
+     */
+    suspend fun parsePage(novelPath: String, page: String): SourceNovel? = null
+
     /** Fetch chapter HTML/text body. `chapterPath` is the source-relative path returned inside a
      *  [SourceNovel.chapters] entry. */
     suspend fun parseChapter(chapterPath: String): String

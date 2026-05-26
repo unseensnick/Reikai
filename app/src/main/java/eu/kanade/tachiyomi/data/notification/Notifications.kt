@@ -60,6 +60,22 @@ object Notifications {
     const val ID_LIBRARY_SKIPPED = -104
 
     /**
+     * Notification channel and ids used by the novel library updater. Held disjoint from the
+     * manga channels (above) so users can mute novel updates without losing manga ones — matches
+     * the Phase 7 "fully separated novel data" decision.
+     */
+    const val CHANNEL_NEW_NOVEL_CHAPTERS = "new_novel_chapters_channel"
+    const val ID_NEW_NOVEL_CHAPTERS = -311
+    const val GROUP_NEW_NOVEL_CHAPTERS = "eu.kanade.tachiyomi.NEW_NOVEL_CHAPTERS"
+    const val CHANNEL_NOVEL_LIBRARY_PROGRESS = "novel_library_progress_channel"
+    const val ID_NOVEL_LIBRARY_PROGRESS = -111
+    const val CHANNEL_NOVEL_LIBRARY_ERROR = "novel_library_errors_channel"
+    const val ID_NOVEL_LIBRARY_ERROR = -112
+    const val ID_NOVEL_LIBRARY_SIZE_WARNING = -113
+    const val CHANNEL_NOVEL_LIBRARY_SKIPPED = "novel_library_skipped_channel"
+    const val ID_NOVEL_LIBRARY_SKIPPED = -114
+
+    /**
      * Notification channel and ids used by the library updater.
      */
     private const val GROUP_EXTENSION_UPDATES = "group_extension_updates"
@@ -166,6 +182,37 @@ object Notifications {
             },
             NotificationChannel(
                 CHANNEL_NEW_CHAPTERS,
+                context.getString(MR.strings.new_chapters),
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                group = GROUP_LIBRARY
+            },
+            NotificationChannel(
+                CHANNEL_NOVEL_LIBRARY_PROGRESS,
+                context.getString(MR.strings.updating_library),
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                group = GROUP_LIBRARY
+                setShowBadge(false)
+            },
+            NotificationChannel(
+                CHANNEL_NOVEL_LIBRARY_ERROR,
+                context.getString(MR.strings.channel_errors),
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                group = GROUP_LIBRARY
+                setShowBadge(false)
+            },
+            NotificationChannel(
+                CHANNEL_NOVEL_LIBRARY_SKIPPED,
+                context.getString(MR.strings.channel_skipped),
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                group = GROUP_LIBRARY
+                setShowBadge(false)
+            },
+            NotificationChannel(
+                CHANNEL_NEW_NOVEL_CHAPTERS,
                 context.getString(MR.strings.new_chapters),
                 NotificationManager.IMPORTANCE_DEFAULT,
             ).apply {

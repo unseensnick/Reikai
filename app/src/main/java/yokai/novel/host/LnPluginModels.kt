@@ -60,6 +60,13 @@ data class SourceNovel(
     val artist: String? = null,
     val status: String? = null,
     val chapters: List<ChapterItem>? = null,
+    /**
+     * Number of pages the source spans for this novel. Most novels are single-page (default 1);
+     * paged sources like Royal Road volumes return >1 so the update loop knows to fan out across
+     * [NovelSource.parsePage] until it reaches `totalPages`. Mirrors lnreader's `SourceNovel.totalPages`
+     * (refs/lnreader-main/src/plugins/types/index.ts).
+     */
+    val totalPages: Int = 1,
 )
 
 @Serializable
