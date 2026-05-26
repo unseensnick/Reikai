@@ -20,6 +20,7 @@ import coil3.request.ImageRequest
 import coil3.request.transformations
 import coil3.transform.CircleCropTransformation
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.data.database.models.LibraryNovel
 import eu.kanade.tachiyomi.data.notification.NotificationHandler
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
@@ -33,7 +34,6 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import eu.kanade.tachiyomi.data.database.models.LibraryNovel
 import yokai.domain.novel.NovelPreferences
 import yokai.domain.novel.models.Novel
 import yokai.domain.novel.models.NovelChapter
