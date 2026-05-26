@@ -68,5 +68,9 @@ delete:
 DELETE FROM novel_chapters
 WHERE _id = :chapterId;
 
+fixSourceOrder:
+UPDATE novel_chapters SET source_order = :sourceOrder
+WHERE url = :url AND novel_id = :novelId;
+
 selectLastInsertedRowId:
 SELECT last_insert_rowid();
