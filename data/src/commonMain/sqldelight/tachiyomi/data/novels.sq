@@ -5,6 +5,14 @@ import kotlin.Boolean;
 -- text-based (no `viewer` flags), and there are no scanlators. Fields with direct manga
 -- analogues are named identically so view code and tracker hooks can be ported with minimal
 -- diff once the library UI lands.
+--
+-- Phase 7 additions:
+--   * `total_pages` supports paged-novel sources (Royal Road volumes, some Japanese sources)
+--     where a single novel's chapter list spans multiple endpoints; the update job re-fetches
+--     `oldTotalPages + 1` through `total_pages` for completely new content.
+--   * `last_read_at` is denormalized off `novel_chapters.last_text_progress`; written from
+--     the chapter-mark-read code path. Removes the JOIN-per-row the LastRead sort would
+--     otherwise need.
 CREATE TABLE novels(
     _id INTEGER NOT NULL PRIMARY KEY,
     source TEXT NOT NULL,
@@ -22,7 +30,9 @@ CREATE TABLE novels(
     chapter_flags INTEGER NOT NULL,
     date_added INTEGER,
     update_strategy INTEGER NOT NULL DEFAULT 0,
-    cover_last_modified INTEGER NOT NULL DEFAULT 0
+    cover_last_modified INTEGER NOT NULL DEFAULT 0,
+    total_pages INTEGER NOT NULL DEFAULT 1,
+    last_read_at INTEGER
 );
 
 CREATE INDEX novels_url_index ON novels(url);
@@ -49,8 +59,8 @@ WHERE favorite = 1
 ORDER BY title;
 
 insert:
-INSERT INTO novels (source, url, title, author, artist, description, genre, status, thumbnail_url, favorite, last_update, initialized, chapter_flags, date_added, update_strategy, cover_last_modified)
-VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :favorite, :lastUpdate, :initialized, :chapterFlags, :dateAdded, :updateStrategy, :coverLastModified);
+INSERT INTO novels (source, url, title, author, artist, description, genre, status, thumbnail_url, favorite, last_update, initialized, chapter_flags, date_added, update_strategy, cover_last_modified, total_pages, last_read_at)
+VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :favorite, :lastUpdate, :initialized, :chapterFlags, :dateAdded, :updateStrategy, :coverLastModified, :totalPages, :lastReadAt);
 
 update:
 UPDATE novels SET
@@ -69,7 +79,9 @@ UPDATE novels SET
     chapter_flags = coalesce(:chapterFlags, chapter_flags),
     date_added = coalesce(:dateAdded, date_added),
     update_strategy = coalesce(:updateStrategy, update_strategy),
-    cover_last_modified = coalesce(:coverLastModified, cover_last_modified)
+    cover_last_modified = coalesce(:coverLastModified, cover_last_modified),
+    total_pages = coalesce(:totalPages, total_pages),
+    last_read_at = coalesce(:lastReadAt, last_read_at)
 WHERE _id = :novelId;
 
 selectLastInsertedRowId:

@@ -1,0 +1,43 @@
+-- Forked novel-categories table. Disjoint from `categories` (manga-only) per the Phase 7
+-- decision to keep novel data fully separated from manga. Schema mirrors `categories.sq`
+-- with `manga_order` renamed to `novel_order`. The novel_order column encodes either the
+-- per-category drag-and-drop position (slash-separated novel ids) or the per-category sort
+-- mode char (single char), parsed at read time — same dual encoding the manga side uses on
+-- `manga_order`. The default "Default" category is synthesized at render time by
+-- NovelCategory.createDefault (no DB row).
+CREATE TABLE novel_categories(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    sort INTEGER NOT NULL,
+    flags INTEGER NOT NULL,
+    novel_order TEXT NOT NULL
+);
+
+findAll:
+SELECT *
+FROM novel_categories
+ORDER BY sort;
+
+findAllByNovelId:
+SELECT novel_categories.* FROM novel_categories
+JOIN novels_categories ON novel_categories._id = novels_categories.category_id
+WHERE novels_categories.novel_id = :novelId;
+
+insert:
+INSERT INTO novel_categories (name, sort, flags, novel_order)
+VALUES (:name, :sort, :flags, :novelOrder);
+
+selectLastInsertedRowId:
+SELECT last_insert_rowid();
+
+update:
+UPDATE novel_categories SET
+    name = coalesce(:name, name),
+    sort = coalesce(:sort, sort),
+    flags = coalesce(:flags, flags),
+    novel_order = coalesce(:novelOrder, novel_order)
+WHERE _id = :id;
+
+delete:
+DELETE FROM novel_categories
+WHERE _id = :id;

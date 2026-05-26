@@ -85,4 +85,5 @@ fun ChapterItem.toNovelChapter(
     sourceOrder = sourceOrder,
     dateFetch = now,
     dateUpload = 0L,
+    page = page.orEmpty(),
 )

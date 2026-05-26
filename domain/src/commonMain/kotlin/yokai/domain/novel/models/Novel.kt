@@ -24,4 +24,17 @@ data class Novel(
     val dateAdded: Long,
     val updateStrategy: Int,
     val coverLastModified: Long,
+    /**
+     * For paged-novel sources (Royal Road volumes, some Japanese sources) where a single novel's
+     * chapter list spans multiple endpoints. Defaults to `1` for single-page novels; the update
+     * job re-fetches `oldTotalPages + 1` through this value to discover new chapters on
+     * later pages.
+     */
+    val totalPages: Int = 1,
+    /**
+     * Denormalized last-read timestamp; written from the chapter-mark-read path so the
+     * LastRead library sort mode doesn't pay a JOIN-per-row. Null when the novel has never
+     * been opened in the reader.
+     */
+    val lastReadAt: Long? = null,
 )

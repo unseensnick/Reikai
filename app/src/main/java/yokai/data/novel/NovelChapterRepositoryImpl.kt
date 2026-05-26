@@ -31,6 +31,7 @@ class NovelChapterRepositoryImpl(private val handler: DatabaseHandler) : NovelCh
                 sourceOrder = chapter.sourceOrder,
                 dateFetch = chapter.dateFetch,
                 dateUpload = chapter.dateUpload,
+                page = chapter.page,
             )
             novel_chaptersQueries.selectLastInsertedRowId()
         }
@@ -53,6 +54,7 @@ class NovelChapterRepositoryImpl(private val handler: DatabaseHandler) : NovelCh
                 sourceOrder = chapter.sourceOrder,
                 dateFetch = chapter.dateFetch,
                 dateUpload = chapter.dateUpload,
+                page = chapter.page,
                 chapterId = chapterId,
             )
         }
@@ -77,6 +79,7 @@ class NovelChapterRepositoryImpl(private val handler: DatabaseHandler) : NovelCh
                 sourceOrder = null,
                 dateFetch = null,
                 dateUpload = null,
+                page = null,
                 chapterId = id,
             )
         }

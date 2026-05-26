@@ -28,6 +28,8 @@ fun novelMapper(
     date_added: Long?,
     update_strategy: Long,
     cover_last_modified: Long,
+    total_pages: Long,
+    last_read_at: Long?,
 ): Novel = Novel(
     id = id,
     source = source,
@@ -46,6 +48,8 @@ fun novelMapper(
     dateAdded = date_added ?: 0L,
     updateStrategy = update_strategy.toInt(),
     coverLastModified = cover_last_modified,
+    totalPages = total_pages.toInt(),
+    lastReadAt = last_read_at,
 )
 
 fun novelTrackMapper(
@@ -90,6 +94,7 @@ fun novelChapterMapper(
     source_order: Long,
     date_fetch: Long,
     date_upload: Long,
+    page: String,
 ): NovelChapter = NovelChapter(
     id = id,
     novelId = novel_id,
@@ -102,4 +107,5 @@ fun novelChapterMapper(
     sourceOrder = source_order,
     dateFetch = date_fetch,
     dateUpload = date_upload,
+    page = page,
 )

@@ -20,4 +20,11 @@ data class NovelChapter(
     val sourceOrder: Long,
     val dateFetch: Long,
     val dateUpload: Long,
+    /**
+     * Volume / section / arc label this chapter belongs to (e.g., "Volume 3", "Arc 2"). Populated
+     * from the plugin's [yokai.novel.host.ChapterItem.page] when the source organizes chapters in
+     * pages; empty string when the source doesn't expose this metadata. Rendered as a chapter-list
+     * sub-header in the future Novels tab.
+     */
+    val page: String = "",
 )

@@ -1,10 +1,14 @@
 import kotlin.Boolean;
 
--- Parallel of chapters. Two divergences from manga's chapter table:
+-- Parallel of chapters. Three divergences from manga's chapter table:
 -- 1. No `scanlator` (novels don't have scanlator groups).
 -- 2. `last_text_progress` replaces `last_page_read` + `pages_left`. Stored as a hundredths
 --    scroll percent (0..10000) so the reader can resume mid-chapter without snapping to a
 --    paragraph boundary; integer storage keeps the SQL int-typed.
+-- 3. `page` labels the volume / section / arc a chapter belongs to (e.g., "Volume 3",
+--    "Arc 2"). Used by paged-novel sources whose chapter lists span multiple endpoints;
+--    rendered as a sub-header in the chapter list and as the volume label in the future
+--    Novels tab. Empty string when the source doesn't expose this metadata.
 CREATE TABLE novel_chapters(
     _id INTEGER NOT NULL PRIMARY KEY,
     novel_id INTEGER NOT NULL,
@@ -17,6 +21,7 @@ CREATE TABLE novel_chapters(
     source_order INTEGER NOT NULL,
     date_fetch INTEGER NOT NULL,
     date_upload INTEGER NOT NULL,
+    page TEXT NOT NULL DEFAULT '',
     FOREIGN KEY(novel_id) REFERENCES novels (_id)
     ON DELETE CASCADE
 );
@@ -41,8 +46,8 @@ FROM novel_chapters
 WHERE url = :url AND novel_id = :novelId;
 
 insert:
-INSERT INTO novel_chapters (novel_id, url, name, read, bookmark, last_text_progress, chapter_number, source_order, date_fetch, date_upload)
-VALUES (:novelId, :url, :name, :read, :bookmark, :lastTextProgress, :chapterNumber, :sourceOrder, :dateFetch, :dateUpload);
+INSERT INTO novel_chapters (novel_id, url, name, read, bookmark, last_text_progress, chapter_number, source_order, date_fetch, date_upload, page)
+VALUES (:novelId, :url, :name, :read, :bookmark, :lastTextProgress, :chapterNumber, :sourceOrder, :dateFetch, :dateUpload, :page);
 
 update:
 UPDATE novel_chapters SET
@@ -55,7 +60,8 @@ UPDATE novel_chapters SET
     chapter_number = coalesce(:chapterNumber, chapter_number),
     source_order = coalesce(:sourceOrder, source_order),
     date_fetch = coalesce(:dateFetch, date_fetch),
-    date_upload = coalesce(:dateUpload, date_upload)
+    date_upload = coalesce(:dateUpload, date_upload),
+    page = coalesce(:page, page)
 WHERE _id = :chapterId;
 
 delete:
