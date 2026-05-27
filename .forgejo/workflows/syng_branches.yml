@@ -1,0 +1,33 @@
+name: Sync branches from GitHub
+
+on:
+  schedule:
+    - cron: "0 * * * *" # every hour
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone Forgejo repo
+        uses: https://data.forgejo.org/actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.FORGE_TOKEN }}
+
+      - name: Fetch branches from GitHub
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          git remote add github https://$GH_PAT@github.com/unseensnick/Reikai.git
+          git fetch github
+
+          for branch in $(git branch -r | grep 'github/' | grep -v 'github/HEAD' | sed 's|github/||'); do
+            if ! git show-ref --verify --quiet refs/heads/$branch; then
+              echo "New branch found: $branch — creating in Forgejo"
+              git checkout -b $branch github/$branch
+              git push origin $branch
+            else
+              echo "Branch $branch already exists in Forgejo, skipping"
+            fi
+          done
