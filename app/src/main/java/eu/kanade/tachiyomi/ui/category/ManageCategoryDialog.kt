@@ -81,7 +81,9 @@ class ManageCategoryDialog(bundle: Bundle? = null) :
     }
 
     private fun onPositiveButtonClick(): Boolean {
-        val text = binding.title.text.toString()
+        // Trim trailing whitespace so the duplicate check doesn't get bypassed by "foo " vs
+        // "foo". Same normalisation as CategoryPresenter applies on the inline-rename path.
+        val text = binding.title.text.toString().trim()
         val categoryExists = categoryExists(text)
         val category = this.category ?: Category.create(text)
         if (category.id != 0) {
@@ -139,8 +141,9 @@ class ManageCategoryDialog(bundle: Bundle? = null) :
      */
     private fun categoryExists(name: String): Boolean {
         // FIXME: Don't do blocking
+        // Trim the stored name as well: pre-fix rows could have trailing whitespace persisted.
         return runBlocking { getCategories.await() }.any {
-            it.name.equals(name, true) && category?.id != it.id
+            it.name.trim().equals(name.trim(), true) && category?.id != it.id
         }
     }
 

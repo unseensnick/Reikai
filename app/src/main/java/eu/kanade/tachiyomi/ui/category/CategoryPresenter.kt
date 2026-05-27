@@ -67,14 +67,18 @@ class CategoryPresenter(
      * @param name The name of the category to create.
      */
     fun createCategory(name: String): Boolean {
+        // Trim so trailing whitespace doesn't bypass the duplicate check ("foo" vs "foo ").
+        // Applied at every write entry point (createCategory, renameCategory) and the lookup
+        // path (categoryExists) so the normalised form is the one persisted and compared.
+        val trimmed = name.trim()
         // Do not allow duplicate categories.
-        if (categoryExists(name, null)) {
+        if (categoryExists(trimmed, null)) {
             controller.onCategoryExistsError()
             return false
         }
 
         // Create category.
-        val cat = Category.create(name)
+        val cat = Category.create(trimmed)
 
         // Set the new item in the last position.
         cat.order = (categories.maxOfOrNull { it.order } ?: 0) + 1
@@ -84,7 +88,7 @@ class CategoryPresenter(
         // FIXME: Don't do blocking
         runBlocking { insertCategories.awaitOne(cat) }
         val cats = runBlocking { getCategories.await() }
-        val newCat = cats.find { it.name == name } ?: return false
+        val newCat = cats.find { it.name == trimmed } ?: return false
         categories.add(1, newCat)
         reorderCategories(categories)
         return true
@@ -156,16 +160,17 @@ class CategoryPresenter(
      * @param name The new name of the category.
      */
     fun renameCategory(category: Category, name: String): Boolean {
+        val trimmed = name.trim()
         // Do not allow duplicate categories.
-        if (categoryExists(name, category.id)) {
+        if (categoryExists(trimmed, category.id)) {
             controller.onCategoryExistsError()
             return false
         }
-        if (name.isBlank()) {
+        if (trimmed.isBlank()) {
             return false
         }
 
-        category.name = name
+        category.name = trimmed
         runBlocking {
             updateCategories.awaitOne(
                 CategoryUpdate(
@@ -174,7 +179,7 @@ class CategoryPresenter(
                 )
             )
         }
-        categories.find { it.id == category.id }?.name = name
+        categories.find { it.id == category.id }?.name = trimmed
         controller.setCategories(categories.map(::CategoryItem))
         return true
     }
@@ -183,7 +188,10 @@ class CategoryPresenter(
      * Returns true if a category with the given name already exists.
      */
     private fun categoryExists(name: String, id: Int?): Boolean {
-        return categories.any { it.name.equals(name, true) && id != it.id }
+        // Trim the stored name too: existing rows may have been saved before the trim hooks
+        // landed (or got their trailing whitespace via a different path), and the user's
+        // intent is "is there a category with this visible name" regardless of stored spaces.
+        return categories.any { it.name.trim().equals(name.trim(), true) && id != it.id }
     }
 
     companion object {

@@ -59,18 +59,22 @@ class NovelCategoryPresenter(
     }
 
     fun createCategory(name: String): Boolean {
-        if (categoryExists(name, null)) {
+        // Trim so trailing whitespace doesn't bypass the duplicate check ("foo" vs "foo ").
+        // Matches the manga presenter's normalisation; both write entry points (create,
+        // rename) trim before duplicate check + persist.
+        val trimmed = name.trim()
+        if (categoryExists(trimmed, null)) {
             controller.onCategoryExistsError()
             return false
         }
 
-        val cat = NovelCategory.create(name)
+        val cat = NovelCategory.create(trimmed)
         cat.order = (categories.maxOfOrNull { it.order } ?: 0) + 1
         cat.novelSort = LibrarySort.Title.categoryValue
         // FIXME: Don't do blocking
         runBlocking { insertNovelCategories.awaitOne(cat) }
         val cats = runBlocking { getNovelCategories.await() }
-        val newCat = cats.find { it.name == name } ?: return false
+        val newCat = cats.find { it.name == trimmed } ?: return false
         categories.add(1, newCat)
         reorderCategories(categories)
         return true
@@ -121,15 +125,16 @@ class NovelCategoryPresenter(
     }
 
     fun renameCategory(category: NovelCategory, name: String): Boolean {
-        if (categoryExists(name, category.id)) {
+        val trimmed = name.trim()
+        if (categoryExists(trimmed, category.id)) {
             controller.onCategoryExistsError()
             return false
         }
-        if (name.isBlank()) {
+        if (trimmed.isBlank()) {
             return false
         }
 
-        category.name = name
+        category.name = trimmed
         runBlocking {
             reorderNovelCategories.awaitOne(
                 NovelCategoryUpdate(
@@ -138,13 +143,15 @@ class NovelCategoryPresenter(
                 ),
             )
         }
-        categories.find { it.id == category.id }?.name = name
+        categories.find { it.id == category.id }?.name = trimmed
         controller.setCategories(categories.map(::NovelCategoryItem))
         return true
     }
 
     private fun categoryExists(name: String, id: Int?): Boolean {
-        return categories.any { it.name.equals(name, true) && id != it.id }
+        // Trim the stored name too so existing rows with trailing whitespace (from before this
+        // fix, or from another entry point) still collide with the user's new input.
+        return categories.any { it.name.trim().equals(name.trim(), true) && id != it.id }
     }
 
     companion object {

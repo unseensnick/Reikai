@@ -87,7 +87,9 @@ class ManageNovelCategoryDialog(bundle: Bundle? = null) : DialogController(bundl
     }
 
     private fun onPositiveButtonClick(): Boolean {
-        val text = binding.title.text.toString()
+        // Trim so trailing whitespace doesn't bypass the duplicate check. Same normalisation
+        // as NovelCategoryPresenter on the inline-rename path.
+        val text = binding.title.text.toString().trim()
         val categoryExists = categoryExists(text)
         val category = this.category ?: NovelCategory.create(text)
         if (category.id != 0) {
@@ -130,8 +132,9 @@ class ManageNovelCategoryDialog(bundle: Bundle? = null) : DialogController(bundl
     }
 
     private fun categoryExists(name: String): Boolean {
+        // Trim the stored name as well: pre-fix rows could have trailing whitespace persisted.
         return runBlocking { getNovelCategories.await() }.any {
-            it.name.equals(name, true) && category?.id != it.id
+            it.name.trim().equals(name.trim(), true) && category?.id != it.id
         }
     }
 
