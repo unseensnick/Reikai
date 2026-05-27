@@ -22,6 +22,8 @@ import eu.kanade.tachiyomi.core.storage.preference.collectAsState
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import yokai.domain.base.BasePreferences
+import yokai.domain.novel.NovelPreferences
 import yokai.i18n.MR
 import yokai.presentation.component.preference.widget.SwitchPreferenceWidget
 
@@ -32,14 +34,27 @@ import yokai.presentation.component.preference.widget.SwitchPreferenceWidget
  * match the legacy RadioGroup instead of using a dropdown dialog.
  */
 @Composable
-fun BadgesTab() {
+fun BadgesTab(
+    /** True when this tab is rendered inside the Novels-tab Display sheet. Routes all five
+     *  badge prefs through `novelPrefs.*` when the shared toggle is off. */
+    isNovelTab: Boolean = false,
+) {
     val preferences: PreferencesHelper = remember { Injekt.get() }
+    val novelPrefs: NovelPreferences = remember { Injekt.get() }
+    val basePrefs: BasePreferences = remember { Injekt.get() }
+    val useSharedLibraryDisplayPrefs by basePrefs.useSharedLibraryDisplayPrefs().collectAsState()
+    val routeToNovel = isNovelTab && !useSharedLibraryDisplayPrefs
 
-    val unreadBadgeType by preferences.unreadBadgeType().collectAsState()
-    val hideStartReadingButton by preferences.hideStartReadingButton().collectAsState()
-    val downloadBadge by preferences.downloadBadge().collectAsState()
-    val languageBadge by preferences.languageBadge().collectAsState()
-    val categoryNumberOfItems by preferences.categoryNumberOfItems().collectAsState()
+    val unreadBadgeTypePref = rememberRoutedPref(routeToNovel, preferences.unreadBadgeType(), novelPrefs.novelUnreadBadgeType())
+    val unreadBadgeType by unreadBadgeTypePref.collectAsState()
+    val hideStartReadingButtonPref = rememberRoutedPref(routeToNovel, preferences.hideStartReadingButton(), novelPrefs.novelHideStartReadingButton())
+    val hideStartReadingButton by hideStartReadingButtonPref.collectAsState()
+    val downloadBadgePref = rememberRoutedPref(routeToNovel, preferences.downloadBadge(), novelPrefs.novelDownloadBadge())
+    val downloadBadge by downloadBadgePref.collectAsState()
+    val languageBadgePref = rememberRoutedPref(routeToNovel, preferences.languageBadge(), novelPrefs.novelLanguageBadge())
+    val languageBadge by languageBadgePref.collectAsState()
+    val categoryNumberOfItemsPref = rememberRoutedPref(routeToNovel, preferences.categoryNumberOfItems(), novelPrefs.novelCategoryNumberOfItems())
+    val categoryNumberOfItems by categoryNumberOfItemsPref.collectAsState()
 
     Column(
         modifier = Modifier
@@ -54,33 +69,33 @@ fun BadgesTab() {
         // LibraryHolder.setUnreadBadge keys rendering off these values; the Compose grid cells
         // must agree (see `unreadDot` derivation in LibraryContent / LibraryGridCell).
         UnreadBadgeRadioRow(MR.strings.hide_unread_badges, 0, unreadBadgeType) {
-            preferences.unreadBadgeType().set(it)
+            unreadBadgeTypePref.set(it)
         }
         UnreadBadgeRadioRow(MR.strings.show_unread_badges, 1, unreadBadgeType) {
-            preferences.unreadBadgeType().set(it)
+            unreadBadgeTypePref.set(it)
         }
         UnreadBadgeRadioRow(MR.strings.show_unread_count, 2, unreadBadgeType) {
-            preferences.unreadBadgeType().set(it)
+            unreadBadgeTypePref.set(it)
         }
         SwitchPreferenceWidget(
             title = stringResource(MR.strings.hide_start_reading_button),
             checked = hideStartReadingButton,
-            onCheckedChanged = { preferences.hideStartReadingButton().set(it) },
+            onCheckedChanged = { hideStartReadingButtonPref.set(it) },
         )
         SwitchPreferenceWidget(
             title = stringResource(MR.strings.language_badge),
             checked = languageBadge,
-            onCheckedChanged = { preferences.languageBadge().set(it) },
+            onCheckedChanged = { languageBadgePref.set(it) },
         )
         SwitchPreferenceWidget(
             title = stringResource(MR.strings.download_badge),
             checked = downloadBadge,
-            onCheckedChanged = { preferences.downloadBadge().set(it) },
+            onCheckedChanged = { downloadBadgePref.set(it) },
         )
         SwitchPreferenceWidget(
             title = stringResource(MR.strings.show_number_of_items),
             checked = categoryNumberOfItems,
-            onCheckedChanged = { preferences.categoryNumberOfItems().set(it) },
+            onCheckedChanged = { categoryNumberOfItemsPref.set(it) },
         )
     }
 }

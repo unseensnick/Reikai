@@ -53,6 +53,18 @@ class BasePreferences(private val preferenceStore: PreferenceStore) {
 
     fun composeLibrary() = preferenceStore.getBoolean("pref_use_compose_library", false)
 
+    /**
+     * When true (the default), the manga and Light novels library tabs share a single set of
+     * visual preferences (grid size, badges, layout, etc.) — toggling either tab's Display
+     * sheet rewrites the manga keys and both libraries reflect the change uniformly. When
+     * false, the Novels-tab Display sheet writes to its own `novel*` keys on
+     * [yokai.domain.novel.NovelPreferences] and the novel library renders from them, so each
+     * library can carry its own grid layout / badges / sizing independently. A one-time
+     * migration seeds the novel keys from the manga values on first launch after this lands,
+     * so toggling to independent mode starts from the user's existing settings.
+     */
+    fun useSharedLibraryDisplayPrefs() = preferenceStore.getBoolean("pref_use_shared_library_display_v1", true)
+
     fun appIcon() = preferenceStore.getEnum("pref_app_icon", AppIcons.DEFAULT)
 
     enum class AppIcons(val displayName: String, val id: String, val icon: Int) {

@@ -26,6 +26,7 @@ import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.ui.library.filter.FilterBottomSheet
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import yokai.domain.novel.NovelPreferences
 import yokai.i18n.MR
 import yokai.presentation.library.components.FilterChipOption
 import yokai.presentation.library.components.FilterChipRow
@@ -57,16 +58,29 @@ fun FilterTab(
     filterOrder: String,
     onFilterOrderChanged: (String) -> Unit,
     onApply: () -> Unit,
+    /** True when this tab is rendered inside the Novels-tab Display sheet. Routes the
+     *  shareable filter chips through novelPrefs when shared mode is off, and hides the
+     *  manga-only Series type and Content type chips in both modes. */
+    isNovelTab: Boolean = false,
 ) {
     val preferences: PreferencesHelper = remember { Injekt.get() }
+    val novelPrefs: NovelPreferences = remember { Injekt.get() }
+    // Filter chip values are per-library state ("show me unread novels" shouldn't also filter
+    // the manga library), so route by tab regardless of the shared display-prefs toggle.
+    val routeToNovel = isNovelTab
 
-    val filterUnread by preferences.filterUnread().collectAsState()
-    val filterDownloaded by preferences.filterDownloaded().collectAsState()
-    val filterCompleted by preferences.filterCompleted().collectAsState()
-    val filterBookmarked by preferences.filterBookmarked().collectAsState()
+    val filterUnreadPref = rememberRoutedPref(routeToNovel, preferences.filterUnread(), novelPrefs.filterUnread())
+    val filterUnread by filterUnreadPref.collectAsState()
+    val filterDownloadedPref = rememberRoutedPref(routeToNovel, preferences.filterDownloaded(), novelPrefs.filterDownloaded())
+    val filterDownloaded by filterDownloadedPref.collectAsState()
+    val filterCompletedPref = rememberRoutedPref(routeToNovel, preferences.filterCompleted(), novelPrefs.filterCompleted())
+    val filterCompleted by filterCompletedPref.collectAsState()
+    val filterBookmarkedPref = rememberRoutedPref(routeToNovel, preferences.filterBookmarked(), novelPrefs.filterBookmarked())
+    val filterBookmarked by filterBookmarkedPref.collectAsState()
     val filterContentType by preferences.filterContentType().collectAsState()
     val filterMangaType by preferences.filterMangaType().collectAsState()
-    val filterTracked by preferences.filterTracked().collectAsState()
+    val filterTrackedPref = rememberRoutedPref(routeToNovel, preferences.filterTracked(), novelPrefs.filterTracked())
+    val filterTracked by filterTrackedPref.collectAsState()
 
     // FILTER_TRACKER is the JVM static String the legacy sheet stores the selected tracker
     // name in. Not a Flow, so we mirror it into a state that resets on each FilterTab entry
@@ -75,13 +89,17 @@ fun FilterTab(
     var trackerName by remember { mutableStateOf(FilterBottomSheet.FILTER_TRACKER) }
 
     val clearAll = {
-        preferences.filterUnread().set(0)
-        preferences.filterDownloaded().set(0)
-        preferences.filterCompleted().set(0)
-        preferences.filterBookmarked().set(0)
-        preferences.filterContentType().set(0)
-        preferences.filterMangaType().set(0)
-        preferences.filterTracked().set(0)
+        filterUnreadPref.set(0)
+        filterDownloadedPref.set(0)
+        filterCompletedPref.set(0)
+        filterBookmarkedPref.set(0)
+        if (!isNovelTab) {
+            // The manga-only filters don't exist on the novel side, so don't reach across to
+            // mutate them from the Novels tab even though the prefs are physically reachable.
+            preferences.filterContentType().set(0)
+            preferences.filterMangaType().set(0)
+        }
+        filterTrackedPref.set(0)
         FilterBottomSheet.FILTER_TRACKER = ""
         trackerName = ""
     }
@@ -118,7 +136,7 @@ fun FilterTab(
                             FilterChipOption(4, stringResource(MR.strings.in_progress)),
                         ),
                         selected = if (filterUnread in setOf(3, 4)) filterUnread else 0,
-                        onSelect = { preferences.filterUnread().set(it) },
+                        onSelect = { filterUnreadPref.set(it) },
                     )
                     FilterBottomSheet.Filters.Unread -> FilterChipRow(
                         label = stringResource(MR.strings.unread),
@@ -128,7 +146,7 @@ fun FilterTab(
                             FilterChipOption(2, stringResource(MR.strings.read)),
                         ),
                         selected = if (filterUnread in setOf(1, 2)) filterUnread else 0,
-                        onSelect = { preferences.filterUnread().set(it) },
+                        onSelect = { filterUnreadPref.set(it) },
                     )
                     FilterBottomSheet.Filters.Downloaded -> FilterChipRow(
                         label = stringResource(MR.strings.downloaded),
@@ -138,7 +156,7 @@ fun FilterTab(
                             FilterChipOption(2, stringResource(MR.strings.not_downloaded)),
                         ),
                         selected = filterDownloaded,
-                        onSelect = { preferences.filterDownloaded().set(it) },
+                        onSelect = { filterDownloadedPref.set(it) },
                     )
                     FilterBottomSheet.Filters.Completed -> FilterChipRow(
                         label = stringResource(MR.strings.status),
@@ -148,10 +166,12 @@ fun FilterTab(
                             FilterChipOption(2, stringResource(MR.strings.ongoing)),
                         ),
                         selected = filterCompleted,
-                        onSelect = { preferences.filterCompleted().set(it) },
+                        onSelect = { filterCompletedPref.set(it) },
                     )
+                    // Manga-only: novels don't carry a series-type field, so the chip would
+                    // have no effect. Hide the entire branch on the Novels tab.
                     FilterBottomSheet.Filters.SeriesType -> {
-                        if (detectedMangaTypes.isNotEmpty()) {
+                        if (!isNovelTab && detectedMangaTypes.isNotEmpty()) {
                             FilterChipRow(
                                 label = stringResource(MR.strings.series_type),
                                 options = buildList {
@@ -180,7 +200,7 @@ fun FilterTab(
                             FilterChipOption(2, stringResource(MR.strings.not_bookmarked)),
                         ),
                         selected = filterBookmarked,
-                        onSelect = { preferences.filterBookmarked().set(it) },
+                        onSelect = { filterBookmarkedPref.set(it) },
                     )
                     FilterBottomSheet.Filters.Tracked -> {
                         if (loggedTrackerNames.isNotEmpty()) {
@@ -192,7 +212,7 @@ fun FilterTab(
                                     FilterChipOption(2, stringResource(MR.strings.not_tracked)),
                                 ),
                                 selected = filterTracked,
-                                onSelect = { preferences.filterTracked().set(it) },
+                                onSelect = { filterTrackedPref.set(it) },
                             )
                             if (filterTracked == 1 && loggedTrackerNames.size > 1) {
                                 FilterChipRow(
@@ -214,16 +234,21 @@ fun FilterTab(
                             }
                         }
                     }
-                    FilterBottomSheet.Filters.ContentType -> FilterChipRow(
-                        label = stringResource(MR.strings.content_type),
-                        options = listOf(
-                            FilterChipOption(0, stringResource(MR.strings.all)),
-                            FilterChipOption(1, stringResource(MR.strings.sfw)),
-                            FilterChipOption(2, stringResource(MR.strings.nsfw)),
-                        ),
-                        selected = filterContentType,
-                        onSelect = { preferences.filterContentType().set(it) },
-                    )
+                    // Manga-only: novels don't carry the SFW/NSFW content-type dimension.
+                    FilterBottomSheet.Filters.ContentType -> {
+                        if (!isNovelTab) {
+                            FilterChipRow(
+                                label = stringResource(MR.strings.content_type),
+                                options = listOf(
+                                    FilterChipOption(0, stringResource(MR.strings.all)),
+                                    FilterChipOption(1, stringResource(MR.strings.sfw)),
+                                    FilterChipOption(2, stringResource(MR.strings.nsfw)),
+                                ),
+                                selected = filterContentType,
+                                onSelect = { preferences.filterContentType().set(it) },
+                            )
+                        }
+                    }
                     else -> Unit
                 }
             }

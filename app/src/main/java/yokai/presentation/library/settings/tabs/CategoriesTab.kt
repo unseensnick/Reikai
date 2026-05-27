@@ -38,6 +38,8 @@ import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.domain.category.interactor.GetCategories
+import yokai.domain.novel.NovelPreferences
+import yokai.domain.novel.interactor.GetNovelCategories
 import yokai.i18n.MR
 import yokai.presentation.component.preference.widget.ListPreferenceWidget
 import yokai.presentation.component.preference.widget.SwitchPreferenceWidget
@@ -51,24 +53,50 @@ import yokai.presentation.library.components.rememberGroupByEntries
  * same order they appear in [eu.kanade.tachiyomi.ui.library.display.LibraryCategoryView].
  */
 @Composable
-fun CategoriesTab(onDismissSheet: () -> Unit = {}) {
+fun CategoriesTab(
+    onDismissSheet: () -> Unit = {},
+    /** True when this tab is rendered inside the Novels-tab Display sheet. Combined with the
+     *  shared/independent toggle, drives whether shareable prefs route through `novelPrefs.*`
+     *  or `preferences.*`. Also hides manga-only toggles (hopper trio, showCategoryInTitle)
+     *  regardless of the shared/independent mode. */
+    isNovelTab: Boolean = false,
+) {
     val preferences: PreferencesHelper = remember { Injekt.get() }
+    val novelPrefs: NovelPreferences = remember { Injekt.get() }
     val getCategories: GetCategories = remember { Injekt.get() }
+    val getNovelCategories: GetNovelCategories = remember { Injekt.get() }
     val router = LocalRouter.currentOrThrow
     val scope = rememberCoroutineScope()
 
-    val groupLibraryBy by preferences.groupLibraryBy().collectAsState()
-    val collapsedCategories by preferences.collapsedCategories().collectAsState()
-    val allCategories by remember { getCategories.subscribe() }.collectAsState(initial = emptyList())
-    val showAllCategories by preferences.showAllCategories().collectAsState()
+    // Category state (which IDs are collapsed, which dimension you're grouping by, etc.) is
+    // per-library by nature — the manga and novel libraries have entirely different category
+    // sets — so it routes by tab regardless of the shared display-prefs toggle (which is for
+    // truly visual settings like grid size and badges, not library state).
+    val routeToNovel = isNovelTab
+
+    val groupLibraryByPref = rememberRoutedPref(routeToNovel, preferences.groupLibraryBy(), novelPrefs.groupLibraryBy())
+    val groupLibraryBy by groupLibraryByPref.collectAsState()
+    val collapsedCategoriesPref = rememberRoutedPref(routeToNovel, preferences.collapsedCategories(), novelPrefs.collapsedCategories())
+    val collapsedCategories by collapsedCategoriesPref.collectAsState()
+    // Drives the "Expand / Collapse all" button's enabled state. Read the right category set
+    // for the active tab so the button reports the right "is this library empty?" answer.
+    val mangaCategories by remember { getCategories.subscribe() }.collectAsState(initial = emptyList())
+    val novelCategories by remember { getNovelCategories.subscribe() }.collectAsState(initial = emptyList())
+    val allCategoriesEmpty = if (isNovelTab) novelCategories.isEmpty() else mangaCategories.isEmpty()
+    val showAllCategoriesPref = rememberRoutedPref(routeToNovel, preferences.showAllCategories(), novelPrefs.showAllCategories())
+    val showAllCategories by showAllCategoriesPref.collectAsState()
     val showCategoryInTitle by preferences.showCategoryInTitle().collectAsState()
-    val collapsedDynamicAtBottom by preferences.collapsedDynamicAtBottom().collectAsState()
-    val autoMergeSameTitle by preferences.autoMergeSameTitle().collectAsState()
-    val showEmptyCategoriesWhileFiltering by preferences.showEmptyCategoriesWhileFiltering().collectAsState()
+    val collapsedDynamicAtBottomPref = rememberRoutedPref(routeToNovel, preferences.collapsedDynamicAtBottom(), novelPrefs.collapsedDynamicAtBottom())
+    val collapsedDynamicAtBottom by collapsedDynamicAtBottomPref.collectAsState()
+    val autoMergeSameTitlePref = rememberRoutedPref(routeToNovel, preferences.autoMergeSameTitle(), novelPrefs.autoMergeSameTitle())
+    val autoMergeSameTitle by autoMergeSameTitlePref.collectAsState()
+    val showEmptyCategoriesWhileFilteringPref = rememberRoutedPref(routeToNovel, preferences.showEmptyCategoriesWhileFiltering(), novelPrefs.showEmptyCategoriesWhileFiltering())
+    val showEmptyCategoriesWhileFiltering by showEmptyCategoriesWhileFilteringPref.collectAsState()
     val hideHopper by preferences.hideHopper().collectAsState()
     val autohideHopper by preferences.autohideHopper().collectAsState()
     val hopperLongPressAction by preferences.hopperLongPressAction().collectAsState()
-    val categorySortOrder by preferences.categorySortOrder().collectAsState()
+    val categorySortOrderPref = rememberRoutedPref(routeToNovel, preferences.categorySortOrder(), novelPrefs.categorySortOrder())
+    val categorySortOrder by categorySortOrderPref.collectAsState()
 
     val groupByEntries = rememberGroupByEntries()
 
@@ -116,52 +144,61 @@ fun CategoriesTab(onDismissSheet: () -> Unit = {}) {
             .padding(bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        SwitchPreferenceWidget(
-            title = stringResource(MR.strings.always_show_current_category),
-            checked = showCategoryInTitle,
-            onCheckedChanged = { preferences.showCategoryInTitle().set(it) },
-        )
+        // "Always show current category" is a manga-only feature (it writes the category name
+        // into the top toolbar title, which the novel toolbar doesn't surface). Hide on the
+        // Novels tab in both modes.
+        if (!isNovelTab) {
+            SwitchPreferenceWidget(
+                title = stringResource(MR.strings.always_show_current_category),
+                checked = showCategoryInTitle,
+                onCheckedChanged = { preferences.showCategoryInTitle().set(it) },
+            )
+        }
         SwitchPreferenceWidget(
             title = stringResource(MR.strings.show_all_categories),
             checked = showAllCategories,
-            onCheckedChanged = { preferences.showAllCategories().set(it) },
+            onCheckedChanged = { showAllCategoriesPref.set(it) },
         )
         SwitchPreferenceWidget(
             title = stringResource(MR.strings.move_dynamic_to_bottom),
             subtitle = stringResource(MR.strings.when_grouping_by_sources_tags),
             checked = collapsedDynamicAtBottom,
-            onCheckedChanged = { preferences.collapsedDynamicAtBottom().set(it) },
+            onCheckedChanged = { collapsedDynamicAtBottomPref.set(it) },
         )
         SwitchPreferenceWidget(
             title = stringResource(MR.strings.auto_merge_same_title),
             subtitle = stringResource(MR.strings.auto_merge_same_title_summary),
             checked = autoMergeSameTitle,
-            onCheckedChanged = { preferences.autoMergeSameTitle().set(it) },
+            onCheckedChanged = { autoMergeSameTitlePref.set(it) },
         )
         SwitchPreferenceWidget(
             title = stringResource(MR.strings.show_categories_while_filtering),
             checked = showEmptyCategoriesWhileFiltering,
-            onCheckedChanged = { preferences.showEmptyCategoriesWhileFiltering().set(it) },
+            onCheckedChanged = { showEmptyCategoriesWhileFilteringPref.set(it) },
         )
-        ListPreferenceWidget(
-            value = hopperVisibility,
-            title = stringResource(MR.strings.hide_category_hopper),
-            subtitle = hopperVisibilityEntries[hopperVisibility],
-            icon = null,
-            entries = hopperVisibilityEntries,
-            onValueChange = { selection ->
-                preferences.hideHopper().set(selection == 2)
-                preferences.autohideHopper().set(selection == 1)
-            },
-        )
-        ListPreferenceWidget(
-            value = hopperLongPressAction,
-            title = stringResource(MR.strings.category_hopper_long_press),
-            subtitle = hopperLongPressEntries[hopperLongPressAction],
-            icon = null,
-            entries = hopperLongPressEntries,
-            onValueChange = { preferences.hopperLongPressAction().set(it) },
-        )
+        // The category hopper is a manga-only library affordance (no novel-side equivalent yet),
+        // so its visibility + long-press toggles aren't meaningful on the Novels tab.
+        if (!isNovelTab) {
+            ListPreferenceWidget(
+                value = hopperVisibility,
+                title = stringResource(MR.strings.hide_category_hopper),
+                subtitle = hopperVisibilityEntries[hopperVisibility],
+                icon = null,
+                entries = hopperVisibilityEntries,
+                onValueChange = { selection ->
+                    preferences.hideHopper().set(selection == 2)
+                    preferences.autohideHopper().set(selection == 1)
+                },
+            )
+            ListPreferenceWidget(
+                value = hopperLongPressAction,
+                title = stringResource(MR.strings.category_hopper_long_press),
+                subtitle = hopperLongPressEntries[hopperLongPressAction],
+                icon = null,
+                entries = hopperLongPressEntries,
+                onValueChange = { preferences.hopperLongPressAction().set(it) },
+            )
+        }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
@@ -171,13 +208,13 @@ fun CategoriesTab(onDismissSheet: () -> Unit = {}) {
             subtitle = categorySortOrderEntries[categorySortOrder],
             icon = null,
             entries = categorySortOrderEntries,
-            onValueChange = { preferences.categorySortOrder().set(it) },
+            onValueChange = { categorySortOrderPref.set(it) },
         )
 
         GroupLibraryByPicker(
             selected = groupLibraryBy,
             entries = groupByEntries,
-            onSelect = { preferences.groupLibraryBy().set(it) },
+            onSelect = { groupLibraryByPref.set(it) },
         )
 
         // Expand / collapse all only operates on BY_DEFAULT grouping. The pref is a
@@ -203,14 +240,21 @@ fun CategoriesTab(onDismissSheet: () -> Unit = {}) {
                     if (groupLibraryBy != LibraryGroup.BY_DEFAULT) return@TextButton
                     scope.launch {
                         if (allExpanded) {
-                            val ids = getCategories.await().map { it.id.toString() }.toMutableSet()
-                            preferences.collapsedCategories().set(ids)
+                            // Collect IDs from the active tab's category set; otherwise we'd
+                            // write manga category IDs into the novel collapsed-set (or vice
+                            // versa) and the library wouldn't recognise any of them.
+                            val ids = if (isNovelTab) {
+                                getNovelCategories.await().map { it.id.toString() }.toMutableSet()
+                            } else {
+                                getCategories.await().map { it.id.toString() }.toMutableSet()
+                            }
+                            collapsedCategoriesPref.set(ids)
                         } else {
-                            preferences.collapsedCategories().set(mutableSetOf())
+                            collapsedCategoriesPref.set(mutableSetOf())
                         }
                     }
                 },
-                enabled = groupLibraryBy == LibraryGroup.BY_DEFAULT && allCategories.isNotEmpty(),
+                enabled = groupLibraryBy == LibraryGroup.BY_DEFAULT && !allCategoriesEmpty,
                 modifier = Modifier.weight(1f),
             ) {
                 Icon(

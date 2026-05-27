@@ -44,11 +44,13 @@ import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import yokai.domain.novel.NovelPreferences
 import yokai.i18n.MR
 import yokai.presentation.library.settings.tabs.BadgesTab
 import yokai.presentation.library.settings.tabs.CategoriesTab
 import yokai.presentation.library.settings.tabs.DisplayTab
 import yokai.presentation.library.settings.tabs.FilterTab
+import yokai.presentation.library.settings.tabs.rememberRoutedPref
 
 /**
  * Compose-side replacement for the legacy FilterBottomSheet and TabbedLibraryDisplaySheet.
@@ -73,6 +75,12 @@ fun LibraryDisplayOptionsSheet(
     onDismiss: () -> Unit,
     detectedMangaTypes: Set<Int> = emptySet(),
     loggedTrackerNames: List<String> = emptyList(),
+    /**
+     * Which library tab the sheet was opened from. Tab composables route shareable visual prefs
+     * via this flag combined with [yokai.domain.base.BasePreferences.useSharedLibraryDisplayPrefs];
+     * tab-aware management actions (Edit categories, hidden manga-only toggles) read this directly.
+     */
+    isNovelTab: Boolean = false,
 ) {
     // Faithful port of the legacy TabbedLibraryDisplaySheet sizing: opens at the equivalent of
     // STATE_EXPANDED (skip the M3 PartiallyExpanded state entirely) so the user sees the full
@@ -84,7 +92,11 @@ fun LibraryDisplayOptionsSheet(
     var selectedTab by rememberSaveable { mutableIntStateOf(initialTab) }
     var filterReorderMode by rememberSaveable { mutableStateOf(false) }
     val preferences: PreferencesHelper = Injekt.get()
-    val filterOrder by preferences.filterOrder().collectAsState()
+    val novelPrefs: NovelPreferences = Injekt.get()
+    // filterOrder lives alongside the per-library filter values, so route by tab regardless of
+    // the shared display-prefs toggle (which is for truly visual settings — grid size, badges).
+    val filterOrderPref = rememberRoutedPref(isNovelTab, preferences.filterOrder(), novelPrefs.filterOrder())
+    val filterOrder by filterOrderPref.collectAsState()
     val router = LocalRouter.currentOrThrow
     val maxSheetHeight = (LocalConfiguration.current.screenHeightDp / 2).dp
     // containerColor reads ?attr/background straight off the theme (same pattern as the top
@@ -188,12 +200,13 @@ fun LibraryDisplayOptionsSheet(
                     loggedTrackerNames = loggedTrackerNames,
                     reorderMode = filterReorderMode,
                     filterOrder = filterOrder,
-                    onFilterOrderChanged = { preferences.filterOrder().set(it) },
+                    onFilterOrderChanged = { filterOrderPref.set(it) },
                     onApply = onDismiss,
+                    isNovelTab = isNovelTab,
                 )
-                TAB_DISPLAY -> DisplayTab()
-                TAB_BADGES -> BadgesTab()
-                TAB_CATEGORIES -> CategoriesTab(onDismissSheet = onDismiss)
+                TAB_DISPLAY -> DisplayTab(isNovelTab = isNovelTab)
+                TAB_BADGES -> BadgesTab(isNovelTab = isNovelTab)
+                TAB_CATEGORIES -> CategoriesTab(onDismissSheet = onDismiss, isNovelTab = isNovelTab)
             }
         }
     }

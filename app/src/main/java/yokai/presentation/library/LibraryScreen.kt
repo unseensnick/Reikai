@@ -165,26 +165,63 @@ class LibraryScreen : Screen {
         val router = LocalRouter.currentOrThrow
         val coroutineScope = rememberCoroutineScope()
 
-        // Shared display prefs (same as manga side — these are visual prefs that apply
-        // uniformly to library cells regardless of content type).
-        val libraryLayout by preferences.libraryLayout().collectAsState()
-        val uniformGrid by remember { Injekt.get<yokai.domain.ui.UiPreferences>().uniformGrid() }.collectAsState()
-        val useStaggeredGrid by preferences.useStaggeredGrid().collectAsState()
-        val showCategoryInTitle by preferences.showCategoryInTitle().collectAsState()
-        val showCategoryItemCounts by preferences.categoryNumberOfItems().collectAsState()
-        val hideHopper by preferences.hideHopper().collectAsState()
-        val autohideHopper by preferences.autohideHopper().collectAsState()
-        val hopperLongPressAction by preferences.hopperLongPressAction().collectAsState()
-        val outlineOnCovers by remember { Injekt.get<yokai.domain.ui.UiPreferences>().outlineOnCovers() }.collectAsState()
-        val showDownloadBadge by preferences.downloadBadge().collectAsState()
-        val showLanguageBadge by preferences.languageBadge().collectAsState()
-        val unreadBadgeType by preferences.unreadBadgeType().collectAsState()
-        val hideStartReadingButton by preferences.hideStartReadingButton().collectAsState()
-        val hopperGravityPref = remember { preferences.hopperGravity() }
-        val hopperGravity by hopperGravityPref.changes()
-            .collectAsState(initial = hopperGravityPref.get())
+        // Display prefs: route through the manga prefs by default (shared mode), or through
+        // novelPrefs when the user has flipped Settings -> Advanced -> Share library display
+        // settings off. Manga-only features (hopper quartet, showCategoryInTitle) are
+        // hardcoded to inert defaults here since they don't apply to the novel library.
+        val basePrefs = remember { Injekt.get<yokai.domain.base.BasePreferences>() }
+        val uiPreferences = remember { Injekt.get<yokai.domain.ui.UiPreferences>() }
+        val useSharedLibraryDisplayPrefs by basePrefs.useSharedLibraryDisplayPrefs().collectAsState()
 
-        val gridSizePref by preferences.gridSize().collectAsState()
+        val mangaLibraryLayout by preferences.libraryLayout().collectAsState()
+        val novelLibraryLayout by novelPrefs.novelLibraryLayout().collectAsState()
+        val libraryLayout = if (useSharedLibraryDisplayPrefs) mangaLibraryLayout else novelLibraryLayout
+
+        val mangaUniformGrid by uiPreferences.uniformGrid().collectAsState()
+        val novelUniformGrid by novelPrefs.novelUniformGrid().collectAsState()
+        val uniformGrid = if (useSharedLibraryDisplayPrefs) mangaUniformGrid else novelUniformGrid
+
+        val mangaUseStaggeredGrid by preferences.useStaggeredGrid().collectAsState()
+        val novelUseStaggeredGrid by novelPrefs.novelUseStaggeredGrid().collectAsState()
+        val useStaggeredGrid = if (useSharedLibraryDisplayPrefs) mangaUseStaggeredGrid else novelUseStaggeredGrid
+
+        // Manga-only feature; the novel library has no "show current category in title" path.
+        val showCategoryInTitle = false
+
+        val mangaShowCategoryItemCounts by preferences.categoryNumberOfItems().collectAsState()
+        val novelShowCategoryItemCounts by novelPrefs.novelCategoryNumberOfItems().collectAsState()
+        val showCategoryItemCounts = if (useSharedLibraryDisplayPrefs) mangaShowCategoryItemCounts else novelShowCategoryItemCounts
+
+        // Hopper quartet is manga-only UI; novel library doesn't render it. LibraryContent still
+        // requires these params, so feed inert values that disable / hide the hopper.
+        val hideHopper = true
+        val autohideHopper = false
+        val hopperLongPressAction = 0
+        val hopperGravity = 1
+
+        val mangaOutlineOnCovers by uiPreferences.outlineOnCovers().collectAsState()
+        val novelOutlineOnCovers by novelPrefs.novelOutlineOnCovers().collectAsState()
+        val outlineOnCovers = if (useSharedLibraryDisplayPrefs) mangaOutlineOnCovers else novelOutlineOnCovers
+
+        val mangaShowDownloadBadge by preferences.downloadBadge().collectAsState()
+        val novelShowDownloadBadge by novelPrefs.novelDownloadBadge().collectAsState()
+        val showDownloadBadge = if (useSharedLibraryDisplayPrefs) mangaShowDownloadBadge else novelShowDownloadBadge
+
+        val mangaShowLanguageBadge by preferences.languageBadge().collectAsState()
+        val novelShowLanguageBadge by novelPrefs.novelLanguageBadge().collectAsState()
+        val showLanguageBadge = if (useSharedLibraryDisplayPrefs) mangaShowLanguageBadge else novelShowLanguageBadge
+
+        val mangaUnreadBadgeType by preferences.unreadBadgeType().collectAsState()
+        val novelUnreadBadgeType by novelPrefs.novelUnreadBadgeType().collectAsState()
+        val unreadBadgeType = if (useSharedLibraryDisplayPrefs) mangaUnreadBadgeType else novelUnreadBadgeType
+
+        val mangaHideStartReadingButton by preferences.hideStartReadingButton().collectAsState()
+        val novelHideStartReadingButton by novelPrefs.novelHideStartReadingButton().collectAsState()
+        val hideStartReadingButton = if (useSharedLibraryDisplayPrefs) mangaHideStartReadingButton else novelHideStartReadingButton
+
+        val mangaGridSize by preferences.gridSize().collectAsState()
+        val novelGridSize by novelPrefs.novelGridSize().collectAsState()
+        val gridSizePref = if (useSharedLibraryDisplayPrefs) mangaGridSize else novelGridSize
         val sliderValue = ((gridSizePref + 0.5f) * 2f).coerceIn(0f, 7f)
         val columns = columnsForGridValue(sliderValue, LocalConfiguration.current.screenWidthDp)
 
@@ -452,13 +489,17 @@ class LibraryScreen : Screen {
             snackbarHostState = snackbarHostState,
             sheetOpen = sheetOpen,
             sheetTab = sheetTab,
+            isNovelTab = true,
             overflowOpen = overflowOpen,
             detectedMangaTypes = detectedMangaTypes,
             loggedTrackerNames = loggedTrackerNames,
             selection = selection,
             onSearchActiveChange = { searchActive = it },
             onSearchQueryChange = { searchQuery = it },
-            onHopperGravityChange = { hopperGravityPref.set(it) },
+            onHopperGravityChange = {
+                // Novel library doesn't render a hopper, so this writer is unreachable. Leaving
+                // it as a no-op keeps the LibraryContent contract simple.
+            },
             onToggleCategoryCollapse = { category ->
                 if (category.isDynamic) {
                     screenModel.toggleDynamicCategoryCollapse(category)

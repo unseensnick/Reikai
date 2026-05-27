@@ -33,6 +33,8 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import yokai.domain.base.BasePreferences
+import yokai.domain.novel.NovelPreferences
 import yokai.domain.ui.UiPreferences
 import yokai.i18n.MR
 import yokai.presentation.component.preference.widget.SwitchPreferenceWidget
@@ -52,15 +54,29 @@ import yokai.presentation.util.addBetaTag
  *  - Show outline around covers (switch).
  */
 @Composable
-fun DisplayTab() {
+fun DisplayTab(
+    /** True when this tab is rendered inside the Novels-tab Display sheet. Routes all five
+     *  visual prefs (layout, grid size, staggered, uniform grid, outline) through
+     *  `novelPrefs.*` when the shared toggle is off, so changes only affect the novel library. */
+    isNovelTab: Boolean = false,
+) {
     val preferences: PreferencesHelper = remember { Injekt.get() }
     val uiPreferences: UiPreferences = remember { Injekt.get() }
+    val novelPrefs: NovelPreferences = remember { Injekt.get() }
+    val basePrefs: BasePreferences = remember { Injekt.get() }
+    val useSharedLibraryDisplayPrefs by basePrefs.useSharedLibraryDisplayPrefs().collectAsState()
+    val routeToNovel = isNovelTab && !useSharedLibraryDisplayPrefs
 
-    val libraryLayout by preferences.libraryLayout().collectAsState()
-    val uniformGrid by uiPreferences.uniformGrid().collectAsState()
-    val outlineOnCovers by uiPreferences.outlineOnCovers().collectAsState()
-    val useStaggeredGrid by preferences.useStaggeredGrid().collectAsState()
-    val gridSizeFloat by preferences.gridSize().collectAsState()
+    val libraryLayoutPref = rememberRoutedPref(routeToNovel, preferences.libraryLayout(), novelPrefs.novelLibraryLayout())
+    val libraryLayout by libraryLayoutPref.collectAsState()
+    val uniformGridPref = rememberRoutedPref(routeToNovel, uiPreferences.uniformGrid(), novelPrefs.novelUniformGrid())
+    val uniformGrid by uniformGridPref.collectAsState()
+    val outlineOnCoversPref = rememberRoutedPref(routeToNovel, uiPreferences.outlineOnCovers(), novelPrefs.novelOutlineOnCovers())
+    val outlineOnCovers by outlineOnCoversPref.collectAsState()
+    val useStaggeredGridPref = rememberRoutedPref(routeToNovel, preferences.useStaggeredGrid(), novelPrefs.novelUseStaggeredGrid())
+    val useStaggeredGrid by useStaggeredGridPref.collectAsState()
+    val gridSizePref = rememberRoutedPref(routeToNovel, preferences.gridSize(), novelPrefs.novelGridSize())
+    val gridSizeFloat by gridSizePref.collectAsState()
 
     Column(
         modifier = Modifier
@@ -69,22 +85,22 @@ fun DisplayTab() {
             .padding(bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        LayoutRadioRow(MR.strings.list, LAYOUT_LIST, libraryLayout) { preferences.libraryLayout().set(it) }
-        LayoutRadioRow(MR.strings.compact_grid, LAYOUT_COMPACT_GRID, libraryLayout) { preferences.libraryLayout().set(it) }
-        LayoutRadioRow(MR.strings.comfortable_grid, LAYOUT_COMFORTABLE_GRID, libraryLayout) { preferences.libraryLayout().set(it) }
-        LayoutRadioRow(MR.strings.cover_only_grid, LAYOUT_COVER_ONLY_GRID, libraryLayout) { preferences.libraryLayout().set(it) }
+        LayoutRadioRow(MR.strings.list, LAYOUT_LIST, libraryLayout) { libraryLayoutPref.set(it) }
+        LayoutRadioRow(MR.strings.compact_grid, LAYOUT_COMPACT_GRID, libraryLayout) { libraryLayoutPref.set(it) }
+        LayoutRadioRow(MR.strings.comfortable_grid, LAYOUT_COMFORTABLE_GRID, libraryLayout) { libraryLayoutPref.set(it) }
+        LayoutRadioRow(MR.strings.cover_only_grid, LAYOUT_COVER_ONLY_GRID, libraryLayout) { libraryLayoutPref.set(it) }
 
         GridSizeRow(
             gridSizeFloat = gridSizeFloat,
-            onValueChange = { preferences.gridSize().set(it) },
+            onValueChange = { gridSizePref.set(it) },
             // Legacy reset = slider midpoint (value 3), which corresponds to pref 1.0f.
-            onReset = { preferences.gridSize().set(1f) },
+            onReset = { gridSizePref.set(1f) },
         )
 
         SwitchPreferenceWidget(
             title = stringResource(MR.strings.uniform_grid_covers),
             checked = uniformGrid,
-            onCheckedChanged = { uiPreferences.uniformGrid().set(it) },
+            onCheckedChanged = { uniformGridPref.set(it) },
         )
         // Custom row so the title can carry the styled BETA tag; SwitchPreferenceWidget only
         // takes a plain String. Reuses TextPreferenceWidget's titleAnnotated slot.
@@ -101,13 +117,13 @@ fun DisplayTab() {
                     modifier = Modifier.padding(start = 16.dp),
                 )
             },
-            onPreferenceClick = { preferences.useStaggeredGrid().set(!useStaggeredGrid) },
+            onPreferenceClick = { useStaggeredGridPref.set(!useStaggeredGrid) },
             enabled = !uniformGrid,
         )
         SwitchPreferenceWidget(
             title = stringResource(MR.strings.show_outline_around_covers),
             checked = outlineOnCovers,
-            onCheckedChanged = { uiPreferences.outlineOnCovers().set(it) },
+            onCheckedChanged = { outlineOnCoversPref.set(it) },
         )
     }
 }

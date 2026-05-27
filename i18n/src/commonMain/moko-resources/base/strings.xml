@@ -174,6 +174,8 @@
     <string name="ungrouped">Ungrouped</string>
 
     <string name="pref_use_compose_library">Use experimental compose library</string>
+    <string name="pref_share_library_display_prefs">Share library display settings between manga and novels</string>
+    <string name="pref_share_library_display_prefs_summary">When off, each library tab keeps its own grid size, badges, and layout. When on, the two stay in sync.</string>
     <string name="pref_behavior">Behavior</string>
     <string name="pref_mark_as_read_duplicate_read_chapter">Mark duplicate read chapter as read</string>
     <string name="pref_mark_as_read_duplicate_read_chapter_existing">After reading a chapter</string>

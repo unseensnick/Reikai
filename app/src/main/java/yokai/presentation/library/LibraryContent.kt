@@ -181,6 +181,11 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
     snackbarHostState: SnackbarHostState,
     sheetOpen: Boolean,
     sheetTab: Int,
+    /** True when this LibraryContent is rendering the Novels tab; false for the Manga tab.
+     *  Forwarded to [LibraryDisplayOptionsSheet] so the tab composables route shareable visual
+     *  prefs through the right pref store (manga vs novel) and hide manga-only toggles on the
+     *  Novels tab. Defaults to false so the manga call site doesn't need to churn. */
+    isNovelTab: Boolean = false,
     overflowOpen: Boolean,
     detectedMangaTypes: Set<Int>,
     loggedTrackerNames: List<String>,
@@ -1376,6 +1381,7 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                 onDismiss = onDismissSheet,
                 detectedMangaTypes = detectedMangaTypes,
                 loggedTrackerNames = loggedTrackerNames,
+                isNovelTab = isNovelTab,
             )
         }
         LibraryOverflowMenu(

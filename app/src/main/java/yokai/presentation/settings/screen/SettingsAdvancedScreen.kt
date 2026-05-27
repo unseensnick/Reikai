@@ -563,6 +563,11 @@ object SettingsAdvancedScreen : ComposableSettings() {
                     }
                 },
             ))
+            add(Preference.PreferenceItem.SwitchPreference(
+                pref = basePreferences.useSharedLibraryDisplayPrefs(),
+                title = stringResource(MR.strings.pref_share_library_display_prefs),
+                subtitle = stringResource(MR.strings.pref_share_library_display_prefs_summary),
+            ))
             if (BuildConfig.FLAVOR == "dev" || BuildConfig.DEBUG) {
                 add(Preference.PreferenceItem.SwitchPreference(
                     pref = basePreferences.composeLibrary(),

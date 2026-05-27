@@ -149,6 +149,38 @@ class NovelPreferences(
     fun novelManualUnmerges() = preferenceStore.getStringSet("novel_manual_unmerges", emptySet())
     fun autoMergeSameTitle() = preferenceStore.getBoolean("novel_auto_merge_same_title", true)
 
+    // ----------------------------------------------------------------------------------------
+    // Per-library visual preferences (Phase E). Only consulted when
+    // [yokai.domain.base.BasePreferences.useSharedLibraryDisplayPrefs] is false; in shared mode
+    // the novel library reads from PreferencesHelper / UiPreferences (manga side) instead, so
+    // these sit dormant. The Phase E one-time migration seeds them from the manga values on
+    // upgrade so flipping to independent mode keeps the user's current look. Defaults below
+    // mirror the manga defaults so a fresh install with shared-off still looks identical.
+    // ----------------------------------------------------------------------------------------
+
+    /** Mirrors [eu.kanade.tachiyomi.data.preference.PreferencesHelper.libraryLayout]
+     *  (default LibraryItem.LAYOUT_COMFORTABLE_GRID = 2). */
+    fun novelLibraryLayout() = preferenceStore.getInt("novel_library_layout", 2)
+    /** Mirrors PreferencesHelper.gridSize (default 1.0f). */
+    fun novelGridSize() = preferenceStore.getFloat("pref_novel_grid_size", 1f)
+    /** Mirrors PreferencesHelper.useStaggeredGrid (default false). */
+    fun novelUseStaggeredGrid() = preferenceStore.getBoolean("novel_use_staggered_grid", false)
+    /** Mirrors yokai.domain.ui.UiPreferences.uniformGrid (default true). */
+    fun novelUniformGrid() = preferenceStore.getBoolean("novel_uniform_grid", true)
+    /** Mirrors yokai.domain.ui.UiPreferences.outlineOnCovers (default true). */
+    fun novelOutlineOnCovers() = preferenceStore.getBoolean("novel_outline_on_covers", true)
+    /** Mirrors PreferencesHelper.unreadBadgeType (default 2 = show count). */
+    fun novelUnreadBadgeType() = preferenceStore.getInt("novel_unread_badge_type", 2)
+    /** Mirrors PreferencesHelper.downloadBadge (default false). Reserved for the future novel
+     *  downloads feature; the toggle exists so the Display sheet's surface is complete. */
+    fun novelDownloadBadge() = preferenceStore.getBoolean("novel_download_badge", false)
+    /** Mirrors PreferencesHelper.languageBadge (default false). */
+    fun novelLanguageBadge() = preferenceStore.getBoolean("novel_language_badge", false)
+    /** Mirrors PreferencesHelper.hideStartReadingButton (default false). */
+    fun novelHideStartReadingButton() = preferenceStore.getBoolean("novel_hide_start_reading_button", false)
+    /** Mirrors PreferencesHelper.categoryNumberOfItems (default false). */
+    fun novelCategoryNumberOfItems() = preferenceStore.getBoolean("novel_category_number_of_items", false)
+
     // Screen state. lastUsedNovelCategory persists which category tab was last visible so the
     // user lands back on it after process death. showAllCategories renders every category
     // header even when one is filtered to empty. showEmptyCategoriesWhileFiltering keeps
