@@ -857,11 +857,20 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
         //     guide button (opens the tachiyomi docs URL via the activity Context).
         //   - empty due to active filter or non-empty search query → broken-heart + "No matches
         //     for filters", no CTA.
+        //   - all categories collapsed (items exist, just hidden) → render the headers
+        //     normally; no empty-state placeholder.
+        // `library` is the post-collapse render data — every collapsed category's value is an
+        // empty list — so `library.values.all { it.isEmpty() }` can't tell collapse-emptiness
+        // apart from real emptiness. `categoryItemCounts` is built from the raw library before
+        // filter or collapse runs, so summing its values gives the true "are there any items
+        // anywhere?" answer. `narrowedToEmpty` then handles the filter-narrowing branch using
+        // the post-everything emptiness check.
         // Search-narrowing is treated as a filter for the purposes of this gate (legacy
         // doesn't, since search runs through a separate path, but we render search hits inline
         // and the most useful message in the empty-search-results case is "no matches").
-        val emptyLibrary = library.values.all { it.isEmpty() }
+        val actuallyEmpty = categoryItemCounts.values.sum() == 0
         val isNarrowing = isAnyFilterActive || searchQuery.isNotEmpty()
+        val narrowedToEmpty = library.values.all { it.isEmpty() } && isNarrowing && !actuallyEmpty
         // EmptyScreen's tablet branch lays the icon and message out in a row, which on a Fold-6
         // sized tablet leaves the icon floating left of a paragraph of text. Legacy renders the
         // empty library as a centered column on every form factor (icon above text above CTA);
@@ -987,12 +996,12 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                 ),
           ) {
             when {
-                emptyLibrary && isNarrowing -> EmptyScreen(
+                narrowedToEmpty -> EmptyScreen(
                     image = Icons.Filled.HeartBroken,
                     message = stringResource(MR.strings.no_matches_for_filters),
                     isTablet = isTabletMode,
                 )
-                emptyLibrary -> {
+                actuallyEmpty -> {
                     val emptyContext = LocalContext.current
                     EmptyScreen(
                         image = Icons.Filled.HeartBroken,
