@@ -98,8 +98,19 @@ class LibraryScreen : Screen {
         // instead of floating as a separate row above it. Selection / search modes still
         // preempt the whole top chrome (LibraryContent hides topBarBelow then), matching the
         // legacy ActionMode convention that also hides tabs during selection.
+        //
+        // Container color is pinned to ?attr/background (same legacy attr the bar uses) so the
+        // tab row visually continues the bar's surface instead of rendering as a separate band
+        // in PrimaryTabRow's default container color.
+        val tabRowContext = LocalContext.current
+        val tabRowContainerColor = remember(tabRowContext) {
+            Color(tabRowContext.getResourceColor(eu.kanade.tachiyomi.R.attr.background))
+        }
         val tabRow: @Composable () -> Unit = {
-            PrimaryTabRow(selectedTabIndex = activeTab) {
+            PrimaryTabRow(
+                selectedTabIndex = activeTab,
+                containerColor = tabRowContainerColor,
+            ) {
                 Tab(
                     selected = activeTab == 0,
                     onClick = { activeTab = 0 },

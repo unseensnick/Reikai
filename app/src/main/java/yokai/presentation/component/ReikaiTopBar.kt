@@ -2,7 +2,6 @@ package yokai.presentation.component
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -12,9 +11,10 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.IntOffset
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import kotlin.math.roundToInt
@@ -23,11 +23,17 @@ import kotlin.math.roundToInt
  * The single small-variant top bar used across Reikai's Compose surfaces. Mirrors what the
  * library compact branch (LibraryContent.kt) had inline: legacy-attr color pinning by default,
  * optional scroll behavior, and an optional [below] slot that participates in the same
- * scroll-driven Y offset as the bar itself (used for the library's tab row).
+ * scroll-driven collapse as the bar itself (used for the library's tab row).
  *
  * The slot-based [title] / [navigationIcon] / [actions] mirror M3 [TopAppBar]'s API, so
  * callers can pass arbitrary content (custom title styles, conditional actions, etc.).
  * For simple action lists, use [AppBarActions] with the sealed `AppBar.AppBarAction` types.
+ *
+ * When [below] is non-null, this composable drives the collapse itself instead of letting
+ * M3's internal `heightOffset` shrink only the bar's content. The wrapper measures the full
+ * stack (status bar inset + bar + below), overrides `heightOffsetLimit` to that height, and
+ * shrinks layout-time so the content below the bar moves up as the bar collapses. M3's
+ * default limit excludes the inset zone, which would leave a painted strip at the top.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,30 +46,47 @@ fun ReikaiTopBar(
     colors: TopAppBarColors = ReikaiTopBarDefaults.colors(),
     below: (@Composable () -> Unit)? = null,
 ) {
-    val bar: @Composable () -> Unit = {
+    if (below == null) {
         TopAppBar(
-            modifier = if (below == null) modifier else Modifier,
+            modifier = modifier,
             title = title,
             navigationIcon = navigationIcon,
             actions = actions,
             scrollBehavior = scrollBehavior,
             colors = colors,
         )
+        return
     }
 
-    if (below == null) {
-        bar()
-    } else {
-        // Wrap bar + below in a Column with a shared offset so the slide-on-scroll affects both.
-        // Mirrors the legacy library compact branch where the tab row slides with the topbar.
-        Column(
-            modifier = modifier.offset {
-                IntOffset(0, scrollBehavior?.state?.heightOffset?.roundToInt() ?: 0)
+    // The inner TopAppBar does NOT receive scrollBehavior. We don't want it to self-shrink
+    // (that would leave the status bar inset zone painted) and we don't want double offsets.
+    // The wrapper drives the entire collapse via layout-time shrink + placement.
+    Column(
+        modifier = modifier
+            .clipToBounds()
+            .layout { measurable, constraints ->
+                val placeable = measurable.measure(constraints)
+                val state = scrollBehavior?.state
+                if (state != null) {
+                    val fullHeight = -placeable.height.toFloat()
+                    if (state.heightOffsetLimit != fullHeight) {
+                        state.heightOffsetLimit = fullHeight
+                    }
+                }
+                val offset = state?.heightOffset?.roundToInt() ?: 0
+                val height = (placeable.height + offset).coerceAtLeast(0)
+                layout(placeable.width, height) {
+                    placeable.placeWithLayer(0, offset)
+                }
             },
-        ) {
-            bar()
-            below()
-        }
+    ) {
+        TopAppBar(
+            title = title,
+            navigationIcon = navigationIcon,
+            actions = actions,
+            colors = colors,
+        )
+        below()
     }
 }
 
