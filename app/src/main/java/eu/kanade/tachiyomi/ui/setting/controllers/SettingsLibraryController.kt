@@ -11,7 +11,7 @@ import eu.kanade.tachiyomi.data.preference.MANGA_HAS_UNREAD
 import eu.kanade.tachiyomi.data.preference.MANGA_NON_COMPLETED
 import eu.kanade.tachiyomi.data.preference.MANGA_NON_READ
 import eu.kanade.tachiyomi.data.preference.changesIn
-import eu.kanade.tachiyomi.ui.category.CategoryController
+import eu.kanade.tachiyomi.ui.category.LibraryCategoriesHostController
 import eu.kanade.tachiyomi.ui.library.LibraryPresenter
 import eu.kanade.tachiyomi.ui.library.display.TabbedLibraryDisplaySheet
 import eu.kanade.tachiyomi.ui.main.MainActivity
@@ -115,7 +115,12 @@ class SettingsLibraryController : SettingsLegacyController() {
                 val catCount = dbCategories.size
                 titleRes = if (catCount > 0) MR.strings.edit_categories else MR.strings.add_categories
                 if (catCount > 0) summary = context.getString(MR.plurals.category_plural, catCount, catCount)
-                onClick { router.pushController(CategoryController().withFadeTransaction()) }
+                onClick {
+                    router.pushController(
+                        LibraryCategoriesHostController(LibraryCategoriesHostController.TAB_MANGA)
+                            .withFadeTransaction(),
+                    )
+                }
             }
             intListPreference(activity) {
                 key = Keys.defaultCategory

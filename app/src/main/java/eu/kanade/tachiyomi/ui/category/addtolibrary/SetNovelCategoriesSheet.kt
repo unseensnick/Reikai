@@ -18,6 +18,7 @@ import com.mikepenz.fastadapter.adapters.ItemAdapter
 import eu.kanade.tachiyomi.data.database.models.NovelCategory
 import eu.kanade.tachiyomi.data.database.models.NovelInCategory
 import eu.kanade.tachiyomi.databinding.SetCategoriesSheetBinding
+import eu.kanade.tachiyomi.ui.category.novel.ManageNovelCategoryDialog
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.launchIO
@@ -254,10 +255,26 @@ class SetNovelCategoriesSheet(
         }
 
         binding.cancelButton.setOnClickListener { dismiss() }
-        // Inline new-category creation hidden until [yokai.presentation.category.novel.NovelCategoriesScreen]
-        // (D3) ships and we can route this button to it. ManageCategoryDialog is bound to the
-        // manga `Category` interface, so we can't reuse it directly for novels.
-        binding.newCategoryButton.visibility = View.GONE
+        // Inline new-category creation via the novel-side ManageNovelCategoryDialog. Reuses the
+        // same dialog the manga sheet uses, just over the novel data layer. After commit, refresh
+        // the category list so the new entry is selectable without dismissing the sheet.
+        binding.newCategoryButton.setOnClickListener {
+            ManageNovelCategoryDialog(null) {
+                // FIXME: Don't do blocking (mirrors the manga sheet's same FIXME)
+                categories = runBlocking { getNovelCategories.await() }.toMutableList()
+                val map = itemAdapter.adapterItems.associate { it.category.id to it.state }
+                itemAdapter.set(
+                    categories.mapIndexed { index, category ->
+                        AddNovelCategoryItem(category).apply {
+                            skipInversed =
+                                preselected.getOrElse(index) { TriStateCheckBox.State.UNCHECKED } != TriStateCheckBox.State.IGNORE
+                            state = map[category.id] ?: TriStateCheckBox.State.CHECKED
+                        }
+                    },
+                )
+                setCategoriesButtons()
+            }.show(activity)
+        }
 
         binding.addToCategoriesButton.setOnClickListener {
             binding.addToCategoriesButton.isEnabled = false

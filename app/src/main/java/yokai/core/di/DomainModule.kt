@@ -56,7 +56,9 @@ import yokai.domain.novel.NovelCategoryRepository
 import yokai.domain.novel.NovelChapterRepository
 import yokai.domain.novel.NovelRepository
 import yokai.domain.novel.NovelTrackRepository
+import yokai.domain.novel.interactor.DeleteNovelCategories
 import yokai.domain.novel.interactor.GetNovelCategories
+import yokai.domain.novel.interactor.InsertNovelCategories
 import yokai.domain.novel.interactor.ReorderNovelCategories
 import yokai.domain.novel.interactor.SetNovelCategories
 import yokai.domain.manga.interactor.GetLibraryManga
@@ -107,7 +109,9 @@ fun domainModule() = module {
     single<NovelChapterRepository> { NovelChapterRepositoryImpl(get()) }
     single<NovelTrackRepository> { NovelTrackRepositoryImpl(get()) }
     single<NovelCategoryRepository> { NovelCategoryRepositoryImpl(get()) }
+    factory { DeleteNovelCategories(get()) }
     factory { GetNovelCategories(get()) }
+    factory { InsertNovelCategories(get()) }
     factory { SetNovelCategories(get()) }
     factory { ReorderNovelCategories(get()) }
 
