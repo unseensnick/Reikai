@@ -69,7 +69,8 @@ class NovelSourceManagerTest {
         override val name = name
         override val version = "1.0"
         override val site = "https://$id.example/"
-        override val icon: String? = null
+        override val lang: String = ""
+        override val iconUrl: String? = null
         override val filters: JsonObject? = null
         override suspend fun popularNovels(page: Int, optionsJson: String): List<NovelItem> = emptyList()
         override suspend fun searchNovels(query: String, page: Int): List<NovelItem> = emptyList()
