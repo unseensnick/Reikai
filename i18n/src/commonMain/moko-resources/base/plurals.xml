@@ -40,6 +40,11 @@
         <item quantity="other">%d extension updates available</item>
     </plurals>
 
+    <plurals name="ln_plugin_updates_available">
+        <item quantity="one">Light novel plugin update available</item>
+        <item quantity="other">%d light novel plugin updates available</item>
+    </plurals>
+
     <plurals name="pages_plural">
         <item quantity="one">%1$d page</item>
         <item quantity="other">%1$d pages</item>

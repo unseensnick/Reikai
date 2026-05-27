@@ -87,6 +87,11 @@ object Notifications {
     const val CHANNEL_EXT_UPDATED = "ext_updated_channel"
     const val ID_UPDATED_EXTS = -403
 
+    /** Light-novel plugin update notification. Lives under [GROUP_EXTENSION_UPDATES] so users
+     *  see it beside manga extension updates in system notification settings. */
+    const val CHANNEL_UPDATES_TO_LN_PLUGINS = "updates_ln_plugins_channel"
+    const val ID_UPDATES_TO_LN_PLUGINS = -404
+
     private const val GROUP_BACKUP_RESTORE = "group_backup_restore"
     const val CHANNEL_BACKUP_RESTORE_PROGRESS = "backup_restore_progress_channel"
     const val ID_RESTORE_PROGRESS = -501
@@ -176,6 +181,13 @@ object Notifications {
             NotificationChannel(
                 CHANNEL_UPDATES_TO_EXTS,
                 context.getString(MR.strings.extension_updates_pending),
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                group = GROUP_EXTENSION_UPDATES
+            },
+            NotificationChannel(
+                CHANNEL_UPDATES_TO_LN_PLUGINS,
+                context.getString(MR.strings.ln_plugin_updates_pending),
                 NotificationManager.IMPORTANCE_DEFAULT,
             ).apply {
                 group = GROUP_EXTENSION_UPDATES

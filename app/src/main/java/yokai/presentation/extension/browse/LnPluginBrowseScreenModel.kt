@@ -21,6 +21,7 @@ import yokai.novel.host.LnPluginHost
 import yokai.novel.install.LnPluginInstaller
 import yokai.novel.install.canonicalizePluginUrl
 import yokai.novel.registry.LnRegistryEntry
+import yokai.novel.update.LnPluginVersion
 
 /**
  * Aggregates LN plugins across every URL in [NovelPreferences.addedRepoUrls] for the upcoming
@@ -58,18 +59,27 @@ class LnPluginBrowseScreenModel :
 
     init {
         screenModelScope.launchIO {
+            // Watch installedPluginMetadata too: tapping the "Update" button on an outdated row
+            // calls installer.installFromUrl which writes a new version into that map. Without
+            // observing it, derive() wouldn't re-run after an update and the row would stay on
+            // "Update" even after the reinstall succeeded.
             combine(
                 novelPrefs.addedRepoUrls().changes(),
                 novelPrefs.installedPluginUrls().changes(),
+                novelPrefs.installedPluginMetadata().changes(),
                 refreshTick,
-            ) { repoUrls, installedUrls, _ -> repoUrls to installedUrls }
-                .collectLatest { (repoUrls, installedUrls) ->
-                    derive(repoUrls, installedUrls)
+            ) { repoUrls, installedUrls, metadata, _ -> Triple(repoUrls, installedUrls, metadata) }
+                .collectLatest { (repoUrls, installedUrls, metadata) ->
+                    derive(repoUrls, installedUrls, metadata)
                 }
         }
     }
 
-    private suspend fun derive(repoUrls: Set<String>, installedUrls: Set<String>) {
+    private suspend fun derive(
+        repoUrls: Set<String>,
+        installedUrls: Set<String>,
+        metadata: Map<String, LnInstalledPluginMetadata>,
+    ) {
         if (repoUrls.isEmpty()) {
             mutableState.value = State.Success(
                 installed = emptyList(),
@@ -78,7 +88,13 @@ class LnPluginBrowseScreenModel :
             )
             return
         }
-        mutableState.value = State.Loading
+        // Only flip to Loading on first emission (or after clearing all repos). Subsequent
+        // derives triggered by install / update keep the existing Success visible during the
+        // background re-fetch so the LazyColumn doesn't unmount; otherwise it remounts and
+        // loses scroll position to the top.
+        if (mutableState.value !is State.Success) {
+            mutableState.value = State.Loading
+        }
         val (entries, failedCount) = coroutineScope {
             val fetches = repoUrls.map { url ->
                 async { runCatching { installer.fetchRepo(url) } }
@@ -90,9 +106,16 @@ class LnPluginBrowseScreenModel :
         }
         // installedUrls is already canonical (that's what [LnPluginInstaller.installFromUrl]
         // persists), so we only need to canonicalize entry.url for the membership check.
+        // `outdated` compares the version we captured at install time against what the registry
+        // currently advertises; users see an "Update" button on outdated rows and tapping it
+        // reinstalls (which overwrites the stored metadata version).
         val rows = entries.map { entry ->
-            val isInstalled = canonicalizePluginUrl(entry.url) in installedUrls
-            LnPluginRow(entry = entry, installed = isInstalled)
+            val canonical = canonicalizePluginUrl(entry.url)
+            val isInstalled = canonical in installedUrls
+            val installedVersion = metadata[canonical]?.version
+            val isOutdated = isInstalled && installedVersion != null &&
+                LnPluginVersion.compare(entry.version, installedVersion) > 0
+            LnPluginRow(entry = entry, installed = isInstalled, outdated = isOutdated)
         }
         val installed = rows.filter { it.installed }.sortedBy { it.entry.name.lowercase() }
         val byLanguage = rows.filterNot { it.installed }
@@ -104,6 +127,15 @@ class LnPluginBrowseScreenModel :
             byLanguage = byLanguage,
             failedRepoCount = failedCount,
         )
+
+        // Keep the Browse-tab badge in sync with the live outdated count. After a reinstall,
+        // this drops by one and the SharedPreferences listener in MainActivity picks up the
+        // new value. Skip the write when nothing changed so we don't trip the no-op-write
+        // SharedPreferences dedup (which would suppress a listener fire we don't need).
+        val outdatedCount = rows.count { it.outdated }
+        if (novelPrefs.pluginUpdatesCount().get() != outdatedCount) {
+            novelPrefs.pluginUpdatesCount().set(outdatedCount)
+        }
     }
 
     fun install(host: LnPluginHost, entry: LnRegistryEntry) {
@@ -201,6 +233,11 @@ class LnPluginBrowseScreenModel :
     data class LnPluginRow(
         val entry: LnRegistryEntry,
         val installed: Boolean,
+        /**
+         * True when [installed] and the registry's current `version` is newer than the version
+         * captured at install time. Drives the "Update" button in `LnPluginBrowseContent`.
+         */
+        val outdated: Boolean = false,
     )
 
     companion object {

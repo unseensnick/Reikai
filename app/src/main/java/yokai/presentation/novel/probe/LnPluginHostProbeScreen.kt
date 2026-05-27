@@ -34,6 +34,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import kotlinx.coroutines.launch
@@ -41,10 +43,13 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import yokai.domain.novel.NovelPreferences
 import yokai.novel.host.LnPluginHost
 import yokai.novel.host.LnPluginLoader
 import yokai.novel.install.LnPluginInstaller
 import yokai.novel.source.NovelSourceManager
+import yokai.novel.update.LnPluginUpdateChecker
+import yokai.novel.update.LnPluginUpdateJob
 import yokai.presentation.component.ReikaiTopBar
 
 private val PRETTY_JSON = Json {
@@ -62,6 +67,8 @@ fun LnPluginHostProbeScreen() {
     val loader = remember { Injekt.get<LnPluginLoader>() }
     val installer = remember { Injekt.get<LnPluginInstaller>() }
     val manager = remember { Injekt.get<NovelSourceManager>() }
+    val novelPrefs = remember { Injekt.get<NovelPreferences>() }
+    val updateChecker = remember { Injekt.get<LnPluginUpdateChecker>() }
     val scope = rememberCoroutineScope()
     val backPress = LocalBackPress.current
 
@@ -239,6 +246,51 @@ fun LnPluginHostProbeScreen() {
                         run("searchNovels") { host.searchNovels(loadedPluginId!!, searchQuery, 1) }
                     },
                 ) { Text("searchNovels") }
+                // Test affordances for the update-detection flow (C). "Fake-stale" rewrites every
+                // installed plugin's stored version to 0.0.0 so the next checker pass treats them
+                // all as outdated; "Check updates" runs the checker against the live registry and
+                // writes the count; "Run update job" manually enqueues LnPluginUpdateJob so the
+                // notification path fires without waiting for the 12h periodic schedule.
+                Button(
+                    enabled = !busy,
+                    onClick = {
+                        run("fake-stale all to 0.0.0") {
+                            val current = novelPrefs.installedPluginMetadata().get()
+                            val staled = current.mapValues { (_, meta) -> meta.copy(version = "0.0.0") }
+                            novelPrefs.installedPluginMetadata().set(staled)
+                            mapOf(
+                                "downgraded" to staled.size,
+                                "urls" to staled.keys.toList(),
+                            )
+                        }
+                    },
+                ) { Text("Fake-stale all") }
+                Button(
+                    enabled = !busy,
+                    onClick = {
+                        run("check updates") {
+                            val updates = updateChecker.check()
+                            novelPrefs.pluginUpdatesCount().set(updates.size)
+                            novelPrefs.lastLnPluginCheck().set(System.currentTimeMillis())
+                            mapOf(
+                                "outdated" to updates.size,
+                                "names" to updates.map { it.entry.name },
+                                "from" to updates.map { it.installedVersion },
+                                "to" to updates.map { it.entry.version },
+                            )
+                        }
+                    },
+                ) { Text("Check updates") }
+                Button(
+                    enabled = !busy,
+                    onClick = {
+                        run("enqueue update job") {
+                            val req = OneTimeWorkRequestBuilder<LnPluginUpdateJob>().build()
+                            WorkManager.getInstance(context).enqueue(req)
+                            "Enqueued; check the notification shade for the result"
+                        }
+                    },
+                ) { Text("Run update job") }
             }
             Spacer(Modifier.height(12.dp))
             Text(

@@ -390,6 +390,7 @@
     <string name="extensions">Extensions</string>
     <string name="extension_updates">Extension updates</string>
     <string name="extension_updates_pending">Extension updates pending</string>
+    <string name="ln_plugin_updates_pending">Light novel plugin updates pending</string>
     <string name="extension_info">Extension info</string>
     <string name="filter_languages">Filter Languages</string>
     <string name="obsolete">Obsolete</string>

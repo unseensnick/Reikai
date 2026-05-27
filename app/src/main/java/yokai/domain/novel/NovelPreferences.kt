@@ -56,6 +56,15 @@ class NovelPreferences(
      */
     fun addedRepoUrls() = preferenceStore.getStringSet("novel_added_repo_urls", emptySet())
 
+    /** Number of installed LN plugins whose stored version is older than the latest registry
+     *  version. Written by [yokai.novel.update.LnPluginUpdateChecker]; combined with manga
+     *  extension count to drive the Browse-tab badge in MainActivity. */
+    fun pluginUpdatesCount() = preferenceStore.getInt("ln_plugin_updates_count", 0)
+
+    /** Last successful update-check timestamp (millis). Gates the on-launch / on-resume path so
+     *  it skips when run less than 6h ago. The periodic background job ignores this. */
+    fun lastLnPluginCheck() = preferenceStore.getLong("ln_plugin_last_check", 0L)
+
     // Reader rendering preferences. Stored globally for the spike; future polish may add
     // per-novel overrides if needed.
     fun readerFontSize() = preferenceStore.getInt("ln_reader_font_size_sp", 16)

@@ -128,6 +128,7 @@ fun appModule(app: Application) = module {
     single { NovelSourceManager() }
     single { LnPluginLoader(app, get<NetworkHelper>().client) }
     single { LnPluginInstaller(get(), get(), get(), get()) }
+    single { yokai.novel.update.LnPluginUpdateChecker(get(), get()) }
     single { ExtensionManager(app) }
 
     single { DownloadProvider(app) }

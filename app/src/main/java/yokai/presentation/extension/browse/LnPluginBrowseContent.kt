@@ -280,13 +280,18 @@ private fun PluginList(
         }
         return
     }
+    // Keys are stable across the installed / language sections so LazyColumn can anchor scroll
+    // position to a row whose section changed after install / update. (The `i:` / `lang:` prefix
+    // on the section headers is fine, since installed and per-language item sets are mutually
+    // exclusive — a row is in exactly one of them — so the entry-level key won't collide.)
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         if (installedFiltered.isNotEmpty()) {
             item(key = "section:installed") { SectionHeader(text = "Installed") }
-            items(items = installedFiltered, key = { "i:" + it.entry.id + ":" + it.entry.url }) { row ->
+            items(items = installedFiltered, key = { it.entry.id + ":" + it.entry.url }) { row ->
                 PluginRow(
                     entry = row.entry,
                     installed = row.installed,
+                    outdated = row.outdated,
                     busy = row.entry.id in busyEntryIds,
                     installError = installErrors[row.entry.id],
                     onInstall = { onInstall(row.entry) },
@@ -301,6 +306,7 @@ private fun PluginList(
                 PluginRow(
                     entry = row.entry,
                     installed = row.installed,
+                    outdated = row.outdated,
                     busy = row.entry.id in busyEntryIds,
                     installError = installErrors[row.entry.id],
                     onInstall = { onInstall(row.entry) },
@@ -337,6 +343,7 @@ private fun SectionHeader(text: String) {
 private fun PluginRow(
     entry: LnRegistryEntry,
     installed: Boolean,
+    outdated: Boolean,
     busy: Boolean,
     installError: String?,
     onInstall: () -> Unit,
@@ -392,6 +399,10 @@ private fun PluginRow(
         }
         when {
             busy -> CircularProgressIndicator(modifier = Modifier.size(16.dp))
+            // Outdated takes precedence over the installed check so users have a direct path to
+            // update without waiting for the next periodic LnPluginUpdateJob run. Reinstall via
+            // the same install() flow; persistence overwrites the stored version.
+            installed && outdated -> OutlinedButton(onClick = onInstall) { Text("Update") }
             installed -> Icon(
                 imageVector = Icons.Outlined.Check,
                 contentDescription = "Installed",

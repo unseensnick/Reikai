@@ -146,8 +146,10 @@ import kotlinx.coroutines.flow.onEach
 import uy.kohesive.injekt.injectLazy
 import yokai.core.migration.Migrator
 import yokai.domain.base.BasePreferences
+import yokai.domain.novel.NovelPreferences
 import yokai.domain.recents.interactor.GetRecents
 import yokai.i18n.MR
+import yokai.novel.update.LnPluginUpdateChecker
 import yokai.presentation.core.Constants
 import yokai.presentation.extension.repo.ExtensionRepoController
 import yokai.presentation.onboarding.OnboardingController
@@ -171,6 +173,8 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
     private val downloadManager: DownloadManager by injectLazy()
     private val mangaShortcutManager: MangaShortcutManager by injectLazy()
     private val extensionManager: ExtensionManager by injectLazy()
+    private val lnPluginUpdateChecker: LnPluginUpdateChecker by injectLazy()
+    private val novelPrefs: NovelPreferences by injectLazy()
 
     private val getRecents: GetRecents by injectLazy()
 
@@ -720,8 +724,19 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         lifecycleScope.launchIO {
             extensionManager.getExtensionUpdates(true)
         }
+        lifecycleScope.launchIO {
+            lnPluginUpdateChecker.runIfStale()
+        }
 
+        // Browse-tab badge sums manga ext updates + LN plugin updates so users see a single
+        // count. Two parallel subscriptions (matching the existing `changesIn` pattern used
+        // throughout this file) — each callback reads both prefs and sums via the default arg
+        // on setExtensionsBadge.
         preferences.extensionUpdatesCount()
+            .changesIn(lifecycleScope) {
+                setExtensionsBadge()
+            }
+        novelPrefs.pluginUpdatesCount()
             .changesIn(lifecycleScope) {
                 setExtensionsBadge()
             }
@@ -941,8 +956,9 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         }
     }
 
-    private fun setExtensionsBadge() {
-        val updates = preferences.extensionUpdatesCount().get()
+    private fun setExtensionsBadge(
+        updates: Int = preferences.extensionUpdatesCount().get() + novelPrefs.pluginUpdatesCount().get(),
+    ) {
         if (updates > 0) {
             val badge = nav.getOrCreateBadge(R.id.nav_browse)
             badge.number = updates
@@ -956,6 +972,9 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         checkForAppUpdates()
         lifecycleScope.launchIO {
             extensionManager.getExtensionUpdates(false)
+        }
+        lifecycleScope.launchIO {
+            lnPluginUpdateChecker.runIfStale()
         }
         setExtensionsBadge()
         showDLQueueTutorial()

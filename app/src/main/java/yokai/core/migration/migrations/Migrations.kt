@@ -9,6 +9,7 @@ val migrations: ImmutableList<Migration> = persistentListOf(
     SetupAppUpdateMigration(),
     SetupBackupCreateMigration(),
     SetupExtensionUpdateMigration(),
+    SetupLnPluginUpdateMigration(),
     SetupLibraryUpdateMigration(),
 
     // Yokai fork
