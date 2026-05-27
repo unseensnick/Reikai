@@ -856,11 +856,15 @@ val Controller.activityBinding: MainActivityBinding?
 val Controller.toolbarHeight: Int?
     get() = (activity as? MainActivity)?.toolbarHeight
 
-/** Returns the expected height of the app bar - top insets, based on what the controller needs */
+/** Returns the expected height of the app bar - top insets, based on what the controller needs.
+ *  Also walks up the parentController chain so a child hosted inside a [TabbedInterface] parent
+ *  sees the tabbed height — needed for e.g. [eu.kanade.tachiyomi.ui.category.CategoryController]
+ *  when hosted by [eu.kanade.tachiyomi.ui.category.LibraryCategoriesHostController]. */
 val Controller.fullAppBarHeight: Int?
     get() = (activity as? MainActivity)?.bigToolbarHeight(
         (this as? FloatingSearchInterface)?.showFloatingBar() == true,
-        this is TabbedInterface,
+        this is TabbedInterface || generateSequence(parentController) { it.parentController }
+            .any { it is TabbedInterface },
         this !is SmallToolbarInterface,
     )
 

@@ -1,29 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<!--
+    Single-container host for the tabbed Edit Categories screen. The Manga / Novels tab strip
+    lives in the activity's `mainTabs` (same pattern as Browse and Recents) so the nested
+    `liftAppbarWith` calls from the hosted CategoryController / NovelCategoryController push
+    content below the combined toolbar + tab row without double-padding.
+-->
+<com.bluelinelabs.conductor.ChangeHandlerFrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/categories_container"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical">
-
-    <com.google.android.material.tabs.TabLayout
-        android:id="@+id/tab_layout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="?attr/colorPrimaryVariant"
-        app:tabIndicatorColor="?attr/colorSecondary"
-        app:tabMode="fixed"
-        app:tabSelectedTextColor="?attr/colorSecondary"
-        app:tabTextColor="?attr/actionBarTintColor"
-        app:tabGravity="fill" />
-
-    <!--
-        Conductor child controllers attach to this container via the host's child router.
-        Tag the FrameLayout so the child router has a stable scope key across config changes.
-    -->
-    <com.bluelinelabs.conductor.ChangeHandlerFrameLayout
-        android:id="@+id/categories_container"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
-
-</LinearLayout>
+    android:layout_height="match_parent" />
