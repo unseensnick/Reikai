@@ -775,7 +775,12 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                 )
             } else {
                 ReikaiTopBar(
-                    title = stringResource(MR.strings.library),
+                    title = {
+                        Text(
+                            text = stringResource(MR.strings.library),
+                            style = MaterialTheme.typography.headlineMedium,
+                        )
+                    },
                     actions = {
                         LibraryToolbarActions(
                             isAnyFilterActive = isAnyFilterActive,
@@ -1000,6 +1005,7 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                 }
                 isList -> {
                     LazyLibraryList(
+                        modifier = Modifier.fillMaxSize(),
                         state = listState,
                         contentPadding = PaddingValues(0.dp),
                     ) {
@@ -1068,6 +1074,7 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                 }
                 isStaggered -> {
                     LazyLibraryStaggeredGrid(
+                        modifier = Modifier.fillMaxSize(),
                         columns = columns,
                         state = staggeredGridState,
                         contentPadding = PaddingValues(0.dp),
@@ -1133,6 +1140,7 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                 }
                 else -> {
                     LazyLibraryGrid(
+                        modifier = Modifier.fillMaxSize(),
                         columns = columns,
                         state = gridState,
                         contentPadding = PaddingValues(0.dp),
