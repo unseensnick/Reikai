@@ -490,10 +490,10 @@ class BrowseController :
         if (tinted == isLnToolbarTinted) return
         // Hysteresis: don't flip to tinted until the user has scrolled meaningfully past the
         // top. Without this, microscrolls near offset 0 (where atTop toggles every drag pixel)
-        // restart the tint animation on every frame and the bar flickers. ~12px is around
-        // 4-6dp on typical densities; enough to filter single-pixel jitter without delaying
-        // the visible tint when the user actually scrolls.
-        if (tinted && lnTrackedOffset < 12) return
+        // restart the tint animation on every frame and the bar flickers. The threshold is in
+        // dp so it filters the same perceived distance across densities (raw px would suppress
+        // a larger fraction of a low-dpi screen than a high-dpi one).
+        if (tinted && lnTrackedOffset < 4.dpToPx) return
         isLnToolbarTinted = tinted
         lnToolbarColorAnim?.cancel()
         lnToolbarColorAnim = ValueAnimator.ofFloat(
