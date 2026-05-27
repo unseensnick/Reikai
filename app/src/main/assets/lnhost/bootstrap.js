@@ -201,7 +201,7 @@
     return { storage: noop, localStorage: noop, sessionStorage: noop };
   })();
 
-  function loadPlugin(pluginId, rawCode, iconUrl) {
+  function loadPlugin(pluginId, rawCode, iconUrl, lang) {
     try {
       // Pass 1: discover the plugin's intrinsic id. The require resolver shadows @libs/storage
       // with no-ops so plugins that read storage at load time (royalroad, webnovel) don't write
@@ -239,6 +239,10 @@
         name: plugin.name,
         version: plugin.version,
         site: plugin.site,
+        // Language tag is injected from Kotlin (sourced from the lnreader registry's lang field).
+        // Real lnreader plugin classes don't declare lang as a runtime field; plugin.lang is the
+        // unlikely-but-cheap fallback for any future plugin that might.
+        lang: lang || plugin.lang || null,
         // Absolute CDN URL is injected from Kotlin (sourced from the lnreader registry's iconUrl);
         // plugin.icon authored on the JS side is a relative path and not a usable URL by itself.
         iconUrl: iconUrl || null,

@@ -1,6 +1,8 @@
 package eu.kanade.tachiyomi.ui.source
 
+import android.animation.ValueAnimator
 import android.app.Activity
+import android.content.Context
 import android.os.Build
 import android.os.Parcelable
 import android.view.LayoutInflater
@@ -10,9 +12,15 @@ import android.view.MenuItem
 import android.view.RoundedCorner
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import androidx.activity.BackEventCompat
 import androidx.appcompat.widget.SearchView
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import androidx.core.graphics.ColorUtils
+import androidx.core.view.ScrollingView
 import androidx.core.view.doOnNextLayout
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
@@ -62,6 +70,7 @@ import eu.kanade.tachiyomi.util.view.isControllerVisible
 import eu.kanade.tachiyomi.util.view.onAnimationsFinished
 import eu.kanade.tachiyomi.util.view.scrollViewWith
 import eu.kanade.tachiyomi.util.view.setAction
+import eu.kanade.tachiyomi.util.view.setAppBarBG
 import eu.kanade.tachiyomi.util.view.setOnQueryTextChangeListener
 import eu.kanade.tachiyomi.util.view.snack
 import eu.kanade.tachiyomi.util.view.toolbarHeight
@@ -96,7 +105,8 @@ class BrowseController :
     RootSearchInterface,
     FloatingSearchInterface,
     BottomSheetController,
-    TabbedInterface {
+    TabbedInterface,
+    KoinComponent {
 
     private val basePreferences: BasePreferences by injectLazy()
 
@@ -104,6 +114,7 @@ class BrowseController :
      * Application preferences.
      */
     private val preferences: PreferencesHelper by injectLazy()
+    private val novelPreferences: yokai.domain.novel.NovelPreferences by inject()
 
     /**
      * Adapter containing sources.
@@ -115,6 +126,19 @@ class BrowseController :
     /** Search query shared across the Extensions sheet tabs (Manga ext, LN plugins, Migration).
      *  Subscribed by the LN Compose tab; read synchronously by manga ext + migration filters. */
     val extQuery: StateFlow<String> = _extQuery.asStateFlow()
+
+    /** Top + bottom padding (raw px) for the LN ComposeView, kept in sync with the manga RV's
+     *  insets via the same `scrollViewWith.afterInsets` callback. The ComposeView itself stays
+     *  un-padded so the LazyColumn can scroll its items through the appBar area as the bar
+     *  collapses, matching the manga RV's clipToPadding=false behavior. */
+    private val lnContentPaddingPx = MutableStateFlow(0 to 0)
+
+    private val _lnSourcesSearchQuery = MutableStateFlow("")
+
+    /** Search query for the main Browse view's Light novel sources sub-tab. Live-filters the
+     *  LN sources list by name on every keystroke; submit on this tab is a no-op (the manga
+     *  side's submit-to-global-search behavior stays on the manga side). */
+    val lnSourcesSearchQuery: StateFlow<String> = _lnSourcesSearchQuery.asStateFlow()
 
     var headerHeight = 0
 
@@ -165,14 +189,13 @@ class BrowseController :
                 headerHeight = binding.sourceRecycler.paddingTop
                 val bottomPad = (activityBinding?.bottomNav?.height ?: it.getBottomGestureInsets()) + 58.spToPx
                 binding.sourceRecycler.updatePaddingRelative(bottom = bottomPad)
-                // Mirror the source RV's top + bottom padding onto the LN ComposeView so its
-                // LazyColumn starts below the activity app bar + tab row and ends above the
-                // bottom nav. scrollViewWith only configures the RV; the sibling ComposeView
-                // needs the same offsets applied manually to render at the right Y.
-                binding.lnSourcesCompose.updatePaddingRelative(
-                    top = headerHeight,
-                    bottom = bottomPad,
-                )
+                // Push the top + bottom insets into the LN ComposeView's LazyColumn via
+                // Compose contentPadding, NOT via android:padding on the ComposeView. With
+                // android padding, the LazyColumn sits below the padded area and items can't
+                // scroll into it as the appBar collapses, leaving visible dead space when the
+                // bar moves up. Compose contentPadding behaves like clipToPadding=false:
+                // items scroll through the padded region visually.
+                lnContentPaddingPx.value = headerHeight to bottomPad
                 if (activityBinding?.bottomNav == null) {
                     setBottomPadding()
                 }
@@ -343,26 +366,143 @@ class BrowseController :
 
     /**
      * Bridge the Compose LazyColumn's nested-scroll deltas (forwarded via
-     * `LnSourceListContent.onScrollDelta`) into the activity app bar's Y translation. Mirrors
-     * the core of `scrollViewWith.onScrolled` at ControllerExtensions.kt:512 — translate
-     * `appBar.y` by `-dy` clamped to `[-appBarHeight, 0]`, then call `updateAppBarAfterY`.
+     * `LnSourceListContent.onScrollDelta`) into the activity app bar's collapse behavior,
+     * mirroring `scrollViewWith.onScrolled` at ControllerExtensions.kt:512.
      *
-     * Intentionally minimal vs the manga side:
-     *   - No bottom-nav translation (hideBottomNavOnScroll pref).
-     *   - No toolbar tint flip (colorToolbar).
-     *   - No snap-to-edge on scroll idle.
-     * These can be added if the LN tab's scroll behavior diverges noticeably from the manga
-     * tab in practice. For now this gets the bar collapsing in sync, which is what matters.
+     * We track the scroll offset locally ([lnTrackedOffset]) and expose it to the appBar via a
+     * [ScrollingView] adapter so `updateAppBarAfterY` can run its full mode/alpha animation
+     * logic (big-title fade, search-toolbar swap, compactSearchMode clamping). Without the
+     * adapter, passing null would make the helper compute `translationY = -0 = 0` and undo any
+     * manual translation; that's why the previous bypass-and-set-translationY-directly version
+     * worked for sliding but not for the title fade.
+     *
+     * The Compose `atTop` flag is the authority for the "back at top" reset: when the
+     * LazyColumn reports we're at offset 0, we reset [lnTrackedOffset] = 0 and let
+     * `updateAppBarAfterY` snap translation accordingly.
      */
-    private fun translateAppBarOnLnScroll(dy: Int) {
+    private var lnTrackedOffset = 0
+
+    private val lnScrollingViewAdapter = object : ScrollingView {
+        override fun computeVerticalScrollOffset(): Int = lnTrackedOffset
+        override fun computeVerticalScrollExtent(): Int = 0
+        override fun computeVerticalScrollRange(): Int = Int.MAX_VALUE
+        override fun computeHorizontalScrollOffset(): Int = 0
+        override fun computeHorizontalScrollExtent(): Int = 0
+        override fun computeHorizontalScrollRange(): Int = 0
+    }
+
+    private fun translateAppBarOnLnScroll(dy: Int, atTop: Boolean) {
         if (!isControllerVisible) return
         val appBar = activityBinding?.appBar ?: return
         val h = appBar.height
-        if (h <= 0 || dy == 0) return
-        val target = (appBar.y - dy).coerceIn(-h.toFloat(), 0f)
-        if (target != appBar.y) {
-            appBar.y = target
-            appBar.updateAppBarAfterY(null, cancelAnim = false)
+        if (h <= 0) return
+        val bottomNav = activityBinding?.bottomNav
+        if (atTop) {
+            lnTrackedOffset = 0
+            appBar.updateAppBarAfterY(lnScrollingViewAdapter, cancelAnim = false, inDragState = true)
+            colorLnToolbar(false)
+            if (bottomNav != null && bottomNav.translationY != 0f) {
+                bottomNav.animate()
+                    .translationY(0f)
+                    .setDuration(150)
+                    .setUpdateListener { setBottomPadding() }
+                    .start()
+            }
+            return
+        }
+        if (dy == 0) return
+        lnTrackedOffset = (lnTrackedOffset + dy).coerceAtLeast(0)
+        appBar.updateAppBarAfterY(lnScrollingViewAdapter, cancelAnim = false, inDragState = true)
+        colorLnToolbar(true)
+        if (bottomNav != null && bottomNav.isVisible && preferences.hideBottomNavOnScroll().get()) {
+            bottomNav.translationY = (bottomNav.translationY + dy)
+                .coerceIn(0f, bottomNav.height.toFloat())
+            setBottomPadding()
+        }
+    }
+
+    /**
+     * Mirrors `scrollViewWith.onScrollIdle` (ControllerExtensions.kt:573): when scrolling stops
+     * mid-scroll, snaps the app bar and bottom nav to the nearer edge so they don't sit
+     * half-collapsed. Updates [lnTrackedOffset] to the snap target so [updateAppBarAfterY]
+     * sees a coherent offset on the next scroll event.
+     */
+    private fun onLnScrollIdle(atTop: Boolean) {
+        if (!isControllerVisible) return
+        val appBar = activityBinding?.appBar ?: return
+        val h = appBar.height.toFloat()
+        if (h <= 0f) return
+        // Stay collapsed whenever the LazyColumn is scrolled past the top; only spring fully
+        // open when we're actually at offset 0. Manga's `scrollViewWith` uses an |tY|>h/2
+        // snap-to-edge threshold, but on the LN ComposeView a partial-collapse spring-back is
+        // visually broken: items that scrolled under the bar stay scrolled (the LazyColumn's
+        // contentPadding doesn't move with the bar's snap), so they're hidden behind the
+        // re-expanded bar. Treat any scrolled state as "keep collapsed".
+        val collapse = !atTop
+        // Don't snap the bar on idle: any jump from where the drag left tY to a fixed target
+        // is itself visible (a partial-collapse like tY=-45 jumping to the compact -428 reads
+        // as "snapping up"). The drag-time clamp already keeps tY within the valid range, so
+        // leaving tY alone matches the manga tab's RV-idle behavior: the bar stays put. The
+        // atTop branch of the bridge handles the tY=0 reset during scroll-to-top.
+        colorLnToolbar(collapse)
+        val bottomNav = activityBinding?.bottomNav ?: return
+        if (bottomNav.isVisible && preferences.hideBottomNavOnScroll().get()) {
+            val bH = bottomNav.height.toFloat()
+            val targetBottomY = if (!atTop && bottomNav.translationY > bH / 2f) bH else 0f
+            if (bottomNav.translationY != targetBottomY) {
+                bottomNav.animate()
+                    .translationY(targetBottomY)
+                    .setDuration(150)
+                    .setUpdateListener { setBottomPadding() }
+                    .start()
+            }
+        }
+    }
+
+    /** When user activates the LN sub-tab, re-apply the appBar setup `scrollViewWith` would
+     *  normally run on a controller lifecycle change. The previous controller might have left
+     *  `lockYPos = true` or a different toolbar mode that would block / misrender the LN
+     *  collapse. Also enables nested scrolling on the LN ComposeView so the Extensions sheet
+     *  drag integrates the same way the manga RV does.
+     *
+     *  Don't reset [lnTrackedOffset] here, the Compose [LazyColumn]'s [listState] is preserved
+     *  by `remember` across tab switches; resetting our tracked offset would desync the appBar
+     *  (snapped to 0) from the list (still scrolled), causing the bar to pop fully open on
+     *  re-entry even though items are scrolled under it. */
+    private fun setupAppBarForLnTab() {
+        binding.lnSourcesCompose.isNestedScrollingEnabled = true
+        val appBar = activityBinding?.appBar ?: return
+        appBar.lockYPos = false
+        appBar.setToolbarModeBy(this)
+        appBar.useTabsInPreLayout = true
+        appBar.hideBigView(false)
+        appBar.updateAppBarAfterY(lnScrollingViewAdapter, cancelAnim = true)
+        colorLnToolbar(lnTrackedOffset > 0)
+    }
+
+    /** Lift-on-scroll tint flip. Mirrors `scrollViewWith.colorToolbar`
+     *  (ControllerExtensions.kt:376) which animates between `colorSurface` (at top) and
+     *  `colorPrimaryVariant` (scrolled past top) via [setAppBarBG]. */
+    private var isLnToolbarTinted = false
+    private var lnToolbarColorAnim: ValueAnimator? = null
+
+    private fun colorLnToolbar(tinted: Boolean) {
+        if (tinted == isLnToolbarTinted) return
+        // Hysteresis: don't flip to tinted until the user has scrolled meaningfully past the
+        // top. Without this, microscrolls near offset 0 (where atTop toggles every drag pixel)
+        // restart the tint animation on every frame and the bar flickers. ~12px is around
+        // 4-6dp on typical densities; enough to filter single-pixel jitter without delaying
+        // the visible tint when the user actually scrolls.
+        if (tinted && lnTrackedOffset < 12) return
+        isLnToolbarTinted = tinted
+        lnToolbarColorAnim?.cancel()
+        lnToolbarColorAnim = ValueAnimator.ofFloat(
+            if (tinted) 0f else 1f,
+            if (tinted) 1f else 0f,
+        ).apply {
+            addUpdateListener { setAppBarBG(animatedValue as Float, includeTabView = true) }
+            duration = 100
+            start()
         }
     }
 
@@ -382,6 +522,7 @@ class BrowseController :
             else -> {
                 binding.sourceRecycler.isVisible = false
                 binding.lnSourcesCompose.isVisible = true
+                setupAppBarForLnTab()
                 if (binding.lnSourcesCompose.tag != "compose_mounted") {
                     binding.lnSourcesCompose.setViewCompositionStrategy(
                         androidx.compose.ui.platform.ViewCompositionStrategy
@@ -389,14 +530,27 @@ class BrowseController :
                     )
                     binding.lnSourcesCompose.setContent {
                         yokai.presentation.theme.YokaiTheme {
+                            val searchQuery by lnSourcesSearchQuery.collectAsState()
+                            val paddingPx by lnContentPaddingPx.collectAsState()
+                            val density = androidx.compose.ui.platform.LocalDensity.current
+                            val contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                top = with(density) { paddingPx.first.toDp() },
+                                bottom = with(density) { paddingPx.second.toDp() },
+                            )
                             yokai.presentation.novel.sources.LnSourceListContent(
+                                searchQuery = searchQuery,
+                                contentPadding = contentPadding,
                                 onOpenSource = { source ->
+                                    if (!preferences.incognitoMode().get()) {
+                                        novelPreferences.lastUsedNovelSource().set(source.id)
+                                    }
                                     router.pushController(
                                         eu.kanade.tachiyomi.ui.novel.browse.NovelBrowseController(sourceId = source.id)
                                             .withFadeTransaction(),
                                     )
                                 },
                                 onScrollDelta = ::translateAppBarOnLnScroll,
+                                onScrollIdle = ::onLnScrollIdle,
                             )
                         }
                     }
@@ -407,26 +561,24 @@ class BrowseController :
     }
 
     private fun updateSheetMenu() {
+        // Tabs are Manga ext (0) | LN (1) | Migration (2). Manga and LN share the Extensions
+        // menu (search bar + extension actions); only Migration uses the migration menu.
+        val isMigrationTab = binding.bottomSheet.tabs.selectedTabPosition == 2
         binding.bottomSheet.sheetToolbar.title =
-            if (binding.bottomSheet.tabs.selectedTabPosition != 0) {
+            if (isMigrationTab) {
                 binding.bottomSheet.root.currentSourceTitle
                     ?: view?.context?.getString(MR.strings.source_migration)
             } else {
                 view?.context?.getString(MR.strings.extensions)
             }
-        val onExtensionTab = binding.bottomSheet.tabs.selectedTabPosition == 0
-        if (binding.bottomSheet.sheetToolbar.menu.findItem(if (onExtensionTab) R.id.action_search else R.id.action_migration_guide) != null) {
+        if (binding.bottomSheet.sheetToolbar.menu.findItem(if (isMigrationTab) R.id.action_migration_guide else R.id.action_search) != null) {
             return
         }
         val oldSearchView = binding.bottomSheet.sheetToolbar.menu.findItem(R.id.action_search)?.actionView as? SearchView
         oldSearchView?.setOnQueryTextListener(null)
         binding.bottomSheet.sheetToolbar.menu.clear()
         binding.bottomSheet.sheetToolbar.inflateMenu(
-            if (binding.bottomSheet.tabs.selectedTabPosition == 0) {
-                R.menu.extension_main
-            } else {
-                R.menu.migration_main
-            },
+            if (isMigrationTab) R.menu.migration_main else R.menu.extension_main,
         )
 
         val id = when (PreferenceValues.MigrationSourceOrder.fromPreference(preferences)) {
@@ -805,11 +957,24 @@ class BrowseController :
         // Change hint to show global search.
         activityBinding?.searchToolbar?.searchQueryHint = view?.context?.getString(MR.strings.global_search)
 
-        // Create query listener which opens the global search view.
-        setOnQueryTextChangeListener(searchView, true) {
-            if (!it.isNullOrBlank()) performGlobalSearch(it)
-            true
-        }
+        // Direct OnQueryTextListener (not the helper) so text-change can drive the LN sources
+        // filter live while submit keeps firing the manga global-search controller. The helper
+        // forces a single onlyOnSubmit mode; we need both.
+        searchView?.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextChange(newText: String?): Boolean {
+                if (router.backstack.lastOrNull()?.controller != this@BrowseController) return false
+                _lnSourcesSearchQuery.value = newText.orEmpty()
+                return true
+            }
+
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                if (!isControllerVisible) return true
+                (activity?.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)
+                    ?.hideSoftInputFromWindow(searchView.windowToken, 0)
+                if (!query.isNullOrBlank()) performGlobalSearch(query)
+                return true
+            }
+        })
     }
 
     private fun performGlobalSearch(query: String) {

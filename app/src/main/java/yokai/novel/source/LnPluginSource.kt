@@ -23,6 +23,7 @@ class LnPluginSource(
     override val name: String = info.name
     override val version: String = info.version.orEmpty()
     override val site: String = info.site.orEmpty()
+    override val lang: String = info.lang.orEmpty()
     override val iconUrl: String? = info.iconUrl
     override val filters: JsonObject? = info.filters
 

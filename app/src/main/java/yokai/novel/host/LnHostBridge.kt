@@ -106,6 +106,12 @@ class LnHostBridge(
     private fun prefs(pluginId: String) =
         context.getSharedPreferences("ln_storage_$pluginId", Context.MODE_PRIVATE)
 
+    /** Wipe a plugin's @libs/storage scope. Called on uninstall (so a reinstall doesn't pick
+     *  up stale login state) and from the Clear data overflow action. */
+    fun clearPluginStorage(pluginId: String) {
+        prefs(pluginId).edit().clear().apply()
+    }
+
     /**
      * lnreader's FetchInit allows `headers` as a plain object or Headers instance, `body` as
      * string or FormData. The bridge accepts only the JSON-friendly subset; plugins that serialize

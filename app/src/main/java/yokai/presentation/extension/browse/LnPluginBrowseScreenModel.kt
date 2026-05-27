@@ -48,6 +48,11 @@ class LnPluginBrowseScreenModel :
     private val _busyEntryIds: MutableStateFlow<Set<String>> = MutableStateFlow(emptySet())
     val busyEntryIds: StateFlow<Set<String>> = _busyEntryIds.asStateFlow()
 
+    /** Per-plugin install error message, keyed by registry entry id. Cleared at the start of
+     *  each install attempt so a retry-tap clears the previous error inline. */
+    private val _installErrors: MutableStateFlow<Map<String, String>> = MutableStateFlow(emptyMap())
+    val installErrors: StateFlow<Map<String, String>> = _installErrors.asStateFlow()
+
     /** Bumped to force re-fetch (e.g. swipe-to-refresh in the UI). */
     private val refreshTick: MutableStateFlow<Int> = MutableStateFlow(0)
 
@@ -66,7 +71,11 @@ class LnPluginBrowseScreenModel :
 
     private suspend fun derive(repoUrls: Set<String>, installedUrls: Set<String>) {
         if (repoUrls.isEmpty()) {
-            mutableState.value = State.Success(byLanguage = emptyMap(), failedRepoCount = 0)
+            mutableState.value = State.Success(
+                installed = emptyList(),
+                byLanguage = emptyMap(),
+                failedRepoCount = 0,
+            )
             return
         }
         mutableState.value = State.Loading
@@ -79,22 +88,27 @@ class LnPluginBrowseScreenModel :
             val failed = results.count { it.isFailure }
             all to failed
         }
-        // Canonicalize installed URLs once so the `installed` check stays cheap per row.
-        // Canonical form is what [LnPluginInstaller.installFromUrl] persists, so this is the
-        // form we'll find in [installedUrls].
-        val installedCanonical = installedUrls
+        // installedUrls is already canonical (that's what [LnPluginInstaller.installFromUrl]
+        // persists), so we only need to canonicalize entry.url for the membership check.
         val rows = entries.map { entry ->
-            val isInstalled = canonicalizePluginUrl(entry.url) in installedCanonical
+            val isInstalled = canonicalizePluginUrl(entry.url) in installedUrls
             LnPluginRow(entry = entry, installed = isInstalled)
         }
-        val byLanguage = rows.groupBy { it.entry.lang.ifBlank { UNKNOWN_LANG } }
+        val installed = rows.filter { it.installed }.sortedBy { it.entry.name.lowercase() }
+        val byLanguage = rows.filterNot { it.installed }
+            .groupBy { it.entry.lang.ifBlank { UNKNOWN_LANG } }
             .toSortedMap()
             .mapValues { (_, list) -> list.sortedBy { it.entry.name.lowercase() } }
-        mutableState.value = State.Success(byLanguage = byLanguage, failedRepoCount = failedCount)
+        mutableState.value = State.Success(
+            installed = installed,
+            byLanguage = byLanguage,
+            failedRepoCount = failedCount,
+        )
     }
 
     fun install(host: LnPluginHost, entry: LnRegistryEntry) {
         markBusy(entry.id, true)
+        _installErrors.update { it - entry.id }
         screenModelScope.launchIO {
             try {
                 installer.installFromUrl(
@@ -104,22 +118,38 @@ class LnPluginBrowseScreenModel :
                         pluginId = entry.id,
                         iconUrl = entry.iconUrl,
                         version = entry.version,
+                        lang = entry.lang,
                     ),
                 )
+            } catch (e: Throwable) {
+                _installErrors.update { it + (entry.id to (e.message ?: e.javaClass.simpleName)) }
             } finally {
                 markBusy(entry.id, false)
             }
         }
     }
 
-    fun uninstall(entry: LnRegistryEntry) {
-        // Uninstall doesn't touch the host (the manager.unregister path in
-        // [LnPluginInstaller.uninstall] just drops the source registration; the loaded plugin
-        // instance stays in the host's WebView until destroy). No host param needed here.
+    fun uninstall(host: LnPluginHost, entry: LnRegistryEntry) {
+        // installer.uninstall drops the source registration + persistence; the host then wipes
+        // the plugin's @libs/storage scope so a reinstall doesn't pick up stale login state.
         markBusy(entry.id, true)
         screenModelScope.launchIO {
             try {
                 installer.uninstall(entry.id, entry.url)
+                host.clearPluginStorage(entry.id)
+            } finally {
+                markBusy(entry.id, false)
+            }
+        }
+    }
+
+    /** Standalone Clear data action (overflow): wipes the plugin's @libs/storage scope without
+     *  uninstalling. Re-launching the plugin starts from a fresh storage state. */
+    fun clearPluginData(host: LnPluginHost, entry: LnRegistryEntry) {
+        markBusy(entry.id, true)
+        screenModelScope.launchIO {
+            try {
+                host.clearPluginStorage(entry.id)
             } finally {
                 markBusy(entry.id, false)
             }
@@ -144,8 +174,15 @@ class LnPluginBrowseScreenModel :
         @Immutable
         data class Success(
             /**
-             * Map of `language tag → plugins`, language-grouped and alphabetically sorted within
-             * each bucket. Empty when no repos are added (the UI shows an empty-state pointer).
+             * Installed plugins across all added repos, alphabetical by display name. Rendered
+             * above [byLanguage] under an "Installed" header. Empty until at least one plugin
+             * is installed.
+             */
+            val installed: List<LnPluginRow>,
+            /**
+             * Available-to-install plugins (excludes anything in [installed]), grouped by
+             * language tag and alphabetical within each bucket. Empty when no repos are added
+             * or every plugin in the registries is already installed.
              */
             val byLanguage: Map<String, List<LnPluginRow>>,
             /**
@@ -156,7 +193,7 @@ class LnPluginBrowseScreenModel :
             val failedRepoCount: Int,
         ) : State {
             val isEmpty: Boolean
-                get() = byLanguage.isEmpty()
+                get() = installed.isEmpty() && byLanguage.isEmpty()
         }
     }
 

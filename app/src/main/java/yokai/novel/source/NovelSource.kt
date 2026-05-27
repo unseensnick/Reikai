@@ -23,6 +23,10 @@ interface NovelSource {
     val version: String
     val site: String
 
+    /** lnreader plugin language tag (e.g. `en`, `id`, `zh`). Empty when the plugin doesn't
+     *  declare one. Drives the Language section grouping on the Browse sources list. */
+    val lang: String
+
     /**
      * Absolute CDN URL for the source's icon, resolved at install time from the lnreader registry's
      * `iconUrl` field. Null for legacy installs whose lazy backfill hasn't matched a repo yet, or

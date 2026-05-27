@@ -18,4 +18,8 @@ data class LnInstalledPluginMetadata(
     val pluginId: String,
     val iconUrl: String? = null,
     val version: String? = null,
+    /** Plugin language tag (e.g. `en`, `id`) from the registry index. lnreader plugin classes
+     *  do NOT expose lang at runtime (only id/name/version/site/icon), so we persist the
+     *  registry's value at install time and inject it back through bootstrap.js on load. */
+    val lang: String? = null,
 )

@@ -116,10 +116,15 @@ class LnPluginHost(
         webView.loadUrl("file:///android_asset/lnhost/bootstrap.html")
     }
 
-    suspend fun loadPlugin(pluginId: String, source: String, iconUrl: String? = null): LnPluginInfo {
+    suspend fun loadPlugin(
+        pluginId: String,
+        source: String,
+        iconUrl: String? = null,
+        lang: String? = null,
+    ): LnPluginInfo {
         ready.await()
         val js = "JSON.stringify(window.__lnhost.loadPlugin(" +
-            "${jsStr(pluginId)}, ${jsStr(source)}, ${jsStr(iconUrl ?: "")}))"
+            "${jsStr(pluginId)}, ${jsStr(source)}, ${jsStr(iconUrl ?: "")}, ${jsStr(lang ?: "")}))"
         val rawJsString = evaluateJsSuspending(js)
         val innerJson = JSON.decodeFromString(String.serializer(), rawJsString)
         return JSON.decodeFromString(LnPluginInfo.serializer(), innerJson)
@@ -151,6 +156,13 @@ class LnPluginHost(
             listOf(JsonPrimitive(query), JsonPrimitive(pageNo)),
         )
         return JSON.decodeFromJsonElement(ListSerializer(NovelItem.serializer()), raw)
+    }
+
+    /** Wipe a plugin's @libs/storage scope without unloading it from the host. Used by the
+     *  uninstall flow (paired with [LnPluginInstaller.uninstall]) and by the LN overflow's
+     *  standalone Clear data action. */
+    fun clearPluginStorage(pluginId: String) {
+        bridge.clearPluginStorage(pluginId)
     }
 
     fun destroy() {

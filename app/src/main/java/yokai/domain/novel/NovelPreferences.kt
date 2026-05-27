@@ -22,6 +22,10 @@ class NovelPreferences(
      */
     fun installedPluginUrls() = preferenceStore.getStringSet("ln_installed_plugin_urls", emptySet())
 
+    /** Most recently tapped LN source id. Drives the Last Used section header on the Browse →
+     *  Light novel sources tab. Empty string when no source has been opened (fresh install). */
+    fun lastUsedNovelSource() = preferenceStore.getString("last_used_novel_source", "")
+
     /**
      * Per-plugin metadata side-table keyed by the same canonicalized URL as [installedPluginUrls].
      * Carries the registry's `iconUrl` (so the LN sources list can render real icons) and

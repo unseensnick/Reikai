@@ -1,5 +1,6 @@
 package yokai.presentation.extension.browse
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,22 +10,29 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.DeleteForever
+import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.LibraryBooks
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -39,11 +47,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import coil3.compose.AsyncImage
 import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.ui.webview.WebViewActivity
+import eu.kanade.tachiyomi.util.system.LocaleHelper
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.toast
 import uy.kohesive.injekt.Injekt
@@ -82,6 +94,9 @@ fun LnPluginBrowseContent(
         val screenModel = rememberScreenModel { LnPluginBrowseScreenModel() }
         val state by screenModel.state.collectAsState()
         val busyEntryIds by screenModel.busyEntryIds.collectAsState()
+        val installErrors by screenModel.installErrors.collectAsState()
+        // Tap on an installed row opens this overflow sheet; null means no sheet shown.
+        var openOverflowForEntry by remember { mutableStateOf<LnRegistryEntry?>(null) }
         val context = LocalContext.current
         val networkHelper = remember { Injekt.get<NetworkHelper>() }
         val host = remember { LnPluginHost(context, networkHelper.client) }
@@ -99,15 +114,16 @@ fun LnPluginBrowseContent(
             lastFailedToastCount = failed
         }
 
-        // The legacy ExtensionBottomSheet uses `?attr/colorPrimaryVariant` as its background +
-        // `?attr/actionBarTintColor` as the foreground tint — both unrelated to the M3
-        // ColorScheme YokaiTheme derives from `?android:textColorPrimary`. Wrap content in a
-        // Surface with those colors so Text composables (which default to LocalContentColor =
-        // surfaceTint-derived) render against the actual sheet surface, not against the
-        // activity's primary surface. Same direct-attr pattern as Phase 6 F12 used for the
-        // library dialogs.
+        // The bottom-sheet shell is themed `?attr/colorPrimaryVariant` (purple), but its
+        // content area is the manga RV which sets `android:background="?attr/background"`
+        // (recycler_with_scroller.xml:13), the dark app background. The LN page is the
+        // peer of that RV, so it should match the same surface, not the sheet's chrome
+        // color. `?attr/actionBarTintColor` stays as the content tint: in the dark theme it
+        // resolves to the same light value `?android:textColorPrimary` does, and the
+        // existing getResourceColor helper can't read ColorStateList attrs (textColorPrimary
+        // is one), so this is the closest direct-color we can grab.
         val sheetContainer = remember(context) {
-            Color(context.getResourceColor(eu.kanade.tachiyomi.R.attr.colorPrimaryVariant))
+            Color(context.getResourceColor(eu.kanade.tachiyomi.R.attr.background))
         }
         val sheetContent = remember(context) {
             Color(context.getResourceColor(eu.kanade.tachiyomi.R.attr.actionBarTintColor))
@@ -135,14 +151,73 @@ fun LnPluginBrowseContent(
                             state = s,
                             search = searchQuery,
                             busyEntryIds = busyEntryIds,
+                            installErrors = installErrors,
                             onInstall = { entry -> screenModel.install(host, entry) },
-                            onUninstall = { entry -> screenModel.uninstall(entry) },
+                            onTapInstalled = { entry -> openOverflowForEntry = entry },
                         )
                     }
                 }
             }
         }
         }  // Surface
+
+        openOverflowForEntry?.let { entry ->
+            InstalledPluginOverflowSheet(
+                entry = entry,
+                onDismiss = { openOverflowForEntry = null },
+                onOpenSite = {
+                    val site = entry.site.takeIf { it.isNotBlank() }
+                    if (site != null) {
+                        context.startActivity(WebViewActivity.newIntent(context, site, null, entry.name))
+                    }
+                    openOverflowForEntry = null
+                },
+                onClearData = {
+                    screenModel.clearPluginData(host, entry)
+                    context.toast("Cleared ${entry.name} data")
+                    openOverflowForEntry = null
+                },
+                onUninstall = {
+                    screenModel.uninstall(host, entry)
+                    openOverflowForEntry = null
+                },
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun InstalledPluginOverflowSheet(
+    entry: LnRegistryEntry,
+    onDismiss: () -> Unit,
+    onOpenSite: () -> Unit,
+    onClearData: () -> Unit,
+    onUninstall: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState()
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Text(
+            text = entry.name,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+        )
+        ListItem(
+            modifier = Modifier.clickable(onClick = onOpenSite),
+            leadingContent = { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null) },
+            headlineContent = { Text("Open site") },
+        )
+        ListItem(
+            modifier = Modifier.clickable(onClick = onClearData),
+            leadingContent = { Icon(Icons.Outlined.DeleteSweep, contentDescription = null) },
+            headlineContent = { Text("Clear data") },
+        )
+        ListItem(
+            modifier = Modifier.clickable(onClick = onUninstall),
+            leadingContent = { Icon(Icons.Outlined.DeleteForever, contentDescription = null) },
+            headlineContent = { Text("Uninstall") },
+        )
+        Spacer(Modifier.height(12.dp))
     }
 }
 
@@ -176,22 +251,27 @@ private fun PluginList(
     state: LnPluginBrowseScreenModel.State.Success,
     search: String,
     busyEntryIds: Set<String>,
+    installErrors: Map<String, String>,
     onInstall: (LnRegistryEntry) -> Unit,
-    onUninstall: (LnRegistryEntry) -> Unit,
+    onTapInstalled: (LnRegistryEntry) -> Unit,
 ) {
     // Flatten the language-grouped map into a single list of items including language headers
     // so LazyColumn's items() can drive both rows + headers off one source. The filter runs on
     // the entry list within each language; headers are skipped if all their entries were
     // filtered out.
-    val sections = remember(state.byLanguage, search) {
-        val needle = search.trim().lowercase()
+    val needle = search.trim().lowercase()
+    val installedFiltered = remember(state.installed, needle) {
+        if (needle.isEmpty()) state.installed
+        else state.installed.filter { it.entry.name.lowercase().contains(needle) }
+    }
+    val sections = remember(state.byLanguage, needle) {
         state.byLanguage.entries.mapNotNull { (lang, rows) ->
             val filtered = if (needle.isEmpty()) rows
             else rows.filter { it.entry.name.lowercase().contains(needle) }
             if (filtered.isEmpty()) null else lang to filtered
         }
     }
-    if (sections.isEmpty()) {
+    if (installedFiltered.isEmpty() && sections.isEmpty()) {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
@@ -201,24 +281,30 @@ private fun PluginList(
         return
     }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        sections.forEach { (lang, rows) ->
-            item(key = "lang:$lang") {
-                Text(
-                    text = lang,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+        if (installedFiltered.isNotEmpty()) {
+            item(key = "section:installed") { SectionHeader(text = "Installed") }
+            items(items = installedFiltered, key = { "i:" + it.entry.id + ":" + it.entry.url }) { row ->
+                PluginRow(
+                    entry = row.entry,
+                    installed = row.installed,
+                    busy = row.entry.id in busyEntryIds,
+                    installError = installErrors[row.entry.id],
+                    onInstall = { onInstall(row.entry) },
+                    onTapInstalled = { onTapInstalled(row.entry) },
                 )
+                HorizontalDivider()
             }
+        }
+        sections.forEach { (lang, rows) ->
+            item(key = "lang:$lang") { SectionHeader(text = lang) }
             items(items = rows, key = { it.entry.id + ":" + it.entry.url }) { row ->
                 PluginRow(
                     entry = row.entry,
                     installed = row.installed,
                     busy = row.entry.id in busyEntryIds,
+                    installError = installErrors[row.entry.id],
                     onInstall = { onInstall(row.entry) },
-                    onUninstall = { onUninstall(row.entry) },
+                    onTapInstalled = { onTapInstalled(row.entry) },
                 )
                 HorizontalDivider()
             }
@@ -227,19 +313,47 @@ private fun PluginList(
 }
 
 @Composable
+private fun SectionHeader(text: String) {
+    // Inherit the parent Surface's contentColor (set to ?attr/actionBarTintColor at the
+    // LnPluginBrowseContent root). Don't read android.R.attr.textColorPrimary directly:
+    // getResourceColor goes through typedArray.getColor() which only handles direct color
+    // attrs and returns 0 (transparent) for the ColorStateList textColorPrimary actually is.
+    // Don't use MaterialTheme.colorScheme.primary either: that's the accent purple, not the
+    // primary-text color the manga RV header uses.
+    // Match the manga ext header (extension_card_header.xml): 20dp marginTop + 8dp marginBottom.
+    // The manga side uses ?textAppearanceHeadlineMedium which carries a taller intrinsic line
+    // height than M3 titleMedium, so bump both margins a notch to recover the same gap.
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        fontSize = 16.sp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 12.dp),
+    )
+}
+
+@Composable
 private fun PluginRow(
     entry: LnRegistryEntry,
     installed: Boolean,
     busy: Boolean,
+    installError: String?,
     onInstall: () -> Unit,
-    onUninstall: () -> Unit,
+    onTapInstalled: () -> Unit,
 ) {
+    // Match the manga row's hard 64dp container height (extension_card_item.xml:11) by using
+    // heightIn min with no vertical padding. Rows grow past 64dp only when the optional
+    // install-error text needs the extra line.
+    val rowModifier = Modifier
+        .fillMaxWidth()
+        .heightIn(min = 64.dp)
+        .then(if (installed) Modifier.clickable(onClick = onTapInstalled) else Modifier)
+        .padding(horizontal = 16.dp)
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier = rowModifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         AsyncImage(
             model = entry.iconUrl,
@@ -252,38 +366,39 @@ private fun PluginRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = entry.name,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.bodyMedium,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(2.dp))
             Text(
-                text = "${entry.id}  •  v${entry.version}",
+                text = "${LocaleHelper.getLocalizedDisplayName(entry.lang)}  •  v${entry.version}",
                 style = MaterialTheme.typography.bodySmall,
                 // See EmptyState comment: LocalContentColor with alpha matches the sheet's
                 // foreground tint instead of the activity-scoped onSurfaceVariant.
                 color = LocalContentColor.current.copy(alpha = 0.7f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
-            if (installed) {
+            if (installError != null) {
                 Spacer(Modifier.height(2.dp))
-                AssistChip(
-                    onClick = {},
-                    enabled = false,
-                    label = { Text("Installed", style = MaterialTheme.typography.labelSmall) },
-                    colors = AssistChipDefaults.assistChipColors(
-                        disabledLabelColor = MaterialTheme.colorScheme.primary,
-                    ),
+                Text(
+                    text = installError,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 2,
                 )
             }
         }
-        if (installed) {
-            OutlinedButton(enabled = !busy, onClick = onUninstall) {
-                if (busy) CircularProgressIndicator(modifier = Modifier.size(16.dp))
-                else Text("Uninstall")
-            }
-        } else {
-            Button(enabled = !busy, onClick = onInstall) {
-                if (busy) CircularProgressIndicator(modifier = Modifier.size(16.dp))
-                else Text("Install")
-            }
+        when {
+            busy -> CircularProgressIndicator(modifier = Modifier.size(16.dp))
+            installed -> Icon(
+                imageVector = Icons.Outlined.Check,
+                contentDescription = "Installed",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp),
+            )
+            else -> OutlinedButton(onClick = onInstall) { Text("Install") }
         }
     }
 }

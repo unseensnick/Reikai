@@ -142,14 +142,14 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
                         this@ExtensionBottomSheet.sheetBehavior?.expand()
                     }
                     this@ExtensionBottomSheet.controller.updateTitleAndMenu()
-                    val rv = activeRecyclerView(tab?.position)
+                    val rv = activeNestedScrollChild(tab?.position)
                     rv?.isNestedScrollingEnabled = true
                     rv?.requestLayout()
                     sheetBehavior?.isDraggable = true
                 }
 
                 override fun onTabUnselected(tab: TabLayout.Tab?) {
-                    activeRecyclerView(tab?.position)?.isNestedScrollingEnabled = false
+                    activeNestedScrollChild(tab?.position)?.isNestedScrollingEnabled = false
                     if (tab?.position == 2) {
                         presenter.deselectSource()
                     }
@@ -158,11 +158,10 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
                 override fun onTabReselected(tab: TabLayout.Tab?) {
                     isExpanding = !sheetBehavior.isExpanded()
                     this@ExtensionBottomSheet.sheetBehavior?.expand()
-                    val rv = activeRecyclerView(tab?.position)
-                    rv?.isNestedScrollingEnabled = true
+                    activeNestedScrollChild(tab?.position)?.isNestedScrollingEnabled = true
                     sheetBehavior?.isDraggable = true
                     if (!isExpanding) {
-                        rv?.smoothScrollToTop()
+                        activeRecyclerView(tab?.position)?.smoothScrollToTop()
                     }
                 }
             },
@@ -207,10 +206,22 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
     fun updatedNestedRecyclers() {
         val current = binding.pager.currentItem
         extensionFrameLayout?.binding?.recycler?.isNestedScrollingEnabled = current == 0
+        lnComposeView?.isNestedScrollingEnabled = current == 1
         migrationFrameLayout?.binding?.recycler?.isNestedScrollingEnabled = current == 2
     }
 
-    /** Returns the RV for the currently-active outer tab, or null for the LN tab (no RV). */
+    /** Returns the view whose nested-scroll state should be toggled with the active tab. RVs
+     *  default to nested-scroll-enabled; the LN ComposeView defaults to disabled so we
+     *  explicitly drive both. */
+    private fun activeNestedScrollChild(position: Int?): View? = when (position) {
+        0 -> extensionFrameLayout?.binding?.recycler
+        1 -> lnComposeView
+        2 -> migrationFrameLayout?.binding?.recycler
+        else -> null
+    }
+
+    /** Returns the RV for the active tab, or null on the LN tab. Used for RV-specific calls
+     *  (smoothScrollToTop) that have no LazyColumn equivalent surfaced to the View layer. */
     private fun activeRecyclerView(position: Int?): RecyclerView? = when (position) {
         0 -> extensionFrameLayout?.binding?.recycler
         2 -> migrationFrameLayout?.binding?.recycler
@@ -218,6 +229,10 @@ class ExtensionBottomSheet @JvmOverloads constructor(context: Context, attrs: At
     }
 
     private fun mountLnContent(composeView: ComposeView) {
+        // ComposeView is a NestedScrollingChild but defaults to disabled. Without this the
+        // LazyColumn inside doesn't dispatch its scroll deltas to the parent CoordinatorLayout,
+        // so dragging the bottom sheet from a scrolled-mid-LN-list state doesn't grab.
+        composeView.isNestedScrollingEnabled = true
         composeView.setViewCompositionStrategy(
             ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed,
         )

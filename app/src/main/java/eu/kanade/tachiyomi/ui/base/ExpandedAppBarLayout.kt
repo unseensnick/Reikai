@@ -274,8 +274,12 @@ class ExpandedAppBarLayout@JvmOverloads constructor(context: Context, attrs: Att
      * @param recyclerOrNested used to determine how far it has scrolled down, if it has not scrolled
      * past the app bar's height, match the Y to the recyclerView's offset
      * @param cancelAnim if true, cancel the current snap animation
+     * @param inDragState when true, treat the scroll state as DRAGGING regardless of [scrollView]'s
+     * reported state. Needed for bridges (e.g. the LN Compose tab) where [scrollView] is a thin
+     * [ScrollingView] adapter with no real scroll-state, otherwise the toolbar mode would swap
+     * every frame as `mainToolbar.alpha` straddles the threshold, fighting the LN tint animator.
      */
-    fun updateAppBarAfterY(scrollView: ScrollingView?, cancelAnim: Boolean = true) {
+    fun updateAppBarAfterY(scrollView: ScrollingView?, cancelAnim: Boolean = true, inDragState: Boolean = false) {
         if (cancelAnim) {
             yAnimator?.cancel()
         }
@@ -365,9 +369,10 @@ class ExpandedAppBarLayout@JvmOverloads constructor(context: Context, attrs: Att
         val mainActivity = mainActivity ?: return
         val useSearchToolbar = mainToolbar.alpha <= 0.025f
         val idle = RecyclerView.SCROLL_STATE_IDLE
-        val state = when (scrollView) {
-            is RecyclerView -> scrollView.scrollState
-            is StatefulNestedScrollView -> if (scrollView.hasStopped) idle else RecyclerView.SCROLL_STATE_DRAGGING
+        val state = when {
+            inDragState -> RecyclerView.SCROLL_STATE_DRAGGING
+            scrollView is RecyclerView -> scrollView.scrollState
+            scrollView is StatefulNestedScrollView -> if (scrollView.hasStopped) idle else RecyclerView.SCROLL_STATE_DRAGGING
             else -> idle
         }
         if (if (useSearchToolbar) {

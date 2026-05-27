@@ -46,7 +46,7 @@ class LnPluginInstaller(
     ): LnPluginSource {
         val canonical = canonicalizePluginUrl(pluginJsUrl)
         val src = loader.fetchSource(canonical, forceRefresh = true)
-        val info = host.loadPlugin(scopeIdFromUrl(canonical), src, metadata?.iconUrl)
+        val info = host.loadPlugin(scopeIdFromUrl(canonical), src, metadata?.iconUrl, metadata?.lang)
         val source = LnPluginSource(host, info)
         manager.register(source)
         prefs.installedPluginUrls().set(prefs.installedPluginUrls().get() + canonical)
@@ -69,11 +69,16 @@ class LnPluginInstaller(
      */
     suspend fun loadInstalled(host: LnPluginHost): List<LnPluginSource> {
         val urls = prefs.installedPluginUrls().get()
-        val metadata = backfillIconUrls(urls)
+        val metadata = backfillMetadata(urls)
         return urls.mapNotNull { url ->
             try {
                 val src = loader.fetchSource(url, forceRefresh = false)
-                val info = host.loadPlugin(scopeIdFromUrl(url), src, metadata[url]?.iconUrl)
+                val info = host.loadPlugin(
+                    scopeIdFromUrl(url),
+                    src,
+                    metadata[url]?.iconUrl,
+                    metadata[url]?.lang,
+                )
                 val source = LnPluginSource(host, info)
                 manager.register(source)
                 source
@@ -86,13 +91,16 @@ class LnPluginInstaller(
 
     /**
      * Returns a metadata map covering [urls], populating any URL whose stored metadata lacks an
-     * iconUrl by scanning every added repo's registry once. Writes resolved records back to
-     * persistence so subsequent loads skip the network. Returns the current map unchanged when
-     * nothing needs backfilling.
+     * iconUrl or a lang by scanning every added repo's registry once. Writes resolved records
+     * back to persistence so subsequent loads skip the network. Returns the current map
+     * unchanged when nothing needs backfilling.
      */
-    private suspend fun backfillIconUrls(urls: Set<String>): Map<String, LnInstalledPluginMetadata> {
+    private suspend fun backfillMetadata(urls: Set<String>): Map<String, LnInstalledPluginMetadata> {
         val current = prefs.installedPluginMetadata().get()
-        val needs = urls.filter { current[it]?.iconUrl == null }
+        val needs = urls.filter {
+            val record = current[it]
+            record?.iconUrl == null || record.lang == null
+        }
         if (needs.isEmpty()) return current
         val repos = prefs.addedRepoUrls().get()
         if (repos.isEmpty()) return current
@@ -115,6 +123,7 @@ class LnPluginInstaller(
                 pluginId = match.id,
                 iconUrl = match.iconUrl,
                 version = match.version,
+                lang = match.lang,
             )
         }
         if (updated != current) {
