@@ -330,6 +330,13 @@ class BrowseController :
                 binding.sourceRecycler.scrollToPosition(0)
             }
         }
+        // Install the source-type tab row here rather than waiting for onChangeStarted's
+        // isEnter branch. On a cold-start PUSH_ENTER via setRoot the onChangeStarted gate
+        // (`isControllerVisible`) doesn't fire reliably, leaving mainTabs empty + the
+        // tabsFrameLayout gone. That also makes ExpandedAppBarLayout's realHeight overshoot
+        // by 48dp (TabbedInterface flips useTabsInPreLayout on while the row isn't actually
+        // rendered), letting the bar translate behind the status bar on scroll.
+        setupSourceTypeTabs()
     }
 
     /**
@@ -824,15 +831,23 @@ class BrowseController :
             }
             // Hide the source-type tab row when leaving Browse (mirrors RecentsController). The
             // tabs live in the activity's mainTabs; not hiding them would leak into whichever
-            // controller is pushed on top.
-            (activity as? MainActivity)?.showTabBar(
-                show = false,
-                animate = router.backstack.lastOrNull()?.controller !is SmallToolbarInterface,
-            )
+            // controller is pushed on top. Skip when the incoming controller is also
+            // TabbedInterface (it will install its own tabs on entry); otherwise our hide
+            // animation cancels theirs and clears mainTabs after they set it up.
+            val nextController = router.backstack.lastOrNull()?.controller
+            if (nextController !is TabbedInterface) {
+                (activity as? MainActivity)?.showTabBar(
+                    show = false,
+                    animate = nextController !is SmallToolbarInterface,
+                )
+            }
         } else {
             binding.bottomSheet.root.presenter.refreshMigrations()
             updateTitleAndMenu()
-            if (isControllerVisible) {
+            // PUSH_ENTER is handled in onViewCreated (which fires on a fresh controller
+            // before this callback). Re-install tabs only on POP_ENTER from a sub-controller,
+            // where showTabBar(false) on PUSH_EXIT already cleared mainTabs.
+            if (!type.isPush && isControllerVisible) {
                 setupSourceTypeTabs()
             }
         }

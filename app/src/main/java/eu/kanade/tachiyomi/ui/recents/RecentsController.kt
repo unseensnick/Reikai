@@ -947,7 +947,9 @@ class RecentsController(bundle: Bundle? = null) :
             }
         } else {
             val lastController = router.backstack.lastOrNull()?.controller
-            if (lastController !is DialogController) {
+            // Skip when the incoming controller is also TabbedInterface: it will install its
+            // own tabs on entry; our hide would race that and clear mainTabs afterward.
+            if (lastController !is DialogController && lastController !is TabbedInterface) {
                 (activity as? MainActivity)?.showTabBar(show = false, animate = lastController !is SmallToolbarInterface)
             }
             snack?.dismiss()
