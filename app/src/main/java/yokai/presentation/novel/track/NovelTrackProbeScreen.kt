@@ -27,7 +27,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -51,6 +51,7 @@ import uy.kohesive.injekt.api.get
 import yokai.domain.novel.NovelRepository
 import yokai.domain.novel.NovelTrackRepository
 import yokai.domain.novel.models.NovelTrack
+import yokai.presentation.component.ReikaiTopBar
 import yokai.presentation.manga.components.MangaCover
 import yokai.presentation.manga.components.MangaCoverRatio
 
@@ -108,13 +109,14 @@ fun NovelTrackProbeScreen() {
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            ReikaiTopBar(
                 title = { Text("LN track probe", style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = { backPress?.invoke() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(),
             )
         },
     ) { padding ->

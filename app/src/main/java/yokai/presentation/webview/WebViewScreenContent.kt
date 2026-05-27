@@ -24,7 +24,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -61,6 +61,7 @@ import yokai.i18n.MR
 import yokai.presentation.component.AppBar
 import yokai.presentation.component.AppBarActions
 import yokai.presentation.component.AppBarTitle
+import yokai.presentation.component.ReikaiTopBar
 import yokai.presentation.component.UpIcon
 import yokai.presentation.component.WarningBanner
 
@@ -236,7 +237,7 @@ fun WebViewScreenContent(
         topBar = {
             Box {
                 Column {
-                    TopAppBar(
+                    ReikaiTopBar(
                         title = {
                             AppBarTitle(
                                 title = currentWindow.state.pageTitle ?: initialTitle,
@@ -248,6 +249,7 @@ fun WebViewScreenContent(
                                 UpIcon(navigationIcon = Icons.Outlined.Close)
                             }
                         },
+                        colors = TopAppBarDefaults.topAppBarColors(),
                         actions = {
                             AppBarActions(
                                 persistentListOf(

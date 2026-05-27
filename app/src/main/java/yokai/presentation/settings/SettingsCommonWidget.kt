@@ -15,14 +15,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEachIndexed
-import eu.kanade.tachiyomi.core.storage.preference.collectAsState
-import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import eu.kanade.tachiyomi.util.compose.LocalDialogHostState
 import eu.kanade.tachiyomi.util.compose.currentOrThrow
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
-import uy.kohesive.injekt.injectLazy
 import yokai.presentation.AppBarType
 import yokai.presentation.YokaiScaffold
 import yokai.presentation.component.Gap
@@ -31,7 +28,6 @@ import yokai.presentation.component.preference.PreferenceItem
 import yokai.presentation.component.preference.widget.PreferenceGroupHeader
 import yokai.presentation.core.JayAppBarScrollBehavior
 import yokai.presentation.core.drawVerticalScrollbar
-import yokai.presentation.core.enterAlwaysCollapsedAppBarScrollBehavior
 
 @Composable
 fun SettingsScaffold(
@@ -72,18 +68,13 @@ fun SettingsScaffold(
     textFieldState: TextFieldState? = null,
     searchResult: @Composable (ColumnScope.() -> Unit)? = null,
 ) {
-    val preferences: PreferencesHelper by injectLazy()
-    val useLargeAppBar by preferences.useLargeToolbar().collectAsState()
     val listState = rememberLazyListState()
 
     SettingsScaffold(
         title = title,
-        appBarType = appBarType ?: if (useLargeAppBar) AppBarType.LARGE else AppBarType.SMALL,
+        appBarType = appBarType ?: AppBarType.SMALL,
         appBarActions = appBarActions,
-        appBarScrollBehavior = if (useLargeAppBar) enterAlwaysCollapsedAppBarScrollBehavior(
-            canScroll = { listState.canScrollForward || listState.canScrollBackward },
-            isAtTop = { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0 },
-        ) else null,
+        appBarScrollBehavior = null,
         textFieldState = textFieldState,
         searchResult = searchResult,
     ) { innerPadding ->

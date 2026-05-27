@@ -21,7 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -45,6 +45,7 @@ import yokai.novel.host.LnPluginHost
 import yokai.novel.host.LnPluginLoader
 import yokai.novel.install.LnPluginInstaller
 import yokai.novel.source.NovelSourceManager
+import yokai.presentation.component.ReikaiTopBar
 
 private val PRETTY_JSON = Json {
     prettyPrint = true
@@ -122,13 +123,14 @@ fun LnPluginHostProbeScreen() {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("LN plugin host probe") },
+            ReikaiTopBar(
+                title = "LN plugin host probe",
                 navigationIcon = {
                     IconButton(onClick = { backPress?.invoke() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(),
             )
         },
     ) { padding ->

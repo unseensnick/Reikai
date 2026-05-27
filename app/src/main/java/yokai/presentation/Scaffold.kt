@@ -26,7 +26,6 @@ import dev.icerock.moko.resources.compose.stringResource
 import yokai.i18n.MR
 import yokai.presentation.component.ToolTipButton
 import yokai.presentation.core.JayAppBarScrollBehavior
-import yokai.presentation.core.JayExpandedTopAppBar
 import yokai.presentation.core.JayTopAppBar
 import yokai.presentation.core.enterAlwaysAppBarScrollBehavior
 
@@ -40,7 +39,7 @@ fun YokaiScaffold(
     navigationIcon: ImageVector = Icons.AutoMirrored.Filled.ArrowBack,
     navigationIconLabel: String = stringResource(MR.strings.back),
     actions: @Composable RowScope.() -> Unit = {},
-    appBarType: AppBarType = AppBarType.LARGE,
+    appBarType: AppBarType = AppBarType.SMALL,
     snackbarHost: @Composable () -> Unit = {},
     textFieldState: TextFieldState? = null,
     searchResult: @Composable (ColumnScope.() -> Unit)? = null,
@@ -69,28 +68,6 @@ fun YokaiScaffold(
                     title = {
                         Text(text = title)
                     },
-                    // modifier = Modifier.statusBarsPadding(),
-                    colors = topAppBarColors(
-                        containerColor = color,
-                        scrolledContainerColor = scrolledColor,
-                    ),
-                    navigationIcon = {
-                        ToolTipButton(
-                            toolTipLabel = navigationIconLabel,
-                            icon = navigationIcon,
-                            buttonClicked = onNavigationIconClicked,
-                        )
-                    },
-                    scrollBehavior = scrollBehaviorOrDefault,
-                    actions = actions,
-                    textFieldState = textFieldState,
-                    searchResult = searchResult,
-                )
-                AppBarType.LARGE -> JayExpandedTopAppBar(
-                    title = {
-                        Text(text = title)
-                    },
-                    // modifier = Modifier.statusBarsPadding(),
                     colors = topAppBarColors(
                         containerColor = color,
                         scrolledContainerColor = scrolledColor,
@@ -127,5 +104,4 @@ enum class AppBarType {
     // FIXME: Delete "NONE" later
     NONE,
     SMALL,
-    LARGE,
 }

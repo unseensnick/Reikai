@@ -40,12 +40,9 @@ import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -61,12 +58,9 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -117,6 +111,7 @@ import yokai.presentation.library.components.LazyLibraryGrid
 import yokai.presentation.library.components.LazyLibraryList
 import yokai.presentation.library.components.LazyLibraryStaggeredGrid
 import yokai.presentation.component.EmptyScreen
+import yokai.presentation.component.ReikaiTopBar
 import yokai.presentation.library.components.LibraryCategoryHeader
 import yokai.presentation.library.components.LibraryOverflowMenu
 import yokai.presentation.library.components.SelectionAppBar
@@ -165,8 +160,6 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
     unreadBadgeType: Int,
     /** When true, suppress the continue-reading button overlay on covers with unread chapters. */
     hideStartReadingButton: Boolean,
-    /** Mirrors `preferences.useLargeToolbar()` — large title that collapses on scroll. */
-    useLargeToolbar: Boolean,
     isAnyFilterActive: Boolean,
     /**
      * `preferences.showAllCategories()`. Gates per-header refresh-icon visibility
@@ -223,9 +216,9 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
      */
     onOpenGroupByPicker: () -> Unit,
     /**
-     * Rendered immediately under the normal `TopAppBar` / `LargeTopAppBar` (same Surface chrome,
-     * no spacing gap), making it part of the top app bar visually rather than a floating row
-     * above it. Hidden when the bar swaps to [SelectionAppBar] or [LibrarySearchBar] — those
+     * Rendered immediately under the [ReikaiTopBar] (same Surface chrome, no spacing gap),
+     * making it part of the top app bar visually rather than a floating row above it. Hidden
+     * when the bar swaps to [SelectionAppBar] or [LibrarySearchBar] — those
      * preempt the entire top chrome (Material convention; matches the legacy ActionMode that
      * also hides tabs during selection).
      *
@@ -605,109 +598,15 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
         hopperVerticalDragPx += delta
     }
 
-    // Topbar scroll behavior matches the legacy CoordinatorLayout setup:
-    //   - useLargeToolbar = true → two-stage behavior matching legacy
-    //     scroll|enterAlways|enterAlwaysCollapsed flags:
-    //       Stage 1: LargeTopAppBar collapses from large to small via
-    //                exitUntilCollapsedScrollBehavior.
-    //       Stage 2: Once fully collapsed, the bar slides further up by its own collapsed
-    //                height (hideOffsetPx), driven by the custom NestedScrollConnection
-    //                below. On reverse scroll, the small bar reappears first (enterAlways),
-    //                then the large title expands back at the top.
-    //   - useLargeToolbar = false → small TopAppBar fully hides on scroll
-    //     (enterAlwaysScrollBehavior), matching the legacy plain-toolbar scroll|enterAlways
-    //     flags.
-    //   - searchActive overrides both: pin the bar so the keyboard target stays put.
-    val collapseBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    // Topbar scroll behavior: small bar fully hides on scroll-down and re-enters on scroll-up
+    // (enterAlwaysScrollBehavior), matching the legacy plain-toolbar `scroll|enterAlways` flags.
+    // searchActive pins the bar so the keyboard target stays put.
     val enterAlwaysBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    // Measured at the topBar wrapper below via onSizeChanged. The hide stage slides the bar
-    // up by this amount; using the measured value (instead of the 64.dp collapsed-content
-    // height) is critical because TopAppBarDefaults.windowInsets adds the system status-bar
-    // inset above the bar content, and that extra strip must scroll off too. Tracks the
-    // CURRENT collapsed bar height: while the bar is mid-collapse this would over-hide, but
-    // hideOffsetPx only goes negative once collapseBehavior has saturated, by which point the
-    // bar is at its small height.
-    var collapsedBarHeightPx by remember { mutableFloatStateOf(0f) }
-    var hideOffsetPx by remember { mutableFloatStateOf(0f) }
-    val layoutDirection = LocalLayoutDirection.current
-
-    // Stage-2 connection: chains the collapse and hide phases.
-    //
-    // Scroll-up (dy < 0): the LargeTopAppBar's collapseBehavior consumes first via its
-    // onPreScroll (it only intercepts negative y). Once the bar is fully collapsed, that
-    // handler returns Zero; the leftover drives hideOffsetPx toward -collapsedBarHeightPx,
-    // sliding the small bar off-screen.
-    //
-    // Scroll-down (dy > 0): collapseBehavior's onPreScroll is a no-op on positive y; expansion
-    // happens in its onPostScroll. So we handle un-hide (hideOffsetPx → 0) in pre-scroll
-    // ourselves, then delegate post-scroll wholesale. Once un-hidden, the collapseBehavior's
-    // own onPostScroll expands the large title when the lazy grid hits the top and there is
-    // leftover positive available.y to consume.
-    val twoStageConnection = remember(collapseBehavior) {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                val dy = available.y
-                if (dy == 0f) return Offset.Zero
-                return if (dy < 0f) {
-                    val consumed = collapseBehavior.nestedScrollConnection.onPreScroll(available, source)
-                    val remaining = dy - consumed.y
-                    if (remaining == 0f) {
-                        consumed
-                    } else {
-                        val before = hideOffsetPx
-                        hideOffsetPx = (before + remaining).coerceIn(-collapsedBarHeightPx, 0f)
-                        Offset(0f, consumed.y + (hideOffsetPx - before))
-                    }
-                } else {
-                    // dy > 0: un-hide first. Expansion of the large title happens in post-
-                    // scroll, not here, since collapseBehavior.onPreScroll returns Zero for
-                    // positive y.
-                    if (hideOffsetPx < 0f) {
-                        val before = hideOffsetPx
-                        hideOffsetPx = (before + dy).coerceAtMost(0f)
-                        Offset(0f, hideOffsetPx - before)
-                    } else {
-                        Offset.Zero
-                    }
-                }
-            }
-
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource,
-            ): Offset {
-                // Delegate post-scroll to collapseBehavior: scroll-up keeps heightOffset in
-                // sync via the consumed delta, scroll-down expands the large title when the
-                // lazy grid overscrolls at the top.
-                return collapseBehavior.nestedScrollConnection.onPostScroll(consumed, available, source)
-            }
-
-            override suspend fun onPreFling(available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
-                return collapseBehavior.nestedScrollConnection.onPreFling(available)
-            }
-
-            override suspend fun onPostFling(
-                consumed: androidx.compose.ui.unit.Velocity,
-                available: androidx.compose.ui.unit.Velocity,
-            ): androidx.compose.ui.unit.Velocity {
-                return collapseBehavior.nestedScrollConnection.onPostFling(consumed, available)
-            }
-        }
-    }
-
-    val scrollBehavior: TopAppBarScrollBehavior? = when {
-        searchActive -> null
-        useLargeToolbar -> collapseBehavior
-        else -> enterAlwaysBehavior
-    }
-    val activeNestedScroll: NestedScrollConnection? = when {
-        searchActive -> null
-        useLargeToolbar -> twoStageConnection
-        else -> enterAlwaysBehavior.nestedScrollConnection
-    }
-    // Single source of truth for top bar colors so all three variants (LargeTopAppBar +
-    // small TopAppBar + search bar) share the same surface, and that surface matches the
+    val scrollBehavior: TopAppBarScrollBehavior? = if (searchActive) null else enterAlwaysBehavior
+    val activeNestedScroll: NestedScrollConnection? =
+        if (searchActive) null else enterAlwaysBehavior.nestedScrollConnection
+    // Single source of truth for top bar colors so the [ReikaiTopBar], [SelectionAppBar], and
+    // [LibrarySearchBar] all share the same surface, and that surface matches the
     // legacy library content area exactly. library_controller.xml sets
     // android:background="?background", which is a custom Reikai theme attr (R.attr.background
     // in eu.kanade.tachiyomi). createMdc3Theme does not surface that attr as any M3
@@ -874,96 +773,24 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                     },
                     colors = libraryTopBarColors,
                 )
-            } else if (useLargeToolbar) {
-                // Wrap [LargeTopAppBar] + [topBarBelow] (the Phase 8 tab row) in a single
-                // offset Box so the whole stack participates in the two-stage collapse + slide.
-                // `onSizeChanged` now measures bar + tab-row height combined, so hideOffsetPx's
-                // lower bound covers BOTH rows — the user scrolls and both rows slide off
-                // together (Material 3 attached-tabs pattern). The Scaffold's contentPadding
-                // includes the combined height; the content compensates for the offset below
-                // via the same path as before.
-                //
-                // Measured continuously so hideOffsetPx tracks the stack's CURRENT visible
-                // height (collapsed-LargeTopAppBar + tab-row + status-bar inset). A hardcoded
-                // value would leave a strip visible on devices with non-trivial top insets.
-                Box(
-                    modifier = Modifier
-                        .offset { IntOffset(0, hideOffsetPx.roundToInt()) }
-                        .onSizeChanged { size ->
-                            // Only record the FINAL collapsed height: while the LargeTopAppBar
-                            // is mid-collapse (heightOffset > heightOffsetLimit) the measured
-                            // size is larger than the collapsed state. We're only interested
-                            // in the collapsed-state height so we keep the smallest size we
-                            // have seen so far.
-                            val newHeight = size.height.toFloat()
-                            if (collapsedBarHeightPx == 0f || newHeight < collapsedBarHeightPx) {
-                                collapsedBarHeightPx = newHeight
-                            }
-                        },
-                ) {
-                    Column {
-                        LargeTopAppBar(
-                            title = { Text(stringResource(MR.strings.library)) },
-                            scrollBehavior = scrollBehavior,
-                            colors = libraryTopBarColors,
-                            actions = {
-                                LibraryToolbarActions(
-                                    isAnyFilterActive = isAnyFilterActive,
-                                    onSearch = { onSearchActiveChange(true) },
-                                    onOpenFilter = onOpenFilter,
-                                    onOpenOverflow = onOpenOverflow,
-                                )
-                            },
-                        )
-                        topBarBelow()
-                    }
-                }
             } else {
-                // Small TopAppBar uses [enterAlwaysBehavior] which handles its own slide via
-                // scrollBehavior.state.heightOffset. Apply the same offset to the Column so the
-                // tab row slides with it; the bar's draw and the row's translation share the
-                // single source of truth in [TopAppBarState].
-                Column(
-                    modifier = Modifier.offset {
-                        IntOffset(0, scrollBehavior?.state?.heightOffset?.roundToInt() ?: 0)
+                ReikaiTopBar(
+                    title = stringResource(MR.strings.library),
+                    actions = {
+                        LibraryToolbarActions(
+                            isAnyFilterActive = isAnyFilterActive,
+                            onSearch = { onSearchActiveChange(true) },
+                            onOpenFilter = onOpenFilter,
+                            onOpenOverflow = onOpenOverflow,
+                        )
                     },
-                ) {
-                    TopAppBar(
-                        title = { Text(stringResource(MR.strings.library)) },
-                        scrollBehavior = scrollBehavior,
-                        colors = libraryTopBarColors,
-                        actions = {
-                            LibraryToolbarActions(
-                                isAnyFilterActive = isAnyFilterActive,
-                                onSearch = { onSearchActiveChange(true) },
-                                onOpenFilter = onOpenFilter,
-                                onOpenOverflow = onOpenOverflow,
-                            )
-                        },
-                    )
-                    topBarBelow()
-                }
+                    scrollBehavior = scrollBehavior,
+                    colors = libraryTopBarColors,
+                    below = topBarBelow,
+                )
             }
         },
     ) { contentPadding ->
-        // In two-stage mode (useLargeToolbar), compensate the content's top padding by
-        // hideOffsetPx so the content slides up to fill the gap left by the sliding bar. The
-        // Scaffold's contentPadding does not move with the offset Box wrapper above, so
-        // without this adjustment a gap would appear above the grid as the bar hides.
-        val adjustedContentPadding = if (useLargeToolbar && hideOffsetPx < 0f) {
-            val topPx = with(density) { contentPadding.calculateTopPadding().toPx() }
-            val adjustedTop = with(density) {
-                (topPx + hideOffsetPx).coerceAtLeast(0f).toDp()
-            }
-            PaddingValues(
-                start = contentPadding.calculateStartPadding(layoutDirection),
-                top = adjustedTop,
-                end = contentPadding.calculateEndPadding(layoutDirection),
-                bottom = contentPadding.calculateBottomPadding(),
-            )
-        } else {
-            contentPadding
-        }
         // Pull-to-refresh wraps all three lazy branches. Gate `enabled` on:
         //  - !isRunning: legacy `setSwipeRefresh` early-returns when LibraryUpdateJob.isRunning,
         //  - !pickerOpen: legacy disables swipeRefresh while the category picker is up
@@ -986,7 +813,7 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
             onRefresh = { if (ptrEnabled) onPullToRefresh() },
             state = pullToRefreshState,
             modifier = Modifier
-                .padding(adjustedContentPadding)
+                .padding(contentPadding)
                 // F10: tap anywhere in the content area dismisses the undo snackbar after the
                 // 1-second grace (matches MainActivity.dispatchTouchEvent at MainActivity.kt:1390
                 // -1418). Initial-pass + requireUnconsumed=false observes without consuming, so
@@ -1572,8 +1399,8 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
 }
 
 /**
- * Toolbar action cluster shared by both the small [TopAppBar] and [LargeTopAppBar] branches.
- * Search, filter (with active-state dot encoded in the icon's contentDescription), overflow.
+ * Library toolbar action cluster: search, filter (with active-state dot encoded in the icon's
+ * contentDescription), overflow.
  */
 @Composable
 private fun LibraryToolbarActions(

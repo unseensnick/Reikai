@@ -40,7 +40,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -85,6 +85,7 @@ import yokai.novel.install.LnPluginInstaller
 import yokai.novel.source.NovelSource
 import yokai.novel.source.NovelSourceManager
 import yokai.novel.text.htmlToParagraphs
+import yokai.presentation.component.ReikaiTopBar
 import yokai.presentation.manga.components.MangaCover
 import yokai.presentation.manga.components.MangaCoverRatio
 
@@ -243,7 +244,7 @@ fun NovelBrowseScreen(initialSourceId: String? = null) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            ReikaiTopBar(
                 title = { Text(title, style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = { goBack() }) {
@@ -257,6 +258,7 @@ fun NovelBrowseScreen(initialSourceId: String? = null) {
                         }
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(),
             )
         },
     ) { padding ->
