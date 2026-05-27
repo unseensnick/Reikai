@@ -26,6 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.core.storage.preference.collectAsState
@@ -41,6 +42,7 @@ import yokai.domain.category.interactor.GetCategories
 import yokai.domain.novel.NovelPreferences
 import yokai.domain.novel.interactor.GetNovelCategories
 import yokai.i18n.MR
+import yokai.presentation.category.novel.NovelCategoriesScreen
 import yokai.presentation.component.preference.widget.ListPreferenceWidget
 import yokai.presentation.component.preference.widget.SwitchPreferenceWidget
 import yokai.presentation.library.components.GroupLibraryByPicker
@@ -66,6 +68,10 @@ fun CategoriesTab(
     val getCategories: GetCategories = remember { Injekt.get() }
     val getNovelCategories: GetNovelCategories = remember { Injekt.get() }
     val router = LocalRouter.currentOrThrow
+    // LocalNavigator is provided by the Voyager root that hosts LibraryScreen; pushing onto it
+    // navigates to NovelCategoriesScreen for the novel-tab Edit/Add button. Manga side keeps
+    // the existing Conductor router push to CategoryController.
+    val navigator = LocalNavigator.currentOrThrow
     val scope = rememberCoroutineScope()
 
     // Category state (which IDs are collapsed, which dimension you're grouping by, etc.) is
@@ -273,7 +279,13 @@ fun CategoriesTab(
             }
             TextButton(
                 onClick = {
-                    router.pushController(CategoryController().withFadeTransaction())
+                    // Tab-aware navigation: Novels tab goes to the Compose NovelCategoriesScreen
+                    // via Voyager; Manga tab keeps the legacy Conductor CategoryController push.
+                    if (isNovelTab) {
+                        navigator.push(NovelCategoriesScreen())
+                    } else {
+                        router.pushController(CategoryController().withFadeTransaction())
+                    }
                     onDismissSheet()
                 },
                 modifier = Modifier.weight(1f),

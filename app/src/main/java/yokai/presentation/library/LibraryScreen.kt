@@ -611,15 +611,17 @@ class LibraryScreen : Screen {
                 // Decision #1: novels don't migrate. Gate above keeps the menu entry hidden.
             },
             onMoveToCategories = {
-                // No novel-side moveCategories bridge yet (manga side bridges to the legacy
-                // SetCategoriesSheet via List<Manga>.moveCategories). Show a snackbar so the
-                // menu entry stays reachable but doesn't lie about working. Phase 8b /
-                // follow-up wires the actual bridge.
+                // Mirror the manga path at :1401-onwards: open SetNovelCategoriesSheet via the
+                // List<Novel>.moveCategories extension. Use the merged-siblings variant so
+                // moving a leader carries its merge-group members with it (parity with
+                // selectedMangaListWithMergedSiblings on the manga side).
+                val novels = screenModel.selectedNovelListWithMergedSiblings()
+                if (novels.isEmpty()) return@LibraryContent
+                val activity = router.activity ?: return@LibraryContent
                 coroutineScope.launch {
-                    snackbarHostState.showSnackbar(
-                        message = "Move to category — coming for novels",
-                        duration = SnackbarDuration.Short,
-                    )
+                    novels.moveCategories(activity) {
+                        screenModel.clearSelection()
+                    }
                 }
             },
             categorySortOrder = effectiveCategorySortOrder,

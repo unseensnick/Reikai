@@ -18,7 +18,7 @@ package eu.kanade.tachiyomi.data.database.models
  * Any unrecognized pref value falls back to manual order, matching the legacy comparator's
  * `else ->` branch at `LibraryPresenter.kt:781-793`.
  */
-fun List<Category>.sortedByLibraryCategoryPref(pref: Int): List<Category> = when (pref) {
+fun <T : ILibraryCategory> List<T>.sortedByLibraryCategoryPref(pref: Int): List<T> = when (pref) {
     1 -> sortedBy { it.name.lowercase() }
     2 -> sortedByDescending { it.name.lowercase() }
     else -> sortedBy { it.order }
