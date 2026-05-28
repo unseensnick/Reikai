@@ -23,22 +23,17 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
  *     to collapse the bar by the dragged amount, all the way down to `heightOffsetLimit`
  *     (= fully hidden on phone, = compact on tablet via the bar's own limit). Bar follows
  *     the finger 1:1 like upstream's `bar.translationY = -offset` math.
- *   - **Scroll-up while bar is past compact** (heightOffset < `compactThreshold`):
- *     consumes scroll in `onPreScroll` to slide the bar back UP TO compact (not further).
- *     Any leftover scroll passes through to content.
- *   - **Scroll-up while bar is between compact and full**: does NOT consume in
- *     `onPreScroll`. Content gets the scroll first. If content reaches its top and still
- *     has unused scroll, `onPostScroll` consumes the leftover to expand the bar.
+ *   - **Scroll-up**: consumes scroll in `onPreScroll` 1:1 to restore the bar from
+ *     whatever offset it sits at back to fully expanded. Matches the bottom nav's restore
+ *     rate (ControllerExtensions.kt:548) which is also 1:1 every frame regardless of
+ *     content position, so the bar and the nav reappear in lockstep.
  *
- * Net effect: the bar can fully hide on continued scroll-down, but it never re-expands
- * past compact unless the user has scrolled their content back to the very top. Matches
- * upstream where the bar's `updateAppBarAfterY` follows `-offset` until the small toolbar
- * + tabs are exposed, then sticks there until the content's `computeVerticalScrollOffset`
- * comes back down.
+ * `onPostScroll` is kept as a safety net for fling-only deltas that bypass `onPreScroll`
+ * (the layered flings the lazy lists dispatch when content reaches the boundary).
  *
- * @param compactThresholdProvider returns the (negative) heightOffset value at which the
- *   bar is considered "at compact" — i.e., `-collapsibleHeightPx`. Read every scroll event
- *   so it stays in sync with the bar's measured collapsible block.
+ * @param compactThresholdProvider unused after the speed-match change but kept on the
+ *   constructor so existing call sites (LibraryContent / LibraryHostController) don't have
+ *   to churn. Will be deleted once nothing supplies it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 class CompactPivotScrollBehavior(
@@ -55,7 +50,6 @@ class CompactPivotScrollBehavior(
             if (dy == 0f) return Offset.Zero
             val currentOffset = state.heightOffset
             val limit = state.heightOffsetLimit
-            val threshold = compactThresholdProvider()
 
             return when {
                 dy < 0f -> {
@@ -65,20 +59,16 @@ class CompactPivotScrollBehavior(
                     if (consumed != 0f) state.heightOffset = newOffset
                     Offset(0f, consumed)
                 }
-                currentOffset < threshold -> {
-                    // Scroll-up while bar is past compact (hidden zone): consume to bring it
-                    // back to compact, but no further. Any leftover scroll-up passes through
-                    // to content.
-                    val newOffset = (currentOffset + dy).coerceAtMost(threshold)
+                else -> {
+                    // Scroll-up (anywhere from fully hidden to fully expanded): consume 1:1.
+                    // Matches the bottom nav's restore rate (ControllerExtensions.kt:548 +
+                    // LibraryContent.kt navHideConnection), which moves `translationY += dy`
+                    // every frame regardless of content position. Bar and nav now reappear at
+                    // the same pace whether the bar is hidden or just compact.
+                    val newOffset = (currentOffset + dy).coerceAtMost(0f)
                     val consumed = newOffset - currentOffset
                     if (consumed != 0f) state.heightOffset = newOffset
                     Offset(0f, consumed)
-                }
-                else -> {
-                    // Scroll-up while bar is in the compact-to-full range: don't consume here.
-                    // Content gets the scroll first; expansion happens in onPostScroll only
-                    // when content can't take more (i.e., it's reached its top).
-                    Offset.Zero
                 }
             }
         }

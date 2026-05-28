@@ -141,12 +141,23 @@ class ExpandedAppBarLayout@JvmOverloads constructor(context: Context, attrs: Att
      */
     var allowFullHideOnTablet: Boolean = false
 
+    /**
+     * Mirrors the tablet-side compact pin onto phone. When true, phone scroll behavior
+     * stops at the same `minTabletHeight` (mainToolbar + paddingTop + tabs) chunk that the
+     * tablet path uses instead of letting the bar fully slide off-screen. Used by the
+     * legacy `LibraryHostController` so the manga library bar matches the Compose bar's
+     * tablet collapse curve on both form factors — staying at compact rather than hiding.
+     */
+    var clampAtCompactOnPhone: Boolean = false
+
     /** Used to restrain how far up the app bar can go up. Tablets stop at the smaller toolbar */
     private val minTabletHeight: Int
         get() {
             if (allowFullHideOnTablet) return 0
             val tabHeight = if (tabsFrameLayout?.isVisible == true) 48.dpToPx else 0
-            return if (context.isTablet() || (compactSearchMode && toolbarMode == ToolbarState.EXPANDED)) {
+            return if (context.isTablet() || clampAtCompactOnPhone ||
+                (compactSearchMode && toolbarMode == ToolbarState.EXPANDED)
+            ) {
                 (mainToolbar?.height ?: 0) + paddingTop + tabHeight
             } else {
                 0
@@ -219,7 +230,7 @@ class ExpandedAppBarLayout@JvmOverloads constructor(context: Context, attrs: Att
         } else {
             MathUtils.clamp(
                 translationY,
-                -realHeight + (if (context.isTablet()) minTabletHeight else 0),
+                -realHeight + (if (context.isTablet() || clampAtCompactOnPhone) minTabletHeight else 0),
                 if (compactSearchMode && toolbarMode == ToolbarState.EXPANDED) -realHeight + top + minTabletHeight else 0f,
             )
         }

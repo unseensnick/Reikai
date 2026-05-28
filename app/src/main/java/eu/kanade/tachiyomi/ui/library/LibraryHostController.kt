@@ -83,11 +83,12 @@ class LibraryHostController(bundle: Bundle? = null) :
     override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
         super.onChangeStarted(handler, type)
         if (type.isEnter) {
-            // Let the library appbar slide fully off-screen on tablets like it does on phones.
-            // The Yokai default keeps `minTabletHeight` (toolbar + paddingTop + tabs) pinned at
-            // the top, which feels heavier with the Manga / Light novels tab strip we install
-            // here. Scoped to the host so other tablet surfaces keep the default behavior.
-            activityBinding?.appBar?.allowFullHideOnTablet = true
+            // Library bar collapses to compact and stops there on both form factors, mirroring
+            // the Compose `ReikaiLargeTopBar`'s tablet collapse curve. Phone gets the
+            // `minTabletHeight` clamp via `clampAtCompactOnPhone`; tablet keeps its default
+            // clamp (the previous `allowFullHideOnTablet = true` override is dropped so the
+            // tablet path no longer slides the whole bar off).
+            activityBinding?.appBar?.clampAtCompactOnPhone = true
             if (type == ControllerChangeType.POP_ENTER) {
                 // Returning from a deeper push (e.g. SettingsController dismissed). The previous
                 // controller's PUSH_EXIT cleared mainTabs, so reinstall ours.
@@ -99,9 +100,9 @@ class LibraryHostController(bundle: Bundle? = null) :
                 (currentChild() as? BaseComposeController)?.setAppBarVisibility()
             }
         } else {
-            // Hand the tablet appbar back to its default clamp so the next controller doesn't
-            // inherit our phone-style full-hide override.
-            activityBinding?.appBar?.allowFullHideOnTablet = false
+            // Clear our phone compact clamp so the next controller falls back to the default
+            // (phone fully hides, tablet stops at compact).
+            activityBinding?.appBar?.clampAtCompactOnPhone = false
             // Leaving. Hide the tab bar unless the next controller is also tabbed and will
             // install its own (matches the Browse / Recents skip-on-TabbedInterface pattern so
             // setRoot from one TabbedInterface to another doesn't strand mainTabs empty).
