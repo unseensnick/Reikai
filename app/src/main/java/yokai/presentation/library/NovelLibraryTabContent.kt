@@ -335,6 +335,7 @@ internal fun NovelLibraryTabContent(
     // this for a Navigator.push.
     val onNovelClick: (yokai.domain.novel.models.Novel) -> Unit = { novel ->
         dismissPendingSnackbar()
+        // transitional: legacy NovelDetailsController until NovelDetailsScreen ports
         router.pushController(
             eu.kanade.tachiyomi.ui.novel.NovelDetailsController(
                 sourceId = novel.source,

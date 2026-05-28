@@ -7,7 +7,6 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.webkit.WebStorage
 import android.webkit.WebView
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.AlertDialog
@@ -27,8 +26,8 @@ import dev.icerock.moko.resources.StringResource
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.core.storage.preference.collectAsState
+import eu.kanade.tachiyomi.data.download.DownloadCleanupJob
 import eu.kanade.tachiyomi.data.download.DownloadManager
-import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.extension.installer.ShizukuInstaller
@@ -46,7 +45,6 @@ import eu.kanade.tachiyomi.network.PREF_DOH_NJALLA
 import eu.kanade.tachiyomi.network.PREF_DOH_QUAD101
 import eu.kanade.tachiyomi.network.PREF_DOH_QUAD9
 import eu.kanade.tachiyomi.network.PREF_DOH_SHECAN
-import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.setting.controllers.database.ClearDatabaseController
 import eu.kanade.tachiyomi.ui.setting.controllers.debug.DebugController
@@ -58,7 +56,6 @@ import eu.kanade.tachiyomi.util.system.GLUtil
 import eu.kanade.tachiyomi.util.system.ImageUtil
 import eu.kanade.tachiyomi.util.system.isPackageInstalled
 import eu.kanade.tachiyomi.util.system.launchIO
-import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.system.localeContext
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
@@ -69,11 +66,6 @@ import java.io.File
 import java.net.URI
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.collections.immutable.toPersistentList
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import okhttp3.Headers
 import rikka.sui.Sui
@@ -83,7 +75,6 @@ import uy.kohesive.injekt.injectLazy
 import kotlin.coroutines.resume
 import yokai.domain.DialogHostState
 import yokai.domain.base.BasePreferences
-import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.extension.interactor.TrustExtension
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.simple
@@ -242,8 +233,6 @@ object SettingsAdvancedScreen : ComposableSettings() {
         val alertDialog = LocalDialogHostState.currentOrThrow
 
         val downloadManager: DownloadManager by injectLazy()
-        val getChapter: GetChapter by injectLazy()
-        val getManga: GetManga by injectLazy()
 
         val children = buildList {
             add(Preference.PreferenceItem.TextPreference(
@@ -257,14 +246,8 @@ object SettingsAdvancedScreen : ComposableSettings() {
                 onClick = {
                     scope.launch {
                         val opts = alertDialog.awaitCleanupDownloadedChapters() ?: return@launch
-                        cleanupDownloads(
-                            context = context,
-                            downloadManager = downloadManager,
-                            getChapter = getChapter,
-                            getManga = getManga,
-                            removeRead = opts.deleteRead,
-                            removeNonFavorite = opts.deleteNonFavorite,
-                        )
+                        context.toast(MR.strings.starting_cleanup)
+                        DownloadCleanupJob.startNow(context, opts.deleteRead, opts.deleteNonFavorite)
                     }
                 },
             ))
@@ -299,54 +282,6 @@ object SettingsAdvancedScreen : ComposableSettings() {
         } catch (e: Throwable) {
             Logger.e(e) { "Unable to delete WebView data" }
             toast(MR.strings.cache_delete_error)
-        }
-    }
-
-    @Volatile private var cleanupJob: Job? = null
-
-    @OptIn(DelicateCoroutinesApi::class)
-    private fun cleanupDownloads(
-        context: Context,
-        downloadManager: DownloadManager,
-        getChapter: GetChapter,
-        getManga: GetManga,
-        removeRead: Boolean,
-        removeNonFavorite: Boolean,
-    ) {
-        if (cleanupJob?.isActive == true) return
-        context.toast(MR.strings.starting_cleanup)
-        cleanupJob = GlobalScope.launch(Dispatchers.IO, CoroutineStart.DEFAULT) {
-            val mangaList = getManga.awaitAll()
-            val sourceManager: SourceManager = Injekt.get()
-            val downloadProvider = DownloadProvider(context)
-            var foldersCleared = 0
-            val sources = sourceManager.getOnlineSources()
-
-            for (source in sources) {
-                val mangaFolders = downloadManager.getMangaFolders(source)
-                val sourceManga = mangaList.filter { it.source == source.id }
-
-                for (mangaFolder in mangaFolders) {
-                    val manga = sourceManga.find { downloadProvider.getMangaDirName(it) == mangaFolder.name }
-                    if (manga == null) {
-                        if (removeNonFavorite) {
-                            foldersCleared += 1 + (mangaFolder.listFiles()?.size ?: 0)
-                            mangaFolder.delete()
-                        }
-                        continue
-                    }
-                    val chapterList = getChapter.awaitAll(manga, false)
-                    foldersCleared += downloadManager.cleanupChapters(chapterList, manga, source, removeRead, removeNonFavorite)
-                }
-            }
-            launchUI {
-                val cleanupString = if (foldersCleared == 0) {
-                    context.getString(MR.strings.no_folders_to_cleanup)
-                } else {
-                    context.getString(MR.plurals.cleanup_done, foldersCleared, foldersCleared)
-                }
-                context.toast(cleanupString, Toast.LENGTH_LONG)
-            }
         }
     }
 

@@ -1,6 +1,6 @@
 # Compose + Voyager port status
 
-**Snapshot date:** 2026-05-28
+**Snapshot date:** 2026-05-29
 **Branch at audit:** `design/library-compose`
 **Checklist source:** [.claude/rules/compose-port.md](../../.claude/rules/compose-port.md)
 **Audit method:** delegated initial pass to an `Explore` subagent, then verified every cited line by reading the source directly. Citations below reflect the verified positions; if a citation here disagrees with anyone else's recollection, this doc is right (as of the snapshot date).
@@ -12,8 +12,8 @@ This document decays. Re-run the audit (an `Explore` subagent against the checkl
 | Bucket | Count | Screens |
 |---|---|---|
 | **PASS** (all applicable items) | 5 | `ExtensionRepoScreen`, `WebViewScreen` + `WebViewScreenModel`, `AboutLibraryLicenseScreen`, `AboutLicenseScreen`, `StoryBookScreen` |
-| **PARTIAL** (6-8) | 9 | `LibraryScreen`, `OnboardingScreen`, `SettingsDataScreen`, `SettingsSecurityScreen`, `SettingsDownloadScreen`, `SettingsTrackingScreen`, `SettingsAppearanceScreen`, `AboutScreen`, `NovelDetailsScreen` |
-| **FAIL** (≤5) | 4 | `SettingsAdvancedScreen`, `NovelTrackProbeScreen`, `NovelBrowseScreen`, `LnPluginHostProbeScreen` |
+| **PARTIAL** (6-8) | 10 | `LibraryScreen`, `OnboardingScreen`, `SettingsDataScreen`, `SettingsSecurityScreen`, `SettingsDownloadScreen`, `SettingsTrackingScreen`, `SettingsAppearanceScreen`, `SettingsAdvancedScreen`, `AboutScreen`, `NovelDetailsScreen` |
+| **FAIL** (≤5) | 3 | `NovelTrackProbeScreen`, `NovelBrowseScreen`, `LnPluginHostProbeScreen` |
 
 Standalone ScreenModels (audited in isolation, all PASS): `MangaLibraryScreenModel`, `NovelLibraryScreenModel`, `ExtensionRepoScreenModel`, `LnRepoScreenModel`, `LnPluginBrowseScreenModel`, `WebViewScreenModel`.
 
@@ -21,7 +21,7 @@ Standalone ScreenModels (audited in isolation, all PASS): `MangaLibraryScreenMod
 
 1. **`Injekt.get<>()` / `injectLazy()` inside `@Composable`** in 11 surfaces. Worst at [LibraryScreen.kt:78,126-131,136,148](../../app/src/main/java/yokai/presentation/library/LibraryScreen.kt:78) (9 calls total across `Content()` and `MangaLibraryTabContent`) and across the six Compose settings screens whose entire `getPreferences()` body lives in `@Composable` scope. Violates rule 3.
 2. **`PreferencesHelper` reached directly from the composable** in 7 surfaces. The library case is the heaviest ([LibraryScreen.kt:135-157](../../app/src/main/java/yokai/presentation/library/LibraryScreen.kt:135), 21 inline `preferences.xxx().collectAsState()` reads); the settings screens all read prefs in `@Composable getPreferences()` private helpers. Violates rule 5.
-3. **`GlobalScope.launch(Dispatchers.IO)` in production code** at [SettingsAdvancedScreen.kt:318](../../app/src/main/java/yokai/presentation/settings/screen/SettingsAdvancedScreen.kt:318). The call sits inside a `private fun cleanupDownloads()` annotated `@OptIn(DelicateCoroutinesApi::class)`, not directly in a composable, and the work legitimately must outlive screen scope. Violates rule 6, but the fix is WorkManager-ification (mirror the existing `LibraryUpdateJob` / `BackupCreatorJob` pattern), not `screenModelScope`.
+3. **`GlobalScope.launch(Dispatchers.IO)` in production code** - **RESOLVED 2026-05-29.** Was at `SettingsAdvancedScreen.cleanupDownloads()`; the download cleanup now runs in [DownloadCleanupJob](../../app/src/main/java/eu/kanade/tachiyomi/data/download/DownloadCleanupJob.kt) (a `CoroutineWorker` enqueued via `enqueueUniqueWork(..., KEEP)`), so no `GlobalScope` remains on the screen surface. This was the only hard rule-6 violation in the codebase.
 
 ## Per-screen deltas
 
@@ -29,11 +29,11 @@ Compact list. Each entry: PASS counts as the applicable count; PARTIAL/FAIL list
 
 ### Library
 
-- **`LibraryScreen`** - PARTIAL (5/9). Fails rules 3, 5, 8, 9.
+- **`LibraryScreen`** - PARTIAL (6/9). Fails rules 3, 5, 9. (Rule 8 resolved 2026-05-29.)
   - Rule 3: 9 `Injekt.get<>()` calls inline. One in `Content()` at [LibraryScreen.kt:78](../../app/src/main/java/yokai/presentation/library/LibraryScreen.kt:78), eight in `MangaLibraryTabContent` at [lines 126-131, 136, 148](../../app/src/main/java/yokai/presentation/library/LibraryScreen.kt:126).
   - Rule 5: 21 inline `preferences.xxx().collectAsState()` reads in `MangaLibraryTabContent` at [lines 135-157, 164, 170-176, 227-228, 437](../../app/src/main/java/yokai/presentation/library/LibraryScreen.kt:135).
-  - Rule 8: launches `MangaDetailsController` at [lines 475, 587, 600](../../app/src/main/java/yokai/presentation/library/LibraryScreen.kt:475) and `PreMigrationController.navigateToMigration(...)` at [line 708](../../app/src/main/java/yokai/presentation/library/LibraryScreen.kt:708). These are real transitional bridges; annotate with the `// transitional: legacy ...` comment when next touched.
-  - Rule 9: heavy inline logic in `MangaLibraryTabContent`. Most concretely, [LibraryScreen.kt:350-368](../../app/src/main/java/yokai/presentation/library/LibraryScreen.kt:350) kicks off `MangaLibraryFilter.filter(...)` from inside a `produceState`, which calls `downloadManager.getDownloadCount(manga)` and `getTrack.awaitAllByMangaId(mangaId)` (real I/O) from a composable. Plus `selectionHasRemoteSources` ([211-221](../../app/src/main/java/yokai/presentation/library/LibraryScreen.kt:211)), `canUnmerge` ([230-246](../../app/src/main/java/yokai/presentation/library/LibraryScreen.kt:230)), `seriesTypes` map build ([308-319](../../app/src/main/java/yokai/presentation/library/LibraryScreen.kt:308)). The `produceState` work in particular belongs in the ScreenModel.
+  - Rule 8: **RESOLVED 2026-05-29.** The `MangaDetailsController` launches (onMangaClick, onOpenRandomSeries, onOpenRandomInCategory) and `PreMigrationController.navigateToMigration(...)` now carry `// transitional: legacy ...` bridge comments, so the bridges are intentional and greppable. Same fix applied to `NovelLibraryTabContent`'s `NovelDetailsController` launch.
+  - Rule 9: heavy inline logic in `MangaLibraryTabContent`. Most concretely, [LibraryScreen.kt:350-368](../../app/src/main/java/yokai/presentation/library/LibraryScreen.kt:350) kicks off `MangaLibraryFilter.filter(...)` from inside a `produceState`, which calls `downloadManager.getDownloadCount(manga)` and `getTrack.awaitAllByMangaId(mangaId)` (real I/O) from a composable. Plus `selectionHasRemoteSources` ([211-221](../../app/src/main/java/yokai/presentation/library/LibraryScreen.kt:211)), `canUnmerge` ([230-246](../../app/src/main/java/yokai/presentation/library/LibraryScreen.kt:230)), `seriesTypes` map build ([308-319](../../app/src/main/java/yokai/presentation/library/LibraryScreen.kt:308)). The `produceState` work in particular belongs in the ScreenModel. The same rule 3/5/9 debt is mirrored in `NovelLibraryTabContent` (inline Injekt, ~30 pref reads, a `produceState` filter); fix both tabs together when the library migration lands.
 
 The two library ScreenModels themselves pass all applicable items.
 
@@ -45,9 +45,9 @@ The two library ScreenModels themselves pass all applicable items.
 - **`SettingsDataScreen`** - PARTIAL (7/9). Fails rules 3, 5.
   - Rule 3: `injectLazy()` at [SettingsDataScreen.kt:90-91](../../app/src/main/java/yokai/presentation/settings/screen/SettingsDataScreen.kt:90) inside `@Composable getPreferences()`.
   - Rule 5: preference reads in private `@Composable` helpers throughout the file.
-- **`SettingsAdvancedScreen`** - FAIL (5/9). Fails rules 3, 5, 6.
-  - Rule 6 (most acute on the surface): `GlobalScope.launch(Dispatchers.IO, CoroutineStart.DEFAULT)` at [SettingsAdvancedScreen.kt:318](../../app/src/main/java/yokai/presentation/settings/screen/SettingsAdvancedScreen.kt:318) inside `private fun cleanupDownloads()`. The call is `@OptIn(DelicateCoroutinesApi::class)`-marked and the work must outlive screen scope. Fix path: WorkManager (mirror `LibraryUpdateJob`/`BackupCreatorJob`), not `screenModelScope`.
-  - Rule 3: `injectLazy()` at [line 82-85](../../app/src/main/java/yokai/presentation/settings/screen/SettingsAdvancedScreen.kt:82), plus `Injekt.get()` inside the cleanupDownloads body at [line 320](../../app/src/main/java/yokai/presentation/settings/screen/SettingsAdvancedScreen.kt:320).
+- **`SettingsAdvancedScreen`** - PARTIAL (7/9). Fails rules 3, 5. (Rule 6 resolved 2026-05-29.)
+  - Rule 6: **RESOLVED 2026-05-29.** The `GlobalScope.launch` cleanup was extracted to [DownloadCleanupJob](../../app/src/main/java/eu/kanade/tachiyomi/data/download/DownloadCleanupJob.kt); the screen's `onClick` now calls `DownloadCleanupJob.startNow(...)`.
+  - Rule 3: `injectLazy()` inside `@Composable getPreferences()` (structural to the `ComposableSettings` base; sanctioned during migration per [settings-compose-migration.md](settings-compose-migration.md)).
   - Rule 5: inline preference reads in private `@Composable` helpers.
 
 ### Settings (not flipped, but Compose impl exists)
@@ -97,6 +97,12 @@ These four are bare `@Composable` functions, not `Screen` classes, with heavy st
 - **When you touch a PARTIAL screen for any reason**, fix the listed deltas in the same change *if the fix is small and local*. Don't bundle a full rewrite into an unrelated bug fix.
 - **When you finish a port**, re-audit that row (just that row) and update this doc in the same commit.
 - **Before any cross-cutting work** (theming, navigation, DI module change), re-run the full audit. The snapshot above is dated; assume it's wrong after the date is more than a month old.
+
+## Known non-checklist issues (deferred)
+
+These surface during Compose-library testing but are **not** nine-item violations and are intentionally left alone. Logged here so a future reader who hits them in logcat knows they were triaged, not missed.
+
+- **`Failed to inflate ColorStateList` warning on the legacy MangaDetails header (2026-05-29).** Opening a manga from the library logs a recoverable `UnsupportedOperationException` resolving attr `colorOnContainerChecked`: the `MaterialButton` styled `@style/Theme.Widget.Button.TextButton` (parents `Widget.Material3.Button.TextButton`, [styles.xml:343](../../app/src/main/res/values/styles.xml:343)) in [manga_header_item.xml](../../app/src/main/res/layout/manga_header_item.xml) references an M3-only color attr the AppCompat-lineage `Theme.Tachiyomi` base doesn't define. Warning only (caught, framework falls back); TextButtons have no checked state so nothing renders wrong. **Deferred:** this is legacy view-system theming on a screen slated for the MangaDetails Compose port, not Compose-port debt. If ever silenced, prefer defining `colorOnContainerChecked` once in `Theme.Base` (theme-wide, no restyle) over reparenting the button style.
 
 ## Audit corrections from the first pass
 

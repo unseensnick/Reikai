@@ -472,6 +472,7 @@ class LibraryScreen : Screen {
         // details Voyager screen exists yet.
         val onMangaClick: (Manga) -> Unit = { manga ->
             dismissPendingSnackbar()
+            // transitional: legacy MangaDetailsController until MangaDetailsScreen ports
             router.pushController(MangaDetailsController(manga).withFadeTransaction())
         }
 
@@ -584,6 +585,7 @@ class LibraryScreen : Screen {
                 if (pool.isNotEmpty()) {
                     val random = pool.random().libraryManga.manga
                     dismissPendingSnackbar()
+                    // transitional: legacy MangaDetailsController until MangaDetailsScreen ports
                     router.pushController(MangaDetailsController(random).withFadeTransaction())
                 }
             },
@@ -597,6 +599,7 @@ class LibraryScreen : Screen {
                 if (pool.isNotEmpty()) {
                     val random = pool.random().libraryManga.manga
                     dismissPendingSnackbar()
+                    // transitional: legacy MangaDetailsController until MangaDetailsScreen ports
                     router.pushController(MangaDetailsController(random).withFadeTransaction())
                 }
             },
@@ -705,6 +708,7 @@ class LibraryScreen : Screen {
                     .mapNotNull { it.id }
                 if (ids.isEmpty()) return@LibraryContent
                 dismissPendingSnackbar()
+                // transitional: legacy PreMigrationController until the migration flow ports
                 PreMigrationController.navigateToMigration(
                     preferences.skipPreMigration().get(),
                     router,
