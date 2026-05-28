@@ -132,8 +132,19 @@ fun ReikaiLargeTopBar(
     onCollapsibleHeightChange: ((Int) -> Unit)? = null,
 ) {
     val context = LocalContext.current
-    val barColorCompact = remember(context) { Color(context.getResourceColor(R.attr.colorSurface)) }
-    val cardColor = remember(context) { Color(context.getResourceColor(R.attr.colorPrimaryVariant)) }
+    // Compact-state bar color matches the legacy bar's scroll-blend target. Legacy uses
+    // `setAppBarBG` (ControllerExtensions.kt:780-784) which for tabbed libraries blends
+    // ?colorSurface ↔ ?colorPrimaryVariant: bar is colorSurface at top, colorPrimaryVariant
+    // when scrolled past compact.
+    val colorSurface = remember(context) { Color(context.getResourceColor(R.attr.colorSurface)) }
+    val colorPrimaryVariant = remember(context) { Color(context.getResourceColor(R.attr.colorPrimaryVariant)) }
+    val barColorCompact = colorPrimaryVariant
+    // Search card color INVERTS against the bar on collapse, mirroring the legacy swap at
+    // ControllerExtensions.kt:790-801 — the card uses `blendARGB(colorSurface, colorPrimaryVariant, 1 - value)`
+    // while the bar uses `blendARGB(colorSurface, colorPrimaryVariant, value)`. Effect: when
+    // expanded the bar is darker and the card pops in purple; when collapsed the bar turns
+    // purple and the card inverts to colorSurface so it still stands out. Without this swap
+    // the compact-state card would visually merge with the now-purple bar.
     val contentColor = remember(context) { Color(context.getResourceColor(R.attr.actionBarTintColor)) }
     val isTablet = remember(context) { context.isTablet() }
 
@@ -155,6 +166,10 @@ fun ReikaiLargeTopBar(
     }
 
     val barColor = lerp(Color.Transparent, barColorCompact, collapsibleFraction)
+    // Card color swap: expanded = colorPrimaryVariant (purple pill on transparent/dark bar),
+    // compact = colorSurface (dark pill on purple bar). Inverse direction to `barColor`'s
+    // lerp so they always contrast. Mirrors legacy ControllerExtensions.kt:790-801.
+    val cardColor = lerp(colorPrimaryVariant, colorSurface, collapsibleFraction)
     // Upstream curve at ExpandedAppBarLayout.kt:347.
     val headlineAlpha = (1.45f - 2f * collapsibleFraction).coerceIn(0f, 1f)
     val actionRowAlpha = (1f - collapsibleFraction).coerceIn(0f, 1f)

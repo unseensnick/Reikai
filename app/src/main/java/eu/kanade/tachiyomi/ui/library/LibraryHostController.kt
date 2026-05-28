@@ -22,6 +22,7 @@ import eu.kanade.tachiyomi.ui.main.RootSearchInterface
 import eu.kanade.tachiyomi.ui.main.TabbedInterface
 import eu.kanade.tachiyomi.util.view.activityBinding
 import eu.kanade.tachiyomi.util.view.compatToolTipText
+import eu.kanade.tachiyomi.util.view.setAppBarBG
 import yokai.i18n.MR
 import yokai.util.lang.getString
 
@@ -83,26 +84,54 @@ class LibraryHostController(bundle: Bundle? = null) :
     override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
         super.onChangeStarted(handler, type)
         if (type.isEnter) {
-            // Library bar collapses to compact and stops there on both form factors, mirroring
-            // the Compose `ReikaiLargeTopBar`'s tablet collapse curve. Phone gets the
-            // `minTabletHeight` clamp via `clampAtCompactOnPhone`; tablet keeps its default
-            // clamp (the previous `allowFullHideOnTablet = true` override is dropped so the
-            // tablet path no longer slides the whole bar off).
-            activityBinding?.appBar?.clampAtCompactOnPhone = true
             if (type == ControllerChangeType.POP_ENTER) {
-                // Returning from a deeper push (e.g. SettingsController dismissed). The previous
-                // controller's PUSH_EXIT cleared mainTabs, so reinstall ours.
+                // Returning from a deeper push (e.g. MangaDetailsController dismissed). The
+                // previous controller's PUSH_EXIT cleared mainTabs, so reinstall ours.
                 setupTabs()
                 // super.onChangeStarted called setAppBarVisibility() on us (showLegacyAppBar
                 // because we're a BaseLegacyController). If the active child is a Compose
                 // controller that expects the legacy bar hidden, re-apply its visibility now.
                 // The child itself doesn't re-fire onChangeStarted on the host's pop-enter.
                 (currentChild() as? BaseComposeController)?.setAppBarVisibility()
+                // Bridge missing on-enter bar reset to the manga child. Conductor only fires
+                // lifecycle events on the controller whose RouterTransaction is active — that's
+                // us, not the child — so the child's `scrollViewWith` listener at
+                // ControllerExtensions.kt:438-455 never runs on this pop-back. Replicate the
+                // full enter-block it would have done so the bar re-anchors against the
+                // recycler's current scroll offset instead of staying at MangaDetails' last Y,
+                // and the toolbar mode + tab-pre-layout flags get re-asserted (MangaDetails ran
+                // through setToolbarModeBy with its own controller, leaving the bar in a state
+                // tailored to MangaDetails rather than the manga library).
+                (currentChild() as? LibraryController)?.let { child ->
+                    val recycler = child.binding.libraryGridRecycler.recycler
+                    // Re-show the floating search toolbar (with the search card + subtitle) the
+                    // way MainActivity does when transitioning to a FloatingSearchInterface
+                    // controller. Must happen BEFORE the background-color set below: this call
+                    // internally runs `binding.appBar.background = null` (MainActivity.kt:829)
+                    // which would wipe our color if it ran after.
+                    (activity as? MainActivity)?.setFloatingToolbar(show = true, showSearchAnyway = true)
+                    activityBinding?.appBar?.let { appBar ->
+                        appBar.lockYPos = false
+                        appBar.y = 0f
+                        appBar.hideBigView(useSmall = false)
+                        appBar.setToolbarModeBy(child)
+                        appBar.useTabsInPreLayout = true
+                        appBar.updateAppBarAfterY(recycler)
+                    }
+                    // Re-evaluate the bar's background color the way `scrollViewWith`'s
+                    // onScrolled does on every scroll event (ControllerExtensions.kt:570).
+                    // MangaDetails leaves the bar background at whatever color it last
+                    // animated to, and the child's scroll listener doesn't fire on a
+                    // parent-router pop-back to fix it. `setAppBarBG` blends colorSurface ↔
+                    // colorPrimaryVariant for the tabbed-library case (includeTabView=true),
+                    // matching the purple the user sees during normal scrolling. Done after
+                    // setFloatingToolbar so its `binding.appBar.background = null` doesn't
+                    // wipe our color.
+                    val atTop = !recycler.canScrollVertically(-1)
+                    child.setAppBarBG(if (atTop) 0f else 1f, includeTabView = true)
+                }
             }
         } else {
-            // Clear our phone compact clamp so the next controller falls back to the default
-            // (phone fully hides, tablet stops at compact).
-            activityBinding?.appBar?.clampAtCompactOnPhone = false
             // Leaving. Hide the tab bar unless the next controller is also tabbed and will
             // install its own (matches the Browse / Recents skip-on-TabbedInterface pattern so
             // setRoot from one TabbedInterface to another doesn't strand mainTabs empty).
