@@ -78,5 +78,19 @@ sealed interface LibraryTabState<out T : LibraryItem, out C : ILibraryCategory> 
          * `Map.equals` doesn't see.
          */
         val collapsedDynamicAtBottom: Boolean = false,
+        /**
+         * The raw [library] after search + filter have been applied in the screen model
+         * (Tier 2 phase 2A moved that I/O off the composable). The composable derives the
+         * final rendered map from this via the cheap, pure category-visibility / collapse /
+         * single-category pass. Defaulted so tabs that have not yet moved their pipeline keep
+         * compiling.
+         */
+        val filteredLibrary: Map<C, List<T>> = emptyMap(),
+        /** Series-type ids present in the library, for the filter sheet's Series type row. */
+        val detectedTypes: Set<Int> = emptySet(),
+        /** Display names of logged-in trackers, for the filter sheet's Tracker row. */
+        val loggedTrackerNames: List<String> = emptyList(),
+        /** Whether any library filter is active, for the toolbar filter-icon highlight. */
+        val isAnyFilterActive: Boolean = false,
     ) : LibraryTabState<T, C>
 }

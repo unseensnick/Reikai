@@ -30,35 +30,23 @@ import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.tachiyomi.core.storage.preference.collectAsState
-import eu.kanade.tachiyomi.data.database.models.seriesType
-import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
-import eu.kanade.tachiyomi.data.track.TrackManager
-import eu.kanade.tachiyomi.source.SourceManager
-import eu.kanade.tachiyomi.ui.library.filter.FilterBottomSheet
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
 import eu.kanade.tachiyomi.ui.migration.manga.design.PreMigrationController
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
-import eu.kanade.tachiyomi.util.chapter.ChapterSort
 import eu.kanade.tachiyomi.util.compose.LocalRouter
 import eu.kanade.tachiyomi.util.moveCategories
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import yokai.domain.chapter.interactor.GetChapter
-import yokai.domain.track.interactor.GetTrack
 import yokai.i18n.MR
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
-import yokai.presentation.library.manga.MangaLibraryFilter
-import yokai.presentation.library.manga.MangaLibraryFilter.MangaFilterState
 import yokai.presentation.library.manga.MangaLibraryGridCell
 import yokai.presentation.library.manga.MangaLibraryListItem
 import yokai.presentation.library.manga.MangaLibraryScreenModel
-import yokai.presentation.library.manga.MangaLibrarySearch
 import yokai.presentation.library.novels.NovelLibraryScreenModel
 import yokai.presentation.library.settings.tabs.columnsForGridValue
 import yokai.util.lang.getString
@@ -67,9 +55,10 @@ import yokai.util.lang.getString
  * Phase 1+ single-tab manga library host. Phase 8 expands this into a tabbed shell with manga
  * and novel tabs sharing a common `LibraryTabContent` composable.
  *
- * Reads filter preferences reactively (`changes().collectAsState`) and pipes the library through
- * `MangaLibrarySearch` then `MangaLibraryFilter` before handing off to `LibraryContent`. Owns
- * the Display options sheet and overflow menu state; both are pure UI concerns kept local.
+ * Search + filter run in `MangaLibraryScreenModel`, which emits the filtered library in state;
+ * this composable applies only the cheap category-visibility / collapse / single-category pass
+ * before handing off to `LibraryContent`. Owns the Display options sheet and overflow menu state;
+ * both are pure UI concerns kept local.
  */
 class LibraryScreen : Screen {
 
@@ -124,11 +113,6 @@ class LibraryScreen : Screen {
     ) {
         val state by screenModel.state.collectAsState()
         val preferences: PreferencesHelper = remember { Injekt.get() }
-        val sourceManager: SourceManager = remember { Injekt.get() }
-        val trackManager: TrackManager = remember { Injekt.get() }
-        val downloadManager: DownloadManager = remember { Injekt.get() }
-        val getTrack: GetTrack = remember { Injekt.get() }
-        val getChapter: GetChapter = remember { Injekt.get() }
         val router = LocalRouter.currentOrThrow
         val coroutineScope = rememberCoroutineScope()
 
@@ -165,22 +149,14 @@ class LibraryScreen : Screen {
         val sliderValue = ((gridSizePref + 0.5f) * 2f).coerceIn(0f, 7f)
         val columns = columnsForGridValue(sliderValue, LocalConfiguration.current.screenWidthDp)
 
-        // Filter prefs collected reactively so chip taps in the sheet flow through to the grid
-        // without dismiss-and-reopen.
-        val filterUnread by preferences.filterUnread().collectAsState()
-        val filterDownloaded by preferences.filterDownloaded().collectAsState()
-        val filterCompleted by preferences.filterCompleted().collectAsState()
-        val filterBookmarked by preferences.filterBookmarked().collectAsState()
-        val filterContentType by preferences.filterContentType().collectAsState()
-        val filterMangaType by preferences.filterMangaType().collectAsState()
-        val filterTracked by preferences.filterTracked().collectAsState()
-        // FILTER_TRACKER is a JVM static (not a Flow); read it as initial state. The sheet
-        // updates this var directly, and recomposes here happen via other-pref changes when
-        // tracker-only changes also bump filterTracked.
-        val filterTracker = remember(filterTracked) { FilterBottomSheet.FILTER_TRACKER }
-
+        // Search + filter now run in the screen model (Tier 2 phase 2A). The query text stays
+        // composable-local so the text field stays cursor-stable (driving the field's value off
+        // the model's StateFlow round-trips each keystroke and reverses the input); every edit is
+        // pushed to the model, which owns the filtering. Seeded from the model so a config-change
+        // survivor keeps its query, and re-pushed on entry so a process-death restore re-filters.
         var searchActive by rememberSaveable { mutableStateOf(false) }
-        var searchQuery by rememberSaveable { mutableStateOf("") }
+        var searchQuery by rememberSaveable { mutableStateOf(screenModel.searchQuery.value) }
+        LaunchedEffect(Unit) { screenModel.setSearchQuery(searchQuery) }
 
         var sheetOpen by rememberSaveable { mutableStateOf(false) }
         var sheetTab by rememberSaveable { mutableIntStateOf(0) }
@@ -204,6 +180,11 @@ class LibraryScreen : Screen {
         val inQueueCategoryIds = (state as? LibraryTabState.Loaded)?.inQueueCategoryIds ?: emptySet()
         val currentCategoryOrder = (state as? LibraryTabState.Loaded)?.currentCategoryOrder ?: 0
         val selection = (state as? LibraryTabState.Loaded)?.selection ?: emptySet()
+        // Search + filter result and filter-sheet metadata, computed in the screen model.
+        val filteredLibrary = (state as? LibraryTabState.Loaded)?.filteredLibrary ?: emptyMap()
+        val detectedMangaTypes = (state as? LibraryTabState.Loaded)?.detectedTypes ?: emptySet()
+        val loggedTrackerNames = (state as? LibraryTabState.Loaded)?.loggedTrackerNames ?: emptyList()
+        val isAnyFilterActive = (state as? LibraryTabState.Loaded)?.isAnyFilterActive ?: false
 
         // C6: derived flag for migrate visibility. True when at least one selected manga has a
         // non-local source. Mirrors LibraryController.kt:2042
@@ -292,87 +273,11 @@ class LibraryScreen : Screen {
         val removeFromLibraryLabel = stringResource(MR.strings.remove_from_library)
         val removeDownloadsLabel = stringResource(MR.strings.remove_downloads)
 
-        val sourceNames = remember(library) {
-            library.values
-                .asSequence()
-                .flatten()
-                .map { it.libraryManga.manga.source }
-                .distinct()
-                .associateWith { sourceManager.getOrStub(it).name }
-        }
-
-        // seriesType is derived from genre tags + source name, so it changes when the library is
-        // refreshed (genre updates can land via tracker sync or source-side metadata refreshes).
-        // Recompute per-library map so it stays in sync with the rendered cells. Pure string
-        // build per manga — cheap relative to the search itself.
-        val seriesContext = preferences.context
-        val seriesTypes = remember(library, seriesContext) {
-            library.values
-                .asSequence()
-                .flatten()
-                .mapNotNull { item ->
-                    val m = item.libraryManga.manga
-                    val id = m.id ?: return@mapNotNull null
-                    id to m.seriesType(seriesContext, sourceManager)
-                }
-                .toMap()
-        }
-
         // `Map<Category, ...>.equals` is content-only (ignores iteration order) and
         // `CategoryImpl.equals` is name-based, so two libraries that differ only by category
-        // order compare equal. `remember(library, ...)` therefore returns cached values across a
-        // pure `categorySortOrder` change, even though the iteration order is meaningfully
-        // different. Read the pref off the current state and include it as a remember key for
-        // every library-derived val whose contents depend on iteration order, so a sort-order
-        // toggle correctly invalidates the cache.
+        // order compare equal. Include this pref as a remember key for every library-derived val
+        // whose contents depend on iteration order, so a sort-order toggle invalidates the cache.
         val effectiveCategorySortOrder = (state as? LibraryTabState.Loaded)?.categorySortOrder ?: 0
-        val searchedLibrary = remember(library, effectiveCategorySortOrder, searchQuery, sourceNames, seriesTypes) {
-            MangaLibrarySearch.search(library, searchQuery, sourceNames, seriesTypes)
-        }
-
-        // The filter is suspend (track lookups) but we want a synchronous Compose result. Run
-        // it on the IO dispatcher via a produceState-style coroutine and surface via state.
-        val filterState = MangaFilterState(
-            downloaded = filterDownloaded,
-            unread = filterUnread,
-            completed = filterCompleted,
-            tracked = filterTracked,
-            mangaType = filterMangaType,
-            contentType = filterContentType,
-            bookmarked = filterBookmarked,
-            tracker = filterTracker,
-        )
-        val loggedServiceNames = remember(trackManager) {
-            trackManager.services
-                .filter { it.isLogged }
-                .associate { it.id to preferences.context.getString(it.nameRes()) }
-        }
-        val filteredLibrary by androidx.compose.runtime.produceState(
-            initialValue = searchedLibrary,
-            key1 = searchedLibrary,
-            key2 = filterState,
-            key3 = showAllCategories,
-        ) {
-            value = if (!filterState.isAnyActive) searchedLibrary
-            else kotlinx.coroutines.withContext(Dispatchers.Default) {
-                MangaLibraryFilter.filter(
-                    library = searchedLibrary,
-                    state = filterState,
-                    sourceManager = sourceManager,
-                    loggedServiceNames = loggedServiceNames,
-                    getDownloadCount = { manga -> downloadManager.getDownloadCount(manga) },
-                    getTracks = { mangaId -> getTrack.awaitAllByMangaId(mangaId) },
-                    keepEmptyCategories = showAllCategories,
-                )
-            }
-        }
-
-        val detectedMangaTypes = remember(library) {
-            MangaLibraryFilter.detectMangaTypes(library, sourceManager)
-        }
-        val loggedTrackerNames = remember(loggedServiceNames) {
-            loggedServiceNames.values.toList()
-        }
 
         val allCategories = remember(library, effectiveCategorySortOrder) { library.keys.toList() }
         val categoryItemCounts = remember(library, effectiveCategorySortOrder) {
@@ -400,7 +305,7 @@ class LibraryScreen : Screen {
         val postFilterLibrary = when {
             showAllCategories -> rekeyedLibrary
             showEmptyCategoriesWhileFiltering &&
-                (searchQuery.isNotEmpty() || filterState.isAnyActive) -> rekeyedLibrary
+                (searchQuery.isNotEmpty() || isAnyFilterActive) -> rekeyedLibrary
             else -> rekeyedLibrary.filterValues { it.isNotEmpty() }
         }
 
@@ -454,14 +359,12 @@ class LibraryScreen : Screen {
         }
 
         // Per-tab callbacks lifted out so the renderer lambdas (below) can close over them.
-        // continueReading: load all chapters via ChapterSort, pick next-unread, launch reader.
+        // continueReading: ask the screen model for the next unread chapter, then launch reader.
         // Manga with no remaining unread chapters silently no-op (the button is gated on
         // unread > 0 upstream so this is only reachable in a race where the count changes).
         val onContinueReading: (Manga) -> Unit = { manga ->
             coroutineScope.launch {
-                val chapters = getChapter.awaitAll(manga)
-                val next = ChapterSort(manga).getNextUnreadChapter(chapters, false)
-                    ?: return@launch
+                val next = screenModel.nextUnreadChapter(manga) ?: return@launch
                 val activity = router.activity ?: return@launch
                 dismissPendingSnackbar()
                 activity.startActivity(ReaderActivity.newIntent(activity, manga, next))
@@ -536,7 +439,7 @@ class LibraryScreen : Screen {
             showLanguageBadge = showLanguageBadge,
             unreadBadgeType = unreadBadgeType,
             hideStartReadingButton = hideStartReadingButton,
-            isAnyFilterActive = filterState.isAnyActive,
+            isAnyFilterActive = isAnyFilterActive,
             showAllCategories = showAllCategories,
             isRunning = isRunning,
             inQueueCategoryIds = inQueueCategoryIds,
@@ -548,7 +451,7 @@ class LibraryScreen : Screen {
             loggedTrackerNames = loggedTrackerNames,
             selection = selection,
             onSearchActiveChange = { searchActive = it },
-            onSearchQueryChange = { searchQuery = it },
+            onSearchQueryChange = { searchQuery = it; screenModel.setSearchQuery(it) },
             onHopperGravityChange = { hopperGravityPref.set(it) },
             onToggleCategoryCollapse = { category ->
                 // Dynamic categories use the dynamicHeaderKey string set; default categories

@@ -2,10 +2,12 @@ package yokai.presentation.library.manga
 
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.data.database.models.CategoryImpl
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.LibraryManga
+import eu.kanade.tachiyomi.data.database.models.seriesType
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
@@ -15,15 +17,23 @@ import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.library.LibraryGroup
 import eu.kanade.tachiyomi.ui.library.LibrarySort
+import eu.kanade.tachiyomi.ui.library.filter.FilterBottomSheet
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
+import eu.kanade.tachiyomi.util.chapter.ChapterSort
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.mapStatus
 import eu.kanade.tachiyomi.util.system.launchIO
 import yokai.i18n.MR
 import yokai.util.lang.getString
 import java.util.Locale
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.update
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.category.interactor.GetCategories
@@ -54,6 +64,11 @@ import kotlin.random.Random
  * The `STARTING_UPDATE_SOURCE` sentinel and real manga ids are ignored: per-row state
  * already rides on `getLibraryManga.subscribe()` re-emissions when the DB changes.
  */
+// Tier 2 phase 2A soak probe: filter `Library2A` in logcat to trace the search/filter pipeline.
+// Remove with the rest of the 2A probes once soak-tested (chore: remove soak probes).
+private const val LOG_TAG = "Library2A"
+
+@OptIn(ExperimentalCoroutinesApi::class)
 class MangaLibraryScreenModel :
     StateScreenModel<LibraryTabState<LibraryItem.Manga, Category>>(LibraryTabState.Loading) {
 
@@ -76,6 +91,19 @@ class MangaLibraryScreenModel :
     private val trackManager: TrackManager by injectLazy()
 
     /**
+     * Library search query. Owned here (rather than as composable state) so the search + filter
+     * pipeline can re-derive [LibraryTabState.Loaded.filteredLibrary] reactively off it. The
+     * composable collects [searchQuery] for its text field and pushes edits via [setSearchQuery].
+     */
+    private val searchQueryFlow = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = searchQueryFlow.asStateFlow()
+
+    fun setSearchQuery(query: String) {
+        Logger.i(LOG_TAG) { "setSearchQuery: '$query'" }
+        searchQueryFlow.value = query
+    }
+
+    /**
      * Pre-collapse libraryManga snapshot used by [selectedMangaListWithMergedSiblings] to
      * resolve merge-group sibling [Manga] objects that [MangaLibraryGrouping.collapse] dropped
      * from the rendered library (only leaders survive there). Updated alongside every state
@@ -88,7 +116,7 @@ class MangaLibraryScreenModel :
 
     init {
         screenModelScope.launchIO {
-            combine(
+            val rawFlow = combine(
                 getCategories.subscribe(),
                 getLibraryManga.subscribe(),
                 downloadCache.changes,
@@ -142,7 +170,7 @@ class MangaLibraryScreenModel :
                 .combine(groupingPrefsFlow()) { snap, groupingPrefs ->
                     snap.copy(groupingPrefs = groupingPrefs)
                 }
-                .collectLatest { snap ->
+                .mapLatest { snap ->
                     // Build the rendered library map. Branches per groupLibraryBy:
                     //   BY_DEFAULT: sectioner (by Category) -> merge collapse -> per-cat sort.
                     //   Dynamic (BY_SOURCE / BY_LANGUAGE / BY_TAG / BY_AUTHOR / BY_STATUS /
@@ -281,29 +309,105 @@ class MangaLibraryScreenModel :
                         emptySet()
                     }
                     libraryMangaForResolve = snap.libraryManga
+                    // Search/filter inputs (precomputed off the raw library): source names and
+                    // series types feed MangaLibrarySearch; logged-service names feed the filter
+                    // and the filter sheet's Tracker row; detectedTypes feeds the Series type row.
+                    val items = library.values.asSequence().flatten()
+                    val sourceNames = items
+                        .map { it.libraryManga.manga.source }
+                        .distinct()
+                        .associateWith { sourceManager.getOrStub(it).name }
+                    val seriesTypes = items
+                        .mapNotNull { item ->
+                            val m = item.libraryManga.manga
+                            val id = m.id ?: return@mapNotNull null
+                            id to m.seriesType(preferences.context, sourceManager)
+                        }
+                        .toMap()
+                    val detectedTypes = MangaLibraryFilter.detectMangaTypes(library, sourceManager)
+                    val loggedServiceNames = trackManager.services
+                        .filter { it.isLogged }
+                        .associate { it.id to preferences.context.getString(it.nameRes()) }
+                    RawData(
+                        library = library,
+                        isRunning = snap.isRunning,
+                        inQueue = inQueue,
+                        currentCategoryOrder = snap.currentCategoryOrder,
+                        categorySortOrder = snap.categorySortOrder,
+                        collapsedDynamicCategories = snap.groupingPrefs.collapsedDynamicCategories,
+                        collapsedDynamicAtBottom = snap.groupingPrefs.collapsedDynamicAtBottom,
+                        sourceNames = sourceNames,
+                        seriesTypes = seriesTypes,
+                        detectedTypes = detectedTypes,
+                        loggedServiceNames = loggedServiceNames,
+                    )
+                }
+                // Collapse identical rebuilds. The combine upstream re-emits on every
+                // downloadCache tick / library re-subscribe / isRunning flip; without this the
+                // suspend filter (track I/O) re-ran dozens of times on unchanged data after a
+                // search settled (the "laggy for a second" burst). RawData is a data class and
+                // LibraryItem.Manga has value equality, so equal rebuilds compare equal and drop
+                // here, restoring the original produceState-keyed-on-library gating.
+                .distinctUntilChanged()
+
+            // Search + filter run downstream of the raw-library build, gated so the suspend
+            // filter (track / download I/O) only re-runs when the raw library OR a filter input
+            // changes, never on a display/badge pref change (those land in a separate flow).
+            combine(rawFlow, filterInputsFlow().distinctUntilChanged()) { raw, inputs -> raw to inputs }
+                .mapLatest { (raw, inputs) ->
+                    val searched = MangaLibrarySearch.search(
+                        raw.library,
+                        inputs.query,
+                        raw.sourceNames,
+                        raw.seriesTypes,
+                    )
+                    val filtered = if (inputs.filterState.isAnyActive) {
+                        MangaLibraryFilter.filter(
+                            library = searched,
+                            state = inputs.filterState,
+                            sourceManager = sourceManager,
+                            loggedServiceNames = raw.loggedServiceNames,
+                            getDownloadCount = { manga -> downloadManager.getDownloadCount(manga) },
+                            getTracks = { mangaId -> getTrack.awaitAllByMangaId(mangaId) },
+                            keepEmptyCategories = inputs.showAllCategories,
+                        )
+                    } else {
+                        searched
+                    }
+                    Logger.i(LOG_TAG) {
+                        "filter: query='${inputs.query}' active=${inputs.filterState.isAnyActive} " +
+                            "rawItems=${raw.library.values.sumOf { it.size }} " +
+                            "filteredItems=${filtered.values.sumOf { it.size }}"
+                    }
+                    Rendered(raw, inputs.filterState.isAnyActive, filtered)
+                }
+                .collectLatest { rendered ->
+                    // Preserve selection across reload emissions so a download-cache tick or
+                    // library update mid-action doesn't drop the user's selection set. Also
+                    // carry sortEpoch forward unchanged; combine-driven emissions never bump it
+                    // (only optimistic sort writes do, see setSort). categorySortOrder AND the
+                    // collapsed-dynamic fields are reflected into state so a pref change visibly
+                    // re-emits even when the library map compares equal to its previous value
+                    // (see LibraryTabState.Loaded KDoc for the CategoryImpl.equals / Map.equals
+                    // gotcha).
                     mutableState.update { current ->
-                        // Preserve selection across reload emissions so a download-cache tick or
-                        // library update mid-action doesn't drop the user's selection set. Also
-                        // carry sortEpoch forward unchanged; combine-driven emissions never bump
-                        // it (only optimistic sort writes do, see setSort). categorySortOrder
-                        // AND collapsedDynamicCategories / collapsedDynamicAtBottom are reflected
-                        // into state so a pref change visibly re-emits even when the library map
-                        // compares equal to its previous value (see LibraryTabState.Loaded
-                        // KDoc for the CategoryImpl.equals / Map.equals gotcha).
+                        val raw = rendered.raw
                         val loaded = current as? LibraryTabState.Loaded
-                        val carriedSelection = loaded?.selection ?: emptySet()
-                        val carriedSortEpoch = loaded?.sortEpoch ?: 0
                         LibraryTabState.Loaded(
-                            library = library,
-                            totalItemCount = library.values.sumOf { it.size },
-                            isRunning = snap.isRunning,
-                            inQueueCategoryIds = inQueue,
-                            currentCategoryOrder = snap.currentCategoryOrder,
-                            selection = carriedSelection,
-                            sortEpoch = carriedSortEpoch,
-                            categorySortOrder = snap.categorySortOrder,
-                            collapsedDynamicCategories = snap.groupingPrefs.collapsedDynamicCategories,
-                            collapsedDynamicAtBottom = snap.groupingPrefs.collapsedDynamicAtBottom,
+                            library = raw.library,
+                            totalItemCount = raw.library.values.sumOf { it.size },
+                            isRunning = raw.isRunning,
+                            inQueueCategoryIds = raw.inQueue,
+                            currentCategoryOrder = raw.currentCategoryOrder,
+                            selection = loaded?.selection ?: emptySet(),
+                            sortEpoch = loaded?.sortEpoch ?: 0,
+                            categorySortOrder = raw.categorySortOrder,
+                            collapsedDynamicCategories = raw.collapsedDynamicCategories,
+                            collapsedDynamicAtBottom = raw.collapsedDynamicAtBottom,
+                            filteredLibrary = rendered.filteredLibrary,
+                            detectedTypes = raw.detectedTypes,
+                            loggedTrackerNames = raw.loggedServiceNames.values.toList(),
+                            isAnyFilterActive = rendered.isAnyFilterActive,
                         )
                     }
                 }
@@ -383,6 +487,16 @@ class MangaLibraryScreenModel :
     fun isCategoryInQueue(categoryId: Int?): Boolean = libraryUpdater.isCategoryInQueue(categoryId)
 
     fun isRunning(): Boolean = libraryUpdater.isRunning()
+
+    /**
+     * Next unread chapter for [manga], or null if none. Used by the Compose library's
+     * continue-reading shortcut so the composable no longer reaches for [GetChapter] /
+     * [ChapterSort] itself. Mirrors `LibraryController.openManga`'s continue-reading path.
+     */
+    suspend fun nextUnreadChapter(manga: Manga): Chapter? {
+        val chapters = getChapter.awaitAll(manga)
+        return ChapterSort(manga).getNextUnreadChapter(chapters, false)
+    }
 
     /**
      * Apply a sort change to a category. Tapping the currently-selected mode flips direction;
@@ -469,16 +583,28 @@ class MangaLibraryScreenModel :
             it.langId = current.langId
             it.isSystem = current.isSystem
         }
-        val replacedLibrary = loaded.library.mapKeys { (cat, _) ->
+        val replaceKey: (Map.Entry<Category, List<LibraryItem.Manga>>) -> Category = { (cat, _) ->
             if (cat.id == catId) clonedCategory else cat
         }
+        val defaultMode = LibrarySort.valueOf(preferences.librarySortingMode().get()) ?: LibrarySort.Title
+        val defaultAscending = preferences.librarySortingAscending().get()
+        val randomSeed = libraryPreferences.randomSortSeed().get().toLong()
+        val removeArticles = preferences.removeArticles().get()
         val resorted = MangaLibrarySort.sort(
-            library = replacedLibrary,
-            libraryDefaultMode = LibrarySort.valueOf(preferences.librarySortingMode().get())
-                ?: LibrarySort.Title,
-            libraryDefaultAscending = preferences.librarySortingAscending().get(),
-            randomSeed = libraryPreferences.randomSortSeed().get().toLong(),
-            removeArticles = preferences.removeArticles().get(),
+            library = loaded.library.mapKeys(replaceKey),
+            libraryDefaultMode = defaultMode,
+            libraryDefaultAscending = defaultAscending,
+            randomSeed = randomSeed,
+            removeArticles = removeArticles,
+        )
+        // The rendered map (filteredLibrary, what the composable draws) re-sorts the same way.
+        // Sort changes order, never filter membership, so no suspend filter re-run is needed.
+        val resortedFiltered = MangaLibrarySort.sort(
+            library = loaded.filteredLibrary.mapKeys(replaceKey),
+            libraryDefaultMode = defaultMode,
+            libraryDefaultAscending = defaultAscending,
+            randomSeed = randomSeed,
+            removeArticles = removeArticles,
         )
         // Bump sortEpoch so StateFlow.update always emits, even if the new library map compares
         // equal to the old (CategoryImpl.equals is by name; a cloned Category reads as equal to
@@ -487,6 +613,7 @@ class MangaLibraryScreenModel :
         mutableState.update { c ->
             if (c is LibraryTabState.Loaded) c.copy(
                 library = resorted,
+                filteredLibrary = resortedFiltered,
                 sortEpoch = c.sortEpoch + 1,
             ) else c
         }
@@ -790,6 +917,81 @@ class MangaLibraryScreenModel :
             )
         }
     }
+
+    /**
+     * Bundles the search query + the eight filter prefs into one [FilterInputs] stream. Held
+     * separate from the raw-library pipeline so a change here re-runs only the search + suspend
+     * filter (gated downstream by `distinctUntilChanged`), not the grouping/sort build.
+     * `FILTER_TRACKER` is a JVM static read at build time, piggybacking on the filterTracked
+     * change like the legacy sheet does.
+     */
+    private fun filterInputsFlow() = combine(
+        searchQueryFlow,
+        preferences.filterUnread().changes(),
+        preferences.filterDownloaded().changes(),
+        preferences.filterCompleted().changes(),
+        preferences.filterTracked().changes(),
+    ) { query, unread, downloaded, completed, tracked ->
+        FilterAcc(query, unread, downloaded, completed, tracked)
+    }
+        .combine(preferences.filterBookmarked().changes()) { acc, bookmarked -> acc.copy(bookmarked = bookmarked) }
+        .combine(preferences.filterContentType().changes()) { acc, contentType -> acc.copy(contentType = contentType) }
+        .combine(preferences.filterMangaType().changes()) { acc, mangaType -> acc.copy(mangaType = mangaType) }
+        .combine(preferences.showAllCategories().changes()) { acc, showAll ->
+            FilterInputs(
+                query = acc.query,
+                filterState = MangaLibraryFilter.MangaFilterState(
+                    downloaded = acc.downloaded,
+                    unread = acc.unread,
+                    completed = acc.completed,
+                    tracked = acc.tracked,
+                    mangaType = acc.mangaType,
+                    contentType = acc.contentType,
+                    bookmarked = acc.bookmarked,
+                    tracker = FilterBottomSheet.FILTER_TRACKER,
+                ),
+                showAllCategories = showAll,
+            )
+        }
+
+    private data class FilterAcc(
+        val query: String,
+        val unread: Int,
+        val downloaded: Int,
+        val completed: Int,
+        val tracked: Int,
+        val bookmarked: Int = 0,
+        val contentType: Int = 0,
+        val mangaType: Int = 0,
+    )
+
+    private data class FilterInputs(
+        val query: String,
+        val filterState: MangaLibraryFilter.MangaFilterState,
+        val showAllCategories: Boolean,
+    )
+
+    /** Raw-library pipeline output, before search + filter. */
+    private data class RawData(
+        val library: Map<Category, List<LibraryItem.Manga>>,
+        val isRunning: Boolean,
+        val inQueue: Set<Int>,
+        val currentCategoryOrder: Int,
+        val categorySortOrder: Int,
+        val collapsedDynamicCategories: Set<String>,
+        val collapsedDynamicAtBottom: Boolean,
+        val sourceNames: Map<Long, String>,
+        val seriesTypes: Map<Long, String>,
+        val detectedTypes: Set<Int>,
+        val loggedServiceNames: Map<Long, String>,
+    )
+
+    /** Raw data + the search/filter result for one emission. */
+    private data class Rendered(
+        val raw: RawData,
+        val isAnyFilterActive: Boolean,
+        val filteredLibrary: Map<Category, List<LibraryItem.Manga>>,
+    )
 
     /**
      * Resolves a manga's source language. Mirrors legacy [eu.kanade.tachiyomi.ui.library.LibraryPresenter.getLanguage]

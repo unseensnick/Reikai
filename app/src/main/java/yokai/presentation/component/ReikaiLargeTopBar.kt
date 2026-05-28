@@ -36,6 +36,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -49,9 +50,11 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -508,9 +511,20 @@ private fun SearchCardActiveContent(
                 tint = titleColor,
             )
         }
+        // TextFieldValue overload (not the String one): the String overload collapses the
+        // cursor/selection across recompositions on some IMEs, which reverses typed input
+        // ("solo" -> "olos"). Owning the TextFieldValue here keeps the caret stable; we only
+        // re-seed it when `query` changes externally (e.g. the clear button), never mid-typing.
+        var fieldValue by remember { mutableStateOf(TextFieldValue(query, TextRange(query.length))) }
+        if (fieldValue.text != query) {
+            fieldValue = TextFieldValue(query, TextRange(query.length))
+        }
         BasicTextField(
-            value = query,
-            onValueChange = onQueryChange,
+            value = fieldValue,
+            onValueChange = {
+                fieldValue = it
+                if (it.text != query) onQueryChange(it.text)
+            },
             singleLine = true,
             textStyle = TextStyle(
                 fontSize = 16.sp,
