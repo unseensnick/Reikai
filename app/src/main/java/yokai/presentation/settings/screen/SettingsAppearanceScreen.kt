@@ -60,7 +60,6 @@ object SettingsAppearanceScreen : ComposableSettings() {
         val basePreferences: BasePreferences by injectLazy()
         return persistentListOf(
             getAppThemeGroup(preferences, basePreferences),
-            getToolbarGroup(preferences),
             getDetailsPageGroup(preferences),
             getNavigationGroup(preferences),
         )
@@ -175,27 +174,6 @@ object SettingsAppearanceScreen : ComposableSettings() {
                     )
                 }
             }.toPersistentList(),
-        )
-    }
-
-    // ---------- Toolbar ----------
-
-    @Composable
-    private fun getToolbarGroup(preferences: PreferencesHelper): Preference.PreferenceGroup {
-        val context = LocalContext.current
-        return Preference.PreferenceGroup(
-            title = "Toolbar",
-            preferenceItems = persistentListOf(
-                Preference.PreferenceItem.SwitchPreference(
-                    pref = preferences.useLargeToolbar(),
-                    title = stringResource(MR.strings.expanded_toolbar),
-                    subtitle = stringResource(MR.strings.show_larger_toolbar),
-                    // Legacy controller reconfigures activityBinding.appBar inline; from a Compose
-                    // settings surface we don't hold that binding, so recreate is the coarse but
-                    // correct fallback that picks up the new toolbar mode on rebuild.
-                    onValueChanged = { (context as? Activity)?.recreate(); true },
-                ),
-            ),
         )
     }
 

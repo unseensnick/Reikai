@@ -505,8 +505,6 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
 
     fun themeMangaDetails() = preferenceStore.getBoolean(Keys.themeMangaDetails, true)
 
-    fun useLargeToolbar() = preferenceStore.getBoolean("use_large_toolbar", true)
-
     fun showSeriesInShortcuts() = preferenceStore.getBoolean(Keys.showSeriesInShortcuts, true)
     fun showSourcesInShortcuts() = preferenceStore.getBoolean(Keys.showSourcesInShortcuts, true)
     fun openChapterInShortcuts() = preferenceStore.getBoolean(Keys.openChapterInShortcuts, true)

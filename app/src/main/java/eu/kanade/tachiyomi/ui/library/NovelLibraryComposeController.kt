@@ -1,23 +1,17 @@
 package eu.kanade.tachiyomi.ui.library
 
 import android.os.Bundle
-import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.Tab
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import dev.icerock.moko.resources.compose.stringResource
-import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.base.controller.BaseComposeController
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
 import eu.kanade.tachiyomi.ui.main.RootSearchInterface
 import eu.kanade.tachiyomi.util.compose.LocalRouter
-import eu.kanade.tachiyomi.util.system.getResourceColor
+import yokai.presentation.component.ReikaiPillTabRow
 import yokai.i18n.MR
 import yokai.presentation.library.NovelLibraryTabContent
 import yokai.presentation.library.novels.NovelLibraryScreenModel
@@ -67,26 +61,19 @@ class NovelLibraryComposeController(bundle: Bundle? = null) :
             }
             with(screenAnchor) {
                 val screenModel = rememberScreenModel { NovelLibraryScreenModel() }
+                val mangaLabel = stringResource(MR.strings.manga)
+                val novelsLabel = stringResource(MR.strings.light_novels)
+                val tabLabels = remember(mangaLabel, novelsLabel) { listOf(mangaLabel, novelsLabel) }
                 val tabRow: @Composable () -> Unit = {
-                    val tabRowContext = LocalContext.current
-                    val tabRowContainerColor = remember(tabRowContext) {
-                        Color(tabRowContext.getResourceColor(R.attr.background))
-                    }
-                    PrimaryTabRow(
+                    ReikaiPillTabRow(
                         selectedTabIndex = LibraryHostController.TAB_NOVELS,
-                        containerColor = tabRowContainerColor,
-                    ) {
-                        Tab(
-                            selected = false,
-                            onClick = { host?.selectTab(LibraryHostController.TAB_MANGA) },
-                            text = { Text(stringResource(MR.strings.manga)) },
-                        )
-                        Tab(
-                            selected = true,
-                            onClick = {},
-                            text = { Text(stringResource(MR.strings.light_novels)) },
-                        )
-                    }
+                        tabs = tabLabels,
+                        onTabSelected = { index ->
+                            if (index == LibraryHostController.TAB_MANGA) {
+                                host?.selectTab(LibraryHostController.TAB_MANGA)
+                            }
+                        },
+                    )
                 }
                 NovelLibraryTabContent(screenModel = screenModel, tabRow = tabRow)
             }

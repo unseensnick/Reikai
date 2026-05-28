@@ -20,7 +20,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bluelinelabs.conductor.Controller
 import com.google.android.material.appbar.AppBarLayout
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.util.system.dpToPx
@@ -30,7 +29,6 @@ import eu.kanade.tachiyomi.util.view.backgroundColor
 import eu.kanade.tachiyomi.util.view.isControllerVisible
 import eu.kanade.tachiyomi.util.view.setTextColorAlpha
 import eu.kanade.tachiyomi.widget.StatefulNestedScrollView
-import uy.kohesive.injekt.injectLazy
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -44,15 +42,16 @@ class ExpandedAppBarLayout@JvmOverloads constructor(context: Context, attrs: Att
     var cardFrame: FrameLayout? = null
     var mainToolbar: CenteredToolbar? = null
     var bigTitleView: TextView? = null
-    val preferences: PreferencesHelper by injectLazy()
     var bigView: View? = null
     var imageView: ImageView? = null
     var imageLayout: FrameLayout? = null
     private var tabsFrameLayout: FrameLayout? = null
     var mainActivity: MainActivity? = null
     private var isExtraSmall = false
+    // Phase 1 of the top-bar unification retired the per-user toggle; the legacy bar still
+    // honors the extra-small clamp so very small screens don't get the 2-line headline.
     val useLargeToolbar: Boolean
-        get() = preferences.useLargeToolbar().get() && !isExtraSmall
+        get() = !isExtraSmall
 
     var compactSearchMode = false
 

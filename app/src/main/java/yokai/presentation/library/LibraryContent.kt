@@ -123,7 +123,7 @@ import yokai.presentation.library.components.LazyLibraryGrid
 import yokai.presentation.library.components.LazyLibraryList
 import yokai.presentation.library.components.LazyLibraryStaggeredGrid
 import yokai.presentation.component.EmptyScreen
-import yokai.presentation.component.ReikaiTopBar
+import yokai.presentation.component.ReikaiLargeTopBar
 import yokai.presentation.library.components.LibraryCategoryHeader
 import yokai.presentation.library.components.LibraryOverflowMenu
 import yokai.presentation.library.components.SelectionAppBar
@@ -615,13 +615,15 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
         hopperVerticalDragPx += delta
     }
 
-    // Topbar scroll behavior: small bar fully hides on scroll-down and re-enters on scroll-up
-    // (enterAlwaysScrollBehavior), matching the legacy plain-toolbar `scroll|enterAlways` flags.
-    // searchActive pins the bar so the keyboard target stays put.
-    val enterAlwaysBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    val scrollBehavior: TopAppBarScrollBehavior? = if (searchActive) null else enterAlwaysBehavior
+    // Topbar scroll behavior: exitUntilCollapsed so the action row + big "Library" headline
+    // collapse out (matching `ExpandedAppBarLayout.updateAppBarAfterY`'s big-title fade) while
+    // the search card row + tabs stay pinned at the top, exactly like the legacy compact state
+    // (FloatingToolbar visible with menu icons next to it, tabs below). searchActive pins the
+    // bar so the keyboard target stays put.
+    val exitUntilCollapsedBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val scrollBehavior: TopAppBarScrollBehavior? = if (searchActive) null else exitUntilCollapsedBehavior
     val activeNestedScroll: NestedScrollConnection? =
-        if (searchActive) null else enterAlwaysBehavior.nestedScrollConnection
+        if (searchActive) null else exitUntilCollapsedBehavior.nestedScrollConnection
 
     // Bottom-nav hide-on-scroll. Legacy `scrollViewWith` (ControllerExtensions.kt:545-560)
     // translates `activityBinding.bottomNav.translationY` directly from the RecyclerView's
@@ -866,23 +868,42 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                     colors = libraryTopBarColors,
                 )
             } else {
-                ReikaiTopBar(
-                    title = {
-                        Text(
-                            text = stringResource(MR.strings.library),
-                            style = MaterialTheme.typography.headlineMedium,
-                        )
-                    },
+                // Search card title pulls from `librarySearchSuggestion` — the rotating random
+                // library entry the legacy bar already feeds into its FloatingToolbar title.
+                // When suggestions are disabled or the suggestion is blank, fall back to the
+                // library search hint so the card still telegraphs its purpose.
+                val suggestion by libraryPreferences.librarySearchSuggestion().collectAsState()
+                val suggestionsEnabled by libraryPreferences.showLibrarySearchSuggestions().collectAsState()
+                val searchHint = stringResource(MR.strings.library_search_hint)
+                val searchFmt = stringResource(MR.strings.search_)
+                val searchCardTitle = if (suggestionsEnabled && suggestion.isNotBlank()) {
+                    searchFmt.format("\"$suggestion\"")
+                } else {
+                    searchHint
+                }
+                // Subtitle = the active category name, mirroring legacy
+                // `LibraryController.setSubtitle()` (LibraryController.kt:468-477) which writes
+                // `binding.headerTitle.text` to `searchToolbar.subtitle`. Only shows when there
+                // are multiple categories visible — single-category mode has nothing useful to
+                // distinguish, matching the legacy gate (`!singleCategory && showAllCategories`).
+                val searchCardSubtitle = if (library.size > 1 && showAllCategories) {
+                    activeCategory?.name
+                } else {
+                    null
+                }
+                ReikaiLargeTopBar(
+                    title = stringResource(MR.strings.library),
+                    searchCardTitle = searchCardTitle,
+                    searchCardSubtitle = searchCardSubtitle,
+                    onSearchCardClick = { onSearchActiveChange(true) },
                     actions = {
                         LibraryToolbarActions(
                             isAnyFilterActive = isAnyFilterActive,
-                            onSearch = { onSearchActiveChange(true) },
                             onOpenFilter = onOpenFilter,
                             onOpenOverflow = onOpenOverflow,
                         )
                     },
                     scrollBehavior = scrollBehavior,
-                    colors = libraryTopBarColors,
                     below = topBarBelow,
                 )
             }
@@ -1516,22 +1537,17 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
 }
 
 /**
- * Library toolbar action cluster: search, filter (with active-state dot encoded in the icon's
- * contentDescription), overflow.
+ * Library toolbar action cluster: filter (with active-state dot encoded in the icon's
+ * contentDescription) + overflow. Search is reached through the [ReikaiSearchCard] in the
+ * top bar's searchCard slot, not via a separate icon — matches the legacy bar where the
+ * floating search card was the search affordance.
  */
 @Composable
 private fun LibraryToolbarActions(
     isAnyFilterActive: Boolean,
-    onSearch: () -> Unit,
     onOpenFilter: () -> Unit,
     onOpenOverflow: () -> Unit,
 ) {
-    IconButton(onClick = onSearch) {
-        Icon(
-            imageVector = Icons.Outlined.Search,
-            contentDescription = stringResource(MR.strings.search),
-        )
-    }
     Box {
         IconButton(onClick = onOpenFilter) {
             Icon(

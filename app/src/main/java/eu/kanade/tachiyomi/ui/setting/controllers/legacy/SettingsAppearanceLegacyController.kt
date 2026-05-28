@@ -130,34 +130,6 @@ class SettingsAppearanceLegacyController : SettingsLegacyController() {
         }
 
         preferenceCategory {
-            switchPreference {
-                bindTo(preferences.useLargeToolbar())
-                titleRes = MR.strings.expanded_toolbar
-                summaryRes = MR.strings.show_larger_toolbar
-
-                onChange {
-                    val useLarge = it as Boolean
-                    activityBinding?.appBar?.setToolbarModeBy(this@SettingsAppearanceLegacyController, !useLarge)
-                    activityBinding?.appBar?.hideBigView(!useLarge, !useLarge)
-                    activityBinding?.toolbar?.alpha = 1f
-                    activityBinding?.toolbar?.translationY = 0f
-                    activityBinding?.toolbar?.isVisible = true
-                    activityBinding?.appBar?.doOnNextLayout {
-                        listView.requestApplyInsets()
-                        listView.post {
-                            if (useLarge) {
-                                moveRecyclerViewUp(true)
-                            } else {
-                                activityBinding?.appBar?.updateAppBarAfterY(listView)
-                            }
-                        }
-                    }
-                    true
-                }
-            }
-        }
-
-        preferenceCategory {
             titleRes = MR.strings.details_page
             switchPreference {
                 key = Keys.themeMangaDetails

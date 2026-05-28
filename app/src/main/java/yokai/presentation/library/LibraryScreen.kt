@@ -1,11 +1,10 @@
 package yokai.presentation.library
 
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import yokai.presentation.component.ReikaiPillTabRow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -99,29 +98,18 @@ class LibraryScreen : Screen {
         // preempt the whole top chrome (LibraryContent hides topBarBelow then), matching the
         // legacy ActionMode convention that also hides tabs during selection.
         //
-        // Container color is pinned to ?attr/background (same legacy attr the bar uses) so the
-        // tab row visually continues the bar's surface instead of rendering as a separate band
-        // in PrimaryTabRow's default container color.
-        val tabRowContext = LocalContext.current
-        val tabRowContainerColor = remember(tabRowContext) {
-            Color(tabRowContext.getResourceColor(eu.kanade.tachiyomi.R.attr.background))
-        }
+        // Uses ReikaiPillTabRow (the legacy Theme.Widget.Tabs.Highlight equivalent) instead of
+        // M3's underline-style PrimaryTabRow so the Compose library matches the legacy library
+        // bar's pill-style tabs exactly.
+        val mangaLabel = stringResource(MR.strings.manga)
+        val novelsLabel = stringResource(MR.strings.light_novels)
+        val tabLabels = remember(mangaLabel, novelsLabel) { listOf(mangaLabel, novelsLabel) }
         val tabRow: @Composable () -> Unit = {
-            PrimaryTabRow(
+            ReikaiPillTabRow(
                 selectedTabIndex = activeTab,
-                containerColor = tabRowContainerColor,
-            ) {
-                Tab(
-                    selected = activeTab == 0,
-                    onClick = { activeTab = 0 },
-                    text = { Text(stringResource(MR.strings.manga)) },
-                )
-                Tab(
-                    selected = activeTab == 1,
-                    onClick = { activeTab = 1 },
-                    text = { Text(stringResource(MR.strings.light_novels)) },
-                )
-            }
+                tabs = tabLabels,
+                onTabSelected = { activeTab = it },
+            )
         }
         when (activeTab) {
             0 -> MangaLibraryTabContent(mangaScreenModel, tabRow)
