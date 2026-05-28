@@ -58,6 +58,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -104,6 +105,7 @@ import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_LIST
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.system.getResourceColor
+import eu.kanade.tachiyomi.util.system.isTablet
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.widget.EmptyView
 import kotlin.math.abs
@@ -122,6 +124,7 @@ import yokai.presentation.library.components.CategorySortSheet
 import yokai.presentation.library.components.LazyLibraryGrid
 import yokai.presentation.library.components.LazyLibraryList
 import yokai.presentation.library.components.LazyLibraryStaggeredGrid
+import yokai.presentation.component.CompactPivotScrollBehavior
 import yokai.presentation.component.EmptyScreen
 import yokai.presentation.component.ReikaiLargeTopBar
 import yokai.presentation.library.components.LibraryCategoryHeader
@@ -615,15 +618,37 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
         hopperVerticalDragPx += delta
     }
 
-    // Topbar scroll behavior: exitUntilCollapsed so the action row + big "Library" headline
-    // collapse out (matching `ExpandedAppBarLayout.updateAppBarAfterY`'s big-title fade) while
-    // the search card row + tabs stay pinned at the top, exactly like the legacy compact state
-    // (FloatingToolbar visible with menu icons next to it, tabs below). searchActive pins the
-    // bar so the keyboard target stays put.
-    val exitUntilCollapsedBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val scrollBehavior: TopAppBarScrollBehavior? = if (searchActive) null else exitUntilCollapsedBehavior
+    // Topbar scroll behavior pivots on form factor to match the legacy ExpandedAppBarLayout:
+    //   - Tablet: exitUntilCollapsedScrollBehavior. Bar collapses to compact (card + tabs),
+    //     stays there. Re-expands only when content reaches its top. Never fully hides — same
+    //     as upstream's minTabletHeight clamp.
+    //   - Phone: CompactPivotScrollBehavior (custom). On scroll-down the bar collapses then
+    //     continues past compact to fully hide. On scroll-up the bar slides back to compact
+    //     immediately, but stays at compact until content reaches its top, then expands the
+    //     rest of the way. Matches upstream's 1:1 translationY follow that clamps at
+    //     smallHeight unless the content offset has come back down past the appbar's height.
+    val libraryContextForTopBar = LocalContext.current
+    val isTabletForTopBar = remember(libraryContextForTopBar) { libraryContextForTopBar.isTablet() }
+    val collapsibleHeightPxState = remember { mutableFloatStateOf(0f) }
+    val topBarState = rememberTopAppBarState()
+    val tabletScrollBehavior: TopAppBarScrollBehavior? = if (isTabletForTopBar) {
+        TopAppBarDefaults.exitUntilCollapsedScrollBehavior(state = topBarState)
+    } else {
+        null
+    }
+    val phoneScrollBehavior: TopAppBarScrollBehavior? = if (isTabletForTopBar) {
+        null
+    } else {
+        remember(topBarState, collapsibleHeightPxState) {
+            CompactPivotScrollBehavior(
+                state = topBarState,
+                compactThresholdProvider = { -collapsibleHeightPxState.floatValue },
+            )
+        }
+    }
+    val scrollBehavior: TopAppBarScrollBehavior = tabletScrollBehavior ?: phoneScrollBehavior!!
     val activeNestedScroll: NestedScrollConnection? =
-        if (searchActive) null else exitUntilCollapsedBehavior.nestedScrollConnection
+        if (searchActive) null else scrollBehavior.nestedScrollConnection
 
     // Bottom-nav hide-on-scroll. Legacy `scrollViewWith` (ControllerExtensions.kt:545-560)
     // translates `activityBinding.bottomNav.translationY` directly from the RecyclerView's
@@ -857,16 +882,6 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                     colors = libraryTopBarColors,
                     actions = actionsList,
                 )
-            } else if (searchActive) {
-                LibrarySearchBar(
-                    query = searchQuery,
-                    onQueryChange = onSearchQueryChange,
-                    onClose = {
-                        onSearchQueryChange("")
-                        onSearchActiveChange(false)
-                    },
-                    colors = libraryTopBarColors,
-                )
             } else {
                 // Search card title pulls from `librarySearchSuggestion` — the rotating random
                 // library entry the legacy bar already feeds into its FloatingToolbar title.
@@ -905,6 +920,23 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                     },
                     scrollBehavior = scrollBehavior,
                     below = topBarBelow,
+                    // In-place search-expand: when searchActive flips true, the card transforms
+                    // into the back-arrow + TextField + clear-button form at the same size +
+                    // position (mirrors upstream's MiniSearchView.onActionViewExpanded). No
+                    // separate LibrarySearchBar swap — the bar's other affordances stay put.
+                    searchActive = searchActive,
+                    searchQuery = searchQuery,
+                    onSearchQueryChange = onSearchQueryChange,
+                    onSearchClose = {
+                        onSearchQueryChange("")
+                        onSearchActiveChange(false)
+                    },
+                    searchHint = searchHint,
+                    // Phone uses CompactPivotScrollBehavior which needs to know the compact
+                    // threshold (= -collapsibleHeight) to decide when scroll-up should bring
+                    // the bar back to compact vs. expand it past compact. The callback fires
+                    // whenever the bar's measured collapsible block changes.
+                    onCollapsibleHeightChange = { collapsibleHeightPxState.floatValue = it.toFloat() },
                 )
             }
         },
