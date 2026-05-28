@@ -14,6 +14,24 @@ Android manga reader. Personal fork of [Yōkai](https://github.com/null2264/yoka
 
 **Offload long or hard tasks to subagents.** When a task requires deep codebase exploration, multi-file research, or extended multi-step work, spawn a subagent (`Agent` tool) to do that work. This keeps the main context window clean and avoids polluting conversation state with intermediate search noise.
 
+## Compose + Voyager port checklist
+
+Every new Compose screen, and every legacy `*Controller` migration, must pass these nine items. Full rationale, reference pattern, and current debt snapshot live in the linked docs; this list is the index.
+
+1. Extends Voyager `Screen` (or `Tab`). Not a bare `@Composable fun FooScreen()`.
+2. Business logic lives in a `ScreenModel` resolved via `rememberScreenModel { ... }`. Pure-UI screens may skip this and must say so in a one-line comment.
+3. **DI**: no `Injekt.get<>()` or `injectLazy()` inside `@Composable`. New ScreenModels prefer Koin (`KoinComponent` + `by inject()`); class-level `injectLazy()` in a ScreenModel is acceptable during migration.
+4. State exposed via `StateFlow` (typically `StateScreenModel<S>`). No RxJava `Observable` / `Subject` in the screen path.
+5. No direct `PreferencesHelper` access inside `@Composable`. Read prefs in the ScreenModel, expose as state.
+6. Coroutines launch via `screenModelScope.launchIO` / `launchUI` (ScreenModel) or `rememberCoroutineScope()` (composable). Never `GlobalScope` or hand-rolled `CoroutineScope(Dispatchers.IO)`.
+7. No Rx-typed members reachable from the ScreenModel's public surface. Adapt at the boundary with `.asFlow()`.
+8. No legacy `*Controller` launched from a new Compose screen unless the call site is annotated `// transitional: legacy <Foo>Controller until <ScreenName> ports`.
+9. Business logic out of `@Composable`. Side-effects in `LaunchedEffect` or the ScreenModel; the composable describes render, not flow.
+
+Reference (all 9 passing): [ExtensionRepoScreen.kt:54](app/src/main/java/yokai/presentation/extension/repo/ExtensionRepoScreen.kt:54).
+
+Full rationale: [.claude/rules/compose-port.md](.claude/rules/compose-port.md). Current debt snapshot (dated, decays): [docs/dev/compose-port-status.md](docs/dev/compose-port-status.md).
+
 ## Code change defaults
 
 - **DRY**: Before adding a helper, search the codebase (or run an Explore agent in plan mode) for an existing equivalent.
@@ -51,6 +69,7 @@ Android Studio (`Build → Make/Rebuild`). Java 17, `minSdk 23`, `targetSdk 36`.
 
 - [docs/dev/development.md](docs/dev/development.md) — architecture, modules, fork features, reference clones, upstream-port workflow.
 - [.claude/rules/architecture.md](.claude/rules/architecture.md) — presenter vs Compose+Voyager, settings two-screen pattern, preferences, coroutines, KMP, DI.
+- [.claude/rules/compose-port.md](.claude/rules/compose-port.md) — Compose+Voyager port checklist (the nine items) with rationale and reference pattern; paired with the dated debt snapshot at [docs/dev/compose-port-status.md](docs/dev/compose-port-status.md).
 - [.claude/rules/workflow.md](.claude/rules/workflow.md) — CHANGELOG rule, commits/PRs, release-cut, upstream sync.
 - [.claude/rules/code-quality.md](.claude/rules/code-quality.md) — DRY/YAGNI/KISS, naming, code markers, file organization.
 - [.claude/rules/testing.md](.claude/rules/testing.md) — behavior over implementation, mock at boundaries, coroutine test patterns.
