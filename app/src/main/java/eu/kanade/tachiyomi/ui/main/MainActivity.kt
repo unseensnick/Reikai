@@ -87,6 +87,7 @@ import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
 import eu.kanade.tachiyomi.ui.base.controller.BaseLegacyController
 import eu.kanade.tachiyomi.ui.base.controller.DialogController
 import eu.kanade.tachiyomi.ui.library.LibraryController
+import eu.kanade.tachiyomi.ui.library.LibraryHostController
 import eu.kanade.tachiyomi.ui.library.compose.LibraryComposeController
 import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
 import eu.kanade.tachiyomi.ui.more.AboutController
@@ -544,7 +545,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             if (currentRoot?.tag()?.toIntOrNull() != id) {
                 setRoot(
                     when (id) {
-                        R.id.nav_library -> if (basePreferences.composeLibrary().get()) LibraryComposeController() else LibraryController()
+                        R.id.nav_library -> if (basePreferences.composeLibrary().get()) LibraryComposeController() else LibraryHostController()
                         R.id.nav_recents -> RecentsController()
                         else -> BrowseController()
                     },
@@ -1410,7 +1411,10 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
     override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
         ev?.let {
             gestureDetector?.onTouchEvent(it)
-            (router.backstack.lastOrNull()?.controller as? LibraryController)?.handleGeneralEvent(it)
+            val topController = router.backstack.lastOrNull()?.controller
+            val libraryChild = topController as? LibraryController
+                ?: (topController as? LibraryHostController)?.currentLibraryController()
+            libraryChild?.handleGeneralEvent(it)
         }
         if (ev?.action == MotionEvent.ACTION_DOWN) {
             if (snackBar != null && snackBar!!.isShown) {

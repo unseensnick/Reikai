@@ -1600,7 +1600,10 @@ open class LibraryController(
     }
 
     private fun openManga(manga: Manga, relatedMangaIds: LongArray = LongArray(0)) {
-        router.pushController(
+        // When hosted inside LibraryHostController, `router` is the child router and a push
+        // would land inside the host's container with the Manga/Novels tab strip still showing
+        // above. Walk up one level so the details controller takes the full screen.
+        (parentController?.router ?: router).pushController(
             MangaDetailsController(manga, relatedMangaIds = relatedMangaIds).withFadeTransaction(),
         )
     }
@@ -1635,7 +1638,7 @@ open class LibraryController(
     }
 
     override fun globalSearch(query: String) {
-        router.pushController(GlobalSearchController(query).withFadeTransaction())
+        (parentController?.router ?: router).pushController(GlobalSearchController(query).withFadeTransaction())
     }
 
     override fun onActionStateChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
@@ -2025,7 +2028,7 @@ open class LibraryController(
     }
 
     fun showCategoriesController() {
-        router.pushController(CategoryController().withFadeTransaction())
+        (parentController?.router ?: router).pushController(CategoryController().withFadeTransaction())
         displaySheet?.dismiss()
     }
 

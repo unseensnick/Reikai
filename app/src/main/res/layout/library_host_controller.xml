@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Single-container host for the tabbed legacy library. The Manga / Novels tab strip lives in
+    the activity's `mainTabs` (same pattern as Browse, Recents, and LibraryCategoriesHostController)
+    so the hosted manga `LibraryController` (recycler + FilterBottomSheet + hopper) and the novel
+    Compose page (NovelLibraryComposeController) share the same parent appbar geometry without
+    double-padding.
+-->
+<com.bluelinelabs.conductor.ChangeHandlerFrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/library_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent" />

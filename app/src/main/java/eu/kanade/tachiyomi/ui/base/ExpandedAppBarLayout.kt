@@ -133,9 +133,19 @@ class ExpandedAppBarLayout@JvmOverloads constructor(context: Context, attrs: Att
             return (appBarHeight + paddingTop).toFloat()
         }
 
+    /**
+     * Controllers can opt into phone-style full hide on tablets by flipping this true. The
+     * library (legacy `LibraryHostController`) sets it on enter so the toolbar + tabs slide
+     * fully off-screen while scrolling — by default tablets keep a `minTabletHeight` chunk
+     * pinned to the top, which is the Yokai design but feels heavy when the tabs row sits
+     * above the content.
+     */
+    var allowFullHideOnTablet: Boolean = false
+
     /** Used to restrain how far up the app bar can go up. Tablets stop at the smaller toolbar */
     private val minTabletHeight: Int
         get() {
+            if (allowFullHideOnTablet) return 0
             val tabHeight = if (tabsFrameLayout?.isVisible == true) 48.dpToPx else 0
             return if (context.isTablet() || (compactSearchMode && toolbarMode == ToolbarState.EXPANDED)) {
                 (mainToolbar?.height ?: 0) + paddingTop + tabHeight

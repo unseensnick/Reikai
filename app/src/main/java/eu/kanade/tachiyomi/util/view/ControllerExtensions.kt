@@ -301,7 +301,13 @@ fun Controller.scrollViewWith(
     val tabBarHeight = 48.dpToPx
     activityBinding?.appBar?.lockYPos = false
     activityBinding?.appBar?.y = 0f
-    val includeTabView = this is TabbedInterface
+    // Walk the parentController chain the same way `fullAppBarHeight` does, so a controller
+    // hosted inside a TabbedInterface parent (e.g. LibraryController inside LibraryHostController)
+    // accounts for the tab strip in its appbar collapse math. Without this, the child's
+    // `atTopOfRecyclerView` threshold below ignores the ~48dp tabs that fullAppBarHeight already
+    // reserves space for, so the appbar collapse fires at the wrong scroll position.
+    val includeTabView = this is TabbedInterface ||
+        generateSequence(parentController) { it.parentController }.any { it is TabbedInterface }
     activityBinding?.appBar?.useTabsInPreLayout = includeTabView
     activityBinding?.appBar?.setToolbarModeBy(this@scrollViewWith)
     var appBarHeight = (
