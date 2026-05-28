@@ -40,7 +40,10 @@ internal fun LazyLibraryGrid(
         // Muted, theme-adaptive gray matching the legacy fast_scroller_handle_idle look.
         // outline alone reads as too vivid in dark mode, so alpha-blend onSurface instead.
         thumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-        contentPadding = contentPadding + PaddingValues(8.dp),
+        // 8dp gutter on top/sides only. Bottom is owned by the caller (LibraryContent reserves
+        // a reactive nav-height there); stacking another 8dp here would leave a visible band
+        // between the last items and the bottom nav.
+        contentPadding = contentPadding + PaddingValues(start = 8.dp, top = 8.dp, end = 8.dp),
         verticalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridVerticalSpacer),
         horizontalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridHorizontalSpacer),
         content = content,
@@ -90,7 +93,8 @@ internal fun LazyLibraryStaggeredGrid(
         // Match LazyLibraryGrid's muted thumb; the underlying default uses primary which reads
         // too vivid against the grid.
         thumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-        contentPadding = contentPadding + PaddingValues(8.dp),
+        // Bottom-padding intentionally omitted; see [LazyLibraryGrid] for the rationale.
+        contentPadding = contentPadding + PaddingValues(start = 8.dp, top = 8.dp, end = 8.dp),
         verticalItemSpacing = CommonMangaItemDefaults.GridVerticalSpacer,
         horizontalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridHorizontalSpacer),
         content = content,

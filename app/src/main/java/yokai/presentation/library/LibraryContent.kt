@@ -13,6 +13,10 @@ import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.wrapContentWidth
@@ -58,7 +62,9 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.Composable
@@ -83,10 +89,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.core.view.isVisible
 import dev.icerock.moko.resources.compose.stringResource
+import eu.kanade.tachiyomi.core.storage.preference.collectAsState
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.data.database.models.ILibraryCategory
+import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.library.LibrarySort
+import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COMFORTABLE_GRID
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COMPACT_GRID
 import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_COVER_ONLY_GRID
@@ -101,6 +111,8 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sign
 import kotlinx.coroutines.launch
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import yokai.domain.manga.models.cover
 import yokai.i18n.MR
 import yokai.presentation.library.components.ActiveCategoryChip
@@ -610,6 +622,72 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
     val scrollBehavior: TopAppBarScrollBehavior? = if (searchActive) null else enterAlwaysBehavior
     val activeNestedScroll: NestedScrollConnection? =
         if (searchActive) null else enterAlwaysBehavior.nestedScrollConnection
+
+    // Bottom-nav hide-on-scroll. Legacy `scrollViewWith` (ControllerExtensions.kt:545-560)
+    // translates `activityBinding.bottomNav.translationY` directly from the RecyclerView's
+    // OnScrollListener; the Compose library never wired the equivalent, so the nav sat
+    // permanently visible. Mirror the same logic via a NestedScrollConnection so both the
+    // Compose-library path and the Compose-novel-in-legacy path get parity with the legacy
+    // manga library. Gated on the same `hideBottomNavOnScroll` preference legacy reads.
+    val libraryContext = LocalContext.current
+    val mainActivity = libraryContext as? MainActivity
+    val libraryPreferences = remember { Injekt.get<PreferencesHelper>() }
+    val hideBottomNavOnScroll by libraryPreferences.hideBottomNavOnScroll().collectAsState()
+    // Track the nav's current translation in Compose state so the LazyGrid's bottom inset can
+    // react reactively. The host ComposeView spans the full screen (controllers no longer pad
+    // for nav.height); we reserve the bottom slot inside the Scaffold's content modifier so
+    // the LazyGrid renders into the freed pixels as the nav slides off, instead of leaving a
+    // dead band below the list at max scroll (which is what the View-level padding shrink
+    // produced).
+    var navTranslationYPx by remember { mutableFloatStateOf(0f) }
+    val navHideConnection: NestedScrollConnection? = remember(mainActivity, hideBottomNavOnScroll) {
+        if (mainActivity == null || !hideBottomNavOnScroll) {
+            null
+        } else {
+            object : NestedScrollConnection {
+                override fun onPostScroll(
+                    consumed: Offset,
+                    available: Offset,
+                    source: NestedScrollSource,
+                ): Offset {
+                    val nav = mainActivity.binding.bottomNav ?: return Offset.Zero
+                    if (!nav.isVisible) return Offset.Zero
+                    val totalDy = consumed.y + available.y
+                    if (totalDy == 0f) return Offset.Zero
+                    val current = nav.translationY
+                    // Compose convention: scrolling content DOWN (revealing below) yields
+                    // negative dy. Legacy increases translation in that case to slide the nav
+                    // off-screen, so we negate.
+                    val target = (current - totalDy).coerceIn(0f, nav.height.toFloat())
+                    if (target != current) {
+                        nav.translationY = target
+                        mainActivity.binding.bottomView?.translationY = target
+                        navTranslationYPx = target
+                    }
+                    return Offset.Zero
+                }
+            }
+        }
+    }
+    // Reset the nav if the user flips the pref off mid-session, or when the surface leaves
+    // composition entirely (controller swap, screen detach), so we don't leave the nav stuck
+    // in a half-hidden state.
+    LaunchedEffect(hideBottomNavOnScroll) {
+        if (!hideBottomNavOnScroll && mainActivity != null) {
+            mainActivity.binding.bottomNav?.translationY = 0f
+            mainActivity.binding.bottomView?.translationY = 0f
+            navTranslationYPx = 0f
+        }
+    }
+    androidx.compose.runtime.DisposableEffect(mainActivity) {
+        onDispose {
+            mainActivity?.binding?.bottomNav?.translationY = 0f
+            mainActivity?.binding?.bottomView?.translationY = 0f
+        }
+    }
+    val navHeightPx = mainActivity?.binding?.bottomNav?.height ?: 0
+    val navHiddenPx = navTranslationYPx.coerceIn(0f, navHeightPx.toFloat())
+    val navReservedDp = with(LocalDensity.current) { (navHeightPx - navHiddenPx).coerceAtLeast(0f).toDp() }
     // Single source of truth for top bar colors so the [ReikaiTopBar], [SelectionAppBar], and
     // [LibrarySearchBar] all share the same surface, and that surface matches the
     // legacy library content area exactly. library_controller.xml sets
@@ -661,11 +739,20 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
     }
 
     Scaffold(
-        modifier = if (activeNestedScroll != null) {
-            modifier.nestedScroll(activeNestedScroll)
-        } else {
-            modifier
+        modifier = run {
+            var m: Modifier = modifier
+            if (activeNestedScroll != null) m = m.nestedScroll(activeNestedScroll)
+            if (navHideConnection != null) m = m.nestedScroll(navHideConnection)
+            m
         },
+        // Drop the bottom side from contentWindowInsets so the Scaffold's contentPadding does
+        // NOT reserve the system gesture-bar inset. The activity's BottomNavigationView already
+        // extends through that same inset (its View.height includes it), and `navReservedDp`
+        // below reserves that full height. Letting both reserve it would leave a visible band
+        // equal to the system inset between the content and the nav. Top + horizontal sides
+        // still flow through normally so the status bar is respected.
+        contentWindowInsets = WindowInsets.systemBars
+            .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
         snackbarHost = {
             // Reserve space above the hopper when it is visible so snackbars don't slide under
             // it. Mirrors legacy `anchorView = binding.categoryHopperFrame` floating behavior.
@@ -824,6 +911,13 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
             state = pullToRefreshState,
             modifier = Modifier
                 .padding(contentPadding)
+                // Reactive bottom inset for the activity's bottom nav. Shrinks as the nav
+                // slides off-screen (navTranslationYPx → navHeight) so the LazyGrid renders
+                // into the freed pixels naturally instead of leaving a dead band at max scroll.
+                // Grows back when the nav re-enters on scroll-up. Replaces the old fixed
+                // bottom padding the controller wrappers used to apply at the ComposeView
+                // level (which couldn't track nav.translationY).
+                .padding(bottom = navReservedDp)
                 // F10: tap anywhere in the content area dismisses the undo snackbar after the
                 // 1-second grace (matches MainActivity.dispatchTouchEvent at MainActivity.kt:1390
                 // -1418). Initial-pass + requireUnconsumed=false observes without consuming, so
