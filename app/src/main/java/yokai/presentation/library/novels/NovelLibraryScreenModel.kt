@@ -265,13 +265,12 @@ class NovelLibraryScreenModel :
                             showAllCategories = display.category.showAllCategories,
                             showEmptyCategoriesWhileFiltering = display.category.showEmptyCategoriesWhileFiltering,
                             lastUsedCategoryOrder = display.category.lastUsedCategoryOrder,
-                            // Hopper + show-category-in-title are manga-only UI; the novel library
-                            // doesn't render them. Inert constants match the composable's previous
-                            // hardcoded values (NovelLibraryTabContent.kt:105,113).
-                            hideHopper = true,
-                            autohideHopper = false,
-                            hopperGravity = 1,
-                            hopperLongPressAction = 0,
+                            hideHopper = display.hopper.hideHopper,
+                            autohideHopper = display.hopper.autohideHopper,
+                            hopperGravity = display.hopper.hopperGravity,
+                            hopperLongPressAction = display.hopper.hopperLongPressAction,
+                            // show-category-in-title is manga-only UI (writes the category name
+                            // into the toolbar title, which the novel toolbar doesn't surface).
                             showCategoryInTitle = false,
                         )
                     }
@@ -728,6 +727,10 @@ class NovelLibraryScreenModel :
         novelPreferences.groupLibraryBy().set(value)
     }
 
+    fun setHopperGravity(gravity: Int) {
+        novelPreferences.novelHopperGravity().set(gravity)
+    }
+
     fun setLastUsedCategory(order: Int) {
         if (order >= 0) novelPreferences.lastUsedNovelCategory().set(order)
     }
@@ -930,8 +933,9 @@ class NovelLibraryScreenModel :
         badgePrefsFlow(),
         categoryPrefsFlow(),
         miscPrefsFlow(),
-    ) { layout, badge, category, misc ->
-        DisplayPrefs(layout, badge, category, misc)
+        hopperPrefsFlow(),
+    ) { layout, badge, category, misc, hopper ->
+        DisplayPrefs(layout, badge, category, misc, hopper)
     }
 
     private fun layoutPrefsFlow() = combine(
@@ -970,6 +974,18 @@ class NovelLibraryScreenModel :
         novelPreferences.novelManualMerges().changes(),
     ) { itemCounts, merges ->
         MiscPrefs(itemCounts, merges)
+    }
+
+    // Category-hopper prefs are novel-only (independent from the manga hopper, like the rest of
+    // categoryPrefsFlow), so they read straight off NovelPreferences without the sharedOrNovel
+    // resolver.
+    private fun hopperPrefsFlow() = combine(
+        novelPreferences.novelHideHopper().changes(),
+        novelPreferences.novelAutohideHopper().changes(),
+        novelPreferences.novelHopperGravity().changes(),
+        novelPreferences.novelHopperLongPressAction().changes(),
+    ) { hide, autohide, gravity, longPress ->
+        HopperPrefs(hide, autohide, gravity, longPress)
     }
 
     /**
@@ -1096,10 +1112,18 @@ class NovelLibraryScreenModel :
         val manualMerges: Set<String>,
     )
 
+    private data class HopperPrefs(
+        val hideHopper: Boolean,
+        val autohideHopper: Boolean,
+        val hopperGravity: Int,
+        val hopperLongPressAction: Int,
+    )
+
     private data class DisplayPrefs(
         val layout: LayoutPrefs,
         val badge: BadgePrefs,
         val category: CategoryPrefs,
         val misc: MiscPrefs,
+        val hopper: HopperPrefs,
     )
 }

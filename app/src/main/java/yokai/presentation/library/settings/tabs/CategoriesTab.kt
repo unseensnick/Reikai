@@ -92,9 +92,14 @@ fun CategoriesTab(
     val autoMergeSameTitle by autoMergeSameTitlePref.collectAsState()
     val showEmptyCategoriesWhileFilteringPref = rememberRoutedPref(routeToNovel, preferences.showEmptyCategoriesWhileFiltering(), novelPrefs.showEmptyCategoriesWhileFiltering())
     val showEmptyCategoriesWhileFiltering by showEmptyCategoriesWhileFilteringPref.collectAsState()
-    val hideHopper by preferences.hideHopper().collectAsState()
-    val autohideHopper by preferences.autohideHopper().collectAsState()
-    val hopperLongPressAction by preferences.hopperLongPressAction().collectAsState()
+    // Hopper prefs are per-library category-navigation state, so route by tab (always novel on
+    // the Novels tab) regardless of the shared display-prefs toggle.
+    val hideHopperPref = rememberRoutedPref(routeToNovel, preferences.hideHopper(), novelPrefs.novelHideHopper())
+    val hideHopper by hideHopperPref.collectAsState()
+    val autohideHopperPref = rememberRoutedPref(routeToNovel, preferences.autohideHopper(), novelPrefs.novelAutohideHopper())
+    val autohideHopper by autohideHopperPref.collectAsState()
+    val hopperLongPressActionPref = rememberRoutedPref(routeToNovel, preferences.hopperLongPressAction(), novelPrefs.novelHopperLongPressAction())
+    val hopperLongPressAction by hopperLongPressActionPref.collectAsState()
     val categorySortOrderPref = rememberRoutedPref(routeToNovel, preferences.categorySortOrder(), novelPrefs.categorySortOrder())
     val categorySortOrder by categorySortOrderPref.collectAsState()
 
@@ -176,29 +181,27 @@ fun CategoriesTab(
             checked = showEmptyCategoriesWhileFiltering,
             onCheckedChanged = { showEmptyCategoriesWhileFilteringPref.set(it) },
         )
-        // The category hopper is a manga-only library affordance (no novel-side equivalent yet),
-        // so its visibility + long-press toggles aren't meaningful on the Novels tab.
-        if (!isNovelTab) {
-            ListPreferenceWidget(
-                value = hopperVisibility,
-                title = stringResource(MR.strings.hide_category_hopper),
-                subtitle = hopperVisibilityEntries[hopperVisibility],
-                icon = null,
-                entries = hopperVisibilityEntries,
-                onValueChange = { selection ->
-                    preferences.hideHopper().set(selection == 2)
-                    preferences.autohideHopper().set(selection == 1)
-                },
-            )
-            ListPreferenceWidget(
-                value = hopperLongPressAction,
-                title = stringResource(MR.strings.category_hopper_long_press),
-                subtitle = hopperLongPressEntries[hopperLongPressAction],
-                icon = null,
-                entries = hopperLongPressEntries,
-                onValueChange = { preferences.hopperLongPressAction().set(it) },
-            )
-        }
+        // Hopper prefs route to the active tab's pref store (manga vs novel) via the routed
+        // prefs above, so these rows apply to whichever library tab opened the sheet.
+        ListPreferenceWidget(
+            value = hopperVisibility,
+            title = stringResource(MR.strings.hide_category_hopper),
+            subtitle = hopperVisibilityEntries[hopperVisibility],
+            icon = null,
+            entries = hopperVisibilityEntries,
+            onValueChange = { selection ->
+                hideHopperPref.set(selection == 2)
+                autohideHopperPref.set(selection == 1)
+            },
+        )
+        ListPreferenceWidget(
+            value = hopperLongPressAction,
+            title = stringResource(MR.strings.category_hopper_long_press),
+            subtitle = hopperLongPressEntries[hopperLongPressAction],
+            icon = null,
+            entries = hopperLongPressEntries,
+            onValueChange = { hopperLongPressActionPref.set(it) },
+        )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 

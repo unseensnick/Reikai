@@ -86,13 +86,13 @@ internal fun NovelLibraryTabContent(
     val showAllCategories = loaded?.showAllCategories ?: true
     val showEmptyCategoriesWhileFiltering = loaded?.showEmptyCategoriesWhileFiltering ?: false
 
-    // Manga-only UI; the novel library renders neither the hopper quartet nor a current-category
-    // title. LibraryContent still requires these params, so feed inert values.
+    // Hopper prefs come from the screen model state (independent novel hopper prefs). The novel
+    // toolbar has no current-category title, so showCategoryInTitle stays inert.
     val showCategoryInTitle = false
-    val hideHopper = true
-    val autohideHopper = false
-    val hopperLongPressAction = 0
-    val hopperGravity = 1
+    val hideHopper = loaded?.hideHopper ?: false
+    val autohideHopper = loaded?.autohideHopper ?: true
+    val hopperLongPressAction = loaded?.hopperLongPressAction ?: 0
+    val hopperGravity = loaded?.hopperGravity ?: 1
 
     // Column count derived from the gridSize pref (now in state). Stays composable-local because
     // it needs the current screen width.
@@ -317,10 +317,7 @@ internal fun NovelLibraryTabContent(
         selection = selection,
         onSearchActiveChange = { searchActive = it },
         onSearchQueryChange = { searchQuery = it; screenModel.setSearchQuery(it) },
-        onHopperGravityChange = {
-            // Novel library doesn't render a hopper, so this writer is unreachable. Leaving
-            // it as a no-op keeps the LibraryContent contract simple.
-        },
+        onHopperGravityChange = { screenModel.setHopperGravity(it) },
         onToggleCategoryCollapse = { category ->
             if (category.isDynamic) {
                 screenModel.toggleDynamicCategoryCollapse(category)

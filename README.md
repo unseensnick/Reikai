@@ -43,6 +43,7 @@ The goal is to stay in sync with upstream Yōkai while layering on features that
 * **Category sort order & bulk delete**: sort categories A→Z / Z→A, or delete multiple categories at once ([docs](docs/categories.md)).
 * **Taste-profile personalization** of the related-mangas carousel: recommendations reranked against your tracked-tag preferences, with status-aware hide filters ([docs](docs/related-mangas.md#taste-profile)).
 * **FlareSolverr support** for Cloudflare bypass on sources that block WebView ([docs](docs/flaresolverr.md)).
+* **Light novels in your library**: a dedicated Novels tab brings light novels into the same library experience as manga (categories, dynamic grouping, search, filter, per-category sort, category hopper) — including Reikai's own multi-source grouping, manual merge/unmerge, and category sort order extended to novels, none of which LNReader has.
 
 </details>
 
@@ -51,6 +52,14 @@ The goal is to stay in sync with upstream Yōkai while layering on features that
 
 * **Related-mangas carousel** on manga details: pulls from five independent streams (source API, keyword search, three tracker services) merged into one deduplicated row ([docs](docs/related-mangas.md)).
 * **Full-screen "See all" browse** for related mangas, with bulk add-to-library ([docs](docs/related-mangas.md)).
+
+</details>
+
+<details open="">
+    <summary><h3>From LNReader</h3></summary>
+
+* **Light novel sources**: install and browse light novels via [LNReader](https://github.com/LNReader/lnreader)-format source plugins, hosted in-app next to your manga extensions, with update detection on the Browse tab.
+* **Light novel reading** *(in progress)*: an in-app light-novel reader, source-catalog browsing, and novel details are being ported from LNReader.
 
 </details>
 

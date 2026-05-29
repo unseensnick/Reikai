@@ -195,6 +195,14 @@ class NovelPreferences(
         preferenceStore.getBoolean("novel_show_empty_categories_filtering", false)
     fun filterOrder() = preferenceStore.getString("novel_filter_order", FilterBottomSheet.Filters.DEFAULT_ORDER)
 
+    // Category-hopper prefs (independent from the manga hopper, like the other category-
+    // navigation prefs). Defaults match the manga hopper so the novel hopper behaves the same
+    // out of the box. Gravity is written only via the drag gesture, not a settings row.
+    fun novelHideHopper() = preferenceStore.getBoolean("novel_hide_hopper", false)
+    fun novelAutohideHopper() = preferenceStore.getBoolean("novel_autohide_hopper", true)
+    fun novelHopperGravity() = preferenceStore.getInt("novel_hopper_gravity", 1)
+    fun novelHopperLongPressAction() = preferenceStore.getInt("novel_hopper_long_press", 0)
+
     companion object {
         private val metadataMapSerializer =
             MapSerializer(String.serializer(), LnInstalledPluginMetadata.serializer())
