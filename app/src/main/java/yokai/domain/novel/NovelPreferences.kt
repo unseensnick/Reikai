@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.data.preference.DEVICE_ONLY_ON_WIFI
 import eu.kanade.tachiyomi.data.preference.MANGA_HAS_UNREAD
 import eu.kanade.tachiyomi.data.preference.MANGA_NON_COMPLETED
 import eu.kanade.tachiyomi.data.preference.MANGA_NON_READ
+import eu.kanade.tachiyomi.ui.library.filter.FilterBottomSheet
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -185,13 +186,14 @@ class NovelPreferences(
     // user lands back on it after process death. showAllCategories renders every category
     // header even when one is filtered to empty. showEmptyCategoriesWhileFiltering keeps
     // emptied categories visible during an active filter narrow. filterOrder is the
-    // reorderable filter-chip order (empty default; the future filter sheet UI will seed a
-    // default ordering on first open).
+    // reorderable filter-chip order; it shares the manga DEFAULT_ORDER so the Novels filter
+    // sheet renders the applicable chips (the manga-only Series type / Content type / Tracked
+    // entries in that order auto-hide on the Novels tab).
     fun lastUsedNovelCategory() = preferenceStore.getInt("last_used_novel_category", 0)
     fun showAllCategories() = preferenceStore.getBoolean("novel_show_all_categories", true)
     fun showEmptyCategoriesWhileFiltering() =
         preferenceStore.getBoolean("novel_show_empty_categories_filtering", false)
-    fun filterOrder() = preferenceStore.getString("novel_filter_order", "")
+    fun filterOrder() = preferenceStore.getString("novel_filter_order", FilterBottomSheet.Filters.DEFAULT_ORDER)
 
     companion object {
         private val metadataMapSerializer =
