@@ -33,9 +33,11 @@ import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.preferredChapterNa
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import eu.kanade.tachiyomi.util.mapStatus
 import yokai.domain.manga.models.cover
+import eu.kanade.tachiyomi.data.download.model.Download
 import yokai.presentation.component.ReikaiTopBar
 import yokai.presentation.details.DetailsChapterRow
 import yokai.presentation.details.DetailsContent
+import yokai.presentation.details.DetailsDownloadState
 import yokai.presentation.details.DetailsFilterSortSheet
 import yokai.util.Screen
 
@@ -79,6 +81,22 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                                     text = { Text("Mark all as unread") },
                                     onClick = { overflowOpen = false; screenModel.markAllRead(false) },
                                 )
+                                DropdownMenuItem(
+                                    text = { Text("Download next") },
+                                    onClick = { overflowOpen = false; screenModel.downloadNext(1) },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Download next 5") },
+                                    onClick = { overflowOpen = false; screenModel.downloadNext(5) },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Download unread") },
+                                    onClick = { overflowOpen = false; screenModel.downloadUnread() },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Download all") },
+                                    onClick = { overflowOpen = false; screenModel.downloadAll() },
+                                )
                             }
                         }
                     },
@@ -112,13 +130,16 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                     val genres = remember(manga.id, manga.genre) {
                         manga.genre?.split(",")?.mapNotNull { it.trim().ifBlank { null } }.orEmpty()
                     }
-                    val rows = remember(s.chapters, s.hideChapterTitles) {
+                    val rows = remember(s.chapters, s.hideChapterTitles, s.downloads) {
                         s.chapters.map {
+                            val info = s.downloads[it.id]
                             DetailsChapterRow(
                                 id = it.id ?: 0L,
                                 name = it.preferredChapterName(context, s.hideChapterTitles),
                                 read = it.read,
                                 bookmark = it.bookmark,
+                                downloadState = info?.state.toDetailsDownloadState(),
+                                downloadProgress = info?.progress ?: 0,
                             )
                         }
                     }
@@ -138,6 +159,7 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                         onToggleRead = { id, read -> screenModel.setRead(id, read) },
                         onToggleBookmark = { id, bookmark -> screenModel.setBookmark(id, bookmark) },
                         modifier = Modifier.padding(padding),
+                        onDownloadClick = { id -> screenModel.downloadAction(id) },
                     )
                 }
             }
@@ -169,4 +191,12 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
             )
         }
     }
+}
+
+private fun Download.State?.toDetailsDownloadState(): DetailsDownloadState = when (this) {
+    Download.State.QUEUE, Download.State.CHECKED -> DetailsDownloadState.QUEUED
+    Download.State.DOWNLOADING -> DetailsDownloadState.DOWNLOADING
+    Download.State.DOWNLOADED -> DetailsDownloadState.DOWNLOADED
+    Download.State.ERROR -> DetailsDownloadState.ERROR
+    Download.State.NOT_DOWNLOADED, null -> DetailsDownloadState.NONE
 }

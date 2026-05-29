@@ -9,13 +9,19 @@ import eu.kanade.tachiyomi.data.database.models.downloadedFilter
 import eu.kanade.tachiyomi.data.database.models.hideChapterTitle
 import eu.kanade.tachiyomi.data.database.models.readFilter
 import eu.kanade.tachiyomi.data.database.models.sortDescending
+import eu.kanade.tachiyomi.data.download.DownloadManager
+import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.domain.manga.models.Manga
+import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.util.chapter.ChapterFilter
 import eu.kanade.tachiyomi.util.chapter.ChapterSort
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil
 import eu.kanade.tachiyomi.util.manga.MangaUtil
 import eu.kanade.tachiyomi.util.system.launchIO
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filter
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import yokai.domain.chapter.interactor.GetChapter
@@ -49,9 +55,13 @@ sealed interface MangaDetailsState {
         /** Whether this manga's local sort/filter matches the global default (hides set/reset buttons). */
         val sortMatchesDefault: Boolean,
         val filterMatchesDefault: Boolean,
+        /** Per-chapter download state, keyed by chapter id. Updated live from DownloadManager flows. */
+        val downloads: Map<Long, DownloadInfo> = emptyMap(),
     ) : MangaDetailsState
     data object NotFound : MangaDetailsState
 }
+
+data class DownloadInfo(val state: Download.State, val progress: Int)
 
 /**
  * Phase 0-2 of the manga details Compose port: loads the manga + its displayed chapter list,
@@ -71,9 +81,12 @@ class MangaDetailsScreenModel(
     private val updateManga: UpdateManga by inject()
     private val chapterFilter: ChapterFilter by inject()
     private val preferences: PreferencesHelper by inject()
+    private val downloadManager: DownloadManager by inject()
+    private val sourceManager: SourceManager by inject()
 
     init {
         reload()
+        observeDownloads()
     }
 
     private fun reload() {
@@ -91,6 +104,7 @@ class MangaDetailsScreenModel(
             val allScanlators = getChapter.awaitScanlators(mangaId)
                 .filter { it.isNotBlank() }
                 .toSet()
+            val downloads = recomputeDownloads(manga, sorted, downloadManager.queueState.value)
             detailsLog { "loaded \"${manga.title}\" chapters=${sorted.size} resume=${resume?.name ?: "none"}" }
             mutableState.value = MangaDetailsState.Loaded(
                 manga = manga,
@@ -107,6 +121,7 @@ class MangaDetailsScreenModel(
                 filteredScanlators = ChapterUtil.getScanlators(manga.filtered_scanlators).toSet(),
                 sortMatchesDefault = sortMatchesDefault(manga),
                 filterMatchesDefault = filterMatchesDefault(manga),
+                downloads = downloads,
             )
         }
     }
@@ -223,6 +238,93 @@ class MangaDetailsScreenModel(
             MangaUtil.setScanlatorFilter(updateManga, manga, if (scanlators.size == all.size) emptySet() else scanlators)
             reload()
         }
+    }
+
+    /** Tap a chapter's download indicator: download when absent/errored, otherwise delete or cancel. */
+    fun downloadAction(chapterId: Long) {
+        screenModelScope.launchIO {
+            val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
+            val manga = loaded.manga
+            val chapter = loaded.chapters.find { it.id == chapterId } ?: return@launchIO
+            val current = loaded.downloads[chapterId]?.state ?: Download.State.NOT_DOWNLOADED
+            detailsLog { "downloadAction chapter=$chapterId state=$current" }
+            when (current) {
+                Download.State.NOT_DOWNLOADED, Download.State.ERROR -> {
+                    applyDownloadState(chapterId, Download.State.QUEUE)
+                    downloadManager.downloadChapters(manga, listOf(chapter))
+                }
+                else -> {
+                    // deleteChapters(force) removes from the queue and deletes files in one call,
+                    // so it covers both "delete a downloaded chapter" and "cancel a queued one".
+                    val source = sourceManager.getOrStub(manga.source)
+                    downloadManager.deleteChapters(listOf(chapter), manga, source, force = true)
+                    applyDownloadState(chapterId, Download.State.NOT_DOWNLOADED)
+                }
+            }
+        }
+    }
+
+    fun downloadNext(count: Int) = queueDownload { chapters, sort ->
+        chapters.sortedWith(sort.sortComparator(ignoreAsc = true))
+            .filter { !it.read }
+            .distinctBy { it.name }
+            .take(count)
+    }
+
+    fun downloadUnread() = queueDownload { chapters, _ -> chapters.filter { !it.read } }
+
+    fun downloadAll() = queueDownload { chapters, _ -> chapters }
+
+    private fun queueDownload(select: (notDownloaded: List<Chapter>, sort: ChapterSort) -> List<Chapter>) {
+        screenModelScope.launchIO {
+            val manga = currentManga() ?: return@launchIO
+            // Exclude already-downloaded chapters up front so a count-limited selection (e.g. "next 5")
+            // counts five chapters that still need downloading, not five-minus-the-downloaded-ones.
+            val notDownloaded = getChapter.awaitAll(manga, filterScanlators = false)
+                .filterNot { downloadManager.isChapterDownloaded(it, manga) }
+            val sort = ChapterSort(manga, chapterFilter, preferences)
+            val targets = select(notDownloaded, sort)
+            detailsLog { "queueDownload count=${targets.size}" }
+            if (targets.isNotEmpty()) downloadManager.downloadChapters(manga, targets)
+        }
+    }
+
+    private fun observeDownloads() {
+        screenModelScope.launchIO {
+            downloadManager.queueState.collectLatest { queue ->
+                val loaded = state.value as? MangaDetailsState.Loaded ?: return@collectLatest
+                mutableState.value = loaded.copy(downloads = recomputeDownloads(loaded.manga, loaded.chapters, queue))
+            }
+        }
+        screenModelScope.launchIO {
+            downloadManager.statusFlow()
+                .filter { it.manga.id == mangaId }
+                .collect { applyDownloadState(it.chapter.id ?: return@collect, it.status, it.progress) }
+        }
+        screenModelScope.launchIO {
+            downloadManager.progressFlow()
+                .filter { it.manga.id == mangaId }
+                .collect { applyDownloadState(it.chapter.id ?: return@collect, it.status, it.progress) }
+        }
+    }
+
+    private fun recomputeDownloads(manga: Manga, chapters: List<Chapter>, queue: List<Download>): Map<Long, DownloadInfo> =
+        chapters.mapNotNull { chapter ->
+            val id = chapter.id ?: return@mapNotNull null
+            val queued = queue.find { it.chapter.id == id }
+            val downloadState = when {
+                downloadManager.isChapterDownloaded(chapter, manga) -> Download.State.DOWNLOADED
+                queued != null -> queued.status
+                else -> Download.State.NOT_DOWNLOADED
+            }
+            id to DownloadInfo(downloadState, queued?.progress ?: 0)
+        }.toMap()
+
+    private fun applyDownloadState(chapterId: Long, newState: Download.State, progress: Int = 0) {
+        val loaded = state.value as? MangaDetailsState.Loaded ?: return
+        mutableState.value = loaded.copy(
+            downloads = loaded.downloads.toMutableMap().apply { put(chapterId, DownloadInfo(newState, progress)) },
+        )
     }
 
     private fun currentManga(): Manga? = (state.value as? MangaDetailsState.Loaded)?.manga
