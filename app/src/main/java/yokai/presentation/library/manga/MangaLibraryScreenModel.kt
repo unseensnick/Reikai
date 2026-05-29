@@ -27,11 +27,13 @@ import yokai.i18n.MR
 import yokai.util.lang.getString
 import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.update
@@ -47,6 +49,7 @@ import yokai.domain.manga.interactor.UpdateManga
 import yokai.domain.track.interactor.DeleteTrack
 import yokai.domain.track.interactor.GetTrack
 import yokai.domain.track.interactor.InsertTrack
+import yokai.domain.ui.UiPreferences
 import yokai.presentation.library.LibraryTabState
 import yokai.presentation.library.manga.actions.MangaLibraryActions
 import eu.kanade.tachiyomi.data.cache.CoverCache
@@ -68,7 +71,7 @@ import kotlin.random.Random
 // Remove with the rest of the 2A probes once soak-tested (chore: remove soak probes).
 private const val LOG_TAG = "Library2A"
 
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class MangaLibraryScreenModel :
     StateScreenModel<LibraryTabState<LibraryItem.Manga, Category>>(LibraryTabState.Loading) {
 
@@ -89,6 +92,7 @@ class MangaLibraryScreenModel :
     private val insertTrack: InsertTrack by injectLazy()
     private val updateCategories: UpdateCategories by injectLazy()
     private val trackManager: TrackManager by injectLazy()
+    private val uiPreferences: UiPreferences by injectLazy()
 
     /**
      * Library search query. Owned here (rather than as composable state) so the search + filter
@@ -349,6 +353,12 @@ class MangaLibraryScreenModel :
                 // LibraryItem.Manga has value equality, so equal rebuilds compare equal and drop
                 // here, restoring the original produceState-keyed-on-library gating.
                 .distinctUntilChanged()
+                // Collapse rebuild storms. getLibraryManga / downloadCache emit in rapid bursts
+                // (e.g. an active filter's getDownloadCount renews the cache, which notifies, which
+                // rebuilds), and with a filter active each rebuild re-runs the track/download I/O.
+                // Debounce so a storm collapses to one filter pass once it settles. Only the raw
+                // library is debounced; the search query (a separate flow) stays instant.
+                .debounce(250L)
 
             // Search + filter run downstream of the raw-library build, gated so the suspend
             // filter (track / download I/O) only re-runs when the raw library OR a filter input
@@ -381,7 +391,10 @@ class MangaLibraryScreenModel :
                     }
                     Rendered(raw, inputs.filterState.isAnyActive, filtered)
                 }
-                .collectLatest { rendered ->
+                // Display prefs join AFTER the filter stage: a cosmetic change re-emits with the
+                // last (cached) Rendered, so the render updates without re-running the filter.
+                .combine(displayPrefsFlow()) { rendered, display -> rendered to display }
+                .collectLatest { (rendered, display) ->
                     // Preserve selection across reload emissions so a download-cache tick or
                     // library update mid-action doesn't drop the user's selection set. Also
                     // carry sortEpoch forward unchanged; combine-driven emissions never bump it
@@ -408,6 +421,27 @@ class MangaLibraryScreenModel :
                             detectedTypes = raw.detectedTypes,
                             loggedTrackerNames = raw.loggedServiceNames.values.toList(),
                             isAnyFilterActive = rendered.isAnyFilterActive,
+                            libraryLayout = display.layout.libraryLayout,
+                            uniformGrid = display.layout.uniformGrid,
+                            useStaggeredGrid = display.layout.useStaggeredGrid,
+                            gridSize = display.layout.gridSize,
+                            outlineOnCovers = display.layout.outlineOnCovers,
+                            showDownloadBadge = display.badge.showDownloadBadge,
+                            showLanguageBadge = display.badge.showLanguageBadge,
+                            unreadBadgeType = display.badge.unreadBadgeType,
+                            hideStartReadingButton = display.badge.hideStartReadingButton,
+                            showCategoryInTitle = display.misc.showCategoryInTitle,
+                            showCategoryItemCounts = display.misc.showCategoryItemCounts,
+                            hideHopper = display.hopper.hideHopper,
+                            autohideHopper = display.hopper.autohideHopper,
+                            hopperGravity = display.hopper.hopperGravity,
+                            hopperLongPressAction = display.hopper.hopperLongPressAction,
+                            groupLibraryBy = display.category.groupLibraryBy,
+                            collapsedCategories = display.category.collapsedCategories,
+                            showAllCategories = display.category.showAllCategories,
+                            showEmptyCategoriesWhileFiltering = display.category.showEmptyCategoriesWhileFiltering,
+                            lastUsedCategoryOrder = display.category.lastUsedCategoryOrder,
+                            manualMerges = display.misc.manualMerges,
                         )
                     }
                 }
@@ -994,6 +1028,112 @@ class MangaLibraryScreenModel :
     )
 
     /**
+     * Display / badge / layout / category preferences (Tier 2 phase 2B). Bundled into sub-groups
+     * to stay within the typed 5-arg `combine` limit, then folded into [DisplayPrefs]. Combined
+     * downstream of the search/filter stage so a cosmetic change updates the render without
+     * re-running the suspend filter.
+     */
+    private fun displayPrefsFlow() = combine(
+        layoutPrefsFlow(),
+        badgePrefsFlow(),
+        categoryPrefsFlow(),
+        hopperPrefsFlow(),
+        miscPrefsFlow(),
+    ) { layout, badge, category, hopper, misc ->
+        DisplayPrefs(layout, badge, category, hopper, misc)
+    }
+
+    private fun layoutPrefsFlow() = combine(
+        preferences.libraryLayout().changes(),
+        uiPreferences.uniformGrid().changes(),
+        preferences.useStaggeredGrid().changes(),
+        preferences.gridSize().changes(),
+        uiPreferences.outlineOnCovers().changes(),
+    ) { layout, uniform, staggered, gridSize, outline ->
+        LayoutPrefs(layout, uniform, staggered, gridSize, outline)
+    }
+
+    private fun badgePrefsFlow() = combine(
+        preferences.downloadBadge().changes(),
+        preferences.languageBadge().changes(),
+        preferences.unreadBadgeType().changes(),
+        preferences.hideStartReadingButton().changes(),
+    ) { download, language, unread, hideStart ->
+        BadgePrefs(download, language, unread, hideStart)
+    }
+
+    private fun categoryPrefsFlow() = combine(
+        preferences.groupLibraryBy().changes(),
+        preferences.collapsedCategories().changes(),
+        preferences.showAllCategories().changes(),
+        preferences.showEmptyCategoriesWhileFiltering().changes(),
+        preferences.lastUsedCategory().changes(),
+    ) { groupBy, collapsed, showAll, showEmpty, lastUsed ->
+        CategoryPrefs(groupBy, collapsed, showAll, showEmpty, lastUsed)
+    }
+
+    private fun hopperPrefsFlow() = combine(
+        preferences.hideHopper().changes(),
+        preferences.autohideHopper().changes(),
+        preferences.hopperGravity().changes(),
+        preferences.hopperLongPressAction().changes(),
+    ) { hide, autohide, gravity, longPress ->
+        HopperPrefs(hide, autohide, gravity, longPress)
+    }
+
+    private fun miscPrefsFlow() = combine(
+        preferences.showCategoryInTitle().changes(),
+        preferences.categoryNumberOfItems().changes(),
+        preferences.mangaManualMerges().changes(),
+    ) { inTitle, itemCounts, merges ->
+        MiscPrefs(inTitle, itemCounts, merges)
+    }
+
+    private data class LayoutPrefs(
+        val libraryLayout: Int,
+        val uniformGrid: Boolean,
+        val useStaggeredGrid: Boolean,
+        val gridSize: Float,
+        val outlineOnCovers: Boolean,
+    )
+
+    private data class BadgePrefs(
+        val showDownloadBadge: Boolean,
+        val showLanguageBadge: Boolean,
+        val unreadBadgeType: Int,
+        val hideStartReadingButton: Boolean,
+    )
+
+    private data class CategoryPrefs(
+        val groupLibraryBy: Int,
+        val collapsedCategories: Set<String>,
+        val showAllCategories: Boolean,
+        val showEmptyCategoriesWhileFiltering: Boolean,
+        val lastUsedCategoryOrder: Int,
+    )
+
+    private data class HopperPrefs(
+        val hideHopper: Boolean,
+        val autohideHopper: Boolean,
+        val hopperGravity: Int,
+        val hopperLongPressAction: Int,
+    )
+
+    private data class MiscPrefs(
+        val showCategoryInTitle: Boolean,
+        val showCategoryItemCounts: Boolean,
+        val manualMerges: Set<String>,
+    )
+
+    private data class DisplayPrefs(
+        val layout: LayoutPrefs,
+        val badge: BadgePrefs,
+        val category: CategoryPrefs,
+        val hopper: HopperPrefs,
+        val misc: MiscPrefs,
+    )
+
+    /**
      * Resolves a manga's source language. Mirrors legacy [eu.kanade.tachiyomi.ui.library.LibraryPresenter.getLanguage]
      * at `LibraryPresenter.kt:666-672`.
      */
@@ -1041,6 +1181,34 @@ class MangaLibraryScreenModel :
         if (!current.add(key)) current.remove(key)
         preferences.collapsedDynamicCategories().set(current)
     }
+
+    /**
+     * Toggle a default (non-dynamic) category's collapsed state, keyed by its integer id as a
+     * string in `collapsedCategories`. Mirrors the composable's previous inline pref write.
+     */
+    fun toggleDefaultCategoryCollapse(categoryId: String) {
+        val current = preferences.collapsedCategories().get().toMutableSet()
+        if (!current.add(categoryId)) current.remove(categoryId)
+        preferences.collapsedCategories().set(current)
+    }
+
+    /**
+     * Expand-or-collapse-all toggle for default categories: collapse every id when none are
+     * collapsed, otherwise clear the set (hopper long-press index 1).
+     */
+    fun expandOrCollapseAllDefaultCategories(allIds: Set<String>) {
+        val current = preferences.collapsedCategories().get()
+        preferences.collapsedCategories().set(if (current.isEmpty()) allIds else emptySet())
+    }
+
+    fun setHopperGravity(value: Int) = preferences.hopperGravity().set(value)
+
+    fun setGroupLibraryBy(value: Int) = preferences.groupLibraryBy().set(value)
+
+    /** Persist the active category order (only for real categories; callers gate `order >= 0`). */
+    fun setLastUsedCategory(order: Int) = preferences.lastUsedCategory().set(order)
+
+    fun skipPreMigration(): Boolean = preferences.skipPreMigration().get()
 
     private data class SortPrefs(
         val mode: LibrarySort,

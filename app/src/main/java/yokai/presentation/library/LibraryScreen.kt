@@ -29,8 +29,6 @@ import dev.icerock.moko.resources.compose.stringResource
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.currentOrThrow
-import eu.kanade.tachiyomi.core.storage.preference.collectAsState
-import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
 import eu.kanade.tachiyomi.ui.migration.manga.design.PreMigrationController
@@ -112,41 +110,34 @@ class LibraryScreen : Screen {
         tabRow: @Composable () -> Unit,
     ) {
         val state by screenModel.state.collectAsState()
-        val preferences: PreferencesHelper = remember { Injekt.get() }
         val router = LocalRouter.currentOrThrow
         val coroutineScope = rememberCoroutineScope()
 
-        val libraryLayout by preferences.libraryLayout().collectAsState()
-        val uniformGrid by remember { Injekt.get<yokai.domain.ui.UiPreferences>().uniformGrid() }.collectAsState()
-        val useStaggeredGrid by preferences.useStaggeredGrid().collectAsState()
-        val groupLibraryBy by preferences.groupLibraryBy().collectAsState()
-        val collapsedCategories by preferences.collapsedCategories().collectAsState()
-        val collapsedCategoriesPref = remember { preferences.collapsedCategories() }
-        val showCategoryInTitle by preferences.showCategoryInTitle().collectAsState()
-        val showCategoryItemCounts by preferences.categoryNumberOfItems().collectAsState()
-        val hideHopper by preferences.hideHopper().collectAsState()
-        val autohideHopper by preferences.autohideHopper().collectAsState()
-        val hopperLongPressAction by preferences.hopperLongPressAction().collectAsState()
-        // Per-cover badge / outline prefs collected reactively so toggles in the Display
-        // options sheet propagate to the grid immediately.
-        val outlineOnCovers by remember { Injekt.get<yokai.domain.ui.UiPreferences>().outlineOnCovers() }.collectAsState()
-        val showDownloadBadge by preferences.downloadBadge().collectAsState()
-        val showLanguageBadge by preferences.languageBadge().collectAsState()
-        val unreadBadgeType by preferences.unreadBadgeType().collectAsState()
-        val showEmptyCategoriesWhileFiltering by preferences.showEmptyCategoriesWhileFiltering().collectAsState()
-        val showAllCategories by preferences.showAllCategories().collectAsState()
-        val hideStartReadingButton by preferences.hideStartReadingButton().collectAsState()
-        val hopperGravityPref = remember { preferences.hopperGravity() }
-        val hopperGravity by hopperGravityPref.changes()
-            .collectAsState(initial = hopperGravityPref.get())
+        // Display / badge / layout / category prefs come from the screen model state (Tier 2
+        // phase 2B); the composable no longer reads PreferencesHelper / UiPreferences itself.
+        val loaded = state as? LibraryTabState.Loaded
+        val libraryLayout = loaded?.libraryLayout ?: 0
+        val uniformGrid = loaded?.uniformGrid ?: true
+        val useStaggeredGrid = loaded?.useStaggeredGrid ?: false
+        val groupLibraryBy = loaded?.groupLibraryBy ?: eu.kanade.tachiyomi.ui.library.LibraryGroup.BY_DEFAULT
+        val collapsedCategories = loaded?.collapsedCategories ?: emptySet()
+        val showCategoryInTitle = loaded?.showCategoryInTitle ?: false
+        val showCategoryItemCounts = loaded?.showCategoryItemCounts ?: false
+        val hideHopper = loaded?.hideHopper ?: false
+        val autohideHopper = loaded?.autohideHopper ?: false
+        val hopperLongPressAction = loaded?.hopperLongPressAction ?: 0
+        val outlineOnCovers = loaded?.outlineOnCovers ?: true
+        val showDownloadBadge = loaded?.showDownloadBadge ?: false
+        val showLanguageBadge = loaded?.showLanguageBadge ?: false
+        val unreadBadgeType = loaded?.unreadBadgeType ?: 0
+        val showEmptyCategoriesWhileFiltering = loaded?.showEmptyCategoriesWhileFiltering ?: false
+        val showAllCategories = loaded?.showAllCategories ?: false
+        val hideStartReadingButton = loaded?.hideStartReadingButton ?: false
+        val hopperGravity = loaded?.hopperGravity ?: 0
 
-        // Column count derived from preferences.gridSize() via the legacy formula (see
-        // [columnsForGridValue] for the math). Pref Float maps to a slider int 0..7; we use the
-        // current screen width to compute exactly the column count shown in the Display tab's
-        // "Portrait: X • Landscape: Y" subtitle, so the user sees the grid render the same N
-        // they pick in the picker.
-        val gridSizePref by preferences.gridSize().collectAsState()
-        val sliderValue = ((gridSizePref + 0.5f) * 2f).coerceIn(0f, 7f)
+        // Column count derived from the gridSize pref (now in state) via the legacy formula.
+        // Stays composable-local because it needs the current screen width.
+        val sliderValue = (((loaded?.gridSize ?: 0f) + 0.5f) * 2f).coerceIn(0f, 7f)
         val columns = columnsForGridValue(sliderValue, LocalConfiguration.current.screenWidthDp)
 
         // Search + filter now run in the screen model (Tier 2 phase 2A). The query text stays
@@ -205,8 +196,7 @@ class LibraryScreen : Screen {
         // a manual-merge group. The unmerge gate reads mangaManualMerges reactively so toggling
         // a merge from another surface (manga details page) updates the menu without re-entering
         // the library.
-        val mangaManualMerges by preferences.mangaManualMerges().changes()
-            .collectAsState(initial = preferences.mangaManualMerges().get())
+        val mangaManualMerges = loaded?.manualMerges ?: emptySet()
         val canMerge = selection.size >= 2
         val canUnmerge = remember(selection, mangaManualMerges) {
             if (selection.isEmpty()) {
@@ -339,7 +329,7 @@ class LibraryScreen : Screen {
         // whose order matches the last-used pref (same backing pref legacy reads). Hopper and
         // category picker dispatch through onActiveCategoryChange to switch which category is
         // rendered, mirroring presenter.setCurrentCategory in legacy.
-        val lastUsedCategoryOrder by preferences.lastUsedCategory().collectAsState()
+        val lastUsedCategoryOrder = loaded?.lastUsedCategoryOrder ?: 0
         val singleCategoryMode = !showAllCategories &&
             groupLibraryBy == eu.kanade.tachiyomi.ui.library.LibraryGroup.BY_DEFAULT &&
             allCategories.size > 1
@@ -452,7 +442,7 @@ class LibraryScreen : Screen {
             selection = selection,
             onSearchActiveChange = { searchActive = it },
             onSearchQueryChange = { searchQuery = it; screenModel.setSearchQuery(it) },
-            onHopperGravityChange = { hopperGravityPref.set(it) },
+            onHopperGravityChange = { screenModel.setHopperGravity(it) },
             onToggleCategoryCollapse = { category ->
                 // Dynamic categories use the dynamicHeaderKey string set; default categories
                 // use the legacy Category.id-as-string set. Route accordingly.
@@ -460,9 +450,7 @@ class LibraryScreen : Screen {
                     screenModel.toggleDynamicCategoryCollapse(category)
                 } else {
                     val id = category.id?.toString() ?: return@LibraryContent
-                    val current = collapsedCategoriesPref.get().toMutableSet()
-                    if (!current.add(id)) current.remove(id)
-                    collapsedCategoriesPref.set(current)
+                    screenModel.toggleDefaultCategoryCollapse(id)
                 }
             },
             hopperLongPressAction = hopperLongPressAction,
@@ -473,8 +461,7 @@ class LibraryScreen : Screen {
                 // we apply the toggle unconditionally; under dynamic grouping the pref simply
                 // has no visible effect until the user switches back to default.
                 val all = library.keys.mapNotNull { it.id?.toString() }.toSet()
-                val current = collapsedCategoriesPref.get()
-                collapsedCategoriesPref.set(if (current.isEmpty()) all else emptySet())
+                screenModel.expandOrCollapseAllDefaultCategories(all)
             },
             onOpenSheetAt = { tabIndex ->
                 sheetTab = tabIndex
@@ -519,7 +506,7 @@ class LibraryScreen : Screen {
                 // a user has no real categories) so we never persist a synthetic order to the
                 // legacy-shared pref.
                 if (category.order >= 0) {
-                    preferences.lastUsedCategory().set(category.order)
+                    screenModel.setLastUsedCategory(category.order)
                 }
             },
             onPullToRefresh = {
@@ -613,7 +600,7 @@ class LibraryScreen : Screen {
                 dismissPendingSnackbar()
                 // transitional: legacy PreMigrationController until the migration flow ports
                 PreMigrationController.navigateToMigration(
-                    preferences.skipPreMigration().get(),
+                    screenModel.skipPreMigration(),
                     router,
                     ids,
                 )
@@ -676,7 +663,7 @@ class LibraryScreen : Screen {
             yokai.presentation.library.components.GroupLibraryByDialog(
                 selected = groupLibraryBy,
                 entries = yokai.presentation.library.components.rememberGroupByEntries(),
-                onSelect = { preferences.groupLibraryBy().set(it) },
+                onSelect = { screenModel.setGroupLibraryBy(it) },
                 onDismiss = { groupByDialogOpen = false },
             )
         }

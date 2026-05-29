@@ -92,5 +92,31 @@ sealed interface LibraryTabState<out T : LibraryItem, out C : ILibraryCategory> 
         val loggedTrackerNames: List<String> = emptyList(),
         /** Whether any library filter is active, for the toolbar filter-icon highlight. */
         val isAnyFilterActive: Boolean = false,
+        // Display / badge / layout / category preferences (Tier 2 phase 2B moved these reads off
+        // the composable). Defaulted so tabs that have not yet moved keep compiling. These ride a
+        // flow combined AFTER the search/filter stage, so a change here updates the render without
+        // re-running the suspend filter.
+        val libraryLayout: Int = 0,
+        val uniformGrid: Boolean = true,
+        val useStaggeredGrid: Boolean = false,
+        /** Raw `gridSize` pref; the composable derives the column count (needs screen width). */
+        val gridSize: Float = 0f,
+        val outlineOnCovers: Boolean = true,
+        val showDownloadBadge: Boolean = false,
+        val showLanguageBadge: Boolean = false,
+        val unreadBadgeType: Int = 0,
+        val hideStartReadingButton: Boolean = false,
+        val showCategoryInTitle: Boolean = false,
+        val showCategoryItemCounts: Boolean = false,
+        val hideHopper: Boolean = false,
+        val autohideHopper: Boolean = false,
+        val hopperGravity: Int = 0,
+        val hopperLongPressAction: Int = 0,
+        val groupLibraryBy: Int = 0,
+        val collapsedCategories: Set<String> = emptySet(),
+        val showAllCategories: Boolean = false,
+        val showEmptyCategoriesWhileFiltering: Boolean = false,
+        val lastUsedCategoryOrder: Int = 0,
+        val manualMerges: Set<String> = emptySet(),
     ) : LibraryTabState<T, C>
 }
