@@ -16,6 +16,8 @@ class GetChapter(
 
     suspend fun awaitById(id: Long) = chapterRepository.getChapterById(id)
 
+    suspend fun awaitScanlators(mangaId: Long) = chapterRepository.getScanlatorsByChapter(mangaId)
+
     suspend fun awaitAllByUrl(chapterUrl: String, filterScanlators: Boolean) =
         chapterRepository.getChaptersByUrl(chapterUrl, filterScanlators)
     suspend fun awaitByUrl(chapterUrl: String, filterScanlators: Boolean) =

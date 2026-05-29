@@ -178,14 +178,17 @@ class ChapterUtil {
             return scanlators.toList().sorted().joinToString(scanlatorSeparator)
         }
 
-        fun Chapter.preferredChapterName(context: Context, manga: Manga, preferences: PreferencesHelper): String {
-            return if (manga.hideChapterTitle(preferences) && isRecognizedNumber) {
+        fun Chapter.preferredChapterName(context: Context, hideTitle: Boolean): String {
+            return if (hideTitle && isRecognizedNumber) {
                 val number = decimalFormat.format(chapter_number.toDouble())
                 context.getString(MR.strings.chapter_, number)
             } else {
                 name
             }
         }
+
+        fun Chapter.preferredChapterName(context: Context, manga: Manga, preferences: PreferencesHelper): String =
+            preferredChapterName(context, manga.hideChapterTitle(preferences))
 
         @Composable
         fun Chapter.preferredChapterName(manga: Manga): String {

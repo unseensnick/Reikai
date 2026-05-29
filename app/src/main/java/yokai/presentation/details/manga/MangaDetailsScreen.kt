@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -28,12 +29,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.preferredChapterName
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import eu.kanade.tachiyomi.util.mapStatus
 import yokai.domain.manga.models.cover
 import yokai.presentation.component.ReikaiTopBar
 import yokai.presentation.details.DetailsChapterRow
 import yokai.presentation.details.DetailsContent
+import yokai.presentation.details.DetailsFilterSortSheet
 import yokai.util.Screen
 
 class MangaDetailsScreen(private val mangaId: Long) : Screen() {
@@ -48,6 +51,7 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
 
         val loaded = state as? MangaDetailsState.Loaded
         var overflowOpen by remember { mutableStateOf(false) }
+        var showSheet by remember { mutableStateOf(false) }
 
         Scaffold(
             topBar = {
@@ -60,6 +64,9 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                     },
                     actions = {
                         if (loaded != null) {
+                            IconButton(onClick = { showSheet = true }) {
+                                Icon(Icons.Outlined.FilterList, contentDescription = null)
+                            }
                             IconButton(onClick = { overflowOpen = true }) {
                                 Icon(Icons.Filled.MoreVert, contentDescription = null)
                             }
@@ -105,11 +112,11 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                     val genres = remember(manga.id, manga.genre) {
                         manga.genre?.split(",")?.mapNotNull { it.trim().ifBlank { null } }.orEmpty()
                     }
-                    val rows = remember(s.chapters) {
+                    val rows = remember(s.chapters, s.hideChapterTitles) {
                         s.chapters.map {
                             DetailsChapterRow(
                                 id = it.id ?: 0L,
-                                name = it.name,
+                                name = it.preferredChapterName(context, s.hideChapterTitles),
                                 read = it.read,
                                 bookmark = it.bookmark,
                             )
@@ -134,6 +141,32 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                     )
                 }
             }
+        }
+
+        if (showSheet && loaded != null) {
+            DetailsFilterSortSheet(
+                readFilter = loaded.readFilter,
+                downloadedFilter = loaded.downloadedFilter,
+                bookmarkedFilter = loaded.bookmarkedFilter,
+                hideChapterTitles = loaded.hideChapterTitles,
+                filterMatchesDefault = loaded.filterMatchesDefault,
+                onFiltersChanged = { r, d, b -> screenModel.setFilters(r, d, b) },
+                onHideChapterTitlesChanged = { screenModel.setHideChapterTitles(it) },
+                onSetFilterDefault = {
+                    screenModel.setGlobalFilters(loaded.readFilter, loaded.downloadedFilter, loaded.bookmarkedFilter)
+                },
+                onResetFilterDefault = { screenModel.resetFilterToDefault() },
+                sorting = loaded.sorting,
+                sortDescending = loaded.sortDescending,
+                sortMatchesDefault = loaded.sortMatchesDefault,
+                onSortChanged = { sort, descend -> screenModel.setSortOrder(sort, descend) },
+                onSetSortDefault = { screenModel.setGlobalSort(loaded.sorting, loaded.sortDescending) },
+                onResetSortDefault = { screenModel.resetSortToDefault() },
+                allScanlators = loaded.allScanlators,
+                filteredScanlators = loaded.filteredScanlators,
+                onScanlatorFilterChanged = { screenModel.setScanlatorFilter(it) },
+                onDismiss = { showSheet = false },
+            )
         }
     }
 }
