@@ -2,7 +2,6 @@ package yokai.presentation.library.manga
 
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
-import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.data.database.models.CategoryImpl
 import eu.kanade.tachiyomi.data.database.models.Chapter
@@ -67,10 +66,6 @@ import kotlin.random.Random
  * The `STARTING_UPDATE_SOURCE` sentinel and real manga ids are ignored: per-row state
  * already rides on `getLibraryManga.subscribe()` re-emissions when the DB changes.
  */
-// Tier 2 phase 2A soak probe: filter `Library2A` in logcat to trace the search/filter pipeline.
-// Remove with the rest of the 2A probes once soak-tested (chore: remove soak probes).
-private const val LOG_TAG = "Library2A"
-
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class MangaLibraryScreenModel :
     StateScreenModel<LibraryTabState<LibraryItem.Manga, Category>>(LibraryTabState.Loading) {
@@ -103,7 +98,6 @@ class MangaLibraryScreenModel :
     val searchQuery: StateFlow<String> = searchQueryFlow.asStateFlow()
 
     fun setSearchQuery(query: String) {
-        Logger.i(LOG_TAG) { "setSearchQuery: '$query'" }
         searchQueryFlow.value = query
     }
 
@@ -383,11 +377,6 @@ class MangaLibraryScreenModel :
                         )
                     } else {
                         searched
-                    }
-                    Logger.i(LOG_TAG) {
-                        "filter: query='${inputs.query}' active=${inputs.filterState.isAnyActive} " +
-                            "rawItems=${raw.library.values.sumOf { it.size }} " +
-                            "filteredItems=${filtered.values.sumOf { it.size }}"
                     }
                     Rendered(raw, inputs.filterState.isAnyActive, filtered)
                 }
