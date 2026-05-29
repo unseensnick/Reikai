@@ -3,6 +3,7 @@ package yokai.presentation.library.novels
 import android.app.Application
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import eu.kanade.tachiyomi.core.preference.Preference
 import eu.kanade.tachiyomi.data.database.models.LibraryNovel
 import eu.kanade.tachiyomi.data.database.models.NovelCategory
 import eu.kanade.tachiyomi.data.database.models.NovelCategoryImpl
@@ -12,12 +13,23 @@ import eu.kanade.tachiyomi.ui.library.LibrarySort
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
 import eu.kanade.tachiyomi.util.mapStatus
 import eu.kanade.tachiyomi.util.system.launchIO
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.update
 import kotlin.random.Random
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import yokai.domain.base.BasePreferences
 import yokai.domain.novel.NovelChapterRepository
 import yokai.domain.novel.NovelPreferences
 import yokai.domain.novel.NovelRepository
@@ -27,6 +39,7 @@ import yokai.domain.novel.interactor.ReorderNovelCategories
 import yokai.domain.novel.models.Novel
 import yokai.domain.novel.models.NovelCategoryUpdate
 import yokai.domain.novel.models.NovelChapter
+import yokai.domain.ui.UiPreferences
 import yokai.i18n.MR
 import yokai.novel.source.NovelSourceManager
 import yokai.presentation.library.LibraryTabState
@@ -56,12 +69,15 @@ import yokai.util.lang.getString
  * Koin DI throughout (`KoinComponent` + `by inject()`) — every novel-side dep is Koin-only.
  * Same lesson as C14d.
  */
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class NovelLibraryScreenModel :
     StateScreenModel<LibraryTabState<LibraryItem.Novel, NovelCategory>>(LibraryTabState.Loading), KoinComponent {
 
     private val context: Application by inject()
     private val preferences: PreferencesHelper by inject()
     private val novelPreferences: NovelPreferences by inject()
+    private val basePreferences: BasePreferences by inject()
+    private val uiPreferences: UiPreferences by inject()
     private val getNovelCategories: GetNovelCategories by inject()
     private val novelRepository: NovelRepository by inject()
     private val novelChapterRepository: NovelChapterRepository by inject()
@@ -69,6 +85,19 @@ class NovelLibraryScreenModel :
     private val novelSourceManager: NovelSourceManager by inject()
     private val novelLibraryUpdater: NovelLibraryUpdater by inject()
     private val reorderNovelCategories: ReorderNovelCategories by inject()
+
+    /**
+     * Library search query. Owned here so the search + filter pipeline can re-derive
+     * [LibraryTabState.Loaded.filteredLibrary] reactively off it. The composable collects
+     * [searchQuery] for its text field and pushes edits via [setSearchQuery]. Mirrors manga
+     * at MangaLibraryScreenModel.kt:97.
+     */
+    private val searchQueryFlow = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = searchQueryFlow.asStateFlow()
+
+    fun setSearchQuery(query: String) {
+        searchQueryFlow.value = query
+    }
 
     /**
      * Pre-collapse libraryNovel snapshot used by [selectedNovelListWithMergedSiblings] to
@@ -81,7 +110,7 @@ class NovelLibraryScreenModel :
 
     init {
         screenModelScope.launchIO {
-            combine(
+            val rawFlow = combine(
                 getNovelCategories.subscribe(),
                 novelRepository.getLibraryNovelAsFlow(),
                 novelLibraryUpdater.isRunningFlow(),
@@ -120,7 +149,7 @@ class NovelLibraryScreenModel :
                 .combine(groupingPrefsFlow()) { snap, gp ->
                     snap.copy(groupingPrefs = gp)
                 }
-                .collectLatest { snap ->
+                .mapLatest { snap ->
                     val library: Map<NovelCategory, List<LibraryItem.Novel>> =
                         if (snap.groupingPrefs.groupLibraryBy == LibraryGroup.BY_DEFAULT ||
                             snap.groupingPrefs.groupLibraryBy == LibraryGroup.BY_LANGUAGE
@@ -144,21 +173,106 @@ class NovelLibraryScreenModel :
                     }
 
                     libraryNovelForResolve = snap.libraryNovel
+                    // Precompute source names (lnreader plugin id -> display name) for
+                    // NovelLibrarySearch. String-keyed per NovelLibrarySearch.search (lnreader
+                    // source ids are strings, unlike manga's Long).
+                    val sourceNames = library.values
+                        .asSequence()
+                        .flatten()
+                        .map { it.libraryNovel.novel.source }
+                        .distinct()
+                        .associateWith { novelSourceManager.get(it)?.name.orEmpty() }
+                    RawData(
+                        library = library,
+                        isRunning = snap.isRunning,
+                        inQueue = inQueue,
+                        currentCategoryOrder = snap.currentCategoryOrder,
+                        categorySortOrder = snap.categorySortOrder,
+                        collapsedDynamicCategories = snap.groupingPrefs.collapsedDynamicCategories,
+                        collapsedDynamicAtBottom = snap.groupingPrefs.collapsedDynamicAtBottom,
+                        sourceNames = sourceNames,
+                    )
+                }
+                // Collapse identical rebuilds + debounce rebuild storms before the suspend filter
+                // re-runs track I/O. Search rides a separate flow (filterInputsFlow) so it stays
+                // instant. Mirrors manga at MangaLibraryScreenModel.kt:349.
+                .distinctUntilChanged()
+                .debounce(250L)
+
+            // Search + filter run downstream of the raw-library build, gated so the suspend filter
+            // (track I/O) only re-runs when the raw library OR a filter input changes, never on a
+            // display/badge pref change (those land in displayPrefsFlow below). Mirrors manga at
+            // MangaLibraryScreenModel.kt:360.
+            combine(rawFlow, filterInputsFlow().distinctUntilChanged()) { raw, inputs -> raw to inputs }
+                .mapLatest { (raw, inputs) ->
+                    val searched = NovelLibrarySearch.search(raw.library, inputs.query, raw.sourceNames)
+                    val filtered = if (inputs.filterState.isAnyActive) {
+                        NovelLibraryFilter.filter(
+                            library = searched,
+                            state = inputs.filterState,
+                            // Decision #5: no novel TrackManager, so no logged-services map; the
+                            // tracked filter matches purely on presence/absence of novel_tracks.
+                            loggedServiceNames = emptyMap(),
+                            // Decision #4: no novel download manager; the filter prefers the
+                            // cached item.downloadCount and only consults this when it's -1.
+                            getDownloadCount = { 0 },
+                            getTracks = { novelId -> novelTrackRepository.getByNovelId(novelId) },
+                            keepEmptyCategories = inputs.showAllCategories,
+                        )
+                    } else {
+                        searched
+                    }
+                    Rendered(raw, inputs.filterState.isAnyActive, filtered)
+                }
+                // Display prefs join AFTER the filter stage: a cosmetic change re-emits with the
+                // last (cached) Rendered, so the render updates without re-running the filter.
+                .combine(displayPrefsFlow()) { rendered, display -> rendered to display }
+                .collectLatest { (rendered, display) ->
                     mutableState.update { current ->
                         // Preserve selection + sortEpoch across reload emissions (Phase 6 lesson:
                         // a reactive re-emit must not wipe in-progress multi-select state).
+                        val raw = rendered.raw
                         val loaded = current as? LibraryTabState.Loaded
                         LibraryTabState.Loaded(
-                            library = library,
-                            totalItemCount = library.values.sumOf { it.size },
-                            isRunning = snap.isRunning,
-                            inQueueCategoryIds = inQueue,
-                            currentCategoryOrder = snap.currentCategoryOrder,
+                            library = raw.library,
+                            totalItemCount = raw.library.values.sumOf { it.size },
+                            isRunning = raw.isRunning,
+                            inQueueCategoryIds = raw.inQueue,
+                            currentCategoryOrder = raw.currentCategoryOrder,
                             selection = loaded?.selection.orEmpty(),
                             sortEpoch = loaded?.sortEpoch ?: 0,
-                            categorySortOrder = snap.categorySortOrder,
-                            collapsedDynamicCategories = snap.groupingPrefs.collapsedDynamicCategories,
-                            collapsedDynamicAtBottom = snap.groupingPrefs.collapsedDynamicAtBottom,
+                            categorySortOrder = raw.categorySortOrder,
+                            collapsedDynamicCategories = raw.collapsedDynamicCategories,
+                            collapsedDynamicAtBottom = raw.collapsedDynamicAtBottom,
+                            filteredLibrary = rendered.filteredLibrary,
+                            // Novel divergences: no series-type dimension, no logged trackers.
+                            detectedTypes = emptySet(),
+                            loggedTrackerNames = emptyList(),
+                            isAnyFilterActive = rendered.isAnyFilterActive,
+                            libraryLayout = display.layout.libraryLayout,
+                            uniformGrid = display.layout.uniformGrid,
+                            useStaggeredGrid = display.layout.useStaggeredGrid,
+                            gridSize = display.layout.gridSize,
+                            outlineOnCovers = display.layout.outlineOnCovers,
+                            showDownloadBadge = display.badge.showDownloadBadge,
+                            showLanguageBadge = display.badge.showLanguageBadge,
+                            unreadBadgeType = display.badge.unreadBadgeType,
+                            hideStartReadingButton = display.badge.hideStartReadingButton,
+                            showCategoryItemCounts = display.misc.showCategoryItemCounts,
+                            manualMerges = display.misc.manualMerges,
+                            groupLibraryBy = display.category.groupLibraryBy,
+                            collapsedCategories = display.category.collapsedCategories,
+                            showAllCategories = display.category.showAllCategories,
+                            showEmptyCategoriesWhileFiltering = display.category.showEmptyCategoriesWhileFiltering,
+                            lastUsedCategoryOrder = display.category.lastUsedCategoryOrder,
+                            // Hopper + show-category-in-title are manga-only UI; the novel library
+                            // doesn't render them. Inert constants match the composable's previous
+                            // hardcoded values (NovelLibraryTabContent.kt:105,113).
+                            hideHopper = true,
+                            autohideHopper = false,
+                            hopperGravity = 1,
+                            hopperLongPressAction = 0,
+                            showCategoryInTitle = false,
                         )
                     }
                 }
@@ -610,6 +724,35 @@ class NovelLibraryScreenModel :
         novelPreferences.collapsedDynamicCategories().set(current)
     }
 
+    fun setGroupLibraryBy(value: Int) {
+        novelPreferences.groupLibraryBy().set(value)
+    }
+
+    fun setLastUsedCategory(order: Int) {
+        if (order >= 0) novelPreferences.lastUsedNovelCategory().set(order)
+    }
+
+    /**
+     * Toggle a default (non-dynamic) category's collapsed state, keyed by its integer id as a
+     * string in `collapsedCategories`. Mirrors the composable's previous inline pref write.
+     */
+    fun toggleDefaultCategoryCollapse(categoryId: String) {
+        val current = novelPreferences.collapsedCategories().get().toMutableSet()
+        if (!current.add(categoryId)) current.remove(categoryId)
+        novelPreferences.collapsedCategories().set(current)
+    }
+
+    /**
+     * Collapse all default categories if none are collapsed; otherwise expand all. Category ids
+     * come from the current loaded library keys. Mirrors the composable's previous inline write.
+     */
+    fun expandOrCollapseAllDefaultCategories() {
+        val loaded = state.value as? LibraryTabState.Loaded ?: return
+        val all = loaded.library.keys.mapNotNull { it.id?.toString() }.toSet()
+        val current = novelPreferences.collapsedCategories().get()
+        novelPreferences.collapsedCategories().set(if (current.isEmpty()) all else emptySet())
+    }
+
     // ----------------------------------------------------------------------------------------
     // Sort writes (C28). Per-category SQL update for regular categories; library-wide pref
     // write for synthetic (default + dynamic) ones; optimistic state update + sortEpoch bump
@@ -731,6 +874,105 @@ class NovelLibraryScreenModel :
     ) { groupBy, collapsed, atBottom -> GroupingPrefs(groupBy, collapsed, atBottom) }
 
     /**
+     * Bundles the search query + the five novel filter prefs into one [FilterInputs] stream.
+     * Held separate from the raw-library pipeline so a change here re-runs only the search +
+     * suspend filter (gated downstream by `distinctUntilChanged`), not the grouping/sort build.
+     * Drops manga's `contentType` / `mangaType` (Decision #3: no such filter row on novels).
+     * Mirrors manga at MangaLibraryScreenModel.kt:951.
+     */
+    private fun filterInputsFlow() = combine(
+        searchQueryFlow,
+        novelPreferences.filterUnread().changes(),
+        novelPreferences.filterDownloaded().changes(),
+        novelPreferences.filterCompleted().changes(),
+        novelPreferences.filterTracked().changes(),
+    ) { query, unread, downloaded, completed, tracked ->
+        FilterAcc(query, unread, downloaded, completed, tracked)
+    }
+        .combine(novelPreferences.filterBookmarked().changes()) { acc, bookmarked ->
+            acc.copy(bookmarked = bookmarked)
+        }
+        .combine(novelPreferences.showAllCategories().changes()) { acc, showAll ->
+            FilterInputs(
+                query = acc.query,
+                filterState = NovelLibraryFilter.NovelFilterState(
+                    downloaded = acc.downloaded,
+                    unread = acc.unread,
+                    completed = acc.completed,
+                    tracked = acc.tracked,
+                    bookmarked = acc.bookmarked,
+                    // Decision #5: no novel tracker-service picker yet; match on presence only.
+                    tracker = "",
+                ),
+                showAllCategories = showAll,
+            )
+        }
+
+    /**
+     * Resolves a display pref reactively against the shared-vs-independent toggle. When
+     * `useSharedLibraryDisplayPrefs` is on, the novel library mirrors the manga pref; otherwise
+     * it reads its own. Re-resolves whenever the toggle flips (novel-only wrinkle; the manga
+     * side has no such duality).
+     */
+    private fun <T> sharedOrNovel(mangaPref: Preference<T>, novelPref: Preference<T>): Flow<T> =
+        basePreferences.useSharedLibraryDisplayPrefs().changes().flatMapLatest { shared ->
+            if (shared) mangaPref.changes() else novelPref.changes()
+        }
+
+    /**
+     * Display / badge / layout / category preferences (Tier 2 phase 2C). Bundled into sub-groups
+     * to stay within the typed 5-arg `combine` limit. Combined downstream of the search/filter
+     * stage so a cosmetic change updates the render without re-running the suspend filter.
+     * Mirrors manga at MangaLibraryScreenModel.kt:1025.
+     */
+    private fun displayPrefsFlow() = combine(
+        layoutPrefsFlow(),
+        badgePrefsFlow(),
+        categoryPrefsFlow(),
+        miscPrefsFlow(),
+    ) { layout, badge, category, misc ->
+        DisplayPrefs(layout, badge, category, misc)
+    }
+
+    private fun layoutPrefsFlow() = combine(
+        sharedOrNovel(preferences.libraryLayout(), novelPreferences.novelLibraryLayout()),
+        sharedOrNovel(uiPreferences.uniformGrid(), novelPreferences.novelUniformGrid()),
+        sharedOrNovel(preferences.useStaggeredGrid(), novelPreferences.novelUseStaggeredGrid()),
+        sharedOrNovel(preferences.gridSize(), novelPreferences.novelGridSize()),
+        sharedOrNovel(uiPreferences.outlineOnCovers(), novelPreferences.novelOutlineOnCovers()),
+    ) { layout, uniform, staggered, gridSize, outline ->
+        LayoutPrefs(layout, uniform, staggered, gridSize, outline)
+    }
+
+    private fun badgePrefsFlow() = combine(
+        sharedOrNovel(preferences.downloadBadge(), novelPreferences.novelDownloadBadge()),
+        sharedOrNovel(preferences.languageBadge(), novelPreferences.novelLanguageBadge()),
+        sharedOrNovel(preferences.unreadBadgeType(), novelPreferences.novelUnreadBadgeType()),
+        sharedOrNovel(preferences.hideStartReadingButton(), novelPreferences.novelHideStartReadingButton()),
+    ) { download, language, unread, hideStart ->
+        BadgePrefs(download, language, unread, hideStart)
+    }
+
+    // Category-display prefs are novel-only (never shared with the manga library), so they read
+    // straight off NovelPreferences without the sharedOrNovel resolver.
+    private fun categoryPrefsFlow() = combine(
+        novelPreferences.groupLibraryBy().changes(),
+        novelPreferences.collapsedCategories().changes(),
+        novelPreferences.showAllCategories().changes(),
+        novelPreferences.showEmptyCategoriesWhileFiltering().changes(),
+        novelPreferences.lastUsedNovelCategory().changes(),
+    ) { groupBy, collapsed, showAll, showEmpty, lastUsed ->
+        CategoryPrefs(groupBy, collapsed, showAll, showEmpty, lastUsed)
+    }
+
+    private fun miscPrefsFlow() = combine(
+        sharedOrNovel(preferences.categoryNumberOfItems(), novelPreferences.novelCategoryNumberOfItems()),
+        novelPreferences.novelManualMerges().changes(),
+    ) { itemCounts, merges ->
+        MiscPrefs(itemCounts, merges)
+    }
+
+    /**
      * Maps a tracker status name to a sort prefix so BY_TRACK_STATUS orders by intent
      * (Reading first, Dropped last) rather than alphabetically. Mirrors manga's
      * `MangaLibraryScreenModel.mapTrackingOrder` (MR string lookups). When novel-side tracker
@@ -790,5 +1032,74 @@ class NovelLibraryScreenModel :
         val sortPrefs: SortPrefs,
         val categorySortOrder: Int,
         val groupingPrefs: GroupingPrefs,
+    )
+
+    private data class FilterAcc(
+        val query: String,
+        val unread: Int,
+        val downloaded: Int,
+        val completed: Int,
+        val tracked: Int,
+        val bookmarked: Int = 0,
+    )
+
+    private data class FilterInputs(
+        val query: String,
+        val filterState: NovelLibraryFilter.NovelFilterState,
+        val showAllCategories: Boolean,
+    )
+
+    /** Raw-library pipeline output, before search + filter. */
+    private data class RawData(
+        val library: Map<NovelCategory, List<LibraryItem.Novel>>,
+        val isRunning: Boolean,
+        val inQueue: Set<Int>,
+        val currentCategoryOrder: Int,
+        val categorySortOrder: Int,
+        val collapsedDynamicCategories: Set<String>,
+        val collapsedDynamicAtBottom: Boolean,
+        val sourceNames: Map<String, String>,
+    )
+
+    /** Raw data + the search/filter result for one emission. */
+    private data class Rendered(
+        val raw: RawData,
+        val isAnyFilterActive: Boolean,
+        val filteredLibrary: Map<NovelCategory, List<LibraryItem.Novel>>,
+    )
+
+    private data class LayoutPrefs(
+        val libraryLayout: Int,
+        val uniformGrid: Boolean,
+        val useStaggeredGrid: Boolean,
+        val gridSize: Float,
+        val outlineOnCovers: Boolean,
+    )
+
+    private data class BadgePrefs(
+        val showDownloadBadge: Boolean,
+        val showLanguageBadge: Boolean,
+        val unreadBadgeType: Int,
+        val hideStartReadingButton: Boolean,
+    )
+
+    private data class CategoryPrefs(
+        val groupLibraryBy: Int,
+        val collapsedCategories: Set<String>,
+        val showAllCategories: Boolean,
+        val showEmptyCategoriesWhileFiltering: Boolean,
+        val lastUsedCategoryOrder: Int,
+    )
+
+    private data class MiscPrefs(
+        val showCategoryItemCounts: Boolean,
+        val manualMerges: Set<String>,
+    )
+
+    private data class DisplayPrefs(
+        val layout: LayoutPrefs,
+        val badge: BadgePrefs,
+        val category: CategoryPrefs,
+        val misc: MiscPrefs,
     )
 }

@@ -4,6 +4,7 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -24,31 +25,27 @@ import androidx.compose.ui.platform.LocalContext
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import dev.icerock.moko.resources.compose.stringResource
 import cafe.adriel.voyager.navigator.currentOrThrow
-import eu.kanade.tachiyomi.core.storage.preference.collectAsState
-import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
 import eu.kanade.tachiyomi.util.compose.LocalRouter
 import eu.kanade.tachiyomi.util.moveCategories
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
 import yokai.presentation.library.novels.NovelLibraryScreenModel
 import yokai.presentation.library.settings.tabs.columnsForGridValue
 import yokai.util.lang.getString
 
 /**
- * Novel tab body. Mirrors `MangaLibraryTabContent` for novels: collects novel + shared
- * display prefs, runs the library through `NovelLibrarySearch` then `NovelLibraryFilter`,
- * threads the filtered map into the generic [LibraryContent] with novel-side renderer
- * lambdas + callbacks routed through [NovelLibraryScreenModel].
+ * Novel tab body. Mirrors `MangaLibraryTabContent` for novels: a thin renderer over
+ * [NovelLibraryScreenModel]'s [LibraryTabState]. Search, filter, and the shared-vs-independent
+ * display prefs live in the screen model (Tier 2 phase 2C); this composable reads the resulting
+ * `filteredLibrary` + pref fields off state, applies the cheap category-visibility / collapse /
+ * single-category passes, and threads the result into the generic [LibraryContent] with
+ * novel-side renderer lambdas + callbacks routed through the screen model.
  *
  * Lives at top level (not nested in [LibraryScreen]) so it can be hosted from either the
  * Compose library's tabbed shell or the legacy library's `LibraryHostController` child
- * router. Self-contained: every dependency is injected inside via Injekt / Koin or read
- * from Compose locals, so the same composable body serves both call sites.
+ * router. No DI inside the composable: the screen model owns every dependency.
  *
  * Diverges from manga in places locked by Phase 7 decisions:
  * - **No migrate** (Decision #1): `onMigrate` no-ops; `selectionHasRemoteSources` always
@@ -68,96 +65,48 @@ internal fun NovelLibraryTabContent(
     tabRow: @Composable () -> Unit,
 ) {
     val state by screenModel.state.collectAsState()
-    val preferences: PreferencesHelper = remember { Injekt.get() }
-    val novelPrefs: yokai.domain.novel.NovelPreferences = remember {
-        org.koin.core.context.GlobalContext.get().get()
-    }
-    val novelSourceManager: yokai.novel.source.NovelSourceManager = remember {
-        org.koin.core.context.GlobalContext.get().get()
-    }
-    val novelTrackRepository: yokai.domain.novel.NovelTrackRepository = remember {
-        org.koin.core.context.GlobalContext.get().get()
-    }
     val router = LocalRouter.currentOrThrow
     val coroutineScope = rememberCoroutineScope()
 
-    // Display prefs: route through the manga prefs by default (shared mode), or through
-    // novelPrefs when the user has flipped Settings -> Advanced -> Share library display
-    // settings off. Manga-only features (hopper quartet, showCategoryInTitle) are
-    // hardcoded to inert defaults here since they don't apply to the novel library.
-    val basePrefs = remember { Injekt.get<yokai.domain.base.BasePreferences>() }
-    val uiPreferences = remember { Injekt.get<yokai.domain.ui.UiPreferences>() }
-    val useSharedLibraryDisplayPrefs by basePrefs.useSharedLibraryDisplayPrefs().collectAsState()
+    // Display / badge / layout / category prefs come from the screen model state (Tier 2 phase
+    // 2C); the composable no longer reads PreferencesHelper / NovelPreferences itself. The
+    // shared-vs-independent resolution (manga pref vs novel pref) happens in the screen model.
+    val loaded = state as? LibraryTabState.Loaded
+    val libraryLayout = loaded?.libraryLayout ?: 0
+    val uniformGrid = loaded?.uniformGrid ?: true
+    val useStaggeredGrid = loaded?.useStaggeredGrid ?: false
+    val outlineOnCovers = loaded?.outlineOnCovers ?: true
+    val showDownloadBadge = loaded?.showDownloadBadge ?: false
+    val showLanguageBadge = loaded?.showLanguageBadge ?: false
+    val unreadBadgeType = loaded?.unreadBadgeType ?: 0
+    val hideStartReadingButton = loaded?.hideStartReadingButton ?: false
+    val showCategoryItemCounts = loaded?.showCategoryItemCounts ?: false
+    val groupLibraryBy = loaded?.groupLibraryBy ?: eu.kanade.tachiyomi.ui.library.LibraryGroup.BY_DEFAULT
+    val collapsedCategories = loaded?.collapsedCategories ?: emptySet()
+    val showAllCategories = loaded?.showAllCategories ?: true
+    val showEmptyCategoriesWhileFiltering = loaded?.showEmptyCategoriesWhileFiltering ?: false
 
-    val mangaLibraryLayout by preferences.libraryLayout().collectAsState()
-    val novelLibraryLayout by novelPrefs.novelLibraryLayout().collectAsState()
-    val libraryLayout = if (useSharedLibraryDisplayPrefs) mangaLibraryLayout else novelLibraryLayout
-
-    val mangaUniformGrid by uiPreferences.uniformGrid().collectAsState()
-    val novelUniformGrid by novelPrefs.novelUniformGrid().collectAsState()
-    val uniformGrid = if (useSharedLibraryDisplayPrefs) mangaUniformGrid else novelUniformGrid
-
-    val mangaUseStaggeredGrid by preferences.useStaggeredGrid().collectAsState()
-    val novelUseStaggeredGrid by novelPrefs.novelUseStaggeredGrid().collectAsState()
-    val useStaggeredGrid = if (useSharedLibraryDisplayPrefs) mangaUseStaggeredGrid else novelUseStaggeredGrid
-
-    // Manga-only feature; the novel library has no "show current category in title" path.
+    // Manga-only UI; the novel library renders neither the hopper quartet nor a current-category
+    // title. LibraryContent still requires these params, so feed inert values.
     val showCategoryInTitle = false
-
-    val mangaShowCategoryItemCounts by preferences.categoryNumberOfItems().collectAsState()
-    val novelShowCategoryItemCounts by novelPrefs.novelCategoryNumberOfItems().collectAsState()
-    val showCategoryItemCounts = if (useSharedLibraryDisplayPrefs) mangaShowCategoryItemCounts else novelShowCategoryItemCounts
-
-    // Hopper quartet is manga-only UI; novel library doesn't render it. LibraryContent still
-    // requires these params, so feed inert values that disable / hide the hopper.
     val hideHopper = true
     val autohideHopper = false
     val hopperLongPressAction = 0
     val hopperGravity = 1
 
-    val mangaOutlineOnCovers by uiPreferences.outlineOnCovers().collectAsState()
-    val novelOutlineOnCovers by novelPrefs.novelOutlineOnCovers().collectAsState()
-    val outlineOnCovers = if (useSharedLibraryDisplayPrefs) mangaOutlineOnCovers else novelOutlineOnCovers
-
-    val mangaShowDownloadBadge by preferences.downloadBadge().collectAsState()
-    val novelShowDownloadBadge by novelPrefs.novelDownloadBadge().collectAsState()
-    val showDownloadBadge = if (useSharedLibraryDisplayPrefs) mangaShowDownloadBadge else novelShowDownloadBadge
-
-    val mangaShowLanguageBadge by preferences.languageBadge().collectAsState()
-    val novelShowLanguageBadge by novelPrefs.novelLanguageBadge().collectAsState()
-    val showLanguageBadge = if (useSharedLibraryDisplayPrefs) mangaShowLanguageBadge else novelShowLanguageBadge
-
-    val mangaUnreadBadgeType by preferences.unreadBadgeType().collectAsState()
-    val novelUnreadBadgeType by novelPrefs.novelUnreadBadgeType().collectAsState()
-    val unreadBadgeType = if (useSharedLibraryDisplayPrefs) mangaUnreadBadgeType else novelUnreadBadgeType
-
-    val mangaHideStartReadingButton by preferences.hideStartReadingButton().collectAsState()
-    val novelHideStartReadingButton by novelPrefs.novelHideStartReadingButton().collectAsState()
-    val hideStartReadingButton = if (useSharedLibraryDisplayPrefs) mangaHideStartReadingButton else novelHideStartReadingButton
-
-    val mangaGridSize by preferences.gridSize().collectAsState()
-    val novelGridSize by novelPrefs.novelGridSize().collectAsState()
-    val gridSizePref = if (useSharedLibraryDisplayPrefs) mangaGridSize else novelGridSize
-    val sliderValue = ((gridSizePref + 0.5f) * 2f).coerceIn(0f, 7f)
+    // Column count derived from the gridSize pref (now in state). Stays composable-local because
+    // it needs the current screen width.
+    val sliderValue = (((loaded?.gridSize ?: 0f) + 0.5f) * 2f).coerceIn(0f, 7f)
     val columns = columnsForGridValue(sliderValue, LocalConfiguration.current.screenWidthDp)
 
-    // Novel-specific prefs (Phase 7 C23). Filter / sort / grouping / show-all-categories
-    // live on NovelPreferences so the manga + novel libraries stay independently
-    // configurable.
-    val groupLibraryBy by novelPrefs.groupLibraryBy().collectAsState()
-    val collapsedCategories by novelPrefs.collapsedCategories().collectAsState()
-    val collapsedCategoriesPref = remember { novelPrefs.collapsedCategories() }
-    val showEmptyCategoriesWhileFiltering by novelPrefs.showEmptyCategoriesWhileFiltering().collectAsState()
-    val showAllCategories by novelPrefs.showAllCategories().collectAsState()
-
-    val filterUnread by novelPrefs.filterUnread().collectAsState()
-    val filterDownloaded by novelPrefs.filterDownloaded().collectAsState()
-    val filterCompleted by novelPrefs.filterCompleted().collectAsState()
-    val filterBookmarked by novelPrefs.filterBookmarked().collectAsState()
-    val filterTracked by novelPrefs.filterTracked().collectAsState()
-
+    // Search now runs in the screen model (Tier 2 phase 2C). The query text stays composable-
+    // local so the field stays caret-stable (driving the value off the model's StateFlow
+    // round-trips each keystroke and reverses input); every edit is pushed to the model, which
+    // owns the filtering. Seeded from the model so a config-change survivor keeps its query, and
+    // re-pushed on entry so a process-death restore re-filters.
     var searchActive by rememberSaveable { mutableStateOf(false) }
-    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var searchQuery by rememberSaveable { mutableStateOf(screenModel.searchQuery.value) }
+    LaunchedEffect(Unit) { screenModel.setSearchQuery(searchQuery) }
 
     var sheetOpen by rememberSaveable { mutableStateOf(false) }
     var sheetTab by rememberSaveable { mutableIntStateOf(0) }
@@ -180,8 +129,7 @@ internal fun NovelLibraryTabContent(
     // stays hidden via LibraryContent's `selectionHasRemoteSources` consumer).
     val selectionHasRemoteSources = false
 
-    val novelManualMerges by novelPrefs.novelManualMerges().changes()
-        .collectAsState(initial = novelPrefs.novelManualMerges().get())
+    val novelManualMerges = loaded?.manualMerges ?: emptySet()
     val canMerge = selection.size >= 2
     val canUnmerge = remember(selection, novelManualMerges) {
         if (selection.isEmpty()) {
@@ -231,58 +179,14 @@ internal fun NovelLibraryTabContent(
     val removeFromLibraryLabel = stringResource(MR.strings.remove_from_library)
     val removeDownloadsLabel = stringResource(MR.strings.remove_downloads)
 
-    // Novel source names map (lnreader plugin id → display name). Keyed by String per
-    // Decision #1 (lnreader source ids are strings, unlike manga's Long).
-    val sourceNames = remember(library) {
-        library.values
-            .asSequence()
-            .flatten()
-            .map { it.libraryNovel.novel.source }
-            .distinct()
-            .associateWith { novelSourceManager.get(it)?.name.orEmpty() }
-    }
-
-    val effectiveCategorySortOrder = (state as? LibraryTabState.Loaded)?.categorySortOrder ?: 0
-    val searchedLibrary = remember(library, effectiveCategorySortOrder, searchQuery, sourceNames) {
-        yokai.presentation.library.novels.NovelLibrarySearch.search(library, searchQuery, sourceNames)
-    }
-
-    val filterState = yokai.presentation.library.novels.NovelLibraryFilter.NovelFilterState(
-        downloaded = filterDownloaded,
-        unread = filterUnread,
-        completed = filterCompleted,
-        tracked = filterTracked,
-        bookmarked = filterBookmarked,
-        tracker = "",
-    )
-    // No `TrackManager` on the novel side yet (Decision #5). Pass an empty
-    // logged-services map; the tracked filter then matches purely on presence/absence of
-    // novel_tracks rows. When novel tracker UI ships, swap in a real services map.
-    val loggedServiceNames: Map<Long, String> = emptyMap()
-    val filteredLibrary by androidx.compose.runtime.produceState(
-        initialValue = searchedLibrary,
-        key1 = searchedLibrary,
-        key2 = filterState,
-        key3 = showAllCategories,
-    ) {
-        value = if (!filterState.isAnyActive) searchedLibrary
-        else kotlinx.coroutines.withContext(Dispatchers.Default) {
-            yokai.presentation.library.novels.NovelLibraryFilter.filter(
-                library = searchedLibrary,
-                state = filterState,
-                loggedServiceNames = loggedServiceNames,
-                // No novel download manager yet (Decision #4); fall back to the cached
-                // item.downloadCount only. The filter helper already prefers item.downloadCount
-                // when it's not -1, so this lambda is rarely consulted.
-                getDownloadCount = { 0 },
-                getTracks = { novelId -> novelTrackRepository.getByNovelId(novelId) },
-                keepEmptyCategories = showAllCategories,
-            )
-        }
-    }
-
-    val detectedMangaTypes = emptySet<Int>()
-    val loggedTrackerNames = emptyList<String>()
+    // Search + filter result and filter-sheet metadata now come from the screen model (Tier 2
+    // phase 2C). detectedTypes / loggedTrackerNames are always empty for novels (no series-type
+    // or logged-tracker dimension), but read from state for parity with the manga renderer.
+    val effectiveCategorySortOrder = loaded?.categorySortOrder ?: 0
+    val filteredLibrary = loaded?.filteredLibrary ?: emptyMap()
+    val isAnyFilterActive = loaded?.isAnyFilterActive ?: false
+    val detectedMangaTypes = loaded?.detectedTypes ?: emptySet()
+    val loggedTrackerNames = loaded?.loggedTrackerNames ?: emptyList()
 
     val allCategories = remember(library, effectiveCategorySortOrder) { library.keys.toList() }
     val categoryItemCounts = remember(library, effectiveCategorySortOrder) {
@@ -293,7 +197,7 @@ internal fun NovelLibraryTabContent(
     val postFilterLibrary = when {
         showAllCategories -> rekeyedLibrary
         showEmptyCategoriesWhileFiltering &&
-            (searchQuery.isNotEmpty() || filterState.isAnyActive) -> rekeyedLibrary
+            (searchQuery.isNotEmpty() || isAnyFilterActive) -> rekeyedLibrary
         else -> rekeyedLibrary.filterValues { it.isNotEmpty() }
     }
 
@@ -314,7 +218,7 @@ internal fun NovelLibraryTabContent(
         if (collapsed) emptyList() else items
     }
 
-    val lastUsedCategoryOrder by novelPrefs.lastUsedNovelCategory().collectAsState()
+    val lastUsedCategoryOrder = loaded?.lastUsedCategoryOrder ?: 0
     val singleCategoryMode = !showAllCategories &&
         groupLibraryBy == eu.kanade.tachiyomi.ui.library.LibraryGroup.BY_DEFAULT &&
         allCategories.size > 1
@@ -399,7 +303,7 @@ internal fun NovelLibraryTabContent(
         showLanguageBadge = showLanguageBadge,
         unreadBadgeType = unreadBadgeType,
         hideStartReadingButton = hideStartReadingButton,
-        isAnyFilterActive = filterState.isAnyActive,
+        isAnyFilterActive = isAnyFilterActive,
         showAllCategories = showAllCategories,
         isRunning = isRunning,
         inQueueCategoryIds = inQueueCategoryIds,
@@ -412,7 +316,7 @@ internal fun NovelLibraryTabContent(
         loggedTrackerNames = loggedTrackerNames,
         selection = selection,
         onSearchActiveChange = { searchActive = it },
-        onSearchQueryChange = { searchQuery = it },
+        onSearchQueryChange = { searchQuery = it; screenModel.setSearchQuery(it) },
         onHopperGravityChange = {
             // Novel library doesn't render a hopper, so this writer is unreachable. Leaving
             // it as a no-op keeps the LibraryContent contract simple.
@@ -422,16 +326,12 @@ internal fun NovelLibraryTabContent(
                 screenModel.toggleDynamicCategoryCollapse(category)
             } else {
                 val id = category.id?.toString() ?: return@LibraryContent
-                val current = collapsedCategoriesPref.get().toMutableSet()
-                if (!current.add(id)) current.remove(id)
-                collapsedCategoriesPref.set(current)
+                screenModel.toggleDefaultCategoryCollapse(id)
             }
         },
         hopperLongPressAction = hopperLongPressAction,
         onExpandCollapseAllCategories = {
-            val all = library.keys.mapNotNull { it.id?.toString() }.toSet()
-            val current = collapsedCategoriesPref.get()
-            collapsedCategoriesPref.set(if (current.isEmpty()) all else emptySet())
+            screenModel.expandOrCollapseAllDefaultCategories()
         },
         onOpenSheetAt = { tabIndex ->
             sheetTab = tabIndex
@@ -465,9 +365,7 @@ internal fun NovelLibraryTabContent(
         onDismissOverflow = { overflowOpen = false },
         onSheetTabChange = { sheetTab = it },
         onActiveCategoryChange = { category ->
-            if (category.order >= 0) {
-                novelPrefs.lastUsedNovelCategory().set(category.order)
-            }
+            screenModel.setLastUsedCategory(category.order)
         },
         onPullToRefresh = {
             val target = if (showAllCategories) {
@@ -571,7 +469,7 @@ internal fun NovelLibraryTabContent(
         yokai.presentation.library.components.GroupLibraryByDialog(
             selected = groupLibraryBy,
             entries = yokai.presentation.library.components.rememberGroupByEntries(),
-            onSelect = { novelPrefs.groupLibraryBy().set(it) },
+            onSelect = { screenModel.setGroupLibraryBy(it) },
             onDismiss = { groupByDialogOpen = false },
         )
     }
