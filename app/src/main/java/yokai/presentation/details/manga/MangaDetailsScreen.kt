@@ -5,8 +5,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -17,7 +20,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -42,6 +47,7 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
         val context = LocalContext.current
 
         val loaded = state as? MangaDetailsState.Loaded
+        var overflowOpen by remember { mutableStateOf(false) }
 
         Scaffold(
             topBar = {
@@ -50,6 +56,23 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                     navigationIcon = {
                         IconButton(onClick = { backPress?.invoke() }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        }
+                    },
+                    actions = {
+                        if (loaded != null) {
+                            IconButton(onClick = { overflowOpen = true }) {
+                                Icon(Icons.Filled.MoreVert, contentDescription = null)
+                            }
+                            DropdownMenu(expanded = overflowOpen, onDismissRequest = { overflowOpen = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Mark all as read") },
+                                    onClick = { overflowOpen = false; screenModel.markAllRead(true) },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Mark all as unread") },
+                                    onClick = { overflowOpen = false; screenModel.markAllRead(false) },
+                                )
+                            }
                         }
                     },
                 )
