@@ -30,7 +30,6 @@ import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.tachiyomi.source.LocalSource
-import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
 import eu.kanade.tachiyomi.ui.migration.manga.design.PreMigrationController
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.util.compose.LocalRouter
@@ -42,6 +41,7 @@ import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
+import yokai.presentation.details.manga.MangaDetailsComposeController
 import yokai.presentation.library.manga.MangaLibraryGridCell
 import yokai.presentation.library.manga.MangaLibraryListItem
 import yokai.presentation.library.manga.MangaLibraryScreenModel
@@ -360,13 +360,12 @@ class LibraryScreen : Screen {
                 activity.startActivity(ReaderActivity.newIntent(activity, manga, next))
             }
         }
-        // mangaClick: same destination + transition as legacy LibraryController.openManga.
-        // Routes through the existing Conductor router for now since no Compose-side manga
-        // details Voyager screen exists yet.
+        // mangaClick: open the Compose details screen, hosted by MangaDetailsComposeController so
+        // it rides the Conductor router the library already uses. The legacy library keeps the
+        // legacy MangaDetailsController; only the Compose surface points here.
         val onMangaClick: (Manga) -> Unit = { manga ->
             dismissPendingSnackbar()
-            // transitional: legacy MangaDetailsController until MangaDetailsScreen ports
-            router.pushController(MangaDetailsController(manga).withFadeTransaction())
+            manga.id?.let { router.pushController(MangaDetailsComposeController(it).withFadeTransaction()) }
         }
 
         // Per-tab renderer lambdas. Phase 8 C7c: LibraryContent is generic; these capture the
@@ -475,8 +474,7 @@ class LibraryScreen : Screen {
                 if (pool.isNotEmpty()) {
                     val random = pool.random().libraryManga.manga
                     dismissPendingSnackbar()
-                    // transitional: legacy MangaDetailsController until MangaDetailsScreen ports
-                    router.pushController(MangaDetailsController(random).withFadeTransaction())
+                    random.id?.let { router.pushController(MangaDetailsComposeController(it).withFadeTransaction()) }
                 }
             },
             onOpenRandomInCategory = { category ->
@@ -489,8 +487,7 @@ class LibraryScreen : Screen {
                 if (pool.isNotEmpty()) {
                     val random = pool.random().libraryManga.manga
                     dismissPendingSnackbar()
-                    // transitional: legacy MangaDetailsController until MangaDetailsScreen ports
-                    router.pushController(MangaDetailsController(random).withFadeTransaction())
+                    random.id?.let { router.pushController(MangaDetailsComposeController(it).withFadeTransaction()) }
                 }
             },
             onOpenGroupByPicker = { groupByDialogOpen = true },
