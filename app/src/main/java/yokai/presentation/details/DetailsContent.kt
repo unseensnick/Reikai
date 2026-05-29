@@ -1,8 +1,10 @@
 package yokai.presentation.details
 
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,11 +18,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -55,9 +63,16 @@ fun DetailsContent(
     description: String?,
     genres: List<String>,
     chapters: List<DetailsChapterRow>,
+    onChapterClick: (Long) -> Unit,
+    onToggleRead: (id: Long, read: Boolean) -> Unit,
+    onToggleBookmark: (id: Long, bookmark: Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LazyColumn(modifier = modifier.fillMaxSize()) {
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        // Leave room so the resume FAB doesn't cover the last chapter row.
+        contentPadding = PaddingValues(bottom = 88.dp),
+    ) {
         item(key = "header") {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                 Box(modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally)) {
@@ -111,36 +126,62 @@ fun DetailsContent(
             }
         }
         items(items = chapters, key = { it.id }) { chapter ->
-            DetailsChapterListRow(chapter)
+            DetailsChapterListRow(
+                chapter = chapter,
+                onClick = { onChapterClick(chapter.id) },
+                onToggleRead = { onToggleRead(chapter.id, !chapter.read) },
+                onToggleBookmark = { onToggleBookmark(chapter.id, !chapter.bookmark) },
+            )
         }
     }
 }
 
 @Composable
-private fun DetailsChapterListRow(chapter: DetailsChapterRow) {
+private fun DetailsChapterListRow(
+    chapter: DetailsChapterRow,
+    onClick: () -> Unit,
+    onToggleRead: () -> Unit,
+    onToggleBookmark: () -> Unit,
+) {
     val contentColor = if (chapter.read) {
         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
     } else {
         MaterialTheme.colorScheme.onSurface
     }
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        if (chapter.bookmark) {
-            Icon(
-                imageVector = Icons.Filled.Bookmark,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.width(16.dp),
+    var menuOpen by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(onClick = onClick, onLongClick = { menuOpen = true })
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (chapter.bookmark) {
+                Icon(
+                    imageVector = Icons.Filled.Bookmark,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.width(16.dp),
+                )
+            }
+            Text(
+                text = chapter.name,
+                style = MaterialTheme.typography.bodyMedium,
+                color = contentColor,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
-        Text(
-            text = chapter.name,
-            style = MaterialTheme.typography.bodyMedium,
-            color = contentColor,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            DropdownMenuItem(
+                text = { Text(if (chapter.read) "Mark as unread" else "Mark as read") },
+                onClick = { menuOpen = false; onToggleRead() },
+            )
+            DropdownMenuItem(
+                text = { Text(if (chapter.bookmark) "Remove bookmark" else "Bookmark") },
+                onClick = { menuOpen = false; onToggleBookmark() },
+            )
+        }
     }
 }

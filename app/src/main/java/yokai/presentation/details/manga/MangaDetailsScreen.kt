@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -20,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.model.rememberScreenModel
+import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import eu.kanade.tachiyomi.util.mapStatus
 import yokai.domain.manga.models.cover
@@ -38,18 +41,28 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
         val backPress = LocalBackPress.current
         val context = LocalContext.current
 
-        val topTitle = (state as? MangaDetailsState.Loaded)?.manga?.title.orEmpty()
+        val loaded = state as? MangaDetailsState.Loaded
 
         Scaffold(
             topBar = {
                 ReikaiTopBar(
-                    title = { Text(topTitle, style = MaterialTheme.typography.titleMedium) },
+                    title = { Text(loaded?.manga?.title.orEmpty(), style = MaterialTheme.typography.titleMedium) },
                     navigationIcon = {
                         IconButton(onClick = { backPress?.invoke() }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                         }
                     },
                 )
+            },
+            floatingActionButton = {
+                val resume = loaded?.resumeChapter
+                if (loaded != null && resume != null) {
+                    ExtendedFloatingActionButton(
+                        text = { Text(if (loaded.hasStarted) "Resume" else "Start reading") },
+                        icon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
+                        onClick = { context.startActivity(ReaderActivity.newIntent(context, loaded.manga, resume)) },
+                    )
+                }
             },
         ) { padding ->
             when (val s = state) {
@@ -87,6 +100,13 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                         description = manga.description,
                         genres = genres,
                         chapters = rows,
+                        onChapterClick = { id ->
+                            s.chapters.find { it.id == id }?.let { chapter ->
+                                context.startActivity(ReaderActivity.newIntent(context, manga, chapter))
+                            }
+                        },
+                        onToggleRead = { id, read -> screenModel.setRead(id, read) },
+                        onToggleBookmark = { id, bookmark -> screenModel.setBookmark(id, bookmark) },
                         modifier = Modifier.padding(padding),
                     )
                 }
