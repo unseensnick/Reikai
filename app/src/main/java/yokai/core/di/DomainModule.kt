@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeListLibraryFetcher
 import org.koin.dsl.module
 import yokai.data.category.CategoryRepositoryImpl
 import yokai.data.chapter.ChapterRepositoryImpl
+import yokai.data.library.update.error.LibraryUpdateErrorRepositoryImpl
 import yokai.data.extension.repo.ExtensionRepoRepositoryImpl
 import yokai.data.history.HistoryRepositoryImpl
 import yokai.data.library.custom.CustomMangaRepositoryImpl
@@ -25,6 +26,10 @@ import yokai.domain.category.interactor.InsertCategories
 import yokai.domain.category.interactor.SetMangaCategories
 import yokai.domain.category.interactor.UpdateCategories
 import yokai.domain.chapter.ChapterRepository
+import yokai.domain.library.update.error.LibraryUpdateErrorRepository
+import yokai.domain.library.update.error.interactor.DeleteLibraryUpdateErrors
+import yokai.domain.library.update.error.interactor.GetLibraryUpdateErrors
+import yokai.domain.library.update.error.interactor.UpsertLibraryUpdateError
 import yokai.domain.chapter.interactor.DeleteChapter
 import yokai.domain.chapter.interactor.GetAvailableScanlators
 import yokai.domain.chapter.interactor.GetChapter
@@ -123,6 +128,11 @@ fun domainModule() = module {
     factory { GetChapter(get()) }
     factory { InsertChapter(get()) }
     factory { UpdateChapter(get()) }
+
+    single<LibraryUpdateErrorRepository> { LibraryUpdateErrorRepositoryImpl(get()) }
+    factory { GetLibraryUpdateErrors(get()) }
+    factory { UpsertLibraryUpdateError(get()) }
+    factory { DeleteLibraryUpdateErrors(get()) }
 
     single<HistoryRepository> { HistoryRepositoryImpl(get()) }
     factory { GetHistory(get()) }

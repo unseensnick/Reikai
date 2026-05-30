@@ -1,0 +1,27 @@
+-- Library update errors: one row per favourite manga whose last library update failed, plus a
+-- view joining the manga for the error screen. Added to both library_update_errors.sq /
+-- library_update_error_view.sq (fresh installs) and here (upgrades) per the dual-write rule.
+
+CREATE TABLE IF NOT EXISTS library_update_errors (
+    _id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    manga_id INTEGER NOT NULL UNIQUE,
+    message TEXT NOT NULL,
+    last_update INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id)
+    ON DELETE CASCADE
+);
+
+CREATE VIEW IF NOT EXISTS library_update_error_view AS
+SELECT
+    mangas._id AS mangaId,
+    mangas.title AS mangaTitle,
+    mangas.source,
+    mangas.thumbnail_url AS thumbnailUrl,
+    mangas.cover_last_modified AS coverLastModified,
+    library_update_errors._id AS errorId,
+    library_update_errors.message AS message,
+    library_update_errors.last_update AS lastUpdate
+FROM mangas JOIN library_update_errors
+ON mangas._id = library_update_errors.manga_id
+WHERE mangas.favorite = 1
+ORDER BY library_update_errors.last_update DESC;

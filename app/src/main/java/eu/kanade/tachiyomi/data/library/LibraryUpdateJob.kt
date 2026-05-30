@@ -85,6 +85,8 @@ import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.chapter.interactor.GetChapter
+import yokai.domain.library.update.error.interactor.DeleteLibraryUpdateErrors
+import yokai.domain.library.update.error.interactor.UpsertLibraryUpdateError
 import yokai.domain.manga.interactor.GetLibraryManga
 import yokai.domain.manga.interactor.UpdateManga
 import yokai.domain.manga.models.cover
@@ -109,6 +111,8 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
     private val updateManga: UpdateManga = Injekt.get()
     private val getTrack: GetTrack = Injekt.get()
     private val insertTrack: InsertTrack by injectLazy()
+    private val upsertLibraryUpdateError: UpsertLibraryUpdateError = Injekt.get()
+    private val deleteLibraryUpdateErrors: DeleteLibraryUpdateErrors = Injekt.get()
 
     private var extraDeferredJobs = mutableListOf<Deferred<Any>>()
 
@@ -451,11 +455,17 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
                     sendUpdate(manga.manga.id)
                 }
             }
+            // Success: drop any stored error for this manga so a previously-failed entry stops
+            // showing on the update-error screen once it updates cleanly.
+            manga.manga.id?.let { runCatching { deleteLibraryUpdateErrors.awaitByMangaIds(listOf(it)) } }
             return@coroutineScope hasDownloads
         } catch (e: Exception) {
             if (e !is CancellationException) {
                 failedUpdates[manga.manga] = e.message
                 Logger.e { "Failed updating: ${manga.manga.title}: $e" }
+                manga.manga.id?.let { id ->
+                    runCatching { upsertLibraryUpdateError.await(id, e.message ?: "Unknown error") }
+                }
             }
             return@coroutineScope false
         }
