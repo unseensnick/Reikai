@@ -50,6 +50,7 @@ import yokai.domain.track.interactor.GetTrack
 import yokai.domain.track.interactor.InsertTrack
 import yokai.domain.ui.UiPreferences
 import yokai.presentation.library.LibraryTabState
+import yokai.presentation.library.manga.actions.DownloadAction
 import yokai.presentation.library.manga.actions.MangaLibraryActions
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlin.random.Random
@@ -784,10 +785,12 @@ class MangaLibraryScreenModel :
     fun shareSelection(): List<String> =
         MangaLibraryActions.share(selectedMangaList(), sourceManager)
 
-    fun downloadUnreadSelection() {
+    fun downloadUnreadSelection() = downloadSelection(DownloadAction.UNREAD)
+
+    fun downloadSelection(action: DownloadAction) {
         val mangas = selectedMangaList()
         screenModelScope.launchIO {
-            MangaLibraryActions.downloadUnread(mangas, getChapter, downloadManager)
+            MangaLibraryActions.download(mangas, action, getChapter, downloadManager)
         }
     }
 

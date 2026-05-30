@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.util.chapter.ChapterSort
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.chapter.models.ChapterUpdate
@@ -23,7 +24,7 @@ import yokai.domain.track.interactor.InsertTrack
  * Functions mirror legacy semantics so both code paths converge on the same persisted state:
  *
  *  - [share]: faithful port of `LibraryPresenter.getMangaUrls` at `LibraryPresenter.kt:1368`
- *  - [downloadUnread]: faithful port of `LibraryPresenter.downloadUnread` at `LibraryPresenter.kt:1677`
+ *  - [download]: bulk download for the selection (next/unread/all/bookmarked)
  *  - [markReadStatus]: faithful port of `LibraryPresenter.markReadStatus` at `LibraryPresenter.kt:1691`
  *  - [undoMarkReadStatus]: faithful port of `LibraryPresenter.undoMarkReadStatus` at `LibraryPresenter.kt:1712`
  *  - [confirmMarkReadStatus]: faithful port of `LibraryPresenter.confirmMarkReadStatus` at `LibraryPresenter.kt:1727`
@@ -32,6 +33,8 @@ import yokai.domain.track.interactor.InsertTrack
  * and `downloadCache.changes` flows, which re-emit on chapter and download writes, so the grid
  * updates naturally after each action completes.
  */
+enum class DownloadAction { NEXT_1, NEXT_5, NEXT_10, UNREAD, ALL, BOOKMARKED }
+
 object MangaLibraryActions {
 
     /**
@@ -44,16 +47,36 @@ object MangaLibraryActions {
             source.getMangaUrl(manga)
         }
 
-    suspend fun downloadUnread(
+    /**
+     * Bulk download for the library selection. Excludes already-downloaded chapters before
+     * applying a [DownloadAction]: NEXT_n takes the first n unread in reading order (so "next 5"
+     * always queues five that still need downloading), mirroring the details-screen download menu.
+     */
+    suspend fun download(
         mangas: List<Manga>,
+        action: DownloadAction,
         getChapter: GetChapter,
         downloadManager: DownloadManager,
     ) {
         mangas.forEach { manga ->
-            val chapters = getChapter.awaitAll(manga).filter { !it.read }
-            downloadManager.downloadChapters(manga, chapters)
+            val notDownloaded = getChapter.awaitAll(manga)
+                .filterNot { downloadManager.isChapterDownloaded(it, manga) }
+            val targets = when (action) {
+                DownloadAction.NEXT_1 -> nextUnread(manga, notDownloaded, 1)
+                DownloadAction.NEXT_5 -> nextUnread(manga, notDownloaded, 5)
+                DownloadAction.NEXT_10 -> nextUnread(manga, notDownloaded, 10)
+                DownloadAction.UNREAD -> notDownloaded.filter { !it.read }
+                DownloadAction.ALL -> notDownloaded
+                DownloadAction.BOOKMARKED -> notDownloaded.filter { it.bookmark }
+            }
+            if (targets.isNotEmpty()) downloadManager.downloadChapters(manga, targets)
         }
     }
+
+    private fun nextUnread(manga: Manga, notDownloaded: List<Chapter>, count: Int): List<Chapter> =
+        notDownloaded.filter { !it.read }
+            .sortedWith(ChapterSort(manga).sortComparator(ignoreAsc = true))
+            .take(count)
 
     /**
      * Apply read / unread status to every chapter of every selected manga. Returns a snapshot of

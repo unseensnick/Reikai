@@ -310,6 +310,11 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
     onShareSelection: () -> Unit,
     /** C3: silent bulk download of unread chapters for the selection. */
     onDownloadUnread: () -> Unit,
+    /**
+     * Bulk-download menu entries for the selection (next / next 5 / unread / all / bookmarked).
+     * When null, falls back to the single [onDownloadUnread] action (novels have no downloads).
+     */
+    downloadActions: List<yokai.presentation.library.components.SelectionAction>? = null,
     /** C3: show the mark-all-as-read confirmation dialog. */
     onConfirmAndMarkRead: () -> Unit,
     /** C3: show the mark-all-as-unread confirmation dialog. */
@@ -851,12 +856,16 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                             ),
                         )
                     }
-                    add(
-                        yokai.presentation.library.components.SelectionAction(
-                            label = stringResource(MR.strings.download_unread),
-                            onClick = onDownloadUnread,
-                        ),
-                    )
+                    if (downloadActions != null) {
+                        addAll(downloadActions)
+                    } else {
+                        add(
+                            yokai.presentation.library.components.SelectionAction(
+                                label = stringResource(MR.strings.download_unread),
+                                onClick = onDownloadUnread,
+                            ),
+                        )
+                    }
                     add(
                         yokai.presentation.library.components.SelectionAction(
                             label = stringResource(MR.strings.mark_as_read),

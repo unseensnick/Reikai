@@ -39,6 +39,8 @@ import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
+import yokai.presentation.library.components.SelectionAction
+import yokai.presentation.library.manga.actions.DownloadAction
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
 import yokai.presentation.details.manga.MangaDetailsComposeController
@@ -567,6 +569,26 @@ class LibraryScreen : Screen {
                 screenModel.downloadUnreadSelection()
                 screenModel.clearSelection()
             },
+            downloadActions = listOf(
+                SelectionAction(stringResource(MR.strings.download_next)) {
+                    screenModel.downloadSelection(DownloadAction.NEXT_1); screenModel.clearSelection()
+                },
+                SelectionAction(stringResource(MR.strings.download_next_5)) {
+                    screenModel.downloadSelection(DownloadAction.NEXT_5); screenModel.clearSelection()
+                },
+                SelectionAction(stringResource(MR.strings.download_next_10)) {
+                    screenModel.downloadSelection(DownloadAction.NEXT_10); screenModel.clearSelection()
+                },
+                SelectionAction(stringResource(MR.strings.download_unread)) {
+                    screenModel.downloadSelection(DownloadAction.UNREAD); screenModel.clearSelection()
+                },
+                SelectionAction(stringResource(MR.strings.download_all)) {
+                    screenModel.downloadSelection(DownloadAction.ALL); screenModel.clearSelection()
+                },
+                SelectionAction(stringResource(MR.strings.download_bookmarked)) {
+                    screenModel.downloadSelection(DownloadAction.BOOKMARKED); screenModel.clearSelection()
+                },
+            ),
             onConfirmAndMarkRead = { markReadConfirmFor = true },
             onConfirmAndMarkUnread = { markReadConfirmFor = false },
             onConfirmAndDelete = { deleteConfirmOpen = true },

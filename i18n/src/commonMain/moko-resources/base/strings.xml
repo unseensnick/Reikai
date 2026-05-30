@@ -1163,6 +1163,11 @@
     <string name="deleted_">Deleted: %1$s</string>
     <string name="display">Display</string>
     <string name="download_unread">Download unread</string>
+    <string name="download_next">Download next</string>
+    <string name="download_next_5">Download next 5</string>
+    <string name="download_next_10">Download next 10</string>
+    <string name="download_all">Download all</string>
+    <string name="download_bookmarked">Download bookmarked</string>
     <string name="drag_handle">Drag handle</string>
     <string name="edit">Edit</string>
     <string name="enable">Enable</string>
