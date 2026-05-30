@@ -3,22 +3,11 @@ package eu.kanade.tachiyomi.data.track.bangumi
 import eu.kanade.tachiyomi.data.database.models.Track
 
 fun Track.toApiStatus() = when (status) {
-    Bangumi.READING -> "do"
-    Bangumi.COMPLETED -> "collect"
-    Bangumi.ON_HOLD -> "on_hold"
-    Bangumi.DROPPED -> "dropped"
-    Bangumi.PLAN_TO_READ -> "wish"
-    // Caused by status being null somehow when a manga is being tracked for
-    // the first time.
-    0 -> "do"
-    else -> throw NotImplementedError("Unknown status: $status")
-}
-
-fun toTrackStatus(status: String) = when (status) {
-    "do" -> Bangumi.READING
-    "collect" -> Bangumi.COMPLETED
-    "on_hold" -> Bangumi.ON_HOLD
-    "dropped" -> Bangumi.DROPPED
-    "wish" -> Bangumi.PLAN_TO_READ
+    Bangumi.PLAN_TO_READ -> 1
+    Bangumi.COMPLETED -> 2
+    // status can be 0 the first time a manga is tracked; treat it as reading.
+    Bangumi.READING, 0 -> 3
+    Bangumi.ON_HOLD -> 4
+    Bangumi.DROPPED -> 5
     else -> throw NotImplementedError("Unknown status: $status")
 }

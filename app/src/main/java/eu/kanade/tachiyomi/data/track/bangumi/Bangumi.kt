@@ -28,6 +28,8 @@ class Bangumi(private val context: Context, id: Long) : TrackService(id) {
 
     private val api by lazy { BangumiApi(id, client, interceptor) }
 
+    override val supportsPrivateTracking: Boolean = true
+
     override fun getScoreList(): ImmutableList<String> {
         return IntRange(0, 10).map(Int::toString).toImmutableList()
     }
@@ -45,19 +47,18 @@ class Bangumi(private val context: Context, id: Long) : TrackService(id) {
         track.score = DEFAULT_SCORE.toFloat()
         track.status = DEFAULT_STATUS
         updateNewTrackInfo(track)
-        api.addLibManga(track)
-        return update(track)
+        return api.addLibManga(track)
     }
 
     override suspend fun bind(track: Track): Track {
-        val statusTrack = api.statusLibManga(track)
-        val remoteTrack = api.findLibManga(track)
-        return if (statusTrack != null && remoteTrack != null) {
-            track.copyPersonalFrom(remoteTrack)
-            track.library_id = remoteTrack.library_id
-            track.status = remoteTrack.status
-            track.last_chapter_read = remoteTrack.last_chapter_read
-            refresh(track)
+        val statusTrack = api.statusLibManga(track, getUsername())
+        return if (statusTrack != null) {
+            // statusLibManga populated track from the remote entry; keep the user's chosen
+            // private flag (copyRemotePrivate = false) since bind may be flagging it private.
+            track.copyPersonalFrom(statusTrack, copyRemotePrivate = false)
+            track.library_id = statusTrack.library_id
+            track.total_chapters = statusTrack.total_chapters
+            update(track)
         } else {
             add(track)
         }
@@ -68,13 +69,9 @@ class Bangumi(private val context: Context, id: Long) : TrackService(id) {
     }
 
     override suspend fun refresh(track: Track): Track {
-        val statusTrack = api.statusLibManga(track) ?: throw Exception("Could not find manga")
+        val statusTrack = api.statusLibManga(track, getUsername()) ?: throw Exception("Could not find manga")
         track.copyPersonalFrom(statusTrack)
-        val remoteTrack = api.findLibManga(track)
-        if (remoteTrack != null) {
-            track.total_chapters = remoteTrack.total_chapters
-            track.status = remoteTrack.status
-        }
+        track.total_chapters = statusTrack.total_chapters
         return track
     }
 
@@ -124,7 +121,9 @@ class Bangumi(private val context: Context, id: Long) : TrackService(id) {
         try {
             val oauth = api.accessToken(code)
             interceptor.newAuth(oauth)
-            saveCredentials(oauth.userId.toString(), oauth.accessToken)
+            // Save the username (or the stringified ID if none is set) for the v0 collection URLs.
+            val username = api.getUsername()
+            saveCredentials(username, oauth.accessToken)
             return true
         } catch (e: Exception) {
             Logger.e(e) { "Unable to login" }

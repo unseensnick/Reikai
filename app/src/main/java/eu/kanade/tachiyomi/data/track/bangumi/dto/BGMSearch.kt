@@ -6,45 +6,49 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class BGMSearchResult(
-    val list: List<BGMSearchItem>?,
-    val code: Int?,
+    val total: Int = 0,
+    val limit: Int = 0,
+    val offset: Int = 0,
+    val data: List<BGMSubject> = emptyList(),
 )
 
 @Serializable
-data class BGMSearchItem(
+// Incomplete DTO with only the attributes we need.
+data class BGMSubject(
     val id: Long,
     @SerialName("name_cn")
-    val nameCn: String,
+    val nameCn: String = "",
     val name: String,
-    val type: Int,
-    val summary: String?,
-    val images: BGMSearchItemCovers?,
-    @SerialName("eps_count")
-    val epsCount: Long?,
-    val rating: BGMSearchItemRating?,
-    val url: String,
+    val summary: String? = null,
+    val date: String? = null, // YYYY-MM-DD
+    val images: BGMSubjectImages? = null,
+    val volumes: Long = 0,
+    val eps: Long = 0,
+    val rating: BGMSubjectRating? = null,
+    val platform: String? = null,
 ) {
     fun toTrackSearch(trackId: Long): TrackSearch = TrackSearch.create(trackId).apply {
-        media_id = this@BGMSearchItem.id
+        media_id = this@BGMSubject.id
         title = nameCn.ifBlank { name }
         cover_url = images?.common.orEmpty()
         summary = if (nameCn.isNotBlank()) {
-            "作品原名：$name" + this@BGMSearchItem.summary?.let { "\n$it" }.orEmpty()
+            "作品原名：$name" + this@BGMSubject.summary?.let { "\n${it.trim()}" }.orEmpty()
         } else {
-            this@BGMSearchItem.summary.orEmpty()
+            this@BGMSubject.summary?.trim().orEmpty()
         }
-        score = rating?.score?.toFloat() ?: -1.0F
-        tracking_url = url
-        total_chapters = epsCount ?: 0
+        score = rating?.score?.toFloat() ?: -1.0f
+        tracking_url = "https://bangumi.tv/subject/${this@BGMSubject.id}"
+        total_chapters = eps
+        start_date = date ?: ""
     }
 }
 
 @Serializable
-data class BGMSearchItemCovers(
-    val common: String?,
+data class BGMSubjectImages(
+    val common: String? = null,
 )
 
 @Serializable
-data class BGMSearchItemRating(
-    val score: Double?,
+data class BGMSubjectRating(
+    val score: Double? = null,
 )
