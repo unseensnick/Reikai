@@ -1,5 +1,6 @@
 package yokai.presentation.details
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,21 +23,17 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.outlined.ArrowCircleDown
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import yokai.presentation.manga.components.MangaCover
 import yokai.presentation.manga.components.MangaCoverRatio
@@ -59,6 +56,7 @@ data class DetailsChapterRow(
     val downloadState: DetailsDownloadState = DetailsDownloadState.NONE,
     /** 0..100, only meaningful while [downloadState] is [DetailsDownloadState.DOWNLOADING]. */
     val downloadProgress: Int = 0,
+    val selected: Boolean = false,
 )
 
 /**
@@ -79,11 +77,13 @@ fun DetailsContent(
     genres: List<String>,
     chapters: List<DetailsChapterRow>,
     onChapterClick: (Long) -> Unit,
-    onToggleRead: (id: Long, read: Boolean) -> Unit,
-    onToggleBookmark: (id: Long, bookmark: Boolean) -> Unit,
     modifier: Modifier = Modifier,
     /** When non-null, each row shows a download indicator; tapping it calls back with the id. Null = no download UI (novels). */
     onDownloadClick: ((Long) -> Unit)? = null,
+    /** True while at least one chapter is selected; rows toggle selection on tap instead of opening. */
+    selectionActive: Boolean = false,
+    /** When non-null, long-press (and, while [selectionActive], tap) toggles selection. Null = no multi-select (novels). */
+    onToggleSelection: ((id: Long, selected: Boolean, fromLongPress: Boolean) -> Unit)? = null,
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -145,9 +145,15 @@ fun DetailsContent(
         items(items = chapters, key = { it.id }) { chapter ->
             DetailsChapterListRow(
                 chapter = chapter,
-                onClick = { onChapterClick(chapter.id) },
-                onToggleRead = { onToggleRead(chapter.id, !chapter.read) },
-                onToggleBookmark = { onToggleBookmark(chapter.id, !chapter.bookmark) },
+                selectionActive = selectionActive,
+                onClick = {
+                    if (selectionActive && onToggleSelection != null) {
+                        onToggleSelection(chapter.id, !chapter.selected, false)
+                    } else {
+                        onChapterClick(chapter.id)
+                    }
+                },
+                onLongClick = onToggleSelection?.let { cb -> { cb(chapter.id, true, true) } },
                 onDownloadClick = onDownloadClick?.let { cb -> { cb(chapter.id) } },
             )
         }
@@ -157,9 +163,9 @@ fun DetailsContent(
 @Composable
 private fun DetailsChapterListRow(
     chapter: DetailsChapterRow,
+    selectionActive: Boolean,
     onClick: () -> Unit,
-    onToggleRead: () -> Unit,
-    onToggleBookmark: () -> Unit,
+    onLongClick: (() -> Unit)?,
     onDownloadClick: (() -> Unit)?,
 ) {
     val contentColor = if (chapter.read) {
@@ -167,46 +173,45 @@ private fun DetailsChapterListRow(
     } else {
         MaterialTheme.colorScheme.onSurface
     }
-    var menuOpen by remember { mutableStateOf(false) }
-    Box {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .combinedClickable(onClick = onClick, onLongClick = { menuOpen = true })
-                .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            if (chapter.bookmark) {
-                Icon(
-                    imageVector = Icons.Filled.Bookmark,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.width(16.dp),
-                )
-            }
-            Text(
-                text = chapter.name,
-                style = MaterialTheme.typography.bodyMedium,
-                color = contentColor,
-                modifier = Modifier.weight(1f),
+    val rowBackground = if (chapter.selected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+    } else {
+        Color.Transparent
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(rowBackground)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (chapter.bookmark) {
+            Icon(
+                imageVector = Icons.Filled.Bookmark,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.width(16.dp),
             )
-            if (onDownloadClick != null) {
-                ChapterDownloadIndicator(
-                    state = chapter.downloadState,
-                    progress = chapter.downloadProgress,
-                    onClick = onDownloadClick,
-                )
-            }
         }
-        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            DropdownMenuItem(
-                text = { Text(if (chapter.read) "Mark as unread" else "Mark as read") },
-                onClick = { menuOpen = false; onToggleRead() },
+        Text(
+            text = chapter.name,
+            style = MaterialTheme.typography.bodyMedium,
+            color = contentColor,
+            modifier = Modifier.weight(1f),
+        )
+        when {
+            selectionActive -> Icon(
+                imageVector = if (chapter.selected) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                contentDescription = null,
+                tint = if (chapter.selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(24.dp),
             )
-            DropdownMenuItem(
-                text = { Text(if (chapter.bookmark) "Remove bookmark" else "Bookmark") },
-                onClick = { menuOpen = false; onToggleBookmark() },
+            onDownloadClick != null -> ChapterDownloadIndicator(
+                state = chapter.downloadState,
+                progress = chapter.downloadProgress,
+                onClick = onDownloadClick,
             )
         }
     }

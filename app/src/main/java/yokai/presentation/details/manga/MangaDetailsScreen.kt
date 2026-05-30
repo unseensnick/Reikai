@@ -1,5 +1,6 @@
 package yokai.presentation.details.manga
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -7,6 +8,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.BookmarkAdd
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Done
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -18,6 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -28,17 +34,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.model.rememberScreenModel
+import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.preferredChapterName
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import eu.kanade.tachiyomi.util.mapStatus
 import yokai.domain.manga.models.cover
-import eu.kanade.tachiyomi.data.download.model.Download
 import yokai.presentation.component.ReikaiTopBar
 import yokai.presentation.details.DetailsChapterRow
 import yokai.presentation.details.DetailsContent
 import yokai.presentation.details.DetailsDownloadState
 import yokai.presentation.details.DetailsFilterSortSheet
+import yokai.presentation.library.components.SelectionAction
+import yokai.presentation.library.components.SelectionAppBar
 import yokai.util.Screen
 
 class MangaDetailsScreen(private val mangaId: Long) : Screen() {
@@ -52,59 +60,82 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
         val context = LocalContext.current
 
         val loaded = state as? MangaDetailsState.Loaded
+        val selectionActive = loaded?.selection?.isNotEmpty() == true
         var overflowOpen by remember { mutableStateOf(false) }
         var showSheet by remember { mutableStateOf(false) }
 
+        BackHandler(enabled = selectionActive) { screenModel.clearSelection() }
+
         Scaffold(
             topBar = {
-                ReikaiTopBar(
-                    title = { Text(loaded?.manga?.title.orEmpty(), style = MaterialTheme.typography.titleMedium) },
-                    navigationIcon = {
-                        IconButton(onClick = { backPress?.invoke() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        }
-                    },
-                    actions = {
-                        if (loaded != null) {
-                            IconButton(onClick = { showSheet = true }) {
-                                Icon(Icons.Outlined.FilterList, contentDescription = null)
+                if (loaded != null && selectionActive) {
+                    SelectionAppBar(
+                        selectionCount = loaded.selection.size,
+                        onClose = { screenModel.clearSelection() },
+                        colors = TopAppBarDefaults.topAppBarColors(),
+                        actions = listOf(
+                            SelectionAction("Mark as read", icon = Icons.Outlined.Done) { screenModel.markSelectedRead(true) },
+                            SelectionAction("Bookmark", icon = Icons.Outlined.BookmarkAdd) { screenModel.bookmarkSelected(true) },
+                            SelectionAction("Download", icon = Icons.Outlined.Download) { screenModel.downloadSelected() },
+                            SelectionAction("Delete", icon = Icons.Outlined.Delete) { screenModel.deleteSelected() },
+                            SelectionAction("Mark as unread") { screenModel.markSelectedRead(false) },
+                            SelectionAction("Remove bookmark") { screenModel.bookmarkSelected(false) },
+                            SelectionAction("Mark previous as read") { screenModel.markPreviousRead(true) },
+                            SelectionAction("Mark previous as unread") { screenModel.markPreviousRead(false) },
+                            SelectionAction("Select all") { screenModel.selectAll() },
+                            SelectionAction("Invert selection") { screenModel.invertSelection() },
+                        ),
+                    )
+                } else {
+                    ReikaiTopBar(
+                        title = { Text(loaded?.manga?.title.orEmpty(), style = MaterialTheme.typography.titleMedium) },
+                        navigationIcon = {
+                            IconButton(onClick = { backPress?.invoke() }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                             }
-                            IconButton(onClick = { overflowOpen = true }) {
-                                Icon(Icons.Filled.MoreVert, contentDescription = null)
+                        },
+                        actions = {
+                            if (loaded != null) {
+                                IconButton(onClick = { showSheet = true }) {
+                                    Icon(Icons.Outlined.FilterList, contentDescription = null)
+                                }
+                                IconButton(onClick = { overflowOpen = true }) {
+                                    Icon(Icons.Filled.MoreVert, contentDescription = null)
+                                }
+                                DropdownMenu(expanded = overflowOpen, onDismissRequest = { overflowOpen = false }) {
+                                    DropdownMenuItem(
+                                        text = { Text("Mark all as read") },
+                                        onClick = { overflowOpen = false; screenModel.markAllRead(true) },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Mark all as unread") },
+                                        onClick = { overflowOpen = false; screenModel.markAllRead(false) },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Download next") },
+                                        onClick = { overflowOpen = false; screenModel.downloadNext(1) },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Download next 5") },
+                                        onClick = { overflowOpen = false; screenModel.downloadNext(5) },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Download unread") },
+                                        onClick = { overflowOpen = false; screenModel.downloadUnread() },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Download all") },
+                                        onClick = { overflowOpen = false; screenModel.downloadAll() },
+                                    )
+                                }
                             }
-                            DropdownMenu(expanded = overflowOpen, onDismissRequest = { overflowOpen = false }) {
-                                DropdownMenuItem(
-                                    text = { Text("Mark all as read") },
-                                    onClick = { overflowOpen = false; screenModel.markAllRead(true) },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Mark all as unread") },
-                                    onClick = { overflowOpen = false; screenModel.markAllRead(false) },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Download next") },
-                                    onClick = { overflowOpen = false; screenModel.downloadNext(1) },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Download next 5") },
-                                    onClick = { overflowOpen = false; screenModel.downloadNext(5) },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Download unread") },
-                                    onClick = { overflowOpen = false; screenModel.downloadUnread() },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Download all") },
-                                    onClick = { overflowOpen = false; screenModel.downloadAll() },
-                                )
-                            }
-                        }
-                    },
-                )
+                        },
+                    )
+                }
             },
             floatingActionButton = {
                 val resume = loaded?.resumeChapter
-                if (loaded != null && resume != null) {
+                if (loaded != null && resume != null && !selectionActive) {
                     ExtendedFloatingActionButton(
                         text = { Text(if (loaded.hasStarted) "Resume" else "Start reading") },
                         icon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
@@ -130,7 +161,7 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                     val genres = remember(manga.id, manga.genre) {
                         manga.genre?.split(",")?.mapNotNull { it.trim().ifBlank { null } }.orEmpty()
                     }
-                    val rows = remember(s.chapters, s.hideChapterTitles, s.downloads) {
+                    val rows = remember(s.chapters, s.hideChapterTitles, s.downloads, s.selection) {
                         s.chapters.map {
                             val info = s.downloads[it.id]
                             DetailsChapterRow(
@@ -140,6 +171,7 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                                 bookmark = it.bookmark,
                                 downloadState = info?.state.toDetailsDownloadState(),
                                 downloadProgress = info?.progress ?: 0,
+                                selected = it.id in s.selection,
                             )
                         }
                     }
@@ -156,10 +188,10 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                                 context.startActivity(ReaderActivity.newIntent(context, manga, chapter))
                             }
                         },
-                        onToggleRead = { id, read -> screenModel.setRead(id, read) },
-                        onToggleBookmark = { id, bookmark -> screenModel.setBookmark(id, bookmark) },
                         modifier = Modifier.padding(padding),
                         onDownloadClick = { id -> screenModel.downloadAction(id) },
+                        selectionActive = selectionActive,
+                        onToggleSelection = { id, sel, long -> screenModel.toggleSelection(id, sel, long) },
                     )
                 }
             }

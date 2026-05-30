@@ -57,6 +57,8 @@ sealed interface MangaDetailsState {
         val filterMatchesDefault: Boolean,
         /** Per-chapter download state, keyed by chapter id. Updated live from DownloadManager flows. */
         val downloads: Map<Long, DownloadInfo> = emptyMap(),
+        /** Selected chapter ids; non-empty switches the top bar to the multi-select action mode. */
+        val selection: Set<Long> = emptySet(),
     ) : MangaDetailsState
     data object NotFound : MangaDetailsState
 }
@@ -83,6 +85,9 @@ class MangaDetailsScreenModel(
     private val preferences: PreferencesHelper by inject()
     private val downloadManager: DownloadManager by inject()
     private val sourceManager: SourceManager by inject()
+
+    /** Range-select anchors (first/last selected index in the displayed list), like Mihon. */
+    private val selectedPositions = intArrayOf(-1, -1)
 
     init {
         reload()
@@ -126,32 +131,23 @@ class MangaDetailsScreenModel(
         }
     }
 
-    fun setRead(chapterId: Long, read: Boolean) {
-        screenModelScope.launchIO {
-            detailsLog { "setRead chapter=$chapterId read=$read" }
-            updateChapter.await(ChapterUpdate(id = chapterId, read = read))
-            reload()
-        }
-    }
-
-    fun setBookmark(chapterId: Long, bookmark: Boolean) {
-        screenModelScope.launchIO {
-            detailsLog { "setBookmark chapter=$chapterId bookmark=$bookmark" }
-            updateChapter.await(ChapterUpdate(id = chapterId, bookmark = bookmark))
-            reload()
-        }
-    }
-
     fun markAllRead(read: Boolean) {
         screenModelScope.launchIO {
             val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
-            val updates = loaded.chapters.mapNotNull { ch ->
-                ch.id?.let { ChapterUpdate(id = it, read = read) }
-            }
-            detailsLog { "markAllRead read=$read count=${updates.size}" }
-            if (updates.isNotEmpty()) updateChapter.awaitAll(updates)
+            detailsLog { "markAllRead read=$read count=${loaded.chapters.size}" }
+            applyRead(loaded.chapters, read)
             reload()
         }
+    }
+
+    private suspend fun applyRead(chapters: List<Chapter>, read: Boolean) {
+        val updates = chapters.mapNotNull { ch -> ch.id?.let { ChapterUpdate(id = it, read = read) } }
+        if (updates.isNotEmpty()) updateChapter.awaitAll(updates)
+    }
+
+    private suspend fun applyBookmark(chapters: List<Chapter>, bookmark: Boolean) {
+        val updates = chapters.mapNotNull { ch -> ch.id?.let { ChapterUpdate(id = it, bookmark = bookmark) } }
+        if (updates.isNotEmpty()) updateChapter.awaitAll(updates)
     }
 
     fun setSortOrder(sort: Int, descend: Boolean) {
@@ -325,6 +321,139 @@ class MangaDetailsScreenModel(
         mutableState.value = loaded.copy(
             downloads = loaded.downloads.toMutableMap().apply { put(chapterId, DownloadInfo(newState, progress)) },
         )
+    }
+
+    // --- Multi-select ---
+
+    /**
+     * Toggle one chapter's selection. On long-press, extends the selection to cover the span from
+     * the previous anchor (range-select), mirroring Mihon's MangaScreenModel.toggleSelection.
+     */
+    fun toggleSelection(chapterId: Long, selected: Boolean, fromLongPress: Boolean) {
+        val loaded = state.value as? MangaDetailsState.Loaded ?: return
+        val chapters = loaded.chapters
+        val index = chapters.indexOfFirst { it.id == chapterId }
+        if (index < 0) return
+        if ((chapterId in loaded.selection) == selected) return
+
+        val newSelection = loaded.selection.toMutableSet()
+        val firstSelection = loaded.selection.isEmpty()
+        if (selected) newSelection.add(chapterId) else newSelection.remove(chapterId)
+
+        if (selected && fromLongPress) {
+            if (firstSelection) {
+                selectedPositions[0] = index
+                selectedPositions[1] = index
+            } else {
+                val range = when {
+                    index < selectedPositions[0] -> (index + 1 until selectedPositions[0]).also { selectedPositions[0] = index }
+                    index > selectedPositions[1] -> (selectedPositions[1] + 1 until index).also { selectedPositions[1] = index }
+                    else -> IntRange.EMPTY
+                }
+                range.forEach { i -> chapters[i].id?.let { newSelection.add(it) } }
+            }
+        } else if (!fromLongPress) {
+            if (!selected) {
+                if (index == selectedPositions[0]) selectedPositions[0] = chapters.indexOfFirst { it.id in newSelection }
+                else if (index == selectedPositions[1]) selectedPositions[1] = chapters.indexOfLast { it.id in newSelection }
+            } else {
+                if (index < selectedPositions[0]) selectedPositions[0] = index
+                else if (index > selectedPositions[1]) selectedPositions[1] = index
+            }
+        }
+        detailsLog { "toggleSelection chapter=$chapterId selected=$selected long=$fromLongPress size=${newSelection.size}" }
+        mutableState.value = loaded.copy(selection = newSelection)
+    }
+
+    fun selectAll() {
+        val loaded = state.value as? MangaDetailsState.Loaded ?: return
+        resetSelectionAnchors()
+        mutableState.value = loaded.copy(selection = loaded.chapters.mapNotNull { it.id }.toSet())
+    }
+
+    fun invertSelection() {
+        val loaded = state.value as? MangaDetailsState.Loaded ?: return
+        resetSelectionAnchors()
+        val inverted = loaded.chapters.mapNotNull { it.id }.filterNot { it in loaded.selection }.toSet()
+        mutableState.value = loaded.copy(selection = inverted)
+    }
+
+    fun clearSelection() {
+        val loaded = state.value as? MangaDetailsState.Loaded ?: return
+        resetSelectionAnchors()
+        if (loaded.selection.isNotEmpty()) mutableState.value = loaded.copy(selection = emptySet())
+    }
+
+    private fun resetSelectionAnchors() {
+        selectedPositions[0] = -1
+        selectedPositions[1] = -1
+    }
+
+    fun markSelectedRead(read: Boolean) {
+        screenModelScope.launchIO {
+            val targets = selectedChapters() ?: return@launchIO
+            detailsLog { "markSelectedRead read=$read count=${targets.size}" }
+            applyRead(targets, read)
+            clearSelection()
+            reload()
+        }
+    }
+
+    fun bookmarkSelected(bookmark: Boolean) {
+        screenModelScope.launchIO {
+            val targets = selectedChapters() ?: return@launchIO
+            detailsLog { "bookmarkSelected bookmark=$bookmark count=${targets.size}" }
+            applyBookmark(targets, bookmark)
+            clearSelection()
+            reload()
+        }
+    }
+
+    fun downloadSelected() {
+        screenModelScope.launchIO {
+            val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
+            val targets = loaded.chapters
+                .filter { it.id in loaded.selection }
+                .filterNot { downloadManager.isChapterDownloaded(it, loaded.manga) }
+            detailsLog { "downloadSelected count=${targets.size}" }
+            if (targets.isNotEmpty()) downloadManager.downloadChapters(loaded.manga, targets)
+            clearSelection()
+        }
+    }
+
+    fun deleteSelected() {
+        screenModelScope.launchIO {
+            val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
+            val targets = loaded.chapters.filter { it.id in loaded.selection }
+            detailsLog { "deleteSelected count=${targets.size}" }
+            if (targets.isNotEmpty()) {
+                val source = sourceManager.getOrStub(loaded.manga.source)
+                downloadManager.deleteChapters(targets, loaded.manga, source, force = true)
+                targets.forEach { ch -> ch.id?.let { applyDownloadState(it, Download.State.NOT_DOWNLOADED) } }
+            }
+            clearSelection()
+        }
+    }
+
+    /** Mark every chapter before the earliest selected one (in reading order) as read/unread. */
+    fun markPreviousRead(read: Boolean) {
+        screenModelScope.launchIO {
+            val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
+            val sort = ChapterSort(loaded.manga, chapterFilter, preferences)
+            val ascending = loaded.chapters.sortedWith(sort.sortComparator(ignoreAsc = true))
+            val earliest = ascending.indexOfFirst { it.id in loaded.selection }
+            if (earliest > 0) {
+                detailsLog { "markPreviousRead read=$read count=$earliest" }
+                applyRead(ascending.subList(0, earliest), read)
+            }
+            clearSelection()
+            reload()
+        }
+    }
+
+    private fun selectedChapters(): List<Chapter>? {
+        val loaded = state.value as? MangaDetailsState.Loaded ?: return null
+        return loaded.chapters.filter { it.id in loaded.selection }
     }
 
     private fun currentManga(): Manga? = (state.value as? MangaDetailsState.Loaded)?.manga
