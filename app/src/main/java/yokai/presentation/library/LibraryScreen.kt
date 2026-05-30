@@ -383,7 +383,7 @@ class LibraryScreen : Screen {
                 showLanguageBadge = showLanguageBadge,
                 unreadBadgeType = unreadBadgeType,
                 onMangaClick = onMangaClick,
-                onToggleSelection = { id -> screenModel.toggleSelection(id) },
+                onToggleSelection = { id, catId, fromLongPress -> screenModel.toggleSelection(id, catId, fromLongPress) },
             )
         }
         val mangaGridItemRenderer: @Composable (LibraryItem.Manga, Boolean, Boolean, Modifier, Float?) -> Unit = { item, isSelected, selectionActive, modifier, coverAspectRatio ->
@@ -399,7 +399,7 @@ class LibraryScreen : Screen {
                 modifier = modifier,
                 selectionActive = selectionActive,
                 onMangaClick = onMangaClick,
-                onMangaLongClick = { m -> m.id?.let { screenModel.toggleSelection(it) } },
+                onToggleSelection = { id, catId, fromLongPress -> screenModel.toggleSelection(id, catId, fromLongPress) },
                 onContinueReading = onContinueReading,
                 coverAspectRatio = coverAspectRatio,
             )

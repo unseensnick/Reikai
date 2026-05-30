@@ -46,7 +46,7 @@ fun MangaLibraryGridCell(
      */
     selectionActive: Boolean,
     onMangaClick: (Manga) -> Unit,
-    onMangaLongClick: (Manga) -> Unit,
+    onToggleSelection: (id: Long, categoryId: Int, fromLongPress: Boolean) -> Unit,
     onContinueReading: (Manga) -> Unit,
     /**
      * Cover aspect ratio. Default 2:3 (book) for the regular grid path; pass `null` for the
@@ -79,13 +79,14 @@ fun MangaLibraryGridCell(
     // for every item in dynamic groupings (which don't collapse). The MangaGridCover pill
     // hides itself when `<= 1`, so passing the raw size is safe even on standalone items.
     val mergedSourceCount = item.relatedMangaIds.size
-    // In selection mode, route tap to the toggle handler (legacy ActionMode behavior).
-    val onClick = if (selectionActive) {
-        { onMangaLongClick(manga) }
+    // In selection mode, tap toggles a single item; long-press extends a range (range-select).
+    // Explicit () -> Unit type so the nullable manga.id?.let { } body coerces to Unit.
+    val onClick: () -> Unit = if (selectionActive) {
+        { manga.id?.let { onToggleSelection(it, item.libraryManga.category, false) } }
     } else {
         { onMangaClick(manga) }
     }
-    val onLongClick = { onMangaLongClick(manga) }
+    val onLongClick: () -> Unit = { manga.id?.let { onToggleSelection(it, item.libraryManga.category, true) } }
     // Continue-reading button: only when the user has not hidden it AND the manga has unread
     // chapters AND we're not in selection mode (selection mode claims all cell taps). Skip the
     // cover-only layout's button entirely so the cover stays unobstructed.

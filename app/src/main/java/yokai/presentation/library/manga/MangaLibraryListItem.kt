@@ -33,7 +33,7 @@ fun MangaLibraryListItem(
     showLanguageBadge: Boolean,
     unreadBadgeType: Int,
     onMangaClick: (Manga) -> Unit,
-    onToggleSelection: (Long) -> Unit,
+    onToggleSelection: (id: Long, categoryId: Int, fromLongPress: Boolean) -> Unit,
 ) {
     val manga = item.libraryManga.manga
     val coverData = remember(manga.id) { manga.cover() }
@@ -78,11 +78,11 @@ fun MangaLibraryListItem(
         subtitle = subtitle.takeIf { it.isNotEmpty() },
         isSelected = isSelected,
         onClick = if (selectionActive) {
-            { manga.id?.let(onToggleSelection) }
+            { manga.id?.let { onToggleSelection(it, item.libraryManga.category, false) } }
         } else {
             { onMangaClick(manga) }
         },
-        onLongClick = { manga.id?.let(onToggleSelection) },
+        onLongClick = { manga.id?.let { onToggleSelection(it, item.libraryManga.category, true) } },
         trailing = if (segments.isNotEmpty()) {
             { Badge(segments = segments) }
         } else {

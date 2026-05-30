@@ -650,6 +650,9 @@ class MangaLibraryScreenModel :
         }
     }
 
+    /** Range-select anchor (categoryId, mangaId) for the long-press extend gesture. */
+    private var selectionAnchor: Pair<Int, Long>? = null
+
     fun toggleSelection(mangaId: Long) {
         mutableState.update { current ->
             if (current is LibraryTabState.Loaded) {
@@ -665,7 +668,44 @@ class MangaLibraryScreenModel :
         }
     }
 
+    /**
+     * Range-aware selection toggle. Long-press extends the selection across the span between the
+     * previous anchor and this manga within the same category (the rendered bucket
+     * `item.libraryManga.category`); a tap (fromLongPress = false) toggles a single item. Mirrors
+     * the details-screen range-select shipped in Phase 3b.
+     */
+    fun toggleSelection(mangaId: Long, categoryId: Int, fromLongPress: Boolean) {
+        mutableState.update { current ->
+            if (current !is LibraryTabState.Loaded) return@update current
+            val orderedIds = current.library.entries
+                .firstOrNull { it.key.id == categoryId }
+                ?.value
+                ?.mapNotNull { it.libraryManga.manga.id }
+                ?: return@update current
+            val index = orderedIds.indexOf(mangaId)
+            if (index < 0) return@update current
+
+            val newSelection = current.selection.toMutableSet()
+            val anchor = selectionAnchor
+            if (fromLongPress && anchor != null && anchor.first == categoryId && current.selection.isNotEmpty()) {
+                val anchorIndex = orderedIds.indexOf(anchor.second)
+                if (anchorIndex >= 0) {
+                    val range = if (anchorIndex <= index) anchorIndex..index else index..anchorIndex
+                    range.forEach { newSelection.add(orderedIds[it]) }
+                } else {
+                    newSelection.add(mangaId)
+                }
+                selectionAnchor = categoryId to mangaId
+            } else {
+                if (mangaId in newSelection) newSelection.remove(mangaId) else newSelection.add(mangaId)
+                selectionAnchor = if (mangaId in newSelection) categoryId to mangaId else null
+            }
+            current.copy(selection = newSelection)
+        }
+    }
+
     fun clearSelection() {
+        selectionAnchor = null
         mutableState.update { current ->
             if (current is LibraryTabState.Loaded && current.selection.isNotEmpty()) {
                 current.copy(selection = emptySet())
