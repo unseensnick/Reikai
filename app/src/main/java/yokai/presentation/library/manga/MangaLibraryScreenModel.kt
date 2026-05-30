@@ -326,8 +326,15 @@ class MangaLibraryScreenModel :
                     val loggedServiceNames = trackManager.services
                         .filter { it.isLogged }
                         .associate { it.id to preferences.context.getString(it.nameRes()) }
+                    // Stamp the on-disk download count onto each item so the cover download badge
+                    // renders a real number. The cells gate display on the showDownloadBadge pref;
+                    // getDownloadCount is an in-memory DownloadCache lookup, and downloadCache.changes
+                    // is already a combine input upstream, so the badge updates live.
+                    val libraryWithDownloads = library.mapValues { (_, mangaItems) ->
+                        mangaItems.map { it.copy(downloadCount = downloadManager.getDownloadCount(it.libraryManga.manga).toLong()) }
+                    }
                     RawData(
-                        library = library,
+                        library = libraryWithDownloads,
                         isRunning = snap.isRunning,
                         inQueue = inQueue,
                         currentCategoryOrder = snap.currentCategoryOrder,
