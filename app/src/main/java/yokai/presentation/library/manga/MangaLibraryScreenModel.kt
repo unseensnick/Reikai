@@ -28,7 +28,9 @@ import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -43,6 +45,7 @@ import yokai.domain.category.models.CategoryUpdate
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.library.LibraryPreferences
+import yokai.domain.library.update.error.interactor.GetLibraryUpdateErrors
 import yokai.domain.manga.interactor.GetLibraryManga
 import yokai.domain.manga.interactor.UpdateManga
 import yokai.domain.track.interactor.DeleteTrack
@@ -75,6 +78,7 @@ class MangaLibraryScreenModel :
     private val libraryPreferences: LibraryPreferences by injectLazy()
     private val getCategories: GetCategories by injectLazy()
     private val getLibraryManga: GetLibraryManga by injectLazy()
+    private val getLibraryUpdateErrors: GetLibraryUpdateErrors by injectLazy()
     private val downloadCache: DownloadCache by injectLazy()
     private val libraryUpdater: MangaLibraryUpdater by injectLazy()
     private val sourceManager: SourceManager by injectLazy()
@@ -101,6 +105,14 @@ class MangaLibraryScreenModel :
     fun setSearchQuery(query: String) {
         searchQueryFlow.value = query
     }
+
+    /**
+     * Count of stored library update errors, surfaced so the top-bar overflow can show an
+     * "Update errors (N)" entry only when there are any. Collected as state by the composable
+     * (the count Flow stays off [LibraryTabState] since it's independent of the library snapshot).
+     */
+    val updateErrorCount: StateFlow<Int> = getLibraryUpdateErrors.countAsFlow()
+        .stateIn(screenModelScope, SharingStarted.Eagerly, 0)
 
     /**
      * Pre-collapse libraryManga snapshot used by [selectedMangaListWithMergedSiblings] to

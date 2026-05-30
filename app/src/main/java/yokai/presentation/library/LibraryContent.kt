@@ -269,6 +269,10 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
     onOpenOverflow: () -> Unit,
     onDismissSheet: () -> Unit,
     onDismissOverflow: () -> Unit,
+    // Update-error overflow entry (manga tab only; novel passes the defaults). Count gates
+    // visibility; the callback opens the update-error screen.
+    updateErrorCount: Int = 0,
+    onShowUpdateErrors: () -> Unit = {},
     onSheetTabChange: (Int) -> Unit,
     /**
      * Fires when the first visible category changes due to scroll, hopper navigation, or
@@ -1552,6 +1556,8 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
         LibraryOverflowMenu(
             expanded = overflowOpen,
             onDismiss = onDismissOverflow,
+            updateErrorCount = updateErrorCount,
+            onShowUpdateErrors = onShowUpdateErrors,
         )
         sortingCategoryId?.let { catId ->
             // Look up the category from the latest `library` map rather than capturing the

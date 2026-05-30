@@ -52,6 +52,8 @@ import yokai.i18n.MR
 fun LibraryOverflowMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
+    updateErrorCount: Int = 0,
+    onShowUpdateErrors: () -> Unit = {},
 ) {
     if (!expanded) return
 
@@ -94,6 +96,16 @@ fun LibraryOverflowMenu(
                         incognito = preferences.incognitoMode().get()
                     },
                 )
+                if (updateErrorCount > 0) {
+                    OverflowRow(
+                        iconRes = R.drawable.ic_warning_white_24dp,
+                        title = stringResource(MR.strings.update_errors_count, updateErrorCount),
+                        onClick = {
+                            onShowUpdateErrors()
+                            onDismiss()
+                        },
+                    )
+                }
                 OverflowRow(
                     iconRes = R.drawable.ic_outline_settings_24dp,
                     title = stringResource(MR.strings.settings),

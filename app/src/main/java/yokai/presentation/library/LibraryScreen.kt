@@ -44,6 +44,7 @@ import yokai.presentation.library.manga.actions.DownloadAction
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
 import yokai.presentation.details.manga.MangaDetailsComposeController
+import yokai.presentation.library.updateError.LibraryUpdateErrorComposeController
 import yokai.presentation.library.manga.MangaLibraryGridCell
 import yokai.presentation.library.manga.MangaLibraryListItem
 import yokai.presentation.library.manga.MangaLibraryScreenModel
@@ -112,6 +113,7 @@ class LibraryScreen : Screen {
         tabRow: @Composable () -> Unit,
     ) {
         val state by screenModel.state.collectAsState()
+        val updateErrorCount by screenModel.updateErrorCount.collectAsState()
         val router = LocalRouter.currentOrThrow
         val coroutineScope = rememberCoroutineScope()
 
@@ -499,6 +501,10 @@ class LibraryScreen : Screen {
             onOpenOverflow = { overflowOpen = true },
             onDismissSheet = { sheetOpen = false },
             onDismissOverflow = { overflowOpen = false },
+            updateErrorCount = updateErrorCount,
+            onShowUpdateErrors = {
+                router.pushController(LibraryUpdateErrorComposeController().withFadeTransaction())
+            },
             onSheetTabChange = { sheetTab = it },
             onActiveCategoryChange = { category ->
                 // Skip the default category (order = -1, injected by MangaLibrarySectioner when
