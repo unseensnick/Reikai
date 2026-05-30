@@ -8,11 +8,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Done
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -45,6 +47,8 @@ import yokai.presentation.details.DetailsChapterRow
 import yokai.presentation.details.DetailsContent
 import yokai.presentation.details.DetailsDownloadState
 import yokai.presentation.details.DetailsFilterSortSheet
+import yokai.presentation.details.track.TrackInfoDialog
+import yokai.presentation.details.track.TrackInfoScreenModel
 import yokai.presentation.library.components.SelectionAction
 import yokai.presentation.library.components.SelectionAppBar
 import yokai.util.Screen
@@ -56,6 +60,8 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
     override fun Content() {
         val screenModel = rememberScreenModel { MangaDetailsScreenModel(mangaId) }
         val state by screenModel.state.collectAsState()
+        val trackModel = rememberScreenModel { TrackInfoScreenModel(mangaId) }
+        val trackState by trackModel.state.collectAsState()
         val backPress = LocalBackPress.current
         val context = LocalContext.current
 
@@ -63,6 +69,7 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
         val selectionActive = loaded?.selection?.isNotEmpty() == true
         var overflowOpen by remember { mutableStateOf(false) }
         var showSheet by remember { mutableStateOf(false) }
+        var showTrackingSheet by remember { mutableStateOf(false) }
 
         BackHandler(enabled = selectionActive) { screenModel.clearSelection() }
 
@@ -96,6 +103,13 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                         },
                         actions = {
                             if (loaded != null) {
+                                val isTracked = trackState.items.any { it.track != null }
+                                IconButton(onClick = { showTrackingSheet = true; trackModel.refresh() }) {
+                                    Icon(
+                                        if (isTracked) Icons.Filled.Sync else Icons.Outlined.Sync,
+                                        contentDescription = "Tracking",
+                                    )
+                                }
                                 IconButton(onClick = { showSheet = true }) {
                                     Icon(Icons.Outlined.FilterList, contentDescription = null)
                                 }
@@ -220,6 +234,29 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                 filteredScanlators = loaded.filteredScanlators,
                 onScanlatorFilterChanged = { screenModel.setScanlatorFilter(it) },
                 onDismiss = { showSheet = false },
+            )
+        }
+
+        if (showTrackingSheet) {
+            TrackInfoDialog(
+                state = trackState,
+                onSearchQueryChange = trackModel::onSearchQueryChange,
+                onSearch = trackModel::search,
+                onOpenSearch = trackModel::openSearch,
+                onRegister = trackModel::registerTracking,
+                onSetPrivate = trackModel::setPrivate,
+                onOpenStatus = trackModel::openStatus,
+                onOpenScore = trackModel::openScore,
+                onOpenChapters = trackModel::openChapters,
+                onOpenDate = trackModel::openDate,
+                onOpenRemove = trackModel::openRemove,
+                onSetStatus = trackModel::setStatus,
+                onSetScore = trackModel::setScore,
+                onSetChapters = trackModel::setLastChapterRead,
+                onSetDate = trackModel::setDate,
+                onRemove = trackModel::removeTracking,
+                onBack = trackModel::backToHome,
+                onDismiss = { showTrackingSheet = false; trackModel.backToHome() },
             )
         }
     }

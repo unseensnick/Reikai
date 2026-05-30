@@ -27,6 +27,7 @@ data class ALUserListItem(
     val progress: Int,
     val startedAt: ALFuzzyDate,
     val completedAt: ALFuzzyDate,
+    val private: Boolean = false,
     val media: ALSearchItem,
 ) {
     fun toALUserManga(): ALUserManga {
@@ -37,6 +38,7 @@ data class ALUserListItem(
             chaptersRead = progress,
             startDateFuzzy = startedAt.toEpochMilli(),
             completedDateFuzzy = completedAt.toEpochMilli(),
+            private = private,
             manga = media.toALManga(),
         )
     }

@@ -30,12 +30,16 @@ interface Track : Serializable {
 
     var tracking_url: String
 
-    fun copyPersonalFrom(other: Track) {
+    var private: Boolean
+
+    fun copyPersonalFrom(other: Track, copyRemotePrivate: Boolean = true) {
         last_chapter_read = other.last_chapter_read
         score = other.score
         status = other.status
         started_reading_date = other.started_reading_date
         finished_reading_date = other.finished_reading_date
+        // Skip on bind so the user's chosen private flag isn't clobbered by the remote's current value.
+        if (copyRemotePrivate) private = other.private
     }
 
     /**
@@ -53,6 +57,7 @@ interface Track : Serializable {
         copy.tracking_url = tracking_url
         copy.copyPersonalFrom(this)
         copy.total_chapters = total_chapters
+        copy.private = private
     }
 
     companion object {
@@ -74,6 +79,7 @@ interface Track : Serializable {
             remoteUrl: String,
             startDate: Long,
             finishDate: Long,
+            private: Boolean,
         ) = TrackImpl().apply {
             this.id = id
             this.manga_id = mangaId
@@ -88,6 +94,7 @@ interface Track : Serializable {
             this.started_reading_date = startDate
             this.finished_reading_date = finishDate
             this.tracking_url = remoteUrl
+            this.private = private
         }
     }
 }

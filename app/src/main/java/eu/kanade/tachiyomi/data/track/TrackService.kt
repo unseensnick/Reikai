@@ -32,6 +32,9 @@ abstract class TrackService(val id: Long) {
     // Application and remote support for reading dates
     open val supportsReadingDates: Boolean = false
 
+    // Remote support for keeping the tracked entry off the user's public profile
+    open val supportsPrivateTracking: Boolean = false
+
     @DrawableRes
     abstract fun getLogo(): Int
 

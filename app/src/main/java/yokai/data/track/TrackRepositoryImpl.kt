@@ -1,12 +1,16 @@
 package yokai.data.track
 
 import eu.kanade.tachiyomi.data.database.models.Track
+import kotlinx.coroutines.flow.Flow
 import yokai.data.DatabaseHandler
 import yokai.domain.track.TrackRepository
 
 class TrackRepositoryImpl(private val handler: DatabaseHandler) : TrackRepository {
     override suspend fun getAllByMangaId(mangaId: Long): List<Track> =
         handler.awaitList { manga_syncQueries.getAllByMangaId(mangaId, Track::mapper) }
+
+    override fun subscribeAllByMangaId(mangaId: Long): Flow<List<Track>> =
+        handler.subscribeToList { manga_syncQueries.getAllByMangaId(mangaId, Track::mapper) }
 
     override suspend fun deleteForManga(mangaId: Long, syncId: Long) {
         handler.await { manga_syncQueries.deleteForManga(mangaId, syncId) }
@@ -31,6 +35,7 @@ class TrackRepositoryImpl(private val handler: DatabaseHandler) : TrackRepositor
                 remoteUrl = track.tracking_url,
                 startDate = track.started_reading_date,
                 finishDate = track.finished_reading_date,
+                `private` = track.private,
             )
         }
     }
@@ -51,6 +56,7 @@ class TrackRepositoryImpl(private val handler: DatabaseHandler) : TrackRepositor
                     remoteUrl = track.tracking_url,
                     startDate = track.started_reading_date,
                     finishDate = track.finished_reading_date,
+                    `private` = track.private,
                 )
             }
         }

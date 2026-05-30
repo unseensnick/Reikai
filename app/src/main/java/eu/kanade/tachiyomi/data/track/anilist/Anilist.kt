@@ -46,6 +46,8 @@ class Anilist(private val context: Context, id: Long) : TrackService(id) {
 
     override val supportsReadingDates: Boolean = true
 
+    override val supportsPrivateTracking: Boolean = true
+
     private val scorePreference = trackPreferences.anilistScoreType()
 
     init {
@@ -183,7 +185,7 @@ class Anilist(private val context: Context, id: Long) : TrackService(id) {
         val remoteTrack = api.findLibManga(track, getUsername().toInt())
 
         return if (remoteTrack != null) {
-            track.copyPersonalFrom(remoteTrack)
+            track.copyPersonalFrom(remoteTrack, copyRemotePrivate = false)
             track.library_id = remoteTrack.library_id
             update(track)
         } else {

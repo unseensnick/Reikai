@@ -1,0 +1,4 @@
+-- Private tracking: add a `private` flag to tracker links (AniList / Kitsu hide the entry on the
+-- user's public profile). Dual-write with manga_sync.sq (fresh installs) per the migration rule.
+
+ALTER TABLE manga_sync ADD COLUMN private INTEGER NOT NULL DEFAULT 0;

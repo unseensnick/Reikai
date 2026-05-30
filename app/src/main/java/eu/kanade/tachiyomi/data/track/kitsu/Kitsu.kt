@@ -37,6 +37,8 @@ class Kitsu(private val context: Context, id: Long) : TrackService(id) {
 
     override val supportsReadingDates: Boolean = true
 
+    override val supportsPrivateTracking: Boolean = true
+
     private val json: Json by injectLazy()
 
     private val interceptor by lazy { KitsuInterceptor(this) }
@@ -112,7 +114,7 @@ class Kitsu(private val context: Context, id: Long) : TrackService(id) {
     override suspend fun bind(track: Track): Track {
         val remoteTrack = api.findLibManga(track, getUserId())
         return if (remoteTrack != null) {
-            track.copyPersonalFrom(remoteTrack)
+            track.copyPersonalFrom(remoteTrack, copyRemotePrivate = false)
             track.media_id = remoteTrack.media_id
             update(track)
         } else {
