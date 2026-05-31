@@ -1892,8 +1892,12 @@ class MangaDetailsPresenter(
          * those collapses risk false positives across legitimately distinct titles. Revisit if
          * observation shows v1 misses common cases.
          */
-        private val DEDUP_WHITESPACE = Regex("\\s+")
+        // Collapse every run of non-alphanumeric characters (punctuation, symbols, whitespace, and
+        // straight vs curly apostrophes) into a single separator, so the same title from different
+        // sources dedups even when only its punctuation differs. Letters (incl. CJK) and digits are
+        // kept, so titles that differ by a number (e.g. "Season 1" vs "Season 2") stay distinct.
+        private val DEDUP_SEPARATORS = Regex("[^\\p{L}\\p{N}]+")
         internal fun normalizeTitleForDedup(title: String): String =
-            title.lowercase().trim().replace(DEDUP_WHITESPACE, " ")
+            title.lowercase().replace(DEDUP_SEPARATORS, " ").trim()
     }
 }
