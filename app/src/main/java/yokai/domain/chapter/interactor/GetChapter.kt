@@ -29,4 +29,5 @@ class GetChapter(
         chapterRepository.getChapterByUrlAndMangaId(chapterUrl, mangaId, filterScanlators)
 
     fun subscribeAll(mangaId: Long, filterScanlators: Boolean) = chapterRepository.getChaptersAsFlow(mangaId, filterScanlators)
+    fun subscribeScanlators(mangaId: Long) = chapterRepository.getScanlatorsByChapterAsFlow(mangaId)
 }

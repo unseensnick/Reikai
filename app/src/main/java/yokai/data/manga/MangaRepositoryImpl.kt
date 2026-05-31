@@ -30,6 +30,9 @@ class MangaRepositoryImpl(private val handler: DatabaseHandler) : MangaRepositor
     override fun getMangaListAsFlow(): Flow<List<Manga>> =
         handler.subscribeToList { mangasQueries.findAll(Manga::mapper) }
 
+    override fun getMangaByIdAsFlow(id: Long): Flow<Manga?> =
+        handler.subscribeToFirstOrNull { mangasQueries.findById(id, Manga::mapper) }
+
     override fun getMangaByUrlAndSourceAsFlow(url: String, source: Long): Flow<Manga?> =
         handler.subscribeToFirstOrNull { mangasQueries.findByUrlAndSource(url, source, Manga::mapper) }
 

@@ -2,6 +2,7 @@ package yokai.presentation.details.manga
 
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.bookmarkedFilter
 import eu.kanade.tachiyomi.data.database.models.chapterOrder
@@ -14,6 +15,7 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.SourceManager
+import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.chapter.ChapterFilter
 import eu.kanade.tachiyomi.util.chapter.ChapterSort
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil
@@ -21,22 +23,52 @@ import eu.kanade.tachiyomi.util.manga.MangaUtil
 import eu.kanade.tachiyomi.util.system.launchIO
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import yokai.domain.category.interactor.GetCategories
+import yokai.domain.category.interactor.SetMangaCategories
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.chapter.models.ChapterUpdate
+import yokai.domain.library.custom.interactor.CreateCustomManga
+import yokai.domain.library.custom.model.CustomMangaInfo
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.interactor.UpdateManga
 import yokai.domain.manga.models.MangaUpdate
 import yokai.presentation.details.detailsLog
+
+sealed interface MangaDetailsDialog {
+    /** Categories picker shown when adding to library (or explicitly from overflow). */
+    data class ChangeCategory(
+        val manga: Manga,
+        val allCategories: List<Category>,
+        val currentCategoryIds: Set<Long>,
+    ) : MangaDetailsDialog
+    /** Edit title / author / artist / description / genre overrides. */
+    data class EditMangaInfo(val manga: Manga) : MangaDetailsDialog
+}
 
 sealed interface MangaDetailsState {
     data object Loading : MangaDetailsState
     data class Loaded(
         val manga: Manga,
         val chapters: List<Chapter>,
+        /**
+         * Value-equality signature of the chapter list's content (id + read + bookmark + progress,
+         * in order). [Chapter]'s own equals compares only by url, so without this the data class
+         * (and any `remember` keyed on [chapters]) treats a read/bookmark change as "unchanged" and
+         * the UI goes stale. Drives StateFlow emission and the row `remember` key.
+         */
+        val chapterStateHash: Int,
+        /**
+         * Value-equality signature of the manga's displayed fields (favorite, title, author, artist,
+         * description, genre, status, cover). [Manga]'s own equals compares only by url+source, so
+         * without this a favorite toggle or edit-info change leaves [manga] "equal" and StateFlow
+         * dedups the emission, leaving the heart / header stale.
+         */
+        val mangaStateHash: Int,
         /** Next chapter to read (lowest unread); null when everything is read. Drives the FAB. */
         val resumeChapter: Chapter?,
         /** Any chapter read or partially read, so the FAB reads "Resume" instead of "Start reading". */
@@ -59,6 +91,8 @@ sealed interface MangaDetailsState {
         val downloads: Map<Long, DownloadInfo> = emptyMap(),
         /** Selected chapter ids; non-empty switches the top bar to the multi-select action mode. */
         val selection: Set<Long> = emptySet(),
+        /** Currently visible modal dialog; null when none. */
+        val dialog: MangaDetailsDialog? = null,
     ) : MangaDetailsState
     data object NotFound : MangaDetailsState
 }
@@ -66,12 +100,12 @@ sealed interface MangaDetailsState {
 data class DownloadInfo(val state: Download.State, val progress: Int)
 
 /**
- * Phase 0-2 of the manga details Compose port: loads the manga + its displayed chapter list,
- * handles per-chapter read/bookmark writes plus mark-all, and chapter filter/sort/scanlator state.
- * Mirrors [eu.kanade.tachiyomi.ui.manga.MangaDetailsPresenter]'s load pipeline (DB read ->
- * scanlator filter -> ChapterSort) on [screenModelScope] without the presenter's runBlocking.
- * Filter/sort ops mutate the manga's chapter_flags, persist them, then reload; ChapterSort already
- * reads those flags. Tracking and download side-effects land in later phases.
+ * ScreenModel for the manga details Compose port. State is driven reactively: a manga flow keyed by
+ * id drives an inner chapters+scanlators subscription ([init]), so the screen auto-refreshes on any
+ * DB change (favorite, read/bookmark, sort/filter, scanlator filter, new chapters from a library
+ * update). Mutations just write to the DB and let the flow re-emit; the only exception is edit-info,
+ * which lands in a separate table the manga query doesn't watch, so it triggers a one-shot [reload].
+ * Mirrors [eu.kanade.tachiyomi.ui.manga.MangaDetailsPresenter]'s pipeline without its runBlocking.
  */
 class MangaDetailsScreenModel(
     private val mangaId: Long,
@@ -85,50 +119,108 @@ class MangaDetailsScreenModel(
     private val preferences: PreferencesHelper by inject()
     private val downloadManager: DownloadManager by inject()
     private val sourceManager: SourceManager by inject()
+    private val getCategories: GetCategories by inject()
+    private val setMangaCategories: SetMangaCategories by inject()
+    private val createCustomManga: CreateCustomManga by inject()
 
     /** Range-select anchors (first/last selected index in the displayed list), like Mihon. */
     private val selectedPositions = intArrayOf(-1, -1)
 
     init {
-        reload()
+        // Reactive load: the manga flow drives an inner chapters+scanlators subscription so the
+        // screen auto-refreshes on any DB change (favorite, read/bookmark, sort/filter, new chapters
+        // from a library update). The outer collectLatest restarts the inner subscription when the
+        // manga changes, recomputing the scanlator-filter flag (which the chapter query needs).
+        screenModelScope.launchIO {
+            getManga.subscribeById(mangaId).collectLatest { manga ->
+                if (manga == null) {
+                    detailsLog { "manga $mangaId not found" }
+                    mutableState.value = MangaDetailsState.NotFound
+                    return@collectLatest
+                }
+                val applyFilter = manga.filtered_scanlators?.isNotEmpty() == true
+                combine(
+                    getChapter.subscribeAll(manga.id!!, applyFilter),
+                    getChapter.subscribeScanlators(manga.id!!),
+                ) { chapters, scanlators -> chapters to scanlators }
+                    .collectLatest { (chapters, scanlators) -> rebuildState(manga, chapters, scanlators) }
+            }
+        }
         observeDownloads()
     }
 
+    /**
+     * One-shot refresh from the DB. Called on screen resume (the Compose equivalent of the legacy
+     * controller's `onActivityResumed` -> `fetchChapters`), which is how returning from the reader
+     * Activity picks up read/bookmark changes: SQLDelight's flow notifications are unreliable for the
+     * chapter query because it joins a view, so we don't depend on them for cross-Activity returns.
+     */
+    fun refresh() = reload()
+
+    /**
+     * One-shot reload, also used after an edit the reactive flow can't observe (custom manga info
+     * lives in a separate table the `mangas` query doesn't join).
+     */
     private fun reload() {
         screenModelScope.launchIO {
-            val manga = getManga.awaitById(mangaId)
-            if (manga == null) {
-                detailsLog { "manga $mangaId not found" }
+            val manga = getManga.awaitById(mangaId) ?: run {
                 mutableState.value = MangaDetailsState.NotFound
                 return@launchIO
             }
-            val rawChapters = getChapter.awaitAll(manga, filterScanlators = null)
-            val sort = ChapterSort(manga, chapterFilter, preferences)
-            val sorted = sort.getChaptersSorted(rawChapters)
-            val resume = sort.getNextUnreadChapter(rawChapters)
-            val allScanlators = getChapter.awaitScanlators(mangaId)
-                .filter { it.isNotBlank() }
-                .toSet()
-            val downloads = recomputeDownloads(manga, sorted, downloadManager.queueState.value)
-            detailsLog { "loaded \"${manga.title}\" chapters=${sorted.size} resume=${resume?.name ?: "none"}" }
-            mutableState.value = MangaDetailsState.Loaded(
-                manga = manga,
-                chapters = sorted,
-                resumeChapter = resume,
-                hasStarted = rawChapters.any { it.read || it.last_page_read > 0 },
-                sorting = manga.chapterOrder(preferences),
-                sortDescending = manga.sortDescending(preferences),
-                readFilter = manga.readFilter(preferences),
-                downloadedFilter = manga.downloadedFilter(preferences),
-                bookmarkedFilter = manga.bookmarkedFilter(preferences),
-                hideChapterTitles = manga.hideChapterTitle(preferences),
-                allScanlators = allScanlators,
-                filteredScanlators = ChapterUtil.getScanlators(manga.filtered_scanlators).toSet(),
-                sortMatchesDefault = sortMatchesDefault(manga),
-                filterMatchesDefault = filterMatchesDefault(manga),
-                downloads = downloads,
-            )
+            val chapters = getChapter.awaitAll(manga, filterScanlators = null)
+            val scanlators = getChapter.awaitScanlators(mangaId)
+            rebuildState(manga, chapters, scanlators)
         }
+    }
+
+    /** Builds [MangaDetailsState.Loaded] from raw DB rows, preserving transient UI (selection, dialog). */
+    private fun rebuildState(manga: Manga, rawChapters: List<Chapter>, allScanlatorsList: List<String>) {
+        val sort = ChapterSort(manga, chapterFilter, preferences)
+        val sorted = sort.getChaptersSorted(rawChapters)
+        val resume = sort.getNextUnreadChapter(rawChapters)
+        val allScanlators = allScanlatorsList.filter { it.isNotBlank() }.toSet()
+        val downloads = recomputeDownloads(manga, sorted, downloadManager.queueState.value)
+        // Content signature: Chapter.equals is url-only, so fold the mutable read/bookmark/progress
+        // (in display order) into a hash that distinguishes "same chapters, different read state".
+        val chapterStateHash = sorted.fold(7) { acc, c ->
+            ((((acc * 31 + (c.id ?: 0L).hashCode()) * 31 + c.read.hashCode()) * 31 + c.bookmark.hashCode()) * 31 + c.last_page_read)
+        }
+        // Same trick for the manga: its equals is url+source only, so fold the displayed fields that
+        // can change (favorite toggle, edit-info, cover) into a hash that distinguishes them.
+        val mangaStateHash = listOf(
+            manga.favorite,
+            manga.title,
+            manga.author,
+            manga.artist,
+            manga.description,
+            manga.genre,
+            manga.status,
+            manga.thumbnail_url,
+            manga.cover_last_modified,
+        ).hashCode()
+        val current = state.value as? MangaDetailsState.Loaded
+        detailsLog { "rebuildState \"${manga.title}\" chapters=${sorted.size} resume=${resume?.name ?: "none"}" }
+        mutableState.value = MangaDetailsState.Loaded(
+            manga = manga,
+            chapters = sorted,
+            chapterStateHash = chapterStateHash,
+            mangaStateHash = mangaStateHash,
+            resumeChapter = resume,
+            hasStarted = rawChapters.any { it.read || it.last_page_read > 0 },
+            sorting = manga.chapterOrder(preferences),
+            sortDescending = manga.sortDescending(preferences),
+            readFilter = manga.readFilter(preferences),
+            downloadedFilter = manga.downloadedFilter(preferences),
+            bookmarkedFilter = manga.bookmarkedFilter(preferences),
+            hideChapterTitles = manga.hideChapterTitle(preferences),
+            allScanlators = allScanlators,
+            filteredScanlators = ChapterUtil.getScanlators(manga.filtered_scanlators).toSet(),
+            sortMatchesDefault = sortMatchesDefault(manga),
+            filterMatchesDefault = filterMatchesDefault(manga),
+            downloads = downloads,
+            selection = current?.selection ?: emptySet(),
+            dialog = current?.dialog,
+        )
     }
 
     fun markAllRead(read: Boolean) {
@@ -136,7 +228,6 @@ class MangaDetailsScreenModel(
             val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
             detailsLog { "markAllRead read=$read count=${loaded.chapters.size}" }
             applyRead(loaded.chapters, read)
-            reload()
         }
     }
 
@@ -232,7 +323,6 @@ class MangaDetailsScreenModel(
             val all = (state.value as? MangaDetailsState.Loaded)?.allScanlators.orEmpty()
             detailsLog { "setScanlatorFilter count=${scanlators.size}/${all.size}" }
             MangaUtil.setScanlatorFilter(updateManga, manga, if (scanlators.size == all.size) emptySet() else scanlators)
-            reload()
         }
     }
 
@@ -395,7 +485,6 @@ class MangaDetailsScreenModel(
             detailsLog { "markSelectedRead read=$read count=${targets.size}" }
             applyRead(targets, read)
             clearSelection()
-            reload()
         }
     }
 
@@ -405,7 +494,6 @@ class MangaDetailsScreenModel(
             detailsLog { "bookmarkSelected bookmark=$bookmark count=${targets.size}" }
             applyBookmark(targets, bookmark)
             clearSelection()
-            reload()
         }
     }
 
@@ -447,7 +535,6 @@ class MangaDetailsScreenModel(
                 applyRead(ascending.subList(0, earliest), read)
             }
             clearSelection()
-            reload()
         }
     }
 
@@ -456,11 +543,113 @@ class MangaDetailsScreenModel(
         return loaded.chapters.filter { it.id in loaded.selection }
     }
 
+    // --- Favorite / categories ---
+
+    fun toggleFavorite() {
+        screenModelScope.launchIO {
+            val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
+            val manga = loaded.manga
+            val id = manga.id ?: return@launchIO
+            if (!manga.favorite) {
+                // The manga flow re-emits favorite=true and rebuilds the heart; show the category
+                // picker on top (rebuildState preserves the dialog across that re-emit).
+                updateManga.await(MangaUpdate(id, favorite = true))
+                val allCategories = getCategories.await().filter { (it.id ?: 0) > 0 }
+                if (allCategories.isNotEmpty()) {
+                    val currentIds = getCategories.awaitByMangaId(id)
+                        .mapNotNull { it.id?.toLong() }
+                        .toSet()
+                    val current = state.value as? MangaDetailsState.Loaded ?: return@launchIO
+                    mutableState.value = current.copy(
+                        dialog = MangaDetailsDialog.ChangeCategory(current.manga, allCategories, currentIds),
+                    )
+                }
+            } else {
+                updateManga.await(MangaUpdate(id, favorite = false))
+            }
+        }
+    }
+
+    /** Show the categories picker for a manga that is already in the library. */
+    fun showChangeCategoryDialog() {
+        screenModelScope.launchIO {
+            val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
+            val id = loaded.manga.id ?: return@launchIO
+            val allCategories = getCategories.await().filter { (it.id ?: 0) > 0 }
+            if (allCategories.isEmpty()) return@launchIO
+            val currentIds = getCategories.awaitByMangaId(id)
+                .mapNotNull { it.id?.toLong() }
+                .toSet()
+            mutableState.value = loaded.copy(
+                dialog = MangaDetailsDialog.ChangeCategory(loaded.manga, allCategories, currentIds),
+            )
+        }
+    }
+
+    fun moveMangaToCategoriesAndAddToLibrary(categoryIds: List<Long>) {
+        screenModelScope.launchIO {
+            val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
+            setMangaCategories.await(loaded.manga.id, categoryIds)
+            // Categories live in a separate table the details screen doesn't display; just close.
+            dismissDialog()
+        }
+    }
+
+    // --- Edit manga info ---
+
+    fun showEditMangaInfoDialog() {
+        val loaded = state.value as? MangaDetailsState.Loaded ?: return
+        mutableState.value = loaded.copy(dialog = MangaDetailsDialog.EditMangaInfo(loaded.manga))
+    }
+
+    fun updateMangaInfo(title: String?, author: String?, artist: String?, description: String?, genre: String?) {
+        screenModelScope.launchIO {
+            val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
+            val id = loaded.manga.id ?: return@launchIO
+            createCustomManga.await(
+                CustomMangaInfo(
+                    mangaId = id,
+                    title = title,
+                    author = author,
+                    artist = artist,
+                    description = description,
+                    genre = genre,
+                ),
+            )
+            dismissDialog()
+            // custom_manga_info is a separate table the manga flow doesn't watch, so refresh by hand.
+            reload()
+        }
+    }
+
+    // --- Dialog ---
+
+    fun dismissDialog() {
+        val loaded = state.value as? MangaDetailsState.Loaded ?: return
+        mutableState.value = loaded.copy(dialog = null)
+    }
+
+    // --- Share / WebView ---
+
+    /** Returns the manga's source URL for share and WebView actions; null for local/stub sources. */
+    fun getMangaUrl(): String? {
+        val manga = currentManga() ?: return null
+        val source = sourceManager.getOrStub(manga.source) as? HttpSource ?: return null
+        return runCatching { source.getMangaUrl(manga) }.getOrNull()
+    }
+
+    fun isHttpSource(): Boolean {
+        val manga = currentManga() ?: return false
+        return sourceManager.getOrStub(manga.source) is HttpSource
+    }
+
+    fun skipPreMigration(): Boolean = preferences.skipPreMigration().get()
+
     private fun currentManga(): Manga? = (state.value as? MangaDetailsState.Loaded)?.manga
 
     private suspend fun persistFlags(manga: Manga) {
+        // Writing chapter_flags to the mangas table re-emits the manga flow, which rebuilds state.
         updateManga.await(MangaUpdate(manga.id!!, chapterFlags = manga.chapter_flags))
-        reload()
     }
 
     private fun sortMatchesDefault(manga: Manga): Boolean =

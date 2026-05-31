@@ -22,9 +22,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.ArrowCircleDown
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -78,6 +81,9 @@ fun DetailsContent(
     chapters: List<DetailsChapterRow>,
     onChapterClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    isFavorited: Boolean = false,
+    /** When non-null, renders the favorite button in the header. Null = no favorite UI (future novel probe). */
+    onFavoriteClick: (() -> Unit)? = null,
     /** When non-null, each row shows a download indicator; tapping it calls back with the id. Null = no download UI (novels). */
     onDownloadClick: ((Long) -> Unit)? = null,
     /** True while at least one chapter is selected; rows toggle selection on tap instead of opening. */
@@ -117,6 +123,25 @@ fun DetailsContent(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+                if (onFavoriteClick != null) {
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        FilledTonalIconButton(onClick = onFavoriteClick) {
+                            Icon(
+                                imageVector = if (isFavorited) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                contentDescription = if (isFavorited) "Remove from library" else "Add to library",
+                                tint = if (isFavorited) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                        Text(
+                            text = if (isFavorited) "In library" else "Add to library",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
                 }
                 description?.takeIf { it.isNotBlank() }?.let {
                     Spacer(Modifier.height(12.dp))

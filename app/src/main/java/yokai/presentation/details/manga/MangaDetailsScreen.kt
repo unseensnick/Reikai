@@ -1,11 +1,13 @@
 package yokai.presentation.details.manga
 
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Sync
@@ -13,6 +15,7 @@ import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Done
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,14 +38,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import cafe.adriel.voyager.core.model.rememberScreenModel
+import cafe.adriel.voyager.navigator.LocalNavigator
 import eu.kanade.tachiyomi.data.download.model.Download
+import eu.kanade.tachiyomi.ui.migration.manga.design.PreMigrationController
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.preferredChapterName
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
+import eu.kanade.tachiyomi.util.compose.LocalRouter
+import eu.kanade.tachiyomi.util.compose.currentOrThrow
+import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.mapStatus
 import yokai.domain.manga.models.cover
 import yokai.presentation.component.ReikaiTopBar
+import yokai.presentation.details.ChangeCategoryDialog
 import yokai.presentation.details.DetailsChapterRow
 import yokai.presentation.details.DetailsContent
 import yokai.presentation.details.DetailsDownloadState
@@ -64,12 +76,20 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
         val trackState by trackModel.state.collectAsState()
         val backPress = LocalBackPress.current
         val context = LocalContext.current
+        val navigator = LocalNavigator.currentOrThrow
+        val router = LocalRouter.current
 
         val loaded = state as? MangaDetailsState.Loaded
         val selectionActive = loaded?.selection?.isNotEmpty() == true
         var overflowOpen by remember { mutableStateOf(false) }
         var showSheet by remember { mutableStateOf(false) }
         var showTrackingSheet by remember { mutableStateOf(false) }
+
+        val isHttpSource = remember(loaded?.manga?.source) { screenModel.isHttpSource() }
+
+        // Refresh on resume so returning from the reader Activity picks up read/bookmark changes,
+        // mirroring the legacy controller's onActivityResumed -> fetchChapters.
+        LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { screenModel.refresh() }
 
         BackHandler(enabled = selectionActive) { screenModel.clearSelection() }
 
@@ -103,6 +123,13 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                         },
                         actions = {
                             if (loaded != null) {
+                                IconButton(onClick = { screenModel.toggleFavorite() }) {
+                                    Icon(
+                                        if (loaded.manga.favorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                        contentDescription = if (loaded.manga.favorite) "Remove from library" else "Add to library",
+                                        tint = if (loaded.manga.favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
                                 val isTracked = trackState.items.any { it.track != null }
                                 IconButton(onClick = { showTrackingSheet = true; trackModel.refresh() }) {
                                     Icon(
@@ -141,6 +168,64 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                                         text = { Text("Download all") },
                                         onClick = { overflowOpen = false; screenModel.downloadAll() },
                                     )
+                                    if (loaded.manga.favorite) {
+                                        DropdownMenuItem(
+                                            text = { Text("Edit categories") },
+                                            onClick = { overflowOpen = false; screenModel.showChangeCategoryDialog() },
+                                        )
+                                    }
+                                    if (loaded.manga.favorite || loaded.manga.isLocal()) {
+                                        DropdownMenuItem(
+                                            text = { Text("Edit info") },
+                                            onClick = { overflowOpen = false; screenModel.showEditMangaInfoDialog() },
+                                        )
+                                    }
+                                    if (isHttpSource) {
+                                        DropdownMenuItem(
+                                            text = { Text("Share") },
+                                            onClick = {
+                                                overflowOpen = false
+                                                screenModel.getMangaUrl()?.let { url ->
+                                                    val intent = Intent(Intent.ACTION_SEND).apply {
+                                                        type = "text/plain"
+                                                        putExtra(Intent.EXTRA_TEXT, url)
+                                                    }
+                                                    context.startActivity(Intent.createChooser(intent, null))
+                                                }
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Open in web view") },
+                                            onClick = {
+                                                overflowOpen = false
+                                                screenModel.getMangaUrl()?.let { url ->
+                                                    navigator.push(
+                                                        WebViewScreen(
+                                                            url = url,
+                                                            initialTitle = loaded.manga.title,
+                                                            sourceId = loaded.manga.source,
+                                                        ),
+                                                    )
+                                                }
+                                            },
+                                        )
+                                    }
+                                    if (loaded.manga.favorite && !loaded.manga.isLocal()) {
+                                        DropdownMenuItem(
+                                            text = { Text("Migrate") },
+                                            onClick = {
+                                                overflowOpen = false
+                                                router?.let {
+                                                    // transitional: legacy PreMigrationController until migration ports
+                                                    PreMigrationController.navigateToMigration(
+                                                        screenModel.skipPreMigration(),
+                                                        it,
+                                                        listOf(mangaId),
+                                                    )
+                                                }
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         },
@@ -175,7 +260,9 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                     val genres = remember(manga.id, manga.genre) {
                         manga.genre?.split(",")?.mapNotNull { it.trim().ifBlank { null } }.orEmpty()
                     }
-                    val rows = remember(s.chapters, s.hideChapterTitles, s.downloads, s.selection) {
+                    // Key on the content hash, not s.chapters: Chapter.equals is url-only, so a
+                    // read/bookmark change leaves the list "equal" and the rows would go stale.
+                    val rows = remember(s.chapterStateHash, s.hideChapterTitles, s.downloads, s.selection) {
                         s.chapters.map {
                             val info = s.downloads[it.id]
                             DetailsChapterRow(
@@ -196,6 +283,8 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                         statusText = context.mapStatus(manga.status),
                         description = manga.description,
                         genres = genres,
+                        isFavorited = manga.favorite,
+                        onFavoriteClick = { screenModel.toggleFavorite() },
                         chapters = rows,
                         onChapterClick = { id ->
                             s.chapters.find { it.id == id }?.let { chapter ->
@@ -258,6 +347,23 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                 onBack = trackModel::backToHome,
                 onDismiss = { showTrackingSheet = false; trackModel.backToHome() },
             )
+        }
+
+        when (val dialog = loaded?.dialog) {
+            is MangaDetailsDialog.ChangeCategory -> ChangeCategoryDialog(
+                allCategories = dialog.allCategories,
+                currentCategoryIds = dialog.currentCategoryIds,
+                onDismiss = { screenModel.dismissDialog() },
+                onConfirm = { screenModel.moveMangaToCategoriesAndAddToLibrary(it) },
+            )
+            is MangaDetailsDialog.EditMangaInfo -> EditMangaInfoDialog(
+                manga = dialog.manga,
+                onDismiss = { screenModel.dismissDialog() },
+                onConfirm = { title, author, artist, description, genre ->
+                    screenModel.updateMangaInfo(title, author, artist, description, genre)
+                },
+            )
+            null -> Unit
         }
     }
 }
