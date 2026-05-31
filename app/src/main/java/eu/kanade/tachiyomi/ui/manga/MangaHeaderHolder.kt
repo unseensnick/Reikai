@@ -44,7 +44,6 @@ import eu.kanade.tachiyomi.ui.base.holder.BaseFlexibleViewHolder
 import eu.davidea.flexibleadapter.items.IFlexible
 import eu.kanade.tachiyomi.ui.manga.related.RelatedMangaCardAdapter
 import eu.kanade.tachiyomi.ui.manga.related.RelatedMangaCardItem
-import eu.kanade.tachiyomi.ui.manga.related.SeeAllCardItem
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.lang.toNormalized
 import eu.kanade.tachiyomi.util.system.getResourceColor
@@ -142,7 +141,9 @@ class MangaHeaderHolder(
                 }
                 false
             }
-            if (!itemView.resources.isLTR) {
+            // "More" now sits at the start (left in LTR), so the fade must point the opposite way
+            // from the original end-aligned layout: rotate in LTR, leave default in RTL.
+            if (itemView.resources.isLTR) {
                 moreBgGradient.rotation = 180f
             }
             lessButton.setOnClickListener {
@@ -681,8 +682,11 @@ class MangaHeaderHolder(
         val list = presenter.relatedMangas
         val isLoading = presenter.relatedMangasLoading
 
+        val seeAll = binding.relatedMangasSeeAll
+
         if (list.isEmpty() && !isLoading) {
             label.visibility = View.GONE
+            seeAll.visibility = View.GONE
             skeleton.visibility = View.GONE
             recycler.visibility = View.GONE
             return
@@ -713,22 +717,22 @@ class MangaHeaderHolder(
             val items: MutableList<IFlexible<*>> = list.map {
                 RelatedMangaCardItem(it.sourceId, it.manga)
             }.toMutableList()
-            // Phase 6.5: append the "See all (N)" trailing card when the unbounded pool has
-            // more entries than the carousel cap shows. The carousel slice itself may be smaller
-            // than RELATED_MANGAS_LIMIT due to anti-echo drops, but we gate on the full pool size
-            // so the affordance only appears when the browse view will be meaningfully bigger.
-            val fullPoolSize = presenter.relatedMangasFullPool.size
-            if (fullPoolSize > MangaDetailsPresenter.RELATED_MANGAS_LIMIT) {
-                items.add(SeeAllCardItem(fullPoolSize))
-            }
             relatedMangasAdapter?.updateDataSet(items)
             recycler.visibility = View.VISIBLE
             skeleton.visibility = View.INVISIBLE
+            // Persistent "See all (N)" in the section header (right of the label). N is the full
+            // unbounded pool size; the header affordance stays available even when the carousel
+            // shows everything, so it no longer pops in and out with the pool size.
+            val fullPoolSize = presenter.relatedMangasFullPool.size
+            seeAll.text = itemView.context.getString(MR.strings.see_all_count, fullPoolSize)
+            seeAll.setOnClickListener { controller.openRelatedMangasBrowse() }
+            seeAll.visibility = View.VISIBLE
         } else {
             // Loading with no results yet — show skeleton, keep recycler reserved as INVISIBLE
             // so the Barrier doesn't shift when the recycler swaps in.
             skeleton.visibility = View.VISIBLE
             recycler.visibility = View.INVISIBLE
+            seeAll.visibility = View.GONE
         }
     }
 

@@ -1760,7 +1760,11 @@ class MangaDetailsController :
      * into [RelatedMangasHandoff] (keyed by mangaId), then pushes [RelatedMangasBrowseController]
      * with just the id in the Bundle. The browse controller reads-and-clears on attach.
      */
-    override fun onRelatedMangaSeeAllClick(item: SeeAllCardItem) {
+    override fun onRelatedMangaSeeAllClick(item: SeeAllCardItem) = openRelatedMangasBrowse()
+
+    /** Open the full related-mangas browse view (the persistent "See all" header button + the
+     *  legacy trailing card both route here). */
+    fun openRelatedMangasBrowse() {
         val mangaId = manga?.id ?: return
         val pool = presenter.snapshotForBrowseHandoff()
         if (pool.isEmpty()) return

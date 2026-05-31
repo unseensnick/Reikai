@@ -287,13 +287,13 @@
         android:background="@drawable/full_gradient"
         android:backgroundTint="?attr/background"
         app:layout_constraintBottom_toBottomOf="@id/manga_summary"
-        app:layout_constraintEnd_toEndOf="@id/more_end_guide" />
+        app:layout_constraintStart_toStartOf="@id/more_end_guide" />
 
     <View
         android:id="@+id/more_end_guide"
         android:layout_width="24dp"
         android:layout_height="0dp"
-        app:layout_constraintStart_toStartOf="@+id/more_button"
+        app:layout_constraintEnd_toEndOf="@+id/more_button"
         app:layout_constraintTop_toTopOf="@id/more_button"
         app:layout_constraintBottom_toBottomOf="@id/more_button"/>
 
@@ -318,16 +318,16 @@
         style="@style/Theme.Widget.Button.TextButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="12dp"
+        android:layout_marginStart="16dp"
         android:text="@string/more"
-        android:textAlignment="viewEnd"
+        android:textAlignment="viewStart"
         android:drawableEnd="@drawable/ic_expand_more_24dp"
         android:minWidth="0dp"
         android:paddingStart="0dp"
         android:paddingEnd="0dp"
         app:drawableTint="?colorSecondary"
         app:layout_constraintBottom_toBottomOf="@id/more_guide"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
         app:rippleColor="@null" />
 
     <androidx.constraintlayout.widget.Group
@@ -361,19 +361,18 @@
     <com.google.android.material.button.MaterialButton
         android:id="@+id/less_button"
         style="@style/Theme.Widget.Button.TextButton"
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
-        android:layout_marginEnd="12dp"
         android:drawableEnd="@drawable/ic_expand_less_24dp"
+        android:minWidth="0dp"
         android:paddingStart="0dp"
         android:paddingEnd="0dp"
         android:text="@string/less"
-        android:textAlignment="textEnd"
+        android:textAlignment="viewStart"
         android:visibility="gone"
         app:drawableTint="?colorSecondary"
         app:layout_constraintBottom_toTopOf="@id/related_mangas_label"
-        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/manga_summary"
         app:rippleColor="@null" />
@@ -386,13 +385,30 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
         android:layout_marginTop="16dp"
-        android:layout_marginEnd="16dp"
+        android:layout_marginEnd="8dp"
         android:text="@string/related"
         android:textColor="?attr/colorOnBackground"
         android:visibility="gone"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/related_mangas_see_all"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/less_button"
+        tools:visibility="visible" />
+
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/related_mangas_see_all"
+        style="?textAppearanceTitleSmall"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingHorizontal="4dp"
+        android:textColor="?attr/colorSecondary"
+        android:visibility="gone"
+        app:layout_constraintBaseline_toBaselineOf="@id/related_mangas_label"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:text="See all (30)"
         tools:visibility="visible" />
 
     <LinearLayout
