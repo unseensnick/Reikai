@@ -11,6 +11,7 @@ import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import com.hippo.unifile.UniFile
 import dev.icerock.moko.resources.StringResource
+import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.data.database.models.Chapter
@@ -35,6 +36,7 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.recommendation.RECOMMENDS_SOURCE
 import eu.kanade.tachiyomi.data.recommendation.RecommendationRanker
 import eu.kanade.tachiyomi.data.recommendation.RecommendationsFetcher
+import eu.kanade.tachiyomi.data.recommendation.RelatedMangaCache
 import eu.kanade.tachiyomi.data.recommendation.TasteCandidateFetcher
 import eu.kanade.tachiyomi.data.track.EnhancedTrackService
 import eu.kanade.tachiyomi.data.track.TrackManager
@@ -135,6 +137,7 @@ class MangaDetailsPresenter(
 ) : BaseCoroutinePresenter<MangaDetailsController>(),
     DownloadQueue.Listener {
     private val getAvailableScanlators: GetAvailableScanlators by injectLazy()
+    private val relatedMangaCache: RelatedMangaCache by injectLazy()
     private val getCategories: GetCategories by injectLazy()
     private val getChapter: GetChapter by injectLazy()
     private val getManga: GetManga by injectLazy()
@@ -592,7 +595,26 @@ class MangaDetailsPresenter(
         relatedMangasFetched = true
 
         presenterScope.launch {
-            relatedMangasLoading = true
+            val cachedId = manga.id
+            val cached = cachedId?.let { relatedMangaCache.get(it) }
+            if (cached != null) {
+                // Serve the cached pool immediately so reopening is instant.
+                relatedMangas = cached.carousel
+                relatedMangasFullPool = cached.fullPool
+                relatedMangasLoading = false
+                withUIContext { view?.updateHeader() }
+                // Fresh enough → done. Stale → cards stay on screen while we refresh below.
+                if (relatedMangaCache.isFresh(cached)) {
+                    relatedRecsLog { "cache HIT (fresh) manga=$cachedId size=${cached.carousel.size}, no fetch" }
+                    return@launch
+                }
+                relatedRecsLog { "cache STALE manga=$cachedId, refreshing in background" }
+            } else {
+                relatedRecsLog { "cache MISS manga=$cachedId, fetching" }
+            }
+
+            // Show the loading indicator only when there's nothing cached to display yet.
+            relatedMangasLoading = cached == null
             withUIContext { view?.updateHeader() }
 
             // Phase 6/7 inputs computed once up-front, captured by the per-push closure below.
@@ -740,8 +762,19 @@ class MangaDetailsPresenter(
             }
 
             relatedMangasLoading = false
+            // Cache the resolved pool so a reopen within the freshness window is instant.
+            cachedId?.let { relatedMangaCache.put(it, relatedMangas, relatedMangasFullPool) }
+            relatedRecsLog { "fetched+cached manga=$cachedId size=${relatedMangas.size}" }
             withUIContext { view?.updateHeader() }
         }
+    }
+
+    /**
+     * Debug-only logcat aid for the related-mangas cache path, filterable via tag:RelatedRecs.
+     * Debug builds only, so nothing reaches Crashlytics. Remove once the cache stabilizes.
+     */
+    private fun relatedRecsLog(message: () -> String) {
+        if (BuildConfig.DEBUG) Logger.withTag("RelatedRecs").d(message())
     }
 
     /**

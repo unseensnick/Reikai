@@ -1,0 +1,40 @@
+package eu.kanade.tachiyomi.data.recommendation
+
+import eu.kanade.tachiyomi.ui.manga.related.RelatedMangaCandidate
+import java.util.concurrent.ConcurrentHashMap
+
+/**
+ * App-scoped, in-memory cache of the related-mangas carousel pool, keyed by manga id.
+ *
+ * Lets reopening a manga show its carousel instantly instead of re-querying the source plus the
+ * three tracker endpoints every time. Each entry carries the fetch timestamp so the caller can
+ * serve a fresh entry untouched and refresh a stale one in the background ("cache, then refresh").
+ *
+ * In-memory only: cleared on process death, so no DB migration or serialization. A stale entry is
+ * still served immediately while a background fetch updates it, bounding how out-of-date the
+ * carousel can look to [FRESH_MS].
+ */
+class RelatedMangaCache {
+    data class Entry(
+        val carousel: List<RelatedMangaCandidate>,
+        val fullPool: List<RelatedMangaCandidate>,
+        val fetchedAt: Long,
+    )
+
+    private val entries = ConcurrentHashMap<Long, Entry>()
+
+    fun get(mangaId: Long): Entry? = entries[mangaId]
+
+    fun put(mangaId: Long, carousel: List<RelatedMangaCandidate>, fullPool: List<RelatedMangaCandidate>) {
+        entries[mangaId] = Entry(carousel, fullPool, System.currentTimeMillis())
+    }
+
+    /** True while [entry] is within the freshness window and can be served without a refresh. */
+    fun isFresh(entry: Entry, now: Long = System.currentTimeMillis()): Boolean =
+        now - entry.fetchedAt < FRESH_MS
+
+    companion object {
+        /** Serve cached results untouched within this window; past it, refresh in the background. */
+        const val FRESH_MS = 30 * 60 * 1000L
+    }
+}
