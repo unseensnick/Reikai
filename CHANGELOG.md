@@ -11,6 +11,7 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Additions
+- The manga details recommendations carousel now **ranks titles that several sources agree on higher**: a series suggested by the source plus one or more trackers floats toward the top, since cross-source agreement is a strong signal. Applies when recommendation reranking is on.
 - The manga details recommendations carousel now **hides titles that are already in your library**, including ones recommended via a tracker. Per-status toggles under Settings → Library → Recommendations let you choose which tracker statuses are suppressed (Reading, Completed, Dropped hidden by default; On-hold and Plan-to-read kept by default).
 - The manga details **related/recommendations carousel now loads instantly when you reopen a title**. Results are cached for 30 minutes; reopening within that window skips the network entirely, and after it the cached cards show immediately while a fresh set loads quietly in the background.
 - The Compose library's manga details screen now **updates live**: favorite status, read/unread and bookmark marks, chapter sort/filter, the scanlator filter, and newly fetched chapters all refresh in place, so you no longer have to back out and reopen the page to see changes (including read progress after closing the reader).

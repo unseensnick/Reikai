@@ -672,6 +672,9 @@ class MangaDetailsPresenter(
             // streams. First-arriving entry wins, which naturally prefers source-origin candidates
             // (single fast call) over tracker entries (slower, multiple calls).
             val seenTitleKeys = HashSet<String>().apply { add(normalizeTitleForDedup(manga.title)) }
+            // Cross-source agreement: how many streams surfaced each normalized title. A title
+            // several providers recommend is a stronger signal, so the ranker boosts it.
+            val agreementByTitle = HashMap<String, Int>()
             val excludedUrl = manga.url
             val exceptionHandler: (Throwable) -> Unit = { e ->
                 Logger.e(e) { "Related-mangas sub-task failed for ${manga.title}" }
@@ -700,28 +703,29 @@ class MangaDetailsPresenter(
                 // tracker name (e.g. "AniList") and lets the merge step round-robin slots fairly.
                 // For source pushes it's the keyword/extension label and isn't needed downstream.
                 val trackerName = pair.first.takeIf { sourceId == RECOMMENDS_SOURCE }
-                val snapshot: Triple<Long, List<RelatedMangaCandidate>, List<RelatedMangaCandidate>> =
-                    relatedMangasMutex.withLock {
-                        val before = accumulated.size
-                        pair.second.forEach { m ->
-                            if (m.url == excludedUrl) return@forEach
-                            val titleKey = normalizeTitleForDedup(m.title)
-                            if (!seenTitleKeys.add(titleKey)) return@forEach
-                            accumulated.add(RelatedMangaCandidate(sourceId, trackerName, m))
+                val snapshot = relatedMangasMutex.withLock {
+                    val before = accumulated.size
+                    pair.second.forEach { m ->
+                        if (m.url == excludedUrl) return@forEach
+                        val titleKey = normalizeTitleForDedup(m.title)
+                        agreementByTitle.merge(titleKey, 1, Int::plus)
+                        if (!seenTitleKeys.add(titleKey)) return@forEach
+                        accumulated.add(RelatedMangaCandidate(sourceId, trackerName, m))
+                    }
+                    if (accumulated.size == before) {
+                        null
+                    } else {
+                        val seq = pushSeq.incrementAndGet()
+                        // Per-candidate agreement keyed by url so the ranker needs no title
+                        // normalization. Separate snapshot of the unbounded pool feeds "See all".
+                        val agreementByUrl = accumulated.associate {
+                            it.manga.url to (agreementByTitle[normalizeTitleForDedup(it.manga.title)] ?: 1)
                         }
-                        if (accumulated.size == before) {
-                            null
-                        } else {
-                            val seq = pushSeq.incrementAndGet()
-                            // Phase 6.5: separate snapshot of the unbounded pool for the "See all"
-                            // browse view. Ranking it separately (rather than ranking-once-then-
-                            // slicing) preserves byte-identical Phase 6 carousel behavior since the
-                            // ranker's exploration-slot count scales with input size.
-                            Triple(seq, mergeForDisplay(accumulated), accumulated.toList())
-                        }
-                    } ?: return@pushHandler
+                        RelatedSnapshot(seq, mergeForDisplay(accumulated), accumulated.toList(), agreementByUrl)
+                    }
+                } ?: return@pushHandler
 
-                val (seq, merged, fullPool) = snapshot
+                val (seq, merged, fullPool, agreementByUrl) = snapshot
                 // Library suppression (anti-echo) runs in both modes; the ranker then only reorders.
                 // The full rerank gates on the user toggle so the carousel can be returned to the
                 // unranked ordering by flipping one preference.
@@ -730,8 +734,10 @@ class MangaDetailsPresenter(
                 if (merged.size != visibleMerged.size) {
                     relatedRecsLog { "suppressed ${merged.size - visibleMerged.size} library title(s) from carousel" }
                 }
-                val newRelated = if (rerankEnabled) ranker.rank(visibleMerged, taste) else visibleMerged
-                val newFullPool = if (rerankEnabled) ranker.rank(visibleFull, taste) else visibleFull
+                val boostedCount = agreementByUrl.values.count { it > 1 }
+                if (boostedCount > 0) relatedRecsLog { "co-occurrence: $boostedCount title(s) surfaced by 2+ sources" }
+                val newRelated = if (rerankEnabled) ranker.rank(visibleMerged, taste, agreementByUrl) else visibleMerged
+                val newFullPool = if (rerankEnabled) ranker.rank(visibleFull, taste, agreementByUrl) else visibleFull
 
                 val applied = relatedMangasMutex.withLock {
                     if (appliedSeq.get() >= seq) {
@@ -789,6 +795,15 @@ class MangaDetailsPresenter(
     private fun relatedRecsLog(message: () -> String) {
         if (BuildConfig.DEBUG) Logger.withTag("RelatedRecs").d(message())
     }
+
+    /** One push's view of the related pool: sequence, carousel slice, full pool, and the
+     *  per-candidate cross-source agreement count (keyed by url) the ranker boosts on. */
+    private data class RelatedSnapshot(
+        val seq: Long,
+        val merged: List<RelatedMangaCandidate>,
+        val fullPool: List<RelatedMangaCandidate>,
+        val agreementByUrl: Map<String, Int>,
+    )
 
     /**
      * Snapshot of [relatedMangasFullPool] for the Phase 6.5 "See all" browse handoff. Returns

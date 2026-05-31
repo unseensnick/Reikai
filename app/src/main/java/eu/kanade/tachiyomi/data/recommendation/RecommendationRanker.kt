@@ -18,8 +18,9 @@ import yokai.domain.library.taste.model.TasteProfile
  *    The tracker slice is passed through untouched — round-robin fairness isn't taste
  *    business and tracker entries rarely carry parseable tags anyway.
  * 2. **Score the source slice** by `final = (1 − w_personal) × popularity + w_personal ×
- *    (taste + novelty_boost)`. Untagged candidates score 0 on the taste axis, so they
- *    naturally land near the popularity-only ordering.
+ *    (taste + novelty_boost) + agreement_boost`. Untagged candidates score 0 on the taste
+ *    axis; the agreement boost (ln of how many sources surfaced the title) floats up
+ *    cross-source agreement independent of taste (and applies even with an empty profile).
  * 3. **Exploration reservation.** `⌈sourceSize × w_serendipity⌉` slots stay in their
  *    original popularity order (top of the unsorted pool), guaranteeing a baseline of
  *    "what the source thinks is broadly relevant" no matter how strong the taste signal.
@@ -44,16 +45,21 @@ class RecommendationRanker(
      * @param pool merged, already library-filtered carousel list from
      *   `MangaDetailsPresenter.mergeForDisplay`
      * @param taste user's taste profile from `ComputeTasteProfile`; empty profile bypasses scoring
+     * @param agreementByUrl per-candidate count of how many streams surfaced its title; higher
+     *   counts are boosted (a count of 1 adds nothing)
      */
     fun rank(
         pool: List<RelatedMangaCandidate>,
         taste: TasteProfile,
+        agreementByUrl: Map<String, Int>,
     ): List<RelatedMangaCandidate> {
         val source = pool.filterNot { it.sourceId == RECOMMENDS_SOURCE }
         val tracker = pool.filter { it.sourceId == RECOMMENDS_SOURCE }
 
         if (taste.totalEntries == 0 || taste.tagScores.isEmpty() || source.size <= 1) {
-            return source + tracker
+            // No taste signal (or nothing to reorder): keep popularity order, but still float up
+            // titles several sources agree on. Stable sort preserves popularity order within ties.
+            return source.sortedByDescending { agreementByUrl[it.manga.url] ?: 1 } + tracker
         }
 
         val totalEntries = taste.totalEntries.toDouble()
@@ -74,8 +80,11 @@ class RecommendationRanker(
             }
             val noveltyBoost = wSerendipity * min(NOVELTY_CAP, ln(1.0 + totalEntries / tagExposure))
             val popularityRank = 1.0 - index.toDouble() / source.size  // earlier index → higher rank
+            val agreement = agreementByUrl[candidate.manga.url] ?: 1
+            val agreementBoost = AGREEMENT_WEIGHT * ln(agreement.toDouble())  // ln(1) = 0 → no boost
             val finalScore = (1.0 - wPersonal) * popularityRank +
-                wPersonal * (tasteScore + noveltyBoost)
+                wPersonal * (tasteScore + noveltyBoost) +
+                agreementBoost
             // Dominant tag for the diversity cap = the candidate's highest-affinity tag.
             // Tags missing from the affinity map score NEGATIVE_INFINITY, so a candidate
             // with at least one known tag always picks that one; if none of its tags are
@@ -152,5 +161,8 @@ class RecommendationRanker(
 
         /** Cap on the per-candidate novelty boost so extremely rare tags don't dominate. */
         private const val NOVELTY_CAP = 2.0
+
+        /** Weight of the cross-source agreement boost: AGREEMENT_WEIGHT * ln(sourceCount). */
+        private const val AGREEMENT_WEIGHT = 0.5
     }
 }
