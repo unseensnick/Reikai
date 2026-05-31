@@ -627,14 +627,20 @@ class MangaDetailsPresenter(
                 Logger.e(it) { "Taste profile load failed; ranker will run with empty profile" }
                 TasteProfile.EMPTY
             }
-            // Phase 7 — status-aware library hide. Replaces the Phase 6 blanket `libraryUrls`
-            // filter with a status-driven drop set. Failure modes degrade to "no filter at all"
-            // for status data but the Phase 6 behavior is recovered via the toggle below.
+            // Status-aware library hide. Every favorite is a suppression candidate, kept or hidden
+            // per its tracker status (untracked favorites are always hidden — they're in the
+            // library). Match by (source, url) AND by normalized title so tracker-origin recs
+            // (whose URL is a tracker URL, not a source URL) are caught too. Each status has its
+            // own user toggle for granular control.
             val hideRC = preferences.hideTrackedReadingCompleted().get()
             val hideD = preferences.hideTrackedDropped().get()
-            val libraryStatuses: Map<Pair<Long, String>, Set<TrackStatus>> = if (!hideRC && !hideD) {
-                // Both filters off → nothing for the interactor to feed; skip the full-favorites
-                // scan + per-favorite track lookups entirely.
+            val hideOH = preferences.hideTrackedOnHold().get()
+            val hidePTR = preferences.hideTrackedPlanToRead().get()
+            val favorites = runCatching { getManga.awaitFavorites() }.getOrElse {
+                Logger.e(it) { "Favorites lookup failed; library suppression will be a no-op" }
+                emptyList()
+            }
+            val libraryStatuses: Map<Pair<Long, String>, Set<TrackStatus>> = if (favorites.isEmpty()) {
                 emptyMap()
             } else {
                 runCatching {
@@ -644,10 +650,16 @@ class MangaDetailsPresenter(
                     emptyMap()
                 }
             }
-            val libraryHidden: Set<Pair<Long, String>> = libraryStatuses.entries
-                .asSequence()
-                .filter { (_, statuses) -> shouldHideLibraryEntry(statuses, hideRC, hideD) }
-                .mapTo(HashSet()) { it.key }
+            val hiddenFavorites = favorites.filter { fav ->
+                val statuses = libraryStatuses[fav.source to fav.url].orEmpty()
+                shouldHideLibraryEntry(statuses, hideRC, hideD, hideOH, hidePTR)
+            }
+            val libraryHidden: Set<Pair<Long, String>> = hiddenFavorites.mapTo(HashSet()) { it.source to it.url }
+            val libraryHiddenTitles: Set<String> = hiddenFavorites.mapTo(HashSet()) { normalizeTitleForDedup(it.title) }
+            relatedRecsLog {
+                "library hide-set: ${libraryHidden.size} url + ${libraryHiddenTitles.size} title " +
+                    "(readingCompleted=$hideRC dropped=$hideD onHold=$hideOH planToRead=$hidePTR)"
+            }
             val ranker = RecommendationRanker(
                 wPersonal = preferences.recommendationStyle().get() / 100.0,
                 wSerendipity = preferences.serendipity().get() / 100.0,
@@ -664,8 +676,12 @@ class MangaDetailsPresenter(
             val exceptionHandler: (Throwable) -> Unit = { e ->
                 Logger.e(e) { "Related-mangas sub-task failed for ${manga.title}" }
             }
+            // Drop candidates already in the library. Source-origin matches by (source, url);
+            // tracker-origin entries carry a tracker URL that never matches, so the title set
+            // catches those (and any source result whose URL differs but title matches).
             val antiEcho: (RelatedMangaCandidate) -> Boolean = { c ->
-                c.sourceId != RECOMMENDS_SOURCE && libraryHidden.contains(c.sourceId to c.manga.url)
+                libraryHidden.contains(c.sourceId to c.manga.url) ||
+                    libraryHiddenTitles.contains(normalizeTitleForDedup(c.manga.title))
             }
             // Post-review M2 — snapshot under the mutex, rank outside, then re-acquire to apply
             // iff this push is still the latest. Lets a slow ranker pass on push A run concurrently
@@ -706,19 +722,16 @@ class MangaDetailsPresenter(
                     } ?: return@pushHandler
 
                 val (seq, merged, fullPool) = snapshot
-                // Phase 6/7: anti-echo runs in both modes. Phase 7 narrows the hidden set by
-                // tracker-status user prefs. Full rerank gates on the user-facing toggle so the
-                // carousel can be returned to Phase 5 ordering by flipping one preference.
-                val newRelated = if (rerankEnabled) {
-                    ranker.rank(merged, taste, libraryHidden)
-                } else {
-                    merged.filterNot(antiEcho)
+                // Library suppression (anti-echo) runs in both modes; the ranker then only reorders.
+                // The full rerank gates on the user toggle so the carousel can be returned to the
+                // unranked ordering by flipping one preference.
+                val visibleMerged = merged.filterNot(antiEcho)
+                val visibleFull = fullPool.filterNot(antiEcho)
+                if (merged.size != visibleMerged.size) {
+                    relatedRecsLog { "suppressed ${merged.size - visibleMerged.size} library title(s) from carousel" }
                 }
-                val newFullPool = if (rerankEnabled) {
-                    ranker.rank(fullPool, taste, libraryHidden)
-                } else {
-                    fullPool.filterNot(antiEcho)
-                }
+                val newRelated = if (rerankEnabled) ranker.rank(visibleMerged, taste) else visibleMerged
+                val newFullPool = if (rerankEnabled) ranker.rank(visibleFull, taste) else visibleFull
 
                 val applied = relatedMangasMutex.withLock {
                     if (appliedSeq.get() >= seq) {
@@ -806,13 +819,16 @@ class MangaDetailsPresenter(
         statuses: Set<TrackStatus>,
         hideReadingCompleted: Boolean,
         hideDropped: Boolean,
+        hideOnHold: Boolean,
+        hidePlanToRead: Boolean,
     ): Boolean {
-        if (statuses.isEmpty()) return true
+        if (statuses.isEmpty()) return true // in library, untracked → always hide
         return statuses.any { s ->
             when (s) {
                 TrackStatus.READING, TrackStatus.COMPLETED, TrackStatus.UNKNOWN -> hideReadingCompleted
                 TrackStatus.DROPPED -> hideDropped
-                TrackStatus.ON_HOLD, TrackStatus.PLAN_TO_READ -> false
+                TrackStatus.ON_HOLD -> hideOnHold
+                TrackStatus.PLAN_TO_READ -> hidePlanToRead
             }
         }
     }

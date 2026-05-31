@@ -213,6 +213,20 @@ class SettingsLibraryRecommendationsController : SettingsLegacyController() {
                 summaryRes = MR.strings.hide_tracked_dropped_summary
                 defaultValue = true
             }
+
+            switchPreference {
+                key = Keys.hideTrackedOnHold
+                titleRes = MR.strings.hide_tracked_on_hold
+                summaryRes = MR.strings.hide_tracked_on_hold_summary
+                defaultValue = false
+            }
+
+            switchPreference {
+                key = Keys.hideTrackedPlanToRead
+                titleRes = MR.strings.hide_tracked_plan_to_read
+                summaryRes = MR.strings.hide_tracked_plan_to_read_summary
+                defaultValue = false
+            }
         }
     }
 

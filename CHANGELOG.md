@@ -11,6 +11,7 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Additions
+- The manga details recommendations carousel now **hides titles that are already in your library**, including ones recommended via a tracker. Per-status toggles under Settings → Library → Recommendations let you choose which tracker statuses are suppressed (Reading, Completed, Dropped hidden by default; On-hold and Plan-to-read kept by default).
 - The manga details **related/recommendations carousel now loads instantly when you reopen a title**. Results are cached for 30 minutes; reopening within that window skips the network entirely, and after it the cached cards show immediately while a fresh set loads quietly in the background.
 - The Compose library's manga details screen now **updates live**: favorite status, read/unread and bookmark marks, chapter sort/filter, the scanlator filter, and newly fetched chapters all refresh in place, so you no longer have to back out and reopen the page to see changes (including read progress after closing the reader).
 - The Compose library's manga details screen now supports **favorite, categories, edit info, share, open in web view, and migrate** (Phase 5). Tap the heart icon in the toolbar to add or remove from your library; if you have categories set up, a checkbox picker appears to assign them. Edit info overrides the title, author, artist, description, and genre from the overflow menu. Share and Open in web view work on online sources. Migrate launches the existing migration flow.

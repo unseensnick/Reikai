@@ -258,6 +258,12 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
      */
     fun hideTrackedDropped() = preferenceStore.getBoolean(Keys.hideTrackedDropped, true)
 
+    /** Phase 7 — drop library candidates whose tracker status is ON_HOLD. Off by default. */
+    fun hideTrackedOnHold() = preferenceStore.getBoolean(Keys.hideTrackedOnHold, false)
+
+    /** Phase 7 — drop library candidates whose tracker status is PLAN_TO_READ. Off by default. */
+    fun hideTrackedPlanToRead() = preferenceStore.getBoolean(Keys.hideTrackedPlanToRead, false)
+
     /**
      * Drop any cached group-reconciliation keys that contain one of [mangaIds]. Called whenever a
      * manga is removed from the library so that, if it's later re-added and the same composition

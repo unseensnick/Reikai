@@ -10,23 +10,20 @@ import yokai.domain.library.taste.model.TasteProfile
  * Phase 6 — reorders the merged carousel pool against the user's taste profile.
  *
  * Operates on the output of `MangaDetailsPresenter.mergeForDisplay`, so the 12-slot
- * tracker reserve + round-robin fairness is already baked into the input. The ranker:
+ * tracker reserve + round-robin fairness is already baked into the input. Library
+ * suppression (anti-echo) is applied by the caller before ranking, so this class only
+ * reorders. The ranker:
  *
- * 1. **Anti-echo filter.** Drops candidates whose `(sourceId, url)` is in [libraryHidden].
- *    Tracker-origin entries (`sourceId == RECOMMENDS_SOURCE`) skip the filter — their
- *    URLs are tracker URLs, not source URLs, and would never match a library row.
- *    The set is pre-computed by the caller (Phase 7 narrows it by tracker-status prefs;
- *    Phase 6 fed every library URL here unconditionally).
- * 2. **Partition.** Source-origin vs tracker-origin (same split `mergeForDisplay` does).
+ * 1. **Partition.** Source-origin vs tracker-origin (same split `mergeForDisplay` does).
  *    The tracker slice is passed through untouched — round-robin fairness isn't taste
  *    business and tracker entries rarely carry parseable tags anyway.
- * 3. **Score the source slice** by `final = (1 − w_personal) × popularity + w_personal ×
+ * 2. **Score the source slice** by `final = (1 − w_personal) × popularity + w_personal ×
  *    (taste + novelty_boost)`. Untagged candidates score 0 on the taste axis, so they
  *    naturally land near the popularity-only ordering.
- * 4. **Exploration reservation.** `⌈sourceSize × w_serendipity⌉` slots stay in their
+ * 3. **Exploration reservation.** `⌈sourceSize × w_serendipity⌉` slots stay in their
  *    original popularity order (top of the unsorted pool), guaranteeing a baseline of
  *    "what the source thinks is broadly relevant" no matter how strong the taste signal.
- * 5. **Diversity cap.** No more than [maxPerDominantTag] kept candidates may share the
+ * 4. **Diversity cap.** No more than [maxPerDominantTag] kept candidates may share the
  *    same dominant tag. Walks the kept list top-down and demotes offenders past the next
  *    non-conflicting candidate. Single pass, no re-sort.
  *
@@ -44,24 +41,16 @@ class RecommendationRanker(
 ) {
 
     /**
-     * @param pool merged carousel-visible list from `MangaDetailsPresenter.mergeForDisplay`
+     * @param pool merged, already library-filtered carousel list from
+     *   `MangaDetailsPresenter.mergeForDisplay`
      * @param taste user's taste profile from `ComputeTasteProfile`; empty profile bypasses scoring
-     * @param libraryHidden pre-computed `(sourceId, url)` pairs the caller has decided to drop.
-     *   Phase 6 fed every library URL here unconditionally; Phase 7 narrows the set based on
-     *   tracker-status filter prefs. Tracker-origin candidates (`sourceId == RECOMMENDS_SOURCE`)
-     *   always bypass — their URLs live in a different namespace and would never match.
      */
     fun rank(
         pool: List<RelatedMangaCandidate>,
         taste: TasteProfile,
-        libraryHidden: Set<Pair<Long, String>>,
     ): List<RelatedMangaCandidate> {
-        val filtered = pool.filterNot { c ->
-            c.sourceId != RECOMMENDS_SOURCE && libraryHidden.contains(c.sourceId to c.manga.url)
-        }
-
-        val source = filtered.filterNot { it.sourceId == RECOMMENDS_SOURCE }
-        val tracker = filtered.filter { it.sourceId == RECOMMENDS_SOURCE }
+        val source = pool.filterNot { it.sourceId == RECOMMENDS_SOURCE }
+        val tracker = pool.filter { it.sourceId == RECOMMENDS_SOURCE }
 
         if (taste.totalEntries == 0 || taste.tagScores.isEmpty() || source.size <= 1) {
             return source + tracker

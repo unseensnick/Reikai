@@ -136,6 +136,8 @@ object PreferenceKeys {
     // DROPPED/ON_HOLD when Layer B cache is empty) rides with `hideTrackedReadingCompleted`.
     const val hideTrackedReadingCompleted = "pref_hide_tracked_reading_completed"
     const val hideTrackedDropped = "pref_hide_tracked_dropped"
+    const val hideTrackedOnHold = "pref_hide_tracked_on_hold"
+    const val hideTrackedPlanToRead = "pref_hide_tracked_plan_to_read"
 
     const val lastUsedCatalogueSource = "last_catalogue_source"
 
