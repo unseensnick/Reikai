@@ -30,10 +30,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,8 +45,11 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import eu.kanade.tachiyomi.data.download.model.Download
+import eu.kanade.tachiyomi.data.recommendation.RECOMMENDS_SOURCE
+import eu.kanade.tachiyomi.ui.manga.related.browse.RelatedMangasBrowseController
 import eu.kanade.tachiyomi.ui.migration.manga.design.PreMigrationController
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import eu.kanade.tachiyomi.ui.source.globalsearch.GlobalSearchController
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.preferredChapterName
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
@@ -52,6 +57,9 @@ import eu.kanade.tachiyomi.util.compose.LocalRouter
 import eu.kanade.tachiyomi.util.compose.currentOrThrow
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.mapStatus
+import eu.kanade.tachiyomi.util.view.withFadeTransaction
+import kotlinx.coroutines.launch
+import yokai.domain.manga.models.MangaCover
 import yokai.domain.manga.models.cover
 import yokai.presentation.component.ReikaiTopBar
 import yokai.presentation.details.ChangeCategoryDialog
@@ -59,6 +67,7 @@ import yokai.presentation.details.DetailsChapterRow
 import yokai.presentation.details.DetailsContent
 import yokai.presentation.details.DetailsDownloadState
 import yokai.presentation.details.DetailsFilterSortSheet
+import yokai.presentation.details.DetailsRelatedItem
 import yokai.presentation.details.track.TrackInfoDialog
 import yokai.presentation.details.track.TrackInfoScreenModel
 import yokai.presentation.library.components.SelectionAction
@@ -78,6 +87,7 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
         val router = LocalRouter.current
+        val scope = rememberCoroutineScope()
 
         val loaded = state as? MangaDetailsState.Loaded
         val selectionActive = loaded?.selection?.isNotEmpty() == true
@@ -276,6 +286,23 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                             )
                         }
                     }
+                    LaunchedEffect(manga.id) { screenModel.loadRelatedMangas() }
+                    val relatedItems = remember(s.relatedMangas) {
+                        s.relatedMangas.map { candidate ->
+                            DetailsRelatedItem(
+                                key = candidate.manga.url,
+                                title = candidate.manga.title,
+                                coverData = MangaCover(
+                                    mangaId = null,
+                                    sourceId = candidate.sourceId,
+                                    url = candidate.manga.thumbnail_url.orEmpty(),
+                                    lastModified = 0L,
+                                    inLibrary = false,
+                                ),
+                                provenanceLabel = screenModel.relatedProvenanceLabel(candidate),
+                            )
+                        }
+                    }
                     DetailsContent(
                         coverData = coverData,
                         title = manga.title,
@@ -295,6 +322,28 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                         onDownloadClick = { id -> screenModel.downloadAction(id) },
                         selectionActive = selectionActive,
                         onToggleSelection = { id, sel, long -> screenModel.toggleSelection(id, sel, long) },
+                        relatedMangas = relatedItems,
+                        relatedMangasTotal = s.relatedMangasTotal,
+                        relatedMangasLoading = s.relatedMangasLoading,
+                        onRelatedClick = { key ->
+                            s.relatedMangas.find { it.manga.url == key }?.let { candidate ->
+                                if (candidate.sourceId == RECOMMENDS_SOURCE) {
+                                    // transitional: legacy GlobalSearchController until global search ports
+                                    router?.pushController(GlobalSearchController(candidate.manga.title).withFadeTransaction())
+                                } else {
+                                    scope.launch {
+                                        screenModel.relatedToLocalId(candidate)?.let { id ->
+                                            navigator.push(MangaDetailsScreen(id))
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        onSeeAllClick = {
+                            screenModel.stageBrowseHandoff()
+                            // transitional: legacy RelatedMangasBrowseController until the browse view ports
+                            router?.pushController(RelatedMangasBrowseController(mangaId).withFadeTransaction())
+                        },
                     )
                 }
             }

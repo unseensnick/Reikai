@@ -10,12 +10,18 @@ import eu.kanade.tachiyomi.data.database.models.downloadedFilter
 import eu.kanade.tachiyomi.data.database.models.hideChapterTitle
 import eu.kanade.tachiyomi.data.database.models.readFilter
 import eu.kanade.tachiyomi.data.database.models.sortDescending
+import eu.kanade.tachiyomi.data.database.models.create
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.data.recommendation.RECOMMENDS_SOURCE
+import eu.kanade.tachiyomi.data.recommendation.RelatedMangasLoader
 import eu.kanade.tachiyomi.domain.manga.models.Manga
+import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.ui.manga.related.RelatedMangaCandidate
+import eu.kanade.tachiyomi.ui.manga.related.browse.RelatedMangasHandoff
 import eu.kanade.tachiyomi.util.chapter.ChapterFilter
 import eu.kanade.tachiyomi.util.chapter.ChapterSort
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil
@@ -25,6 +31,8 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import yokai.domain.category.interactor.GetCategories
@@ -35,6 +43,7 @@ import yokai.domain.chapter.models.ChapterUpdate
 import yokai.domain.library.custom.interactor.CreateCustomManga
 import yokai.domain.library.custom.model.CustomMangaInfo
 import yokai.domain.manga.interactor.GetManga
+import yokai.domain.manga.interactor.InsertManga
 import yokai.domain.manga.interactor.UpdateManga
 import yokai.domain.manga.models.MangaUpdate
 import yokai.presentation.details.detailsLog
@@ -93,6 +102,12 @@ sealed interface MangaDetailsState {
         val selection: Set<Long> = emptySet(),
         /** Currently visible modal dialog; null when none. */
         val dialog: MangaDetailsDialog? = null,
+        /** Related-manga carousel slice (capped); empty until loaded. */
+        val relatedMangas: List<RelatedMangaCandidate> = emptyList(),
+        /** Size of the full ranked pool, for the "See all (N)" label (>= [relatedMangas] size). */
+        val relatedMangasTotal: Int = 0,
+        /** True while the related-mangas fetch is in flight, so the UI can show a skeleton. */
+        val relatedMangasLoading: Boolean = false,
     ) : MangaDetailsState
     data object NotFound : MangaDetailsState
 }
@@ -122,9 +137,18 @@ class MangaDetailsScreenModel(
     private val getCategories: GetCategories by inject()
     private val setMangaCategories: SetMangaCategories by inject()
     private val createCustomManga: CreateCustomManga by inject()
+    private val insertManga: InsertManga by inject()
+    private val relatedMangasLoader: RelatedMangasLoader by inject()
+    private val relatedMangasHandoff: RelatedMangasHandoff by inject()
 
     /** Range-select anchors (first/last selected index in the displayed list), like Mihon. */
     private val selectedPositions = intArrayOf(-1, -1)
+
+    /** Full unbounded ranked pool, held for the "See all" browse handoff (not part of UI state). */
+    private var relatedMangasFullPool: List<RelatedMangaCandidate> = emptyList()
+
+    /** One-shot gate so the carousel fetch runs once per screen, mirroring the legacy presenter. */
+    private var relatedMangasFetched = false
 
     init {
         // Reactive load: the manga flow drives an inner chapters+scanlators subscription so the
@@ -220,6 +244,10 @@ class MangaDetailsScreenModel(
             downloads = downloads,
             selection = current?.selection ?: emptySet(),
             dialog = current?.dialog,
+            // Carousel state isn't rebuilt from the DB; carry it across re-emissions like selection.
+            relatedMangas = current?.relatedMangas ?: emptyList(),
+            relatedMangasTotal = current?.relatedMangasTotal ?: 0,
+            relatedMangasLoading = current?.relatedMangasLoading ?: false,
         )
     }
 
@@ -627,6 +655,61 @@ class MangaDetailsScreenModel(
     fun dismissDialog() {
         val loaded = state.value as? MangaDetailsState.Loaded ?: return
         mutableState.value = loaded.copy(dialog = null)
+    }
+
+    // --- Related mangas ---
+
+    /**
+     * One-shot: collect [RelatedMangasLoader] and fold its progressive emissions into state. The
+     * loader serves a cached pool instantly then refreshes a stale one; [relatedMangasFetched]
+     * keeps this to a single collection per screen, mirroring the legacy presenter's gate.
+     */
+    fun loadRelatedMangas() {
+        if (relatedMangasFetched) return
+        val manga = currentManga() ?: return
+        val catalogueSource = sourceManager.getOrStub(manga.source) as? CatalogueSource ?: return
+        if (catalogueSource.disableRelatedMangas) return
+        relatedMangasFetched = true
+        relatedMangasLoader.load(manga, catalogueSource)
+            .onEach { result ->
+                relatedMangasFullPool = result.fullPool
+                val loaded = state.value as? MangaDetailsState.Loaded ?: return@onEach
+                mutableState.value = loaded.copy(
+                    relatedMangas = result.carousel,
+                    relatedMangasTotal = result.fullPool.size,
+                    relatedMangasLoading = result.loading,
+                )
+            }
+            .launchIn(screenModelScope)
+    }
+
+    /** Provenance label for a carousel card: the tracker name for tracker-origin entries (sourceId
+     *  == [RECOMMENDS_SOURCE]), otherwise the source's display name. */
+    fun relatedProvenanceLabel(candidate: RelatedMangaCandidate): String =
+        candidate.trackerName ?: sourceManager.getOrStub(candidate.sourceId).name
+
+    /**
+     * Resolve an installed-source related card to a local manga id (creating the DB row if it
+     * doesn't exist yet) so the screen can open its details. Mirrors the legacy controller's
+     * `toLocalManga` path. Returns null for tracker-origin cards ([RECOMMENDS_SOURCE]); those route
+     * to global search instead.
+     */
+    suspend fun relatedToLocalId(candidate: RelatedMangaCandidate): Long? {
+        if (candidate.sourceId == RECOMMENDS_SOURCE) return null
+        getManga.awaitByUrlAndSource(candidate.manga.url, candidate.sourceId)?.let { return it.id }
+        val newManga = try {
+            Manga.create(candidate.manga.url, candidate.manga.title, candidate.sourceId)
+        } catch (_: UninitializedPropertyAccessException) {
+            return null
+        }
+        newManga.copyFrom(candidate.manga)
+        newManga.id = insertManga.await(newManga)
+        return newManga.id
+    }
+
+    /** Deposit the full ranked pool so the "See all" browse view can pick it up (keyed by manga id). */
+    fun stageBrowseHandoff() {
+        relatedMangasHandoff.put(mangaId, relatedMangasFullPool)
     }
 
     // --- Share / WebView ---

@@ -16,7 +16,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
@@ -32,11 +34,14 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import yokai.presentation.manga.components.MangaCover
 import yokai.presentation.manga.components.MangaCoverRatio
@@ -60,6 +65,19 @@ data class DetailsChapterRow(
     /** 0..100, only meaningful while [downloadState] is [DetailsDownloadState.DOWNLOADING]. */
     val downloadProgress: Int = 0,
     val selected: Boolean = false,
+)
+
+/**
+ * Plain view data for one related-manga carousel card. The screen maps a recommendation candidate
+ * into this (resolving the cover model + provenance label) so [DetailsContent] holds no domain type.
+ */
+data class DetailsRelatedItem(
+    /** Stable card key; the source manga url. The screen maps it back to the candidate on tap. */
+    val key: String,
+    val title: String,
+    val coverData: Any?,
+    /** Source display name, or the tracker name for tracker-origin suggestions. */
+    val provenanceLabel: String,
 )
 
 /**
@@ -90,6 +108,16 @@ fun DetailsContent(
     selectionActive: Boolean = false,
     /** When non-null, long-press (and, while [selectionActive], tap) toggles selection. Null = no multi-select (novels). */
     onToggleSelection: ((id: Long, selected: Boolean, fromLongPress: Boolean) -> Unit)? = null,
+    /** Related-manga carousel cards; empty (or null [onRelatedClick]) hides the carousel. */
+    relatedMangas: List<DetailsRelatedItem> = emptyList(),
+    /** Full ranked-pool size, for the "See all (N)" label. */
+    relatedMangasTotal: Int = 0,
+    /** True while related mangas are still loading; a small spinner shows in the section header. */
+    relatedMangasLoading: Boolean = false,
+    /** Tapping a carousel card; receives the card key (manga url). Null hides the carousel. */
+    onRelatedClick: ((String) -> Unit)? = null,
+    /** Tapping "See all"; null hides the button. */
+    onSeeAllClick: (() -> Unit)? = null,
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -155,6 +183,17 @@ fun DetailsContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+        }
+        if ((relatedMangas.isNotEmpty() || relatedMangasLoading) && onRelatedClick != null) {
+            item(key = "related") {
+                RelatedMangaCarousel(
+                    items = relatedMangas,
+                    total = relatedMangasTotal,
+                    loading = relatedMangasLoading,
+                    onClick = onRelatedClick,
+                    onSeeAllClick = onSeeAllClick,
+                )
             }
         }
         item(key = "chapter_count") {
@@ -278,6 +317,114 @@ private fun ChapterDownloadIndicator(
                 contentDescription = "Retry download",
                 tint = MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(22.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun RelatedMangaCarousel(
+    items: List<DetailsRelatedItem>,
+    total: Int,
+    loading: Boolean,
+    onClick: (String) -> Unit,
+    onSeeAllClick: (() -> Unit)?,
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = "Related",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            if (loading) {
+                CircularProgressIndicator(
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+            if (onSeeAllClick != null && items.isNotEmpty()) {
+                TextButton(onClick = onSeeAllClick) {
+                    Text("See all (${total.coerceAtLeast(items.size)})")
+                }
+            }
+        }
+        if (items.isEmpty()) {
+            // Loading skeleton: the source's related endpoint can take a while on a cold fetch, so
+            // show placeholders immediately instead of a blank gap until results arrive.
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                repeat(4) { RelatedMangaSkeletonCard() }
+            }
+        } else {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(items = items, key = { it.key }) { item ->
+                    RelatedMangaCard(item = item, onClick = { onClick(item.key) })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RelatedMangaSkeletonCard() {
+    val placeholder = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    Column(modifier = Modifier.width(110.dp)) {
+        Box(
+            modifier = Modifier
+                .width(110.dp)
+                .height(165.dp)
+                .background(placeholder, RoundedCornerShape(12.dp)),
+        )
+        Spacer(Modifier.height(6.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(12.dp)
+                .background(placeholder, RoundedCornerShape(4.dp)),
+        )
+    }
+}
+
+@Composable
+private fun RelatedMangaCard(item: DetailsRelatedItem, onClick: () -> Unit) {
+    Column(modifier = Modifier.width(110.dp)) {
+        MangaCover(
+            data = item.coverData,
+            ratio = MangaCoverRatio.BOOK,
+            contentDescription = item.title,
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onClick,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = item.title,
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(2.dp))
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(4.dp),
+        ) {
+            Text(
+                text = item.provenanceLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
             )
         }
     }

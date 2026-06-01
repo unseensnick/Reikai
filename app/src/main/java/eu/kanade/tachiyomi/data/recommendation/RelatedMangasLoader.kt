@@ -8,9 +8,11 @@ import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.manga.related.RelatedMangaCandidate
 import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -238,11 +240,18 @@ class RelatedMangasLoader {
             Logger.e(it) { "Related-mangas fetch failed for ${manga.title}" }
         }
 
-        // Cache the resolved pool so a reopen within the freshness window is instant.
-        cachedId?.let { relatedMangaCache.put(it, carousel, fullPool) }
-        relatedRecsLog { "fetched+cached manga=$cachedId size=${carousel.size}" }
+        // Cache the resolved pool so a reopen within the freshness window is instant. Never cache an
+        // empty pool: the source's related endpoint is flaky and an empty result is usually
+        // transient, so caching it would collapse the carousel for the whole freshness window and
+        // hide recommendations that a retry would return.
+        if (fullPool.isNotEmpty()) {
+            cachedId?.let { relatedMangaCache.put(it, carousel, fullPool) }
+            relatedRecsLog { "fetched+cached manga=$cachedId size=${carousel.size}" }
+        } else {
+            relatedRecsLog { "fetched manga=$cachedId size=0, not caching (likely transient empty)" }
+        }
         send(RelatedMangasResult(carousel, fullPool, loading = false))
-    }
+    }.flowOn(Dispatchers.IO)
 
     /** Apply the user's status-based hide policy to a single library entry. Empty status set =
      *  "in library, untracked" -> always hide. PLAN_TO_READ / ON_HOLD are "reminder" statuses. */
