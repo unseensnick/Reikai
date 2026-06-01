@@ -26,20 +26,25 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.library.LibraryGroup
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import yokai.domain.base.BasePreferences
 import yokai.domain.novel.NovelPreferences
 
 /**
  * Group-by tab: pick how the library is sectioned (by categories, tag, source, status, tracking
  * status, author, language, or ungrouped). Writes the same `groupLibraryBy()` pref the standalone
- * [yokai.presentation.library.components.GroupLibraryByPicker] uses, routed per library. The Novels
- * tab omits "By language" since novel dynamic grouping has no language field.
+ * [yokai.presentation.library.components.GroupLibraryByPicker] uses, routed per the shared display
+ * toggle (shared mode mirrors the manga grouping). The Novels tab omits "By language" since novel
+ * dynamic grouping has no language field; if the shared manga value is "By language" the novel
+ * library coerces it back to default grouping.
  */
 @Composable
 fun GroupTab(isNovelTab: Boolean = false) {
     val preferences: PreferencesHelper = remember { Injekt.get() }
     val novelPrefs: NovelPreferences = remember { Injekt.get() }
-    // Grouping is per-library (manga and novel group independently), so route by tab directly.
-    val groupPref = rememberRoutedPref(isNovelTab, preferences.groupLibraryBy(), novelPrefs.groupLibraryBy())
+    val basePrefs: BasePreferences = remember { Injekt.get() }
+    val useSharedLibraryDisplayPrefs by basePrefs.useSharedLibraryDisplayPrefs().collectAsState()
+    val routeShared = isNovelTab && !useSharedLibraryDisplayPrefs
+    val groupPref = rememberRoutedPref(routeShared, preferences.groupLibraryBy(), novelPrefs.groupLibraryBy())
     val selected by groupPref.collectAsState()
 
     val options = buildList {

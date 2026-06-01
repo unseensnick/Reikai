@@ -137,13 +137,13 @@ class NovelLibraryScreenModel :
                 .combine(novelPreferences.novelManualUnmerges().changes()) { snap, unmerges ->
                     snap.copy(manualUnmerges = unmerges)
                 }
-                .combine(novelPreferences.autoMergeSameTitle().changes()) { snap, auto ->
+                .combine(sharedOrNovel(preferences.autoMergeSameTitle(), novelPreferences.autoMergeSameTitle())) { snap, auto ->
                     snap.copy(autoMergeSameTitle = auto)
                 }
                 .combine(sortPrefsFlow()) { snap, sortPrefs ->
                     snap.copy(sortPrefs = sortPrefs)
                 }
-                .combine(novelPreferences.categorySortOrder().changes()) { snap, cso ->
+                .combine(sharedOrNovel(preferences.categorySortOrder(), novelPreferences.categorySortOrder())) { snap, cso ->
                     snap.copy(categorySortOrder = cso)
                 }
                 .combine(groupingPrefsFlow()) { snap, gp ->
@@ -724,11 +724,12 @@ class NovelLibraryScreenModel :
     }
 
     fun setGroupLibraryBy(value: Int) {
-        novelPreferences.groupLibraryBy().set(value)
+        // Shareable display pref: write to the manga key in shared mode so both libraries follow.
+        sharedOrNovelWrite(preferences.groupLibraryBy(), novelPreferences.groupLibraryBy()).set(value)
     }
 
     fun setHopperGravity(gravity: Int) {
-        novelPreferences.novelHopperGravity().set(gravity)
+        sharedOrNovelWrite(preferences.hopperGravity(), novelPreferences.novelHopperGravity()).set(gravity)
     }
 
     fun setLastUsedCategory(order: Int) {
@@ -870,10 +871,13 @@ class NovelLibraryScreenModel :
     /**
      * Bundles the three dynamic-grouping prefs so the main combine chain stays shallow.
      */
+    // groupLibraryBy + collapsedDynamicAtBottom are shareable display prefs (honor the shared
+    // toggle); collapsedDynamicCategories stays novel-only because its keys (source/tag/author
+    // names) differ between the two libraries' content.
     private fun groupingPrefsFlow() = combine(
-        novelPreferences.groupLibraryBy().changes(),
+        sharedOrNovel(preferences.groupLibraryBy(), novelPreferences.groupLibraryBy()),
         novelPreferences.collapsedDynamicCategories().changes(),
-        novelPreferences.collapsedDynamicAtBottom().changes(),
+        sharedOrNovel(preferences.collapsedDynamicAtBottom(), novelPreferences.collapsedDynamicAtBottom()),
     ) { groupBy, collapsed, atBottom -> GroupingPrefs(groupBy, collapsed, atBottom) }
 
     /**
@@ -895,7 +899,7 @@ class NovelLibraryScreenModel :
         .combine(novelPreferences.filterBookmarked().changes()) { acc, bookmarked ->
             acc.copy(bookmarked = bookmarked)
         }
-        .combine(novelPreferences.showAllCategories().changes()) { acc, showAll ->
+        .combine(sharedOrNovel(preferences.showAllCategories(), novelPreferences.showAllCategories())) { acc, showAll ->
             FilterInputs(
                 query = acc.query,
                 filterState = NovelLibraryFilter.NovelFilterState(
@@ -921,6 +925,15 @@ class NovelLibraryScreenModel :
         basePreferences.useSharedLibraryDisplayPrefs().changes().flatMapLatest { shared ->
             if (shared) mangaPref.changes() else novelPref.changes()
         }
+
+    /**
+     * Write counterpart of [sharedOrNovel]: picks the pref to write based on the shared toggle's
+     * current value, so a write from a novel-side action (hopper group-by dialog, hopper drag)
+     * lands on the same key the reactive read resolves. Reads the toggle synchronously at write
+     * time rather than reactively.
+     */
+    private fun <T> sharedOrNovelWrite(mangaPref: Preference<T>, novelPref: Preference<T>): Preference<T> =
+        if (basePreferences.useSharedLibraryDisplayPrefs().get()) mangaPref else novelPref
 
     /**
      * Display / badge / layout / category preferences (Tier 2 phase 2C). Bundled into sub-groups
@@ -957,13 +970,14 @@ class NovelLibraryScreenModel :
         BadgePrefs(download, language, unread, hideStart)
     }
 
-    // Category-display prefs are novel-only (never shared with the manga library), so they read
-    // straight off NovelPreferences without the sharedOrNovel resolver.
+    // groupLibraryBy / showAllCategories / showEmptyCategoriesWhileFiltering are shareable
+    // display prefs (honor the shared toggle). collapsedCategories (by category id) and
+    // lastUsedNovelCategory stay novel-only: both reference this library's specific category set.
     private fun categoryPrefsFlow() = combine(
-        novelPreferences.groupLibraryBy().changes(),
+        sharedOrNovel(preferences.groupLibraryBy(), novelPreferences.groupLibraryBy()),
         novelPreferences.collapsedCategories().changes(),
-        novelPreferences.showAllCategories().changes(),
-        novelPreferences.showEmptyCategoriesWhileFiltering().changes(),
+        sharedOrNovel(preferences.showAllCategories(), novelPreferences.showAllCategories()),
+        sharedOrNovel(preferences.showEmptyCategoriesWhileFiltering(), novelPreferences.showEmptyCategoriesWhileFiltering()),
         novelPreferences.lastUsedNovelCategory().changes(),
     ) { groupBy, collapsed, showAll, showEmpty, lastUsed ->
         CategoryPrefs(groupBy, collapsed, showAll, showEmpty, lastUsed)
@@ -976,14 +990,13 @@ class NovelLibraryScreenModel :
         MiscPrefs(itemCounts, merges)
     }
 
-    // Category-hopper prefs are novel-only (independent from the manga hopper, like the rest of
-    // categoryPrefsFlow), so they read straight off NovelPreferences without the sharedOrNovel
-    // resolver.
+    // Category-hopper prefs honor the shared display toggle: shared mode mirrors the manga
+    // hopper, independent mode keeps the novel hopper's own settings.
     private fun hopperPrefsFlow() = combine(
-        novelPreferences.novelHideHopper().changes(),
-        novelPreferences.novelAutohideHopper().changes(),
-        novelPreferences.novelHopperGravity().changes(),
-        novelPreferences.novelHopperLongPressAction().changes(),
+        sharedOrNovel(preferences.hideHopper(), novelPreferences.novelHideHopper()),
+        sharedOrNovel(preferences.autohideHopper(), novelPreferences.novelAutohideHopper()),
+        sharedOrNovel(preferences.hopperGravity(), novelPreferences.novelHopperGravity()),
+        sharedOrNovel(preferences.hopperLongPressAction(), novelPreferences.novelHopperLongPressAction()),
     ) { hide, autohide, gravity, longPress ->
         HopperPrefs(hide, autohide, gravity, longPress)
     }

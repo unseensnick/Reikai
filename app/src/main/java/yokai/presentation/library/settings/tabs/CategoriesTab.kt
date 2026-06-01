@@ -37,6 +37,7 @@ import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import yokai.domain.base.BasePreferences
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.novel.NovelPreferences
 import yokai.domain.novel.interactor.GetNovelCategories
@@ -61,18 +62,21 @@ fun CategoriesTab(
 ) {
     val preferences: PreferencesHelper = remember { Injekt.get() }
     val novelPrefs: NovelPreferences = remember { Injekt.get() }
+    val basePrefs: BasePreferences = remember { Injekt.get() }
     val getCategories: GetCategories = remember { Injekt.get() }
     val getNovelCategories: GetNovelCategories = remember { Injekt.get() }
     val router = LocalRouter.currentOrThrow
     val scope = rememberCoroutineScope()
 
-    // Category state (which IDs are collapsed, which dimension you're grouping by, etc.) is
-    // per-library by nature — the manga and novel libraries have entirely different category
-    // sets — so it routes by tab regardless of the shared display-prefs toggle (which is for
-    // truly visual settings like grid size and badges, not library state).
+    val useSharedLibraryDisplayPrefs by basePrefs.useSharedLibraryDisplayPrefs().collectAsState()
+    // Shareable display toggles (show-all, group-by, hopper, sort order, etc.) honor the shared
+    // toggle: on the Novels tab in shared mode they write the manga key so both libraries follow.
+    val routeShared = isNovelTab && !useSharedLibraryDisplayPrefs
+    // collapsedCategories is intrinsically per-library (its values are this library's category
+    // ids), so it always routes by tab regardless of the shared toggle.
     val routeToNovel = isNovelTab
 
-    val groupLibraryByPref = rememberRoutedPref(routeToNovel, preferences.groupLibraryBy(), novelPrefs.groupLibraryBy())
+    val groupLibraryByPref = rememberRoutedPref(routeShared, preferences.groupLibraryBy(), novelPrefs.groupLibraryBy())
     val groupLibraryBy by groupLibraryByPref.collectAsState()
     val collapsedCategoriesPref = rememberRoutedPref(routeToNovel, preferences.collapsedCategories(), novelPrefs.collapsedCategories())
     val collapsedCategories by collapsedCategoriesPref.collectAsState()
@@ -81,24 +85,23 @@ fun CategoriesTab(
     val mangaCategories by remember { getCategories.subscribe() }.collectAsState(initial = emptyList())
     val novelCategories by remember { getNovelCategories.subscribe() }.collectAsState(initial = emptyList())
     val allCategoriesEmpty = if (isNovelTab) novelCategories.isEmpty() else mangaCategories.isEmpty()
-    val showAllCategoriesPref = rememberRoutedPref(routeToNovel, preferences.showAllCategories(), novelPrefs.showAllCategories())
+    val showAllCategoriesPref = rememberRoutedPref(routeShared, preferences.showAllCategories(), novelPrefs.showAllCategories())
     val showAllCategories by showAllCategoriesPref.collectAsState()
     val showCategoryInTitle by preferences.showCategoryInTitle().collectAsState()
-    val collapsedDynamicAtBottomPref = rememberRoutedPref(routeToNovel, preferences.collapsedDynamicAtBottom(), novelPrefs.collapsedDynamicAtBottom())
+    val collapsedDynamicAtBottomPref = rememberRoutedPref(routeShared, preferences.collapsedDynamicAtBottom(), novelPrefs.collapsedDynamicAtBottom())
     val collapsedDynamicAtBottom by collapsedDynamicAtBottomPref.collectAsState()
-    val autoMergeSameTitlePref = rememberRoutedPref(routeToNovel, preferences.autoMergeSameTitle(), novelPrefs.autoMergeSameTitle())
+    val autoMergeSameTitlePref = rememberRoutedPref(routeShared, preferences.autoMergeSameTitle(), novelPrefs.autoMergeSameTitle())
     val autoMergeSameTitle by autoMergeSameTitlePref.collectAsState()
-    val showEmptyCategoriesWhileFilteringPref = rememberRoutedPref(routeToNovel, preferences.showEmptyCategoriesWhileFiltering(), novelPrefs.showEmptyCategoriesWhileFiltering())
+    val showEmptyCategoriesWhileFilteringPref = rememberRoutedPref(routeShared, preferences.showEmptyCategoriesWhileFiltering(), novelPrefs.showEmptyCategoriesWhileFiltering())
     val showEmptyCategoriesWhileFiltering by showEmptyCategoriesWhileFilteringPref.collectAsState()
-    // Hopper prefs are per-library category-navigation state, so route by tab (always novel on
-    // the Novels tab) regardless of the shared display-prefs toggle.
-    val hideHopperPref = rememberRoutedPref(routeToNovel, preferences.hideHopper(), novelPrefs.novelHideHopper())
+    // Hopper prefs honor the shared toggle (sync with the manga hopper in shared mode).
+    val hideHopperPref = rememberRoutedPref(routeShared, preferences.hideHopper(), novelPrefs.novelHideHopper())
     val hideHopper by hideHopperPref.collectAsState()
-    val autohideHopperPref = rememberRoutedPref(routeToNovel, preferences.autohideHopper(), novelPrefs.novelAutohideHopper())
+    val autohideHopperPref = rememberRoutedPref(routeShared, preferences.autohideHopper(), novelPrefs.novelAutohideHopper())
     val autohideHopper by autohideHopperPref.collectAsState()
-    val hopperLongPressActionPref = rememberRoutedPref(routeToNovel, preferences.hopperLongPressAction(), novelPrefs.novelHopperLongPressAction())
+    val hopperLongPressActionPref = rememberRoutedPref(routeShared, preferences.hopperLongPressAction(), novelPrefs.novelHopperLongPressAction())
     val hopperLongPressAction by hopperLongPressActionPref.collectAsState()
-    val categorySortOrderPref = rememberRoutedPref(routeToNovel, preferences.categorySortOrder(), novelPrefs.categorySortOrder())
+    val categorySortOrderPref = rememberRoutedPref(routeShared, preferences.categorySortOrder(), novelPrefs.categorySortOrder())
     val categorySortOrder by categorySortOrderPref.collectAsState()
 
     // Mirrors the legacy hideHopperSpinner: index 0 = always shown, 1 = autohide on scroll,
