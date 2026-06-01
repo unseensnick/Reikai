@@ -962,7 +962,14 @@ class MangaDetailsController :
         adapter?.setChapters(presenter.chapters)
         addMangaHeader()
         updateFab()
-        colorToolbar(binding.recycler.canScrollVertically(-1))
+        // Re-evaluate the toolbar color after the chapter-list update settles. Reading
+        // canScrollVertically(-1) synchronously here catches a transient mid-layout offset from the
+        // DiffUtil update and wrongly flips the bar to its scrolled (colored) state while the page
+        // is still at the top, where it then sticks. Posting reads the settled scroll position.
+        binding.recycler.post {
+            view ?: return@post
+            colorToolbar(binding.recycler.canScrollVertically(-1))
+        }
         updateMenuVisibility(activityBinding?.toolbar?.menu)
     }
 

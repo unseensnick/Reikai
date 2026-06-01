@@ -435,7 +435,11 @@ fun Controller.scrollViewWith(
             ) {
                 super.onChangeStart(controller, changeHandler, changeType)
                 isInView = changeType.isEnter
-                if (changeType.isEnter) {
+                // Guard with isControllerForeground, not isEnter alone: a controller hosted in a
+                // child router stays attached (non-removing fade) under a pushed sibling, so this
+                // enter can fire while off-screen. Stamping the shared app bar then leaks the
+                // hosted controller's expanded bar over the controller that's actually on top.
+                if (changeType.isEnter && isControllerForeground) {
                     activityBinding?.appBar?.hideBigView(
                         this@scrollViewWith is SmallToolbarInterface,
                         setTitleAlpha = this@scrollViewWith !is MangaDetailsController,
@@ -453,7 +457,7 @@ fun Controller.scrollViewWith(
                             recycler.smoothScrollTo(0, 0)
                         }
                     }
-                } else {
+                } else if (!changeType.isEnter) {
                     if (!customPadding && lastY == 0f && (
                         (
                             this@scrollViewWith !is FloatingSearchInterface && router.backstack.lastOrNull()
@@ -876,6 +880,18 @@ val Controller.fullAppBarHeight: Int?
 
 val Controller.isControllerVisible: Boolean
     get() = router.backstack.lastOrNull()?.controller == this
+
+/**
+ * Like [isControllerVisible] but also walks the parent-controller chain. A controller hosted in a
+ * child router (e.g. [eu.kanade.tachiyomi.ui.library.LibraryController] under
+ * [eu.kanade.tachiyomi.ui.library.LibraryHostController]) is the top of its *own* router even when
+ * a sibling of its host (e.g. [eu.kanade.tachiyomi.ui.manga.MangaDetailsController]) covers the
+ * host on the main router. Since [withFadeTransaction] uses a non-removing cross-fade, that hosted
+ * child stays attached and its `scrollViewWith` enter-block can re-fire while off-screen, stamping
+ * the shared app bar with the wrong (expanded) state. This check is false in that case.
+ */
+val Controller.isControllerForeground: Boolean
+    get() = isControllerVisible && (parentController?.isControllerForeground ?: true)
 
 val Controller.previousController: Controller?
     get() = router.backstack.getOrNull(router.backstackSize - 2)?.controller
