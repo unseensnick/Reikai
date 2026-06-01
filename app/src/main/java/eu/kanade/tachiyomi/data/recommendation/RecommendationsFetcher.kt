@@ -5,11 +5,14 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.network.interceptor.rateLimitHost
 import eu.kanade.tachiyomi.source.model.SManga
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.domain.track.interactor.GetTrack
@@ -29,7 +32,6 @@ import yokai.domain.track.interactor.GetTrack
  */
 class RecommendationsFetcher(
     private val getTrack: GetTrack = Injekt.get(),
-    private val network: NetworkHelper = Injekt.get(),
     private val preferences: PreferencesHelper = Injekt.get(),
 ) {
     suspend fun fetch(
@@ -46,7 +48,7 @@ class RecommendationsFetcher(
         val muId = tracks.firstOrNull { it.sync_id == TrackManager.MANGA_UPDATES }?.media_id
 
         val title = manga.title
-        val client = network.client
+        val client = recsClient
 
         coroutineScope {
             if (preferences.aniListRecommendations().get()) {
@@ -88,5 +90,21 @@ class RecommendationsFetcher(
          *  on a slow connection completes; short enough that one hung tracker doesn't gate the
          *  carousel's `relatedMangasLoading = false` toggle for ~30s on OkHttp's socket timeout. */
         private const val REQUEST_TIMEOUT_MS = 15_000L
+
+        /**
+         * Shared client for the public tracker recommendation endpoints, derived from the app's
+         * base client with per-host rate limits so a burst of carousel opens can't hammer them.
+         * Jikan is the strictest (3 req/sec and ~60/min), so it carries both a per-second and a
+         * per-minute cap. Built once per process so the limiter windows persist across fetches;
+         * building it per fetch would reset the windows and defeat the limit.
+         */
+        private val recsClient by lazy {
+            Injekt.get<NetworkHelper>().client.newBuilder()
+                .rateLimitHost("https://graphql.anilist.co".toHttpUrl(), permits = 85, period = 1, unit = TimeUnit.MINUTES)
+                .rateLimitHost("https://api.jikan.moe".toHttpUrl(), permits = 3, period = 1, unit = TimeUnit.SECONDS)
+                .rateLimitHost("https://api.jikan.moe".toHttpUrl(), permits = 58, period = 1, unit = TimeUnit.MINUTES)
+                .rateLimitHost("https://api.mangaupdates.com".toHttpUrl(), permits = 30, period = 1, unit = TimeUnit.MINUTES)
+                .build()
+        }
     }
 }
