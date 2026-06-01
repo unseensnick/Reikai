@@ -56,13 +56,13 @@ import yokai.util.lang.getString
  * - **Download-unread stub** (Decision #4): dispatches the screen-model action which is a
  *   no-op until novel downloads ship.
  *
- * @param tabRow Pass an empty `{}` when the Manga / Novels switch lives outside the
+ * @param contentToggle Pass an empty `{}` when the Manga / Novels switch lives outside the
  *               composable (e.g. the legacy library's `activityBinding.mainTabs`).
  */
 @Composable
 internal fun NovelLibraryTabContent(
     screenModel: NovelLibraryScreenModel,
-    tabRow: @Composable () -> Unit,
+    contentToggle: @Composable () -> Unit,
 ) {
     val state by screenModel.state.collectAsState()
     val router = LocalRouter.currentOrThrow
@@ -280,7 +280,10 @@ internal fun NovelLibraryTabContent(
 
     LibraryContent(
         library = finalLibrary,
-        topBarBelow = tabRow,
+        // Single-category mode: one pager page per user category (parity with the manga tab).
+        // Empty in show-all mode so the single-grid path drives instead.
+        categoryPages = if (singleCategoryMode) allCategories.map { it to (displayedLibrary[it].orEmpty()) } else emptyList(),
+        contentToggle = contentToggle,
         singleCategoryMode = singleCategoryMode,
         allCategories = allCategories,
         categoryItemCounts = categoryItemCounts,

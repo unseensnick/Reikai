@@ -11,6 +11,7 @@ val migrations: ImmutableList<Migration> = persistentListOf(
     SetupExtensionUpdateMigration(),
     SetupLnPluginUpdateMigration(),
     SetupLibraryUpdateMigration(),
+    SetupNovelUpdateMigration(),
 
     // Yokai fork
     CutoutMigration(),

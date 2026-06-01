@@ -182,6 +182,7 @@ fun NovelDetailsScreen(sourceId: String, novelUrl: String) {
                     source = s.source,
                     novel = s.novel,
                     repo = novelRepo,
+                    chapterRepo = chapterRepo,
                     onPickChapter = { chapter -> pickChapter(s, chapter) },
                 )
                 is DetailsState.Reading -> ChapterReader(

@@ -59,8 +59,6 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.TopAppBarScrollBehavior
-import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -108,7 +106,6 @@ import eu.kanade.tachiyomi.ui.library.LibraryItem.Companion.LAYOUT_LIST
 import eu.kanade.tachiyomi.ui.library.models.LibraryItem
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.system.getResourceColor
-import eu.kanade.tachiyomi.util.system.isTablet
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.widget.EmptyView
 import kotlin.math.abs
@@ -127,10 +124,9 @@ import yokai.presentation.library.components.CategorySortSheet
 import yokai.presentation.library.components.LazyLibraryGrid
 import yokai.presentation.library.components.LazyLibraryList
 import yokai.presentation.library.components.LazyLibraryStaggeredGrid
-import yokai.presentation.component.CompactPivotScrollBehavior
 import yokai.presentation.component.EmptyScreen
-import yokai.presentation.component.ReikaiLargeTopBar
 import yokai.presentation.library.components.LibraryCategoryHeader
+import yokai.presentation.library.components.LibraryCompactTopBar
 import yokai.presentation.library.components.LibraryCategoryTabs
 import yokai.presentation.library.components.LibraryOverflowMenu
 import yokai.presentation.library.components.SelectionAppBar
@@ -246,17 +242,12 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
      */
     onOpenGroupByPicker: () -> Unit,
     /**
-     * Rendered immediately under the [ReikaiTopBar] (same Surface chrome, no spacing gap),
-     * making it part of the top app bar visually rather than a floating row above it. Hidden
-     * when the bar swaps to [SelectionAppBar] or [LibrarySearchBar] — those
-     * preempt the entire top chrome (Material convention; matches the legacy ActionMode that
-     * also hides tabs during selection).
-     *
-     * Used by [yokai.presentation.library.LibraryScreen] (Phase 8 C9 follow-up) to host the
-     * Manga / Light novels [androidx.compose.material3.PrimaryTabRow]. Default `{}` keeps the
-     * composable usable from any future single-tab caller.
+     * Segmented Manga / Light novels content toggle, rendered on the left of the compact app-bar
+     * row in [LibraryCompactTopBar]. Hidden when the bar swaps to [SelectionAppBar] or when search
+     * is active (both preempt the top chrome). Default `{}` keeps the composable usable from any
+     * future single-tab caller.
      */
-    topBarBelow: @Composable () -> Unit = {},
+    contentToggle: @Composable () -> Unit = {},
     /**
      * Per-tab list-row renderer. Called inside the LazyColumn `items{}` block with the item, its
      * computed selection state, whether selection mode is active, and a [Modifier] carrying
@@ -678,37 +669,6 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
         hopperVerticalDragPx += delta
     }
 
-    // Topbar scroll behavior pivots on form factor to match the legacy ExpandedAppBarLayout:
-    //   - Tablet: exitUntilCollapsedScrollBehavior. Bar collapses to compact (card + tabs),
-    //     stays there. Re-expands only when content reaches its top. Never fully hides — same
-    //     as upstream's minTabletHeight clamp.
-    //   - Phone: CompactPivotScrollBehavior (custom). On scroll-down the bar collapses then
-    //     continues past compact to fully hide. On scroll-up the bar slides back to compact
-    //     immediately, but stays at compact until content reaches its top, then expands the
-    //     rest of the way. Matches upstream's 1:1 translationY follow that clamps at
-    //     smallHeight unless the content offset has come back down past the appbar's height.
-    val libraryContextForTopBar = LocalContext.current
-    val isTabletForTopBar = remember(libraryContextForTopBar) { libraryContextForTopBar.isTablet() }
-    val collapsibleHeightPxState = remember { mutableFloatStateOf(0f) }
-    val topBarState = rememberTopAppBarState()
-    val tabletScrollBehavior: TopAppBarScrollBehavior? = if (isTabletForTopBar) {
-        TopAppBarDefaults.exitUntilCollapsedScrollBehavior(state = topBarState)
-    } else {
-        null
-    }
-    val phoneScrollBehavior: TopAppBarScrollBehavior? = if (isTabletForTopBar) {
-        null
-    } else {
-        remember(topBarState, collapsibleHeightPxState) {
-            CompactPivotScrollBehavior(
-                state = topBarState,
-                compactThresholdProvider = { -collapsibleHeightPxState.floatValue },
-            )
-        }
-    }
-    val scrollBehavior: TopAppBarScrollBehavior = tabletScrollBehavior ?: phoneScrollBehavior!!
-    val activeNestedScroll: NestedScrollConnection? =
-        if (searchActive) null else scrollBehavior.nestedScrollConnection
 
     // Bottom-nav hide-on-scroll. Legacy `scrollViewWith` (ControllerExtensions.kt:545-560)
     // translates `activityBinding.bottomNav.translationY` directly from the RecyclerView's
@@ -828,7 +788,9 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
     Scaffold(
         modifier = run {
             var m: Modifier = modifier
-            if (activeNestedScroll != null) m = m.nestedScroll(activeNestedScroll)
+            // Top bar is pinned (no collapse-on-scroll), so it no longer consumes scroll via a
+            // TopAppBarScrollBehavior nested-scroll connection. Only the bottom-nav hide-on-scroll
+            // connection stays wired.
             if (navHideConnection != null) m = m.nestedScroll(navHideConnection)
             m
         },
@@ -947,34 +909,17 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                     actions = actionsList,
                 )
             } else {
-                // Search card title pulls from `librarySearchSuggestion` — the rotating random
-                // library entry the legacy bar already feeds into its FloatingToolbar title.
-                // When suggestions are disabled or the suggestion is blank, fall back to the
-                // library search hint so the card still telegraphs its purpose.
-                val suggestion by libraryPreferences.librarySearchSuggestion().collectAsState()
-                val suggestionsEnabled by libraryPreferences.showLibrarySearchSuggestions().collectAsState()
-                val searchHint = stringResource(MR.strings.library_search_hint)
-                val searchFmt = stringResource(MR.strings.search_)
-                val searchCardTitle = if (suggestionsEnabled && suggestion.isNotBlank()) {
-                    searchFmt.format("\"$suggestion\"")
-                } else {
-                    searchHint
-                }
-                // Subtitle = the active category name, mirroring legacy
-                // `LibraryController.setSubtitle()` (LibraryController.kt:468-477) which writes
-                // `binding.headerTitle.text` to `searchToolbar.subtitle`. Only shows when there
-                // are multiple categories visible — single-category mode has nothing useful to
-                // distinguish, matching the legacy gate (`!singleCategory && showAllCategories`).
-                val searchCardSubtitle = if (library.size > 1 && showAllCategories) {
-                    activeCategory?.name
-                } else {
-                    null
-                }
-                ReikaiLargeTopBar(
-                    title = stringResource(MR.strings.library),
-                    searchCardTitle = searchCardTitle,
-                    searchCardSubtitle = searchCardSubtitle,
-                    onSearchCardClick = { onSearchActiveChange(true) },
+                LibraryCompactTopBar(
+                    contentToggle = contentToggle,
+                    onSearchClick = { onSearchActiveChange(true) },
+                    searchActive = searchActive,
+                    searchQuery = searchQuery,
+                    onSearchQueryChange = onSearchQueryChange,
+                    onSearchClose = {
+                        onSearchActiveChange(false)
+                        onSearchQueryChange("")
+                    },
+                    searchHint = stringResource(MR.strings.library_search_hint),
                     actions = {
                         LibraryToolbarActions(
                             isAnyFilterActive = isAnyFilterActive,
@@ -982,9 +927,7 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                             onOpenOverflow = onOpenOverflow,
                         )
                     },
-                    scrollBehavior = scrollBehavior,
                     below = {
-                        topBarBelow()
                         // Scrollable category tab row, driven straight off the pager's currentPage
                         // so the highlight tracks a swipe instantly (no lastUsedCategory round-trip
                         // lag). Tapping a tab animates the pager to that category.
@@ -999,23 +942,6 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                             )
                         }
                     },
-                    // In-place search-expand: when searchActive flips true, the card transforms
-                    // into the back-arrow + TextField + clear-button form at the same size +
-                    // position (mirrors upstream's MiniSearchView.onActionViewExpanded). No
-                    // separate LibrarySearchBar swap — the bar's other affordances stay put.
-                    searchActive = searchActive,
-                    searchQuery = searchQuery,
-                    onSearchQueryChange = onSearchQueryChange,
-                    onSearchClose = {
-                        onSearchQueryChange("")
-                        onSearchActiveChange(false)
-                    },
-                    searchHint = searchHint,
-                    // Phone uses CompactPivotScrollBehavior which needs to know the compact
-                    // threshold (= -collapsibleHeight) to decide when scroll-up should bring
-                    // the bar back to compact vs. expand it past compact. The callback fires
-                    // whenever the bar's measured collapsible block changes.
-                    onCollapsibleHeightChange = { collapsibleHeightPxState.floatValue = it.toFloat() },
                 )
             }
         },

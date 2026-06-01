@@ -1,9 +1,20 @@
 package eu.kanade.tachiyomi.ui.library
 
 import android.os.Bundle
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import dev.icerock.moko.resources.compose.stringResource
@@ -11,7 +22,6 @@ import eu.kanade.tachiyomi.ui.base.controller.BaseComposeController
 import eu.kanade.tachiyomi.ui.main.FloatingSearchInterface
 import eu.kanade.tachiyomi.ui.main.RootSearchInterface
 import eu.kanade.tachiyomi.util.compose.LocalRouter
-import yokai.presentation.component.ReikaiPillTabRow
 import yokai.i18n.MR
 import yokai.presentation.library.NovelLibraryTabContent
 import yokai.presentation.library.novels.NovelLibraryScreenModel
@@ -61,21 +71,33 @@ class NovelLibraryComposeController(bundle: Bundle? = null) :
             }
             with(screenAnchor) {
                 val screenModel = rememberScreenModel { NovelLibraryScreenModel() }
-                val mangaLabel = stringResource(MR.strings.manga)
                 val novelsLabel = stringResource(MR.strings.light_novels)
-                val tabLabels = remember(mangaLabel, novelsLabel) { listOf(mangaLabel, novelsLabel) }
-                val tabRow: @Composable () -> Unit = {
-                    ReikaiPillTabRow(
-                        selectedTabIndex = LibraryHostController.TAB_NOVELS,
-                        tabs = tabLabels,
-                        onTabSelected = { index ->
-                            if (index == LibraryHostController.TAB_MANGA) {
-                                host?.selectTab(LibraryHostController.TAB_MANGA)
-                            }
-                        },
-                    )
+                val libraryLabel = stringResource(MR.strings.library)
+                // Title-styled label matching LibraryScreen's content toggle: reads "Light novels
+                // Library" with a dropdown caret signalling it's tappable; tapping switches back to
+                // the manga tab via the host.
+                val contentToggle: @Composable () -> Unit = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clickable(
+                                interactionSource = null,
+                                indication = null,
+                            ) { host?.selectTab(LibraryHostController.TAB_MANGA) }
+                            .padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
+                    ) {
+                        Text(
+                            text = "$novelsLabel $libraryLabel",
+                            style = MaterialTheme.typography.titleLarge,
+                            maxLines = 1,
+                        )
+                        Icon(
+                            imageVector = Icons.Filled.ArrowDropDown,
+                            contentDescription = null,
+                        )
+                    }
                 }
-                NovelLibraryTabContent(screenModel = screenModel, tabRow = tabRow)
+                NovelLibraryTabContent(screenModel = screenModel, contentToggle = contentToggle)
             }
         }
     }

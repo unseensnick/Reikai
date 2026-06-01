@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.data.backup.models.LongPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.data.library.NovelUpdateJob
 import eu.kanade.tachiyomi.data.preference.PreferenceKeys
 import eu.kanade.tachiyomi.extension.ExtensionUpdateJob
 import eu.kanade.tachiyomi.source.sourcePreferences
@@ -32,6 +33,7 @@ class PreferenceBackupRestorer(
 
         ExtensionUpdateJob.setupTask(context)
         LibraryUpdateJob.setupTask(context)
+        NovelUpdateJob.setupTask(context)
         BackupCreatorJob.setupTask(context)
 
         onComplete()

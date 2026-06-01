@@ -1,10 +1,13 @@
 package yokai.presentation.library
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
-import yokai.presentation.component.ReikaiPillTabRow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -16,8 +19,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -82,35 +87,50 @@ class LibraryScreen : Screen {
             uiPrefs.libraryActiveTab().set(activeTab)
         }
 
-        // Tab row hoisted to a shared composable. Each per-tab content passes it through to
-        // LibraryContent.topBarBelow so the tabs render flush under the Scaffold's TopAppBar
-        // instead of floating as a separate row above it. Selection / search modes still
-        // preempt the whole top chrome (LibraryContent hides topBarBelow then), matching the
-        // legacy ActionMode convention that also hides tabs during selection.
+        // Content-type toggle hoisted to a shared composable. Each per-tab content passes it into
+        // LibraryContent.contentToggle so it renders on the left of the compact app-bar row.
+        // Selection / search modes preempt the whole top chrome (LibraryContent hides the toggle
+        // then), matching the legacy ActionMode convention that also hides tabs during selection.
         //
-        // Uses ReikaiPillTabRow (the legacy Theme.Widget.Tabs.Highlight equivalent) instead of
-        // M3's underline-style PrimaryTabRow so the Compose library matches the legacy library
-        // bar's pill-style tabs exactly.
+        // Rendered as a title-styled label (like the old "Library" headline) reading e.g.
+        // "Manga Library" / "Light novels Library"; tapping flips between the two libraries. The
+        // trailing dropdown caret signals the label is interactive. With only two libraries a
+        // straight toggle reads cleaner than a switcher menu. Text + icon inherit the bar's
+        // contentColor (actionBarTintColor) via LocalContentColor.
         val mangaLabel = stringResource(MR.strings.manga)
         val novelsLabel = stringResource(MR.strings.light_novels)
-        val tabLabels = remember(mangaLabel, novelsLabel) { listOf(mangaLabel, novelsLabel) }
-        val tabRow: @Composable () -> Unit = {
-            ReikaiPillTabRow(
-                selectedTabIndex = activeTab,
-                tabs = tabLabels,
-                onTabSelected = { activeTab = it },
-            )
+        val libraryLabel = stringResource(MR.strings.library)
+        val contentToggle: @Composable () -> Unit = {
+            Row(
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                modifier = Modifier
+                    .clickable(
+                        interactionSource = null,
+                        indication = null,
+                    ) { activeTab = if (activeTab == 0) 1 else 0 }
+                    .padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
+            ) {
+                Text(
+                    text = "${if (activeTab == 0) mangaLabel else novelsLabel} $libraryLabel",
+                    style = MaterialTheme.typography.titleLarge,
+                    maxLines = 1,
+                )
+                Icon(
+                    imageVector = Icons.Filled.ArrowDropDown,
+                    contentDescription = null,
+                )
+            }
         }
         when (activeTab) {
-            0 -> MangaLibraryTabContent(mangaScreenModel, tabRow)
-            else -> NovelLibraryTabContent(novelScreenModel, tabRow)
+            0 -> MangaLibraryTabContent(mangaScreenModel, contentToggle)
+            else -> NovelLibraryTabContent(novelScreenModel, contentToggle)
         }
     }
 
     @Composable
     private fun MangaLibraryTabContent(
         screenModel: MangaLibraryScreenModel,
-        tabRow: @Composable () -> Unit,
+        contentToggle: @Composable () -> Unit,
     ) {
         val state by screenModel.state.collectAsState()
         val updateErrorCount by screenModel.updateErrorCount.collectAsState()
@@ -410,10 +430,10 @@ class LibraryScreen : Screen {
         LibraryContent(
             library = finalLibrary,
             categoryPages = if (singleCategoryMode) allCategories.map { it to (displayedLibrary[it].orEmpty()) } else emptyList(),
-            // Just the Manga/Novels pills here; the scrollable category tab row is rendered inside
-            // LibraryContent (below the pills) so it can follow the pager's currentPage instantly
-            // instead of lagging behind the lastUsedCategory pref round-trip.
-            topBarBelow = tabRow,
+            // Manga/Novels segmented toggle sits on the left of the compact app-bar row; the
+            // scrollable category tab row renders below it (inside LibraryContent) so it can
+            // follow the pager's currentPage instantly instead of lagging the pref round-trip.
+            contentToggle = contentToggle,
             singleCategoryMode = singleCategoryMode,
             allCategories = allCategories,
             categoryItemCounts = categoryItemCounts,

@@ -72,6 +72,8 @@ import kotlinx.serialization.json.put
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import eu.kanade.tachiyomi.core.storage.preference.collectAsState
+import eu.kanade.tachiyomi.util.chapter.syncChaptersWithNovelSource
+import yokai.data.DatabaseHandler
 import yokai.data.novel.toNovel
 import yokai.data.novel.toNovelChapter
 import yokai.domain.novel.NovelChapterRepository
@@ -310,6 +312,7 @@ fun NovelBrowseScreen(initialSourceId: String? = null) {
                     source = s.parent.source,
                     novel = s.novel,
                     repo = novelRepo,
+                    chapterRepo = chapterRepo,
                     onPickChapter = { chapter -> pickChapter(s, chapter) },
                 )
                 is BrowseState.ReadingChapter -> ChapterReader(
@@ -459,15 +462,40 @@ internal fun NovelDetails(
     source: NovelSource,
     novel: SourceNovel,
     repo: NovelRepository,
+    chapterRepo: NovelChapterRepository,
     onPickChapter: (ChapterItem) -> Unit,
 ) {
     val chapters = novel.chapters ?: emptyList()
+    // Probe screen (yokai/presentation/novel/*) is exempt from the compose-port DI rule, so
+    // Injekt here is acceptable. Needed to persist chapters at add-to-library time.
+    val handler = remember { Injekt.get<DatabaseHandler>() }
     val savedNovel by remember(novel.path, source.id) {
         repo.getByUrlAndSourceAsFlow(novel.path, source.id)
     }.collectAsState(initial = null)
     val inLibrary = savedNovel?.favorite == true
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
+
+    // Persist a library novel's chapter list whenever its details open, so the library badge
+    // populates without a manual pull-to-refresh or removing/re-adding it (mirrors LNReader
+    // caching chapters on open). syncChaptersWithNovelSource diffs against the DB, so re-running
+    // per open is cheap and idempotent. Non-library novels are skipped: the library view only
+    // counts favorites, so there's no badge to feed and no reason to write their rows yet.
+    val persistedFavorite = savedNovel?.takeIf { it.favorite }
+    LaunchedEffect(persistedFavorite?.id, chapters.size) {
+        val target = persistedFavorite ?: return@LaunchedEffect
+        if (chapters.isEmpty()) return@LaunchedEffect
+        runCatching {
+            syncChaptersWithNovelSource(
+                rawSourceChapters = chapters,
+                novel = target,
+                source = source,
+                novelChapterRepository = chapterRepo,
+                novelRepository = repo,
+                handler = handler,
+            )
+        }
+    }
 
     LazyColumn(modifier = Modifier.fillMaxWidth()) {
         item {
@@ -517,10 +545,30 @@ internal fun NovelDetails(
                                 busy = true
                                 try {
                                     val existing = savedNovel
-                                    if (existing == null) {
+                                    val persisted = if (existing == null) {
                                         repo.insert(novel.toNovel(sourceId = source.id, favorite = true))
+                                        repo.getByUrlAndSource(novel.path, source.id)
                                     } else {
-                                        repo.update(existing.copy(favorite = true))
+                                        val updated = existing.copy(favorite = true)
+                                        repo.update(updated)
+                                        updated
+                                    }
+                                    // Persist the already-parsed chapters so the library badge has
+                                    // something to count (library_novel_view sums novel_chapters).
+                                    // Mirrors LNReader insertNovelAndChapters at add time; the
+                                    // chapters are in memory so no extra fetch is needed. Best-effort:
+                                    // a sync failure must not block the favorite toggle.
+                                    if (persisted != null && chapters.isNotEmpty()) {
+                                        runCatching {
+                                            syncChaptersWithNovelSource(
+                                                rawSourceChapters = chapters,
+                                                novel = persisted,
+                                                source = source,
+                                                novelChapterRepository = chapterRepo,
+                                                novelRepository = repo,
+                                                handler = handler,
+                                            )
+                                        }
                                     }
                                 } finally { busy = false }
                             }
