@@ -11,7 +11,6 @@ import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import com.hippo.unifile.UniFile
 import dev.icerock.moko.resources.StringResource
-import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.data.database.models.Chapter
@@ -33,11 +32,7 @@ import eu.kanade.tachiyomi.data.download.model.DownloadQueue
 import eu.kanade.tachiyomi.data.library.CustomMangaManager
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
-import eu.kanade.tachiyomi.data.recommendation.RECOMMENDS_SOURCE
-import eu.kanade.tachiyomi.data.recommendation.RecommendationRanker
-import eu.kanade.tachiyomi.data.recommendation.RecommendationsFetcher
-import eu.kanade.tachiyomi.data.recommendation.RelatedMangaCache
-import eu.kanade.tachiyomi.data.recommendation.TasteCandidateFetcher
+import eu.kanade.tachiyomi.data.recommendation.RelatedMangasLoader
 import eu.kanade.tachiyomi.data.track.EnhancedTrackService
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.TrackService
@@ -83,12 +78,11 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
 import java.util.Locale
-import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filter
@@ -108,11 +102,6 @@ import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.history.interactor.GetHistory
 import yokai.domain.library.custom.model.CustomMangaInfo
-import yokai.domain.library.taste.interactor.ComputeTasteProfile
-import yokai.domain.library.taste.interactor.GetLibraryStatuses
-import yokai.domain.library.taste.interactor.GetTrackedEntries
-import yokai.domain.library.taste.model.TasteProfile
-import yokai.domain.library.taste.model.TrackStatus
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.interactor.InsertManga
 import yokai.domain.manga.interactor.UpdateManga
@@ -137,7 +126,7 @@ class MangaDetailsPresenter(
 ) : BaseCoroutinePresenter<MangaDetailsController>(),
     DownloadQueue.Listener {
     private val getAvailableScanlators: GetAvailableScanlators by injectLazy()
-    private val relatedMangaCache: RelatedMangaCache by injectLazy()
+    private val relatedMangasLoader: RelatedMangasLoader by injectLazy()
     private val getCategories: GetCategories by injectLazy()
     private val getChapter: GetChapter by injectLazy()
     private val getManga: GetManga by injectLazy()
@@ -181,7 +170,6 @@ class MangaDetailsPresenter(
     var relatedMangasLoading: Boolean = false
         private set
     private var relatedMangasFetched: Boolean = false
-    private val relatedMangasMutex = Mutex()
 
     /**
      * Serialises [markChaptersRead] so a rapid second invocation (e.g. another range selection
@@ -577,16 +565,11 @@ class MangaDetailsPresenter(
     }
 
     /**
-     * Fetch related/suggested mangas for the carousel. One-shot per presenter instance — repeat
-     * calls are no-ops. Three input streams feed the same pool: source-native related mangas
-     * (Komikku's `getRelatedMangaList` API on [CatalogueSource]), the keyword-search fallback
-     * (also from the source API), and tracker-backed recommendations (AniList / MyAnimeList via
-     * Jikan / MangaUpdates). Tracker batches are tagged with [RECOMMENDS_SOURCE] so the carousel
-     * can route their clicks through Global Search instead of trying to resolve a tracker URL
-     * against the current source.
-     *
-     * Dedup is by SManga url within the pool; tracker URLs and source URLs are in distinct URL
-     * spaces so they don't collide. Cap is [RELATED_MANGAS_LIMIT] across the merged pool.
+     * Populate the carousel by collecting [RelatedMangasLoader] (shared with the Compose details
+     * screen). One-shot per presenter instance: the [relatedMangasFetched] gate makes repeat calls
+     * no-ops (matches Komikku's per-instance cache shape). Each emission carries the carousel slice,
+     * the full "See all" pool, and the loading flag; we mirror them onto presenter state and refresh
+     * the header.
      */
     fun fetchRelatedMangasFromSource() {
         if (relatedMangasFetched) return
@@ -594,293 +577,23 @@ class MangaDetailsPresenter(
         if (catalogueSource.disableRelatedMangas) return
         relatedMangasFetched = true
 
-        presenterScope.launch {
-            val cachedId = manga.id
-            val cached = cachedId?.let { relatedMangaCache.get(it) }
-            if (cached != null) {
-                // Serve the cached pool immediately so reopening is instant.
-                relatedMangas = cached.carousel
-                relatedMangasFullPool = cached.fullPool
-                relatedMangasLoading = false
+        relatedMangasLoader.load(manga, catalogueSource)
+            .onEach { result ->
+                relatedMangas = result.carousel
+                relatedMangasFullPool = result.fullPool
+                relatedMangasLoading = result.loading
                 withUIContext { view?.updateHeader() }
-                // Fresh enough → done. Stale → cards stay on screen while we refresh below.
-                if (relatedMangaCache.isFresh(cached)) {
-                    relatedRecsLog { "cache HIT (fresh) manga=$cachedId size=${cached.carousel.size}, no fetch" }
-                    return@launch
-                }
-                relatedRecsLog { "cache STALE manga=$cachedId, refreshing in background" }
-            } else {
-                relatedRecsLog { "cache MISS manga=$cachedId, fetching" }
             }
-
-            // Show the loading indicator only when there's nothing cached to display yet.
-            relatedMangasLoading = cached == null
-            withUIContext { view?.updateHeader() }
-
-            // Phase 6/7 inputs computed once up-front, captured by the per-push closure below.
-            // These are read-only after this point so no lock is needed when the ranker reads them.
-            val rerankEnabled = preferences.enableRecommendationRerank().get()
-            val taste: TasteProfile = runCatching {
-                val entries = Injekt.get<GetTrackedEntries>().await()
-                Injekt.get<ComputeTasteProfile>().invoke(entries)
-            }.getOrElse {
-                Logger.e(it) { "Taste profile load failed; ranker will run with empty profile" }
-                TasteProfile.EMPTY
-            }
-            // Status-aware library hide. Every favorite is a suppression candidate, kept or hidden
-            // per its tracker status (untracked favorites are always hidden — they're in the
-            // library). Match by (source, url) AND by normalized title so tracker-origin recs
-            // (whose URL is a tracker URL, not a source URL) are caught too. Each status has its
-            // own user toggle for granular control.
-            val hideRC = preferences.hideTrackedReadingCompleted().get()
-            val hideD = preferences.hideTrackedDropped().get()
-            val hideOH = preferences.hideTrackedOnHold().get()
-            val hidePTR = preferences.hideTrackedPlanToRead().get()
-            val favorites = runCatching { getManga.awaitFavorites() }.getOrElse {
-                Logger.e(it) { "Favorites lookup failed; library suppression will be a no-op" }
-                emptyList()
-            }
-            val libraryStatuses: Map<Pair<Long, String>, Set<TrackStatus>> = if (favorites.isEmpty()) {
-                emptyMap()
-            } else {
-                runCatching {
-                    Injekt.get<GetLibraryStatuses>().await()
-                }.getOrElse {
-                    Logger.e(it) { "Library statuses lookup failed; status filter will be a no-op" }
-                    emptyMap()
-                }
-            }
-            val hiddenFavorites = favorites.filter { fav ->
-                val statuses = libraryStatuses[fav.source to fav.url].orEmpty()
-                shouldHideLibraryEntry(statuses, hideRC, hideD, hideOH, hidePTR)
-            }
-            val libraryHidden: Set<Pair<Long, String>> = hiddenFavorites.mapTo(HashSet()) { it.source to it.url }
-            val libraryHiddenTitles: Set<String> = hiddenFavorites.mapTo(HashSet()) { normalizeTitleForDedup(it.title) }
-            relatedRecsLog {
-                "library hide-set: ${libraryHidden.size} url + ${libraryHiddenTitles.size} title " +
-                    "(readingCompleted=$hideRC dropped=$hideD onHold=$hideOH planToRead=$hidePTR)"
-            }
-            val ranker = RecommendationRanker(
-                wPersonal = preferences.recommendationStyle().get() / 100.0,
-                wSerendipity = preferences.serendipity().get() / 100.0,
-            )
-
-            val accumulated = LinkedHashSet<RelatedMangaCandidate>()
-            // Cross-pool dedup: tracker URLs (anilist.co/...) and source URLs (mangadex.org/...)
-            // live in distinct namespaces, so url-keyed dedup inside `accumulated` can't catch a
-            // manga that appears via both. Normalized title acts as a second key spanning all
-            // streams. First-arriving entry wins, which naturally prefers source-origin candidates
-            // (single fast call) over tracker entries (slower, multiple calls).
-            val seenTitleKeys = HashSet<String>().apply { add(normalizeTitleForDedup(manga.title)) }
-            // Cross-source agreement: how many streams surfaced each normalized title. A title
-            // several providers recommend is a stronger signal, so the ranker boosts it.
-            val agreementByTitle = HashMap<String, Int>()
-            val excludedUrl = manga.url
-            val exceptionHandler: (Throwable) -> Unit = { e ->
-                Logger.e(e) { "Related-mangas sub-task failed for ${manga.title}" }
-            }
-            // Drop candidates already in the library. Source-origin matches by (source, url);
-            // tracker-origin entries carry a tracker URL that never matches, so the title set
-            // catches those (and any source result whose URL differs but title matches).
-            val antiEcho: (RelatedMangaCandidate) -> Boolean = { c ->
-                libraryHidden.contains(c.sourceId to c.manga.url) ||
-                    libraryHiddenTitles.contains(normalizeTitleForDedup(c.manga.title))
-            }
-            // Post-review M2 — snapshot under the mutex, rank outside, then re-acquire to apply
-            // iff this push is still the latest. Lets a slow ranker pass on push A run concurrently
-            // with push B's insert + snapshot. Version check prevents A from clobbering B's newer
-            // ranked output if A's apply phase happens to land after B's.
-            val pushSeq = AtomicLong(0L)
-            val appliedSeq = AtomicLong(0L)
-
-            // Same accumulator for both input streams — only the sourceId attached to each batch
-            // differs. Mutex guards concurrent inserts since source-native + tracker fetchers
-            // race each other.
-            fun makePushResults(
-                sourceId: Long,
-            ): suspend (Pair<String, List<SManga>>, Boolean) -> Unit = pushHandler@{ pair, _ ->
-                // For tracker pushes (sourceId == RECOMMENDS_SOURCE) the bucket label is the
-                // tracker name (e.g. "AniList") and lets the merge step round-robin slots fairly.
-                // For source pushes it's the keyword/extension label and isn't needed downstream.
-                val trackerName = pair.first.takeIf { sourceId == RECOMMENDS_SOURCE }
-                val snapshot = relatedMangasMutex.withLock {
-                    val before = accumulated.size
-                    pair.second.forEach { m ->
-                        if (m.url == excludedUrl) return@forEach
-                        val titleKey = normalizeTitleForDedup(m.title)
-                        agreementByTitle.merge(titleKey, 1, Int::plus)
-                        if (!seenTitleKeys.add(titleKey)) return@forEach
-                        accumulated.add(RelatedMangaCandidate(sourceId, trackerName, m))
-                    }
-                    if (accumulated.size == before) {
-                        null
-                    } else {
-                        val seq = pushSeq.incrementAndGet()
-                        // Per-candidate agreement keyed by url so the ranker needs no title
-                        // normalization. Separate snapshot of the unbounded pool feeds "See all".
-                        val agreementByUrl = accumulated.associate {
-                            it.manga.url to (agreementByTitle[normalizeTitleForDedup(it.manga.title)] ?: 1)
-                        }
-                        RelatedSnapshot(seq, mergeForDisplay(accumulated), accumulated.toList(), agreementByUrl)
-                    }
-                } ?: return@pushHandler
-
-                val (seq, merged, fullPool, agreementByUrl) = snapshot
-                // Library suppression (anti-echo) runs in both modes; the ranker then only reorders.
-                // The full rerank gates on the user toggle so the carousel can be returned to the
-                // unranked ordering by flipping one preference.
-                val visibleMerged = merged.filterNot(antiEcho)
-                val visibleFull = fullPool.filterNot(antiEcho)
-                if (merged.size != visibleMerged.size) {
-                    relatedRecsLog { "suppressed ${merged.size - visibleMerged.size} library title(s) from carousel" }
-                }
-                val boostedCount = agreementByUrl.values.count { it > 1 }
-                if (boostedCount > 0) relatedRecsLog { "co-occurrence: $boostedCount title(s) surfaced by 2+ sources" }
-                val newRelated = if (rerankEnabled) ranker.rank(visibleMerged, taste, agreementByUrl) else visibleMerged
-                val newFullPool = if (rerankEnabled) ranker.rank(visibleFull, taste, agreementByUrl) else visibleFull
-
-                val applied = relatedMangasMutex.withLock {
-                    if (appliedSeq.get() >= seq) {
-                        false
-                    } else {
-                        appliedSeq.set(seq)
-                        relatedMangas = newRelated
-                        relatedMangasFullPool = newFullPool
-                        true
-                    }
-                }
-                if (applied) withUIContext { view?.updateHeader() }
-            }
-
-            runCatching {
-                coroutineScope {
-                    launch {
-                        catalogueSource.getRelatedMangaList(
-                            manga = manga,
-                            exceptionHandler = exceptionHandler,
-                            pushResults = makePushResults(catalogueSource.id),
-                        )
-                    }
-                    launch {
-                        RecommendationsFetcher().fetch(
-                            manga = manga,
-                            exceptionHandler = exceptionHandler,
-                            pushResults = makePushResults(RECOMMENDS_SOURCE),
-                        )
-                    }
-                    launch {
-                        TasteCandidateFetcher().fetch(
-                            source = catalogueSource,
-                            exceptionHandler = exceptionHandler,
-                            pushResults = makePushResults(catalogueSource.id),
-                        )
-                    }
-                }
-            }.onFailure {
-                Logger.e(it) { "Related-mangas fetch failed for ${manga.title}" }
-            }
-
-            relatedMangasLoading = false
-            // Cache the resolved pool so a reopen within the freshness window is instant.
-            cachedId?.let { relatedMangaCache.put(it, relatedMangas, relatedMangasFullPool) }
-            relatedRecsLog { "fetched+cached manga=$cachedId size=${relatedMangas.size}" }
-            withUIContext { view?.updateHeader() }
-        }
+            .launchIn(presenterScope)
     }
 
     /**
-     * Debug-only logcat aid for the related-mangas cache path, filterable via tag:RelatedRecs.
-     * Debug builds only, so nothing reaches Crashlytics. Remove once the cache stabilizes.
-     */
-    private fun relatedRecsLog(message: () -> String) {
-        if (BuildConfig.DEBUG) Logger.withTag("RelatedRecs").d(message())
-    }
-
-    /** One push's view of the related pool: sequence, carousel slice, full pool, and the
-     *  per-candidate cross-source agreement count (keyed by url) the ranker boosts on. */
-    private data class RelatedSnapshot(
-        val seq: Long,
-        val merged: List<RelatedMangaCandidate>,
-        val fullPool: List<RelatedMangaCandidate>,
-        val agreementByUrl: Map<String, Int>,
-    )
-
-    /**
-     * Snapshot of [relatedMangasFullPool] for the Phase 6.5 "See all" browse handoff. Returns
-     * the current full ranked pool with no synchronization — the caller is on the UI thread and
-     * the write side is single-writer via [relatedMangasMutex], so the worst-case race is that
-     * the user sees a slightly-stale snapshot (still-fetching scenario), never a torn list.
+     * Snapshot of [relatedMangasFullPool] for the "See all" browse handoff. Returns the current
+     * full ranked pool with no synchronization: the caller is on the UI thread and the loader's
+     * Flow is collected on a single coroutine, so the worst-case race is a slightly-stale snapshot
+     * (still-fetching scenario), never a torn list.
      */
     fun snapshotForBrowseHandoff(): List<RelatedMangaCandidate> = relatedMangasFullPool
-
-    /**
-     * Slice the accumulated pool into the carousel-visible list. Reserves up to
-     * [RELATED_MANGAS_TRACKER_RESERVE] slots for tracker-origin entries so they aren't starved
-     * when source-native fills the cap first; either side cedes unfilled capacity to the other.
-     *
-     * Within the tracker slots, round-robin across trackers so one fast tracker doesn't dominate
-     * (e.g. MAL/Jikan returning 90+ items shouldn't squeeze AniList and MangaUpdates out).
-     */
-    /**
-     * Phase 7 — apply the user's status-based hide policy to a single library entry.
-     *
-     * Empty status set = "in library, no tracker info" → always hide (matches Phase 6
-     * blanket behavior). UNKNOWN rides the Reading/Completed bucket — it now only fires
-     * for tracks on services without a recognized status accessor (legacy / unsupported
-     * trackers), so the conservative default is to treat them like actively-reading.
-     * PLAN_TO_READ and ON_HOLD are never hidden — those are "reminder" statuses.
-     */
-    private fun shouldHideLibraryEntry(
-        statuses: Set<TrackStatus>,
-        hideReadingCompleted: Boolean,
-        hideDropped: Boolean,
-        hideOnHold: Boolean,
-        hidePlanToRead: Boolean,
-    ): Boolean {
-        if (statuses.isEmpty()) return true // in library, untracked → always hide
-        return statuses.any { s ->
-            when (s) {
-                TrackStatus.READING, TrackStatus.COMPLETED, TrackStatus.UNKNOWN -> hideReadingCompleted
-                TrackStatus.DROPPED -> hideDropped
-                TrackStatus.ON_HOLD -> hideOnHold
-                TrackStatus.PLAN_TO_READ -> hidePlanToRead
-            }
-        }
-    }
-
-    private fun mergeForDisplay(pool: LinkedHashSet<RelatedMangaCandidate>): List<RelatedMangaCandidate> {
-        val sourceList = pool.filterNot { it.sourceId == RECOMMENDS_SOURCE }
-        val trackerLists = pool
-            .filter { it.sourceId == RECOMMENDS_SOURCE }
-            .groupBy { it.trackerName }
-            .values
-            .toList()
-        val trackerTotal = trackerLists.sumOf { it.size }
-        val initialTracker = minOf(trackerTotal, RELATED_MANGAS_TRACKER_RESERVE)
-        val sourceTake = minOf(sourceList.size, RELATED_MANGAS_LIMIT - initialTracker)
-        val trackerCap = minOf(trackerTotal, RELATED_MANGAS_LIMIT - sourceTake)
-        return sourceList.take(sourceTake) + roundRobin(trackerLists, trackerCap)
-    }
-
-    /**
-     * Interleave [lists] in round-robin order, stopping at [limit]. Empty lists are skipped
-     * automatically; uneven list sizes mean longer lists drain into remaining iterations once
-     * shorter ones are exhausted.
-     */
-    private fun <T> roundRobin(lists: List<List<T>>, limit: Int): List<T> {
-        if (limit <= 0 || lists.isEmpty()) return emptyList()
-        val iterators = lists.map { it.iterator() }.filter { it.hasNext() }.toMutableList()
-        val out = ArrayList<T>(limit)
-        while (out.size < limit && iterators.isNotEmpty()) {
-            val it = iterators.iterator()
-            while (it.hasNext() && out.size < limit) {
-                val cur = it.next()
-                out.add(cur.next())
-                if (!cur.hasNext()) it.remove()
-            }
-        }
-        return out
-    }
 
     /**
      * Resolve a source-side [SManga] to a local [Manga] DB row (creating one if it doesn't exist
@@ -1869,35 +1582,9 @@ class MangaDetailsPresenter(
         const val TENS_OF_CHAPTERS = 2
         const val MULTIPLE_SEASONS = 3
 
-        /** Carousel display cap. Phase 6.5 surfaces the full pool via [relatedMangasFullPool]. */
-        internal const val RELATED_MANGAS_LIMIT = 30
-
         /** Dedupe window for [refreshRelatedMangaIds]. Two attach hooks (`onAttach` and
          *  `onChangeStarted(POP_ENTER)`) can fire within ~10ms of each other on back-nav;
          *  this prevents the second from re-running the full-favorites scan. */
         private const val REFRESH_DEDUP_WINDOW_MS = 1000L
-
-        /**
-         * Minimum number of carousel slots reserved for tracker-origin recommendations so they
-         * aren't starved when source-native + keyword-search return enough to fill the cap
-         * before trackers respond. Either side cedes unfilled capacity to the other.
-         */
-        private const val RELATED_MANGAS_TRACKER_RESERVE = 12
-
-        /**
-         * Minimal title normalization used to dedup across pool streams (source-native, keyword,
-         * trackers, taste-driven). Trims, lowercases, and collapses internal whitespace —
-         * enough to catch "Solo Leveling" vs "SOLO LEVELING" vs "Solo  Leveling " from different
-         * sources. Deliberately does not strip punctuation, diacritics, or transliterate scripts;
-         * those collapses risk false positives across legitimately distinct titles. Revisit if
-         * observation shows v1 misses common cases.
-         */
-        // Collapse every run of non-alphanumeric characters (punctuation, symbols, whitespace, and
-        // straight vs curly apostrophes) into a single separator, so the same title from different
-        // sources dedups even when only its punctuation differs. Letters (incl. CJK) and digits are
-        // kept, so titles that differ by a number (e.g. "Season 1" vs "Season 2") stay distinct.
-        private val DEDUP_SEPARATORS = Regex("[^\\p{L}\\p{N}]+")
-        internal fun normalizeTitleForDedup(title: String): String =
-            title.lowercase().replace(DEDUP_SEPARATORS, " ").trim()
     }
 }
