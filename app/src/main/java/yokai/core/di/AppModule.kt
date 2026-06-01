@@ -108,6 +108,8 @@ fun appModule(app: Application) = module {
 
     single { eu.kanade.tachiyomi.data.recommendation.RelatedMangasLoader() }
 
+    single { eu.kanade.tachiyomi.ui.manga.MangaMergeManager() }
+
     single {
         NetworkHelper(
             app,

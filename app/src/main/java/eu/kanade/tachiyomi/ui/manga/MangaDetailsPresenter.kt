@@ -82,7 +82,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filter
@@ -127,6 +126,7 @@ class MangaDetailsPresenter(
     DownloadQueue.Listener {
     private val getAvailableScanlators: GetAvailableScanlators by injectLazy()
     private val relatedMangasLoader: RelatedMangasLoader by injectLazy()
+    private val mergeManager: MangaMergeManager by injectLazy()
     private val getCategories: GetCategories by injectLazy()
     private val getChapter: GetChapter by injectLazy()
     private val getManga: GetManga by injectLazy()
@@ -1326,255 +1326,32 @@ class MangaDetailsPresenter(
         if (now - lastRelatedMangaIdsRefreshMs < REFRESH_DEDUP_WINDOW_MS) return false
         lastRelatedMangaIdsRefreshMs = now
         val targetId = manga.id ?: return false
-        val targetTitle = manga.title.lowercase().trim()
-        if (targetTitle.isEmpty()) return false
-
-        // Self-heal manual merges that look like data corruption (e.g., a past accidental
-        // multi-select-merge or an id collision after manga deletion). For every merge entry
-        // referencing the target, pair-check each sibling id against the target's tracker
-        // (sync_id, media_id) keys: a verified sibling shares at least one local tracker entry
-        // OR has none on either side (no evidence). Suspect siblings (both tracked but no
-        // overlap) get dropped from the merge entry and recorded in mangaManualUnmerges so the
-        // same-title path can't re-add them on the next pass. Counted into lastMergeCleanupCount
-        // so the controller can surface a snackbar once per attach.
-        val (mergesPrefs, unmergesPrefs) = applyMergePrefHealing(targetId)
-
-        val merged = mergesPrefs.flatMap { entry ->
-            val ids = entry.split(",").mapNotNull { it.trim().toLongOrNull() }
-            if (targetId in ids) ids else emptyList()
-        }.toSet()
-
-        // Per-item `it.title.lowercase().trim()` was the dominant per-attach cost on large
-        // libraries (one allocation per favourited manga). `equals(ignoreCase = true)` does the
-        // case-insensitive compare without allocating, and `trim()` is a near-noop when the
-        // title has no leading/trailing whitespace (returns the same instance).
-        val sameTitle = getManga.awaitFavorites()
-            .asSequence()
-            .filter { it.id != null && it.title.trim().equals(targetTitle, ignoreCase = true) }
-            .mapNotNull { it.id }
-            .toSet()
-
-        val candidates = (merged + sameTitle + targetId)
-        val filtered = candidates
-            .filter { id ->
-                if (id == targetId) return@filter true
-                val pair = if (targetId < id) "$targetId,$id" else "$id,$targetId"
-                pair !in unmergesPrefs
-            }
-            .sorted()
-            .toLongArray()
-
-        val current = relatedMangaIds.sortedArray()
-        if (filtered.contentEquals(current)) return false
-        relatedMangaIds = filtered
+        val result = mergeManager.computeRelatedMangaIds(targetId, manga.title)
+        lastMergeCleanupCount = result.cleanupCount
+        if (result.ids.contentEquals(relatedMangaIds.sortedArray())) return false
+        relatedMangaIds = result.ids
         return true
     }
 
-    /**
-     * Walks every merge pref entry that references [targetId], pair-checks each sibling against
-     * the target's tracker (sync_id, media_id) set, and rewrites the merges + unmerges prefs to
-     * drop suspect siblings. Returns the post-cleanup snapshots of both prefs so the caller can
-     * proceed from the cleaned state without re-reading. Counts dropped pairs into
-     * [lastMergeCleanupCount] so the controller can show a snackbar after the attach pass.
-     *
-     * Verification rule per pair (target, sibling):
-     *  - either side has no local tracker rows → verified (no evidence to drop)
-     *  - both have rows AND at least one (sync_id, media_id) matches → verified
-     *  - both have rows but no overlap → suspect, drop
-     *
-     * Entry-level rewrite: a 4-member merge "10,15,20,25" where only 25 is suspect from 10's
-     * POV becomes "10,15,20"; 25 is also added to the unmerges set paired with each of the
-     * remaining members so the same-title path doesn't re-admit it. Entries shrunk below 2
-     * members are dropped entirely.
-     */
-    private suspend fun applyMergePrefHealing(targetId: Long): Pair<Set<String>, Set<String>> {
-        val originalMerges = preferences.mangaManualMerges().get()
-        val originalUnmerges = preferences.mangaManualUnmerges().get()
-        if (originalMerges.isEmpty()) {
-            lastMergeCleanupCount = 0
-            return originalMerges to originalUnmerges
-        }
-
-        // Pre-parse entries once + collect unique siblings across every entry referencing the
-        // target so we run at most one local-tracker query per id. Skip the whole cleanup pass
-        // (including the target's own tracker lookup) when no merge entry mentions the target;
-        // that's the common case for a user with many merges that don't involve THIS manga.
-        val parsedEntries = originalMerges.map { entry ->
-            val ids = entry.split(",").mapNotNull { it.trim().toLongOrNull() }
-            entry to ids
-        }
-        val relevantEntries = parsedEntries.filter { (_, ids) -> targetId in ids }
-        if (relevantEntries.isEmpty()) {
-            lastMergeCleanupCount = 0
-            return originalMerges to originalUnmerges
-        }
-        val uniqueSiblings = relevantEntries
-            .flatMap { (_, ids) -> ids }
-            .filterTo(HashSet()) { it != targetId }
-
-        // Parallel tracker lookups: one async per (target + unique sibling), awaited together.
-        // Each call routes through SQLDelight on Dispatchers.IO inside the handler, so we run
-        // them concurrently instead of serially. For a user with N siblings this cuts attach
-        // latency from N * round-trip to ~1 round-trip plus the slowest in-flight query.
-        val trackerKeysByMangaId: Map<Long, Set<Pair<Long, Long>>> = coroutineScope {
-            val ids = uniqueSiblings + targetId
-            ids.map { id -> id to async { trackerKeysFor(id) } }
-                .associate { (id, deferred) -> id to deferred.await() }
-        }
-        val targetKeys = trackerKeysByMangaId.getValue(targetId)
-
-        val cleanedMerges = LinkedHashSet<String>(originalMerges.size)
-        val addedUnmerges = mutableSetOf<String>()
-        var droppedSiblings = 0
-
-        for ((entry, ids) in parsedEntries) {
-            if (targetId !in ids) {
-                cleanedMerges += entry
-                continue
-            }
-            val verifiedIds = mutableListOf<Long>()
-            val suspectIds = mutableListOf<Long>()
-            for (id in ids) {
-                if (id == targetId) {
-                    verifiedIds += id
-                    continue
-                }
-                val siblingKeys = trackerKeysByMangaId[id].orEmpty()
-                val verified = targetKeys.isEmpty() ||
-                    siblingKeys.isEmpty() ||
-                    targetKeys.any { it in siblingKeys }
-                if (verified) {
-                    verifiedIds += id
-                } else {
-                    suspectIds += id
-                    droppedSiblings++
-                }
-            }
-            for (suspectId in suspectIds) {
-                for (verifiedId in verifiedIds) {
-                    val pair = if (suspectId < verifiedId) "$suspectId,$verifiedId" else "$verifiedId,$suspectId"
-                    addedUnmerges += pair
-                }
-            }
-            if (verifiedIds.size >= 2) {
-                cleanedMerges += verifiedIds.sorted().joinToString(",")
-            }
-        }
-
-        return if (droppedSiblings == 0) {
-            lastMergeCleanupCount = 0
-            originalMerges to originalUnmerges
-        } else {
-            val newUnmerges = (originalUnmerges + addedUnmerges).toSet()
-            preferences.mangaManualMerges().set(cleanedMerges)
-            preferences.mangaManualUnmerges().set(newUnmerges)
-            lastMergeCleanupCount = droppedSiblings
-            cleanedMerges to newUnmerges
-        }
-    }
-
-    /** Local tracker (sync_id, media_id) set for [mangaId]. Empty when the manga isn't tracked. */
-    private suspend fun trackerKeysFor(mangaId: Long): Set<Pair<Long, Long>> =
-        getTrack.awaitAllByMangaId(mangaId)
-            .mapTo(HashSet()) { it.sync_id to it.media_id }
-
-    suspend fun availableSources(): List<Pair<Long, eu.kanade.tachiyomi.source.Source>> {
-        val unmerges = preferences.mangaManualUnmerges().get()
-        return relatedMangaIds.filter { otherId ->
-            if (otherId == mangaId) return@filter true
-            val pair = if (mangaId < otherId) "$mangaId,$otherId" else "$otherId,$mangaId"
-            pair !in unmerges
-        }.mapNotNull { id ->
-            val m = getManga.awaitById(id) ?: return@mapNotNull null
-            if (!m.favorite) return@mapNotNull null
-            id to sourceManager.getOrStub(m.source)
-        }
-    }
+    suspend fun availableSources(): List<Pair<Long, eu.kanade.tachiyomi.source.Source>> =
+        mergeManager.availableSources(mangaId, relatedMangaIds)
 
     fun removeFromGroup(targetId: Long) {
-        val others = relatedMangaIds.filter { it != targetId }
-        if (others.isEmpty()) return
-
-        // Record that targetId must not auto-group with any of the others
-        val unmerges = preferences.mangaManualUnmerges().get().toMutableSet()
-        for (otherId in others) {
-            val pair = if (targetId < otherId) "$targetId,$otherId" else "$otherId,$targetId"
-            unmerges.add(pair)
-        }
-        preferences.mangaManualUnmerges().set(unmerges)
-
-        // Remove entries containing targetId, then re-add one for the remaining IDs
-        // so the rest of the group stays explicitly merged together
-        val merges = preferences.mangaManualMerges().get().toMutableSet()
-        merges.removeAll { entry ->
-            entry.split(",").any { it.trim().toLongOrNull() == targetId }
-        }
-        if (others.size >= 2) {
-            merges.add(others.sorted().joinToString(","))
-        }
-        preferences.mangaManualMerges().set(merges)
-        // Mirror onto in-memory state — see the multi-id overload's comment for why this matters
-        // for the chip-row memo invalidation.
-        relatedMangaIds = others.toLongArray()
+        relatedMangaIds = mergeManager.removeFromGroup(relatedMangaIds, listOf(targetId))
     }
 
     fun removeFromGroup(targetIds: List<Long>) {
-        if (targetIds.isEmpty()) return
-        val targetSet = targetIds.toSet()
-        val others = relatedMangaIds.filter { it !in targetSet }
-        if (others.isEmpty()) return
-
-        // Record that each removed target must not auto-group with any other group member
-        // (both the surviving siblings and any other removed targets). Mirrors the single-id
-        // unmerge shape but runs once instead of N times, so we don't read stale state per loop.
-        val unmerges = preferences.mangaManualUnmerges().get().toMutableSet()
-        for (targetId in targetIds) {
-            for (otherId in relatedMangaIds) {
-                if (otherId == targetId) continue
-                val pair = if (targetId < otherId) "$targetId,$otherId" else "$otherId,$targetId"
-                unmerges.add(pair)
-            }
-        }
-        preferences.mangaManualUnmerges().set(unmerges)
-
-        // Drop every merge entry mentioning any removed target, then re-add a single entry for
-        // the survivors so they stay explicitly grouped.
-        val merges = preferences.mangaManualMerges().get().toMutableSet()
-        merges.removeAll { entry ->
-            entry.split(",").any { it.trim().toLongOrNull() in targetSet }
-        }
-        if (others.size >= 2) {
-            merges.add(others.sorted().joinToString(","))
-        }
-        preferences.mangaManualMerges().set(merges)
-        // Mirror the persisted result onto the in-memory state. Without this, the chip-row memo
-        // (keyed on `(mangaId, relatedMangaIds, unmerges)`) only re-renders when the snackbar
-        // action fires once — a duplicate fire (~10ms apart) leaves it short-circuited because
-        // `relatedMangaIds` was identical between the two `setSourceChips` calls and the second
-        // call hits the cache-hit branch before the first's async chip rebuild has finished.
-        relatedMangaIds = others.toLongArray()
+        relatedMangaIds = mergeManager.removeFromGroup(relatedMangaIds, targetIds)
     }
 
     suspend fun removeFromLibrary(targetIds: List<Long>) {
-        val updates = targetIds.mapNotNull { id ->
-            val target = getManga.awaitById(id) ?: return@mapNotNull null
-            if (!target.favorite) null else MangaUpdate(id = id, favorite = false)
-        }
-        if (updates.isNotEmpty()) updateManga.awaitAll(updates)
-        preferences.invalidateTrackerReconciliationFor(targetIds)
-        // Mirror onto in-memory state so the chip-row memo invalidates (same reasoning as
-        // `removeFromGroup` overloads). The unfavorite write above doesn't trigger the memo since
-        // its key doesn't include manga.favorite — only `(mangaId, relatedMangaIds, unmerges)`.
+        mergeManager.unfavoriteAndReconcile(targetIds)
+        // Mirror onto in-memory state so the chip-row memo invalidates: its key is
+        // `(mangaId, relatedMangaIds, unmerges)`, which the unfavorite write alone doesn't touch.
         val targetSet = targetIds.toSet()
         relatedMangaIds = relatedMangaIds.filter { it !in targetSet }.toLongArray()
-        presenterScope.launchNonCancellableIO {
-            targetIds.forEach { id ->
-                val target = getManga.awaitById(id) ?: return@forEach
-                target.removeCover(coverCache)
-                downloadManager.deleteManga(target, sourceManager.getOrStub(target.source))
-                deleteTrack.awaitForMangaAll(id)
-            }
-        }
+        // Cover / download / track cleanup outlives a mid-run back-out.
+        presenterScope.launchNonCancellableIO { mergeManager.cleanupRemoved(targetIds) }
     }
 
     companion object {
