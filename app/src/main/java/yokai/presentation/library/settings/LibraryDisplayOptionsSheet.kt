@@ -1,39 +1,44 @@
 package yokai.presentation.library.settings
 
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.core.storage.preference.collectAsState
@@ -42,6 +47,7 @@ import eu.kanade.tachiyomi.ui.setting.controllers.SettingsLibraryController
 import eu.kanade.tachiyomi.util.compose.LocalRouter
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
+import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.domain.novel.NovelPreferences
@@ -50,6 +56,7 @@ import yokai.presentation.library.settings.tabs.BadgesTab
 import yokai.presentation.library.settings.tabs.CategoriesTab
 import yokai.presentation.library.settings.tabs.DisplayTab
 import yokai.presentation.library.settings.tabs.FilterTab
+import yokai.presentation.library.settings.tabs.GroupTab
 import yokai.presentation.library.settings.tabs.rememberRoutedPref
 
 /**
@@ -65,8 +72,9 @@ import yokai.presentation.library.settings.tabs.rememberRoutedPref
 
 const val TAB_FILTER = 0
 const val TAB_DISPLAY = 1
-const val TAB_BADGES = 2
-const val TAB_CATEGORIES = 3
+const val TAB_GROUP = 2
+const val TAB_BADGES = 3
+const val TAB_CATEGORIES = 4
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,8 +97,8 @@ fun LibraryDisplayOptionsSheet(
     // Drag-down naturally dismisses; tap-outside dismisses via the scrim. No confirmValueChange
     // veto — that would block the scrim's Hidden transition and break tap-outside.
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var selectedTab by rememberSaveable { mutableIntStateOf(initialTab) }
-    var filterReorderMode by rememberSaveable { mutableStateOf(false) }
+    val pagerState = rememberPagerState(initialPage = initialTab) { 5 }
+    val scope = rememberCoroutineScope()
     val preferences: PreferencesHelper = Injekt.get()
     val novelPrefs: NovelPreferences = Injekt.get()
     // filterOrder lives alongside the per-library filter values, so route by tab regardless of
@@ -98,116 +106,147 @@ fun LibraryDisplayOptionsSheet(
     val filterOrderPref = rememberRoutedPref(isNovelTab, preferences.filterOrder(), novelPrefs.filterOrder())
     val filterOrder by filterOrderPref.collectAsState()
     val router = LocalRouter.currentOrThrow
-    val maxSheetHeight = (LocalConfiguration.current.screenHeightDp / 2).dp
-    // containerColor reads ?attr/background straight off the theme (same pattern as the top
-    // bar and CategoryPickerSheet). createMdc3Theme does not surface the legacy Reikai
-    // custom attr as any M3 ColorScheme token; reading the same attr the library body uses
-    // keeps the sheet visually flush with the content above it.
+    // Cap generously so the sheet grows with its content (like Komikku) instead of the cramped
+    // half-screen it used before; content beyond the cap scrolls inside its tab.
+    val maxSheetHeight = (LocalConfiguration.current.screenHeightDp * 0.7f).dp
+    // containerColor reads ?attr/background straight off the theme (createMdc3Theme doesn't
+    // surface the legacy Reikai attr as an M3 token), keeping the sheet flush with the library.
     val context = LocalContext.current
-    val sheetContainerColor = androidx.compose.runtime.remember(context) {
+    val sheetContainerColor = remember(context) {
         Color(context.getResourceColor(eu.kanade.tachiyomi.R.attr.background))
     }
+    // Komikku's adaptive sheet: a centered floating dialog on wide screens (tablet / unfolded
+    // foldable), a bottom sheet on phones.
+    val isTabletUi = LocalConfiguration.current.screenWidthDp >= 600
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        // Suppress the default drag handle. The title row + tab strip serve as the affordance
-        // and keep the sheet header from feeling stacked vertically. sheetMaxWidth left at the
-        // M3 default (640.dp) so the sheet renders at the same width as CategoryPickerSheet —
-        // on tablets that's centered with breathing room either side, on phones it's full
-        // width (screen narrower than the cap).
-        dragHandle = null,
-        containerColor = sheetContainerColor,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 8.dp, top = 16.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                text = stringResource(MR.strings.display_options),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f),
-            )
-            if (selectedTab == TAB_FILTER) {
-                TextButton(
-                    onClick = { filterReorderMode = !filterReorderMode },
+    val sheetBody: @Composable () -> Unit = {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 4.dp, top = 16.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(MR.strings.display_options),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(
+                    onClick = {
+                        router.pushController(SettingsLibraryController().withFadeTransaction())
+                        onDismiss()
+                    },
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.SwapVert,
-                        contentDescription = null,
-                    )
-                    Text(
-                        text = stringResource(MR.strings.reorder),
-                        modifier = Modifier.padding(start = 4.dp),
+                        imageVector = Icons.Outlined.Settings,
+                        contentDescription = stringResource(MR.strings.more_library_settings),
                     )
                 }
             }
-        }
-        // Transparent containerColor + a thin secondary-color indicator make the tab strip
-        // blend into the sheet surface (no separate colored band). SecondaryTabRow is used
-        // instead of PrimaryTabRow so the indicator is the thinner Material3 style. The
-        // settings gear icon sits on the same row as the tabs (matches the legacy
-        // TabbedLibraryDisplaySheet, which exposes "More library settings" as a corner action).
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SecondaryTabRow(
-                selectedTabIndex = selectedTab,
-                modifier = Modifier.weight(1f),
+            // Tabs drive the pager (and swiping the pager updates the tab indicator). Transparent
+            // container + thin secondary indicator keeps the strip flush with the sheet surface;
+            // the settings gear shares the row as a corner action.
+            ScrollableTabRow(
+                selectedTabIndex = pagerState.currentPage,
+                edgePadding = 12.dp,
                 containerColor = Color.Transparent,
-                indicator = {
-                    TabRowDefaults.SecondaryIndicator(
-                        Modifier.tabIndicatorOffset(selectedTab),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
+                indicator = { tabPositions ->
+                    if (pagerState.currentPage < tabPositions.size) {
+                        TabRowDefaults.SecondaryIndicator(
+                            Modifier.tabIndicatorOffset(tabPositions[pagerState.currentPage]),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 },
                 divider = {},
             ) {
-                TabLabel(MR.strings.filter, selectedTab == TAB_FILTER) { selectedTab = TAB_FILTER }
-                TabLabel(MR.strings.display, selectedTab == TAB_DISPLAY) { selectedTab = TAB_DISPLAY }
-                TabLabel(MR.strings.badges, selectedTab == TAB_BADGES) { selectedTab = TAB_BADGES }
-                TabLabel(MR.strings.categories, selectedTab == TAB_CATEGORIES) { selectedTab = TAB_CATEGORIES }
+                TabLabel(MR.strings.filter, pagerState.currentPage == TAB_FILTER) {
+                    scope.launch { pagerState.animateScrollToPage(TAB_FILTER) }
+                }
+                TabLabel(MR.strings.display, pagerState.currentPage == TAB_DISPLAY) {
+                    scope.launch { pagerState.animateScrollToPage(TAB_DISPLAY) }
+                }
+                TabLabel(MR.strings.group, pagerState.currentPage == TAB_GROUP) {
+                    scope.launch { pagerState.animateScrollToPage(TAB_GROUP) }
+                }
+                TabLabel(MR.strings.badges, pagerState.currentPage == TAB_BADGES) {
+                    scope.launch { pagerState.animateScrollToPage(TAB_BADGES) }
+                }
+                TabLabel(MR.strings.categories, pagerState.currentPage == TAB_CATEGORIES) {
+                    scope.launch { pagerState.animateScrollToPage(TAB_CATEGORIES) }
+                }
             }
-            IconButton(
-                onClick = {
-                    router.pushController(SettingsLibraryController().withFadeTransaction())
-                    onDismiss()
-                },
-                modifier = Modifier.padding(end = 4.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Settings,
-                    contentDescription = stringResource(MR.strings.more_library_settings),
-                )
+            // Swipeable tab content. Each tab provides its own verticalScroll and is capped to a
+            // fraction of the screen. animateContentSize smooths the height change between tabs;
+            // it's safe now that no page feeds its height back via weight (that caused the flicker).
+            HorizontalPager(
+                state = pagerState,
+                verticalAlignment = Alignment.Top,
+                modifier = Modifier.fillMaxWidth().animateContentSize(),
+            ) { page ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = maxSheetHeight)
+                        .padding(horizontal = 16.dp),
+                ) {
+                    when (page) {
+                        TAB_FILTER -> FilterTab(
+                            detectedMangaTypes = detectedMangaTypes,
+                            loggedTrackerNames = loggedTrackerNames,
+                            filterOrder = filterOrder,
+                            onFilterOrderChanged = { filterOrderPref.set(it) },
+                            onApply = onDismiss,
+                            isNovelTab = isNovelTab,
+                        )
+                        TAB_DISPLAY -> DisplayTab(isNovelTab = isNovelTab)
+                        TAB_GROUP -> GroupTab(isNovelTab = isNovelTab)
+                        TAB_BADGES -> BadgesTab(isNovelTab = isNovelTab)
+                        TAB_CATEGORIES -> CategoriesTab(onDismissSheet = onDismiss, isNovelTab = isNovelTab)
+                    }
+                }
             }
         }
-        // Cap body height to half the screen so the Expanded sheet does not grow to ~95% on
-        // tablets. Content uses its own verticalScroll (each tab provides its own), so overflow
-        // scrolls inside the capped area instead of resizing the sheet.
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = maxSheetHeight)
-                .padding(horizontal = 16.dp),
+    }
+
+    if (isTabletUi) {
+        Dialog(
+            onDismissRequest = onDismiss,
+            properties = DialogProperties(usePlatformDefaultWidth = false),
         ) {
-            when (selectedTab) {
-                TAB_FILTER -> FilterTab(
-                    detectedMangaTypes = detectedMangaTypes,
-                    loggedTrackerNames = loggedTrackerNames,
-                    reorderMode = filterReorderMode,
-                    filterOrder = filterOrder,
-                    onFilterOrderChanged = { filterOrderPref.set(it) },
-                    onApply = onDismiss,
-                    isNovelTab = isNovelTab,
-                )
-                TAB_DISPLAY -> DisplayTab(isNovelTab = isNovelTab)
-                TAB_BADGES -> BadgesTab(isNovelTab = isNovelTab)
-                TAB_CATEGORIES -> CategoriesTab(onDismissSheet = onDismiss, isNovelTab = isNovelTab)
+            // Full-screen centered Box keeps the Dialog window stable while only the Surface
+            // animates (mirrors Komikku's AdaptiveSheet), so the expand/shrink between tabs is
+            // smooth instead of the window re-layouting per frame. Tap outside the Surface
+            // dismisses; taps on the Surface are absorbed.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(interactionSource = null, indication = null, onClick = onDismiss),
+                contentAlignment = Alignment.Center,
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .widthIn(max = 460.dp)
+                        .clickable(interactionSource = null, indication = null, onClick = {}),
+                    shape = RoundedCornerShape(28.dp),
+                    color = sheetContainerColor,
+                    shadowElevation = 6.dp,
+                    tonalElevation = 0.dp,
+                ) {
+                    sheetBody()
+                }
             }
+        }
+    } else {
+        ModalBottomSheet(
+            onDismissRequest = onDismiss,
+            sheetState = sheetState,
+            dragHandle = null,
+            containerColor = sheetContainerColor,
+        ) {
+            sheetBody()
         }
     }
 }

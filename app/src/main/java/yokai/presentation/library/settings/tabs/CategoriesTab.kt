@@ -43,8 +43,6 @@ import yokai.domain.novel.interactor.GetNovelCategories
 import yokai.i18n.MR
 import yokai.presentation.component.preference.widget.ListPreferenceWidget
 import yokai.presentation.component.preference.widget.SwitchPreferenceWidget
-import yokai.presentation.library.components.GroupLibraryByPicker
-import yokai.presentation.library.components.rememberGroupByEntries
 
 /**
  * Categories tab. Top section carries the library-shaping actions that used to live in the
@@ -103,8 +101,6 @@ fun CategoriesTab(
     val categorySortOrderPref = rememberRoutedPref(routeToNovel, preferences.categorySortOrder(), novelPrefs.categorySortOrder())
     val categorySortOrder by categorySortOrderPref.collectAsState()
 
-    val groupByEntries = rememberGroupByEntries()
-
     // Mirrors the legacy hideHopperSpinner: index 0 = always shown, 1 = autohide on scroll,
     // 2 = always hidden. Encoded as (hideHopper * 2) + autohideHopper, clamped to [0, 2].
     val hopperVisibility = (hideHopper.toInt() * 2 + autohideHopper.toInt()).coerceAtMost(2)
@@ -136,10 +132,9 @@ fun CategoriesTab(
     //   1. always_show_current_category, show_all_categories, move_dynamic_to_bottom,
     //      show_categories_while_filtering, hide_category_hopper, category_hopper_long_press
     //   2. Divider
-    //   3. Library-shape actions: group_library_by, expand/collapse-all (which the legacy
-    //      surfaces in the Filter sheet's action bar; we keep them here so the Categories tab
-    //      remains self-contained, but separate them visually since they reshape the library
-    //      rather than tweaking display).
+    //   3. Library-shape action: expand/collapse-all (which the legacy surfaces in the Filter
+    //      sheet's action bar; kept here, separated visually since it reshapes the library rather
+    //      than tweaking display). Group-by moved to its own Group tab.
     //   4. Divider
     //   5. add_edit_categories button.
     Column(
@@ -214,11 +209,8 @@ fun CategoriesTab(
             onValueChange = { categorySortOrderPref.set(it) },
         )
 
-        GroupLibraryByPicker(
-            selected = groupLibraryBy,
-            entries = groupByEntries,
-            onSelect = { groupLibraryByPref.set(it) },
-        )
+        // Group-by now lives in its own Group tab; only the expand/collapse-all action (which
+        // depends on BY_DEFAULT grouping) and Add/edit categories remain here.
 
         // Expand / collapse all only operates on BY_DEFAULT grouping. The pref is a
         // Set<String> of category IDs the legacy treats as collapsed

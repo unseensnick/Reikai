@@ -175,23 +175,32 @@ private fun GridSizeRow(
     val portraitLabel = stringResource(MR.strings.portrait)
     val landscapeLabel = stringResource(MR.strings.landscape)
 
-    Row(
+    // Komikku-style slider item: title + live size readout (and Reset) on top, full-width ticked
+    // slider below, instead of the old cramped one-row layout.
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Column {
-            Text(
-                text = stringResource(MR.strings.grid_size),
-                style = MaterialTheme.typography.bodyLarge,
-            )
-            Text(
-                text = "$portraitLabel: $portraitCols • $landscapeLabel: $landscapeCols",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(MR.strings.grid_size),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Text(
+                    text = "$portraitLabel: $portraitCols • $landscapeLabel: $landscapeCols",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            TextButton(onClick = onReset) {
+                Text(stringResource(MR.strings.reset))
+            }
         }
         Slider(
             value = sliderValue,
@@ -199,11 +208,8 @@ private fun GridSizeRow(
             valueRange = 0f..7f,
             // 6 intermediate steps between 0 and 7 -> ticks at every integer.
             steps = 6,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.fillMaxWidth(),
         )
-        TextButton(onClick = onReset) {
-            Text(stringResource(MR.strings.reset))
-        }
     }
 }
 
