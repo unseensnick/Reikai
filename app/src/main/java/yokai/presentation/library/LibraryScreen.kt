@@ -39,7 +39,6 @@ import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
-import yokai.presentation.library.components.LibraryCategoryTabs
 import yokai.presentation.library.components.SelectionAction
 import yokai.presentation.library.manga.actions.DownloadAction
 import eu.kanade.tachiyomi.domain.manga.models.Manga
@@ -410,19 +409,11 @@ class LibraryScreen : Screen {
 
         LibraryContent(
             library = finalLibrary,
-            // Manga/Novels pills, plus a scrollable category tab row when showing one category at a
-            // time (show-all off) so the user can switch categories Komikku-style. Tabs dispatch
-            // through setLastUsedCategory, the same path the hopper and swipe gesture use.
-            topBarBelow = {
-                tabRow()
-                if (singleCategoryMode) {
-                    LibraryCategoryTabs(
-                        categories = allCategories,
-                        selectedId = activeCategoryInSingleMode?.id,
-                        onSelect = { if (it.order >= 0) screenModel.setLastUsedCategory(it.order) },
-                    )
-                }
-            },
+            categoryPages = if (singleCategoryMode) allCategories.map { it to (displayedLibrary[it].orEmpty()) } else emptyList(),
+            // Just the Manga/Novels pills here; the scrollable category tab row is rendered inside
+            // LibraryContent (below the pills) so it can follow the pager's currentPage instantly
+            // instead of lagging behind the lastUsedCategory pref round-trip.
+            topBarBelow = tabRow,
             singleCategoryMode = singleCategoryMode,
             allCategories = allCategories,
             categoryItemCounts = categoryItemCounts,

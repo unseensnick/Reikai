@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListState
@@ -77,6 +79,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -109,9 +112,9 @@ import eu.kanade.tachiyomi.util.system.isTablet
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.widget.EmptyView
 import kotlin.math.abs
-import kotlin.math.pow
 import kotlin.math.roundToInt
-import kotlin.math.sign
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -128,6 +131,7 @@ import yokai.presentation.component.CompactPivotScrollBehavior
 import yokai.presentation.component.EmptyScreen
 import yokai.presentation.component.ReikaiLargeTopBar
 import yokai.presentation.library.components.LibraryCategoryHeader
+import yokai.presentation.library.components.LibraryCategoryTabs
 import yokai.presentation.library.components.LibraryOverflowMenu
 import yokai.presentation.library.components.SelectionAppBar
 import yokai.presentation.library.settings.LibraryDisplayOptionsSheet
@@ -148,6 +152,12 @@ private const val LIBRARY_COVER_BOOK_RATIO = 2f / 3f
 fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
     library: Map<C, List<T>>,
     allCategories: List<C>,
+    /**
+     * One entry per user category for single-category mode: `(category, that category's items)`.
+     * Backs the [HorizontalPager] so swiping slides whole categories like pages, each with its own
+     * scroll state. Empty in show-all mode (the [library] map drives that path instead).
+     */
+    categoryPages: List<Pair<C, List<T>>> = emptyList(),
     categoryItemCounts: Map<Int, Int>,
     /**
      * Per-category item count for the in-grid header. Sourced from the post-filter,
@@ -486,7 +496,48 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
     // pull-to-refresh's currentCategoryOrder lookup target the right category AND ensures the
     // legacy library opens on the right category if the user toggles back.
     LaunchedEffect(activeCategory) {
-        activeCategory?.let { onActiveCategoryChange(it) }
+        if (!singleCategoryMode) {
+            activeCategory?.let { onActiveCategoryChange(it) }
+        }
+    }
+
+    // Single-category mode renders each category as a HorizontalPager page (its own scroll
+    // state), so swiping slides whole categories together. singleActiveIndex maps the externally
+    // chosen active category (tab tap / hopper / lastUsedCategory pref) to a page index; the two
+    // effects below bridge external selection <-> pager position without looping (see the
+    // settle->persist->index->no-animate reasoning in the page-settle effect).
+    val singleActiveIndex = remember(categoryPages, library) {
+        val activeId = library.keys.firstOrNull()?.id
+        categoryPages.indexOfFirst { it.first.id == activeId }.coerceAtLeast(0)
+    }
+    val categoryPagerState = rememberPagerState(initialPage = singleActiveIndex) {
+        categoryPages.size.coerceAtLeast(1)
+    }
+    // External change (tab tap / hopper / pref) -> animate the pager to match.
+    LaunchedEffect(singleActiveIndex) {
+        if (singleCategoryMode && singleActiveIndex in categoryPages.indices &&
+            categoryPagerState.currentPage != singleActiveIndex
+        ) {
+            categoryPagerState.animateScrollToPage(singleActiveIndex)
+        }
+    }
+    // Pager settle -> persist the active category. drop(1) skips the initial emission so we don't
+    // write the already-current category on first composition.
+    LaunchedEffect(categoryPagerState, singleCategoryMode) {
+        if (!singleCategoryMode) return@LaunchedEffect
+        snapshotFlow { categoryPagerState.settledPage }
+            .drop(1)
+            .collectLatest { page ->
+                categoryPages.getOrNull(page)?.first?.let { onActiveCategoryChange(it) }
+            }
+    }
+    // Hopper / random-in-category read the active category. In single mode the pager's current
+    // page is the source of truth (it can be mid-swipe before the pref write lands); show-all
+    // falls back to the scroll-derived activeCategory.
+    val effectiveActiveCategory = if (singleCategoryMode) {
+        categoryPages.getOrNull(categoryPagerState.currentPage)?.first
+    } else {
+        activeCategory
     }
 
     // singleCategoryMode keeps the chip visible because library.size == 1 in that mode but the
@@ -539,7 +590,7 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
         // Switch the active category by writing through onActiveCategoryChange instead of
         // scrolling. No-wrap matches legacy: at the first category, up is a no-op.
         {
-            val active = activeCategory
+            val active = effectiveActiveCategory
             val currentIdx = if (active != null) allCategories.indexOfFirst { it.id == active.id } else -1
             if (currentIdx > 0) {
                 onActiveCategoryChange(allCategories[currentIdx - 1])
@@ -567,7 +618,7 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
     }
     val onHopperDown = if (singleCategoryMode) {
         {
-            val active = activeCategory
+            val active = effectiveActiveCategory
             val currentIdx = if (active != null) allCategories.indexOfFirst { it.id == active.id } else -1
             if (currentIdx >= 0 && currentIdx < allCategories.lastIndex) {
                 onActiveCategoryChange(allCategories[currentIdx + 1])
@@ -932,7 +983,22 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                         )
                     },
                     scrollBehavior = scrollBehavior,
-                    below = topBarBelow,
+                    below = {
+                        topBarBelow()
+                        // Scrollable category tab row, driven straight off the pager's currentPage
+                        // so the highlight tracks a swipe instantly (no lastUsedCategory round-trip
+                        // lag). Tapping a tab animates the pager to that category.
+                        if (singleCategoryMode && categoryPages.size > 1) {
+                            LibraryCategoryTabs(
+                                categories = allCategories,
+                                selectedId = allCategories.getOrNull(categoryPagerState.currentPage)?.id,
+                                onSelect = { cat ->
+                                    val idx = allCategories.indexOfFirst { it.id == cat.id }
+                                    if (idx >= 0) coroutineScope.launch { categoryPagerState.animateScrollToPage(idx) }
+                                },
+                            )
+                        }
+                    },
                     // In-place search-expand: when searchActive flips true, the card transforms
                     // into the back-arrow + TextField + clear-button form at the same size +
                     // position (mirrors upstream's MiniSearchView.onActionViewExpanded). No
@@ -1036,125 +1102,10 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
         // empty library as a centered column on every form factor (icon above text above CTA);
         // force that layout here regardless of screen width so the empty state reads the same.
         val isTabletMode = false
-        // Single-category-mode horizontal swipe to switch active category. Faithful port of
-        // legacy LibraryCategoryGestureDetector (refs/yokai + Reikai, files identical):
-        //
-        //  1. Resistance curve, not 1:1 finger-follow. translationX =
-        //     abs(distance/50)^1.7 * sign(distance). At a 150px drag the grid only moves ~6.5px;
-        //     at 600px it moves ~67px. Gives the legacy "rubber band" feel rather than dragging
-        //     a sheet of paper. Earlier polish iteration shipped 1:1 follow and users perceived
-        //     it as wrong vs legacy.
-        //  2. Raw-pixel thresholds (not dp). MotionEvent distances in legacy are raw pixels;
-        //     thresholds 150 (= SWIPE_THRESHOLD * 3) and 100 (= SWIPE_VELOCITY_THRESHOLD) are
-        //     raw px, density-independent. Matching this preserves the exact gesture cadence
-        //     across device densities.
-        //  3. Direction-change cancel. Legacy commit 32222476e0 added
-        //     `sign(diffX) == sign(velocityX)` so a swipe that flicks back at the end (drag
-        //     right, then accelerate left) does not trigger a switch.
-        //  4. Hopper touch-start exclusion (legacy onDown at lines 25-38). Achieved here by
-        //     mounting Modifier.draggable on the INNER offset Box rather than the outer Box:
-        //     the hopper card and ActiveCategoryChip are siblings of the inner Box and absorb
-        //     pointer events first via Compose z-order, so swipes starting on them never reach
-        //     the draggable. The top app bar lives in the Scaffold's topBar slot, already
-        //     outside this content area.
-        //
-        // Deferred (matches Phase 3 hopper-drag deferral): RTL flip
-        // (legacy `(diffX >= 0).xor(isLTR)`) and Compose's drag-slop window vs legacy's 50px
-        // vertical-abort. Compose's Orientation.Horizontal slop ownership handles the
-        // vertical-abort intent at a different threshold; revisit if anyone reports it.
-        val resistancePivotPx = 50f
-        val resistancePower = 1.7f
-        val swipeDistanceThresholdPx = 150f
-        val swipeVelocityThresholdPx = 100f
-        var rawDragDistancePx by remember { mutableFloatStateOf(0f) }
-        val swipeOffset = remember { Animatable(0f) }
-        val swipeDraggableState = rememberDraggableState { delta ->
-            rawDragDistancePx += delta
-            val raw = rawDragDistancePx
-            val displayed = if (raw == 0f) {
-                0f
-            } else {
-                (abs(raw) / resistancePivotPx).pow(resistancePower) * sign(raw)
-            }
-            // Animatable.snapTo is suspend; launch on the existing coroutineScope. Per-delta
-            // launches serialize via the draggable's internal mutex, so order is preserved.
-            coroutineScope.launch { swipeOffset.snapTo(displayed) }
-        }
-        val swipeStateForCallback = androidx.compose.runtime.rememberUpdatedState(
-            Triple(activeCategory, allCategories, onActiveCategoryChange),
-        )
-        // Safety-net snap-back. The onDragStopped lambda also animates swipeOffset back to 0,
-        // but on a successful swipe the dispatch triggers a pref write → screen-model state
-        // emission → recomposition cycle that can interrupt the in-flight Animatable (covers
-        // observed landing at the post-drag offset after the swap). Keying a LaunchedEffect on
-        // activeCategory guarantees that whenever the visible category changes (whether from
-        // swipe, hopper picker, or hopper nav), the offset resets to 0 in a stable scope that
-        // recomposition can't tear down.
-        LaunchedEffect(activeCategory) {
-            if (swipeOffset.value != 0f) {
-                swipeOffset.animateTo(0f, tween(durationMillis = 150))
-            }
-        }
         Box(
             modifier = Modifier
                 .onSizeChanged { parentWidthPx = it.width },
         ) {
-          Box(
-            // Drag-follow with resistance curve (see comment block above). Reading
-            // swipeOffset.value inside Modifier.offset registers a state read in the
-            // deferred-offset lambda so the translate updates per frame without
-            // recomposing the content tree. Modifier.draggable lives on THIS inner Box
-            // (not the outer) so the chip and hopper, which are siblings rendered above
-            // this Box, intercept touches before the draggable sees them.
-            //
-            // fillMaxSize: without it the Box wraps the lazy grid's content size, so a
-            // category with only a few items leaves the empty space below outside the
-            // swipe hit area (legacy works from anywhere on the library; on-device
-            // feedback flagged the "must drag on cover" feel). With fillMaxSize the gesture
-            // surface spans the full available height; the chip and hopper sit above this
-            // Box via z-order so their touch handlers still win first.
-            modifier = Modifier
-                .fillMaxSize()
-                .offset { IntOffset(swipeOffset.value.roundToInt(), 0) }
-                .draggable(
-                    state = swipeDraggableState,
-                    orientation = Orientation.Horizontal,
-                    enabled = singleCategoryMode,
-                    onDragStarted = {
-                        rawDragDistancePx = 0f
-                        // Cancel any in-flight snap-back so a quick follow-up swipe starts
-                        // from exactly where the finger lands.
-                        swipeOffset.stop()
-                    },
-                    onDragStopped = { velocity ->
-                        val totalDistance = rawDragDistancePx
-                        rawDragDistancePx = 0f
-                        // Direction-change cancel: legacy
-                        // `sign(diffX) == sign(velocityX)` at LibraryCategoryGestureDetector.kt:87.
-                        // sign(0) is 0; the threshold check below rules out zero-distance cases.
-                        val sameDirection = sign(totalDistance) == sign(velocity)
-                        if (sameDirection &&
-                            abs(totalDistance) > swipeDistanceThresholdPx &&
-                            abs(velocity) > swipeVelocityThresholdPx
-                        ) {
-                            val (active, cats, dispatch) = swipeStateForCallback.value
-                            val activeId = active?.id
-                            if (activeId != null) {
-                                val currentIdx = cats.indexOfFirst { it.id == activeId }
-                                if (currentIdx >= 0) {
-                                    // Swipe-left (totalDistance < 0) → next category, matches
-                                    // legacy `jumpToNextCategory(next=true)` under LTR.
-                                    val targetIdx = if (totalDistance < 0) currentIdx + 1 else currentIdx - 1
-                                    cats.getOrNull(targetIdx)?.let(dispatch)
-                                }
-                            }
-                        }
-                        // Always animate back to 0, whether or not the switch fired. Matches
-                        // LibraryCategoryGestureDetector.kt:91-94.
-                        swipeOffset.animateTo(0f, tween(durationMillis = 150))
-                    },
-                ),
-          ) {
             when {
                 narrowedToEmpty -> EmptyScreen(
                     image = Icons.Filled.HeartBroken,
@@ -1176,6 +1127,34 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                             },
                         ),
                     )
+                }
+                // Single-category mode: one pager page per user category, each header-less and
+                // with its own scroll state, so a horizontal swipe slides whole categories like a
+                // real pager. Show-all keeps the single-grid path below unchanged.
+                singleCategoryMode -> {
+                    HorizontalPager(
+                        state = categoryPagerState,
+                        modifier = Modifier.fillMaxSize(),
+                        verticalAlignment = Alignment.Top,
+                    ) { page ->
+                        // Render only the active page and its immediate neighbours; far pages
+                        // skip composing their grids so off-screen categories stay cheap.
+                        if (page !in (categoryPagerState.currentPage - 1)..(categoryPagerState.currentPage + 1)) {
+                            return@HorizontalPager
+                        }
+                        val (cat, items) = categoryPages[page]
+                        CategoryItemsPage(
+                            items = items,
+                            isList = isList,
+                            isStaggered = isStaggered,
+                            columns = columns,
+                            categoryId = cat.id ?: 0,
+                            selection = selection,
+                            uniformGrid = uniformGrid,
+                            listItemRenderer = listItemRenderer,
+                            gridItemRenderer = gridItemRenderer,
+                        )
+                    }
                 }
                 isList -> {
                     LazyLibraryList(
@@ -1391,7 +1370,6 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                     }
                 }
             }
-          }
             if (showChip) {
                 ActiveCategoryChip(
                     name = activeCategory!!.name,
@@ -1577,6 +1555,82 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                         sortingCategoryId = null
                     },
                     onDismiss = { sortingCategoryId = null },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * One HorizontalPager page in single-category mode: a header-less grid/list of [items] for a
+ * single category, with its own lazy-scroll state so each page scrolls independently. Layout
+ * variant matches the active library layout. Keys are prefixed with [categoryId] so the same
+ * manga appearing across dynamic categories doesn't collide. Mirrors the per-item rendering of
+ * the show-all branches (same key / contentType / selection / cover-ratio rules), minus headers.
+ */
+@Composable
+private fun <T : LibraryItem> CategoryItemsPage(
+    items: List<T>,
+    isList: Boolean,
+    isStaggered: Boolean,
+    columns: Int,
+    categoryId: Int,
+    selection: Set<Long>,
+    uniformGrid: Boolean,
+    listItemRenderer: @Composable (item: T, isSelected: Boolean, selectionActive: Boolean, modifier: Modifier) -> Unit,
+    gridItemRenderer: @Composable (item: T, isSelected: Boolean, selectionActive: Boolean, modifier: Modifier, coverAspectRatio: Float?) -> Unit,
+) {
+    when {
+        isList -> LazyLibraryList(
+            modifier = Modifier.fillMaxSize(),
+            state = rememberLazyListState(),
+            contentPadding = PaddingValues(0.dp),
+        ) {
+            items(
+                items = items,
+                key = { "$categoryId:${it.itemId ?: 0L}" },
+                contentType = { "library_list_item" },
+            ) { item ->
+                val itemId = item.itemId
+                val isSelected = itemId != null && itemId in selection
+                listItemRenderer(item, isSelected, selection.isNotEmpty(), Modifier.animateItem())
+            }
+        }
+        isStaggered -> LazyLibraryStaggeredGrid(
+            modifier = Modifier.fillMaxSize(),
+            columns = columns,
+            state = rememberLazyStaggeredGridState(),
+            contentPadding = PaddingValues(0.dp),
+        ) {
+            items(
+                items = items,
+                key = { "$categoryId:${it.itemId ?: 0L}" },
+                contentType = { "library_grid_item" },
+            ) { item ->
+                val itemId = item.itemId
+                val isSelected = itemId != null && itemId in selection
+                gridItemRenderer(item, isSelected, selection.isNotEmpty(), Modifier.animateItem(), null)
+            }
+        }
+        else -> LazyLibraryGrid(
+            modifier = Modifier.fillMaxSize(),
+            columns = columns,
+            state = rememberLazyGridState(),
+            contentPadding = PaddingValues(0.dp),
+        ) {
+            items(
+                items = items,
+                key = { "$categoryId:${it.itemId ?: 0L}" },
+                contentType = { "library_grid_item" },
+            ) { item ->
+                val itemId = item.itemId
+                val isSelected = itemId != null && itemId in selection
+                gridItemRenderer(
+                    item,
+                    isSelected,
+                    selection.isNotEmpty(),
+                    Modifier.animateItem(),
+                    if (uniformGrid) LIBRARY_COVER_BOOK_RATIO else null,
                 )
             }
         }
