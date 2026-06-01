@@ -35,7 +35,7 @@ class RelatedMangaBrowseItem(
         position: Int,
         payloads: MutableList<Any?>?,
     ) {
-        holder.bind(sourceId, manga, adapter.isSelected(position))
+        holder.bind(sourceId, trackerName, manga, adapter.isSelected(position))
     }
 
     override fun equals(other: Any?): Boolean {

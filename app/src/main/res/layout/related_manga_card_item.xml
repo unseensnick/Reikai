@@ -63,4 +63,29 @@
         app:layout_constraintTop_toBottomOf="@+id/card"
         tools:text="Sample manga title" />
 
+    <!-- Provenance chip: source name, or tracker name for tracker-origin picks. Bound (and shown)
+         only by the browse-grid holder; the carousel holder leaves it gone. -->
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/provenance"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:background="@drawable/related_provenance_chip_bg"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:paddingStart="6dp"
+        android:paddingTop="2dp"
+        android:paddingEnd="6dp"
+        android:paddingBottom="2dp"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:textSize="10sp"
+        android:visibility="gone"
+        app:layout_constrainedWidth="true"
+        app:layout_constraintHorizontal_bias="0"
+        app:layout_constraintEnd_toEndOf="@+id/title"
+        app:layout_constraintStart_toStartOf="@+id/title"
+        app:layout_constraintTop_toBottomOf="@+id/title"
+        tools:text="Manganato"
+        tools:visibility="visible" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>
