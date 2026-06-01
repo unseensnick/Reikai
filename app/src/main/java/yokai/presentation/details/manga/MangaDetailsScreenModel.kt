@@ -726,6 +726,18 @@ class MangaDetailsScreenModel(
         return sourceManager.getOrStub(manga.source) is HttpSource
     }
 
+    /** Display name of the manga's source, for the header info block. */
+    fun sourceName(): String {
+        val manga = currentManga() ?: return ""
+        return sourceManager.getOrStub(manga.source).name
+    }
+
+    /** True when the source isn't installed (a stub), so the header can flag it. */
+    fun isStubSource(): Boolean {
+        val manga = currentManga() ?: return false
+        return sourceManager.getOrStub(manga.source) is SourceManager.StubSource
+    }
+
     fun skipPreMigration(): Boolean = preferences.skipPreMigration().get()
 
     private fun currentManga(): Manga? = (state.value as? MangaDetailsState.Loaded)?.manga

@@ -1,12 +1,17 @@
 package yokai.presentation.details
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,35 +19,65 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.ArrowCircleDown
+import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.Brush
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Done
+import androidx.compose.material.icons.outlined.DoneAll
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material.icons.outlined.IosShare
+import androidx.compose.material.icons.outlined.MonetizationOn
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
+import eu.kanade.tachiyomi.source.model.SManga
 import yokai.presentation.manga.components.MangaCover
 import yokai.presentation.manga.components.MangaCoverRatio
 
@@ -84,8 +119,9 @@ data class DetailsRelatedItem(
  * Shared details body for manga and (later) novels. Pure renderer over already-resolved header
  * fields plus a list of [DetailsChapterRow]; holds no domain types so both surfaces feed it.
  *
- * Chapter-row interactions (tap, long-press, download badge) and the manga-only feature rows
- * (downloads, tracking, merge) land in later phases as the screen grows.
+ * The header mirrors upstream Yokai / Komikku: a blurred cover backdrop behind a side-by-side
+ * cover + info block, an icon-over-label action row, and an expandable description with genre chips.
+ * Capability callbacks are nullable so the novel surface can opt features out.
  */
 // no ScreenModel: pure UI, no async state.
 @Composable
@@ -93,15 +129,39 @@ fun DetailsContent(
     coverData: Any?,
     title: String,
     author: String?,
+    artist: String?,
+    status: Int,
     statusText: String?,
+    sourceName: String,
+    isStubSource: Boolean,
     description: String?,
     genres: List<String>,
     chapters: List<DetailsChapterRow>,
     onChapterClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    /** Hoisted so the screen can drive the top-bar background alpha from the scroll position. */
+    listState: LazyListState = rememberLazyListState(),
+    /** Top inset (status bar + app bar height) so the header backdrop fills behind the transparent bar. */
+    topInset: Dp = 0.dp,
+    /** Bottom inset (nav bar) added to the list's bottom padding. */
+    bottomInset: Dp = 0.dp,
     isFavorited: Boolean = false,
-    /** When non-null, renders the favorite button in the header. Null = no favorite UI (future novel probe). */
+    /** When non-null, renders the favorite action button. Null = no favorite UI (future novel probe). */
     onFavoriteClick: (() -> Unit)? = null,
+    /** Favorite long-press (edit categories). Null = no long-press. */
+    onEditCategoryClick: (() -> Unit)? = null,
+    /** Tapping the cover (zoom). Null = not clickable. */
+    onCoverClick: (() -> Unit)? = null,
+    /** True when at least one tracker is registered, so the Tracking button shows its active accent. */
+    trackingActive: Boolean = false,
+    /** When non-null, renders the Tracking action button. Null = no tracking UI (novels). */
+    onTrackingClick: (() -> Unit)? = null,
+    /** When non-null, renders the WebView action button. Null hides it (local sources / novels). */
+    onWebViewClick: (() -> Unit)? = null,
+    /** When non-null, renders the Share action button. Null hides it (local sources / novels). */
+    onShareClick: (() -> Unit)? = null,
+    /** Tapping the chapters header (open sort/filter). Null = not clickable. */
+    onFilterClick: (() -> Unit)? = null,
     /** When non-null, each row shows a download indicator; tapping it calls back with the id. Null = no download UI (novels). */
     onDownloadClick: ((Long) -> Unit)? = null,
     /** True while at least one chapter is selected; rows toggle selection on tap instead of opening. */
@@ -120,70 +180,40 @@ fun DetailsContent(
     onSeeAllClick: (() -> Unit)? = null,
 ) {
     LazyColumn(
+        state = listState,
         modifier = modifier.fillMaxSize(),
         // Leave room so the resume FAB doesn't cover the last chapter row.
-        contentPadding = PaddingValues(bottom = 88.dp),
+        contentPadding = PaddingValues(bottom = 88.dp + bottomInset),
     ) {
         item(key = "header") {
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                Box(modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally)) {
-                    MangaCover(
-                        data = coverData,
-                        ratio = MangaCoverRatio.BOOK,
-                        contentDescription = title,
-                        modifier = Modifier.width(180.dp),
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-                Text(text = title, style = MaterialTheme.typography.titleLarge)
-                author?.takeIf { it.isNotBlank() }?.let {
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                statusText?.takeIf { it.isNotBlank() }?.let {
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                if (onFavoriteClick != null) {
-                    Spacer(Modifier.height(12.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        FilledTonalIconButton(onClick = onFavoriteClick) {
-                            Icon(
-                                imageVector = if (isFavorited) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                                contentDescription = if (isFavorited) "Remove from library" else "Add to library",
-                                tint = if (isFavorited) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                        Text(
-                            text = if (isFavorited) "In library" else "Add to library",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                }
-                description?.takeIf { it.isNotBlank() }?.let {
-                    Spacer(Modifier.height(12.dp))
-                    SelectionContainer { Text(text = it, style = MaterialTheme.typography.bodyMedium) }
-                }
-                genres.takeIf { it.isNotEmpty() }?.let {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = it.joinToString("  •  "),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+            DetailsHeaderBox(
+                coverData = coverData,
+                title = title,
+                author = author,
+                artist = artist,
+                status = status,
+                statusText = statusText,
+                sourceName = sourceName,
+                isStubSource = isStubSource,
+                onCoverClick = onCoverClick,
+                topInset = topInset,
+            )
+        }
+        if (onFavoriteClick != null) {
+            item(key = "actions") {
+                DetailsActionRow(
+                    isFavorited = isFavorited,
+                    onFavoriteClick = onFavoriteClick,
+                    onEditCategoryClick = onEditCategoryClick,
+                    trackingActive = trackingActive,
+                    onTrackingClick = onTrackingClick,
+                    onWebViewClick = onWebViewClick,
+                    onShareClick = onShareClick,
+                )
             }
+        }
+        item(key = "description") {
+            ExpandableDescription(description = description, genres = genres)
         }
         if ((relatedMangas.isNotEmpty() || relatedMangasLoading) && onRelatedClick != null) {
             item(key = "related") {
@@ -197,14 +227,7 @@ fun DetailsContent(
             }
         }
         item(key = "chapter_count") {
-            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Text(
-                    text = "${chapters.size} chapter${if (chapters.size == 1) "" else "s"}",
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                Spacer(Modifier.height(8.dp))
-                HorizontalDivider()
-            }
+            ChapterHeader(count = chapters.size, onClick = onFilterClick)
         }
         items(items = chapters, key = { it.id }) { chapter ->
             DetailsChapterListRow(
@@ -221,6 +244,316 @@ fun DetailsContent(
                 onDownloadClick = onDownloadClick?.let { cb -> { cb(chapter.id) } },
             )
         }
+    }
+}
+
+@Composable
+private fun DetailsHeaderBox(
+    coverData: Any?,
+    title: String,
+    author: String?,
+    artist: String?,
+    status: Int,
+    statusText: String?,
+    sourceName: String,
+    isStubSource: Boolean,
+    onCoverClick: (() -> Unit)?,
+    topInset: Dp,
+) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        // Blurred cover backdrop fading into the page background. Crop fills the width (without it
+        // AsyncImage defaults to Fit, leaving a small letterboxed image). Blur only renders on
+        // API 31+ (a no-op below, same as the legacy header's S+ gate); the surfaceTint backing
+        // gives it body before the per-cover palette tint (Phase B) lands.
+        val backgroundColor = MaterialTheme.colorScheme.background
+        val tint = MaterialTheme.colorScheme.surfaceTint
+        AsyncImage(
+            model = coverData,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .matchParentSize()
+                .drawWithContent {
+                    drawContent()
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, backgroundColor),
+                            startY = size.height / 2,
+                        ),
+                    )
+                }
+                .background(tint.copy(alpha = 0.4f))
+                .blur(16.dp)
+                .alpha(0.3f),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = topInset + 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            // Cover scales with screen width (legacy used a 0.25 width-percent capped at 200dp via
+            // the sw600dp layouts), so it grows on tablets / unfolded foldables but stays ~100dp on
+            // a phone.
+            val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
+            val coverWidth = (screenWidthDp * 0.25f).coerceIn(100.dp, 200.dp)
+            MangaCover(
+                data = coverData,
+                ratio = MangaCoverRatio.BOOK,
+                contentDescription = title,
+                modifier = Modifier.width(coverWidth),
+                onClick = onCoverClick,
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(text = title, style = MaterialTheme.typography.titleLarge)
+                IconLabel(icon = Icons.Filled.Person, text = author?.takeIf { it.isNotBlank() } ?: "Unknown author")
+                artist?.takeIf { it.isNotBlank() && it != author }?.let {
+                    IconLabel(icon = Icons.Outlined.Brush, text = it)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = statusIcon(status),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp).padding(end = 4.dp),
+                    )
+                    Text(
+                        text = buildString {
+                            append(statusText?.takeIf { it.isNotBlank() } ?: "Unknown")
+                            append("  •  ")
+                            append(sourceName)
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (isStubSource) {
+                        Icon(
+                            imageVector = Icons.Outlined.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(start = 4.dp).size(16.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun IconLabel(icon: ImageVector, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp).padding(end = 4.dp),
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+private fun statusIcon(status: Int): ImageVector = when (status) {
+    SManga.ONGOING -> Icons.Outlined.Schedule
+    SManga.COMPLETED -> Icons.Outlined.DoneAll
+    SManga.LICENSED -> Icons.Outlined.MonetizationOn
+    SManga.PUBLISHING_FINISHED -> Icons.Outlined.Done
+    SManga.CANCELLED -> Icons.Outlined.Close
+    SManga.ON_HIATUS -> Icons.Outlined.Pause
+    else -> Icons.Outlined.Block
+}
+
+@Composable
+private fun DetailsActionRow(
+    isFavorited: Boolean,
+    onFavoriteClick: () -> Unit,
+    onEditCategoryClick: (() -> Unit)?,
+    trackingActive: Boolean,
+    onTrackingClick: (() -> Unit)?,
+    onWebViewClick: (() -> Unit)?,
+    onShareClick: (() -> Unit)?,
+) {
+    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+        DetailsActionButton(
+            label = if (isFavorited) "In library" else "Add to library",
+            icon = if (isFavorited) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+            active = isFavorited,
+            onClick = onFavoriteClick,
+            onLongClick = onEditCategoryClick,
+        )
+        if (onTrackingClick != null) {
+            DetailsActionButton(
+                label = if (trackingActive) "Tracked" else "Tracking",
+                icon = if (trackingActive) Icons.Outlined.Done else Icons.Outlined.Sync,
+                active = trackingActive,
+                onClick = onTrackingClick,
+            )
+        }
+        if (onWebViewClick != null) {
+            DetailsActionButton(
+                label = "WebView",
+                icon = Icons.Outlined.Public,
+                active = false,
+                onClick = onWebViewClick,
+            )
+        }
+        if (onShareClick != null) {
+            DetailsActionButton(
+                label = "Share",
+                icon = Icons.Outlined.IosShare,
+                active = false,
+                onClick = onShareClick,
+            )
+        }
+    }
+}
+
+@Composable
+private fun RowScope.DetailsActionButton(
+    label: String,
+    icon: ImageVector,
+    active: Boolean,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+) {
+    val color = if (active) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+    }
+    Column(
+        modifier = Modifier
+            .weight(1f)
+            .clip(RoundedCornerShape(8.dp))
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = label,
+            color = color,
+            style = MaterialTheme.typography.labelMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun ExpandableDescription(description: String?, genres: List<String>) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val text = description?.takeIf { it.isNotBlank() } ?: "No description"
+    val backgroundColor = MaterialTheme.colorScheme.background
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .animateContentSize(),
+    ) {
+        // Description text and the expand caret are a single tap target with no ripple: tapping
+        // anywhere on the text or the caret toggles expansion. Genre chips sit outside it so they
+        // keep their own taps.
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) { expanded = !expanded },
+        ) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = if (expanded) Int.MAX_VALUE else 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                // Soft fade over the clamped last line, hinting there's more to read.
+                if (!expanded) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    0.6f to Color.Transparent,
+                                    1f to backgroundColor,
+                                ),
+                            ),
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                Icon(
+                    imageVector = if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+        if (genres.isNotEmpty()) {
+            Spacer(Modifier.height(4.dp))
+            if (expanded) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    genres.forEach { GenreChip(it) }
+                }
+            } else {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(items = genres) { GenreChip(it) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GenreChip(text: String) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.padding(vertical = 4.dp),
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+        )
+    }
+}
+
+@Composable
+private fun ChapterHeader(count: Int, onClick: (() -> Unit)?) {
+    Column(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "$count chapter${if (count == 1) "" else "s"}",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            // Only the icon opens filter/sort, not the whole row.
+            if (onClick != null) {
+                IconButton(onClick = onClick) {
+                    Icon(
+                        imageVector = Icons.Outlined.FilterList,
+                        contentDescription = "Filter and sort",
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider(modifier = Modifier.padding(end = 12.dp))
     }
 }
 
@@ -245,9 +578,12 @@ private fun DetailsChapterListRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            // Fixed height so rows don't shrink in selection mode (a bare 24dp check icon) vs normal
+            // mode (the ~48dp download IconButton); content-driven height made the two differ.
+            .height(56.dp)
             .background(rowBackground)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+            .padding(start = 16.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -349,9 +685,15 @@ private fun RelatedMangaCarousel(
                 )
             }
             if (onSeeAllClick != null && items.isNotEmpty()) {
-                TextButton(onClick = onSeeAllClick) {
-                    Text("See all (${total.coerceAtLeast(items.size)})")
-                }
+                Text(
+                    text = "See all (${total.coerceAtLeast(items.size)})",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .combinedClickable(onClick = onSeeAllClick)
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                )
             }
         }
         if (items.isEmpty()) {
