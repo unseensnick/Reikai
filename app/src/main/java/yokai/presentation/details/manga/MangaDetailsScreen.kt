@@ -386,10 +386,9 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                             )
                         }
                     }
-                    LaunchedEffect(manga.id) {
-                        screenModel.loadRelatedMangas()
-                        screenModel.loadRelatedMangaIds()
-                    }
+                    LaunchedEffect(manga.id) { screenModel.loadRelatedMangaIds() }
+                    // Reload the carousel when the displayed source changes (chip switch).
+                    LaunchedEffect(manga.id, s.sourceView) { screenModel.loadRelatedMangas() }
                     val relatedItems = remember(s.relatedMangas) {
                         s.relatedMangas.map { candidate ->
                             DetailsRelatedItem(

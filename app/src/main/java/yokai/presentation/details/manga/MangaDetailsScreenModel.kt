@@ -30,6 +30,7 @@ import eu.kanade.tachiyomi.util.manga.MangaUtil
 import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.launchNonCancellableIO
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
@@ -183,8 +184,8 @@ class MangaDetailsScreenModel(
     /** Full unbounded ranked pool, held for the "See all" browse handoff (not part of UI state). */
     private var relatedMangasFullPool: List<RelatedMangaCandidate> = emptyList()
 
-    /** One-shot gate so the carousel fetch runs once per screen, mirroring the legacy presenter. */
-    private var relatedMangasFetched = false
+    /** In-flight related-carousel load; cancelled and replaced when the displayed source changes. */
+    private var relatedJob: Job? = null
 
     /** Shared merge / unmerge ops. Stateless (self-injects via Injekt), so a fresh instance is fine;
      *  mirrors the legacy presenter, which holds its own instance. */
@@ -885,27 +886,35 @@ class MangaDetailsScreenModel(
     // --- Related mangas ---
 
     /**
-     * One-shot: collect [RelatedMangasLoader] and fold its progressive emissions into state. The
-     * loader serves a cached pool instantly then refreshes a stale one; [relatedMangasFetched]
-     * keeps this to a single collection per screen, mirroring the legacy presenter's gate.
+     * (Re)load the related carousel for the currently displayed source: the selected source in a
+     * per-source chip view, otherwise the anchor. Cancels any in-flight load so switching sources
+     * swaps the carousel; the loader caches per manga id, so revisiting a source is instant. A source
+     * that can't serve related mangas (non-catalogue or opted out) clears the carousel.
      */
     fun loadRelatedMangas() {
-        if (relatedMangasFetched) return
-        val manga = currentManga() ?: return
-        val catalogueSource = sourceManager.getOrStub(manga.source) as? CatalogueSource ?: return
-        if (catalogueSource.disableRelatedMangas) return
-        relatedMangasFetched = true
-        relatedMangasLoader.load(manga, catalogueSource)
+        val manga = currentDisplayManga() ?: return
+        val catalogueSource = sourceManager.getOrStub(manga.source) as? CatalogueSource
+        relatedJob?.cancel()
+        if (catalogueSource == null || catalogueSource.disableRelatedMangas) {
+            relatedMangasFullPool = emptyList()
+            updateRelatedState(emptyList(), 0, false)
+            return
+        }
+        relatedJob = relatedMangasLoader.load(manga, catalogueSource)
             .onEach { result ->
                 relatedMangasFullPool = result.fullPool
-                val loaded = state.value as? MangaDetailsState.Loaded ?: return@onEach
-                mutableState.value = loaded.copy(
-                    relatedMangas = result.carousel,
-                    relatedMangasTotal = result.fullPool.size,
-                    relatedMangasLoading = result.loading,
-                )
+                updateRelatedState(result.carousel, result.fullPool.size, result.loading)
             }
             .launchIn(screenModelScope)
+    }
+
+    private fun updateRelatedState(carousel: List<RelatedMangaCandidate>, total: Int, loading: Boolean) {
+        val loaded = state.value as? MangaDetailsState.Loaded ?: return
+        mutableState.value = loaded.copy(
+            relatedMangas = carousel,
+            relatedMangasTotal = total,
+            relatedMangasLoading = loading,
+        )
     }
 
     /** Provenance label for a carousel card: the tracker name for tracker-origin entries (sourceId
