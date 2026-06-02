@@ -85,11 +85,13 @@ class RelatedMangasLoader {
         seedTrackerResults = seedTrackerResults,
         excludedUrls = setOf(manga.url),
         excludedTitle = manga.title,
-        // Not cached: the replayed tracker seeds can change as the unified fetch progresses, so a
-        // per-source view always rebuilds from the source natives plus the current seeds.
-        cacheId = null,
-        cacheGet = { null },
-        cachePut = { _, _, _ -> },
+        // Cached in its own per-source namespace so re-tapping a source chip is instant instead of
+        // re-running the source's (rate-limited) related fetch each time. The replayed tracker seeds
+        // are snapshotted at cache time; a later growth in the unified seeds isn't reflected until the
+        // entry refreshes (bounded by the freshness window), an acceptable trade for the responsiveness.
+        cacheId = manga.id,
+        cacheGet = relatedMangaCache::getSource,
+        cachePut = relatedMangaCache::putSource,
     )
 
     /**
