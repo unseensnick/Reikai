@@ -150,6 +150,11 @@
     <string name="move_dynamic_to_bottom">Move collapsed dynamic categories to bottom</string>
     <string name="auto_merge_same_title">Auto-merge same titles</string>
     <string name="auto_merge_same_title_summary">Combine same-titled manga from different sources into one cover</string>
+    <string name="pref_preferred_sources">Preferred sources</string>
+    <string name="pref_preferred_sources_summary">Choose which sources lead the chapter list for merged titles</string>
+    <string name="pref_preferred_sources_guide">When a merged title includes a source from this list, that source\'s chapters become the backbone of the unified chapter list. Higher means higher priority.</string>
+    <string name="pref_preferred_sources_empty">No preferred sources yet. Pick one from the list below.</string>
+    <string name="pref_preferred_sources_add">Add a source</string>
     <string name="show_number_of_items">Show number of items</string>
     <string name="when_grouping_by_sources_tags">When grouping library by sources, status, etc.</string>
     <string name="always_show_current_category">Always show current category</string>

@@ -38,6 +38,7 @@ import yokai.domain.library.LibraryPreferences
 import yokai.domain.manga.interactor.GetLibraryManga
 import yokai.domain.ui.UiPreferences
 import yokai.i18n.MR
+import yokai.presentation.settings.preferredsources.PreferredSourcesController
 import yokai.util.lang.getString
 import eu.kanade.tachiyomi.data.preference.PreferenceKeys as Keys
 import eu.kanade.tachiyomi.ui.setting.summaryMRes as summaryRes
@@ -169,6 +170,11 @@ class SettingsLibraryController : SettingsLegacyController() {
                 titleRes = MR.strings.auto_merge_same_title
                 summaryRes = MR.strings.auto_merge_same_title_summary
                 defaultValue = true
+            }
+            preference {
+                titleRes = MR.strings.pref_preferred_sources
+                summaryRes = MR.strings.pref_preferred_sources_summary
+                onClick { router.pushController(PreferredSourcesController().withFadeTransaction()) }
             }
         }
 
