@@ -11,12 +11,14 @@ import eu.kanade.tachiyomi.data.database.models.Chapter
  *    one number for the count) stops a scanlator-heavy source from winning the trunk on raw row count
  *    alone. This is the Comick case: it lists each chapter many times but covers fewer real numbers.
  * 2. **Gap-fill:** every recognized number the trunk lacks is borrowed from the next source (in
- *    distinct-count order) that has it, one representative per number.
+ *    distinct-count order) that has it.
  *
- * The trunk's own chapters are kept as-is (including its scanlator variants and any
- * unrecognized-number chapters); sibling chapters with an unrecognized number (< 0) are dropped
- * since they can't be matched by number. Each returned [Chapter] keeps its own `manga_id`, so the
- * caller can read a chapter from its origin source. Output is unsorted: callers apply their own sort.
+ * The result holds **one row per recognized chapter number**: a source's own scanlator variants
+ * collapse to one, and a number already supplied by an earlier source isn't repeated. The trunk's
+ * unrecognized-number chapters (< 0) are kept (they can't be matched by number); siblings'
+ * unrecognized chapters are dropped to avoid unmatchable duplicates. Each returned [Chapter] keeps
+ * its own `manga_id`, so the caller can read a chapter from its origin source. Output is unsorted:
+ * callers apply their own sort.
  *
  * Stateless and side-effect-free so it can be unit-tested in isolation. The comparison borrowed from
  * Komikku's GetMergedChaptersByMangaId is only the pure "same recognized number, different source"
@@ -37,19 +39,18 @@ object ChapterAggregation {
             .map { (mangaId, chapters) -> RankedSource(mangaId, chapters, distinctRecognizedCount(chapters)) }
             .sortedWith(compareByDescending<RankedSource> { it.distinctCount }.thenBy { it.mangaId })
 
-        val trunk = ranked.first()
-        val unified = trunk.chapters.toMutableList()
-        val seenNumbers = trunk.chapters.asSequence()
-            .filter { it.isRecognizedNumber }
-            .map { it.chapter_number }
-            .toHashSet()
-
-        for (source in ranked.drop(1)) {
+        val unified = mutableListOf<Chapter>()
+        val seenNumbers = HashSet<Float>()
+        ranked.forEachIndexed { index, source ->
+            val isTrunk = index == 0
             for (chapter in source.chapters) {
-                // add() returns false when the number is already covered, which collapses both
-                // gap-filled scanlator duplicates and numbers already held by the trunk.
-                if (chapter.isRecognizedNumber && seenNumbers.add(chapter.chapter_number)) {
-                    unified.add(chapter)
+                when {
+                    // One row per recognized number across the whole group: add() returns false when
+                    // the number is already covered, collapsing scanlator variants and any number an
+                    // earlier source already supplied.
+                    chapter.isRecognizedNumber -> if (seenNumbers.add(chapter.chapter_number)) unified.add(chapter)
+                    // Unrecognized numbers can't be matched, so keep only the trunk's.
+                    isTrunk -> unified.add(chapter)
                 }
             }
         }

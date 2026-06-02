@@ -29,16 +29,20 @@ import eu.kanade.tachiyomi.util.chapter.ChapterUtil
 import eu.kanade.tachiyomi.util.manga.MangaUtil
 import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.launchNonCancellableIO
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.category.interactor.SetMangaCategories
+import yokai.domain.chapter.ChapterAggregation
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.chapter.models.ChapterUpdate
@@ -133,6 +137,7 @@ data class DownloadInfo(val state: Download.State, val progress: Int)
  * which lands in a separate table the manga query doesn't watch, so it triggers a one-shot [reload].
  * Mirrors [eu.kanade.tachiyomi.ui.manga.MangaDetailsPresenter]'s pipeline without its runBlocking.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class MangaDetailsScreenModel(
     private val mangaId: Long,
 ) : StateScreenModel<MangaDetailsState>(MangaDetailsState.Loading), KoinComponent {
@@ -169,6 +174,29 @@ class MangaDetailsScreenModel(
      *  prefs, so it must run at most once per screen open. */
     private var relatedMangaIdsFetched = false
 
+    /**
+     * The current merge-group member ids (this manga + its grouped siblings), or empty until
+     * resolved. Single source of truth that drives the chapter pipeline: when size > 1 the pipeline
+     * fans out one chapter subscription per sibling and stitches them via [ChapterAggregation].
+     * Updated by [loadRelatedMangaIds] on open and by [splitSources] / [removeSourcesFromLibrary].
+     */
+    private val groupIdsFlow = MutableStateFlow<List<Long>>(emptyList())
+
+    /**
+     * The latest per-sibling chapter lists (sibling manga id -> its chapters) backing the unified
+     * list. Kept so the write-back in 6.3c can resolve every sibling row sharing a chapter number.
+     * For a non-merged title this is just `{ mangaId -> chapters }`.
+     */
+    private var chaptersBySource: Map<Long, List<Chapter>> = emptyMap()
+
+    /** One emission of the chapter pipeline: the per-sibling map, the stitched list, and the union
+     *  of scanlators across the group. */
+    private data class ChapterData(
+        val chaptersBySource: Map<Long, List<Chapter>>,
+        val unified: List<Chapter>,
+        val scanlators: List<String>,
+    )
+
     init {
         // Reactive load: the manga flow drives an inner chapters+scanlators subscription so the
         // screen auto-refreshes on any DB change (favorite, read/bookmark, sort/filter, new chapters
@@ -181,12 +209,43 @@ class MangaDetailsScreenModel(
                     mutableState.value = MangaDetailsState.NotFound
                     return@collectLatest
                 }
-                val applyFilter = manga.filtered_scanlators?.isNotEmpty() == true
-                combine(
-                    getChapter.subscribeAll(manga.id!!, applyFilter),
-                    getChapter.subscribeScanlators(manga.id!!),
-                ) { chapters, scanlators -> chapters to scanlators }
-                    .collectLatest { (chapters, scanlators) -> rebuildState(manga, chapters, scanlators) }
+                // The group ids drive the chapter source set: a single id for a normal title, or
+                // every sibling once the title is known to be merged. flatMapLatest re-subscribes
+                // when the group changes (resolved on open, edited by split / remove).
+                groupIdsFlow.flatMapLatest { group ->
+                    if (group.size > 1) {
+                        // Merged: fetch each sibling unfiltered and stitch. Per-sibling scanlator
+                        // filters are skipped here so one source's filter can't drop another's
+                        // chapters; the merged-set scanlator filter lands in 6.3d.
+                        combine(
+                            combine(group.map { getChapter.subscribeAll(it, filterScanlators = false) }) { it.toList() },
+                            combine(group.map { getChapter.subscribeScanlators(it) }) { it.toList() },
+                        ) { perSourceChapters, perSourceScanlators ->
+                            val bySource = group.zip(perSourceChapters).toMap()
+                            ChapterData(
+                                chaptersBySource = bySource,
+                                unified = stampMergedReadingOrder(ChapterAggregation.aggregate(bySource)),
+                                scanlators = perSourceScanlators.flatten(),
+                            )
+                        }
+                    } else {
+                        // Single source: unchanged behavior, including the query-level scanlator filter.
+                        val applyFilter = manga.filtered_scanlators?.isNotEmpty() == true
+                        combine(
+                            getChapter.subscribeAll(manga.id!!, applyFilter),
+                            getChapter.subscribeScanlators(manga.id!!),
+                        ) { chapters, scanlators ->
+                            ChapterData(
+                                chaptersBySource = mapOf(manga.id!! to chapters),
+                                unified = chapters,
+                                scanlators = scanlators,
+                            )
+                        }
+                    }
+                }.collectLatest { data ->
+                    chaptersBySource = data.chaptersBySource
+                    rebuildState(manga, data.unified, data.scanlators)
+                }
             }
         }
         observeDownloads()
@@ -210,9 +269,16 @@ class MangaDetailsScreenModel(
                 mutableState.value = MangaDetailsState.NotFound
                 return@launchIO
             }
-            val chapters = getChapter.awaitAll(manga, filterScanlators = null)
-            val scanlators = getChapter.awaitScanlators(mangaId)
-            rebuildState(manga, chapters, scanlators)
+            val group = groupIdsFlow.value
+            if (group.size > 1) {
+                val bySource = group.associateWith { getChapter.awaitAll(it, filterScanlators = false) }
+                chaptersBySource = bySource
+                rebuildState(manga, stampMergedReadingOrder(ChapterAggregation.aggregate(bySource)), group.flatMap { getChapter.awaitScanlators(it) })
+            } else {
+                val chapters = getChapter.awaitAll(manga, filterScanlators = null)
+                chaptersBySource = mapOf(mangaId to chapters)
+                rebuildState(manga, chapters, getChapter.awaitScanlators(mangaId))
+            }
         }
     }
 
@@ -225,8 +291,10 @@ class MangaDetailsScreenModel(
         val downloads = recomputeDownloads(manga, sorted, downloadManager.queueState.value)
         // Content signature: Chapter.equals is url-only, so fold the mutable read/bookmark/progress
         // (in display order) into a hash that distinguishes "same chapters, different read state".
+        // manga_id is folded in too because a merged list mixes sources, and two different sources'
+        // chapters can share a url; without it a cross-source change could hash-collide and be dropped.
         val chapterStateHash = sorted.fold(7) { acc, c ->
-            ((((acc * 31 + (c.id ?: 0L).hashCode()) * 31 + c.read.hashCode()) * 31 + c.bookmark.hashCode()) * 31 + c.last_page_read)
+            (((((acc * 31 + (c.id ?: 0L).hashCode()) * 31 + (c.manga_id ?: 0L).hashCode()) * 31 + c.read.hashCode()) * 31 + c.bookmark.hashCode()) * 31 + c.last_page_read)
         }
         // Same trick for the manga: its equals is url+source only, so fold the displayed fields that
         // can change (favorite toggle, edit-info, cover) into a hash that distinguishes them.
@@ -267,10 +335,23 @@ class MangaDetailsScreenModel(
             relatedMangas = current?.relatedMangas ?: emptyList(),
             relatedMangasTotal = current?.relatedMangasTotal ?: 0,
             relatedMangasLoading = current?.relatedMangasLoading ?: false,
-            // Group ids are computed once on load (not from the DB), so carry them across too.
-            relatedMangaIds = current?.relatedMangaIds ?: emptyList(),
+            // Group membership is owned by groupIdsFlow (the chapter pipeline's source of truth), so
+            // always reflect its current value rather than carrying stale state across re-emissions.
+            relatedMangaIds = groupIdsFlow.value,
         )
     }
+
+    /**
+     * Normalize a merged list's reading order. `source_order` is per-source, so the default
+     * "by source order" sort interleaves sources nonsensically (a sibling's chapter 1.5 landing next
+     * to the trunk's chapter 5). Restamp it to follow chapter number, newest first (the usual source
+     * convention), so the existing sort / resume / next-chapter logic reads the unified list as one
+     * coherent series. The "by chapter number" and "by upload date" sorts ignore `source_order`, so
+     * they're unaffected. Only called for merged titles; single-source lists keep their real order.
+     */
+    private fun stampMergedReadingOrder(chapters: List<Chapter>): List<Chapter> =
+        chapters.sortedWith(compareByDescending { it.chapter_number })
+            .onEachIndexed { index, chapter -> chapter.source_order = index }
 
     fun markAllRead(read: Boolean) {
         screenModelScope.launchIO {
@@ -747,16 +828,25 @@ class MangaDetailsScreenModel(
         screenModelScope.launchIO {
             val result = mergeManager.computeRelatedMangaIds(mangaId, manga.title)
             detailsLog { "loadRelatedMangaIds group=${result.ids.size} cleaned=${result.cleanupCount}" }
-            val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
-            mutableState.value = loaded.copy(relatedMangaIds = result.ids.toList())
+            // Feeds the chapter pipeline (and, via rebuildState, the state's relatedMangaIds gate).
+            groupIdsFlow.value = result.ids.toList()
         }
+    }
+
+    /**
+     * The [Manga] a chapter actually belongs to, so the reader opens against the source that has it.
+     * For a single-source title (or a primary-source chapter in a merged list) this is just the
+     * current manga; a gap-filled chapter from a sibling resolves to that sibling's manga.
+     */
+    suspend fun mangaForChapter(chapter: Chapter): Manga? {
+        val ownerId = chapter.manga_id ?: return currentManga()
+        return if (ownerId == mangaId) currentManga() else getManga.awaitById(ownerId)
     }
 
     /** Resolve the grouped sources and open the Manage sources dialog. */
     fun showManageSourcesDialog() {
         screenModelScope.launchIO {
-            val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
-            val sources = mergeManager.availableSources(mangaId, loaded.relatedMangaIds.toLongArray())
+            val sources = mergeManager.availableSources(mangaId, groupIdsFlow.value.toLongArray())
             val items = sources.map { (id, source) ->
                 ManageSourceItem(mangaId = id, sourceName = source.name, isCurrent = id == mangaId)
             }
@@ -769,11 +859,11 @@ class MangaDetailsScreenModel(
     fun splitSources(targetIds: List<Long>) {
         if (targetIds.isEmpty()) { dismissDialog(); return }
         screenModelScope.launchIO {
-            val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
-            val newIds = mergeManager.removeFromGroup(loaded.relatedMangaIds.toLongArray(), targetIds)
+            val newIds = mergeManager.removeFromGroup(groupIdsFlow.value.toLongArray(), targetIds)
             detailsLog { "splitSources removed=${targetIds.size} remaining=${newIds.size}" }
-            val current = state.value as? MangaDetailsState.Loaded ?: return@launchIO
-            mutableState.value = current.copy(relatedMangaIds = newIds.toList(), dialog = null)
+            // Re-aggregates the chapter list off the smaller group; rebuildState refreshes the gate.
+            groupIdsFlow.value = newIds.toList()
+            dismissDialog()
         }
     }
 
@@ -788,13 +878,9 @@ class MangaDetailsScreenModel(
             mergeManager.unfavoriteAndReconcile(targetIds)
             detailsLog { "removeSourcesFromLibrary count=${targetIds.size}" }
             val targetSet = targetIds.toSet()
-            val current = state.value as? MangaDetailsState.Loaded
-            if (current != null) {
-                mutableState.value = current.copy(
-                    relatedMangaIds = current.relatedMangaIds.filterNot { it in targetSet },
-                    dialog = null,
-                )
-            }
+            // Drop the removed sources from the group so the pipeline re-aggregates without them.
+            groupIdsFlow.value = groupIdsFlow.value.filterNot { it in targetSet }
+            dismissDialog()
             screenModelScope.launchNonCancellableIO { mergeManager.cleanupRemoved(targetIds) }
         }
     }

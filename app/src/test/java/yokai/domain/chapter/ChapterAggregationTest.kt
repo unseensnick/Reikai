@@ -68,14 +68,16 @@ class ChapterAggregationTest {
     }
 
     @Test
-    fun `keeps the trunk's own scanlator variants`() {
-        // The trunk's duplicates are display data the reader dedupes later, so they're preserved.
+    fun `collapses the trunk's own scanlator variants to one row per number`() {
+        // A unified list shows one row per chapter number, so the trunk's two scanlator copies of
+        // chapter 1 collapse to one (single-source titles keep their variants; that path is untouched).
         val trunk = listOf(chapter(1L, 1f, "A"), chapter(1L, 1f, "B"), chapter(1L, 2f))
         val other = listOf(chapter(2L, 1f), chapter(2L, 2f))
 
         val unified = ChapterAggregation.aggregate(mapOf(1L to trunk, 2L to other))
 
-        assertEquals(2, unified.count { it.chapter_number == 1f })
+        assertEquals(1, unified.count { it.chapter_number == 1f })
+        assertEquals(listOf(1f, 2f), unified.numbers())
         assertEquals(listOf(1L), unified.map { it.manga_id }.distinct())
     }
 

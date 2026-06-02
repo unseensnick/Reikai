@@ -330,7 +330,12 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                     ExtendedFloatingActionButton(
                         text = { Text(if (loaded.hasStarted) "Resume" else "Start reading") },
                         icon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
-                        onClick = { context.startActivity(ReaderActivity.newIntent(context, loaded.manga, resume)) },
+                        onClick = {
+                            scope.launch {
+                                val origin = screenModel.mangaForChapter(resume) ?: loaded.manga
+                                context.startActivity(ReaderActivity.newIntent(context, origin, resume))
+                            }
+                        },
                         containerColor = MaterialTheme.colorScheme.primary,
                     )
                 }
@@ -429,7 +434,12 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                         chapters = rows,
                         onChapterClick = { id ->
                             s.chapters.find { it.id == id }?.let { chapter ->
-                                context.startActivity(ReaderActivity.newIntent(context, manga, chapter))
+                                // Open against the chapter's own source: a merged list mixes sources,
+                                // and the reader errors if handed a chapter the given manga doesn't own.
+                                scope.launch {
+                                    val origin = screenModel.mangaForChapter(chapter) ?: manga
+                                    context.startActivity(ReaderActivity.newIntent(context, origin, chapter))
+                                }
                             }
                         },
                         listState = listState,
