@@ -20,6 +20,7 @@ import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.ui.manga.MangaMergeManager
 import eu.kanade.tachiyomi.ui.manga.related.RelatedMangaCandidate
 import eu.kanade.tachiyomi.ui.manga.related.browse.RelatedMangasHandoff
 import eu.kanade.tachiyomi.util.chapter.ChapterFilter
@@ -27,6 +28,7 @@ import eu.kanade.tachiyomi.util.chapter.ChapterSort
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil
 import eu.kanade.tachiyomi.util.manga.MangaUtil
 import eu.kanade.tachiyomi.util.system.launchIO
+import eu.kanade.tachiyomi.util.system.launchNonCancellableIO
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -46,6 +48,7 @@ import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.interactor.InsertManga
 import yokai.domain.manga.interactor.UpdateManga
 import yokai.domain.manga.models.MangaUpdate
+import yokai.presentation.details.ManageSourceItem
 import yokai.presentation.details.detailsLog
 
 sealed interface MangaDetailsDialog {
@@ -57,6 +60,8 @@ sealed interface MangaDetailsDialog {
     ) : MangaDetailsDialog
     /** Edit title / author / artist / description / genre overrides. */
     data class EditMangaInfo(val manga: Manga) : MangaDetailsDialog
+    /** Merge-group "Manage sources" panel: the grouped sources the user can split or remove. */
+    data class ManageSources(val sources: List<ManageSourceItem>) : MangaDetailsDialog
 }
 
 sealed interface MangaDetailsState {
@@ -108,6 +113,12 @@ sealed interface MangaDetailsState {
         val relatedMangasTotal: Int = 0,
         /** True while the related-mangas fetch is in flight, so the UI can show a skeleton. */
         val relatedMangasLoading: Boolean = false,
+        /**
+         * Ids of every manga in this title's merge group (including this one). Size > 1 means the
+         * title is merged from multiple sources, which is what gates the "Manage sources" overflow
+         * entry. Computed once on load and updated after a split / remove. Empty until computed.
+         */
+        val relatedMangaIds: List<Long> = emptyList(),
     ) : MangaDetailsState
     data object NotFound : MangaDetailsState
 }
@@ -149,6 +160,14 @@ class MangaDetailsScreenModel(
 
     /** One-shot gate so the carousel fetch runs once per screen, mirroring the legacy presenter. */
     private var relatedMangasFetched = false
+
+    /** Shared merge / unmerge ops. Stateless (self-injects via Injekt), so a fresh instance is fine;
+     *  mirrors the legacy presenter, which holds its own instance. */
+    private val mergeManager = MangaMergeManager()
+
+    /** One-shot gate for the group-id computation; [computeRelatedMangaIds] also heals the merge
+     *  prefs, so it must run at most once per screen open. */
+    private var relatedMangaIdsFetched = false
 
     init {
         // Reactive load: the manga flow drives an inner chapters+scanlators subscription so the
@@ -248,6 +267,8 @@ class MangaDetailsScreenModel(
             relatedMangas = current?.relatedMangas ?: emptyList(),
             relatedMangasTotal = current?.relatedMangasTotal ?: 0,
             relatedMangasLoading = current?.relatedMangasLoading ?: false,
+            // Group ids are computed once on load (not from the DB), so carry them across too.
+            relatedMangaIds = current?.relatedMangaIds ?: emptyList(),
         )
     }
 
@@ -710,6 +731,72 @@ class MangaDetailsScreenModel(
     /** Deposit the full ranked pool so the "See all" browse view can pick it up (keyed by manga id). */
     fun stageBrowseHandoff() {
         relatedMangasHandoff.put(mangaId, relatedMangasFullPool)
+    }
+
+    // --- Source grouping (merge / unmerge) ---
+
+    /**
+     * One-shot: resolve this title's merge group and store the member ids in state. Gated because
+     * [MangaMergeManager.computeRelatedMangaIds] also heals corrupted merge prefs as a side effect,
+     * so it must run at most once per open (mirrors the legacy presenter's dedup window).
+     */
+    fun loadRelatedMangaIds() {
+        if (relatedMangaIdsFetched) return
+        val manga = currentManga() ?: return
+        relatedMangaIdsFetched = true
+        screenModelScope.launchIO {
+            val result = mergeManager.computeRelatedMangaIds(mangaId, manga.title)
+            detailsLog { "loadRelatedMangaIds group=${result.ids.size} cleaned=${result.cleanupCount}" }
+            val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
+            mutableState.value = loaded.copy(relatedMangaIds = result.ids.toList())
+        }
+    }
+
+    /** Resolve the grouped sources and open the Manage sources dialog. */
+    fun showManageSourcesDialog() {
+        screenModelScope.launchIO {
+            val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
+            val sources = mergeManager.availableSources(mangaId, loaded.relatedMangaIds.toLongArray())
+            val items = sources.map { (id, source) ->
+                ManageSourceItem(mangaId = id, sourceName = source.name, isCurrent = id == mangaId)
+            }
+            val current = state.value as? MangaDetailsState.Loaded ?: return@launchIO
+            mutableState.value = current.copy(dialog = MangaDetailsDialog.ManageSources(items))
+        }
+    }
+
+    /** Split [targetIds] out of the merge group (they stay in the library, just ungrouped). */
+    fun splitSources(targetIds: List<Long>) {
+        if (targetIds.isEmpty()) { dismissDialog(); return }
+        screenModelScope.launchIO {
+            val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
+            val newIds = mergeManager.removeFromGroup(loaded.relatedMangaIds.toLongArray(), targetIds)
+            detailsLog { "splitSources removed=${targetIds.size} remaining=${newIds.size}" }
+            val current = state.value as? MangaDetailsState.Loaded ?: return@launchIO
+            mutableState.value = current.copy(relatedMangaIds = newIds.toList(), dialog = null)
+        }
+    }
+
+    /**
+     * Remove [targetIds] from the library: unfavorite + invalidate tracker reconciliation (awaited),
+     * then delete covers / downloads / tracks in a non-cancellable scope so a mid-run back-out still
+     * finishes the cleanup. Mirrors the legacy presenter's removeFromLibrary.
+     */
+    fun removeSourcesFromLibrary(targetIds: List<Long>) {
+        if (targetIds.isEmpty()) { dismissDialog(); return }
+        screenModelScope.launchIO {
+            mergeManager.unfavoriteAndReconcile(targetIds)
+            detailsLog { "removeSourcesFromLibrary count=${targetIds.size}" }
+            val targetSet = targetIds.toSet()
+            val current = state.value as? MangaDetailsState.Loaded
+            if (current != null) {
+                mutableState.value = current.copy(
+                    relatedMangaIds = current.relatedMangaIds.filterNot { it in targetSet },
+                    dialog = null,
+                )
+            }
+            screenModelScope.launchNonCancellableIO { mergeManager.cleanupRemoved(targetIds) }
+        }
     }
 
     // --- Share / WebView ---

@@ -82,6 +82,7 @@ import yokai.presentation.details.DetailsContent
 import yokai.presentation.details.DetailsDownloadState
 import yokai.presentation.details.DetailsFilterSortSheet
 import yokai.presentation.details.DetailsRelatedItem
+import yokai.presentation.details.ManageSourcesDialog
 import yokai.presentation.details.track.TrackInfoDialog
 import yokai.presentation.details.track.TrackInfoScreenModel
 import yokai.presentation.library.components.SelectionAction
@@ -278,6 +279,14 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                                                 containerColor = MaterialTheme.colorScheme.surface,
                                                 tonalElevation = 0.dp,
                                             ) {
+                                                // Only meaningful for a merged title (more than one
+                                                // grouped source); hidden for single-source manga.
+                                                if (loaded.relatedMangaIds.size > 1) {
+                                                    DropdownMenuItem(
+                                                        text = { Text("Manage sources") },
+                                                        onClick = { overflowOpen = false; screenModel.showManageSourcesDialog() },
+                                                    )
+                                                }
                                                 if (loaded.manga.favorite) {
                                                     DropdownMenuItem(
                                                         text = { Text("Edit categories") },
@@ -364,7 +373,10 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                             )
                         }
                     }
-                    LaunchedEffect(manga.id) { screenModel.loadRelatedMangas() }
+                    LaunchedEffect(manga.id) {
+                        screenModel.loadRelatedMangas()
+                        screenModel.loadRelatedMangaIds()
+                    }
                     val relatedItems = remember(s.relatedMangas) {
                         s.relatedMangas.map { candidate ->
                             DetailsRelatedItem(
@@ -537,6 +549,12 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                 onConfirm = { title, author, artist, description, genre ->
                     screenModel.updateMangaInfo(title, author, artist, description, genre)
                 },
+            )
+            is MangaDetailsDialog.ManageSources -> ManageSourcesDialog(
+                sources = dialog.sources,
+                onSplit = { screenModel.splitSources(it) },
+                onRemoveFromLibrary = { screenModel.removeSourcesFromLibrary(it) },
+                onDismiss = { screenModel.dismissDialog() },
             )
             null -> Unit
         }
