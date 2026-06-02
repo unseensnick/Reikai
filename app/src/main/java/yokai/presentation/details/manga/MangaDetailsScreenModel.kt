@@ -27,6 +27,7 @@ import eu.kanade.tachiyomi.ui.manga.related.browse.RelatedMangasHandoff
 import eu.kanade.tachiyomi.util.chapter.ChapterFilter
 import eu.kanade.tachiyomi.util.chapter.ChapterSort
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil
+import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
 import eu.kanade.tachiyomi.util.manga.MangaUtil
 import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.launchNonCancellableIO
@@ -40,6 +41,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import yokai.domain.category.interactor.GetCategories
@@ -145,6 +147,9 @@ sealed interface MangaDetailsState {
         /** Which source the chapter list is showing: null = the unified stitched list, otherwise a
          *  specific grouped source's own chapters. */
         val sourceView: Long? = null,
+        /** True while a pull-to-refresh source fetch is in flight; drives the swipe indicator. The
+         *  cached list stays visible underneath (stale-then-fresh). */
+        val isRefreshing: Boolean = false,
     ) : MangaDetailsState
     data object NotFound : MangaDetailsState
 }
@@ -334,6 +339,34 @@ class MangaDetailsScreenModel(
         }
     }
 
+    private var chapterRefreshJob: Job? = null
+
+    /**
+     * Swipe-to-refresh: fetch each grouped source's chapter list and sync it into the DB (mirrors the
+     * legacy `MangaDetailsPresenter.fetchChaptersFromSource`). The reactive per-sibling chapter flows
+     * re-emit on the write, so the unified list rebuilds itself, the cached list stays visible while
+     * the [isRefreshing] indicator runs (stale-then-fresh). Per-sibling failures don't abort the rest.
+     */
+    fun fetchChaptersFromSource() {
+        if (chapterRefreshJob?.isActive == true) return
+        val loaded = state.value as? MangaDetailsState.Loaded ?: return
+        chapterRefreshJob = screenModelScope.launchIO {
+            mutableState.update { (it as? MangaDetailsState.Loaded)?.copy(isRefreshing = true) ?: it }
+            try {
+                val group = groupIdsFlow.value.ifEmpty { listOf(mangaId) }
+                group.forEach { id ->
+                    runCatching {
+                        val manga = if (id == loaded.manga.id) loaded.manga else getManga.awaitById(id) ?: return@forEach
+                        val source = sourceManager.getOrStub(manga.source)
+                        syncChaptersWithSource(source.getChapterList(manga), manga, source)
+                    }.onFailure { detailsLog { "refresh source for manga $id failed: ${it.message}" } }
+                }
+            } finally {
+                mutableState.update { (it as? MangaDetailsState.Loaded)?.copy(isRefreshing = false) ?: it }
+            }
+        }
+    }
+
     /** Stitches the merged group into the unified list with the preferred-source trunk pick applied.
      *  The trunk is whichever source supplies the first chapter of the (unsorted) result. */
     private fun aggregateUnified(bySource: Map<Long, List<Chapter>>): List<Chapter> {
@@ -441,6 +474,8 @@ class MangaDetailsScreenModel(
             relatedMangaIds = groupIdsFlow.value,
             sourceTabs = sourceTabs,
             sourceView = sourceView,
+            // Carry the swipe-refresh flag across DB re-emissions; the fetch toggles it off itself.
+            isRefreshing = current?.isRefreshing ?: false,
         )
     }
 

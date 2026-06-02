@@ -34,6 +34,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -414,6 +417,20 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                             )
                         }
                     }
+                    val pullRefreshState = rememberPullToRefreshState()
+                    PullToRefreshBox(
+                        isRefreshing = s.isRefreshing,
+                        // Gate on selection so a pull mid-multi-select doesn't fire a fetch.
+                        onRefresh = { if (!selectionActive) screenModel.fetchChaptersFromSource() },
+                        state = pullRefreshState,
+                        indicator = {
+                            PullToRefreshDefaults.Indicator(
+                                modifier = Modifier.align(Alignment.TopCenter),
+                                isRefreshing = s.isRefreshing,
+                                state = pullRefreshState,
+                            )
+                        },
+                    ) {
                     DetailsContent(
                         coverData = coverData,
                         title = displayManga.title,
@@ -492,6 +509,7 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                         onSourceRemove = { sourceToRemove = it },
                         currentSourceId = mangaId,
                     )
+                    }
                 }
             }
         }

@@ -19,7 +19,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -30,6 +29,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -164,10 +166,6 @@ class NovelDetailsScreen(
                             IconButton(onClick = { readerSettingsOpen = true }) {
                                 Icon(Icons.Default.Settings, contentDescription = "Reader settings")
                             }
-                        } else if (state is NovelDetailsState.Loaded) {
-                            IconButton(onClick = { screenModel.refresh() }) {
-                                Icon(Icons.Outlined.Refresh, contentDescription = "Refresh")
-                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(),
@@ -202,12 +200,27 @@ class NovelDetailsScreen(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center,
                         ) { CircularProgressIndicator() }
-                        is NovelDetailsState.Loaded -> NovelDetailsBody(
-                            novel = s.novel,
-                            chapters = s.chapters,
-                            isRefreshing = s.isRefreshing,
-                            onPickChapter = { openChapter(it) },
-                        )
+                        is NovelDetailsState.Loaded -> {
+                            val pullRefreshState = rememberPullToRefreshState()
+                            PullToRefreshBox(
+                                isRefreshing = s.isRefreshing,
+                                onRefresh = { screenModel.refresh() },
+                                state = pullRefreshState,
+                                indicator = {
+                                    PullToRefreshDefaults.Indicator(
+                                        modifier = Modifier.align(Alignment.TopCenter),
+                                        isRefreshing = s.isRefreshing,
+                                        state = pullRefreshState,
+                                    )
+                                },
+                            ) {
+                                NovelDetailsBody(
+                                    novel = s.novel,
+                                    chapters = s.chapters,
+                                    onPickChapter = { openChapter(it) },
+                                )
+                            }
+                        }
                         is NovelDetailsState.Failed -> FailedBody(message = s.message, source = resolvedSource, context = context)
                     }
                 }
@@ -220,22 +233,11 @@ class NovelDetailsScreen(
 private fun NovelDetailsBody(
     novel: Novel,
     chapters: List<NovelChapter>,
-    isRefreshing: Boolean,
     onPickChapter: (NovelChapter) -> Unit,
 ) {
     LazyColumn(modifier = Modifier.fillMaxWidth()) {
         item {
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                if (isRefreshing) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Refreshing…", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
                 novel.thumbnailUrl?.takeIf { it.isNotBlank() }?.let {
                     Box(modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally)) {
                         MangaCover(data = it, ratio = MangaCoverRatio.BOOK, modifier = Modifier.width(180.dp))
