@@ -238,10 +238,14 @@ class MangaDetailsScreenModel(
                             combine(group.map { getChapter.subscribeScanlators(it) }) { it.toList() },
                         ) { perSourceChapters, perSourceScanlators ->
                             val bySource = group.zip(perSourceChapters).toMap()
+                            // Only offer / apply the scanlator filter when a source has a real group
+                            // choice; one-per-source labels aren't filterable (the chips handle sources).
+                            val hasScanlatorChoice = perSourceHasScanlatorChoice(perSourceScanlators)
+                            val forUnified = if (hasScanlatorChoice) scanlatorFilteredForUnified(manga, bySource) else bySource
                             ChapterData(
                                 chaptersBySource = bySource,
-                                unified = stampMergedReadingOrder(ChapterAggregation.aggregate(bySource)),
-                                scanlators = perSourceScanlators.flatten(),
+                                unified = stampMergedReadingOrder(ChapterAggregation.aggregate(forUnified)),
+                                scanlators = if (hasScanlatorChoice) perSourceScanlators.flatten() else emptyList(),
                             )
                         }
                     } else {
@@ -292,7 +296,14 @@ class MangaDetailsScreenModel(
             if (group.size > 1) {
                 val bySource = group.associateWith { getChapter.awaitAll(it, filterScanlators = false) }
                 chaptersBySource = bySource
-                rebuildState(manga, stampMergedReadingOrder(ChapterAggregation.aggregate(bySource)), group.flatMap { getChapter.awaitScanlators(it) })
+                val perSourceScanlators = group.map { getChapter.awaitScanlators(it) }
+                val hasScanlatorChoice = perSourceHasScanlatorChoice(perSourceScanlators)
+                val forUnified = if (hasScanlatorChoice) scanlatorFilteredForUnified(manga, bySource) else bySource
+                rebuildState(
+                    manga,
+                    stampMergedReadingOrder(ChapterAggregation.aggregate(forUnified)),
+                    if (hasScanlatorChoice) perSourceScanlators.flatten() else emptyList(),
+                )
             } else {
                 val chapters = getChapter.awaitAll(manga, filterScanlators = null)
                 chaptersBySource = mapOf(mangaId to chapters)
@@ -378,6 +389,30 @@ class MangaDetailsScreenModel(
      * coherent series. The "by chapter number" and "by upload date" sorts ignore `source_order`, so
      * they're unaffected. Only called for merged titles; single-source lists keep their real order.
      */
+    /**
+     * Apply this title's scanlator filter to each source's chapters before they're stitched. Merged
+     * sources are fetched unfiltered (so one source's filter can't drop another's chapters), so the
+     * filter is applied here for the unified build, matching the SQL query's exact-name exclusion
+     * (`chapters.scanlator = filtered_scanlators.name`). Filtering before aggregation lets gap-fill
+     * pick a non-excluded copy when one source's representative is hidden. [chaptersBySource] stays
+     * unfiltered so per-source views show raw source chapters and sibling propagation marks every row.
+     */
+    private fun scanlatorFilteredForUnified(manga: Manga, bySource: Map<Long, List<Chapter>>): Map<Long, List<Chapter>> {
+        val excluded = ChapterUtil.getScanlators(manga.filtered_scanlators).toSet()
+        if (excluded.isEmpty()) return bySource
+        return bySource.mapValues { (_, chapters) -> chapters.filterNot { it.scanlator in excluded } }
+    }
+
+    /**
+     * Whether the scanlator "Filter groups" option is meaningful for a merged title: only when at
+     * least one single source carries more than one distinct scanlator (a real translation-group
+     * choice). When the multiple scanlators are just one-per-source labels (e.g. "official",
+     * "www.manganato.com"), filtering by them is pointless, so the picker is hidden and the filter
+     * skipped, leaving source selection to the chips.
+     */
+    private fun perSourceHasScanlatorChoice(perSourceScanlators: List<List<String>>): Boolean =
+        perSourceScanlators.any { it.filter(String::isNotBlank).distinct().size > 1 }
+
     private fun stampMergedReadingOrder(chapters: List<Chapter>): List<Chapter> =
         chapters.sortedWith(compareByDescending { it.chapter_number })
             // Copy before restamping so the shared per-source lists in [chaptersBySource] keep their
