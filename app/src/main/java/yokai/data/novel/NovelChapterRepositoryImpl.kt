@@ -1,6 +1,7 @@
 package yokai.data.novel
 
 import co.touchlab.kermit.Logger
+import kotlinx.coroutines.flow.Flow
 import yokai.data.DatabaseHandler
 import yokai.domain.novel.NovelChapterRepository
 import yokai.domain.novel.models.NovelChapter
@@ -9,6 +10,9 @@ class NovelChapterRepositoryImpl(private val handler: DatabaseHandler) : NovelCh
 
     override suspend fun getByNovelId(novelId: Long): List<NovelChapter> =
         handler.awaitList { novel_chaptersQueries.getByNovelId(novelId, ::novelChapterMapper) }
+
+    override fun getByNovelIdAsFlow(novelId: Long): Flow<List<NovelChapter>> =
+        handler.subscribeToList { novel_chaptersQueries.getByNovelId(novelId, ::novelChapterMapper) }
 
     override suspend fun getById(id: Long): NovelChapter? =
         handler.awaitOneOrNull { novel_chaptersQueries.getById(id, ::novelChapterMapper) }

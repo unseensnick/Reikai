@@ -1,9 +1,14 @@
 package yokai.domain.novel
 
+import kotlinx.coroutines.flow.Flow
 import yokai.domain.novel.models.NovelChapter
 
 interface NovelChapterRepository {
     suspend fun getByNovelId(novelId: Long): List<NovelChapter>
+
+    /** Reactive [getByNovelId]: re-emits on any write to this novel's chapters (sync, mark-read,
+     *  bookmark, progress), so a DB-first details screen updates without a manual refresh. */
+    fun getByNovelIdAsFlow(novelId: Long): Flow<List<NovelChapter>>
     suspend fun getById(id: Long): NovelChapter?
     suspend fun getByUrlAndNovelId(url: String, novelId: Long): NovelChapter?
     suspend fun insert(chapter: NovelChapter): Long?
