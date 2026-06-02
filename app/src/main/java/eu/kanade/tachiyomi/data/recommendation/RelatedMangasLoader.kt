@@ -56,12 +56,85 @@ class RelatedMangasLoader {
     private val getManga: GetManga by injectLazy()
     private val preferences: PreferencesHelper by injectLazy()
 
-    fun load(manga: Manga, source: CatalogueSource): Flow<RelatedMangasResult> = channelFlow {
-        val cachedId = manga.id
+    fun load(manga: Manga, source: CatalogueSource): Flow<RelatedMangasResult> = buildPool(
+        sourceTargets = listOf(manga to source),
+        trackerManga = manga,
+        includeTrackers = true,
+        seedTrackerResults = emptyList(),
+        excludedUrls = setOf(manga.url),
+        excludedTitle = manga.title,
+        cacheId = manga.id,
+        cacheGet = relatedMangaCache::get,
+        cachePut = relatedMangaCache::put,
+    )
+
+    /**
+     * A single source's related mangas WITHOUT the tracker streams, for a per-source chip view of a
+     * merged title. Tracker recommendations are title-level (identical across the grouped sources),
+     * so they belong only in the unified view; running them per source would redundantly hit the
+     * tracker APIs. Cached in its own namespace so it can't be served the with-tracker entry.
+     */
+    fun loadSourceOnly(
+        manga: Manga,
+        source: CatalogueSource,
+        seedTrackerResults: List<Pair<String, List<SManga>>>,
+    ): Flow<RelatedMangasResult> = buildPool(
+        sourceTargets = listOf(manga to source),
+        trackerManga = manga,
+        includeTrackers = false,
+        seedTrackerResults = seedTrackerResults,
+        excludedUrls = setOf(manga.url),
+        excludedTitle = manga.title,
+        // Not cached: the replayed tracker seeds can change as the unified fetch progresses, so a
+        // per-source view always rebuilds from the source natives plus the current seeds.
+        cacheId = null,
+        cacheGet = { null },
+        cachePut = { _, _, _ -> },
+    )
+
+    /**
+     * Pooled related mangas for a merged group: the source-native + taste streams run for every
+     * grouped source into one accumulator (so cross-source agreement is counted natively and the
+     * ranker boosts titles several sources recommend), while the tracker stream runs once for
+     * [anchorManga]. Cached in the pooled namespace keyed by the anchor id, so it never collides
+     * with the anchor's own single-source entry. Dedup, ranking, and the 18/12 carousel slice are
+     * identical to a single-source load.
+     */
+    fun loadPooled(
+        sourceTargets: List<Pair<Manga, CatalogueSource>>,
+        anchorManga: Manga,
+    ): Flow<RelatedMangasResult> = buildPool(
+        sourceTargets = sourceTargets,
+        trackerManga = anchorManga,
+        includeTrackers = true,
+        seedTrackerResults = emptyList(),
+        excludedUrls = sourceTargets.mapTo(HashSet()) { it.first.url },
+        excludedTitle = anchorManga.title,
+        cacheId = anchorManga.id,
+        cacheGet = relatedMangaCache::getPooled,
+        cachePut = relatedMangaCache::putPooled,
+    )
+
+    /**
+     * Shared pool builder. [sourceTargets] each contribute a source-native + taste stream into one
+     * accumulator; [trackerManga] contributes the single tracker stream. A single-element
+     * [sourceTargets] reproduces the original single-source behavior exactly.
+     */
+    private fun buildPool(
+        sourceTargets: List<Pair<Manga, CatalogueSource>>,
+        trackerManga: Manga,
+        includeTrackers: Boolean,
+        seedTrackerResults: List<Pair<String, List<SManga>>>,
+        excludedUrls: Set<String>,
+        excludedTitle: String,
+        cacheId: Long?,
+        cacheGet: (Long) -> RelatedMangaCache.Entry?,
+        cachePut: (Long, List<RelatedMangaCandidate>, List<RelatedMangaCandidate>) -> Unit,
+    ): Flow<RelatedMangasResult> = channelFlow {
         var carousel: List<RelatedMangaCandidate> = emptyList()
         var fullPool: List<RelatedMangaCandidate> = emptyList()
 
-        val cached = cachedId?.let { relatedMangaCache.get(it) }
+        val cached = cacheId?.let(cacheGet)
         if (cached != null) {
             // Serve the cached pool immediately so reopening is instant.
             carousel = cached.carousel
@@ -69,12 +142,12 @@ class RelatedMangasLoader {
             send(RelatedMangasResult(carousel, fullPool, loading = false))
             // Fresh enough -> done. Stale -> cards stay on screen while we refresh below.
             if (relatedMangaCache.isFresh(cached)) {
-                relatedRecsLog { "cache HIT (fresh) manga=$cachedId size=${cached.carousel.size}, no fetch" }
+                relatedRecsLog { "cache HIT (fresh) manga=$cacheId size=${cached.carousel.size}, no fetch" }
                 return@channelFlow
             }
-            relatedRecsLog { "cache STALE manga=$cachedId, refreshing in background" }
+            relatedRecsLog { "cache STALE manga=$cacheId, refreshing in background" }
         } else {
-            relatedRecsLog { "cache MISS manga=$cachedId, fetching" }
+            relatedRecsLog { "cache MISS manga=$cacheId, fetching" }
         }
 
         // Show the loading indicator only when there's nothing cached to display yet.
@@ -131,13 +204,12 @@ class RelatedMangasLoader {
         // dedup inside `accumulated` can't catch a manga appearing via both. Normalized title acts
         // as a second key spanning all streams. First-arriving entry wins, which prefers
         // source-origin candidates (single fast call) over tracker entries (slower, multiple calls).
-        val seenTitleKeys = HashSet<String>().apply { add(normalizeTitleForDedup(manga.title)) }
+        val seenTitleKeys = HashSet<String>().apply { add(normalizeTitleForDedup(excludedTitle)) }
         // Cross-source agreement: how many streams surfaced each normalized title. A title several
         // providers recommend is a stronger signal, so the ranker boosts it.
         val agreementByTitle = HashMap<String, Int>()
-        val excludedUrl = manga.url
         val exceptionHandler: (Throwable) -> Unit = { e ->
-            Logger.e(e) { "Related-mangas sub-task failed for ${manga.title}" }
+            Logger.e(e) { "Related-mangas sub-task failed for ${trackerManga.title}" }
         }
         // Drop candidates already in the library. Source-origin matches by (source, url);
         // tracker-origin entries carry a tracker URL that never matches, so the title set catches
@@ -166,7 +238,7 @@ class RelatedMangasLoader {
             val snapshot = mutex.withLock {
                 val before = accumulated.size
                 pair.second.forEach { m ->
-                    if (m.url == excludedUrl) return@forEach
+                    if (m.url in excludedUrls) return@forEach
                     val titleKey = normalizeTitleForDedup(m.title)
                     agreementByTitle.merge(titleKey, 1, Int::plus)
                     if (!seenTitleKeys.add(titleKey)) return@forEach
@@ -214,30 +286,44 @@ class RelatedMangasLoader {
 
         runCatching {
             coroutineScope {
-                launch {
-                    source.getRelatedMangaList(
-                        manga = manga,
-                        exceptionHandler = exceptionHandler,
-                        pushResults = makePushResults(source.id),
-                    )
+                // Source-native + taste streams per grouped source (one source for a normal load);
+                // they share the accumulator, so cross-source agreement is counted as they arrive.
+                sourceTargets.forEach { (targetManga, targetSource) ->
+                    launch {
+                        targetSource.getRelatedMangaList(
+                            manga = targetManga,
+                            exceptionHandler = exceptionHandler,
+                            pushResults = makePushResults(targetSource.id),
+                        )
+                    }
+                    launch {
+                        TasteCandidateFetcher().fetch(
+                            source = targetSource,
+                            exceptionHandler = exceptionHandler,
+                            pushResults = makePushResults(targetSource.id),
+                        )
+                    }
                 }
-                launch {
-                    RecommendationsFetcher().fetch(
-                        manga = manga,
-                        exceptionHandler = exceptionHandler,
-                        pushResults = makePushResults(RECOMMENDS_SOURCE),
-                    )
-                }
-                launch {
-                    TasteCandidateFetcher().fetch(
-                        source = source,
-                        exceptionHandler = exceptionHandler,
-                        pushResults = makePushResults(source.id),
-                    )
+                // Trackers are title-level, so the tracker stream runs once for the anchor. A
+                // per-source view doesn't re-fetch; instead it replays the recs already fetched in
+                // the unified view (no API call) so they still show alongside the source's natives.
+                if (includeTrackers) {
+                    launch {
+                        RecommendationsFetcher().fetch(
+                            manga = trackerManga,
+                            exceptionHandler = exceptionHandler,
+                            pushResults = makePushResults(RECOMMENDS_SOURCE),
+                        )
+                    }
+                } else if (seedTrackerResults.isNotEmpty()) {
+                    launch {
+                        val push = makePushResults(RECOMMENDS_SOURCE)
+                        seedTrackerResults.forEach { (trackerName, mangas) -> push(trackerName to mangas, false) }
+                    }
                 }
             }
         }.onFailure {
-            Logger.e(it) { "Related-mangas fetch failed for ${manga.title}" }
+            Logger.e(it) { "Related-mangas fetch failed for ${trackerManga.title}" }
         }
 
         // Cache the resolved pool so a reopen within the freshness window is instant. Never cache an
@@ -245,10 +331,10 @@ class RelatedMangasLoader {
         // transient, so caching it would collapse the carousel for the whole freshness window and
         // hide recommendations that a retry would return.
         if (fullPool.isNotEmpty()) {
-            cachedId?.let { relatedMangaCache.put(it, carousel, fullPool) }
-            relatedRecsLog { "fetched+cached manga=$cachedId size=${carousel.size}" }
+            cacheId?.let { cachePut(it, carousel, fullPool) }
+            relatedRecsLog { "fetched+cached manga=$cacheId size=${carousel.size}" }
         } else {
-            relatedRecsLog { "fetched manga=$cachedId size=0, not caching (likely transient empty)" }
+            relatedRecsLog { "fetched manga=$cacheId size=0, not caching (likely transient empty)" }
         }
         send(RelatedMangasResult(carousel, fullPool, loading = false))
     }.flowOn(Dispatchers.IO)

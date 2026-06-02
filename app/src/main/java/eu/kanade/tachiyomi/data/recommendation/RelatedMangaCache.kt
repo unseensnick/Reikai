@@ -23,10 +23,20 @@ class RelatedMangaCache {
 
     private val entries = ConcurrentHashMap<Long, Entry>()
 
+    // Unified merged-group pools, keyed by anchor manga id. Namespaced separately so a group's
+    // pooled carousel doesn't collide with that same anchor manga's own single-source entry.
+    private val pooledEntries = ConcurrentHashMap<Long, Entry>()
+
     fun get(mangaId: Long): Entry? = entries[mangaId]
 
     fun put(mangaId: Long, carousel: List<RelatedMangaCandidate>, fullPool: List<RelatedMangaCandidate>) {
         entries[mangaId] = Entry(carousel, fullPool, System.currentTimeMillis())
+    }
+
+    fun getPooled(anchorId: Long): Entry? = pooledEntries[anchorId]
+
+    fun putPooled(anchorId: Long, carousel: List<RelatedMangaCandidate>, fullPool: List<RelatedMangaCandidate>) {
+        pooledEntries[anchorId] = Entry(carousel, fullPool, System.currentTimeMillis())
     }
 
     /** True while [entry] is within the freshness window and can be served without a refresh. */

@@ -387,8 +387,9 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                         }
                     }
                     LaunchedEffect(manga.id) { screenModel.loadRelatedMangaIds() }
-                    // Reload the carousel when the displayed source changes (chip switch).
-                    LaunchedEffect(manga.id, s.sourceView) { screenModel.loadRelatedMangas() }
+                    // Reload the carousel when the displayed source changes (chip switch) or the
+                    // group resolves (so Unified flips from the anchor's recs to the pooled set).
+                    LaunchedEffect(manga.id, s.sourceView, s.relatedMangaIds) { screenModel.loadRelatedMangas() }
                     val relatedItems = remember(s.relatedMangas) {
                         s.relatedMangas.map { candidate ->
                             DetailsRelatedItem(

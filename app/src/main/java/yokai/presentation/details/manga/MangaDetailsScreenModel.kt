@@ -19,6 +19,7 @@ import eu.kanade.tachiyomi.data.recommendation.RelatedMangasLoader
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.SourceManager
+import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.manga.MangaMergeManager
 import eu.kanade.tachiyomi.ui.manga.related.RelatedMangaCandidate
@@ -183,6 +184,10 @@ class MangaDetailsScreenModel(
 
     /** Full unbounded ranked pool, held for the "See all" browse handoff (not part of UI state). */
     private var relatedMangasFullPool: List<RelatedMangaCandidate> = emptyList()
+
+    /** Title-level tracker recs captured from the unified fetch, grouped by tracker, so a per-source
+     *  view can replay them (same tracker cards) without re-hitting the tracker APIs. */
+    private var pooledTrackerSeeds: List<Pair<String, List<SManga>>> = emptyList()
 
     /** In-flight related-carousel load; cancelled and replaced when the displayed source changes. */
     private var relatedJob: Job? = null
@@ -892,17 +897,48 @@ class MangaDetailsScreenModel(
      * that can't serve related mangas (non-catalogue or opted out) clears the carousel.
      */
     fun loadRelatedMangas() {
-        val manga = currentDisplayManga() ?: return
-        val catalogueSource = sourceManager.getOrStub(manga.source) as? CatalogueSource
         relatedJob?.cancel()
-        if (catalogueSource == null || catalogueSource.disableRelatedMangas) {
-            relatedMangasFullPool = emptyList()
-            updateRelatedState(emptyList(), 0, false)
-            return
+        val sv = sourceViewFlow.value
+        val group = groupIdsFlow.value
+        val isUnified = sv == null && group.size > 1
+        val flow = if (isUnified) {
+            // Unified view of a merged title: pool every grouped source's recommendations into one
+            // ranked carousel (cross-source agreement boosts titles several sources recommend).
+            val anchor = currentManga() ?: return
+            val targets = group.mapNotNull { id ->
+                val m = mangaBySource[id] ?: return@mapNotNull null
+                val src = sourceManager.getOrStub(m.source) as? CatalogueSource ?: return@mapNotNull null
+                if (src.disableRelatedMangas) null else m to src
+            }
+            if (targets.isEmpty()) {
+                relatedMangasFullPool = emptyList()
+                updateRelatedState(emptyList(), 0, false)
+                return
+            }
+            relatedMangasLoader.loadPooled(targets, anchor)
+        } else {
+            // Per-source view (or a non-merged title): just that source's recommendations.
+            val manga = currentDisplayManga() ?: return
+            val src = sourceManager.getOrStub(manga.source) as? CatalogueSource
+            if (src == null || src.disableRelatedMangas) {
+                relatedMangasFullPool = emptyList()
+                updateRelatedState(emptyList(), 0, false)
+                return
+            }
+            // A per-source chip view doesn't re-fetch trackers; it replays the title-level tracker
+            // recs captured from the unified view. A non-merged title fetches trackers normally.
+            if (sv != null) relatedMangasLoader.loadSourceOnly(manga, src, pooledTrackerSeeds) else relatedMangasLoader.load(manga, src)
         }
-        relatedJob = relatedMangasLoader.load(manga, catalogueSource)
+        relatedJob = flow
             .onEach { result ->
                 relatedMangasFullPool = result.fullPool
+                if (isUnified) {
+                    // Stash the tracker-origin recs so per-source views can replay them.
+                    pooledTrackerSeeds = result.fullPool
+                        .filter { it.sourceId == RECOMMENDS_SOURCE }
+                        .groupBy { it.trackerName.orEmpty() }
+                        .map { (name, mangas) -> name to mangas.map { it.manga } }
+                }
                 updateRelatedState(result.carousel, result.fullPool.size, result.loading)
             }
             .launchIn(screenModelScope)
