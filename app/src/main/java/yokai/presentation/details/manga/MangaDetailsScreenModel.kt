@@ -266,7 +266,7 @@ class MangaDetailsScreenModel(
                             val forUnified = if (hasScanlatorChoice) scanlatorFilteredForUnified(manga, bySource) else bySource
                             ChapterData(
                                 chaptersBySource = bySource,
-                                unified = stampMergedReadingOrder(ChapterAggregation.aggregate(forUnified)),
+                                unified = stampMergedReadingOrder(aggregateUnified(forUnified)),
                                 scanlators = if (hasScanlatorChoice) perSourceScanlators.flatten() else emptyList(),
                             )
                         }
@@ -323,7 +323,7 @@ class MangaDetailsScreenModel(
                 val forUnified = if (hasScanlatorChoice) scanlatorFilteredForUnified(manga, bySource) else bySource
                 rebuildState(
                     manga,
-                    stampMergedReadingOrder(ChapterAggregation.aggregate(forUnified)),
+                    stampMergedReadingOrder(aggregateUnified(forUnified)),
                     if (hasScanlatorChoice) perSourceScanlators.flatten() else emptyList(),
                 )
             } else {
@@ -333,6 +333,30 @@ class MangaDetailsScreenModel(
             }
         }
     }
+
+    /** Stitches the merged group into the unified list with the preferred-source trunk pick applied.
+     *  The trunk is whichever source supplies the first chapter of the (unsorted) result. */
+    private fun aggregateUnified(bySource: Map<Long, List<Chapter>>): List<Chapter> {
+        val sourceIds = sourceIdsForAggregation()
+        val preferred = preferredSourceIds()
+        val result = ChapterAggregation.aggregate(bySource, sourceIds, preferred)
+        detailsLog {
+            val trunkManga = result.firstOrNull()?.manga_id
+            "aggregateUnified preferred=$preferred trunkSource=${trunkManga?.let { sourceIds[it] }} " +
+                "distinctBySource=${bySource.mapKeys { sourceIds[it.key] }.mapValues { it.value.map { c -> c.chapter_number }.distinct().size }}"
+        }
+        return result
+    }
+
+    /** Sibling manga id -> its source id, so [ChapterAggregation] can apply the preferred-source
+     *  trunk pick. Reads the current [mangaBySource]; a sibling not yet snapshotted degrades to
+     *  unranked (distinct-count fallback), never to a wrong trunk. */
+    private fun sourceIdsForAggregation(): Map<Long, Long> = mangaBySource.mapValues { it.value.source }
+
+    /** The global preferred-source ranking (slash-joined ids, highest priority first). Read at
+     *  aggregate time; a setting change applies on the next open/refresh, not to an open screen. */
+    private fun preferredSourceIds(): List<Long> =
+        preferences.preferredSources().get().split('/').mapNotNull(String::toLongOrNull)
 
     /** Builds [MangaDetailsState.Loaded] from raw DB rows, preserving transient UI (selection, dialog). */
     private fun rebuildState(manga: Manga, unifiedChapters: List<Chapter>, allScanlatorsList: List<String>) {

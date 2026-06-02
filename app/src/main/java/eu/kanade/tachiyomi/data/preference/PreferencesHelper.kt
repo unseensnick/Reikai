@@ -382,6 +382,10 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
     fun mangaManualUnmerges() = preferenceStore.getStringSet(Keys.mangaManualUnmerges, emptySet())
     fun autoMergeSameTitle() = preferenceStore.getBoolean(Keys.autoMergeSameTitle, true)
 
+    // String, not a set, so the ranking order is preserved (mirrors migrationSources). Slash-joined
+    // source ids, highest priority first; drives the merged-chapter trunk pick in ChapterAggregation.
+    fun preferredSources() = preferenceStore.getString(Keys.preferredSources, "")
+
     fun collapsedDynamicAtBottom() = preferenceStore.getBoolean("collapsed_dynamic_at_bottom", false)
 
     // TODO: SourcePref

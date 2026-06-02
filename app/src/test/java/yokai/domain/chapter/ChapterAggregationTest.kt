@@ -105,4 +105,73 @@ class ChapterAggregationTest {
     fun `empty input returns empty`() {
         assertEquals(emptyList<Chapter>(), ChapterAggregation.aggregate(emptyMap()))
     }
+
+    @Test
+    fun `a preferred source becomes the trunk even with fewer distinct numbers`() {
+        // Source 1 has more distinct numbers, but source 2's source id is preferred.
+        val source1 = listOf(chapter(1L, 1f), chapter(1L, 2f), chapter(1L, 3f), chapter(1L, 4f), chapter(1L, 5f))
+        val source2 = listOf(chapter(2L, 1f), chapter(2L, 2f), chapter(2L, 3f))
+
+        val unified = ChapterAggregation.aggregate(
+            chaptersBySource = mapOf(1L to source1, 2L to source2),
+            sourceIdByManga = mapOf(1L to 100L, 2L to 200L),
+            preferredSourceIds = listOf(200L),
+        )
+
+        // Source 2 wins the trunk (1..3); source 1 only gap-fills 4 and 5.
+        assertEquals(listOf(1f, 2f, 3f, 4f, 5f), unified.numbers())
+        assertEquals(2L, unified.first { it.chapter_number == 1f }.manga_id)
+        assertEquals(1L, unified.first { it.chapter_number == 4f }.manga_id)
+    }
+
+    @Test
+    fun `multiple preferred sources order by list index, not distinct count`() {
+        val sourceA = listOf(chapter(1L, 1f), chapter(1L, 2f))
+        val sourceB = listOf(chapter(2L, 1f), chapter(2L, 2f), chapter(2L, 3f))
+        val sourceC = listOf(chapter(3L, 1f), chapter(3L, 2f), chapter(3L, 3f), chapter(3L, 4f))
+
+        val unified = ChapterAggregation.aggregate(
+            chaptersBySource = mapOf(1L to sourceA, 2L to sourceB, 3L to sourceC),
+            sourceIdByManga = mapOf(1L to 100L, 2L to 200L, 3L to 300L),
+            // B is ranked first, then A; C is unranked (most distinct, but lowest priority).
+            preferredSourceIds = listOf(200L, 100L),
+        )
+
+        // B (rank 0) is the trunk owning 1..3; C only gap-fills 4 despite having the most chapters.
+        assertEquals(listOf(1f, 2f, 3f, 4f), unified.numbers())
+        assertEquals(2L, unified.first { it.chapter_number == 1f }.manga_id)
+        assertEquals(3L, unified.first { it.chapter_number == 4f }.manga_id)
+    }
+
+    @Test
+    fun `a preferred id not present in the group falls back to distinct count`() {
+        val source1 = listOf(chapter(1L, 1f), chapter(1L, 2f), chapter(1L, 3f), chapter(1L, 4f), chapter(1L, 5f))
+        val source2 = listOf(chapter(2L, 1f), chapter(2L, 2f), chapter(2L, 3f))
+
+        val unified = ChapterAggregation.aggregate(
+            chaptersBySource = mapOf(1L to source1, 2L to source2),
+            sourceIdByManga = mapOf(1L to 100L, 2L to 200L),
+            preferredSourceIds = listOf(999L), // no source in the group has this id
+        )
+
+        // Unchanged from the no-preference case: source 1 (most distinct) is the trunk.
+        assertEquals(listOf(1f, 2f, 3f, 4f, 5f), unified.numbers())
+        assertEquals(listOf(1L), unified.map { it.manga_id }.distinct())
+    }
+
+    @Test
+    fun `empty preferred list is identical to the no-argument call`() {
+        val source1 = listOf(chapter(1L, 1f), chapter(1L, 2f), chapter(1L, 3f))
+        val source2 = listOf(chapter(2L, 3f), chapter(2L, 4f))
+        val bySource = mapOf(1L to source1, 2L to source2)
+
+        val withDefaults = ChapterAggregation.aggregate(bySource)
+        val withEmptyPrefs = ChapterAggregation.aggregate(
+            chaptersBySource = bySource,
+            sourceIdByManga = mapOf(1L to 100L, 2L to 200L),
+            preferredSourceIds = emptyList(),
+        )
+
+        assertEquals(withDefaults, withEmptyPrefs)
+    }
 }

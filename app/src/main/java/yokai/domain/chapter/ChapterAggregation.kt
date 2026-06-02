@@ -28,16 +28,36 @@ object ChapterAggregation {
 
     /**
      * @param chaptersBySource each sibling manga's id mapped to that source's chapters.
+     * @param sourceIdByManga each sibling manga's id mapped to its source id (for the priority rank).
+     *   Empty (the default) means no source priority: pure distinct-count, unchanged behavior.
+     * @param preferredSourceIds the global preferred-source ranking, highest priority first. A source
+     *   on this list wins the trunk over distinct-count; unranked sources fall back to distinct-count
+     *   among themselves.
      * @return the unified chapter list (unsorted). For 0 or 1 source, returns the input unchanged.
      */
-    fun aggregate(chaptersBySource: Map<Long, List<Chapter>>): List<Chapter> {
+    fun aggregate(
+        chaptersBySource: Map<Long, List<Chapter>>,
+        sourceIdByManga: Map<Long, Long> = emptyMap(),
+        preferredSourceIds: List<Long> = emptyList(),
+    ): List<Chapter> {
         if (chaptersBySource.size <= 1) return chaptersBySource.values.firstOrNull().orEmpty()
 
-        // Rank by distinct recognized numbers desc; tie-break by manga id asc so the result is
-        // deterministic (and so gap-fill draws from sources in a stable order).
+        // Rank by preferred-source priority first (a ranked source wins the trunk regardless of count),
+        // then distinct recognized numbers desc, then manga id asc for a deterministic, stable order.
+        // With no preferred sources every prefRank is MAX_VALUE, so this collapses to the prior rule.
         val ranked = chaptersBySource.entries
-            .map { (mangaId, chapters) -> RankedSource(mangaId, chapters, distinctRecognizedCount(chapters)) }
-            .sortedWith(compareByDescending<RankedSource> { it.distinctCount }.thenBy { it.mangaId })
+            .map { (mangaId, chapters) ->
+                val prefRank = sourceIdByManga[mangaId]
+                    ?.let { preferredSourceIds.indexOf(it) }
+                    ?.takeIf { it >= 0 }
+                    ?: Int.MAX_VALUE
+                RankedSource(mangaId, chapters, distinctRecognizedCount(chapters), prefRank)
+            }
+            .sortedWith(
+                compareBy<RankedSource> { it.prefRank }
+                    .thenByDescending { it.distinctCount }
+                    .thenBy { it.mangaId }
+            )
 
         val unified = mutableListOf<Chapter>()
         val seenNumbers = HashSet<Float>()
@@ -68,5 +88,6 @@ object ChapterAggregation {
         val mangaId: Long,
         val chapters: List<Chapter>,
         val distinctCount: Int,
+        val prefRank: Int,
     )
 }

@@ -284,4 +284,5 @@ object PreferenceKeys {
     const val mangaManualMerges = "manga_manual_merges"
     const val mangaManualUnmerges = "manga_manual_unmerges"
     const val autoMergeSameTitle = "auto_merge_same_title"
+    const val preferredSources = "preferred_sources"
 }
