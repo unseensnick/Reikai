@@ -1031,33 +1031,29 @@ class MangaDetailsScreenModel(
 
     // --- Share / WebView ---
 
-    /** Returns the manga's source URL for share and WebView actions; null for local/stub sources. */
+    /** Returns the displayed source's URL for share and WebView; null for local/stub sources. In a
+     *  per-source chip view this is that source's URL, so Share / WebView open what you're viewing. */
     fun getMangaUrl(): String? {
-        val manga = currentManga() ?: return null
+        val manga = currentDisplayManga() ?: return null
         val source = sourceManager.getOrStub(manga.source) as? HttpSource ?: return null
         return runCatching { source.getMangaUrl(manga) }.getOrNull()
     }
 
     fun isHttpSource(): Boolean {
-        val manga = currentManga() ?: return false
+        val manga = currentDisplayManga() ?: return false
         return sourceManager.getOrStub(manga.source) is HttpSource
-    }
-
-    /** Display name of the manga's source, for the header info block. */
-    fun sourceName(): String {
-        val manga = currentManga() ?: return ""
-        return sourceManager.getOrStub(manga.source).name
-    }
-
-    /** True when the source isn't installed (a stub), so the header can flag it. */
-    fun isStubSource(): Boolean {
-        val manga = currentManga() ?: return false
-        return sourceManager.getOrStub(manga.source) is SourceManager.StubSource
     }
 
     fun skipPreMigration(): Boolean = preferences.skipPreMigration().get()
 
     private fun currentManga(): Manga? = (state.value as? MangaDetailsState.Loaded)?.manga
+
+    /** The manga whose header / source actions are currently shown: the selected source's manga in a
+     *  per-source view, otherwise the anchor. */
+    private fun currentDisplayManga(): Manga? {
+        val sv = sourceViewFlow.value
+        return if (sv != null) mangaBySource[sv] else currentManga()
+    }
 
     private suspend fun persistFlags(manga: Manga) {
         // Writing chapter_flags to the mangas table re-emits the manga flow, which rebuilds state.

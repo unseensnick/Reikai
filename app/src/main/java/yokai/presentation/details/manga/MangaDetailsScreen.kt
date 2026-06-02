@@ -134,7 +134,7 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
         // long-pressed source chip's manga id.
         var sourceToRemove by remember { mutableStateOf<Long?>(null) }
 
-        val isHttpSource = remember(loaded?.manga?.source) { screenModel.isHttpSource() }
+        val isHttpSource = remember(loaded?.displayManga?.source) { screenModel.isHttpSource() }
         // Label + stub flag follow the displayed source (state-driven), so they switch with the chips.
         val sourceName = loaded?.sourceLabel.orEmpty()
         val isStubSource = loaded?.isStubSource ?: false
@@ -425,7 +425,7 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                         onWebViewClick = if (isHttpSource) ({
                             screenModel.getMangaUrl()?.let { url ->
                                 navigator.push(
-                                    WebViewScreen(url = url, initialTitle = manga.title, sourceId = manga.source),
+                                    WebViewScreen(url = url, initialTitle = displayManga.title, sourceId = displayManga.source),
                                 )
                             }
                         }) else null,
