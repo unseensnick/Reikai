@@ -68,6 +68,9 @@ sealed interface MangaDetailsDialog {
     data class ManageSources(val sources: List<ManageSourceItem>) : MangaDetailsDialog
 }
 
+/** One grouped source for the details source-view chip row. */
+data class SourceTab(val mangaId: Long, val sourceName: String)
+
 sealed interface MangaDetailsState {
     data object Loading : MangaDetailsState
     data class Loaded(
@@ -123,6 +126,11 @@ sealed interface MangaDetailsState {
          * entry. Computed once on load and updated after a split / remove. Empty until computed.
          */
         val relatedMangaIds: List<Long> = emptyList(),
+        /** The grouped sources for the source-view chip row; empty for a single-source title. */
+        val sourceTabs: List<SourceTab> = emptyList(),
+        /** Which source the chapter list is showing: null = the unified stitched list, otherwise a
+         *  specific grouped source's own chapters. */
+        val sourceView: Long? = null,
     ) : MangaDetailsState
     data object NotFound : MangaDetailsState
 }
@@ -184,10 +192,18 @@ class MangaDetailsScreenModel(
 
     /**
      * The latest per-sibling chapter lists (sibling manga id -> its chapters) backing the unified
-     * list. Kept so the write-back in 6.3c can resolve every sibling row sharing a chapter number.
-     * For a non-merged title this is just `{ mangaId -> chapters }`.
+     * list. Kept so the write-back in 6.3c can resolve every sibling row sharing a chapter number,
+     * and so the per-source chip view can show one source's own chapters. For a non-merged title
+     * this is just `{ mangaId -> chapters }`.
      */
     private var chaptersBySource: Map<Long, List<Chapter>> = emptyMap()
+
+    /** Selected source for the chip row (null = unified). Folded into the chapter pipeline so a chip
+     *  tap re-renders the list without re-fetching. */
+    private val sourceViewFlow = MutableStateFlow<Long?>(null)
+
+    /** Grouped-source chip data (source names), recomputed when the group resolves or changes. */
+    private var sourceTabs: List<SourceTab> = emptyList()
 
     /** One emission of the chapter pipeline: the per-sibling map, the stitched list, and the union
      *  of scanlators across the group. */
@@ -242,10 +258,13 @@ class MangaDetailsScreenModel(
                             )
                         }
                     }
-                }.collectLatest { data ->
-                    chaptersBySource = data.chaptersBySource
-                    rebuildState(manga, data.unified, data.scanlators)
                 }
+                    // Re-render when the chosen source view changes, without re-fetching chapters.
+                    .combine(sourceViewFlow) { data, _ -> data }
+                    .collectLatest { data ->
+                        chaptersBySource = data.chaptersBySource
+                        rebuildState(manga, data.unified, data.scanlators)
+                    }
             }
         }
         observeDownloads()
@@ -283,7 +302,15 @@ class MangaDetailsScreenModel(
     }
 
     /** Builds [MangaDetailsState.Loaded] from raw DB rows, preserving transient UI (selection, dialog). */
-    private fun rebuildState(manga: Manga, rawChapters: List<Chapter>, allScanlatorsList: List<String>) {
+    private fun rebuildState(manga: Manga, unifiedChapters: List<Chapter>, allScanlatorsList: List<String>) {
+        val sourceView = sourceViewFlow.value
+        // The per-source chip view shows that one source's own (pristine) chapters; otherwise the
+        // unified stitched list. Fall back to unified if a stale source id no longer resolves.
+        val rawChapters = if (sourceView != null && chaptersBySource.size > 1) {
+            chaptersBySource[sourceView] ?: unifiedChapters
+        } else {
+            unifiedChapters
+        }
         val sort = ChapterSort(manga, chapterFilter, preferences)
         val sorted = sort.getChaptersSorted(rawChapters)
         val resume = sort.getNextUnreadChapter(rawChapters)
@@ -338,6 +365,8 @@ class MangaDetailsScreenModel(
             // Group membership is owned by groupIdsFlow (the chapter pipeline's source of truth), so
             // always reflect its current value rather than carrying stale state across re-emissions.
             relatedMangaIds = groupIdsFlow.value,
+            sourceTabs = sourceTabs,
+            sourceView = sourceView,
         )
     }
 
@@ -351,7 +380,10 @@ class MangaDetailsScreenModel(
      */
     private fun stampMergedReadingOrder(chapters: List<Chapter>): List<Chapter> =
         chapters.sortedWith(compareByDescending { it.chapter_number })
-            .onEachIndexed { index, chapter -> chapter.source_order = index }
+            // Copy before restamping so the shared per-source lists in [chaptersBySource] keep their
+            // own native source_order (the per-source view relies on it); only the unified display
+            // copies carry the synthetic chapter-number order.
+            .mapIndexed { index, chapter -> chapter.copy().apply { source_order = index } }
 
     fun markAllRead(read: Boolean) {
         screenModelScope.launchIO {
@@ -851,9 +883,35 @@ class MangaDetailsScreenModel(
         screenModelScope.launchIO {
             val result = mergeManager.computeRelatedMangaIds(mangaId, manga.title)
             detailsLog { "loadRelatedMangaIds group=${result.ids.size} cleaned=${result.cleanupCount}" }
-            // Feeds the chapter pipeline (and, via rebuildState, the state's relatedMangaIds gate).
-            groupIdsFlow.value = result.ids.toList()
+            updateGroup(result.ids.toList())
         }
+    }
+
+    /**
+     * Apply a new merge-group membership: refresh the source chips, reset the view to unified, then
+     * publish the ids so the chapter pipeline re-aggregates. Source tabs are set before the ids so
+     * the rebuild triggered by [groupIdsFlow] already sees them.
+     */
+    private suspend fun updateGroup(ids: List<Long>) {
+        sourceTabs = computeSourceTabs(ids)
+        sourceViewFlow.value = null
+        groupIdsFlow.value = ids
+    }
+
+    private suspend fun computeSourceTabs(group: List<Long>): List<SourceTab> {
+        if (group.size <= 1) return emptyList()
+        return group.mapNotNull { id ->
+            val m = getManga.awaitById(id) ?: return@mapNotNull null
+            SourceTab(mangaId = id, sourceName = sourceManager.getOrStub(m.source).name)
+        }
+    }
+
+    /** Switch the chapter list between the unified view (null) and a single grouped source. Clears
+     *  any active selection since the chapter set changes. */
+    fun setSourceView(mangaId: Long?) {
+        if (sourceViewFlow.value == mangaId) return
+        clearSelection()
+        sourceViewFlow.value = mangaId
     }
 
     /**
@@ -885,7 +943,7 @@ class MangaDetailsScreenModel(
             val newIds = mergeManager.removeFromGroup(groupIdsFlow.value.toLongArray(), targetIds)
             detailsLog { "splitSources removed=${targetIds.size} remaining=${newIds.size}" }
             // Re-aggregates the chapter list off the smaller group; rebuildState refreshes the gate.
-            groupIdsFlow.value = newIds.toList()
+            updateGroup(newIds.toList())
             dismissDialog()
         }
     }
@@ -902,7 +960,7 @@ class MangaDetailsScreenModel(
             detailsLog { "removeSourcesFromLibrary count=${targetIds.size}" }
             val targetSet = targetIds.toSet()
             // Drop the removed sources from the group so the pipeline re-aggregates without them.
-            groupIdsFlow.value = groupIdsFlow.value.filterNot { it in targetSet }
+            updateGroup(groupIdsFlow.value.filterNot { it in targetSet })
             dismissDialog()
             screenModelScope.launchNonCancellableIO { mergeManager.cleanupRemoved(targetIds) }
         }

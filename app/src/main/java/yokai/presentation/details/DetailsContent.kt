@@ -1,6 +1,7 @@
 package yokai.presentation.details
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -115,6 +116,9 @@ data class DetailsRelatedItem(
     val provenanceLabel: String,
 )
 
+/** One grouped source for the source-view chip row (merged titles only). */
+data class DetailsSourceTab(val mangaId: Long, val label: String)
+
 /**
  * Shared details body for manga and (later) novels. Pure renderer over already-resolved header
  * fields plus a list of [DetailsChapterRow]; holds no domain types so both surfaces feed it.
@@ -178,6 +182,16 @@ fun DetailsContent(
     onRelatedClick: ((String) -> Unit)? = null,
     /** Tapping "See all"; null hides the button. */
     onSeeAllClick: (() -> Unit)? = null,
+    /** Grouped sources for the source-view chip row; empty (or null [onSourceViewChange]) hides it. */
+    sourceTabs: List<DetailsSourceTab> = emptyList(),
+    /** Currently selected source view: null = the unified stitched list, else a specific source. */
+    selectedSourceView: Long? = null,
+    /** Switch the source view; receives null for unified or a source's manga id. Null hides the chips. */
+    onSourceViewChange: ((Long?) -> Unit)? = null,
+    /** Long-press a source chip to remove it from the group; receives its manga id. Null = no long-press. */
+    onSourceRemove: ((Long) -> Unit)? = null,
+    /** The source being viewed (the anchor of this screen); its chip can't be long-press-removed. */
+    currentSourceId: Long? = null,
 ) {
     LazyColumn(
         state = listState,
@@ -209,6 +223,17 @@ fun DetailsContent(
                     onTrackingClick = onTrackingClick,
                     onWebViewClick = onWebViewClick,
                     onShareClick = onShareClick,
+                )
+            }
+        }
+        if (sourceTabs.isNotEmpty() && onSourceViewChange != null) {
+            item(key = "source_tabs") {
+                SourceViewChips(
+                    tabs = sourceTabs,
+                    selected = selectedSourceView,
+                    onSelect = onSourceViewChange,
+                    onRemove = onSourceRemove,
+                    currentSourceId = currentSourceId,
                 )
             }
         }
@@ -444,6 +469,72 @@ private fun RowScope.DetailsActionButton(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+@Composable
+private fun SourceViewChips(
+    tabs: List<DetailsSourceTab>,
+    selected: Long?,
+    onSelect: (Long?) -> Unit,
+    onRemove: ((Long) -> Unit)?,
+    currentSourceId: Long?,
+) {
+    // "Unified" plus one chip per grouped source. Unified shows the stitched list; a source chip
+    // shows (and reads from) just that source. Long-pressing a source chip removes it from the
+    // group. Scrolls horizontally when there are many sources.
+    LazyRow(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        item(key = "unified") {
+            SourceChip(label = "Unified", selected = selected == null, onClick = { onSelect(null) }, onLongClick = null)
+        }
+        items(items = tabs, key = { it.mangaId }) { tab ->
+            SourceChip(
+                label = tab.label,
+                selected = selected == tab.mangaId,
+                onClick = { onSelect(tab.mangaId) },
+                // The source being viewed is the screen's anchor, so it can't be removed from the group.
+                onLongClick = if (tab.mangaId == currentSourceId) null else onRemove?.let { cb -> { cb(tab.mangaId) } },
+            )
+        }
+    }
+}
+
+@Composable
+private fun SourceChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+        border = if (selected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+        ) {
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Outlined.Done,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.size(18.dp).padding(end = 4.dp),
+                )
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
+            )
+        }
     }
 }
 

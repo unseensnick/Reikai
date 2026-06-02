@@ -82,6 +82,7 @@ import yokai.presentation.details.DetailsContent
 import yokai.presentation.details.DetailsDownloadState
 import yokai.presentation.details.DetailsFilterSortSheet
 import yokai.presentation.details.DetailsRelatedItem
+import yokai.presentation.details.DetailsSourceTab
 import yokai.presentation.details.ManageSourcesDialog
 import yokai.presentation.details.track.TrackInfoDialog
 import yokai.presentation.details.track.TrackInfoScreenModel
@@ -129,6 +130,9 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
         val searchFocus = remember { FocusRequester() }
         val focusManager = LocalFocusManager.current
         var confirmMarkAllRead by remember { mutableStateOf(false) }
+        // Non-null while the "remove this source from the group?" confirm dialog is up; holds the
+        // long-pressed source chip's manga id.
+        var sourceToRemove by remember { mutableStateOf<Long?>(null) }
 
         val isHttpSource = remember(loaded?.manga?.source) { screenModel.isHttpSource() }
         val sourceName = remember(loaded?.manga?.source) { screenModel.sourceName() }
@@ -470,6 +474,11 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                             // transitional: legacy RelatedMangasBrowseController until the browse view ports
                             router?.pushController(RelatedMangasBrowseController(mangaId).withFadeTransaction())
                         },
+                        sourceTabs = s.sourceTabs.map { DetailsSourceTab(it.mangaId, it.sourceName) },
+                        selectedSourceView = s.sourceView,
+                        onSourceViewChange = { screenModel.setSourceView(it) },
+                        onSourceRemove = { sourceToRemove = it },
+                        currentSourceId = mangaId,
                     )
                 }
             }
@@ -519,6 +528,22 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                 },
                 dismissButton = {
                     TextButton(onClick = { confirmMarkAllRead = false }) { Text("Cancel") }
+                },
+            )
+        }
+
+        sourceToRemove?.let { id ->
+            val name = loaded?.sourceTabs?.find { it.mangaId == id }?.sourceName.orEmpty()
+            AlertDialog(
+                onDismissRequest = { sourceToRemove = null },
+                text = { Text("Remove $name from this group?") },
+                confirmButton = {
+                    TextButton(onClick = { sourceToRemove = null; screenModel.splitSources(listOf(id)) }) {
+                        Text("Remove")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { sourceToRemove = null }) { Text("Cancel") }
                 },
             )
         }
