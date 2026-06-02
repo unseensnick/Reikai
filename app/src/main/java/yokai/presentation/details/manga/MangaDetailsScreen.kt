@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.BookmarkAdd
+import androidx.compose.material.icons.outlined.BookmarkRemove
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Done
@@ -161,17 +162,24 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
         Scaffold(
             topBar = {
                 if (loaded != null && selectionActive) {
+                    val selectedChapters = loaded.chapters.filter { it.id in loaded.selection }
+                    // Show "Remove bookmark" only when every selected chapter is already bookmarked;
+                    // an empty/none or mixed selection adds bookmarks.
+                    val allBookmarked = selectedChapters.isNotEmpty() && selectedChapters.all { it.bookmark }
                     SelectionAppBar(
                         selectionCount = loaded.selection.size,
                         onClose = { screenModel.clearSelection() },
                         colors = TopAppBarDefaults.topAppBarColors(),
                         actions = listOf(
                             SelectionAction("Mark as read", icon = Icons.Outlined.Done) { screenModel.markSelectedRead(true) },
-                            SelectionAction("Bookmark", icon = Icons.Outlined.BookmarkAdd) { screenModel.bookmarkSelected(true) },
+                            if (allBookmarked) {
+                                SelectionAction("Remove bookmark", icon = Icons.Outlined.BookmarkRemove) { screenModel.bookmarkSelected(false) }
+                            } else {
+                                SelectionAction("Bookmark", icon = Icons.Outlined.BookmarkAdd) { screenModel.bookmarkSelected(true) }
+                            },
                             SelectionAction("Download", icon = Icons.Outlined.Download) { screenModel.downloadSelected() },
                             SelectionAction("Delete", icon = Icons.Outlined.Delete) { screenModel.deleteSelected() },
                             SelectionAction("Mark as unread") { screenModel.markSelectedRead(false) },
-                            SelectionAction("Remove bookmark") { screenModel.bookmarkSelected(false) },
                             SelectionAction("Mark previous as read") { screenModel.markPreviousRead(true) },
                             SelectionAction("Mark previous as unread") { screenModel.markPreviousRead(false) },
                             SelectionAction("Select all") { screenModel.selectAll() },
