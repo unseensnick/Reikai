@@ -72,6 +72,7 @@ import eu.kanade.tachiyomi.util.compose.currentOrThrow
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.mapStatus
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import yokai.domain.manga.models.MangaCover
 import yokai.domain.manga.models.cover
@@ -388,8 +389,15 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                     }
                     LaunchedEffect(manga.id) { screenModel.loadRelatedMangaIds() }
                     // Reload the carousel when the displayed source changes (chip switch) or the
-                    // group resolves (so Unified flips from the anchor's recs to the pooled set).
-                    LaunchedEffect(manga.id, s.sourceView, s.relatedMangaIds) { screenModel.loadRelatedMangas() }
+                    // group resolves (so Unified flips from the anchor's recs to the pooled set). The
+                    // leading delay debounces rapid chip-tapping: each switch relaunches this effect and
+                    // cancels the pending delay, so only the settled source fetches. Without it a burst
+                    // of uncached per-source fetches piles up against the tracker rate-limiter and
+                    // starves the chapter pipeline's dispatcher, stalling the list swap by seconds.
+                    LaunchedEffect(manga.id, s.sourceView, s.relatedMangaIds) {
+                        delay(350)
+                        screenModel.loadRelatedMangas()
+                    }
                     val relatedItems = remember(s.relatedMangas) {
                         s.relatedMangas.map { candidate ->
                             DetailsRelatedItem(
