@@ -1,15 +1,18 @@
 package yokai.presentation.library.settings
 
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,14 +31,21 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -178,32 +188,72 @@ fun LibraryDisplayOptionsSheet(
                 }
             }
             // Swipeable tab content. Each tab provides its own verticalScroll and is capped to a
-            // fraction of the screen. animateContentSize smooths the height change between tabs;
-            // it's safe now that no page feeds its height back via weight (that caused the flicker).
-            HorizontalPager(
-                state = pagerState,
-                verticalAlignment = Alignment.Top,
-                modifier = Modifier.fillMaxWidth().animateContentSize(),
-            ) { page ->
-                Box(
+            // fraction of the screen. The sheet height eases between tabs (~250ms) rather than
+            // snapping (an instant jump was jarring) WITHOUT animating the pager's own measured
+            // size: that re-measured the pager under the drag and intermittently wedged the swipe.
+            // Instead the pager measures each page at its natural (capped) height via
+            // wrapContentHeight(unbounded) and reports it through onSizeChanged; only the outer clip
+            // box animates to the current page's height. The pager's measurement never depends on
+            // the animation, so the gesture stays stable.
+            val density = LocalDensity.current
+            val pageHeights = remember { mutableStateMapOf<Int, Int>() }
+            val targetHeightPx = pageHeights[pagerState.currentPage] ?: 0
+            val heightAnim = remember { Animatable(0f) }
+            var heightInitialized by remember { mutableStateOf(false) }
+            LaunchedEffect(targetHeightPx) {
+                if (targetHeightPx <= 0) return@LaunchedEffect
+                if (!heightInitialized) {
+                    // Snap the first known height so the sheet doesn't grow from zero on open.
+                    heightAnim.snapTo(targetHeightPx.toFloat())
+                    heightInitialized = true
+                } else {
+                    heightAnim.animateTo(targetHeightPx.toFloat(), animationSpec = tween(250))
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (heightInitialized) {
+                            Modifier
+                                .height(with(density) { heightAnim.value.toDp() })
+                                .clipToBounds()
+                        } else {
+                            Modifier
+                        },
+                    ),
+            ) {
+                HorizontalPager(
+                    state = pagerState,
+                    verticalAlignment = Alignment.Top,
+                    // unbounded height so each page measures its natural (heightIn-capped) size
+                    // independent of the animated clip box above; that keeps onSizeChanged honest
+                    // and keeps the pager's own measurement out of the height animation.
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = maxSheetHeight)
-                        .padding(horizontal = 16.dp),
-                ) {
-                    when (page) {
-                        TAB_FILTER -> FilterTab(
-                            detectedMangaTypes = detectedMangaTypes,
-                            loggedTrackerNames = loggedTrackerNames,
-                            filterOrder = filterOrder,
-                            onFilterOrderChanged = { filterOrderPref.set(it) },
-                            onApply = onDismiss,
-                            isNovelTab = isNovelTab,
-                        )
-                        TAB_DISPLAY -> DisplayTab(isNovelTab = isNovelTab)
-                        TAB_GROUP -> GroupTab(isNovelTab = isNovelTab)
-                        TAB_BADGES -> BadgesTab(isNovelTab = isNovelTab)
-                        TAB_CATEGORIES -> CategoriesTab(onDismissSheet = onDismiss, isNovelTab = isNovelTab)
+                        .wrapContentHeight(align = Alignment.Top, unbounded = true),
+                ) { page ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = maxSheetHeight)
+                            .onSizeChanged { pageHeights[page] = it.height }
+                            .padding(horizontal = 16.dp),
+                    ) {
+                        when (page) {
+                            TAB_FILTER -> FilterTab(
+                                detectedMangaTypes = detectedMangaTypes,
+                                loggedTrackerNames = loggedTrackerNames,
+                                filterOrder = filterOrder,
+                                onFilterOrderChanged = { filterOrderPref.set(it) },
+                                onApply = onDismiss,
+                                isNovelTab = isNovelTab,
+                            )
+                            TAB_DISPLAY -> DisplayTab(isNovelTab = isNovelTab)
+                            TAB_GROUP -> GroupTab(isNovelTab = isNovelTab)
+                            TAB_BADGES -> BadgesTab(isNovelTab = isNovelTab)
+                            TAB_CATEGORIES -> CategoriesTab(onDismissSheet = onDismiss, isNovelTab = isNovelTab)
+                        }
                     }
                 }
             }
