@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
@@ -72,11 +73,15 @@ class LibraryScreen : Screen {
     override fun Content() {
         val uiPrefs = remember { Injekt.get<yokai.domain.ui.UiPreferences>() }
         // Both screen models live at the LibraryScreen scope so a tab switch does not destroy
-        // the inactive one (Voyager's rememberScreenModel is keyed per-Screen instance).
-        // Selection, scroll position, filters, and search state per-tab survive a switch +
-        // come back exactly as the user left them.
+        // the inactive one (Voyager's rememberScreenModel is keyed per-Screen instance). That
+        // keeps selection, filters, and search alive across a switch since those are model-held.
+        // Scroll + pager position, however, live in rememberSaveable state inside the per-tab
+        // content (the inactive `when` branch leaves composition on switch); the
+        // SaveableStateHolder below retains each branch's saveables by tab key so they too come
+        // back exactly as the user left them.
         val mangaScreenModel = rememberScreenModel { MangaLibraryScreenModel() }
         val novelScreenModel = rememberScreenModel { NovelLibraryScreenModel() }
+        val tabStateHolder = rememberSaveableStateHolder()
         var activeTab by rememberSaveable {
             mutableIntStateOf(uiPrefs.libraryActiveTab().get().coerceIn(0, 1))
         }
@@ -121,9 +126,13 @@ class LibraryScreen : Screen {
                 )
             }
         }
-        when (activeTab) {
-            0 -> MangaLibraryTabContent(mangaScreenModel, contentToggle)
-            else -> NovelLibraryTabContent(novelScreenModel, contentToggle)
+        // Key the provider on activeTab so switching saves the outgoing tab's saveable state
+        // (lazy scroll positions, pager page) under its key and restores the incoming tab's.
+        tabStateHolder.SaveableStateProvider(activeTab) {
+            when (activeTab) {
+                0 -> MangaLibraryTabContent(mangaScreenModel, contentToggle)
+                else -> NovelLibraryTabContent(novelScreenModel, contentToggle)
+            }
         }
     }
 
