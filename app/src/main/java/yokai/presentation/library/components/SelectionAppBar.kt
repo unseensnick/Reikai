@@ -1,5 +1,6 @@
 package yokai.presentation.library.components
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.MoreVert
@@ -8,6 +9,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarColors
@@ -17,6 +19,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.compose.stringResource
 import yokai.i18n.MR
 
@@ -87,25 +90,32 @@ fun SelectionAppBar(
 @Composable
 private fun SelectionOverflowMenu(actions: List<SelectionAction>) {
     var open by remember { mutableStateOf(false) }
-    IconButton(onClick = { open = true }) {
-        Icon(
-            imageVector = Icons.Outlined.MoreVert,
-            contentDescription = stringResource(MR.strings.more),
-        )
-    }
-    DropdownMenu(
-        expanded = open,
-        onDismissRequest = { open = false },
-    ) {
-        actions.forEach { action ->
-            DropdownMenuItem(
-                text = { Text(action.label) },
-                enabled = action.enabled,
-                onClick = {
-                    open = false
-                    action.onClick()
-                },
+    // Box-wrapped so the dropdown anchors to the icon; a bare DropdownMenu placed directly in the
+    // TopAppBar actions RowScope anchors to the row instead and opens mis-positioned. Matches the
+    // non-selection details overflow.
+    Box {
+        IconButton(onClick = { open = true }) {
+            Icon(
+                imageVector = Icons.Outlined.MoreVert,
+                contentDescription = stringResource(MR.strings.more),
             )
+        }
+        DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp,
+        ) {
+            actions.forEach { action ->
+                DropdownMenuItem(
+                    text = { Text(action.label) },
+                    enabled = action.enabled,
+                    onClick = {
+                        open = false
+                        action.onClick()
+                    },
+                )
+            }
         }
     }
 }
