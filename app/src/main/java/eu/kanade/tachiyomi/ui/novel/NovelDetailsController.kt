@@ -2,6 +2,8 @@ package eu.kanade.tachiyomi.ui.novel
 
 import android.os.Bundle
 import androidx.compose.runtime.Composable
+import cafe.adriel.voyager.navigator.Navigator
+import cafe.adriel.voyager.transitions.CrossfadeTransition
 import eu.kanade.tachiyomi.ui.base.controller.BaseComposeController
 import yokai.presentation.novel.details.NovelDetailsScreen
 
@@ -20,9 +22,12 @@ class NovelDetailsController(bundle: Bundle? = null) : BaseComposeController(bun
 
     @Composable
     override fun ScreenContent() {
-        NovelDetailsScreen(
-            sourceId = args.getString(ARG_SOURCE_ID).orEmpty(),
-            novelUrl = args.getString(ARG_NOVEL_URL).orEmpty(),
+        Navigator(
+            screen = NovelDetailsScreen(
+                sourceId = args.getString(ARG_SOURCE_ID).orEmpty(),
+                novelUrl = args.getString(ARG_NOVEL_URL).orEmpty(),
+            ),
+            content = { CrossfadeTransition(navigator = it) },
         )
     }
 
