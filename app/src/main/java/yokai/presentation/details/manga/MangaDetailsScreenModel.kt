@@ -74,7 +74,19 @@ data class SourceTab(val mangaId: Long, val sourceName: String)
 sealed interface MangaDetailsState {
     data object Loading : MangaDetailsState
     data class Loaded(
+        /** The anchor manga (this screen's id). Favorite, tracking, and the merge group key off it. */
         val manga: Manga,
+        /**
+         * The manga whose header is shown: the selected source's manga in a per-source chip view,
+         * otherwise the anchor. Drives cover/title/author/artist/status/description/genres only;
+         * favorite + tracking always use [manga].
+         */
+        val displayManga: Manga,
+        /** Source label next to the status: "Unified" for the unified view of a merged title, else
+         *  the displayed source's name. */
+        val sourceLabel: String,
+        /** Whether [displayManga]'s source isn't installed (a stub), so the header can flag it. */
+        val isStubSource: Boolean,
         val chapters: List<Chapter>,
         /**
          * Value-equality signature of the chapter list's content (id + read + bookmark + progress,
@@ -205,6 +217,10 @@ class MangaDetailsScreenModel(
     /** Grouped-source chip data (source names), recomputed when the group resolves or changes. */
     private var sourceTabs: List<SourceTab> = emptyList()
 
+    /** The grouped sources' manga objects (snapshot), keyed by manga id. Backs [displayManga] for
+     *  the per-source header. Refreshed alongside [sourceTabs] on every group change. */
+    private var mangaBySource: Map<Long, Manga> = emptyMap()
+
     /** One emission of the chapter pipeline: the per-sibling map, the stitched list, and the union
      *  of scanlators across the group. */
     private data class ChapterData(
@@ -322,6 +338,17 @@ class MangaDetailsScreenModel(
         } else {
             unifiedChapters
         }
+        // Header display follows the selected source (a snapshot fetched on group change); the
+        // anchor [manga] still drives favorite / tracking. The label reads "Unified" only for the
+        // unified view of an actually-merged title.
+        val merged = groupIdsFlow.value.size > 1
+        val displayManga = sourceView?.let { mangaBySource[it] } ?: manga
+        val sourceLabel = if (sourceView == null && merged) {
+            "Unified"
+        } else {
+            sourceManager.getOrStub(displayManga.source).name
+        }
+        val displayIsStub = sourceManager.getOrStub(displayManga.source) is SourceManager.StubSource
         val sort = ChapterSort(manga, chapterFilter, preferences)
         val sorted = sort.getChaptersSorted(rawChapters)
         val resume = sort.getNextUnreadChapter(rawChapters)
@@ -335,22 +362,28 @@ class MangaDetailsScreenModel(
             (((((acc * 31 + (c.id ?: 0L).hashCode()) * 31 + (c.manga_id ?: 0L).hashCode()) * 31 + c.read.hashCode()) * 31 + c.bookmark.hashCode()) * 31 + c.last_page_read)
         }
         // Same trick for the manga: its equals is url+source only, so fold the displayed fields that
-        // can change (favorite toggle, edit-info, cover) into a hash that distinguishes them.
+        // can change (favorite toggle, edit-info, cover) into a hash that distinguishes them. The
+        // displayed fields come from displayManga (so switching source re-renders the header); the
+        // anchor's favorite is folded in too since the heart tracks it.
         val mangaStateHash = listOf(
             manga.favorite,
-            manga.title,
-            manga.author,
-            manga.artist,
-            manga.description,
-            manga.genre,
-            manga.status,
-            manga.thumbnail_url,
-            manga.cover_last_modified,
+            displayManga.id,
+            displayManga.title,
+            displayManga.author,
+            displayManga.artist,
+            displayManga.description,
+            displayManga.genre,
+            displayManga.status,
+            displayManga.thumbnail_url,
+            displayManga.cover_last_modified,
         ).hashCode()
         val current = state.value as? MangaDetailsState.Loaded
         detailsLog { "rebuildState \"${manga.title}\" chapters=${sorted.size} resume=${resume?.name ?: "none"}" }
         mutableState.value = MangaDetailsState.Loaded(
             manga = manga,
+            displayManga = displayManga,
+            sourceLabel = sourceLabel,
+            isStubSource = displayIsStub,
             chapters = sorted,
             chapterStateHash = chapterStateHash,
             mangaStateHash = mangaStateHash,
@@ -928,17 +961,12 @@ class MangaDetailsScreenModel(
      * the rebuild triggered by [groupIdsFlow] already sees them.
      */
     private suspend fun updateGroup(ids: List<Long>) {
-        sourceTabs = computeSourceTabs(ids)
+        // Fetch the sibling manga once; derive both the chips (names) and the displayManga snapshot.
+        val mangas = if (ids.size > 1) ids.mapNotNull { getManga.awaitById(it) } else emptyList()
+        mangaBySource = mangas.mapNotNull { m -> m.id?.let { it to m } }.toMap()
+        sourceTabs = mangas.mapNotNull { m -> m.id?.let { SourceTab(it, sourceManager.getOrStub(m.source).name) } }
         sourceViewFlow.value = null
         groupIdsFlow.value = ids
-    }
-
-    private suspend fun computeSourceTabs(group: List<Long>): List<SourceTab> {
-        if (group.size <= 1) return emptyList()
-        return group.mapNotNull { id ->
-            val m = getManga.awaitById(id) ?: return@mapNotNull null
-            SourceTab(mangaId = id, sourceName = sourceManager.getOrStub(m.source).name)
-        }
     }
 
     /** Switch the chapter list between the unified view (null) and a single grouped source. Clears

@@ -135,8 +135,9 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
         var sourceToRemove by remember { mutableStateOf<Long?>(null) }
 
         val isHttpSource = remember(loaded?.manga?.source) { screenModel.isHttpSource() }
-        val sourceName = remember(loaded?.manga?.source) { screenModel.sourceName() }
-        val isStubSource = remember(loaded?.manga?.source) { screenModel.isStubSource() }
+        // Label + stub flag follow the displayed source (state-driven), so they switch with the chips.
+        val sourceName = loaded?.sourceLabel.orEmpty()
+        val isStubSource = loaded?.isStubSource ?: false
         val isTracked = trackState.items.any { it.track != null }
         val allRead = loaded?.chapters?.let { it.isNotEmpty() && it.all { c -> c.read } } == true
 
@@ -358,9 +359,12 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
 
                 is MangaDetailsState.Loaded -> {
                     val manga = s.manga
-                    val coverData = remember(manga.id) { manga.cover() }
-                    val genres = remember(manga.id, manga.genre) {
-                        manga.genre?.split(",")?.mapNotNull { it.trim().ifBlank { null } }.orEmpty()
+                    // Header renders the displayed source (anchor in unified, the chip's source in a
+                    // per-source view); favorite / FAB / reader still use the anchor `manga`.
+                    val displayManga = s.displayManga
+                    val coverData = remember(displayManga.id, displayManga.cover_last_modified) { displayManga.cover() }
+                    val genres = remember(displayManga.id, displayManga.genre) {
+                        displayManga.genre?.split(",")?.mapNotNull { it.trim().ifBlank { null } }.orEmpty()
                     }
                     // Key on the content hash, not s.chapters: Chapter.equals is url-only, so a
                     // read/bookmark change leaves the list "equal" and the rows would go stale.
@@ -404,14 +408,14 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                     }
                     DetailsContent(
                         coverData = coverData,
-                        title = manga.title,
-                        author = manga.author,
-                        artist = manga.artist,
-                        status = manga.status,
-                        statusText = context.mapStatus(manga.status),
+                        title = displayManga.title,
+                        author = displayManga.author,
+                        artist = displayManga.artist,
+                        status = displayManga.status,
+                        statusText = context.mapStatus(displayManga.status),
                         sourceName = sourceName,
                         isStubSource = isStubSource,
-                        description = manga.description,
+                        description = displayManga.description,
                         genres = genres,
                         isFavorited = manga.favorite,
                         onFavoriteClick = { screenModel.toggleFavorite() },
