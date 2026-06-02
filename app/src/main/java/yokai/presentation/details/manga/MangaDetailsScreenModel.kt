@@ -362,13 +362,36 @@ class MangaDetailsScreenModel(
     }
 
     private suspend fun applyRead(chapters: List<Chapter>, read: Boolean) {
-        val updates = chapters.mapNotNull { ch -> ch.id?.let { ChapterUpdate(id = it, read = read) } }
+        val updates = expandToSiblings(chapters).mapNotNull { ch -> ch.id?.let { ChapterUpdate(id = it, read = read) } }
         if (updates.isNotEmpty()) updateChapter.awaitAll(updates)
     }
 
     private suspend fun applyBookmark(chapters: List<Chapter>, bookmark: Boolean) {
-        val updates = chapters.mapNotNull { ch -> ch.id?.let { ChapterUpdate(id = it, bookmark = bookmark) } }
+        val updates = expandToSiblings(chapters).mapNotNull { ch -> ch.id?.let { ChapterUpdate(id = it, bookmark = bookmark) } }
         if (updates.isNotEmpty()) updateChapter.awaitAll(updates)
+    }
+
+    /**
+     * For a merged title, expand a set of chapters to every sibling row that shares each chapter's
+     * recognized number, so a read / bookmark mark applied in the unified list lands on the same
+     * chapter in every grouped source (the point of merging). No-op for a single-source title.
+     *
+     * Only read + bookmark propagate this way (callers build those updates); `last_page_read` is
+     * never propagated since page counts differ across sources. Chapters with an unrecognized number
+     * can't be matched, so they're passed through to mark only their own row.
+     */
+    private fun expandToSiblings(chapters: List<Chapter>): List<Chapter> {
+        val sources = chaptersBySource
+        if (sources.size <= 1) return chapters
+        val numbers = chapters.asSequence()
+            .filter { it.isRecognizedNumber }
+            .map { it.chapter_number }
+            .toHashSet()
+        val matched = sources.values.asSequence()
+            .flatten()
+            .filter { it.isRecognizedNumber && it.chapter_number in numbers }
+        val unmatchable = chapters.filterNot { it.isRecognizedNumber }
+        return (matched + unmatchable).distinctBy { it.id }.toList()
     }
 
     fun setSortOrder(sort: Int, descend: Boolean) {
