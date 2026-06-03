@@ -161,6 +161,11 @@ class NovelPreferences(
     fun novelManualUnmerges() = preferenceStore.getStringSet("novel_manual_unmerges", emptySet())
     fun autoMergeSameTitle() = preferenceStore.getBoolean("novel_auto_merge_same_title", true)
 
+    /** Ordered preferred-source ranking (highest priority first), slash-joined NovelSource ids.
+     *  NovelChapterAggregation reads it to pick the trunk of a merged chapter list, mirroring the
+     *  manga side's PreferencesHelper.preferredSources (which uses Long ids). */
+    fun novelPreferredSources() = preferenceStore.getString("novel_preferred_sources", "")
+
     // ----------------------------------------------------------------------------------------
     // Per-library visual preferences (Phase E). Only consulted when
     // [yokai.domain.base.BasePreferences.useSharedLibraryDisplayPrefs] is false; in shared mode

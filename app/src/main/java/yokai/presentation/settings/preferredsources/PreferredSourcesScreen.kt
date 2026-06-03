@@ -1,168 +1,103 @@
 package yokai.presentation.settings.preferredsources
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import dev.icerock.moko.resources.compose.stringResource
+import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import eu.kanade.tachiyomi.util.compose.currentOrThrow
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
+import yokai.novel.host.LnPluginHost
+import yokai.novel.install.LnPluginInstaller
+import yokai.novel.source.NovelSourceManager
 import yokai.presentation.AppBarType
 import yokai.presentation.YokaiScaffold
-import yokai.presentation.settings.preferredsources.PreferredSourcesScreenModel.SourceItem
+import yokai.presentation.component.ReikaiPillTabRow
 import yokai.util.Screen
 
 /**
- * Global preferred-source ranking screen (Phase 6b). Top section is the ordered ranking (tap-to-swap
- * arrows, like [yokai.presentation.library.settings.FilterReorderList]); bottom section adds any
- * remaining installed source. Pure render over [PreferredSourcesScreenModel] state.
+ * Global preferred-source ranking screen (Phase 6b, tabbed in Phase 8b). Two tabs, Manga and Light
+ * novels, each an ordered ranking (tap-to-swap arrows) plus an add-remaining list, rendered by the
+ * shared [PreferredSourcesList]. Each tab's aggregator ([yokai.domain.chapter.ChapterAggregation] /
+ * [yokai.domain.novel.NovelChapterAggregation]) reads its ranking to pick the trunk of a merged
+ * chapter list. Pure render over the two ScreenModels.
+ *
+ * Novel sources only populate [NovelSourceManager] after the plugin host loads them, so this screen
+ * loads the host (which needs an Activity context) and hands installation off to the installer.
  */
 class PreferredSourcesScreen : Screen() {
 
     @Composable
     override fun Content() {
         val onBackPress = LocalBackPress.currentOrThrow
-        val screenModel = rememberScreenModel { PreferredSourcesScreenModel() }
-        val state by screenModel.state.collectAsState()
+        val mangaModel = rememberScreenModel { PreferredSourcesScreenModel() }
+        val novelModel = rememberScreenModel { NovelPreferredSourcesScreenModel() }
+        val mangaState by mangaModel.state.collectAsState()
+        val novelState by novelModel.state.collectAsState()
+
+        // Load installed novel plugins so the Light novels tab can list them. Mirrors NovelDetailsScreen:
+        // the host needs a Context, so it lives here and is destroyed on dispose.
+        val context = LocalContext.current
+        val networkHelper = remember { Injekt.get<NetworkHelper>() }
+        val installer = remember { Injekt.get<LnPluginInstaller>() }
+        val host = remember { LnPluginHost(context, networkHelper.client) }
+        DisposableEffect(host) { onDispose { host.destroy() } }
+        LaunchedEffect(Unit) { runCatching { installer.loadInstalled(host) } }
+
+        var selectedTab by rememberSaveable { mutableStateOf(0) }
 
         YokaiScaffold(
             onNavigationIconClicked = onBackPress,
             title = stringResource(MR.strings.pref_preferred_sources),
             appBarType = AppBarType.SMALL,
         ) { innerPadding ->
-            val success = state as? PreferredSourcesScreenModel.State.Success ?: return@YokaiScaffold
-            LazyColumn(modifier = Modifier.padding(innerPadding).fillMaxWidth()) {
-                item {
-                    Text(
-                        text = stringResource(MR.strings.pref_preferred_sources_guide),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    )
-                }
-
-                if (success.preferred.isEmpty()) {
-                    item {
-                        Text(
-                            text = stringResource(MR.strings.pref_preferred_sources_empty),
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+                ReikaiPillTabRow(
+                    selectedTabIndex = selectedTab,
+                    tabs = listOf(stringResource(MR.strings.manga), stringResource(MR.strings.light_novels)),
+                    onTabSelected = { selectedTab = it },
+                )
+                if (selectedTab == 0) {
+                    (mangaState as? PreferredSourcesScreenModel.State.Success)?.let { s ->
+                        PreferredSourcesList(
+                            preferred = s.preferred,
+                            available = s.available,
+                            onMoveUp = mangaModel::moveUp,
+                            onMoveDown = mangaModel::moveDown,
+                            onRemove = mangaModel::removeSource,
+                            onAdd = mangaModel::addSource,
+                            modifier = Modifier.weight(1f),
                         )
                     }
                 } else {
-                    itemsIndexed(success.preferred) { index, item ->
-                        PreferredRow(
-                            item = item,
-                            canMoveUp = index > 0,
-                            canMoveDown = index < success.preferred.lastIndex,
-                            onMoveUp = { screenModel.moveUp(item.id) },
-                            onMoveDown = { screenModel.moveDown(item.id) },
-                            onRemove = { screenModel.removeSource(item.id) },
+                    (novelState as? NovelPreferredSourcesScreenModel.State.Success)?.let { s ->
+                        PreferredSourcesList(
+                            preferred = s.preferred,
+                            available = s.available,
+                            onMoveUp = novelModel::moveUp,
+                            onMoveDown = novelModel::moveDown,
+                            onRemove = novelModel::removeSource,
+                            onAdd = novelModel::addSource,
+                            modifier = Modifier.weight(1f),
                         )
-                    }
-                }
-
-                if (success.available.isNotEmpty()) {
-                    item {
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        SectionHeader(stringResource(MR.strings.pref_preferred_sources_add))
-                    }
-                    items(success.available) { item ->
-                        AvailableRow(item = item, onAdd = { screenModel.addSource(item.id) })
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun SectionHeader(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
-    )
-}
-
-@Composable
-private fun PreferredRow(
-    item: SourceItem,
-    canMoveUp: Boolean,
-    canMoveDown: Boolean,
-    onMoveUp: () -> Unit,
-    onMoveDown: () -> Unit,
-    onRemove: () -> Unit,
-) {
-    SourceRow(item) {
-        IconButton(onClick = onMoveUp, enabled = canMoveUp) {
-            Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = null)
-        }
-        IconButton(onClick = onMoveDown, enabled = canMoveDown) {
-            Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = null)
-        }
-        IconButton(onClick = onRemove) {
-            Icon(Icons.Outlined.Close, contentDescription = stringResource(MR.strings.remove))
-        }
-    }
-}
-
-@Composable
-private fun AvailableRow(item: SourceItem, onAdd: () -> Unit) {
-    SourceRow(item, modifier = Modifier.clickable(onClick = onAdd)) {
-        IconButton(onClick = onAdd) {
-            Icon(Icons.Outlined.Add, contentDescription = stringResource(MR.strings.add))
-        }
-    }
-}
-
-@Composable
-private fun SourceRow(
-    item: SourceItem,
-    modifier: Modifier = Modifier,
-    trailing: @Composable () -> Unit,
-) {
-    Row(
-        modifier = modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = item.name,
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = item.lang.uppercase(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        trailing()
     }
 }
