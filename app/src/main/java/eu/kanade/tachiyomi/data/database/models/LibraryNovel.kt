@@ -40,6 +40,7 @@ data class LibraryNovel(
             coverLastModified: Long,
             totalPages: Long,
             lastReadAt: Long?,
+            editedFlags: Long,
             // libraryNovel
             total: Long,
             readCount: Double,
@@ -69,6 +70,7 @@ data class LibraryNovel(
                 cover_last_modified = coverLastModified,
                 total_pages = totalPages,
                 last_read_at = lastReadAt,
+                edited_flags = editedFlags,
             ),
             read = readCount.roundToInt(),
             unread = maxOf((total - readCount).roundToInt(), 0),

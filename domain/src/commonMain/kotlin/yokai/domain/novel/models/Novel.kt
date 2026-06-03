@@ -37,4 +37,10 @@ data class Novel(
      * been opened in the reader.
      */
     val lastReadAt: Long? = null,
+    /**
+     * Bitmask of fields the user manually overrode via Edit info (author=1, artist=2,
+     * description=4, genres=8). A set bit means the details metadata refresh leaves that field
+     * alone so the edit survives pull-to-refresh; clearing it lets the source value win again.
+     */
+    val editedFlags: Int = 0,
 )

@@ -59,6 +59,7 @@ fun SourceNovel.toNovel(
     dateAdded = if (favorite) now else 0L,
     updateStrategy = 0,
     coverLastModified = 0L,
+    editedFlags = 0,
 )
 
 /**

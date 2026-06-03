@@ -1,4 +1,4 @@
-package yokai.presentation.details.manga
+package yokai.presentation.details
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -18,24 +18,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import eu.kanade.tachiyomi.domain.manga.models.Manga
 
 /**
- * Dialog for overriding manga metadata (title, author, artist, description, genre).
- * Fields left blank pass null to [onConfirm], which clears any existing custom override so the
- * source value is used again. Custom cover art is not handled here.
+ * Neutral dialog for overriding details metadata (title, author, artist, description, genre), fed
+ * with initial values so both the manga and novel detail screens reuse it. Fields left blank pass
+ * null to [onConfirm], which the caller treats as "clear the override / use the source value again".
+ * Custom cover art is not handled here.
  */
 @Composable
-fun EditMangaInfoDialog(
-    manga: Manga,
+fun EditInfoDialog(
+    initialTitle: String,
+    initialAuthor: String,
+    initialArtist: String,
+    initialDescription: String,
+    initialGenre: String,
     onDismiss: () -> Unit,
     onConfirm: (title: String?, author: String?, artist: String?, description: String?, genre: String?) -> Unit,
 ) {
-    var title by remember { mutableStateOf(manga.title) }
-    var author by remember { mutableStateOf(manga.author.orEmpty()) }
-    var artist by remember { mutableStateOf(manga.artist.orEmpty()) }
-    var description by remember { mutableStateOf(manga.description.orEmpty()) }
-    var genre by remember { mutableStateOf(manga.genre.orEmpty()) }
+    var title by remember { mutableStateOf(initialTitle) }
+    var author by remember { mutableStateOf(initialAuthor) }
+    var artist by remember { mutableStateOf(initialArtist) }
+    var description by remember { mutableStateOf(initialDescription) }
+    var genre by remember { mutableStateOf(initialGenre) }
 
     AlertDialog(
         onDismissRequest = onDismiss,

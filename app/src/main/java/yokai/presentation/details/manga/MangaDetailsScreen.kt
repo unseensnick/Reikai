@@ -82,6 +82,7 @@ import yokai.domain.manga.models.MangaCover
 import yokai.domain.manga.models.cover
 import yokai.presentation.component.ReikaiTopBar
 import yokai.presentation.details.ChangeCategoryDialog
+import yokai.presentation.details.EditInfoDialog
 import yokai.presentation.details.DetailsChapterRow
 import yokai.presentation.details.DetailsContent
 import yokai.presentation.details.DetailsDownloadState
@@ -616,8 +617,12 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                 onDismiss = { screenModel.dismissDialog() },
                 onConfirm = { screenModel.moveMangaToCategoriesAndAddToLibrary(it) },
             )
-            is MangaDetailsDialog.EditMangaInfo -> EditMangaInfoDialog(
-                manga = dialog.manga,
+            is MangaDetailsDialog.EditMangaInfo -> EditInfoDialog(
+                initialTitle = dialog.manga.title,
+                initialAuthor = dialog.manga.author.orEmpty(),
+                initialArtist = dialog.manga.artist.orEmpty(),
+                initialDescription = dialog.manga.description.orEmpty(),
+                initialGenre = dialog.manga.genre.orEmpty(),
                 onDismiss = { screenModel.dismissDialog() },
                 onConfirm = { title, author, artist, description, genre ->
                     screenModel.updateMangaInfo(title, author, artist, description, genre)

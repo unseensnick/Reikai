@@ -49,6 +49,7 @@ class NovelRepositoryImpl(private val handler: DatabaseHandler) : NovelRepositor
                 coverLastModified = novel.coverLastModified,
                 totalPages = novel.totalPages.toLong(),
                 lastReadAt = novel.lastReadAt,
+                editedFlags = novel.editedFlags.toLong(),
             )
             novelsQueries.selectLastInsertedRowId()
         }
@@ -79,6 +80,7 @@ class NovelRepositoryImpl(private val handler: DatabaseHandler) : NovelRepositor
                 coverLastModified = novel.coverLastModified,
                 totalPages = novel.totalPages.toLong(),
                 lastReadAt = novel.lastReadAt,
+                editedFlags = novel.editedFlags.toLong(),
                 novelId = novelId,
             )
         }

@@ -191,12 +191,18 @@ class NovelDetailsScreenModel(
             val parsed = sourceNovel.toNovel(sourceId = src.id, favorite = existing.favorite)
             // Blank-safe: some plugins return an empty summary/field on a partial parse (e.g. a
             // selector mismatch), so a null OR blank parsed value must keep the existing data
-            // rather than wipe it.
+            // rather than wipe it. Also respect Edit-info locks: a locked field keeps the user's
+            // value instead of taking the source's.
+            val f = existing.editedFlags
             val merged = existing.copy(
-                author = parsed.author?.takeIf { it.isNotBlank() } ?: existing.author,
-                artist = parsed.artist?.takeIf { it.isNotBlank() } ?: existing.artist,
-                description = parsed.description?.takeIf { it.isNotBlank() } ?: existing.description,
-                genres = parsed.genres?.takeIf { it.isNotEmpty() } ?: existing.genres,
+                author = if (f and EDITED_AUTHOR != 0) existing.author
+                    else parsed.author?.takeIf { it.isNotBlank() } ?: existing.author,
+                artist = if (f and EDITED_ARTIST != 0) existing.artist
+                    else parsed.artist?.takeIf { it.isNotBlank() } ?: existing.artist,
+                description = if (f and EDITED_DESCRIPTION != 0) existing.description
+                    else parsed.description?.takeIf { it.isNotBlank() } ?: existing.description,
+                genres = if (f and EDITED_GENRES != 0) existing.genres
+                    else parsed.genres?.takeIf { it.isNotEmpty() } ?: existing.genres,
                 status = if (parsed.status != NovelStatusCode.UNKNOWN) parsed.status else existing.status,
                 thumbnailUrl = parsed.thumbnailUrl?.takeIf { it.isNotBlank() } ?: existing.thumbnailUrl,
             )
@@ -260,6 +266,54 @@ class NovelDetailsScreenModel(
         screenModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
             setNovelCategories.await(loaded.novel.id, categoryIds)
+            dismissDialog()
+        }
+    }
+
+    fun showEditNovelInfoDialog() {
+        val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return
+        mutableState.update {
+            (it as? NovelDetailsState.Loaded)?.copy(
+                dialog = NovelDetailsDialog.EditInfo(
+                    title = n.title,
+                    author = n.author.orEmpty(),
+                    artist = n.artist.orEmpty(),
+                    description = n.description.orEmpty(),
+                    genre = n.genres?.joinToString().orEmpty(),
+                ),
+            ) ?: it
+        }
+    }
+
+    /** Persist a manual metadata override. A blank field clears its lock so the source value wins
+     *  again on the next refresh; a changed non-blank field locks it so the edit survives refresh;
+     *  an unchanged field keeps its current lock state (saving the dialog doesn't lock everything). */
+    fun updateNovelInfo(title: String?, author: String?, artist: String?, description: String?, genre: String?) {
+        screenModelScope.launchIO {
+            val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
+            var flags = n.editedFlags
+            fun reconcile(bit: Int, newValue: String?, current: String?) {
+                flags = when {
+                    newValue == null -> flags and bit.inv()
+                    newValue != current -> flags or bit
+                    else -> flags
+                }
+            }
+            reconcile(EDITED_AUTHOR, author, n.author)
+            reconcile(EDITED_ARTIST, artist, n.artist)
+            reconcile(EDITED_DESCRIPTION, description, n.description)
+            reconcile(EDITED_GENRES, genre, n.genres?.joinToString())
+            novelRepo.update(
+                n.copy(
+                    title = title ?: n.title,
+                    author = author ?: n.author,
+                    artist = artist ?: n.artist,
+                    description = description ?: n.description,
+                    genres = if (genre == null) n.genres
+                    else genre.split(",").map { it.trim() }.filter { it.isNotEmpty() },
+                    editedFlags = flags,
+                ),
+            )
             dismissDialog()
         }
     }
@@ -399,4 +453,19 @@ sealed interface NovelDetailsDialog {
         val allCategories: List<NovelCategory>,
         val currentCategoryIds: Set<Long>,
     ) : NovelDetailsDialog
+
+    /** Initial field values for the Edit-info dialog. */
+    data class EditInfo(
+        val title: String,
+        val author: String,
+        val artist: String,
+        val description: String,
+        val genre: String,
+    ) : NovelDetailsDialog
 }
+
+// Edit-info lock bits, persisted in Novel.editedFlags (must match the 38.sqm migration comment).
+private const val EDITED_AUTHOR = 1
+private const val EDITED_ARTIST = 1 shl 1
+private const val EDITED_DESCRIPTION = 1 shl 2
+private const val EDITED_GENRES = 1 shl 3

@@ -1,0 +1,6 @@
+-- Per-field "user edited" lock bitmask for novels (author=1, artist=2, description=4, genres=8).
+-- A locked field is skipped by the details screen's metadata refresh so a manual Edit-info value
+-- survives pull-to-refresh; clearing the bit (blanking the field in Edit info) lets the source
+-- value win again on the next refresh. Additive + defaulted, so older app versions ignore it and
+-- backup round-tripping is unaffected.
+ALTER TABLE novels ADD COLUMN edited_flags INTEGER NOT NULL DEFAULT 0;

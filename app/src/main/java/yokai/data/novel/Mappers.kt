@@ -30,6 +30,7 @@ fun novelMapper(
     cover_last_modified: Long,
     total_pages: Long,
     last_read_at: Long?,
+    edited_flags: Long,
 ): Novel = Novel(
     id = id,
     source = source,
@@ -50,6 +51,7 @@ fun novelMapper(
     coverLastModified = cover_last_modified,
     totalPages = total_pages.toInt(),
     lastReadAt = last_read_at,
+    editedFlags = edited_flags.toInt(),
 )
 
 fun novelTrackMapper(

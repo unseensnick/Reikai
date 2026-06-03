@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.BookmarkAdd
@@ -23,6 +24,8 @@ import androidx.compose.material.icons.outlined.RemoveDone
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -75,6 +78,7 @@ import yokai.novel.source.NovelSourceManager
 import yokai.presentation.component.ReikaiTopBar
 import yokai.presentation.details.ChangeCategoryDialog
 import yokai.presentation.details.DetailsChapterRow
+import yokai.presentation.details.EditInfoDialog
 import yokai.presentation.details.DetailsContent
 import yokai.presentation.library.components.SelectionAction
 import yokai.presentation.library.components.SelectionAppBar
@@ -151,6 +155,7 @@ class NovelDetailsScreen(
         var searchQuery by rememberSaveable { mutableStateOf("") }
         val searchFocus = remember { FocusRequester() }
         var confirmMarkAll by remember { mutableStateOf(false) }
+        var overflowOpen by remember { mutableStateOf(false) }
 
         fun openChapter(chapter: NovelChapter) {
             if (readerLoading) return
@@ -279,6 +284,30 @@ class NovelDetailsScreen(
                                             if (allRead) Icons.Outlined.RemoveDone else Icons.Outlined.DoneAll,
                                             contentDescription = if (allRead) "Mark all as unread" else "Mark all as read",
                                         )
+                                    }
+                                    // Box-wrapped so the menu anchors to the icon (a bare DropdownMenu
+                                    // in the actions RowScope mis-anchors).
+                                    Box {
+                                        IconButton(onClick = { overflowOpen = true }) {
+                                            Icon(Icons.Filled.MoreVert, contentDescription = "More")
+                                        }
+                                        DropdownMenu(
+                                            expanded = overflowOpen,
+                                            onDismissRequest = { overflowOpen = false },
+                                            containerColor = MaterialTheme.colorScheme.surface,
+                                            tonalElevation = 0.dp,
+                                        ) {
+                                            if (loaded.novel.favorite) {
+                                                DropdownMenuItem(
+                                                    text = { Text("Edit categories") },
+                                                    onClick = { overflowOpen = false; screenModel.showChangeCategoryDialog() },
+                                                )
+                                            }
+                                            DropdownMenuItem(
+                                                text = { Text("Edit info") },
+                                                onClick = { overflowOpen = false; screenModel.showEditNovelInfoDialog() },
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -438,6 +467,17 @@ class NovelDetailsScreen(
                     currentCategoryIds = dialog.currentCategoryIds,
                     onDismiss = { screenModel.dismissDialog() },
                     onConfirm = { screenModel.applyCategories(it) },
+                )
+                is NovelDetailsDialog.EditInfo -> EditInfoDialog(
+                    initialTitle = dialog.title,
+                    initialAuthor = dialog.author,
+                    initialArtist = dialog.artist,
+                    initialDescription = dialog.description,
+                    initialGenre = dialog.genre,
+                    onDismiss = { screenModel.dismissDialog() },
+                    onConfirm = { title, author, artist, description, genre ->
+                        screenModel.updateNovelInfo(title, author, artist, description, genre)
+                    },
                 )
             }
         }
