@@ -12,6 +12,14 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.BookmarkAdd
+import androidx.compose.material.icons.outlined.BookmarkRemove
+import androidx.compose.material.icons.outlined.Clear
+import androidx.compose.material.icons.outlined.Done
+import androidx.compose.material.icons.outlined.DoneAll
+import androidx.compose.material.icons.outlined.RemoveDone
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -20,6 +28,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
@@ -33,10 +44,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
@@ -58,6 +73,8 @@ import yokai.presentation.component.ReikaiTopBar
 import yokai.presentation.details.ChangeCategoryDialog
 import yokai.presentation.details.DetailsChapterRow
 import yokai.presentation.details.DetailsContent
+import yokai.presentation.library.components.SelectionAction
+import yokai.presentation.library.components.SelectionAppBar
 import yokai.presentation.novel.browse.ChapterRead
 import yokai.presentation.novel.browse.ChapterReader
 import yokai.util.Screen
@@ -126,6 +143,12 @@ class NovelDetailsScreen(
         var readerLoading by remember { mutableStateOf(false) }
         var readerSettingsOpen by remember { mutableStateOf(false) }
 
+        // Chapter search (composable-local, survives process death) + mark-all confirmation.
+        var searchActive by rememberSaveable { mutableStateOf(false) }
+        var searchQuery by rememberSaveable { mutableStateOf("") }
+        val searchFocus = remember { FocusRequester() }
+        var confirmMarkAll by remember { mutableStateOf(false) }
+
         fun openChapter(chapter: NovelChapter) {
             if (readerLoading) return
             scope.launch {
@@ -160,42 +183,112 @@ class NovelDetailsScreen(
         // Only the Loaded details body draws the cover backdrop, so only then should the bar go
         // transparent; reader / loading / error keep an opaque bar.
         val showBackdrop = !isReading && state is NovelDetailsState.Loaded
+        val loaded = state as? NovelDetailsState.Loaded
+        val selectionActive = !isReading && loaded?.selection?.isNotEmpty() == true
+        val allRead = loaded?.chapters?.let { it.isNotEmpty() && it.all { c -> c.read } } == true
 
-        // While the in-screen reader is open, intercept system/gesture back so it returns to the
-        // details page instead of popping the whole screen back to the library.
+        LaunchedEffect(searchActive) { if (searchActive) searchFocus.requestFocus() }
+
+        // Back priority (last enabled handler wins): clear selection, then close search, then exit
+        // the reader, before the default pop to the library.
         BackHandler(enabled = isReading) { goBack() }
+        BackHandler(enabled = !isReading && searchActive) { searchActive = false; searchQuery = "" }
+        BackHandler(enabled = selectionActive) { screenModel.clearSelection() }
 
         Scaffold(
             topBar = {
-                val barAlpha = if (showBackdrop) barFraction else 1f
-                ReikaiTopBar(
-                    title = {
-                        Text(
-                            title,
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.alpha(barAlpha),
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = { goBack() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                        }
-                    },
-                    actions = {
-                        if (isReading) {
-                            IconButton(onClick = { readerSettingsOpen = true }) {
-                                Icon(Icons.Default.Settings, contentDescription = "Reader settings")
+                if (selectionActive) {
+                    val selectedChapters = loaded?.chapters?.filter { it.id in loaded.selection }.orEmpty()
+                    val allBookmarked = selectedChapters.isNotEmpty() && selectedChapters.all { it.bookmark }
+                    val allReadSelected = selectedChapters.isNotEmpty() && selectedChapters.all { it.read }
+                    SelectionAppBar(
+                        selectionCount = loaded?.selection?.size ?: 0,
+                        onClose = { screenModel.clearSelection() },
+                        colors = TopAppBarDefaults.topAppBarColors(),
+                        actions = listOf(
+                            // Stateful read toggle: flips to "unread" once every selected chapter is
+                            // read (mirrors the bookmark action), so no separate overflow entry.
+                            if (allReadSelected) {
+                                SelectionAction("Mark as unread", icon = Icons.Outlined.RemoveDone) { screenModel.markSelectedRead(false) }
+                            } else {
+                                SelectionAction("Mark as read", icon = Icons.Outlined.Done) { screenModel.markSelectedRead(true) }
+                            },
+                            if (allBookmarked) {
+                                SelectionAction("Remove bookmark", icon = Icons.Outlined.BookmarkRemove) { screenModel.bookmarkSelected(false) }
+                            } else {
+                                SelectionAction("Bookmark", icon = Icons.Outlined.BookmarkAdd) { screenModel.bookmarkSelected(true) }
+                            },
+                            SelectionAction("Mark previous as read") { screenModel.markPreviousRead(true) },
+                            SelectionAction("Mark previous as unread") { screenModel.markPreviousRead(false) },
+                            SelectionAction("Select all") { screenModel.selectAll() },
+                            SelectionAction("Invert selection") { screenModel.invertSelection() },
+                        ),
+                    )
+                } else {
+                    val barAlpha = if (showBackdrop) barFraction else 1f
+                    ReikaiTopBar(
+                        title = {
+                            if (searchActive && !isReading) {
+                                TextField(
+                                    value = searchQuery,
+                                    onValueChange = { searchQuery = it },
+                                    placeholder = { Text("Search chapters") },
+                                    singleLine = true,
+                                    colors = TextFieldDefaults.colors(
+                                        focusedContainerColor = Color.Transparent,
+                                        unfocusedContainerColor = Color.Transparent,
+                                        focusedIndicatorColor = Color.Transparent,
+                                        unfocusedIndicatorColor = Color.Transparent,
+                                    ),
+                                    modifier = Modifier.fillMaxWidth().focusRequester(searchFocus),
+                                )
+                            } else {
+                                Text(
+                                    title,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.alpha(barAlpha),
+                                )
                             }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = barAlpha),
-                        scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = barAlpha),
-                        titleContentColor = MaterialTheme.colorScheme.onSurface,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-                        actionIconContentColor = MaterialTheme.colorScheme.onSurface,
-                    ),
-                )
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = {
+                                if (searchActive && !isReading) { searchActive = false; searchQuery = "" } else goBack()
+                            }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            }
+                        },
+                        actions = {
+                            when {
+                                isReading -> IconButton(onClick = { readerSettingsOpen = true }) {
+                                    Icon(Icons.Default.Settings, contentDescription = "Reader settings")
+                                }
+                                searchActive -> if (searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { searchQuery = "" }) {
+                                        Icon(Icons.Outlined.Clear, contentDescription = "Clear")
+                                    }
+                                }
+                                loaded != null -> {
+                                    IconButton(onClick = { searchActive = true }) {
+                                        Icon(Icons.Outlined.Search, contentDescription = "Search chapters")
+                                    }
+                                    IconButton(onClick = { confirmMarkAll = true }) {
+                                        Icon(
+                                            if (allRead) Icons.Outlined.RemoveDone else Icons.Outlined.DoneAll,
+                                            contentDescription = if (allRead) "Mark all as unread" else "Mark all as read",
+                                        )
+                                    }
+                                }
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = barAlpha),
+                            scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = barAlpha),
+                            titleContentColor = MaterialTheme.colorScheme.onSurface,
+                            navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+                            actionIconContentColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                    )
+                }
             },
         ) { padding ->
             val reading = readingChapter
@@ -236,13 +329,21 @@ class NovelDetailsScreen(
                                     )
                                 },
                             ) {
-                                val rows = s.chapters.map { ch ->
-                                    DetailsChapterRow(
-                                        id = ch.id ?: 0L,
-                                        name = ch.name,
-                                        read = ch.read,
-                                        bookmark = ch.bookmark,
-                                    )
+                                val rows = remember(s.chapters, s.selection, searchQuery) {
+                                    s.chapters.mapNotNull { ch ->
+                                        if (searchQuery.isNotBlank() &&
+                                            !ch.name.contains(searchQuery, ignoreCase = true)
+                                        ) {
+                                            return@mapNotNull null
+                                        }
+                                        DetailsChapterRow(
+                                            id = ch.id ?: 0L,
+                                            name = ch.name,
+                                            read = ch.read,
+                                            bookmark = ch.bookmark,
+                                            selected = ch.id in s.selection,
+                                        )
+                                    }
                                 }
                                 DetailsContent(
                                     coverData = s.novel.thumbnailUrl,
@@ -259,6 +360,8 @@ class NovelDetailsScreen(
                                     onChapterClick = { id ->
                                         s.chapters.find { it.id == id }?.let { openChapter(it) }
                                     },
+                                    selectionActive = s.selection.isNotEmpty(),
+                                    onToggleSelection = { id, sel, long -> screenModel.toggleSelection(id, sel, long) },
                                     listState = listState,
                                     topInset = padding.calculateTopPadding(),
                                     bottomInset = padding.calculateBottomPadding(),
@@ -301,6 +404,20 @@ class NovelDetailsScreen(
                     onConfirm = { screenModel.applyCategories(it) },
                 )
             }
+        }
+
+        if (confirmMarkAll) {
+            val markRead = !allRead
+            AlertDialog(
+                onDismissRequest = { confirmMarkAll = false },
+                title = { Text(if (markRead) "Mark all as read?" else "Mark all as unread?") },
+                confirmButton = {
+                    TextButton(onClick = { confirmMarkAll = false; screenModel.markAllRead(markRead) }) { Text("OK") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmMarkAll = false }) { Text("Cancel") }
+                },
+            )
         }
     }
 }

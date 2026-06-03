@@ -60,6 +60,10 @@ class NovelDetailsScreenModel(
     private var firstFetchTried = false
     private var refreshJob: Job? = null
 
+    /** Range-select anchors [min, max] into the displayed chapter order; -1 when no selection.
+     *  Mirrors the manga side so a long-press extends the range. */
+    private val selectedPositions = intArrayOf(-1, -1)
+
     init {
         observeFromDb()
     }
@@ -88,9 +92,10 @@ class NovelDetailsScreenModel(
                             novel = novel,
                             chapters = chapters,
                             isRefreshing = (current as? NovelDetailsState.Loaded)?.isRefreshing ?: false,
-                            // Preserve an open dialog across DB re-emissions (e.g. the category
-                            // picker shown right after favoriting, which itself triggers a re-emit).
+                            // Preserve transient screen state across DB re-emissions (a read/bookmark
+                            // write re-emits the chapter list): an open dialog and the active selection.
                             dialog = (current as? NovelDetailsState.Loaded)?.dialog,
+                            selection = (current as? NovelDetailsState.Loaded)?.selection ?: emptySet(),
                         )
                     }
                     if (chapters.isEmpty()) maybeFirstFetch(novel)
@@ -246,6 +251,112 @@ class NovelDetailsScreenModel(
         mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(dialog = null) ?: it }
     }
 
+    // --- Chapter selection + read/bookmark ---
+
+    fun toggleSelection(chapterId: Long, selected: Boolean, fromLongPress: Boolean) {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        val chapters = loaded.chapters
+        val index = chapters.indexOfFirst { it.id == chapterId }
+        if (index < 0) return
+        if ((chapterId in loaded.selection) == selected) return
+
+        val newSelection = loaded.selection.toMutableSet()
+        val firstSelection = loaded.selection.isEmpty()
+        if (selected) newSelection.add(chapterId) else newSelection.remove(chapterId)
+
+        if (selected && fromLongPress) {
+            if (firstSelection) {
+                selectedPositions[0] = index
+                selectedPositions[1] = index
+            } else {
+                val range = when {
+                    index < selectedPositions[0] -> (index + 1 until selectedPositions[0]).also { selectedPositions[0] = index }
+                    index > selectedPositions[1] -> (selectedPositions[1] + 1 until index).also { selectedPositions[1] = index }
+                    else -> IntRange.EMPTY
+                }
+                range.forEach { i -> chapters[i].id?.let { newSelection.add(it) } }
+            }
+        } else if (!fromLongPress) {
+            if (!selected) {
+                if (index == selectedPositions[0]) selectedPositions[0] = chapters.indexOfFirst { it.id in newSelection }
+                else if (index == selectedPositions[1]) selectedPositions[1] = chapters.indexOfLast { it.id in newSelection }
+            } else {
+                if (index < selectedPositions[0]) selectedPositions[0] = index
+                else if (index > selectedPositions[1]) selectedPositions[1] = index
+            }
+        }
+        mutableState.value = loaded.copy(selection = newSelection)
+    }
+
+    fun selectAll() {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        resetSelectionAnchors()
+        mutableState.value = loaded.copy(selection = loaded.chapters.mapNotNull { it.id }.toSet())
+    }
+
+    fun invertSelection() {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        resetSelectionAnchors()
+        val inverted = loaded.chapters.mapNotNull { it.id }.filterNot { it in loaded.selection }.toSet()
+        mutableState.value = loaded.copy(selection = inverted)
+    }
+
+    fun clearSelection() {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        resetSelectionAnchors()
+        if (loaded.selection.isNotEmpty()) mutableState.value = loaded.copy(selection = emptySet())
+    }
+
+    private fun resetSelectionAnchors() {
+        selectedPositions[0] = -1
+        selectedPositions[1] = -1
+    }
+
+    fun markSelectedRead(read: Boolean) {
+        screenModelScope.launchIO {
+            applyRead(selectedChapters() ?: return@launchIO, read)
+            clearSelection()
+        }
+    }
+
+    fun bookmarkSelected(bookmark: Boolean) {
+        screenModelScope.launchIO {
+            applyBookmark(selectedChapters() ?: return@launchIO, bookmark)
+            clearSelection()
+        }
+    }
+
+    fun markAllRead(read: Boolean) {
+        screenModelScope.launchIO {
+            val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
+            applyRead(loaded.chapters, read)
+        }
+    }
+
+    /** Mark every chapter before the earliest selected one (in source order) read/unread. */
+    fun markPreviousRead(read: Boolean) {
+        screenModelScope.launchIO {
+            val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
+            val ascending = loaded.chapters.sortedBy { it.sourceOrder }
+            val earliest = ascending.indexOfFirst { it.id in loaded.selection }
+            if (earliest > 0) applyRead(ascending.subList(0, earliest), read)
+            clearSelection()
+        }
+    }
+
+    private fun selectedChapters(): List<NovelChapter>? {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return null
+        return loaded.chapters.filter { it.id in loaded.selection }
+    }
+
+    private suspend fun applyRead(targets: List<NovelChapter>, read: Boolean) {
+        targets.forEach { if (it.read != read) chapterRepo.update(it.copy(read = read)) }
+    }
+
+    private suspend fun applyBookmark(targets: List<NovelChapter>, bookmark: Boolean) {
+        targets.forEach { if (it.bookmark != bookmark) chapterRepo.update(it.copy(bookmark = bookmark)) }
+    }
+
     /** Temporary verification aid (Phase 7), filterable via tag:NovelDetailsPort; stripped in P9. */
     private fun novelLog(message: () -> String) {
         if (BuildConfig.DEBUG) Logger.withTag("NovelDetailsPort").d(message())
@@ -259,6 +370,7 @@ sealed interface NovelDetailsState {
         val chapters: List<NovelChapter>,
         val isRefreshing: Boolean,
         val dialog: NovelDetailsDialog? = null,
+        val selection: Set<Long> = emptySet(),
     ) : NovelDetailsState
     data class Failed(val message: String) : NovelDetailsState
 }
