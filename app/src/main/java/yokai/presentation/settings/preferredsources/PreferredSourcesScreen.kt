@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -13,16 +12,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import dev.icerock.moko.resources.compose.stringResource
-import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import eu.kanade.tachiyomi.util.compose.currentOrThrow
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
-import yokai.novel.host.LnPluginHost
 import yokai.novel.install.LnPluginInstaller
 import yokai.novel.source.NovelSourceManager
 import yokai.presentation.AppBarType
@@ -38,7 +34,7 @@ import yokai.util.Screen
  * chapter list. Pure render over the two ScreenModels.
  *
  * Novel sources only populate [NovelSourceManager] after the plugin host loads them, so this screen
- * loads the host (which needs an Activity context) and hands installation off to the installer.
+ * calls `installer.ensureLoaded()` (which uses the app-scoped host) on entry.
  */
 class PreferredSourcesScreen : Screen() {
 
@@ -50,14 +46,9 @@ class PreferredSourcesScreen : Screen() {
         val mangaState by mangaModel.state.collectAsState()
         val novelState by novelModel.state.collectAsState()
 
-        // Load installed novel plugins so the Light novels tab can list them. Mirrors NovelDetailsScreen:
-        // the host needs a Context, so it lives here and is destroyed on dispose.
-        val context = LocalContext.current
-        val networkHelper = remember { Injekt.get<NetworkHelper>() }
+        // Load installed novel plugins so the Light novels tab can list them, via the app-scoped host.
         val installer = remember { Injekt.get<LnPluginInstaller>() }
-        val host = remember { LnPluginHost(context, networkHelper.client) }
-        DisposableEffect(host) { onDispose { host.destroy() } }
-        LaunchedEffect(Unit) { runCatching { installer.loadInstalled(host) } }
+        LaunchedEffect(Unit) { runCatching { installer.ensureLoaded() } }
 
         var selectedTab by rememberSaveable { mutableStateOf(0) }
 

@@ -6,6 +6,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import yokai.domain.novel.LnInstalledPluginMetadata
@@ -29,18 +31,35 @@ import yokai.novel.source.NovelSourceManager
  *   add-repo screen consumes this; included here so the registry-parser + NetworkHelper hookup
  *   gets one home.
  *
- * The installer does not own [LnPluginHost]. The caller (probe screen for now, real UI later)
- * provides a host whose lifecycle it controls.
+ * The installer owns the app-scoped [LnPluginHost] (a Koin `single`). [ensureLoaded] populates the
+ * shared [NovelSourceManager] from persistence once per process; screens call it on entry instead of
+ * building their own host.
  */
 class LnPluginInstaller(
     private val networkHelper: NetworkHelper,
     private val loader: LnPluginLoader,
     private val manager: NovelSourceManager,
     private val prefs: NovelPreferences,
+    private val host: LnPluginHost,
 ) {
 
+    private val loadMutex = Mutex()
+    @Volatile private var loadedOnce = false
+
+    /** Load every installed plugin into the app-scoped host exactly once per process, registering
+     *  the sources with [NovelSourceManager]. Idempotent and concurrency-safe: the first caller does
+     *  the work, the rest return immediately. Screens call this on entry (replaces the old
+     *  per-screen `loadInstalled(host)`). */
+    suspend fun ensureLoaded() {
+        if (loadedOnce) return
+        loadMutex.withLock {
+            if (loadedOnce) return
+            loadInstalled()
+            loadedOnce = true
+        }
+    }
+
     suspend fun installFromUrl(
-        host: LnPluginHost,
         pluginJsUrl: String,
         metadata: LnInstalledPluginMetadata? = null,
     ): LnPluginSource {
@@ -58,8 +77,8 @@ class LnPluginInstaller(
     }
 
     /**
-     * Re-load every URL in [NovelPreferences.installedPluginUrls] into [host] and register the
-     * resulting sources with [NovelSourceManager]. Individual failures are logged and skipped
+     * Re-load every URL in [NovelPreferences.installedPluginUrls] into the app-scoped host and
+     * register the resulting sources with [NovelSourceManager]. Individual failures are logged and skipped
      * so one bad URL doesn't block the rest.
      *
      * Performs a lazy iconUrl backfill for legacy installs (URLs persisted before the metadata
@@ -67,7 +86,7 @@ class LnPluginInstaller(
      * matches by canonical URL, writes the resolved metadata back. Backfill runs only when at
      * least one URL is missing iconUrl, so steady-state launches incur no extra HTTP work.
      */
-    suspend fun loadInstalled(host: LnPluginHost): List<LnPluginSource> {
+    suspend fun loadInstalled(): List<LnPluginSource> {
         val urls = prefs.installedPluginUrls().get()
         val metadata = backfillMetadata(urls)
         return urls.mapNotNull { url ->

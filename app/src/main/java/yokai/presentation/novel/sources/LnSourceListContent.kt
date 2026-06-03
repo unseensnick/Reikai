@@ -48,12 +48,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import yokai.novel.host.LnPluginHost
 import yokai.novel.install.LnPluginInstaller
 import yokai.novel.source.NovelSource
 import yokai.novel.source.NovelSourceManager
@@ -67,10 +65,8 @@ private const val UNKNOWN_LANG = "?"
  * (Phase 8 follow-up CR8/CR9). Lists every [NovelSource] currently registered with
  * [NovelSourceManager].
  *
- * Lifecycle: a fresh [LnPluginHost] is created here and `installer.loadInstalled(host)` is
- * called in [LaunchedEffect] so the manager populates with the user's installed plugins on
- * tab entry. Mirrors what the existing per-screen patterns do
- * ([yokai.presentation.novel.browse.NovelBrowseScreen], the debug probe screen, etc.).
+ * Lifecycle: `installer.ensureLoaded()` is called in [LaunchedEffect] so the app-scoped host
+ * populates the manager with the user's installed plugins on tab entry (idempotent across screens).
  *
  * Theme: same Phase 6 F12 / Phase 8 follow-up CR5 hotfix pattern — wrap content in a
  * Surface that pins container + content color to `?attr/background` /
@@ -105,17 +101,14 @@ fun LnSourceListContent(
     val context = LocalContext.current
     val manager = remember { Injekt.get<NovelSourceManager>() }
     val installer = remember { Injekt.get<LnPluginInstaller>() }
-    val networkHelper = remember { Injekt.get<NetworkHelper>() }
     val novelPrefs = remember { Injekt.get<yokai.domain.novel.NovelPreferences>() }
-    val host = remember { LnPluginHost(context, networkHelper.client) }
     val sources by manager.sources.collectAsState(initial = manager.getAll())
     val lastUsedId by novelPrefs.lastUsedNovelSource().changes()
         .collectAsState(initial = novelPrefs.lastUsedNovelSource().get())
 
-    // Re-hydrate installed plugins into this fresh host on tab entry so the manager's
-    // sources list reflects everything in NovelPreferences.installedPluginUrls(). Idempotent
-    // if the manager is already populated.
-    LaunchedEffect(host) { installer.loadInstalled(host) }
+    // Ensure installed plugins are loaded into the app-scoped host so the manager's sources list
+    // reflects everything in NovelPreferences.installedPluginUrls(). Idempotent across screens.
+    LaunchedEffect(Unit) { installer.ensureLoaded() }
 
     val listState = rememberLazyListState()
     // Bridge Compose nested-scroll into the activity app bar's collapse mechanism. `consumed.y`

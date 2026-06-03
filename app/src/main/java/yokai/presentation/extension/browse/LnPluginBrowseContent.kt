@@ -34,7 +34,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -53,14 +52,12 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import coil3.compose.AsyncImage
 import cafe.adriel.voyager.core.screen.Screen
-import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.toast
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import yokai.novel.host.LnPluginHost
 import yokai.novel.registry.LnRegistryEntry
 
 /**
@@ -68,9 +65,8 @@ import yokai.novel.registry.LnRegistryEntry
  * Light novels sub-tab (Phase 8 follow-up CR6). Reads from [LnPluginBrowseScreenModel] which
  * fetches every URL in `NovelPreferences.addedRepoUrls` and groups by language.
  *
- * Owns the [LnPluginHost] lifecycle (Context-dependent WebView + Coil scope) via `remember` +
- * `DisposableEffect`. The screen model only orchestrates data; install / uninstall pass the
- * host down so the model stays Context-free.
+ * Install / uninstall / clear-data are delegated to the screen model, which uses the app-scoped
+ * [LnPluginHost] (Koin `single`); this composable no longer owns a host.
  *
  * Hosted via a [ComposeView] from the legacy `ExtensionBottomSheet`, NOT from a Voyager
  * `Screen`. Uses an anonymous Screen wrapper for `rememberScreenModel` to work.
@@ -98,9 +94,6 @@ fun LnPluginBrowseContent(
         // Tap on an installed row opens this overflow sheet; null means no sheet shown.
         var openOverflowForEntry by remember { mutableStateOf<LnRegistryEntry?>(null) }
         val context = LocalContext.current
-        val networkHelper = remember { Injekt.get<NetworkHelper>() }
-        val host = remember { LnPluginHost(context, networkHelper.client) }
-        DisposableEffect(host) { onDispose { host.destroy() } }
 
         var lastFailedToastCount by remember { mutableStateOf(0) }
 
@@ -152,7 +145,7 @@ fun LnPluginBrowseContent(
                             search = searchQuery,
                             busyEntryIds = busyEntryIds,
                             installErrors = installErrors,
-                            onInstall = { entry -> screenModel.install(host, entry) },
+                            onInstall = { entry -> screenModel.install(entry) },
                             onTapInstalled = { entry -> openOverflowForEntry = entry },
                         )
                     }
@@ -173,12 +166,12 @@ fun LnPluginBrowseContent(
                     openOverflowForEntry = null
                 },
                 onClearData = {
-                    screenModel.clearPluginData(host, entry)
+                    screenModel.clearPluginData(entry)
                     context.toast("Cleared ${entry.name} data")
                     openOverflowForEntry = null
                 },
                 onUninstall = {
-                    screenModel.uninstall(host, entry)
+                    screenModel.uninstall(entry)
                     openOverflowForEntry = null
                 },
             )

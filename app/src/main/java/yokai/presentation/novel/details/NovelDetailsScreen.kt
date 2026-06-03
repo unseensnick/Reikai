@@ -42,7 +42,6 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -62,7 +61,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import eu.kanade.tachiyomi.domain.manga.models.Manga
-import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import eu.kanade.tachiyomi.util.system.toast
@@ -72,7 +70,6 @@ import uy.kohesive.injekt.api.get
 import yokai.data.novel.NovelStatusCode
 import yokai.domain.novel.NovelChapterRepository
 import yokai.domain.novel.models.NovelChapter
-import yokai.novel.host.LnPluginHost
 import yokai.novel.install.LnPluginInstaller
 import yokai.novel.source.NovelSource
 import yokai.novel.source.NovelSourceManager
@@ -109,11 +106,9 @@ class NovelDetailsScreen(
     @Composable
     override fun Content() {
         val context = LocalContext.current
-        val networkHelper = remember { Injekt.get<NetworkHelper>() }
         val installer = remember { Injekt.get<LnPluginInstaller>() }
         val manager = remember { Injekt.get<NovelSourceManager>() }
         val chapterRepo = remember { Injekt.get<NovelChapterRepository>() }
-        val host = remember { LnPluginHost(context, networkHelper.client) }
         val backPress = LocalBackPress.current
         val scope = rememberCoroutineScope()
         val listState = rememberLazyListState()
@@ -132,13 +127,11 @@ class NovelDetailsScreen(
         val screenModel = rememberScreenModel { NovelDetailsScreenModel(sourceId, novelUrl) }
         val state by screenModel.state.collectAsState()
 
-        DisposableEffect(host) { onDispose { host.destroy() } }
-
-        // Resolve the source once and hand it to the ScreenModel (host construction needs a Context).
+        // Resolve the source once and hand it to the ScreenModel.
         var resolvedSource by remember { mutableStateOf<NovelSource?>(null) }
         LaunchedEffect(sourceId, novelUrl) {
             try {
-                installer.loadInstalled(host)
+                installer.ensureLoaded()
                 val source = manager.get(sourceId)
                     ?: throw IllegalStateException("source not installed: $sourceId")
                 resolvedSource = source

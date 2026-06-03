@@ -36,15 +36,15 @@ import yokai.novel.update.LnPluginVersion
  * don't fail the whole list. Empty repos set yields an empty Success state (UI shows the "add a
  * repo" empty-state pointer).
  *
- * `install` / `uninstall` take the [LnPluginHost] from the call site because the host has a
- * Context-dependent lifecycle (WebView, Coil scope) the composable owns; the screen model only
- * orchestrates data.
+ * `install` / `uninstall` / `clearPluginData` use the app-scoped [LnPluginHost] (Koin `single`);
+ * the composable no longer owns a host.
  */
 class LnPluginBrowseScreenModel :
     StateScreenModel<LnPluginBrowseScreenModel.State>(State.Loading), KoinComponent {
 
     private val novelPrefs: NovelPreferences by inject()
     private val installer: LnPluginInstaller by inject()
+    private val host: LnPluginHost by inject()
 
     private val _busyEntryIds: MutableStateFlow<Set<String>> = MutableStateFlow(emptySet())
     val busyEntryIds: StateFlow<Set<String>> = _busyEntryIds.asStateFlow()
@@ -138,13 +138,12 @@ class LnPluginBrowseScreenModel :
         }
     }
 
-    fun install(host: LnPluginHost, entry: LnRegistryEntry) {
+    fun install(entry: LnRegistryEntry) {
         markBusy(entry.id, true)
         _installErrors.update { it - entry.id }
         screenModelScope.launchIO {
             try {
                 installer.installFromUrl(
-                    host = host,
                     pluginJsUrl = entry.url,
                     metadata = LnInstalledPluginMetadata(
                         pluginId = entry.id,
@@ -161,7 +160,7 @@ class LnPluginBrowseScreenModel :
         }
     }
 
-    fun uninstall(host: LnPluginHost, entry: LnRegistryEntry) {
+    fun uninstall(entry: LnRegistryEntry) {
         // installer.uninstall drops the source registration + persistence; the host then wipes
         // the plugin's @libs/storage scope so a reinstall doesn't pick up stale login state.
         markBusy(entry.id, true)
@@ -177,7 +176,7 @@ class LnPluginBrowseScreenModel :
 
     /** Standalone Clear data action (overflow): wipes the plugin's @libs/storage scope without
      *  uninstalling. Re-launching the plugin starts from a fresh storage state. */
-    fun clearPluginData(host: LnPluginHost, entry: LnRegistryEntry) {
+    fun clearPluginData(entry: LnRegistryEntry) {
         markBusy(entry.id, true)
         screenModelScope.launchIO {
             try {

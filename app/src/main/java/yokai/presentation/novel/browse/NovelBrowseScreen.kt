@@ -45,7 +45,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -61,7 +60,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import kotlinx.coroutines.FlowPreview
@@ -83,7 +81,6 @@ import yokai.domain.novel.NovelChapterRepository
 import yokai.domain.novel.NovelPreferences
 import yokai.domain.novel.NovelRepository
 import yokai.novel.host.ChapterItem
-import yokai.novel.host.LnPluginHost
 import yokai.novel.host.NovelItem
 import yokai.novel.host.SourceNovel
 import yokai.novel.install.LnPluginInstaller
@@ -125,16 +122,12 @@ private sealed interface BrowseState {
 @Composable
 fun NovelBrowseScreen(initialSourceId: String? = null) {
     val context = LocalContext.current
-    val networkHelper = remember { Injekt.get<NetworkHelper>() }
     val installer = remember { Injekt.get<LnPluginInstaller>() }
     val manager = remember { Injekt.get<NovelSourceManager>() }
     val novelRepo = remember { Injekt.get<NovelRepository>() }
     val chapterRepo = remember { Injekt.get<NovelChapterRepository>() }
-    val host = remember { LnPluginHost(context, networkHelper.client) }
     val scope = rememberCoroutineScope()
     val backPress = LocalBackPress.current
-
-    DisposableEffect(host) { onDispose { host.destroy() } }
 
     val sources by manager.sources.collectAsState(initial = manager.getAll())
 
@@ -188,8 +181,8 @@ fun NovelBrowseScreen(initialSourceId: String? = null) {
         }
     }
 
-    LaunchedEffect(host) {
-        try { installer.loadInstalled(host) } catch (_: Throwable) {}
+    LaunchedEffect(Unit) {
+        try { installer.ensureLoaded() } catch (_: Throwable) {}
         // When entered with a pre-picked source (Browse → Light novel sources tap), skip the
         // PickingSource UI and jump straight to the source's catalog.
         val id = initialSourceId ?: return@LaunchedEffect

@@ -23,7 +23,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,7 +35,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -62,8 +60,7 @@ private val PRETTY_JSON = Json {
 @Composable
 fun LnPluginHostProbeScreen() {
     val context = LocalContext.current
-    val networkHelper = remember { Injekt.get<NetworkHelper>() }
-    val host = remember { LnPluginHost(context, networkHelper.client) }
+    val host = remember { Injekt.get<LnPluginHost>() }
     val loader = remember { Injekt.get<LnPluginLoader>() }
     val installer = remember { Injekt.get<LnPluginInstaller>() }
     val manager = remember { Injekt.get<NovelSourceManager>() }
@@ -71,10 +68,6 @@ fun LnPluginHostProbeScreen() {
     val updateChecker = remember { Injekt.get<LnPluginUpdateChecker>() }
     val scope = rememberCoroutineScope()
     val backPress = LocalBackPress.current
-
-    DisposableEffect(host) {
-        onDispose { host.destroy() }
-    }
 
     var pluginUrl by remember { mutableStateOf("") }
     // Captured from the load result. This is the plugin's canonical id (e.g. "novelbin"), used
@@ -95,11 +88,11 @@ fun LnPluginHostProbeScreen() {
     var busy by remember { mutableStateOf(false) }
     var registeredIds by remember { mutableStateOf<List<String>>(emptyList()) }
 
-    // On screen open, re-load every previously-installed plugin into this fresh host. Registers
+    // On screen open, re-load every previously-installed plugin into the app-scoped host. Registers
     // each in NovelSourceManager, so any subsequent product code can find them via the manager.
-    LaunchedEffect(host) {
+    LaunchedEffect(Unit) {
         try {
-            val loaded = installer.loadInstalled(host)
+            val loaded = installer.loadInstalled()
             registeredIds = loaded.map { it.id }
             if (loaded.isNotEmpty()) {
                 loadedPluginId = loaded.last().id
@@ -208,7 +201,7 @@ fun LnPluginHostProbeScreen() {
                     enabled = !busy && pluginUrl.isNotBlank(),
                     onClick = {
                         run("install") {
-                            val source = installer.installFromUrl(host, pluginUrl)
+                            val source = installer.installFromUrl(pluginUrl)
                             loadedPluginId = source.id
                             registeredIds = manager.getAll().map { it.id }
                             mapOf(
