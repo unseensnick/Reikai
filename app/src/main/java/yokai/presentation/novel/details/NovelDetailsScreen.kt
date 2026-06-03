@@ -83,6 +83,7 @@ import yokai.presentation.details.EditInfoDialog
 import yokai.presentation.details.DetailsContent
 import yokai.presentation.details.DetailsFilterSortSheet
 import yokai.presentation.details.DetailsSourceTab
+import yokai.presentation.details.ManageSourcesDialog
 import yokai.presentation.library.components.SelectionAction
 import yokai.presentation.library.components.SelectionAppBar
 import yokai.presentation.novel.browse.ChapterRead
@@ -160,6 +161,8 @@ class NovelDetailsScreen(
         var confirmMarkAll by remember { mutableStateOf(false) }
         var overflowOpen by remember { mutableStateOf(false) }
         var showSheet by remember { mutableStateOf(false) }
+        // A grouped source pending long-press removal from the group (confirmation gate).
+        var sourceToRemove by remember { mutableStateOf<Long?>(null) }
 
         fun openChapter(chapter: NovelChapter) {
             if (readerLoading) return
@@ -320,6 +323,12 @@ class NovelDetailsScreen(
                                                 text = { Text("Edit info") },
                                                 onClick = { overflowOpen = false; screenModel.showEditNovelInfoDialog() },
                                             )
+                                            if (loaded.sourceTabs.size > 1) {
+                                                DropdownMenuItem(
+                                                    text = { Text("Manage sources") },
+                                                    onClick = { overflowOpen = false; screenModel.showManageSourcesDialog() },
+                                                )
+                                            }
                                             if (loaded.hasHiddenChapters || loaded.showHidden) {
                                                 DropdownMenuItem(
                                                     text = { Text(if (loaded.showHidden) "Hide hidden chapters" else "Show hidden chapters") },
@@ -467,6 +476,7 @@ class NovelDetailsScreen(
                                     sourceTabs = s.sourceTabs.map { DetailsSourceTab(it.novelId, it.label) },
                                     selectedSourceView = s.sourceView,
                                     onSourceViewChange = { screenModel.setSourceView(it) },
+                                    onSourceRemove = { sourceToRemove = it },
                                     currentSourceId = s.novel.id,
                                 )
                             }
@@ -510,7 +520,30 @@ class NovelDetailsScreen(
                         screenModel.updateNovelInfo(title, author, artist, description, genre)
                     },
                 )
+                is NovelDetailsDialog.ManageSources -> ManageSourcesDialog(
+                    sources = dialog.sources,
+                    onSplit = { screenModel.splitSources(it) },
+                    onRemoveFromLibrary = { screenModel.removeSourcesFromLibrary(it) },
+                    onDismiss = { screenModel.dismissDialog() },
+                )
             }
+        }
+
+        // Long-press a source chip to split it out of the group (confirmation gate).
+        sourceToRemove?.let { id ->
+            val name = loaded?.sourceTabs?.find { it.novelId == id }?.label.orEmpty()
+            AlertDialog(
+                onDismissRequest = { sourceToRemove = null },
+                text = { Text("Remove $name from this group?") },
+                confirmButton = {
+                    TextButton(onClick = { sourceToRemove = null; screenModel.splitSources(listOf(id)) }) {
+                        Text("Remove")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { sourceToRemove = null }) { Text("Cancel") }
+                },
+            )
         }
 
         if (showSheet && loaded != null) {

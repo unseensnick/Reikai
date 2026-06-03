@@ -40,6 +40,7 @@ import yokai.domain.novel.models.sortedAndFiltered
 import yokai.novel.source.NovelSource
 import yokai.novel.source.NovelSourceManager
 import yokai.novel.text.htmlToParagraphs
+import yokai.presentation.details.ManageSourceItem
 import yokai.presentation.novel.browse.ChapterRead
 
 /**
@@ -182,6 +183,45 @@ class NovelDetailsScreenModel(
         if (sourceViewFlow.value == novelId) return
         clearSelection()
         sourceViewFlow.value = novelId
+    }
+
+    // --- Source grouping (split / remove from library) ---
+
+    /** Resolve the grouped sources (favorited, not unmerged) and open the Manage sources dialog. */
+    fun showManageSourcesDialog() {
+        screenModelScope.launchIO {
+            val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
+            val anchorId = loaded.novel.id ?: return@launchIO
+            val items = mergeManager.availableSources(anchorId, groupIdsFlow.value.toLongArray())
+                .mapNotNull { n -> n.id?.let { ManageSourceItem(mangaId = it, sourceName = sourceLabel(n), isCurrent = it == anchorId) } }
+            mutableState.update {
+                (it as? NovelDetailsState.Loaded)?.copy(dialog = NovelDetailsDialog.ManageSources(items)) ?: it
+            }
+        }
+    }
+
+    /** Split [targetIds] out of the merge group (they stay in the library, just ungrouped). The
+     *  smaller group re-aggregates via [updateGroup]. */
+    fun splitSources(targetIds: List<Long>) {
+        if (targetIds.isEmpty()) { dismissDialog(); return }
+        screenModelScope.launchIO {
+            val newIds = mergeManager.removeFromGroup(groupIdsFlow.value.toLongArray(), targetIds)
+            novelLog { "splitSources removed=${targetIds.size} remaining=${newIds.size}" }
+            updateGroup(newIds.toList())
+            dismissDialog()
+        }
+    }
+
+    /** Remove [targetIds] from the library (unfavorite) and drop them from the group. */
+    fun removeSourcesFromLibrary(targetIds: List<Long>) {
+        if (targetIds.isEmpty()) { dismissDialog(); return }
+        screenModelScope.launchIO {
+            mergeManager.unfavoriteFromGroup(targetIds)
+            novelLog { "removeSourcesFromLibrary count=${targetIds.size}" }
+            val targetSet = targetIds.toSet()
+            updateGroup(groupIdsFlow.value.filterNot { it in targetSet })
+            dismissDialog()
+        }
     }
 
     /** Build [NovelDetailsState.Loaded] from the per-novel chapter map, preserving transient UI. */
@@ -798,6 +838,9 @@ sealed interface NovelDetailsDialog {
         val description: String,
         val genre: String,
     ) : NovelDetailsDialog
+
+    /** Grouped sources for the Manage sources checklist (split / remove from library). */
+    data class ManageSources(val sources: List<ManageSourceItem>) : NovelDetailsDialog
 }
 
 // Edit-info lock bits, persisted in Novel.editedFlags (must match the 38.sqm migration comment).
