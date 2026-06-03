@@ -4,6 +4,7 @@ import java.util.Date
 import java.util.TreeSet
 import yokai.data.DatabaseHandler
 import yokai.data.novel.toNovelChapter
+import yokai.domain.chapter.services.ChapterRecognition
 import yokai.domain.novel.NovelChapterRepository
 import yokai.domain.novel.NovelRepository
 import yokai.domain.novel.models.Novel
@@ -17,8 +18,10 @@ import yokai.novel.source.NovelSource
  *
  * * No scanlator filtering (Phase 7 Decision #1: novels have no scanlators).
  * * No download-manager interaction (Decision #4: novel downloads stubbed).
- * * No chapter-number recognition heuristic (lnreader plugins return `ChapterItem.chapterNumber`
- *   as a Double already; no name-parsing needed).
+ * * Chapter-number recognition runs only when the plugin didn't supply a number (it then lands as
+ *   0f): the recognized number drives sort / display and the numeric fallback of the cross-source
+ *   match key ([yokai.domain.novel.NovelChapterAggregation.matchKey]). Plugin-supplied numbers are
+ *   trusted as-is.
  * * No `markDuplicateReadChapterAsRead` library-pref branch (manga-only feature; deferred for
  *   novels until the Novels tab surfaces a preference for it).
  *
@@ -51,7 +54,11 @@ suspend fun syncChaptersWithNovelSource(
         .distinctBy { it.path }
         .mapIndexed { i, item ->
             val draft = item.toNovelChapter(novelId, sourceOrder = i.toLong())
-            draft.copy(name = with(ChapterSanitizer) { draft.name.sanitize(novel.title) })
+            val name = with(ChapterSanitizer) { draft.name.sanitize(novel.title) }
+            // Recognize a chapter number from the name when the plugin gave none (it lands as 0f);
+            // a plugin-supplied positive number is trusted as-is.
+            val number = ChapterRecognition.parseChapterNumber(name, novel.title, draft.chapterNumber.takeIf { it > 0f })
+            draft.copy(name = name, chapterNumber = number)
         }
 
     val toAdd = mutableListOf<NovelChapter>()

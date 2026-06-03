@@ -8,12 +8,14 @@ class NovelChapterAggregationTest {
 
     private var nextId = 1L
 
-    private fun chapter(novelId: Long, number: Float): NovelChapter =
+    private fun chapter(novelId: Long, number: Float, title: String = ""): NovelChapter =
         NovelChapter(
             id = nextId++,
             novelId = novelId,
             url = "/$novelId/$number/$nextId",
-            name = "Chapter $number",
+            // A descriptive title exercises the title-based match key; a blank one ("Chapter N")
+            // normalizes to empty and falls back to the recognized number.
+            name = title.ifBlank { "Chapter $number" },
             read = false,
             bookmark = false,
             lastTextProgress = 0,
@@ -70,6 +72,56 @@ class NovelChapterAggregationTest {
         val unified = NovelChapterAggregation.aggregate(mapOf(1L to trunk, 2L to other))
 
         assertEquals(listOf(1f, 2f, 3f), unified.numbers())
+    }
+
+    @Test
+    fun `matches chapters across sources by title when numbers disagree`() {
+        // Same chapters, off-by-one numbering across sources, but identical title text.
+        val source1 = listOf(chapter(1L, 1f, "Surviving Just To Die"), chapter(1L, 2f, "Terminal"))
+        val source2 = listOf(
+            chapter(2L, 0f, "surviving just to die"),
+            chapter(2L, 1f, "Terminal"),
+            chapter(2L, 2f, "New Arc"),
+        )
+
+        val unified = NovelChapterAggregation.aggregate(mapOf(1L to source1, 2L to source2))
+
+        // 3 distinct chapters by title; the disagreeing numbers don't create duplicates.
+        assertEquals(3, unified.size)
+        assertEquals(
+            setOf("surviving just to die", "terminal", "new arc"),
+            unified.map { it.name.lowercase() }.toSet(),
+        )
+    }
+
+    @Test
+    fun `title match ignores a leading chapter label and number`() {
+        val source1 = listOf(chapter(1L, 1f, "Chapter 1 - 0 Surviving Just To Die"))
+        val source2 = listOf(chapter(2L, 5f, "0 Surviving Just to Die"))
+
+        val unified = NovelChapterAggregation.aggregate(mapOf(1L to source1, 2L to source2))
+
+        // Both normalize to "surviving just to die", so they collapse to one row.
+        assertEquals(1, unified.size)
+    }
+
+    @Test
+    fun `keeps every trunk chapter even when two share a title`() {
+        // Novels have no scanlator variants, so two distinct trunk chapters with the same title text
+        // must both survive (the bug was collapsing the trunk against itself).
+        val trunk = listOf(
+            chapter(1L, 1f, "Interlude"),
+            chapter(1L, 2f, "Story"),
+            chapter(1L, 3f, "Interlude"),
+        )
+        val other = listOf(chapter(2L, 1f, "Interlude"))
+
+        val unified = NovelChapterAggregation.aggregate(mapOf(1L to trunk, 2L to other))
+
+        // All 3 trunk chapters kept; the sibling "Interlude" repeats a key, so it's dropped.
+        assertEquals(3, unified.size)
+        assertEquals(listOf(1L), unified.map { it.novelId }.distinct())
+        assertEquals(2, unified.count { it.name == "Interlude" })
     }
 
     @Test

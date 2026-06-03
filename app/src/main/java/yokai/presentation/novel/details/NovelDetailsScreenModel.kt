@@ -280,18 +280,42 @@ class NovelDetailsScreenModel(
      *  under a spinner while the sync runs, then the Flow swaps in the fresh rows. Read/bookmark are
      *  preserved by [syncChaptersWithNovelSource]. Deduped against a concurrent refresh. */
     fun refresh() {
-        val src = source ?: return
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
         if (refreshJob?.isActive == true) return
-        novelLog { "refresh: fetching from source" }
+        novelLog { "refresh: fetching from source(s)" }
         refreshJob = screenModelScope.launchIO {
             mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(isRefreshing = true) ?: it }
             try {
-                runCatching { fetchAndSync(src, loaded.novel) }
+                val group = groupIdsFlow.value
+                if (group.size > 1) {
+                    // Merged: refresh every grouped source so the unified list rebuilds with all of
+                    // them. Per-source failures are logged and skipped. The anchor also refreshes its
+                    // metadata (the displayed header); siblings sync chapters only.
+                    group.forEach { id ->
+                        runCatching {
+                            val n = novelsById[id] ?: novelRepo.getById(id) ?: return@forEach
+                            if (id == loaded.novel.id) {
+                                source?.let { fetchAndSync(it, n) }
+                            } else {
+                                sourceManager.get(n.source)?.let { fetchSiblingChapters(it, n) }
+                            }
+                        }.onFailure { novelLog { "refresh source for novel $id failed: ${it.message}" } }
+                    }
+                } else {
+                    val src = source ?: return@launchIO
+                    runCatching { fetchAndSync(src, loaded.novel) }
+                }
             } finally {
                 mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(isRefreshing = false) ?: it }
             }
         }
+    }
+
+    /** Refresh one grouped source's chapters from its own url. No metadata merge (that's the anchor's
+     *  job for the displayed header); the reactive flow re-emits and the unified list rebuilds. */
+    private suspend fun fetchSiblingChapters(src: NovelSource, novel: Novel) {
+        val chapters = src.parseNovel(novel.url).chapters.orEmpty()
+        if (chapters.isNotEmpty()) syncChaptersWithNovelSource(chapters, novel, src, chapterRepo, novelRepo, handler)
     }
 
     /** Fetch the chapter text for a stored chapter (always a source hit; reading isn't cached).
@@ -645,11 +669,28 @@ class NovelDetailsScreenModel(
     }
 
     private suspend fun applyRead(targets: List<NovelChapter>, read: Boolean) {
-        targets.forEach { if (it.read != read) it.id?.let { id -> chapterRepo.setRead(id, read) } }
+        expandToSiblings(targets).forEach { if (it.read != read) it.id?.let { id -> chapterRepo.setRead(id, read) } }
     }
 
     private suspend fun applyBookmark(targets: List<NovelChapter>, bookmark: Boolean) {
-        targets.forEach { if (it.bookmark != bookmark) it.id?.let { id -> chapterRepo.setBookmark(id, bookmark) } }
+        expandToSiblings(targets).forEach { if (it.bookmark != bookmark) it.id?.let { id -> chapterRepo.setBookmark(id, bookmark) } }
+    }
+
+    /**
+     * For a merged novel, expand a set of chapters to every sibling row sharing each chapter's
+     * cross-source [NovelChapterAggregation.matchKey] (title-first, number fallback), so a read /
+     * bookmark mark in the unified list lands on the same chapter in every grouped source. No-op for a
+     * single source. Chapters with no usable key mark only their own row.
+     */
+    private fun expandToSiblings(chapters: List<NovelChapter>): List<NovelChapter> {
+        if (chaptersByNovel.size <= 1) return chapters
+        val keys = chapters.mapNotNullTo(HashSet()) { NovelChapterAggregation.matchKey(it) }
+        if (keys.isEmpty()) return chapters
+        val matched = chaptersByNovel.values.asSequence()
+            .flatten()
+            .filter { NovelChapterAggregation.matchKey(it) in keys }
+        val unmatchable = chapters.filter { NovelChapterAggregation.matchKey(it) == null }
+        return (matched + unmatchable).distinctBy { it.id }.toList()
     }
 
     /** Temporary verification aid (Phase 7), filterable via tag:NovelDetailsPort; stripped in P9. */

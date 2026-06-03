@@ -8,17 +8,16 @@ import yokai.domain.novel.models.NovelChapter
  * unified list.
  *
  * **Trunk = the preferred source if one is in the group, else the source with the most chapters.**
- * (Unlike manga, novels have no scanlators, so raw chapter count is the right completeness measure;
- * and unlike manga, an absent chapter number is stored as `0f`, so only a *positive* number counts
- * as recognized.)
  *
- * Cross-source matching is by recognized chapter number, but that only works when the trunk actually
- * carries numbers. Many lnreader plugins don't, so every chapter lands at `0f`; in that case there's
- * no reliable key to merge on, so the unified view is simply the trunk's (fullest / preferred)
- * complete list. When the trunk IS numbered: the trunk's chapters are kept, every recognized number
- * it lacks is gap-filled from the next source that has it (one row per number), and siblings'
- * unnumbered chapters are dropped (they can't be matched). Each returned [NovelChapter] keeps its own
- * `novelId`, so the caller can read a chapter from its origin source. Output is unsorted.
+ * Chapters are matched across sources by [matchKey]: the normalized **title text** when the name has
+ * any (e.g. "Chapter 1 - 0 Surviving Just To Die" and "0 Surviving Just to Die" both reduce to
+ * `surviving just to die`), otherwise the recognized **chapter number** (for numeric-only names like
+ * "Chapter 5"). Title-first is more forgiving than raw numbers, which often disagree across sources
+ * (an off-by-one from a prologue). **Every trunk chapter is kept** (novels have no scanlator
+ * variants, so each row is a distinct chapter); a sibling chapter is added only when its key isn't
+ * already present (gap-fill), and a sibling with no usable key is dropped (it can't be matched). So
+ * the unified list always contains at least the whole trunk. Each returned [NovelChapter] keeps its
+ * own `novelId`, so the caller can read a chapter from its origin source. Output is unsorted.
  *
  * Stateless and side-effect-free for unit testing.
  */
@@ -53,30 +52,57 @@ object NovelChapterAggregation {
                     .thenBy { it.novelId },
             )
 
-        // No numbers on the trunk -> no reliable cross-source key, so just show its full list.
+        // No usable keys on the trunk -> no reliable cross-source matching, so just show its full list.
         val trunk = ranked.first()
-        if (trunk.chapters.none { it.isRecognizedNumber }) return trunk.chapters
+        if (trunk.chapters.none { matchKey(it) != null }) return trunk.chapters
 
         val unified = mutableListOf<NovelChapter>()
-        val seenNumbers = HashSet<Float>()
+        val seenKeys = HashSet<String>()
         ranked.forEachIndexed { index, source ->
             val isTrunk = index == 0
             for (chapter in source.chapters) {
+                val key = matchKey(chapter)
                 when {
-                    // One row per recognized number across the whole group.
-                    chapter.isRecognizedNumber -> if (seenNumbers.add(chapter.chapterNumber)) unified.add(chapter)
-                    // Unnumbered chapters can't be matched, so keep only the trunk's.
-                    isTrunk -> unified.add(chapter)
+                    // Keep every trunk chapter (no intra-source collapse: novels have no scanlator
+                    // variants, so distinct rows that happen to share a title are still distinct).
+                    isTrunk -> {
+                        unified.add(chapter)
+                        if (key != null) seenKeys.add(key)
+                    }
+                    // Gap-fill a sibling chapter only when its key is new; unkeyable siblings drop.
+                    key != null && seenKeys.add(key) -> unified.add(chapter)
                 }
             }
         }
         return unified
     }
 
-    // Absent novel chapter numbers are stored as 0f (LnPlugin ChapterItem.chapterNumber is nullable),
-    // so only a positive number is a usable cross-source key.
-    private val NovelChapter.isRecognizedNumber: Boolean
-        get() = chapterNumber > 0f
+    /**
+     * The cross-source identity of a chapter, or null when it has none. Prefers the normalized title
+     * text (drops "chapter"/"vol" label words, standalone numbers, and punctuation); falls back to the
+     * recognized chapter number for numeric-only names. Used for both the unified merge and the
+     * read/bookmark propagation across grouped sources.
+     */
+    fun matchKey(chapter: NovelChapter): String? {
+        val title = normalizedTitle(chapter.name)
+        if (title.isNotEmpty()) return "t:$title"
+        if (chapter.chapterNumber > 0f) return "n:${chapter.chapterNumber}"
+        return null
+    }
+
+    private val labelWords = setOf(
+        "chapter", "ch", "chap", "episode", "ep", "part", "pt", "vol", "volume", "book", "season", "s",
+    )
+    private val numberToken = Regex("""^[0-9]+(\.[0-9]+)?$""")
+    private val nonAlphanumeric = Regex("""[^a-z0-9]+""")
+
+    private fun normalizedTitle(name: String): String =
+        name.lowercase()
+            .replace(nonAlphanumeric, " ")
+            .trim()
+            .split(' ')
+            .filter { it.isNotEmpty() && it !in labelWords && !numberToken.matches(it) }
+            .joinToString(" ")
 
     private class RankedSource(
         val novelId: Long,
