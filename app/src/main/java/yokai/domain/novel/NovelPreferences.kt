@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.data.preference.DEVICE_ONLY_ON_WIFI
 import eu.kanade.tachiyomi.data.preference.MANGA_HAS_UNREAD
 import eu.kanade.tachiyomi.data.preference.MANGA_NON_COMPLETED
 import eu.kanade.tachiyomi.data.preference.MANGA_NON_READ
+import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.ui.library.filter.FilterBottomSheet
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
@@ -100,6 +101,16 @@ class NovelPreferences(
     fun hideNotificationContent() = preferenceStore.getBoolean("ln_hide_notification_content", false)
     /** 0 = never, 1 = ask, 2 = always. Mirrors manga's deleteRemovedChapters. */
     fun deleteRemovedChapters() = preferenceStore.getInt("ln_delete_removed_chapters", 0)
+
+    // Details-screen chapter sort / filter / display defaults (parallel to PreferencesHelper's
+    // defaultChapter* prefs). A novel uses these unless it sets its own local override in
+    // Novel.chapterFlags. Default sort is source order ascending (chapter 1 first), the novel
+    // reading order, which differs from the manga default (newest first).
+    fun defaultChapterSortOrder() = preferenceStore.getInt("novel_default_chapter_sort", Manga.CHAPTER_SORTING_SOURCE)
+    fun defaultChapterSortDescending() = preferenceStore.getBoolean("novel_default_chapter_sort_desc", false)
+    fun defaultChapterFilterUnread() = preferenceStore.getInt("novel_default_chapter_filter_unread", Manga.SHOW_ALL)
+    fun defaultChapterFilterBookmarked() = preferenceStore.getInt("novel_default_chapter_filter_bookmarked", Manga.SHOW_ALL)
+    fun defaultChapterHideTitles() = preferenceStore.getBoolean("novel_default_chapter_hide_titles", false)
 
     // ----------------------------------------------------------------------------------------
     // Compose-library state, filter, sort, group, merge preferences (Phase 7C / 7E feed).

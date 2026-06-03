@@ -61,6 +61,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
+import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
@@ -80,6 +81,7 @@ import yokai.presentation.details.ChangeCategoryDialog
 import yokai.presentation.details.DetailsChapterRow
 import yokai.presentation.details.EditInfoDialog
 import yokai.presentation.details.DetailsContent
+import yokai.presentation.details.DetailsFilterSortSheet
 import yokai.presentation.library.components.SelectionAction
 import yokai.presentation.library.components.SelectionAppBar
 import yokai.presentation.novel.browse.ChapterRead
@@ -156,6 +158,7 @@ class NovelDetailsScreen(
         val searchFocus = remember { FocusRequester() }
         var confirmMarkAll by remember { mutableStateOf(false) }
         var overflowOpen by remember { mutableStateOf(false) }
+        var showSheet by remember { mutableStateOf(false) }
 
         fun openChapter(chapter: NovelChapter) {
             if (readerLoading) return
@@ -372,16 +375,22 @@ class NovelDetailsScreen(
                                     )
                                 },
                             ) {
-                                val rows = remember(s.chapters, s.selection, searchQuery) {
+                                val rows = remember(s.chapters, s.selection, searchQuery, s.hideChapterTitles) {
                                     s.chapters.mapNotNull { ch ->
+                                        val displayName = if (s.hideChapterTitles && ch.chapterNumber > 0f) {
+                                            val num = ch.chapterNumber
+                                            "Chapter " + (if (num % 1f == 0f) num.toInt().toString() else num.toString())
+                                        } else {
+                                            ch.name
+                                        }
                                         if (searchQuery.isNotBlank() &&
-                                            !ch.name.contains(searchQuery, ignoreCase = true)
+                                            !displayName.contains(searchQuery, ignoreCase = true)
                                         ) {
                                             return@mapNotNull null
                                         }
                                         DetailsChapterRow(
                                             id = ch.id ?: 0L,
-                                            name = ch.name,
+                                            name = displayName,
                                             read = ch.read,
                                             bookmark = ch.bookmark,
                                             selected = ch.id in s.selection,
@@ -405,6 +414,7 @@ class NovelDetailsScreen(
                                     },
                                     selectionActive = s.selection.isNotEmpty(),
                                     onToggleSelection = { id, sel, long -> screenModel.toggleSelection(id, sel, long) },
+                                    onFilterClick = { showSheet = true },
                                     listState = listState,
                                     topInset = padding.calculateTopPadding(),
                                     bottomInset = padding.calculateBottomPadding(),
@@ -480,6 +490,29 @@ class NovelDetailsScreen(
                     },
                 )
             }
+        }
+
+        if (showSheet && loaded != null) {
+            DetailsFilterSortSheet(
+                readFilter = loaded.readFilter,
+                downloadedFilter = Manga.SHOW_ALL,
+                bookmarkedFilter = loaded.bookmarkedFilter,
+                hideChapterTitles = loaded.hideChapterTitles,
+                showDownloadedFilter = false,
+                onFiltersChanged = { read, _, bookmarked -> screenModel.setFilters(read, bookmarked) },
+                onHideChapterTitlesChanged = { screenModel.setHideChapterTitles(it) },
+                onSetFilterDefault = { screenModel.setGlobalFilters() },
+                onResetFilterDefault = { screenModel.resetFilterToDefault() },
+                sorting = loaded.sorting,
+                sortDescending = loaded.sortDescending,
+                onSortChanged = { sort, descend -> screenModel.setSortOrder(sort, descend) },
+                onSetSortDefault = { screenModel.setGlobalSort() },
+                onResetSortDefault = { screenModel.resetSortToDefault() },
+                allScanlators = emptySet(),
+                filteredScanlators = emptySet(),
+                onScanlatorFilterChanged = {},
+                onDismiss = { showSheet = false },
+            )
         }
 
         if (confirmMarkAll) {

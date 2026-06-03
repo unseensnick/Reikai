@@ -77,6 +77,8 @@ fun DetailsFilterSortSheet(
     downloadedFilter: Int,
     bookmarkedFilter: Int,
     hideChapterTitles: Boolean,
+    /** Hidden for surfaces without a download system (novels). */
+    showDownloadedFilter: Boolean = true,
     onFiltersChanged: (read: Int, downloaded: Int, bookmarked: Int) -> Unit,
     onHideChapterTitlesChanged: (Boolean) -> Unit,
     onSetFilterDefault: () -> Unit,
@@ -158,17 +160,19 @@ fun DetailsFilterSortSheet(
             ) {
                 when (selectedTab) {
                     TAB_FILTER -> {
-                        TriStateFilterRow(
-                            label = "Downloaded",
-                            state = filterState(downloadedFilter, Manga.CHAPTER_SHOW_DOWNLOADED, Manga.CHAPTER_SHOW_NOT_DOWNLOADED),
-                            onClick = {
-                                onFiltersChanged(
-                                    readFilter,
-                                    cycleFilter(downloadedFilter, Manga.CHAPTER_SHOW_DOWNLOADED, Manga.CHAPTER_SHOW_NOT_DOWNLOADED),
-                                    bookmarkedFilter,
-                                )
-                            },
-                        )
+                        if (showDownloadedFilter) {
+                            TriStateFilterRow(
+                                label = "Downloaded",
+                                state = filterState(downloadedFilter, Manga.CHAPTER_SHOW_DOWNLOADED, Manga.CHAPTER_SHOW_NOT_DOWNLOADED),
+                                onClick = {
+                                    onFiltersChanged(
+                                        readFilter,
+                                        cycleFilter(downloadedFilter, Manga.CHAPTER_SHOW_DOWNLOADED, Manga.CHAPTER_SHOW_NOT_DOWNLOADED),
+                                        bookmarkedFilter,
+                                    )
+                                },
+                            )
+                        }
                         TriStateFilterRow(
                             label = "Unread",
                             state = filterState(readFilter, Manga.CHAPTER_SHOW_UNREAD, Manga.CHAPTER_SHOW_READ),

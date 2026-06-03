@@ -6,6 +6,7 @@ import co.touchlab.kermit.Logger
 import java.net.URL
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.database.models.NovelCategory
+import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithNovelSource
 import eu.kanade.tachiyomi.util.system.launchIO
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -20,11 +21,19 @@ import yokai.data.DatabaseHandler
 import yokai.data.novel.NovelStatusCode
 import yokai.data.novel.toNovel
 import yokai.domain.novel.NovelChapterRepository
+import yokai.domain.novel.NovelPreferences
 import yokai.domain.novel.NovelRepository
 import yokai.domain.novel.interactor.GetNovelCategories
 import yokai.domain.novel.interactor.SetNovelCategories
 import yokai.domain.novel.models.Novel
 import yokai.domain.novel.models.NovelChapter
+import yokai.domain.novel.models.effectiveBookmarkedFilter
+import yokai.domain.novel.models.effectiveHideChapterTitles
+import yokai.domain.novel.models.effectiveReadFilter
+import yokai.domain.novel.models.effectiveSortDescending
+import yokai.domain.novel.models.effectiveSorting
+import yokai.domain.novel.models.setFlag
+import yokai.domain.novel.models.sortedAndFiltered
 import yokai.novel.source.NovelSource
 import yokai.novel.text.htmlToParagraphs
 import yokai.presentation.novel.browse.ChapterRead
@@ -50,6 +59,7 @@ class NovelDetailsScreenModel(
     private val handler: DatabaseHandler by injectLazy()
     private val getNovelCategories: GetNovelCategories by injectLazy()
     private val setNovelCategories: SetNovelCategories by injectLazy()
+    private val novelPreferences: NovelPreferences by injectLazy()
 
     /** Resolved by the screen once the plugin host loads it; null until then. Source-dependent ops
      *  (first-open fetch, refresh, chapter text) no-op or defer until it's set. */
@@ -88,19 +98,25 @@ class NovelDetailsScreenModel(
                         return@collectLatest
                     }
                     novelLog { "served from DB: \"${novel.title}\" chapters=${chapters.size} (no source hit)" }
+                    // Resume is computed from the full set in reading order, independent of the
+                    // display sort/filter, so hiding read chapters doesn't break the FAB.
                     val byOrder = chapters.sortedBy { it.sourceOrder }
                     mutableState.update { current ->
                         NovelDetailsState.Loaded(
                             novel = novel,
-                            chapters = chapters,
+                            chapters = chapters.sortedAndFiltered(novel, novelPreferences),
                             isRefreshing = (current as? NovelDetailsState.Loaded)?.isRefreshing ?: false,
                             // Preserve transient screen state across DB re-emissions (a read/bookmark
                             // write re-emits the chapter list): an open dialog and the active selection.
                             dialog = (current as? NovelDetailsState.Loaded)?.dialog,
                             selection = (current as? NovelDetailsState.Loaded)?.selection ?: emptySet(),
-                            // The FAB resumes the first unread chapter (or the last once all are read).
                             resumeChapter = byOrder.firstOrNull { !it.read } ?: byOrder.lastOrNull(),
                             hasStarted = chapters.any { it.read || it.lastTextProgress > 0 },
+                            sorting = novel.effectiveSorting(novelPreferences),
+                            sortDescending = novel.effectiveSortDescending(novelPreferences),
+                            readFilter = novel.effectiveReadFilter(novelPreferences),
+                            bookmarkedFilter = novel.effectiveBookmarkedFilter(novelPreferences),
+                            hideChapterTitles = novel.effectiveHideChapterTitles(novelPreferences),
                         )
                     }
                     if (chapters.isEmpty()) maybeFirstFetch(novel)
@@ -322,6 +338,77 @@ class NovelDetailsScreenModel(
         mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(dialog = null) ?: it }
     }
 
+    // --- Chapter sort / filter / display ---
+    // Each writes Novel.chapterFlags (or the global-default pref) and persists; the reactive flow
+    // re-emits and observeFromDb re-sorts/re-filters. Local-bit setters mark the novel as having
+    // its own override; the global setters drop the override so the (updated) default applies.
+
+    fun setSortOrder(sort: Int, descending: Boolean) {
+        screenModelScope.launchIO {
+            val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
+            var flags = setFlag(n.chapterFlags, sort, Manga.CHAPTER_SORTING_MASK)
+            flags = setFlag(flags, if (descending) Manga.CHAPTER_SORT_DESC else Manga.CHAPTER_SORT_ASC, Manga.CHAPTER_SORT_MASK)
+            flags = setFlag(flags, Manga.CHAPTER_SORT_LOCAL, Manga.CHAPTER_SORT_LOCAL_MASK)
+            novelRepo.update(n.copy(chapterFlags = flags))
+        }
+    }
+
+    fun setFilters(read: Int, bookmarked: Int) {
+        screenModelScope.launchIO {
+            val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
+            var flags = setFlag(n.chapterFlags, read, Manga.CHAPTER_READ_MASK)
+            flags = setFlag(flags, bookmarked, Manga.CHAPTER_BOOKMARKED_MASK)
+            flags = setFlag(flags, Manga.CHAPTER_FILTER_LOCAL, Manga.CHAPTER_FILTER_LOCAL_MASK)
+            novelRepo.update(n.copy(chapterFlags = flags))
+        }
+    }
+
+    fun setHideChapterTitles(hide: Boolean) {
+        screenModelScope.launchIO {
+            val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
+            val display = if (hide) Manga.CHAPTER_DISPLAY_NUMBER else Manga.CHAPTER_DISPLAY_NAME
+            var flags = setFlag(n.chapterFlags, display, Manga.CHAPTER_DISPLAY_MASK)
+            // Display rides the sort-local bit (it's part of the same view group).
+            flags = setFlag(flags, Manga.CHAPTER_SORT_LOCAL, Manga.CHAPTER_SORT_LOCAL_MASK)
+            novelRepo.update(n.copy(chapterFlags = flags))
+        }
+    }
+
+    fun setGlobalSort() {
+        screenModelScope.launchIO {
+            val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
+            novelPreferences.defaultChapterSortOrder().set(loaded.sorting)
+            novelPreferences.defaultChapterSortDescending().set(loaded.sortDescending)
+            novelPreferences.defaultChapterHideTitles().set(loaded.hideChapterTitles)
+            val flags = setFlag(loaded.novel.chapterFlags, Manga.CHAPTER_SORT_FILTER_GLOBAL, Manga.CHAPTER_SORT_LOCAL_MASK)
+            novelRepo.update(loaded.novel.copy(chapterFlags = flags))
+        }
+    }
+
+    fun setGlobalFilters() {
+        screenModelScope.launchIO {
+            val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
+            novelPreferences.defaultChapterFilterUnread().set(loaded.readFilter)
+            novelPreferences.defaultChapterFilterBookmarked().set(loaded.bookmarkedFilter)
+            val flags = setFlag(loaded.novel.chapterFlags, Manga.CHAPTER_SORT_FILTER_GLOBAL, Manga.CHAPTER_FILTER_LOCAL_MASK)
+            novelRepo.update(loaded.novel.copy(chapterFlags = flags))
+        }
+    }
+
+    fun resetSortToDefault() {
+        screenModelScope.launchIO {
+            val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
+            novelRepo.update(n.copy(chapterFlags = setFlag(n.chapterFlags, Manga.CHAPTER_SORT_FILTER_GLOBAL, Manga.CHAPTER_SORT_LOCAL_MASK)))
+        }
+    }
+
+    fun resetFilterToDefault() {
+        screenModelScope.launchIO {
+            val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
+            novelRepo.update(n.copy(chapterFlags = setFlag(n.chapterFlags, Manga.CHAPTER_SORT_FILTER_GLOBAL, Manga.CHAPTER_FILTER_LOCAL_MASK)))
+        }
+    }
+
     // --- Chapter selection + read/bookmark ---
 
     fun toggleSelection(chapterId: Long, selected: Boolean, fromLongPress: Boolean) {
@@ -444,6 +531,12 @@ sealed interface NovelDetailsState {
         val selection: Set<Long> = emptySet(),
         val resumeChapter: NovelChapter? = null,
         val hasStarted: Boolean = false,
+        // Resolved chapter sort/filter/display values (per-novel override or global default).
+        val sorting: Int = Manga.CHAPTER_SORTING_SOURCE,
+        val sortDescending: Boolean = false,
+        val readFilter: Int = Manga.SHOW_ALL,
+        val bookmarkedFilter: Int = Manga.SHOW_ALL,
+        val hideChapterTitles: Boolean = false,
     ) : NovelDetailsState
     data class Failed(val message: String) : NovelDetailsState
 }
