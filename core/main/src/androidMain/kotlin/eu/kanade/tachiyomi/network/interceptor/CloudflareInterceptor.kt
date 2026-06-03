@@ -23,6 +23,9 @@ import java.util.concurrent.TimeUnit
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import okhttp3.Cookie
 import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -35,6 +38,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
+import okio.Buffer
 import org.jsoup.Jsoup
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -210,7 +214,24 @@ class CloudflareInterceptor(
         // headless Chrome fetched, so we can serve it directly and avoid replaying cf_clearance
         // through OkHttp — a path Cloudflare's TLS / __cf_bm fingerprinting often rejects.
         // The session keeps cleared cookies in-memory so follow-up calls skip the JS challenge.
-        val body = """{"cmd":"request.get","url":"$targetUrl","session":"$sessionId","maxTimeout":60000}"""
+        //
+        // FlareSolverr supports request.get and request.post. A Cloudflare-gated POST (e.g. Novel
+        // Updates' admin-ajax chapter fetch, and any source that POSTs through CF) must be replayed
+        // as a POST with the original body, otherwise FS would GET the URL and return the wrong page.
+        // FS sends postData as application/x-www-form-urlencoded, which is what these bodies already
+        // are. Build the command via the JSON DSL so the body can't break the envelope.
+        val isPost = request.method.equals("POST", ignoreCase = true)
+        val postData = request.body
+            ?.takeIf { isPost }
+            ?.let { rb -> Buffer().also { rb.writeTo(it) }.readUtf8() }
+        val command = buildJsonObject {
+            put("cmd", if (isPost) "request.post" else "request.get")
+            put("url", targetUrl)
+            if (isPost) put("postData", postData ?: "")
+            put("session", sessionId)
+            put("maxTimeout", 60000)
+        }
+        val body = json.encodeToString(JsonObject.serializer(), command)
             .toRequestBody("application/json".toMediaType())
 
         val fsRequest = Request.Builder()

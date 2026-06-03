@@ -1,5 +1,6 @@
 package yokai.presentation.novel.browse
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -66,6 +68,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -144,15 +147,40 @@ fun NovelBrowseScreen(initialSourceId: String? = null) {
     var lastAttemptedSource by remember { mutableStateOf<NovelSource?>(null) }
     // Hoisted so the TopAppBar action toggles the same sheet ChapterReader renders.
     var readerSettingsOpen by remember { mutableStateOf(false) }
+    // Current source-filter values + popular/latest toggle, edited in the filter sheet and applied
+    // to popularNovels. Reset to the plugin's declared defaults each time a source is picked.
+    var filterValues by remember { mutableStateOf<Map<String, JsonElement>>(emptyMap()) }
+    var showLatest by remember { mutableStateOf(false) }
+    var filterSheetOpen by remember { mutableStateOf(false) }
 
     fun pickSource(source: NovelSource) {
         if (loading) return
         lastAttemptedSource = source
+        val defaults = defaultFilterValues(source.filters)
+        filterValues = defaults
+        showLatest = false
         scope.launch {
             loading = true; error = null
             try {
-                val novels = source.popularNovels(1, buildDefaultOptions(source.filters))
+                val novels = source.popularNovels(1, buildOptions(source.filters, defaults, false))
                 state = BrowseState.BrowsingNovels(source, novels, query = "")
+            } catch (e: Throwable) {
+                error = "${e.javaClass.simpleName}: ${e.message ?: ""}"
+            } finally { loading = false }
+        }
+    }
+
+    fun applyFilters(current: BrowseState.BrowsingNovels) {
+        if (loading) return
+        filterSheetOpen = false
+        scope.launch {
+            loading = true; error = null
+            try {
+                val novels = current.source.popularNovels(
+                    1,
+                    buildOptions(current.source.filters, filterValues, showLatest),
+                )
+                state = BrowseState.BrowsingNovels(current.source, novels, query = "")
             } catch (e: Throwable) {
                 error = "${e.javaClass.simpleName}: ${e.message ?: ""}"
             } finally { loading = false }
@@ -173,7 +201,7 @@ fun NovelBrowseScreen(initialSourceId: String? = null) {
             loading = true; error = null
             try {
                 val novels = if (query.isBlank()) {
-                    current.source.popularNovels(1, buildDefaultOptions(current.source.filters))
+                    current.source.popularNovels(1, buildOptions(current.source.filters, filterValues, showLatest))
                 } else {
                     current.source.searchNovels(query, 1)
                 }
@@ -237,6 +265,17 @@ fun NovelBrowseScreen(initialSourceId: String? = null) {
         }
     }
 
+    // System back traverses the in-screen stack (reader -> novel -> catalog -> source list) the same
+    // way the toolbar arrow does, instead of popping the whole controller. Disabled only at the exit
+    // points (the source picker, or a pre-picked source's catalog) so back then leaves the screen.
+    val canGoBackInternally = when (state) {
+        is BrowseState.PickingSource -> false
+        is BrowseState.BrowsingNovels -> initialSourceId == null
+        is BrowseState.ViewingNovel -> true
+        is BrowseState.ReadingChapter -> true
+    }
+    BackHandler(enabled = canGoBackInternally) { goBack() }
+
     val title = when (val s = state) {
         is BrowseState.PickingSource -> "Browse LN sources"
         is BrowseState.BrowsingNovels -> s.source.name
@@ -254,10 +293,16 @@ fun NovelBrowseScreen(initialSourceId: String? = null) {
                     }
                 },
                 actions = {
-                    if (state is BrowseState.ReadingChapter) {
-                        IconButton(onClick = { readerSettingsOpen = true }) {
-                            Icon(Icons.Default.Settings, contentDescription = "Reader settings")
-                        }
+                    when (state) {
+                        is BrowseState.BrowsingNovels ->
+                            IconButton(onClick = { filterSheetOpen = true }) {
+                                Icon(Icons.Default.Tune, contentDescription = "Filters")
+                            }
+                        is BrowseState.ReadingChapter ->
+                            IconButton(onClick = { readerSettingsOpen = true }) {
+                                Icon(Icons.Default.Settings, contentDescription = "Reader settings")
+                            }
+                        else -> {}
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(),
@@ -322,6 +367,23 @@ fun NovelBrowseScreen(initialSourceId: String? = null) {
                     chapterRepo = chapterRepo,
                     settingsOpen = readerSettingsOpen,
                     onSettingsOpenChange = { readerSettingsOpen = it },
+                )
+            }
+
+            val current = state
+            if (filterSheetOpen && current is BrowseState.BrowsingNovels) {
+                NovelSourceFilterSheet(
+                    filters = current.source.filters,
+                    values = filterValues,
+                    showLatest = showLatest,
+                    onValueChange = { key, value -> filterValues = filterValues + (key to value) },
+                    onShowLatestChange = { showLatest = it },
+                    onApply = { applyFilters(current) },
+                    onReset = {
+                        filterValues = defaultFilterValues(current.source.filters)
+                        showLatest = false
+                    },
+                    onDismiss = { filterSheetOpen = false },
                 )
             }
         }
@@ -736,29 +798,42 @@ private fun readerColors(themeMode: Int, systemDark: Boolean): Pair<Color, Color
 }
 
 /**
- * Builds a `popularNovels` options JSON from a plugin's filter schema. Each entry in
- * `source.filters` exposes its default `value`; we wrap each as `{key: {value: <default>}}`
- * inside the top-level `filters` object so the plugin's body can dereference
- * `options.filters.X.value` without crashing.
- *
- * Sources that don't declare filters get `{}` plus `showLatestNovels=false`.
+ * Current value for each filter, seeded from the plugin's declared `value`. Drives both the filter
+ * sheet's initial state and the options sent to [popularNovels] when a source is first opened.
  */
-internal fun buildDefaultOptions(filters: JsonObject?): String {
+internal fun defaultFilterValues(filters: JsonObject?): Map<String, JsonElement> {
+    if (filters == null) return emptyMap()
+    return buildMap {
+        filters.forEach { (key, schema) ->
+            if (schema is JsonObject) schema["value"]?.let { put(key, it) }
+        }
+    }
+}
+
+/**
+ * Builds a `popularNovels` options JSON from the plugin's filter schema and the user's current
+ * [values]. Each filter is wrapped as `{key: {value: <current-or-default>}}` inside the top-level
+ * `filters` object so the plugin body can read `options.filters.X.value`. [showLatest] maps to
+ * lnreader's `showLatestNovels`. Sources without filters get `{filters: {}}` plus the toggle.
+ */
+internal fun buildOptions(
+    filters: JsonObject?,
+    values: Map<String, JsonElement>,
+    showLatest: Boolean,
+): String {
     val opts = buildJsonObject {
         put(
             "filters",
             buildJsonObject {
                 filters?.forEach { (key, schema) ->
                     if (schema is JsonObject) {
-                        val defaultValue = schema["value"]
-                        if (defaultValue != null) {
-                            put(key, buildJsonObject { put("value", defaultValue) })
-                        }
+                        val value = values[key] ?: schema["value"]
+                        if (value != null) put(key, buildJsonObject { put("value", value) })
                     }
                 }
             },
         )
-        put("showLatestNovels", false)
+        put("showLatestNovels", showLatest)
     }
     return opts.toString()
 }

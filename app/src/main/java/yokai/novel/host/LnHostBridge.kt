@@ -10,6 +10,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -33,9 +34,13 @@ class LnHostBridge(
             val opts = parseFetchOpts(optsJson)
             val builder = Request.Builder().url(url)
             val method = opts.method?.uppercase() ?: "GET"
-            // Binary body (base64) for gRPC-web / protobuf via fetchProto; otherwise the string body.
+            // Binary body (base64) for gRPC-web / protobuf via fetchProto; multipart for FormData
+            // posts (matches browsers / lnreader); otherwise the string body.
             val explicitBody = when {
                 opts.bodyBase64 != null -> Base64.decode(opts.bodyBase64, Base64.NO_WRAP).toRequestBody()
+                opts.multipart != null -> MultipartBody.Builder().setType(MultipartBody.FORM).apply {
+                    opts.multipart.forEach { addFormDataPart(it.getOrElse(0) { "" }, it.getOrElse(1) { "" }) }
+                }.build()
                 else -> opts.body?.takeIf { method != "GET" && method != "HEAD" }?.toRequestBody()
             }
             // OkHttp rejects a null body for POST/PUT/PATCH; lnreader plugins (e.g. Madara's chapter
@@ -131,6 +136,8 @@ class LnHostBridge(
         val method: String? = null,
         val headers: Map<String, String>? = null,
         val body: String? = null,
+        // Field pairs for a multipart/form-data body (set by fetchApi for FormData posts).
+        val multipart: List<List<String>>? = null,
         // Set by fetchProto: base64 request body + flag to return the response base64 (binary-safe).
         val bodyBase64: String? = null,
         val binary: Boolean = false,

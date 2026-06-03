@@ -206,14 +206,17 @@
       merged[k] = provided[k];
     });
     normalized.headers = merged;
-    // Normalize FormData / URLSearchParams to x-www-form-urlencoded: the Kotlin bridge takes only
-    // string bodies. (Scribblehub's parseNovel POSTs FormData; without this JSON.stringify(fd)='{}'.)
-    if (normalized.body instanceof FormData || normalized.body instanceof URLSearchParams) {
-      var params = new URLSearchParams();
-      Array.from(normalized.body.entries()).forEach(function (e) {
-        params.append(e[0], typeof e[1] === 'string' ? e[1] : String(e[1]));
+    // FormData posts go out as real multipart/form-data (what browsers and lnreader's RN fetch send),
+    // not urlencoded: some WordPress admin-ajax endpoints (e.g. Novel Updates' nd_getchapters) only
+    // answer multipart and reply "0" otherwise. The Kotlin bridge builds the multipart body from the
+    // field pairs. URLSearchParams stays urlencoded (that's its own content type).
+    if (normalized.body instanceof FormData) {
+      normalized.multipart = Array.from(normalized.body.entries()).map(function (e) {
+        return [e[0], typeof e[1] === 'string' ? e[1] : String(e[1])];
       });
-      normalized.body = params.toString();
+      delete normalized.body;
+    } else if (normalized.body instanceof URLSearchParams) {
+      normalized.body = normalized.body.toString();
       normalized.headers = Object.assign({}, normalized.headers || {});
       var hasCT = Object.keys(normalized.headers).some(function (h) { return h.toLowerCase() === 'content-type'; });
       if (!hasCT) normalized.headers['Content-Type'] = 'application/x-www-form-urlencoded';
