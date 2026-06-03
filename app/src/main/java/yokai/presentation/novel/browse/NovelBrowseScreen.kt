@@ -152,6 +152,7 @@ fun NovelBrowseScreen(initialSourceId: String? = null) {
     var filterValues by remember { mutableStateOf<Map<String, JsonElement>>(emptyMap()) }
     var showLatest by remember { mutableStateOf(false) }
     var filterSheetOpen by remember { mutableStateOf(false) }
+    var settingsSheetOpen by remember { mutableStateOf(false) }
 
     fun pickSource(source: NovelSource) {
         if (loading) return
@@ -293,11 +294,17 @@ fun NovelBrowseScreen(initialSourceId: String? = null) {
                     }
                 },
                 actions = {
-                    when (state) {
-                        is BrowseState.BrowsingNovels ->
+                    when (val s = state) {
+                        is BrowseState.BrowsingNovels -> {
+                            if (!s.source.pluginSettings.isNullOrEmpty()) {
+                                IconButton(onClick = { settingsSheetOpen = true }) {
+                                    Icon(Icons.Default.Settings, contentDescription = "Source settings")
+                                }
+                            }
                             IconButton(onClick = { filterSheetOpen = true }) {
                                 Icon(Icons.Default.Tune, contentDescription = "Filters")
                             }
+                        }
                         is BrowseState.ReadingChapter ->
                             IconButton(onClick = { readerSettingsOpen = true }) {
                                 Icon(Icons.Default.Settings, contentDescription = "Reader settings")
@@ -384,6 +391,12 @@ fun NovelBrowseScreen(initialSourceId: String? = null) {
                         showLatest = false
                     },
                     onDismiss = { filterSheetOpen = false },
+                )
+            }
+            if (settingsSheetOpen && current is BrowseState.BrowsingNovels) {
+                NovelSourceSettingsSheet(
+                    source = current.source,
+                    onDismiss = { settingsSheetOpen = false },
                 )
             }
         }

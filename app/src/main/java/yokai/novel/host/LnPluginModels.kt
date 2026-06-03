@@ -21,6 +21,8 @@ data class LnPluginInfo(
     val iconUrl: String? = null,
     /** Raw plugin.filters schema. Pass-through; the host does not interpret it. */
     val filters: JsonObject? = null,
+    /** Raw plugin.pluginSettings schema (per-plugin config). Pass-through; rendered by the settings UI. */
+    val pluginSettings: JsonObject? = null,
 )
 
 /**

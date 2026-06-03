@@ -1,5 +1,6 @@
 package yokai.novel.source
 
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import yokai.novel.host.NovelItem
 import yokai.novel.host.SourceNovel
@@ -40,6 +41,19 @@ interface NovelSource {
      * TextInput) and emit values into [popularNovels]'s `optionsJson`.
      */
     val filters: JsonObject?
+
+    /**
+     * Raw `plugin.pluginSettings` schema (per-plugin config: login, base URL, content toggles). Null
+     * when the source declares none. The settings UI renders it and persists values through
+     * [setSetting]; the plugin reads them back via `@libs/storage`.
+     */
+    val pluginSettings: JsonObject? get() = null
+
+    /** Read a saved per-plugin setting value (the `storage:` scope plugins use). Null if unset. */
+    suspend fun getSetting(key: String): JsonElement? = null
+
+    /** Persist a per-plugin setting value (null clears it). No-op for sources without settings. */
+    fun setSetting(key: String, value: JsonElement?) {}
 
     /**
      * @param optionsJson lnreader `PopularNovelsOptions` shape, JSON-encoded. Slice A doesn't

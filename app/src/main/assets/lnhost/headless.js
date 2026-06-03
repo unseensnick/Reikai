@@ -271,13 +271,35 @@
 
   // -- @libs/storage shim -----------------------------------------------------
   // The three scopes (storage/local/session) map to the same Kotlin SharedPreferences, keyed by
-  // prefix. Backed by __lnGetStorage/__lnSetStorage.
+  // prefix. Backed by __lnGetStorage/__lnSetStorage. Values are stored as lnreader's StoredItem
+  // envelope ({created, value, expires}, JSON-encoded) so booleans / arrays / objects round-trip
+  // with their type (refs/lnreader-main/src/plugins/helpers/storage.ts) instead of stringifying.
 
   function makeStorage(pluginId, kind) {
     var prefix = kind + ':';
     return {
-      get: function (key) { var r = __lnGetStorage(pluginId, prefix + key); return (r === null || r === undefined) ? null : r; },
-      set: function (key, value) { __lnSetStorage(pluginId, prefix + key, String(value)); },
+      set: function (key, value, expires) {
+        var item = {
+          created: new Date(),
+          value: value,
+          expires: (expires instanceof Date) ? expires.getTime() : expires,
+        };
+        __lnSetStorage(pluginId, prefix + key, JSON.stringify(item));
+      },
+      get: function (key, raw) {
+        var stored = __lnGetStorage(pluginId, prefix + key);
+        if (stored === null || stored === undefined) return undefined;
+        var item;
+        try { item = JSON.parse(stored); } catch (e) { return stored; } // legacy plain value
+        if (item && typeof item === 'object' && 'value' in item) {
+          if (item.expires && Date.now() > item.expires) {
+            __lnSetStorage(pluginId, prefix + key, null);
+            return undefined;
+          }
+          return raw ? item : item.value;
+        }
+        return item;
+      },
       delete: function (key) { __lnSetStorage(pluginId, prefix + key, null); },
     };
   }
@@ -319,6 +341,10 @@
       '@libs/isAbsoluteUrl': { isUrlAbsolute: isUrlAbsolute },
       '@libs/filterInputs': { FilterTypes: FilterTypes },
       '@libs/defaultCover': { defaultCover: defaultCover },
+      // Runtime constants module (NovelStatus + defaultCover values); some plugins (novelfire)
+      // import from here rather than the @libs aliases. @/types/plugin is types-only (erased at
+      // compile) so it never reaches require.
+      '@/types/constants': { NovelStatus: NovelStatus, defaultCover: defaultCover },
       '@libs/aes': aesStub,
       '@libs/utils': { utf8ToBytes: utf8ToBytes, bytesToUtf8: bytesToUtf8 },
     };
@@ -382,6 +408,9 @@
         iconUrl: iconUrl || null,
         // Pass the plugin's filter schema through unmodified; the host doesn't interpret it.
         filters: plugin.filters || null,
+        // Per-plugin settings schema (login/base-url/toggles). Plugins read the saved values via
+        // @libs/storage; the Kotlin side renders this and writes values back into that scope.
+        pluginSettings: plugin.pluginSettings || null,
       };
     } catch (e) {
       log('error', 'loadPlugin failed: ' + (e && e.stack ? e.stack : e));

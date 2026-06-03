@@ -1,5 +1,6 @@
 package yokai.novel.source
 
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import yokai.novel.host.LnPluginHost
 import yokai.novel.host.LnPluginInfo
@@ -26,6 +27,11 @@ class LnPluginSource(
     override val lang: String = info.lang.orEmpty()
     override val iconUrl: String? = info.iconUrl
     override val filters: JsonObject? = info.filters
+    override val pluginSettings: JsonObject? = info.pluginSettings
+
+    override suspend fun getSetting(key: String): JsonElement? = host.getSetting(info.id, key)
+
+    override fun setSetting(key: String, value: JsonElement?) = host.setSetting(info.id, key, value)
 
     override suspend fun popularNovels(page: Int, optionsJson: String): List<NovelItem> =
         host.popularNovels(info.id, page, optionsJson)

@@ -20,8 +20,11 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import okhttp3.OkHttpClient
 
 /**
@@ -137,6 +140,22 @@ class LnPluginHost(
      *  standalone Clear data action. */
     fun clearPluginStorage(pluginId: String) {
         bridge.clearPluginStorage(pluginId)
+    }
+
+    /** Per-plugin settings live in the same `storage:` scope a plugin reads via `@libs/storage`, in
+     *  lnreader's StoredItem envelope (`{value: ...}`), so a value the settings UI writes here is
+     *  exactly what the plugin sees at runtime. Values are typed JsonElements (string / bool / array). */
+    fun getSetting(pluginId: String, key: String): JsonElement? {
+        val raw = bridge.getStorage(pluginId, "storage:$key") ?: return null
+        return runCatching { JSON.parseToJsonElement(raw).jsonObject["value"] }.getOrNull()
+    }
+
+    fun setSetting(pluginId: String, key: String, value: JsonElement?) {
+        if (value == null) {
+            bridge.setStorage(pluginId, "storage:$key", null)
+        } else {
+            bridge.setStorage(pluginId, "storage:$key", buildJsonObject { put("value", value) }.toString())
+        }
     }
 
     fun destroy() {

@@ -147,7 +147,7 @@ internal fun NovelSourceFilterSheet(
 }
 
 /** Extracts a filter's `options` array (`[{label, value}, ...]`) as label/value pairs. */
-private fun optionsOf(schema: JsonObject): List<Pair<String, String>> {
+internal fun optionsOf(schema: JsonObject): List<Pair<String, String>> {
     val arr = schema["options"] as? JsonArray ?: return emptyList()
     return arr.mapNotNull { el ->
         val o = el as? JsonObject ?: return@mapNotNull null
@@ -157,7 +157,7 @@ private fun optionsOf(schema: JsonObject): List<Pair<String, String>> {
 }
 
 @Composable
-private fun FilterSwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+internal fun FilterSwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -171,7 +171,7 @@ private fun FilterSwitchRow(label: String, checked: Boolean, onChange: (Boolean)
 }
 
 @Composable
-private fun FilterTextRow(label: String, value: String, onChange: (String) -> Unit) {
+internal fun FilterTextRow(label: String, value: String, onChange: (String) -> Unit) {
     OutlinedTextField(
         value = value,
         onValueChange = onChange,
@@ -182,7 +182,7 @@ private fun FilterTextRow(label: String, value: String, onChange: (String) -> Un
 }
 
 @Composable
-private fun FilterPickerRow(
+internal fun FilterPickerRow(
     label: String,
     options: List<Pair<String, String>>,
     selectedValue: String,
@@ -214,7 +214,7 @@ private fun FilterPickerRow(
 }
 
 @Composable
-private fun FilterCheckboxRow(
+internal fun FilterCheckboxRow(
     label: String,
     options: List<Pair<String, String>>,
     selected: Set<String>,
@@ -241,7 +241,7 @@ private fun FilterCheckboxRow(
 }
 
 @Composable
-private fun FilterExcludableRow(
+internal fun FilterExcludableRow(
     label: String,
     options: List<Pair<String, String>>,
     current: JsonObject?,
