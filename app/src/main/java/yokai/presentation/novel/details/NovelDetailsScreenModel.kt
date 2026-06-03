@@ -4,6 +4,7 @@ import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.BuildConfig
+import eu.kanade.tachiyomi.data.database.models.NovelCategory
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithNovelSource
 import eu.kanade.tachiyomi.util.system.launchIO
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -15,9 +16,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import uy.kohesive.injekt.injectLazy
 import yokai.data.DatabaseHandler
+import yokai.data.novel.NovelStatusCode
 import yokai.data.novel.toNovel
 import yokai.domain.novel.NovelChapterRepository
 import yokai.domain.novel.NovelRepository
+import yokai.domain.novel.interactor.GetNovelCategories
+import yokai.domain.novel.interactor.SetNovelCategories
 import yokai.domain.novel.models.Novel
 import yokai.domain.novel.models.NovelChapter
 import yokai.novel.source.NovelSource
@@ -43,6 +47,8 @@ class NovelDetailsScreenModel(
     private val novelRepo: NovelRepository by injectLazy()
     private val chapterRepo: NovelChapterRepository by injectLazy()
     private val handler: DatabaseHandler by injectLazy()
+    private val getNovelCategories: GetNovelCategories by injectLazy()
+    private val setNovelCategories: SetNovelCategories by injectLazy()
 
     /** Resolved by the screen once the plugin host loads it; null until then. Source-dependent ops
      *  (first-open fetch, refresh, chapter text) no-op or defer until it's set. */
@@ -82,6 +88,9 @@ class NovelDetailsScreenModel(
                             novel = novel,
                             chapters = chapters,
                             isRefreshing = (current as? NovelDetailsState.Loaded)?.isRefreshing ?: false,
+                            // Preserve an open dialog across DB re-emissions (e.g. the category
+                            // picker shown right after favoriting, which itself triggers a re-emit).
+                            dialog = (current as? NovelDetailsState.Loaded)?.dialog,
                         )
                     }
                     if (chapters.isEmpty()) maybeFirstFetch(novel)
@@ -152,7 +161,26 @@ class NovelDetailsScreenModel(
      *  re-emits the updated chapter list. */
     private suspend fun fetchAndSync(src: NovelSource, existing: Novel?) {
         val sourceNovel = src.parseNovel(novelUrl)
-        val target = existing ?: run {
+        val target = if (existing != null) {
+            // Refresh stored metadata from the source. A novel added from a browse / search list
+            // carries only name + path + cover (no summary), and syncChaptersWithNovelSource touches
+            // only chapters, so the description would stay blank without this. Prefer freshly-parsed
+            // values, but never wipe existing data with a null/blank from a partial re-parse.
+            val parsed = sourceNovel.toNovel(sourceId = src.id, favorite = existing.favorite)
+            // Blank-safe: some plugins return an empty summary/field on a partial parse (e.g. a
+            // selector mismatch), so a null OR blank parsed value must keep the existing data
+            // rather than wipe it.
+            val merged = existing.copy(
+                author = parsed.author?.takeIf { it.isNotBlank() } ?: existing.author,
+                artist = parsed.artist?.takeIf { it.isNotBlank() } ?: existing.artist,
+                description = parsed.description?.takeIf { it.isNotBlank() } ?: existing.description,
+                genres = parsed.genres?.takeIf { it.isNotEmpty() } ?: existing.genres,
+                status = if (parsed.status != NovelStatusCode.UNKNOWN) parsed.status else existing.status,
+                thumbnailUrl = parsed.thumbnailUrl?.takeIf { it.isNotBlank() } ?: existing.thumbnailUrl,
+            )
+            if (merged != existing) novelRepo.update(merged)
+            merged
+        } else {
             val id = novelRepo.insert(sourceNovel.toNovel(sourceId = src.id, favorite = true)) ?: return
             novelRepo.getById(id) ?: return
         }
@@ -160,6 +188,62 @@ class NovelDetailsScreenModel(
         if (chapters.isNotEmpty()) {
             syncChaptersWithNovelSource(chapters, target, src, chapterRepo, novelRepo, handler)
         }
+    }
+
+    // --- Favorite / categories ---
+
+    /** Flip the library flag. Adding shows the category picker (the novel Flow re-emits favorite=true
+     *  and rebuilds the heart; observeFromDb preserves the dialog across that re-emit). */
+    fun toggleFavorite() {
+        screenModelScope.launchIO {
+            val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
+            val novel = loaded.novel
+            val id = novel.id ?: return@launchIO
+            if (!novel.favorite) {
+                novelRepo.update(novel.copy(favorite = true))
+                val allCategories = getNovelCategories.await().filter { (it.id ?: 0) > 0 }
+                if (allCategories.isNotEmpty()) {
+                    val currentIds = getNovelCategories.awaitByNovelId(id)
+                        .mapNotNull { it.id?.toLong() }
+                        .toSet()
+                    mutableState.update {
+                        (it as? NovelDetailsState.Loaded)
+                            ?.copy(dialog = NovelDetailsDialog.ChangeCategory(allCategories, currentIds)) ?: it
+                    }
+                }
+            } else {
+                novelRepo.update(novel.copy(favorite = false))
+            }
+        }
+    }
+
+    /** Show the categories picker for a novel already in the library. */
+    fun showChangeCategoryDialog() {
+        screenModelScope.launchIO {
+            val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
+            val id = loaded.novel.id ?: return@launchIO
+            val allCategories = getNovelCategories.await().filter { (it.id ?: 0) > 0 }
+            if (allCategories.isEmpty()) return@launchIO
+            val currentIds = getNovelCategories.awaitByNovelId(id)
+                .mapNotNull { it.id?.toLong() }
+                .toSet()
+            mutableState.update {
+                (it as? NovelDetailsState.Loaded)
+                    ?.copy(dialog = NovelDetailsDialog.ChangeCategory(allCategories, currentIds)) ?: it
+            }
+        }
+    }
+
+    fun applyCategories(categoryIds: List<Long>) {
+        screenModelScope.launchIO {
+            val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
+            setNovelCategories.await(loaded.novel.id, categoryIds)
+            dismissDialog()
+        }
+    }
+
+    fun dismissDialog() {
+        mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(dialog = null) ?: it }
     }
 
     /** Temporary verification aid (Phase 7), filterable via tag:NovelDetailsPort; stripped in P9. */
@@ -174,6 +258,14 @@ sealed interface NovelDetailsState {
         val novel: Novel,
         val chapters: List<NovelChapter>,
         val isRefreshing: Boolean,
+        val dialog: NovelDetailsDialog? = null,
     ) : NovelDetailsState
     data class Failed(val message: String) : NovelDetailsState
+}
+
+sealed interface NovelDetailsDialog {
+    data class ChangeCategory(
+        val allCategories: List<NovelCategory>,
+        val currentCategoryIds: Set<Long>,
+    ) : NovelDetailsDialog
 }

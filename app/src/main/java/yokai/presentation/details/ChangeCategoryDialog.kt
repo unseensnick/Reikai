@@ -18,11 +18,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import eu.kanade.tachiyomi.data.database.models.Category
+import eu.kanade.tachiyomi.data.database.models.ILibraryCategory
 
 @Composable
 fun ChangeCategoryDialog(
-    allCategories: List<Category>,
+    allCategories: List<ILibraryCategory>,
     currentCategoryIds: Set<Long>,
     onDismiss: () -> Unit,
     onConfirm: (selectedIds: List<Long>) -> Unit,
