@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.setting.controllers
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.data.library.NovelUpdateJob
 import eu.kanade.tachiyomi.data.preference.DEVICE_BATTERY_NOT_LOW
 import eu.kanade.tachiyomi.data.preference.DEVICE_CHARGING
 import eu.kanade.tachiyomi.data.preference.DEVICE_ONLY_ON_WIFI
@@ -36,6 +37,7 @@ import uy.kohesive.injekt.injectLazy
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.library.LibraryPreferences
 import yokai.domain.manga.interactor.GetLibraryManga
+import yokai.domain.novel.NovelPreferences
 import yokai.domain.ui.UiPreferences
 import yokai.i18n.MR
 import yokai.presentation.settings.preferredsources.PreferredSourcesController
@@ -51,6 +53,7 @@ class SettingsLibraryController : SettingsLegacyController() {
 
     private val uiPreferences: UiPreferences by injectLazy()
     private val libraryPreferences: LibraryPreferences by injectLazy()
+    private val novelPreferences: NovelPreferences by injectLazy()
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) = screen.apply {
         titleRes = MR.strings.library
@@ -197,11 +200,17 @@ class SettingsLibraryController : SettingsLegacyController() {
                 onChange { newValue ->
                     // Always cancel the previous task, it seems that sometimes they are not updated.
                     LibraryUpdateJob.setupTask(context, 0)
+                    // Shared cadence: the novel updater follows the same interval. Its pref is
+                    // mirrored (not collapsed into the manga one) so ManageNovelCategoryDialog can
+                    // still zero it independently when a novel category is excluded.
+                    NovelUpdateJob.setupTask(context, 0)
 
                     val interval = newValue as Int
+                    novelPreferences.libraryUpdateInterval().set(interval)
                     if (interval > 0) {
                         (activity as? MainActivity)?.showNotificationPermissionPrompt(true)
                         LibraryUpdateJob.setupTask(context, interval)
+                        NovelUpdateJob.setupTask(context, interval)
                     }
                     true
                 }
@@ -220,7 +229,13 @@ class SettingsLibraryController : SettingsLegacyController() {
 
                 onChange {
                     // Post to event looper to allow the preference to be updated.
-                    viewScope.launchUI { LibraryUpdateJob.setupTask(context) }
+                    viewScope.launchUI {
+                        LibraryUpdateJob.setupTask(context)
+                        // Mirror the same device restriction onto the novel updater.
+                        novelPreferences.libraryUpdateDeviceRestriction()
+                            .set(preferences.libraryUpdateDeviceRestriction().get())
+                        NovelUpdateJob.setupTask(context)
+                    }
                     true
                 }
             }
@@ -228,6 +243,21 @@ class SettingsLibraryController : SettingsLegacyController() {
             multiSelectListPreferenceMat(activity) {
                 bindTo(preferences.libraryUpdateMangaRestriction())
                 titleRes = MR.strings.pref_library_update_manga_restriction
+                entriesRes = arrayOf(
+                    MR.strings.pref_update_only_completely_read,
+                    MR.strings.pref_update_only_started,
+                    MR.strings.pref_update_only_non_completed,
+                )
+                entryValues = listOf(MANGA_HAS_UNREAD, MANGA_NON_READ, MANGA_NON_COMPLETED)
+                noSelectionRes = MR.strings.none
+            }
+
+            // Novel-only content restriction. Separate pref from the manga row above, read only by
+            // NovelUpdateJob.filterNovelsToUpdate. Default skips unread/started/completed (manga
+            // parity); unchecking "With unread chapter(s)" opts novels with a backlog into updates.
+            multiSelectListPreferenceMat(activity) {
+                bindTo(novelPreferences.libraryUpdateNovelRestriction())
+                titleRes = MR.strings.pref_library_update_novel_restriction
                 entriesRes = arrayOf(
                     MR.strings.pref_update_only_completely_read,
                     MR.strings.pref_update_only_started,
