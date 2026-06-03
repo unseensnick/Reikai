@@ -101,6 +101,8 @@ data class DetailsChapterRow(
     /** 0..100, only meaningful while [downloadState] is [DetailsDownloadState.DOWNLOADING]. */
     val downloadProgress: Int = 0,
     val selected: Boolean = false,
+    /** Rendered dimmed; used by the novel "Show hidden chapters" view to mark hidden rows. */
+    val dimmed: Boolean = false,
 )
 
 /**
@@ -675,6 +677,7 @@ private fun DetailsChapterListRow(
             // Fixed height so rows don't shrink in selection mode (a bare 24dp check icon) vs normal
             // mode (the ~48dp download IconButton); content-driven height made the two differ.
             .height(56.dp)
+            .then(if (chapter.dimmed) Modifier.alpha(0.4f) else Modifier)
             .background(rowBackground)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(start = 16.dp, end = 8.dp),

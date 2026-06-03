@@ -76,6 +76,11 @@ class NovelDetailsScreenModel(
     private val sourceViewFlow = MutableStateFlow<Long?>(null)
     private val groupIdsFlow = MutableStateFlow<List<Long>>(emptyList())
 
+    // Hidden chapters (pref-backed, keyed "novelId|url"). showHiddenFlow toggles whether they're
+    // revealed (dimmed) for unhiding. Both fold into the pipeline so a change rebuilds the list.
+    private val hiddenChaptersPref = novelPreferences.hiddenChapters()
+    private val showHiddenFlow = MutableStateFlow(false)
+
     /** Gates the one-shot group resolution (mirrors the manga side's dedup window). */
     @Volatile
     private var relatedFetched = false
@@ -130,8 +135,11 @@ class NovelDetailsScreenModel(
                         val ids = if (group.size > 1) group else listOf(anchorId)
                         combine(ids.map { id -> chapterRepo.getByNovelIdAsFlow(id).map { id to it } }) { it.toMap() }
                     }
-                    // Re-render when the chosen source view changes, without re-fetching chapters.
+                    // Re-render when the chosen source view, the hidden set, or the show-hidden
+                    // toggle changes, without re-fetching chapters.
                     .combine(sourceViewFlow) { byNovel, _ -> byNovel }
+                    .combine(hiddenChaptersPref.changes()) { byNovel, _ -> byNovel }
+                    .combine(showHiddenFlow) { byNovel, _ -> byNovel }
                     .collectLatest { byNovel ->
                         chaptersByNovel = byNovel
                         novelLog {
@@ -181,16 +189,28 @@ class NovelDetailsScreenModel(
         val anchorId = novel.id ?: return
         val merged = groupIdsFlow.value.size > 1
         val sourceView = sourceViewFlow.value
+        // Hidden chapters are filtered out of the list (and the merge) unless the user is showing
+        // them to unhide. hasHiddenChapters gates the overflow toggle regardless of that view.
+        val hidden = hiddenChaptersPref.get()
+        val showHidden = showHiddenFlow.value
+        val hasHiddenChapters = hidden.isNotEmpty() && byNovel.values.any { chs -> chs.any { hiddenKey(it) in hidden } }
+        val effectiveByNovel = if (showHidden || hidden.isEmpty()) {
+            byNovel
+        } else {
+            byNovel.mapValues { (_, chs) -> chs.filterNot { hiddenKey(it) in hidden } }
+        }
         val unified = if (merged) {
             stampMergedReadingOrder(
-                NovelChapterAggregation.aggregate(byNovel, sourceIdsForAggregation(), preferredSourceIds()),
+                NovelChapterAggregation.aggregate(effectiveByNovel, sourceIdsForAggregation(), preferredSourceIds()),
             )
         } else {
-            byNovel[anchorId].orEmpty()
+            effectiveByNovel[anchorId].orEmpty()
         }
         // The per-source chip view shows that one source's own (pristine) chapters; otherwise the
         // unified stitched list. Fall back to unified if a stale source id no longer resolves.
-        val rawChapters = if (sourceView != null && byNovel.size > 1) byNovel[sourceView] ?: unified else unified
+        val rawChapters = if (sourceView != null && effectiveByNovel.size > 1) effectiveByNovel[sourceView] ?: unified else unified
+        // When revealing hidden chapters, mark which displayed ids are hidden so the row dims.
+        val hiddenChapterIds = if (showHidden) rawChapters.filter { hiddenKey(it) in hidden }.mapNotNull { it.id }.toSet() else emptySet()
         // Resume is computed from the displayed set in reading order, independent of sort/filter, so
         // hiding read chapters doesn't break the FAB.
         val byOrder = rawChapters.sortedBy { it.sourceOrder }
@@ -223,6 +243,9 @@ class NovelDetailsScreenModel(
                 sourceView = sourceView,
                 sourceLabel = label,
                 displayStatus = displayNovel.status,
+                showHidden = showHidden,
+                hiddenChapterIds = hiddenChapterIds,
+                hasHiddenChapters = hasHiddenChapters,
             )
         }
     }
@@ -668,6 +691,32 @@ class NovelDetailsScreenModel(
         return loaded.chapters.filter { it.id in loaded.selection }
     }
 
+    /** Stable cross-refresh identity for the hidden-chapters pref. */
+    private fun hiddenKey(chapter: NovelChapter): String = "${chapter.novelId}|${chapter.url}"
+
+    /** Hide the selected chapters (e.g. a source's own duplicate). Pref-backed, survives refresh. */
+    fun hideSelected() {
+        screenModelScope.launchIO {
+            val targets = selectedChapters() ?: return@launchIO
+            hiddenChaptersPref.set(hiddenChaptersPref.get() + targets.map { hiddenKey(it) })
+            clearSelection()
+        }
+    }
+
+    /** Unhide the selected chapters (only reachable while "Show hidden chapters" is on). */
+    fun unhideSelected() {
+        screenModelScope.launchIO {
+            val targets = selectedChapters() ?: return@launchIO
+            val keys = targets.map { hiddenKey(it) }.toSet()
+            hiddenChaptersPref.set(hiddenChaptersPref.get().filterNot { it in keys }.toSet())
+            clearSelection()
+        }
+    }
+
+    fun toggleShowHidden() {
+        showHiddenFlow.value = !showHiddenFlow.value
+    }
+
     private suspend fun applyRead(targets: List<NovelChapter>, read: Boolean) {
         expandToSiblings(targets).forEach { if (it.read != read) it.id?.let { id -> chapterRepo.setRead(id, read) } }
     }
@@ -723,6 +772,11 @@ sealed interface NovelDetailsState {
         // view, else the selected (or anchor) source's name and status.
         val sourceLabel: String = "",
         val displayStatus: Int = 0,
+        // Hidden-chapter view: whether hidden chapters are revealed, which displayed ids are hidden
+        // (rendered dimmed), and whether any chapter in the group is hidden (gates the overflow toggle).
+        val showHidden: Boolean = false,
+        val hiddenChapterIds: Set<Long> = emptySet(),
+        val hasHiddenChapters: Boolean = false,
     ) : NovelDetailsState
     data class Failed(val message: String) : NovelDetailsState
 }

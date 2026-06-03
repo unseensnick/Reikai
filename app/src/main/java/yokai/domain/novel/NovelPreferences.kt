@@ -166,6 +166,11 @@ class NovelPreferences(
      *  manga side's PreferencesHelper.preferredSources (which uses Long ids). */
     fun novelPreferredSources() = preferenceStore.getString("novel_preferred_sources", "")
 
+    /** Chapters the user has manually hidden (e.g. a source's own duplicate). Each entry is the
+     *  chapter's stable identity "novelId|url"; the details screen filters these out of the list.
+     *  Pref-based (not a chapter column) so it survives a source re-sync for free, like the merge sets. */
+    fun hiddenChapters() = preferenceStore.getStringSet("novel_hidden_chapters", emptySet())
+
     // ----------------------------------------------------------------------------------------
     // Per-library visual preferences (Phase E). Only consulted when
     // [yokai.domain.base.BasePreferences.useSharedLibraryDisplayPrefs] is false; in shared mode

@@ -213,6 +213,10 @@ class NovelDetailsScreen(
                     val selectedChapters = loaded?.chapters?.filter { it.id in loaded.selection }.orEmpty()
                     val allBookmarked = selectedChapters.isNotEmpty() && selectedChapters.all { it.bookmark }
                     val allReadSelected = selectedChapters.isNotEmpty() && selectedChapters.all { it.read }
+                    // Only offer Unhide when every selected row is already hidden (reachable via the
+                    // "Show hidden chapters" view); otherwise the action hides them.
+                    val allHiddenSelected = loaded?.showHidden == true && selectedChapters.isNotEmpty() &&
+                        selectedChapters.all { it.id in loaded.hiddenChapterIds }
                     SelectionAppBar(
                         selectionCount = loaded?.selection?.size ?: 0,
                         onClose = { screenModel.clearSelection() },
@@ -232,6 +236,11 @@ class NovelDetailsScreen(
                             },
                             SelectionAction("Mark previous as read") { screenModel.markPreviousRead(true) },
                             SelectionAction("Mark previous as unread") { screenModel.markPreviousRead(false) },
+                            if (allHiddenSelected) {
+                                SelectionAction("Unhide") { screenModel.unhideSelected() }
+                            } else {
+                                SelectionAction("Hide") { screenModel.hideSelected() }
+                            },
                             SelectionAction("Select all") { screenModel.selectAll() },
                             SelectionAction("Invert selection") { screenModel.invertSelection() },
                         ),
@@ -311,6 +320,12 @@ class NovelDetailsScreen(
                                                 text = { Text("Edit info") },
                                                 onClick = { overflowOpen = false; screenModel.showEditNovelInfoDialog() },
                                             )
+                                            if (loaded.hasHiddenChapters || loaded.showHidden) {
+                                                DropdownMenuItem(
+                                                    text = { Text(if (loaded.showHidden) "Hide hidden chapters" else "Show hidden chapters") },
+                                                    onClick = { overflowOpen = false; screenModel.toggleShowHidden() },
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -376,7 +391,7 @@ class NovelDetailsScreen(
                                     )
                                 },
                             ) {
-                                val rows = remember(s.chapters, s.selection, searchQuery, s.hideChapterTitles) {
+                                val rows = remember(s.chapters, s.selection, searchQuery, s.hideChapterTitles, s.hiddenChapterIds) {
                                     s.chapters.mapNotNull { ch ->
                                         val displayName = if (s.hideChapterTitles && ch.chapterNumber > 0f) {
                                             val num = ch.chapterNumber
@@ -395,6 +410,7 @@ class NovelDetailsScreen(
                                             read = ch.read,
                                             bookmark = ch.bookmark,
                                             selected = ch.id in s.selection,
+                                            dimmed = ch.id in s.hiddenChapterIds,
                                         )
                                     }
                                 }
