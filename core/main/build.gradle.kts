@@ -45,7 +45,7 @@ kotlin {
 
                 api(androidx.preference)
 
-                implementation(libs.quickjs.android)
+                implementation(libs.quickjs.kt)
 
                 api(libs.unifile)
 

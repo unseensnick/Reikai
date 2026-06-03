@@ -1,14 +1,9 @@
 package yokai.novel.host
 
 import android.content.Context
-import android.webkit.JavascriptInterface
+import android.util.Base64
 import co.touchlab.kermit.Logger
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -22,44 +17,67 @@ import okhttp3.RequestBody.Companion.toRequestBody
 internal const val LN_HOST_TAG = "LnHost"
 
 /**
- * @JavascriptInterface surface exposed to the WebView. Methods are invoked from bootstrap.js.
- * [evaluateJs] posts arbitrary JS back to the WebView main thread.
- * [onResult] hands a finished plugin-method JSON back to LnPluginHost so it can resume the
- * awaiting Kotlin coroutine.
+ * Engine-agnostic host services for LN plugins: HTTP via OkHttp, per-plugin storage via
+ * SharedPreferences, and logging. [LnPluginHost] binds these to the JS runtime as host functions
+ * (`__lnFetch` / `__lnGetStorage` / `__lnSetStorage` / `__lnLog`). Nothing here touches a WebView.
  */
 class LnHostBridge(
     private val context: Context,
     private val client: OkHttpClient,
-    private val scope: CoroutineScope,
-    private val evaluateJs: (String) -> Unit,
-    private val onResult: (callbackId: String, json: String) -> Unit,
 ) {
 
-    @JavascriptInterface
-    fun fetch(url: String, optsJson: String, callbackId: String) {
-        scope.launch(Dispatchers.IO) {
-            val responseJson = runFetch(url, optsJson)
-            withContext(Dispatchers.Main) {
-                evaluateJs(
-                    "window.__lnhost.resolveFetch(" +
-                        JSON.encodeToString(String.serializer(), callbackId) + ", " +
-                        JSON.encodeToString(String.serializer(), responseJson) + ");",
-                )
+    /** One OkHttp call, response shaped as the runtime's `makeResponse` expects. Blocking; callers
+     *  must invoke it off the engine thread (the host wraps it in a Dispatchers.IO async binding). */
+    fun runFetch(url: String, optsJson: String): String {
+        return try {
+            val opts = parseFetchOpts(optsJson)
+            val builder = Request.Builder().url(url)
+            val method = opts.method?.uppercase() ?: "GET"
+            // Binary body (base64) for gRPC-web / protobuf via fetchProto; otherwise the string body.
+            val explicitBody = when {
+                opts.bodyBase64 != null -> Base64.decode(opts.bodyBase64, Base64.NO_WRAP).toRequestBody()
+                else -> opts.body?.takeIf { method != "GET" && method != "HEAD" }?.toRequestBody()
             }
+            // OkHttp rejects a null body for POST/PUT/PATCH; lnreader plugins (e.g. Madara's chapter
+            // endpoint) issue bodyless POSTs, so send an empty body rather than crash.
+            val body = explicitBody
+                ?: ByteArray(0).toRequestBody().takeIf { method == "POST" || method == "PUT" || method == "PATCH" }
+            builder.method(method, body)
+            opts.headers?.forEach { (k, v) -> builder.header(k, v) }
+            val res = client.newCall(builder.build()).execute()
+            // Final URL after redirects. lnreader's Response shim exposes this as `response.url`;
+            // the Madara plugin family compares it to the request host to detect Cloudflare/captcha
+            // redirects, and crashes on `undefined.split('/')` if it's missing.
+            val finalUrl = res.request.url.toString()
+            val headers = res.headers.toMultimap()
+                .mapKeys { it.key.lowercase() }
+                .mapValues { it.value.firstOrNull().orEmpty() }
+            // Binary responses (protobuf) are returned base64 so they survive the string bridge; the
+            // body can be read only once, so the two branches are mutually exclusive.
+            val bodyText: String
+            val bodyBase64: String?
+            if (opts.binary) {
+                bodyText = ""
+                bodyBase64 = Base64.encodeToString(res.body?.bytes() ?: ByteArray(0), Base64.NO_WRAP)
+            } else {
+                bodyText = res.body?.string().orEmpty()
+                bodyBase64 = null
+            }
+            JSON.encodeToString(
+                FetchResponseDto.serializer(),
+                FetchResponseDto(res.code, res.message, headers, bodyText, finalUrl, null, bodyBase64),
+            )
+        } catch (e: Throwable) {
+            Logger.e(LN_HOST_TAG, e) { "fetch($url) failed" }
+            JSON.encodeToString(
+                FetchResponseDto.serializer(),
+                FetchResponseDto(0, "", emptyMap(), "", url, e.message ?: e.javaClass.simpleName, null),
+            )
         }
     }
 
-    @JavascriptInterface
-    fun resolveResult(callbackId: String, json: String) {
-        onResult(callbackId, json)
-    }
+    fun getStorage(pluginId: String, key: String): String? = prefs(pluginId).getString(key, null)
 
-    @JavascriptInterface
-    fun getStorage(pluginId: String, key: String): String? {
-        return prefs(pluginId).getString(key, null)
-    }
-
-    @JavascriptInterface
     fun setStorage(pluginId: String, key: String, value: String?) {
         prefs(pluginId).edit().apply {
             if (value == null) remove(key) else putString(key, value)
@@ -67,7 +85,6 @@ class LnHostBridge(
         }
     }
 
-    @JavascriptInterface
     fun log(level: String, message: String) {
         when (level.lowercase()) {
             "error" -> Logger.e(LN_HOST_TAG) { message }
@@ -77,45 +94,19 @@ class LnHostBridge(
         }
     }
 
-    private fun runFetch(url: String, optsJson: String): String {
-        return try {
-            val opts = parseFetchOpts(optsJson)
-            val builder = Request.Builder().url(url)
-            val method = opts.method?.uppercase() ?: "GET"
-            val body = opts.body?.takeIf { method != "GET" && method != "HEAD" }?.toRequestBody()
-            builder.method(method, body)
-            opts.headers?.forEach { (k, v) -> builder.header(k, v) }
-            val res = client.newCall(builder.build()).execute()
-            val bodyText = res.body?.string().orEmpty()
-            val headers = res.headers.toMultimap()
-                .mapKeys { it.key.lowercase() }
-                .mapValues { it.value.firstOrNull().orEmpty() }
-            JSON.encodeToString(
-                FetchResponseDto.serializer(),
-                FetchResponseDto(res.code, res.message, headers, bodyText, null),
-            )
-        } catch (e: Throwable) {
-            Logger.e(LN_HOST_TAG, e) { "fetch($url) failed" }
-            JSON.encodeToString(
-                FetchResponseDto.serializer(),
-                FetchResponseDto(0, "", emptyMap(), "", e.message ?: e.javaClass.simpleName),
-            )
-        }
-    }
-
     private fun prefs(pluginId: String) =
         context.getSharedPreferences("ln_storage_$pluginId", Context.MODE_PRIVATE)
 
-    /** Wipe a plugin's @libs/storage scope. Called on uninstall (so a reinstall doesn't pick
-     *  up stale login state) and from the Clear data overflow action. */
+    /** Wipe a plugin's @libs/storage scope. Called on uninstall (so a reinstall doesn't pick up
+     *  stale login state) and from the Clear data overflow action. */
     fun clearPluginStorage(pluginId: String) {
         prefs(pluginId).edit().clear().apply()
     }
 
     /**
      * lnreader's FetchInit allows `headers` as a plain object or Headers instance, `body` as
-     * string or FormData. The bridge accepts only the JSON-friendly subset; plugins that serialize
-     * FormData would need to stringify it themselves (none of the smoke-test sources do).
+     * string or FormData. The bridge accepts only the JSON-friendly subset; the runtime serializes
+     * FormData to a urlencoded string before it reaches here.
      */
     private fun parseFetchOpts(optsJson: String): FetchOpts {
         if (optsJson.isBlank() || optsJson == "{}") return FetchOpts()
@@ -140,6 +131,9 @@ class LnHostBridge(
         val method: String? = null,
         val headers: Map<String, String>? = null,
         val body: String? = null,
+        // Set by fetchProto: base64 request body + flag to return the response base64 (binary-safe).
+        val bodyBase64: String? = null,
+        val binary: Boolean = false,
     )
 
     @Serializable
@@ -148,7 +142,9 @@ class LnHostBridge(
         val statusText: String,
         val headers: Map<String, String>,
         val body: String,
+        val url: String,
         val error: String?,
+        val bodyBase64: String? = null,
     )
 
     companion object {

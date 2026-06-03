@@ -190,8 +190,10 @@ dependencies {
     // JSON
     implementation(kotlinx.bundles.serialization)
 
-    // JavaScript engine
-    implementation(libs.quickjs.android)
+    // JavaScript engine: headless QuickJS (com.dokar.quickjs). Powers both the extensions-lib
+    // JavaScriptEngine (manga sources) and the LN plugin host (yokai.novel.host.LnPluginHost),
+    // which runs lnreader plugins with no WebView/Activity so novel sources work off-thread.
+    implementation(libs.quickjs.kt)
 
     // Disk
     implementation(libs.disklrucache)
@@ -259,6 +261,10 @@ dependencies {
     testRuntimeOnly(libs.bundles.test.runtime)
     androidTestImplementation(libs.bundles.test.android)
     testImplementation(kotlinx.coroutines.test)
+
+    // Instrumented-test runner for androidTest (e.g. the headless-host smoke test). quickjs-kt
+    // itself is a main implementation dep above, so androidTest sees it transitively.
+    androidTestImplementation("androidx.test:runner:1.6.2")
 
     // For detecting memory leaks
     // REF: https://square.github.io/leakcanary/

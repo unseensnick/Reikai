@@ -15,7 +15,10 @@
 -keep,allowoptimization class rx.** { public protected *; }
 -keep,allowoptimization class org.jsoup.** { public protected *; }
 -keep,allowoptimization class com.google.gson.** { public protected *; }
--keep,allowoptimization class app.cash.quickjs.** { public protected *; }
+# Headless JS engine (com.dokar.quickjs): JNI/native bridge, R8 can't see across it. Powers both
+# the extensions-lib JavaScriptEngine and the LN plugin host.
+-keep,allowoptimization class com.dokar.quickjs.** { public protected *; }
+-dontwarn com.dokar.quickjs.**
 -keep,allowoptimization class uy.kohesive.injekt.** { public protected *; }
 -keep,allowoptimization class org.koin.** { public protected *; }
 -keep,allowoptimization class eu.davidea.flexibleadapter.** { public protected *; }

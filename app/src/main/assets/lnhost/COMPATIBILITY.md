@@ -1,5 +1,10 @@
 # LN plugin host compatibility notes
 
+> **Historical (Phase 8b).** Describes the original WebView-backed host. The host is now a headless
+> QuickJS engine (`headless.js`, no WebView), and several issues below are resolved (e.g. boxnovel's
+> `getHostname` `.split` crash, via the `response.url` fix). The living compatibility check is the
+> on-device `HeadlessJsIntegrationTest`; treat the table below as a dated snapshot, not current state.
+
 Snapshot of what the WebView-backed lnreader plugin host can and can't run, based on
 on-device soak against `lnreader-plugins` v3.0.0. Used as input for the Phase 3 NovelSource
 API design.

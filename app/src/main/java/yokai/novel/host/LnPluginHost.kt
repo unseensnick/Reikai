@@ -1,27 +1,18 @@
 package yokai.novel.host
 
-import android.annotation.SuppressLint
 import android.content.Context
-import android.os.Handler
-import android.os.Looper
-import android.webkit.ConsoleMessage
-import android.webkit.WebChromeClient
-import android.webkit.WebResourceError
-import android.webkit.WebResourceRequest
-import android.webkit.WebResourceResponse
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import co.touchlab.kermit.Logger
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
-import kotlin.coroutines.resume
-import kotlinx.coroutines.CancellableContinuation
-import kotlinx.coroutines.CompletableDeferred
+import com.dokar.quickjs.QuickJs
+import com.dokar.quickjs.binding.asyncFunction
+import com.dokar.quickjs.binding.function
+import java.util.concurrent.Executors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -34,108 +25,81 @@ import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 
 /**
- * Hosts lnreader plugins inside an Android WebView. Construct on the UI thread; the WebView is
- * created off-screen and never attached to a window.
+ * Hosts lnreader plugins in a headless QuickJS engine (no WebView, no Activity), so novel sources
+ * run the same on a screen or on a background worker. The engine is single-threaded, so every call
+ * is serialized through [mutex]; the engine is created lazily on first use.
  *
- * Each plugin method call is suspending; success returns a strongly-typed Kotlin value, failure
+ * Each plugin method call is suspending: success returns a strongly-typed Kotlin value, failure
  * throws [LnPluginException]. A 30-second per-call timeout guards against runaway plugins.
  */
-@SuppressLint("SetJavaScriptEnabled")
 class LnPluginHost(
     context: Context,
     client: OkHttpClient,
 ) {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    // Use a Looper-backed handler instead of webView.post: the WebView is never attached to a
-    // window, so View.post() queues forever.
-    private val mainHandler = Handler(Looper.getMainLooper())
-    private val webView: WebView
-    private val bridge: LnHostBridge
-    private val pendingCalls = ConcurrentHashMap<String, CancellableContinuation<String>>()
-    private val callbackIdCounter = AtomicLong(0)
-    private val ready = CompletableDeferred<Unit>()
+    private val appContext = context.applicationContext
+    private val bridge = LnHostBridge(appContext, client)
 
-    init {
-        // WebView must be created with an Activity-flavored Context (using applicationContext here
-        // silently breaks asset loading; onPageFinished never fires and every call times out).
-        webView = WebView(context).apply {
-            settings.javaScriptEnabled = true
-            settings.allowFileAccess = false
-            settings.allowContentAccess = false
-            settings.allowFileAccessFromFileURLs = false
-            settings.allowUniversalAccessFromFileURLs = false
-            webChromeClient = object : WebChromeClient() {
-                override fun onConsoleMessage(msg: ConsoleMessage): Boolean {
-                    Logger.i(LN_HOST_TAG) {
-                        "[console:${msg.messageLevel()}] ${msg.message()} (${msg.sourceId()}:${msg.lineNumber()})"
-                    }
-                    return true
-                }
-            }
-            webViewClient = object : WebViewClient() {
-                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                    Logger.i(LN_HOST_TAG) { "WebView onPageStarted url=$url" }
-                }
+    // QuickJS is not thread-safe: confine all native calls to one thread and serialize with the mutex.
+    private val engineExecutor = Executors.newSingleThreadExecutor { r -> Thread(r, "LnPluginHost") }
+    private val engineDispatcher = engineExecutor.asCoroutineDispatcher()
+    private val mutex = Mutex()
+    private var qjs: QuickJs? = null
 
-                override fun onPageFinished(view: WebView?, url: String?) {
-                    Logger.i(LN_HOST_TAG) { "WebView onPageFinished url=$url" }
-                    if (!ready.isCompleted) ready.complete(Unit)
-                }
-
-                override fun onReceivedError(
-                    view: WebView?,
-                    request: WebResourceRequest?,
-                    error: WebResourceError?,
-                ) {
-                    Logger.e(LN_HOST_TAG) {
-                        "WebView resource error: ${request?.url} -> ${error?.errorCode} ${error?.description}"
-                    }
-                }
-
-                override fun onReceivedHttpError(
-                    view: WebView?,
-                    request: WebResourceRequest?,
-                    errorResponse: WebResourceResponse?,
-                ) {
-                    Logger.e(LN_HOST_TAG) {
-                        "WebView http error: ${request?.url} -> ${errorResponse?.statusCode}"
-                    }
-                }
+    /** Create the engine and load the vendor bundles + runtime once. Caller must hold [mutex]. */
+    private suspend fun engine(): QuickJs {
+        qjs?.let { return it }
+        val q = QuickJs.create(engineDispatcher)
+        q.function("__lnLog") { args ->
+            bridge.log(args.getOrNull(0) as? String ?: "info", args.getOrNull(1) as? String ?: "")
+            null
+        }
+        q.function("__lnGetStorage") { args -> bridge.getStorage(args[0] as String, args[1] as String) }
+        q.function("__lnSetStorage") { args ->
+            bridge.setStorage(args[0] as String, args[1] as String, args.getOrNull(2) as? String)
+            null
+        }
+        q.asyncFunction("__lnFetch") { args ->
+            withContext(Dispatchers.IO) {
+                bridge.runFetch(args[0] as String, args.getOrNull(1) as? String ?: "{}")
             }
         }
-        bridge = LnHostBridge(
-            context = context.applicationContext,
-            client = client,
-            scope = scope,
-            evaluateJs = { js -> mainHandler.post { webView.evaluateJavascript(js, null) } },
-            onResult = { cbId, json ->
-                pendingCalls.remove(cbId)?.takeIf { it.isActive }?.resume(json)
-            },
-        )
-        webView.addJavascriptInterface(bridge, "LnHostBridge")
-        webView.loadUrl("file:///android_asset/lnhost/bootstrap.html")
+        // protobuf.js (and other UMD bundles) attach to a global they find via `typeof self/window`,
+        // which QuickJS lacks; seed them before the vendors load so `globalThis.protobuf` resolves.
+        // Wrapped in an IIFE so the completion value is undefined, not globalThis (dokar can't
+        // marshal the self-referential global back to Kotlin: "circular reference").
+        q.evaluate<Any?>("(function(){globalThis.self=globalThis;globalThis.window=globalThis;})()")
+        // Vendor bundles define the cheerio / htmlparser2 / dayjs / protobuf globals the runtime +
+        // plugins need (protobuf powers @libs/fetch's fetchProto for gRPC-web sources e.g. WuxiaWorld).
+        q.evaluate<Any?>(asset("lnhost/vendor/dayjs.min.js"))
+        q.evaluate<Any?>(asset("lnhost/vendor/htmlparser2.min.js"))
+        q.evaluate<Any?>(asset("lnhost/vendor/cheerio.min.js"))
+        q.evaluate<Any?>(asset("lnhost/vendor/protobuf.min.js"))
+        q.evaluate<Any?>(asset("lnhost/headless.js"))
+        qjs = q
+        return q
     }
+
+    private fun asset(path: String): String =
+        appContext.assets.open(path).bufferedReader().use { it.readText() }
 
     suspend fun loadPlugin(
         pluginId: String,
         source: String,
         iconUrl: String? = null,
         lang: String? = null,
-    ): LnPluginInfo {
-        ready.await()
-        val js = "JSON.stringify(window.__lnhost.loadPlugin(" +
-            "${jsStr(pluginId)}, ${jsStr(source)}, ${jsStr(iconUrl ?: "")}, ${jsStr(lang ?: "")}))"
-        val rawJsString = evaluateJsSuspending(js)
-        val innerJson = JSON.decodeFromString(String.serializer(), rawJsString)
-        return JSON.decodeFromString(LnPluginInfo.serializer(), innerJson)
+    ): LnPluginInfo = withTimeout(LOAD_TIMEOUT_MS) {
+        mutex.withLock {
+            val infoJson = engine().evaluate<String>(
+                "JSON.stringify(globalThis.__lnLoadPlugin(" +
+                    "${jsStr(pluginId)}, ${jsStr(source)}, ${jsStr(iconUrl ?: "")}, ${jsStr(lang ?: "")}))",
+            )
+            JSON.decodeFromString(LnPluginInfo.serializer(), infoJson)
+        }
     }
 
     suspend fun popularNovels(pluginId: String, pageNo: Int, optionsJson: String = "{}"): List<NovelItem> {
-        val args = listOf<JsonElement>(
-            JsonPrimitive(pageNo),
-            JSON.parseToJsonElement(optionsJson),
-        )
+        val args = listOf<JsonElement>(JsonPrimitive(pageNo), JSON.parseToJsonElement(optionsJson))
         val raw = callMethod(pluginId, "popularNovels", args)
         return JSON.decodeFromJsonElement(ListSerializer(NovelItem.serializer()), raw)
     }
@@ -176,10 +140,12 @@ class LnPluginHost(
     }
 
     fun destroy() {
-        scope.cancel()
-        mainHandler.post {
-            webView.removeJavascriptInterface("LnHostBridge")
-            webView.destroy()
+        val q = qjs
+        qjs = null
+        // Close on the engine thread (close() may pump native state), then retire the executor.
+        CoroutineScope(SupervisorJob() + engineDispatcher).launch {
+            runCatching { q?.close() }
+            engineExecutor.shutdown()
         }
     }
 
@@ -187,41 +153,37 @@ class LnPluginHost(
         pluginId: String,
         method: String,
         args: List<JsonElement>,
-    ): JsonElement {
-        ready.await()
-        val callbackId = newCallbackId()
-        val argsJson = JSON.encodeToString(ListSerializer(JsonElement.serializer()), args)
-        val jsCall = "window.__lnhost.callMethod(" +
-            "${jsStr(pluginId)}, ${jsStr(method)}, ${jsStr(argsJson)}, ${jsStr(callbackId)});"
-        val resultJson = withTimeout(TIMEOUT_MS) {
-            suspendCancellableCoroutine<String> { cont ->
-                pendingCalls[callbackId] = cont
-                cont.invokeOnCancellation { pendingCalls.remove(callbackId) }
-                mainHandler.post { webView.evaluateJavascript(jsCall, null) }
-            }
+    ): JsonElement = withTimeout(CALL_TIMEOUT_MS) {
+        mutex.withLock {
+            val q = engine()
+            val argsJson = JSON.encodeToString(ListSerializer(JsonElement.serializer()), args)
+            // __lnCallMethod is async (it fetches). evaluate returns the Promise, not its value, so
+            // stash the settled result on a global the engine fills while evaluate pumps the job
+            // queue (including the suspend __lnFetch binding), then read it back. The mutex makes the
+            // shared global safe.
+            q.evaluate<Any?>(
+                "globalThis.__lnPending='__pending__';" +
+                    "globalThis.__lnCallMethod(${jsStr(pluginId)}, ${jsStr(method)}, ${jsStr(argsJson)})" +
+                    ".then(function(r){globalThis.__lnPending=r;}," +
+                    "function(e){globalThis.__lnPending=JSON.stringify({ok:false,error:String((e&&e.message)||e)});});",
+            )
+            val resultJson = q.evaluate<String>("String(globalThis.__lnPending)")
+            val result = JSON.decodeFromString(LnCallResult.serializer(), resultJson)
+            if (!result.ok) throw LnPluginException(result.error ?: "$method failed without message")
+            result.value ?: JsonNull
         }
-        val result = JSON.decodeFromString(LnCallResult.serializer(), resultJson)
-        if (!result.ok) throw LnPluginException(result.error ?: "$method failed without message")
-        return result.value ?: JsonNull
     }
-
-    private suspend fun evaluateJsSuspending(js: String): String =
-        withTimeout(TIMEOUT_MS) {
-            suspendCancellableCoroutine<String> { cont ->
-                mainHandler.post {
-                    webView.evaluateJavascript(js) { result ->
-                        if (cont.isActive) cont.resume(result ?: "null")
-                    }
-                }
-            }
-        }
-
-    private fun newCallbackId() = "cb_" + callbackIdCounter.incrementAndGet()
 
     private fun jsStr(s: String): String = JSON.encodeToString(String.serializer(), s)
 
     companion object {
-        private const val TIMEOUT_MS = 30_000L
+        // loadPlugin is CPU-only (evaluate the plugin code); 30s is ample.
+        private const val LOAD_TIMEOUT_MS = 30_000L
+        // callMethod issues HTTP, which can route through the shared CloudflareInterceptor: a WebView
+        // solve (30s latch) and, on failure, a Flaresolverr fallback (90s callTimeout). A 30s budget
+        // killed the call right as the WebView gave up, so Flaresolverr never ran (novels failed CF
+        // where manga, which has no such wrapper, succeeds). Cover the full WebView + Flaresolverr path.
+        private const val CALL_TIMEOUT_MS = 180_000L
         val JSON: Json = Json {
             ignoreUnknownKeys = true
             isLenient = true
