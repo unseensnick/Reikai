@@ -26,17 +26,9 @@ class NovelChapterAggregationTest {
     private fun List<NovelChapter>.numbers(): List<Float> = map { it.chapterNumber }.sorted()
 
     @Test
-    fun `trunk is the source with the most distinct numbers, not the most rows`() {
-        // Novel 1: 3 real chapters, each duplicated -> 6 rows, 3 distinct.
-        val source1 = listOf(
-            chapter(1L, 1f), chapter(1L, 1f),
-            chapter(1L, 2f), chapter(1L, 2f),
-            chapter(1L, 3f), chapter(1L, 3f),
-        )
-        // Novel 2: 5 real chapters -> 5 rows, 5 distinct.
-        val source2 = listOf(
-            chapter(2L, 1f), chapter(2L, 2f), chapter(2L, 3f), chapter(2L, 4f), chapter(2L, 5f),
-        )
+    fun `trunk is the source with the most chapters`() {
+        val source1 = listOf(chapter(1L, 1f), chapter(1L, 2f), chapter(1L, 3f))
+        val source2 = listOf(chapter(2L, 1f), chapter(2L, 2f), chapter(2L, 3f), chapter(2L, 4f), chapter(2L, 5f))
 
         val unified = NovelChapterAggregation.aggregate(mapOf(1L to source1, 2L to source2))
 
@@ -60,7 +52,7 @@ class NovelChapterAggregationTest {
 
     @Test
     fun `collapses duplicate numbers when gap-filling`() {
-        val trunk = listOf(chapter(1L, 1f), chapter(1L, 2f))
+        val trunk = listOf(chapter(1L, 1f), chapter(1L, 2f), chapter(1L, 3f))
         val other = listOf(chapter(2L, 3f), chapter(2L, 3f), chapter(2L, 4f))
 
         val unified = NovelChapterAggregation.aggregate(mapOf(1L to trunk, 2L to other))
@@ -72,7 +64,8 @@ class NovelChapterAggregationTest {
     @Test
     fun `drops sibling chapters with an unrecognized number`() {
         val trunk = listOf(chapter(1L, 1f), chapter(1L, 2f))
-        val other = listOf(chapter(2L, -1f), chapter(2L, 3f))
+        // 0f means "no number" for novels, so it can't be matched across sources.
+        val other = listOf(chapter(2L, 0f), chapter(2L, 3f))
 
         val unified = NovelChapterAggregation.aggregate(mapOf(1L to trunk, 2L to other))
 
@@ -80,8 +73,21 @@ class NovelChapterAggregationTest {
     }
 
     @Test
+    fun `unnumbered novels show the fullest source's full list unchanged`() {
+        // Both sources leave every chapter unnumbered (0f), the common lnreader case. There's no
+        // cross-source key, so the unified view is just the source with the most chapters.
+        val small = listOf(chapter(1L, 0f), chapter(1L, 0f), chapter(1L, 0f))
+        val big = listOf(chapter(2L, 0f), chapter(2L, 0f), chapter(2L, 0f), chapter(2L, 0f), chapter(2L, 0f))
+
+        val unified = NovelChapterAggregation.aggregate(mapOf(1L to small, 2L to big))
+
+        assertEquals(big, unified)
+        assertEquals(listOf(2L), unified.map { it.novelId }.distinct())
+    }
+
+    @Test
     fun `single source returns its chapters unchanged`() {
-        val only = listOf(chapter(1L, 1f), chapter(1L, 2f), chapter(1L, -1f))
+        val only = listOf(chapter(1L, 1f), chapter(1L, 2f), chapter(1L, 0f))
 
         val unified = NovelChapterAggregation.aggregate(mapOf(1L to only))
 
@@ -94,7 +100,7 @@ class NovelChapterAggregationTest {
     }
 
     @Test
-    fun `a preferred source becomes the trunk even with fewer distinct numbers`() {
+    fun `a preferred source becomes the trunk even with fewer chapters`() {
         val source1 = listOf(chapter(1L, 1f), chapter(1L, 2f), chapter(1L, 3f), chapter(1L, 4f), chapter(1L, 5f))
         val source2 = listOf(chapter(2L, 1f), chapter(2L, 2f), chapter(2L, 3f))
 
@@ -110,7 +116,7 @@ class NovelChapterAggregationTest {
     }
 
     @Test
-    fun `multiple preferred sources order by list index, not distinct count`() {
+    fun `multiple preferred sources order by list index, not chapter count`() {
         val sourceA = listOf(chapter(1L, 1f), chapter(1L, 2f))
         val sourceB = listOf(chapter(2L, 1f), chapter(2L, 2f), chapter(2L, 3f))
         val sourceC = listOf(chapter(3L, 1f), chapter(3L, 2f), chapter(3L, 3f), chapter(3L, 4f))

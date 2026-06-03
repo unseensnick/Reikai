@@ -11,16 +11,19 @@ import eu.kanade.tachiyomi.util.chapter.syncChaptersWithNovelSource
 import eu.kanade.tachiyomi.util.system.launchIO
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import uy.kohesive.injekt.injectLazy
 import yokai.data.DatabaseHandler
 import yokai.data.novel.NovelStatusCode
 import yokai.data.novel.toNovel
+import yokai.domain.novel.NovelChapterAggregation
 import yokai.domain.novel.NovelChapterRepository
+import yokai.domain.novel.NovelMergeManager
 import yokai.domain.novel.NovelPreferences
 import yokai.domain.novel.NovelRepository
 import yokai.domain.novel.interactor.GetNovelCategories
@@ -35,6 +38,7 @@ import yokai.domain.novel.models.effectiveSorting
 import yokai.domain.novel.models.setFlag
 import yokai.domain.novel.models.sortedAndFiltered
 import yokai.novel.source.NovelSource
+import yokai.novel.source.NovelSourceManager
 import yokai.novel.text.htmlToParagraphs
 import yokai.presentation.novel.browse.ChapterRead
 
@@ -61,6 +65,28 @@ class NovelDetailsScreenModel(
     private val setNovelCategories: SetNovelCategories by injectLazy()
     private val novelPreferences: NovelPreferences by injectLazy()
 
+    // The novel source registry, populated by the screen's plugin-host load. Used to resolve a
+    // grouped sibling's source for the chip label and for opening a gap-filled chapter (which must
+    // read from its own source). Singleton, so it sees every source the screen has loaded.
+    private val sourceManager: NovelSourceManager by injectLazy()
+    private val mergeManager = NovelMergeManager()
+
+    // Merge state. groupIdsFlow drives the chapter source set (just the anchor, or every grouped
+    // sibling once resolved); sourceViewFlow picks the unified list (null) or one source's view.
+    private val sourceViewFlow = MutableStateFlow<Long?>(null)
+    private val groupIdsFlow = MutableStateFlow<List<Long>>(emptyList())
+
+    /** Gates the one-shot group resolution (mirrors the manga side's dedup window). */
+    @Volatile
+    private var relatedFetched = false
+
+    /** Snapshot of the grouped novels (id -> Novel) for source labels + per-sibling source ids in
+     *  aggregation. Empty for a single-source novel. */
+    private var novelsById: Map<Long, Novel> = emptyMap()
+
+    /** Latest per-novel chapter lists (pristine, native source_order) for the per-source view. */
+    private var chaptersByNovel: Map<Long, List<NovelChapter>> = emptyMap()
+
     /** Resolved by the screen once the plugin host loads it; null until then. Source-dependent ops
      *  (first-open fetch, refresh, chapter text) no-op or defer until it's set. */
     @Volatile
@@ -79,49 +105,156 @@ class NovelDetailsScreenModel(
         observeFromDb()
     }
 
-    // DB-first: the novel Flow drives an inner chapter Flow; every emission rebuilds Loaded from
-    // stored rows. No source call on this path.
+    // DB-first: the anchor-novel Flow drives an inner chapter Flow; every emission rebuilds Loaded
+    // from stored rows. No source call on this path. For a merged novel the inner flow combines all
+    // grouped siblings' chapters (resolved once via the merge prefs); groupIdsFlow re-subscribes it.
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun observeFromDb() {
         screenModelScope.launchIO {
-            novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId)
-                .flatMapLatest { novel ->
-                    val id = novel?.id
-                    if (id == null) flowOf(novel to emptyList())
-                    else chapterRepo.getByNovelIdAsFlow(id).map { chapters -> novel to chapters }
+            novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId).collectLatest { novel ->
+                if (novel == null) {
+                    // Not in the DB (unexpected for a library entry); needs a first-open fetch once
+                    // the source resolves. Keep any already-loaded state visible.
+                    maybeFirstFetch(null)
+                    return@collectLatest
                 }
-                .collectLatest { (novel, chapters) ->
-                    if (novel == null) {
-                        // Not in the DB (unexpected for a library entry); needs a first-open fetch
-                        // once the source resolves. Keep any already-loaded state visible.
-                        maybeFirstFetch(null)
-                        return@collectLatest
-                    }
-                    novelLog { "served from DB: \"${novel.title}\" chapters=${chapters.size} (no source hit)" }
-                    // Resume is computed from the full set in reading order, independent of the
-                    // display sort/filter, so hiding read chapters doesn't break the FAB.
-                    val byOrder = chapters.sortedBy { it.sourceOrder }
-                    mutableState.update { current ->
-                        NovelDetailsState.Loaded(
-                            novel = novel,
-                            chapters = chapters.sortedAndFiltered(novel, novelPreferences),
-                            isRefreshing = (current as? NovelDetailsState.Loaded)?.isRefreshing ?: false,
-                            // Preserve transient screen state across DB re-emissions (a read/bookmark
-                            // write re-emits the chapter list): an open dialog and the active selection.
-                            dialog = (current as? NovelDetailsState.Loaded)?.dialog,
-                            selection = (current as? NovelDetailsState.Loaded)?.selection ?: emptySet(),
-                            resumeChapter = byOrder.firstOrNull { !it.read } ?: byOrder.lastOrNull(),
-                            hasStarted = chapters.any { it.read || it.lastTextProgress > 0 },
-                            sorting = novel.effectiveSorting(novelPreferences),
-                            sortDescending = novel.effectiveSortDescending(novelPreferences),
-                            readFilter = novel.effectiveReadFilter(novelPreferences),
-                            bookmarkedFilter = novel.effectiveBookmarkedFilter(novelPreferences),
-                            hideChapterTitles = novel.effectiveHideChapterTitles(novelPreferences),
-                        )
-                    }
-                    if (chapters.isEmpty()) maybeFirstFetch(novel)
+                val anchorId = novel.id
+                if (anchorId == null) {
+                    maybeFirstFetch(novel)
+                    return@collectLatest
                 }
+                maybeLoadGroup(anchorId, novel.title)
+
+                groupIdsFlow
+                    .flatMapLatest { group ->
+                        val ids = if (group.size > 1) group else listOf(anchorId)
+                        combine(ids.map { id -> chapterRepo.getByNovelIdAsFlow(id).map { id to it } }) { it.toMap() }
+                    }
+                    // Re-render when the chosen source view changes, without re-fetching chapters.
+                    .combine(sourceViewFlow) { byNovel, _ -> byNovel }
+                    .collectLatest { byNovel ->
+                        chaptersByNovel = byNovel
+                        novelLog {
+                            "served from DB: \"${novel.title}\" group=${groupIdsFlow.value.size} " +
+                                "chapters=${byNovel.values.sumOf { it.size }} (no source hit)"
+                        }
+                        rebuildLoaded(novel, byNovel)
+                        if (byNovel[anchorId].isNullOrEmpty()) maybeFirstFetch(novel)
+                    }
+            }
         }
+    }
+
+    /** Resolve the merge group once, then publish it so the chapter pipeline re-aggregates. Launched
+     *  (not awaited) so the single-source list shows immediately and expands to unified when ready. */
+    private fun maybeLoadGroup(anchorId: Long, title: String) {
+        if (relatedFetched) return
+        relatedFetched = true
+        screenModelScope.launchIO {
+            val ids = mergeManager.computeRelatedNovelIds(anchorId, title)
+            updateGroup(if (ids.size > 1) ids.toList() else listOf(anchorId))
+        }
+    }
+
+    /** Apply a new merge-group membership: snapshot the sibling novels (for chips + aggregation
+     *  source ids), reset the view to unified, then publish the ids so the pipeline re-aggregates. */
+    private suspend fun updateGroup(ids: List<Long>) {
+        novelsById = if (ids.size > 1) {
+            ids.mapNotNull { id -> novelRepo.getById(id) }.mapNotNull { n -> n.id?.let { it to n } }.toMap()
+        } else {
+            emptyMap()
+        }
+        sourceViewFlow.value = null
+        groupIdsFlow.value = ids
+    }
+
+    /** Switch the chapter list between the unified view (null) and a single grouped source. Clears
+     *  any active selection since the chapter set changes. */
+    fun setSourceView(novelId: Long?) {
+        if (sourceViewFlow.value == novelId) return
+        clearSelection()
+        sourceViewFlow.value = novelId
+    }
+
+    /** Build [NovelDetailsState.Loaded] from the per-novel chapter map, preserving transient UI. */
+    private fun rebuildLoaded(novel: Novel, byNovel: Map<Long, List<NovelChapter>>) {
+        val anchorId = novel.id ?: return
+        val merged = groupIdsFlow.value.size > 1
+        val sourceView = sourceViewFlow.value
+        val unified = if (merged) {
+            stampMergedReadingOrder(
+                NovelChapterAggregation.aggregate(byNovel, sourceIdsForAggregation(), preferredSourceIds()),
+            )
+        } else {
+            byNovel[anchorId].orEmpty()
+        }
+        // The per-source chip view shows that one source's own (pristine) chapters; otherwise the
+        // unified stitched list. Fall back to unified if a stale source id no longer resolves.
+        val rawChapters = if (sourceView != null && byNovel.size > 1) byNovel[sourceView] ?: unified else unified
+        // Resume is computed from the displayed set in reading order, independent of sort/filter, so
+        // hiding read chapters doesn't break the FAB.
+        val byOrder = rawChapters.sortedBy { it.sourceOrder }
+        val tabs = if (merged) {
+            groupIdsFlow.value.mapNotNull { id -> novelsById[id]?.let { SourceTab(id, sourceLabel(it)) } }
+        } else {
+            emptyList()
+        }
+        // Header source line: "Unified" for the pooled view of a merged novel, otherwise the viewed
+        // source's name (the selected chip, or the anchor for a single-source novel).
+        val displayNovel = sourceView?.let { novelsById[it] } ?: novel
+        val label = if (sourceView == null && merged) "Unified" else sourceLabel(displayNovel)
+        mutableState.update { current ->
+            NovelDetailsState.Loaded(
+                novel = novel,
+                chapters = rawChapters.sortedAndFiltered(novel, novelPreferences),
+                isRefreshing = (current as? NovelDetailsState.Loaded)?.isRefreshing ?: false,
+                // Preserve transient screen state across DB re-emissions (a read/bookmark write
+                // re-emits the chapter list): an open dialog and the active selection.
+                dialog = (current as? NovelDetailsState.Loaded)?.dialog,
+                selection = (current as? NovelDetailsState.Loaded)?.selection ?: emptySet(),
+                resumeChapter = byOrder.firstOrNull { !it.read } ?: byOrder.lastOrNull(),
+                hasStarted = rawChapters.any { it.read || it.lastTextProgress > 0 },
+                sorting = novel.effectiveSorting(novelPreferences),
+                sortDescending = novel.effectiveSortDescending(novelPreferences),
+                readFilter = novel.effectiveReadFilter(novelPreferences),
+                bookmarkedFilter = novel.effectiveBookmarkedFilter(novelPreferences),
+                hideChapterTitles = novel.effectiveHideChapterTitles(novelPreferences),
+                sourceTabs = tabs,
+                sourceView = sourceView,
+                sourceLabel = label,
+                displayStatus = displayNovel.status,
+            )
+        }
+    }
+
+    /** Sibling novel id -> its source id, so [NovelChapterAggregation] can apply the preferred-source
+     *  trunk pick. A sibling not yet snapshotted degrades to unranked, never to a wrong trunk. */
+    private fun sourceIdsForAggregation(): Map<Long, String> = novelsById.mapValues { it.value.source }
+
+    /** The global preferred-source ranking (slash-joined ids, highest priority first). Read at
+     *  aggregate time; a setting change applies on the next open, not to an open screen. */
+    private fun preferredSourceIds(): List<String> =
+        novelPreferences.novelPreferredSources().get().split('/').filter { it.isNotBlank() }
+
+    /** A grouped source's display name, falling back to its id when the plugin isn't loaded. */
+    private fun sourceLabel(novel: Novel): String = sourceManager.get(novel.source)?.name ?: novel.source
+
+    /**
+     * Normalize a merged list's reading order. `source_order` is per-source, so the default
+     * "by source order" sort interleaves sources nonsensically. Restamp it to follow chapter number
+     * ascending (the novel reading order is chapter-1-first, unlike the manga side's newest-first),
+     * so the existing sort / resume logic reads the unified list as one coherent series. The copies
+     * keep the shared per-source lists in [chaptersByNovel] pristine for the per-source view.
+     */
+    private fun stampMergedReadingOrder(chapters: List<NovelChapter>): List<NovelChapter> =
+        chapters.sortedWith(compareBy { it.chapterNumber })
+            .mapIndexed { index, chapter -> chapter.copy(sourceOrder = index.toLong()) }
+
+    /** The source a chapter belongs to, so the reader opens against the source that has it. A merged
+     *  list mixes sources; a gap-filled chapter resolves to its sibling's source. */
+    private fun sourceForChapter(chapter: NovelChapter): NovelSource? {
+        val owningSourceId = novelsById[chapter.novelId]?.source ?: sourceId
+        return sourceManager.get(owningSourceId) ?: source
     }
 
     /** Called by the screen after it resolves the plugin source (host construction needs a Context).
@@ -129,6 +262,9 @@ class NovelDetailsScreenModel(
     fun onSourceReady(resolved: NovelSource) {
         source = resolved
         val loaded = state.value as? NovelDetailsState.Loaded
+        // The same host load registered every installed sibling source too, so refresh any chip
+        // labels that fell back to a raw source id (guarded so we never wipe a not-yet-loaded list).
+        if (loaded != null && chaptersByNovel.isNotEmpty()) rebuildLoaded(loaded.novel, chaptersByNovel)
         if (loaded == null || loaded.chapters.isEmpty()) maybeFirstFetch(loaded?.novel)
     }
 
@@ -158,9 +294,10 @@ class NovelDetailsScreenModel(
         }
     }
 
-    /** Fetch the chapter text for a stored chapter (always a source hit; reading isn't cached). */
+    /** Fetch the chapter text for a stored chapter (always a source hit; reading isn't cached).
+     *  Routed through the chapter's own source so a gap-filled sibling chapter reads correctly. */
     internal suspend fun loadChapterText(chapter: NovelChapter): ChapterRead {
-        val src = source ?: error("Source not ready")
+        val src = sourceForChapter(chapter) ?: error("Source not ready")
         return ChapterRead(
             chapterId = chapter.id ?: error("Stored chapter has no id"),
             initialProgress = chapter.lastTextProgress,
@@ -508,11 +645,11 @@ class NovelDetailsScreenModel(
     }
 
     private suspend fun applyRead(targets: List<NovelChapter>, read: Boolean) {
-        targets.forEach { if (it.read != read) chapterRepo.update(it.copy(read = read)) }
+        targets.forEach { if (it.read != read) it.id?.let { id -> chapterRepo.setRead(id, read) } }
     }
 
     private suspend fun applyBookmark(targets: List<NovelChapter>, bookmark: Boolean) {
-        targets.forEach { if (it.bookmark != bookmark) chapterRepo.update(it.copy(bookmark = bookmark)) }
+        targets.forEach { if (it.bookmark != bookmark) it.id?.let { id -> chapterRepo.setBookmark(id, bookmark) } }
     }
 
     /** Temporary verification aid (Phase 7), filterable via tag:NovelDetailsPort; stripped in P9. */
@@ -537,9 +674,20 @@ sealed interface NovelDetailsState {
         val readFilter: Int = Manga.SHOW_ALL,
         val bookmarkedFilter: Int = Manga.SHOW_ALL,
         val hideChapterTitles: Boolean = false,
+        // Grouped-source chips for a merged novel (empty for a single source); the selected source
+        // view (null = the unified stitched list).
+        val sourceTabs: List<SourceTab> = emptyList(),
+        val sourceView: Long? = null,
+        // Header source line + status follow the viewed source: "Unified" for a merged novel's pooled
+        // view, else the selected (or anchor) source's name and status.
+        val sourceLabel: String = "",
+        val displayStatus: Int = 0,
     ) : NovelDetailsState
     data class Failed(val message: String) : NovelDetailsState
 }
+
+/** One grouped-source chip: [novelId] is the sibling's DB id, [label] its source name. */
+data class SourceTab(val novelId: Long, val label: String)
 
 sealed interface NovelDetailsDialog {
     data class ChangeCategory(

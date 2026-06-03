@@ -93,6 +93,36 @@ class NovelChapterRepositoryImpl(private val handler: DatabaseHandler) : NovelCh
         false
     }
 
+    override suspend fun setRead(id: Long, read: Boolean): Boolean = try {
+        // Null everywhere but read → coalesce keeps the rest (notably source_order, which a merged
+        // unified-list copy would otherwise overwrite with its synthetic value).
+        handler.await {
+            novel_chaptersQueries.update(
+                novelId = null, url = null, name = null, read = read, bookmark = null,
+                lastTextProgress = null, chapterNumber = null, sourceOrder = null,
+                dateFetch = null, dateUpload = null, page = null, chapterId = id,
+            )
+        }
+        true
+    } catch (e: Exception) {
+        Logger.e(e) { "Failed to set read on novel chapter id=$id" }
+        false
+    }
+
+    override suspend fun setBookmark(id: Long, bookmark: Boolean): Boolean = try {
+        handler.await {
+            novel_chaptersQueries.update(
+                novelId = null, url = null, name = null, read = null, bookmark = bookmark,
+                lastTextProgress = null, chapterNumber = null, sourceOrder = null,
+                dateFetch = null, dateUpload = null, page = null, chapterId = id,
+            )
+        }
+        true
+    } catch (e: Exception) {
+        Logger.e(e) { "Failed to set bookmark on novel chapter id=$id" }
+        false
+    }
+
     override suspend fun delete(id: Long) {
         handler.await { novel_chaptersQueries.delete(id) }
     }

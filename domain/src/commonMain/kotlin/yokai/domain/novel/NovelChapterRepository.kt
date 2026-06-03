@@ -15,5 +15,10 @@ interface NovelChapterRepository {
     suspend fun update(chapter: NovelChapter): Boolean
     /** Focused write for the reader's auto-save path; avoids the round-trip a full update needs. */
     suspend fun setLastTextProgress(id: Long, progress: Int): Boolean
+
+    /** Focused read/bookmark writes. Touch only the one column so a chapter object carrying a
+     *  synthetic `source_order` (a merged unified-list copy) can't overwrite the stored order. */
+    suspend fun setRead(id: Long, read: Boolean): Boolean
+    suspend fun setBookmark(id: Long, bookmark: Boolean): Boolean
     suspend fun delete(id: Long)
 }

@@ -82,6 +82,7 @@ import yokai.presentation.details.DetailsChapterRow
 import yokai.presentation.details.EditInfoDialog
 import yokai.presentation.details.DetailsContent
 import yokai.presentation.details.DetailsFilterSortSheet
+import yokai.presentation.details.DetailsSourceTab
 import yokai.presentation.library.components.SelectionAction
 import yokai.presentation.library.components.SelectionAppBar
 import yokai.presentation.novel.browse.ChapterRead
@@ -402,9 +403,9 @@ class NovelDetailsScreen(
                                     title = s.novel.title,
                                     author = s.novel.author,
                                     artist = s.novel.artist,
-                                    status = s.novel.status,
-                                    statusText = statusLabel(s.novel.status),
-                                    sourceName = resolvedSource?.name.orEmpty(),
+                                    status = s.displayStatus,
+                                    statusText = statusLabel(s.displayStatus),
+                                    sourceName = s.sourceLabel,
                                     isStubSource = false,
                                     description = s.novel.description,
                                     genres = s.novel.genres.orEmpty(),
@@ -447,6 +448,10 @@ class NovelDetailsScreen(
                                             )
                                         }
                                     },
+                                    sourceTabs = s.sourceTabs.map { DetailsSourceTab(it.novelId, it.label) },
+                                    selectedSourceView = s.sourceView,
+                                    onSourceViewChange = { screenModel.setSourceView(it) },
+                                    currentSourceId = s.novel.id,
                                 )
                             }
                         }
