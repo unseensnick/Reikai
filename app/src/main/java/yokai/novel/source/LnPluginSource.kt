@@ -38,4 +38,7 @@ class LnPluginSource(
 
     override suspend fun parseChapter(chapterPath: String): String =
         host.parseChapter(info.id, chapterPath)
+
+    override suspend fun resolveUrl(path: String, isNovel: Boolean): String? =
+        host.resolveUrl(info.id, path, isNovel)
 }

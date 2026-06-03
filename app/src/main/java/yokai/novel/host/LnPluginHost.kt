@@ -29,6 +29,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 
@@ -147,6 +148,15 @@ class LnPluginHost(
     suspend fun parseChapter(pluginId: String, chapterPath: String): String {
         val raw = callMethod(pluginId, "parseChapter", listOf(JsonPrimitive(chapterPath)))
         return raw.jsonPrimitive.content
+    }
+
+    /** Optional lnreader `resolveUrl`; null when the plugin doesn't define it (most don't) or errors,
+     *  so callers fall back to the source site. */
+    suspend fun resolveUrl(pluginId: String, path: String, isNovel: Boolean): String? = try {
+        val raw = callMethod(pluginId, "resolveUrl", listOf(JsonPrimitive(path), JsonPrimitive(isNovel)))
+        raw.jsonPrimitive.contentOrNull
+    } catch (e: Exception) {
+        null
     }
 
     suspend fun searchNovels(pluginId: String, query: String, pageNo: Int): List<NovelItem> {

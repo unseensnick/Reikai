@@ -66,4 +66,11 @@ interface NovelSource {
     /** Fetch chapter HTML/text body. `chapterPath` is the source-relative path returned inside a
      *  [SourceNovel.chapters] entry. */
     suspend fun parseChapter(chapterPath: String): String
+
+    /**
+     * Resolve a source-relative [path] to its absolute web URL via the plugin's optional lnreader
+     * `resolveUrl`. Returns null when the plugin doesn't implement it (only some do), so callers
+     * fall back to [site] (the source homepage).
+     */
+    suspend fun resolveUrl(path: String, isNovel: Boolean): String? = null
 }

@@ -604,6 +604,9 @@ private fun ExpandableDescription(description: String?, genres: List<String>) {
                 }
             }
         }
+        // Trailing gap so the tags don't butt against whatever follows (the chapter header when
+        // there's no related carousel, as on the novel screen and single-source manga).
+        Spacer(Modifier.height(12.dp))
     }
 }
 

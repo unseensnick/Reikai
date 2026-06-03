@@ -3,6 +3,7 @@ package yokai.presentation.novel.details
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import co.touchlab.kermit.Logger
+import java.net.URL
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.database.models.NovelCategory
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithNovelSource
@@ -87,6 +88,7 @@ class NovelDetailsScreenModel(
                         return@collectLatest
                     }
                     novelLog { "served from DB: \"${novel.title}\" chapters=${chapters.size} (no source hit)" }
+                    val byOrder = chapters.sortedBy { it.sourceOrder }
                     mutableState.update { current ->
                         NovelDetailsState.Loaded(
                             novel = novel,
@@ -96,6 +98,9 @@ class NovelDetailsScreenModel(
                             // write re-emits the chapter list): an open dialog and the active selection.
                             dialog = (current as? NovelDetailsState.Loaded)?.dialog,
                             selection = (current as? NovelDetailsState.Loaded)?.selection ?: emptySet(),
+                            // The FAB resumes the first unread chapter (or the last once all are read).
+                            resumeChapter = byOrder.firstOrNull { !it.read } ?: byOrder.lastOrNull(),
+                            hasStarted = chapters.any { it.read || it.lastTextProgress > 0 },
                         )
                     }
                     if (chapters.isEmpty()) maybeFirstFetch(novel)
@@ -145,6 +150,18 @@ class NovelDetailsScreenModel(
             initialProgress = chapter.lastTextProgress,
             paragraphs = htmlToParagraphs(src.parseChapter(chapter.url)),
         )
+    }
+
+    /** Absolute web URL for this novel. Prefer the plugin's `resolveUrl` (handles sources whose URL
+     *  isn't a plain site+path); otherwise resolve the stored novel path against the site the same way
+     *  a default resolveUrl would (`new URL(path, site)`), which reaches the novel page for nearly all
+     *  sources since the path is the one parseNovel already used. Homepage only if that can't be built. */
+    suspend fun novelWebUrl(): String? {
+        val src = source ?: return null
+        src.resolveUrl(novelUrl, isNovel = true)?.takeIf { it.isNotBlank() }?.let { return it }
+        val site = src.site.takeIf { it.isNotBlank() } ?: return null
+        if (novelUrl.isBlank()) return site
+        return runCatching { URL(URL(site), novelUrl).toString() }.getOrNull() ?: site
     }
 
     private fun maybeFirstFetch(existing: Novel?) {
@@ -371,6 +388,8 @@ sealed interface NovelDetailsState {
         val isRefreshing: Boolean,
         val dialog: NovelDetailsDialog? = null,
         val selection: Set<Long> = emptySet(),
+        val resumeChapter: NovelChapter? = null,
+        val hasStarted: Boolean = false,
     ) : NovelDetailsState
     data class Failed(val message: String) : NovelDetailsState
 }

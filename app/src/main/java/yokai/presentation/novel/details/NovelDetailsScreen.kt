@@ -1,5 +1,6 @@
 package yokai.presentation.novel.details
 
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material.icons.outlined.BookmarkRemove
@@ -22,6 +24,7 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -290,6 +293,17 @@ class NovelDetailsScreen(
                     )
                 }
             },
+            floatingActionButton = {
+                val resume = loaded?.resumeChapter
+                if (loaded != null && resume != null && !selectionActive && !isReading) {
+                    ExtendedFloatingActionButton(
+                        text = { Text(if (loaded.hasStarted) "Resume" else "Start reading") },
+                        icon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
+                        onClick = { openChapter(resume) },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            },
         ) { padding ->
             val reading = readingChapter
             val data = readerData
@@ -371,6 +385,28 @@ class NovelDetailsScreen(
                                         { screenModel.showChangeCategoryDialog() }
                                     } else {
                                         null
+                                    },
+                                    onWebViewClick = {
+                                        scope.launch {
+                                            val url = screenModel.novelWebUrl() ?: return@launch
+                                            context.startActivity(
+                                                WebViewActivity.newIntent(context, url, null, resolvedSource?.name ?: ""),
+                                            )
+                                        }
+                                    },
+                                    onShareClick = {
+                                        scope.launch {
+                                            val url = screenModel.novelWebUrl() ?: return@launch
+                                            context.startActivity(
+                                                Intent.createChooser(
+                                                    Intent(Intent.ACTION_SEND).apply {
+                                                        type = "text/plain"
+                                                        putExtra(Intent.EXTRA_TEXT, url)
+                                                    },
+                                                    null,
+                                                ),
+                                            )
+                                        }
                                     },
                                 )
                             }
