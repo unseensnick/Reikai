@@ -70,6 +70,7 @@ import yokai.domain.novel.models.Novel
 import yokai.domain.novel.models.NovelChapter
 import yokai.i18n.MR
 import yokai.novel.host.ChapterItem
+import yokai.novel.install.LnPluginInstaller
 import yokai.novel.source.NovelSource
 import yokai.novel.source.NovelSourceManager
 import yokai.util.lang.getString
@@ -103,6 +104,7 @@ class NovelUpdateJob(private val context: Context, workerParams: WorkerParameter
     private val novelRepository: NovelRepository by inject()
     private val novelChapterRepository: NovelChapterRepository by inject()
     private val novelSourceManager: NovelSourceManager by inject()
+    private val installer: LnPluginInstaller by inject()
     private val novelPreferences: NovelPreferences by inject()
     private val handler: DatabaseHandler by inject()
 
@@ -174,6 +176,10 @@ class NovelUpdateJob(private val context: Context, workerParams: WorkerParameter
 
         return withIOContext {
             try {
+                // Populate NovelSourceManager from the app-scoped host so updateNovelsInSource finds
+                // the source in a cold process (background update with no LN screen opened this
+                // launch). Idempotent: a no-op if a screen already loaded the plugins.
+                installer.ensureLoaded()
                 runChapterUpdates(filterNovelsToUpdate(novelList))
                 Result.success()
             } catch (e: Exception) {
