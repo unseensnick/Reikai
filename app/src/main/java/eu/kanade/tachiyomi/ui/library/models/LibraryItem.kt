@@ -14,6 +14,10 @@ sealed interface LibraryItem {
      */
     val itemId: Long?
 
+    /** Underlying entry's display title, used for the library search-field example hint. Null for
+     *  the placeholder variants ([Blank] / [Hidden]). */
+    val displayTitle: String? get() = null
+
     @Immutable
     data class Blank(val mangaCount: Int = 0) : LibraryItem {
         override val itemId: Long? = null
@@ -51,6 +55,7 @@ sealed interface LibraryItem {
     ) : LibraryItem {
 
         override val itemId: Long? get() = libraryManga.manga.id
+        override val displayTitle: String get() = libraryManga.manga.title
 
         // LongArray properties use reference equality in the data class default, which would
         // defeat the @Immutable skip-on-equal recompose pass whenever the screen model re-emits
@@ -101,6 +106,7 @@ sealed interface LibraryItem {
     ) : LibraryItem {
 
         override val itemId: Long? get() = libraryNovel.novel.id
+        override val displayTitle: String get() = libraryNovel.novel.title
 
         override fun equals(other: Any?): Boolean {
             if (this === other) return true

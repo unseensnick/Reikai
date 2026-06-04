@@ -38,6 +38,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.ui.migration.manga.design.PreMigrationController
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import eu.kanade.tachiyomi.ui.source.globalsearch.GlobalSearchController
 import eu.kanade.tachiyomi.util.compose.LocalRouter
 import eu.kanade.tachiyomi.util.moveCategories
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
@@ -478,6 +479,8 @@ class LibraryScreen : Screen {
             selection = selection,
             onSearchActiveChange = { searchActive = it },
             onSearchQueryChange = { searchQuery = it; screenModel.setSearchQuery(it) },
+            // transitional: legacy GlobalSearchController until a Compose global-search screen ports
+            onGlobalSearch = { router.pushController(GlobalSearchController(it).withFadeTransaction()) },
             onHopperGravityChange = { screenModel.setHopperGravity(it) },
             onToggleCategoryCollapse = { category ->
                 // Dynamic categories use the dynamicHeaderKey string set; default categories

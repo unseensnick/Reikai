@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.offset
@@ -90,6 +91,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.view.isVisible
 import dev.icerock.moko.resources.compose.stringResource
@@ -217,6 +220,9 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
     selection: Set<Long>,
     onSearchActiveChange: (Boolean) -> Unit,
     onSearchQueryChange: (String) -> Unit,
+    /** Launch global search for the current query (manga tab only; novel tab leaves the default
+     *  no-op so the affordance never appears there). */
+    onGlobalSearch: (String) -> Unit = {},
     onHopperGravityChange: (Int) -> Unit,
     onToggleCategoryCollapse: (C) -> Unit,
     /**
@@ -920,7 +926,11 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                         onSearchActiveChange(false)
                         onSearchQueryChange("")
                     },
-                    searchHint = stringResource(MR.strings.library_search_hint),
+                    // Seed the hint with a random library title as a search example (legacy
+                    // behaviour); fall back to the static descriptive hint when the library is empty.
+                    searchHint = remember(library) {
+                        library.values.asSequence().flatten().mapNotNull { it.displayTitle }.toList().randomOrNull()
+                    } ?: stringResource(MR.strings.library_search_hint),
                     actions = {
                         LibraryToolbarActions(
                             isAnyFilterActive = isAnyFilterActive,
@@ -929,6 +939,27 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
                         )
                     },
                     below = {
+                        // "Search <query> globally" row, flush under the search field (matches the
+                        // legacy library, and stays clear of the keyboard unlike an empty-state CTA).
+                        // Manga tab only; shown whenever a search query is active, regardless of
+                        // local matches.
+                        if (searchActive && !isNovelTab && searchQuery.isNotBlank()) {
+                            Text(
+                                text = stringResource(MR.strings.search_globally, searchQuery),
+                                // Theme accent read off the legacy attr (reuses the snackbar action
+                                // color = ?attr/colorPrimary), not an M3 token, since createMdc3Theme
+                                // doesn't reliably bridge Reikai's custom theme attrs on this surface.
+                                color = snackbarActionColor,
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onGlobalSearch(searchQuery) }
+                                    .padding(vertical = 12.dp, horizontal = 16.dp),
+                            )
+                        }
                         // Scrollable category tab row, driven straight off the pager's currentPage
                         // so the highlight tracks a swipe instantly (no lastUsedCategory round-trip
                         // lag). Tapping a tab animates the pager to that category.
