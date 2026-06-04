@@ -81,6 +81,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -176,6 +177,8 @@ fun DetailsContent(
     topInset: Dp = 0.dp,
     /** Bottom inset (nav bar) added to the list's bottom padding. */
     bottomInset: Dp = 0.dp,
+    /** Per-cover accent tint for the header backdrop; null keeps the flat theme color (novels). */
+    accentColor: Color? = null,
     isFavorited: Boolean = false,
     /** When non-null, renders the favorite action button. Null = no favorite UI (future novel probe). */
     onFavoriteClick: (() -> Unit)? = null,
@@ -261,10 +264,20 @@ fun DetailsContent(
                         statusText = statusText,
                         sourceName = sourceName,
                         isStubSource = isStubSource,
+                        accentColor = accentColor,
                         onCoverClick = onCoverClick,
                         onSearch = onSearch,
                         onCopy = onCopy,
                         topInset = topInset,
+                        // Parallax: the blurred backdrop drifts at a fraction of the list scroll while
+                        // the header is the first item, so it sinks slower than the chapters.
+                        scrollOffset = {
+                            if (listState.firstVisibleItemIndex == 0) {
+                                listState.firstVisibleItemScrollOffset.toFloat()
+                            } else {
+                                0f
+                            }
+                        },
                     )
                 }
                 if (onFavoriteClick != null) {
@@ -337,6 +350,9 @@ fun DetailsContent(
     }
 }
 
+// Fraction of the list scroll the blurred backdrop lags behind by (subtle depth, not a full parallax).
+private const val BackdropParallaxFactor = 0.2f
+
 @Composable
 private fun DetailsHeaderBox(
     coverData: Any?,
@@ -347,24 +363,28 @@ private fun DetailsHeaderBox(
     statusText: String?,
     sourceName: String,
     isStubSource: Boolean,
+    accentColor: Color?,
     onCoverClick: (() -> Unit)?,
     onSearch: ((String) -> Unit)?,
     onCopy: ((String) -> Unit)?,
     topInset: Dp,
+    scrollOffset: () -> Float,
 ) {
-    Box(modifier = Modifier.fillMaxWidth()) {
+    // clipToBounds keeps the parallax-translated backdrop from bleeding into the row below.
+    Box(modifier = Modifier.fillMaxWidth().clipToBounds()) {
         // Blurred cover backdrop fading into the page background. Crop fills the width (without it
         // AsyncImage defaults to Fit, leaving a small letterboxed image). Blur only renders on
-        // API 31+ (a no-op below, same as the legacy header's S+ gate); the surfaceTint backing
-        // gives it body before the per-cover palette tint (Phase B) lands.
+        // API 31+ (a no-op below, same as the legacy header's S+ gate). Tinted by the per-cover
+        // accent when available, else a flat surfaceTint backing.
         val backgroundColor = MaterialTheme.colorScheme.background
-        val tint = MaterialTheme.colorScheme.surfaceTint
+        val tint = accentColor ?: MaterialTheme.colorScheme.surfaceTint
         AsyncImage(
             model = coverData,
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .matchParentSize()
+                .graphicsLayer { translationY = scrollOffset() * BackdropParallaxFactor }
                 .drawWithContent {
                     drawContent()
                     drawRect(

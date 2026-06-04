@@ -1,11 +1,19 @@
 package yokai.presentation.novel.details
 
+import android.graphics.Bitmap
+import androidx.core.graphics.drawable.toBitmap
+import androidx.palette.graphics.Palette
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import co.touchlab.kermit.Logger
+import coil3.asDrawable
+import coil3.imageLoader
+import coil3.request.ImageRequest
 import java.net.URL
 import eu.kanade.tachiyomi.BuildConfig
+import eu.kanade.tachiyomi.data.coil.getBestColor
 import eu.kanade.tachiyomi.data.database.models.NovelCategory
+import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithNovelSource
 import eu.kanade.tachiyomi.util.system.launchIO
@@ -72,6 +80,7 @@ class NovelDetailsScreenModel(
     private val getNovelCategories: GetNovelCategories by injectLazy()
     private val setNovelCategories: SetNovelCategories by injectLazy()
     private val novelPreferences: NovelPreferences by injectLazy()
+    private val preferences: PreferencesHelper by injectLazy()
 
     // The novel source registry, populated by the screen's plugin-host load. Used to resolve a
     // grouped sibling's source for the chip label and for opening a gap-filled chapter (which must
@@ -324,6 +333,7 @@ class NovelDetailsScreenModel(
                 selection = (current as? NovelDetailsState.Loaded)?.selection ?: emptySet(),
                 resumeChapter = byOrder.firstOrNull { !it.read } ?: byOrder.lastOrNull(),
                 hasStarted = rawChapters.any { it.read || it.lastTextProgress > 0 },
+                accentColor = (current as? NovelDetailsState.Loaded)?.accentColor,
                 // Survive DB re-emissions (a read/bookmark/download-flag write re-emits the list).
                 downloads = (current as? NovelDetailsState.Loaded)?.downloads ?: emptyMap(),
                 sorting = novel.effectiveSorting(novelPreferences),
@@ -339,6 +349,31 @@ class NovelDetailsScreenModel(
                 hiddenChapterIds = hiddenChapterIds,
                 hasHiddenChapters = hasHiddenChapters,
             )
+        }
+    }
+
+    private var accentColorLoaded = false
+
+    /**
+     * Extract a vibrant accent from the cover (once, gated on the shared themeMangaDetails pref) so the
+     * novel header backdrop tints per-cover, matching the manga details screen. The cover is a remote
+     * URL, so load it through Coil rather than the manga cover cache.
+     */
+    fun loadAccentColor() {
+        if (accentColorLoaded || !preferences.themeMangaDetails().get()) return
+        val url = (state.value as? NovelDetailsState.Loaded)?.novel?.thumbnailUrl?.takeIf { it.isNotBlank() } ?: return
+        accentColorLoaded = true
+        screenModelScope.launchIO {
+            val context = preferences.context
+            val request = ImageRequest.Builder(context).data(url).build()
+            val drawable = context.imageLoader.execute(request).image?.asDrawable(context.resources) ?: return@launchIO
+            // toBitmap may hand back a HARDWARE-config bitmap (a BitmapDrawable's own); Palette can't
+            // read those, so copy to a software config first.
+            val bitmap = drawable.toBitmap().let {
+                if (it.config == Bitmap.Config.HARDWARE) it.copy(Bitmap.Config.ARGB_8888, false) else it
+            }
+            val color = Palette.from(bitmap).generate().getBestColor() ?: return@launchIO
+            mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(accentColor = color) ?: it }
         }
     }
 
@@ -918,6 +953,8 @@ sealed interface NovelDetailsState {
         val selection: Set<Long> = emptySet(),
         val resumeChapter: NovelChapter? = null,
         val hasStarted: Boolean = false,
+        /** Per-cover vibrant accent (ARGB Int) for the header backdrop; null when off / not extracted. */
+        val accentColor: Int? = null,
         // Per-chapter in-flight download state (QUEUED/DOWNLOADING/ERROR) keyed by chapter id, mirrored
         // from the download engine's queue. A finished download drops out of this map; the chapter's
         // own `isDownloaded` flag then renders the DOWNLOADED check.

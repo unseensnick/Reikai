@@ -1,11 +1,14 @@
 package yokai.presentation.details.manga
 
+import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.core.net.toFile
+import androidx.palette.graphics.Palette
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.data.cache.CoverCache
+import eu.kanade.tachiyomi.data.coil.getBestColor
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.bookmarkedFilter
@@ -38,6 +41,7 @@ import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
 import eu.kanade.tachiyomi.util.chapter.updateTrackChapterMarkedAsRead
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.shouldDownloadNewChapters
+import eu.kanade.tachiyomi.util.manga.MangaCoverMetadata
 import eu.kanade.tachiyomi.util.manga.MangaUtil
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.system.ImageUtil
@@ -147,6 +151,9 @@ sealed interface MangaDetailsState {
          * dedups the emission, leaving the heart / header stale.
          */
         val mangaStateHash: Int,
+        /** Per-cover vibrant accent (ARGB Int), null when off or not yet extracted. Tints the header
+         *  backdrop. Carried across re-emissions once computed. */
+        val accentColor: Int? = null,
         /** Next chapter to read (lowest unread); null when everything is read. Drives the FAB. */
         val resumeChapter: Chapter?,
         /** Any chapter read or partially read, so the FAB reads "Resume" instead of "Start reading". */
@@ -558,6 +565,7 @@ class MangaDetailsScreenModel(
             chapters = sorted,
             chapterStateHash = chapterStateHash,
             mangaStateHash = mangaStateHash,
+            accentColor = current?.accentColor,
             resumeChapter = resume,
             hasStarted = rawChapters.any { it.read || it.last_page_read > 0 },
             sorting = manga.chapterOrder(preferences),
@@ -1154,6 +1162,37 @@ class MangaDetailsScreenModel(
     }
 
     // --- Related mangas ---
+
+    private var accentColorLoaded = false
+
+    /**
+     * Extract a vibrant accent color from the cover once (gated on the themeMangaDetails pref) so the
+     * header backdrop can tint per-cover instead of using the flat theme color. Reuses the library's
+     * cached color when present, else decodes the cover file and runs Palette off the main thread. The
+     * novel surface doesn't call this, so its backdrop keeps the theme color.
+     */
+    fun loadAccentColor() {
+        if (accentColorLoaded || !preferences.themeMangaDetails().get()) return
+        accentColorLoaded = true
+        MangaCoverMetadata.getVibrantColor(mangaId)?.let { applyAccentColor(it); return }
+        screenModelScope.launchIO {
+            val manga = currentManga() ?: return@launchIO
+            val file = coverCache.getCustomCoverFile(manga).takeIf { it.exists() }
+                ?: coverCache.getCoverFile(manga.thumbnail_url, !manga.favorite)?.takeIf { it.exists() }
+                ?: return@launchIO
+            val bitmap = runCatching {
+                val options = BitmapFactory.Options().apply { inSampleSize = 4 }
+                file.inputStream().use { BitmapFactory.decodeStream(it, null, options) }
+            }.getOrNull() ?: return@launchIO
+            val color = Palette.from(bitmap).generate().getBestColor() ?: return@launchIO
+            MangaCoverMetadata.setVibrantColor(mangaId, color)
+            applyAccentColor(color)
+        }
+    }
+
+    private fun applyAccentColor(color: Int) {
+        mutableState.update { (it as? MangaDetailsState.Loaded)?.copy(accentColor = color) ?: it }
+    }
 
     /**
      * (Re)load the related carousel for the currently displayed source: the selected source in a

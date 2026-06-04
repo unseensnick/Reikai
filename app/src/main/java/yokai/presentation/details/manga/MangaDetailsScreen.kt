@@ -547,7 +547,10 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                             )
                         }
                     }
-                    LaunchedEffect(manga.id) { screenModel.loadRelatedMangaIds() }
+                    LaunchedEffect(manga.id) {
+                        screenModel.loadRelatedMangaIds()
+                        screenModel.loadAccentColor()
+                    }
                     // Reload the carousel when the displayed source changes (chip switch) or the
                     // group resolves (so Unified flips from the anchor's recs to the pooled set). The
                     // leading delay debounces rapid chip-tapping: each switch relaunches this effect and
@@ -597,6 +600,7 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                         statusText = context.mapStatus(displayManga.status),
                         sourceName = sourceName,
                         isStubSource = isStubSource,
+                        accentColor = s.accentColor?.let { Color(it) },
                         onCoverClick = { showCoverDialog = true },
                         description = displayManga.description,
                         genres = genres,

@@ -430,6 +430,7 @@ class NovelDetailsScreen(
                             contentAlignment = Alignment.Center,
                         ) { CircularProgressIndicator() }
                         is NovelDetailsState.Loaded -> {
+                            LaunchedEffect(s.novel.id) { screenModel.loadAccentColor() }
                             val pullRefreshState = rememberPullToRefreshState()
                             PullToRefreshBox(
                                 isRefreshing = s.isRefreshing,
@@ -477,6 +478,7 @@ class NovelDetailsScreen(
                                     statusText = statusLabel(s.displayStatus),
                                     sourceName = s.sourceLabel,
                                     isStubSource = false,
+                                    accentColor = s.accentColor?.let { Color(it) },
                                     description = s.novel.description,
                                     genres = s.novel.genres.orEmpty(),
                                     chapters = rows,
