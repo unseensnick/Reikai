@@ -37,9 +37,12 @@ import yokai.domain.novel.models.effectiveSortDescending
 import yokai.domain.novel.models.effectiveSorting
 import yokai.domain.novel.models.setFlag
 import yokai.domain.novel.models.sortedAndFiltered
+import yokai.novel.download.NovelDownload
+import yokai.novel.download.NovelDownloadManager
 import yokai.novel.source.NovelSource
 import yokai.novel.source.NovelSourceManager
 import yokai.novel.text.htmlToParagraphs
+import yokai.presentation.details.DetailsDownloadState
 import yokai.presentation.details.ManageSourceItem
 import yokai.presentation.novel.browse.ChapterRead
 
@@ -70,6 +73,7 @@ class NovelDetailsScreenModel(
     // grouped sibling's source for the chip label and for opening a gap-filled chapter (which must
     // read from its own source). Singleton, so it sees every source the screen has loaded.
     private val sourceManager: NovelSourceManager by injectLazy()
+    private val downloadManager: NovelDownloadManager by injectLazy()
     private val mergeManager = NovelMergeManager()
 
     // Merge state. groupIdsFlow drives the chapter source set (just the anchor, or every grouped
@@ -109,6 +113,38 @@ class NovelDetailsScreenModel(
 
     init {
         observeFromDb()
+        observeDownloads()
+    }
+
+    /** Mirror the download engine's queue into the Loaded state so the per-chapter chip reflects
+     *  QUEUE/DOWNLOADING/ERROR. Completed downloads leave the queue; the chapter's `isDownloaded`
+     *  flag (carried by the DB flow) is what then shows the DOWNLOADED check. */
+    private fun observeDownloads() {
+        screenModelScope.launchIO {
+            downloadManager.queueState.collectLatest { queue ->
+                val byChapter = queue.associate { it.chapterId to it.state.toDetailsDownloadState() }
+                mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(downloads = byChapter) ?: it }
+            }
+        }
+    }
+
+    private fun NovelDownload.State.toDetailsDownloadState(): DetailsDownloadState = when (this) {
+        // Text has no byte progress, so an active download shows the same indeterminate spinner as a
+        // queued one rather than an empty progress ring.
+        NovelDownload.State.QUEUE, NovelDownload.State.DOWNLOADING -> DetailsDownloadState.QUEUED
+        NovelDownload.State.ERROR -> DetailsDownloadState.ERROR
+    }
+
+    /** Chip tap: queue a download for a not-downloaded/errored chapter, else cancel/delete it. */
+    fun downloadAction(chapterId: Long) {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        val chapter = loaded.chapters.find { it.id == chapterId } ?: return
+        val queued = loaded.downloads[chapterId]
+        when {
+            queued == null && !chapter.isDownloaded -> downloadManager.downloadChapters(listOf(chapter))
+            queued == DetailsDownloadState.ERROR -> downloadManager.downloadChapters(listOf(chapter))
+            else -> downloadManager.deleteChapters(listOf(chapter))
+        }
     }
 
     // DB-first: the anchor-novel Flow drives an inner chapter Flow; every emission rebuilds Loaded
@@ -274,6 +310,8 @@ class NovelDetailsScreenModel(
                 selection = (current as? NovelDetailsState.Loaded)?.selection ?: emptySet(),
                 resumeChapter = byOrder.firstOrNull { !it.read } ?: byOrder.lastOrNull(),
                 hasStarted = rawChapters.any { it.read || it.lastTextProgress > 0 },
+                // Survive DB re-emissions (a read/bookmark/download-flag write re-emits the list).
+                downloads = (current as? NovelDetailsState.Loaded)?.downloads ?: emptyMap(),
                 sorting = novel.effectiveSorting(novelPreferences),
                 sortDescending = novel.effectiveSortDescending(novelPreferences),
                 readFilter = novel.effectiveReadFilter(novelPreferences),
@@ -381,14 +419,17 @@ class NovelDetailsScreenModel(
         if (chapters.isNotEmpty()) syncChaptersWithNovelSource(chapters, novel, src, chapterRepo, novelRepo, handler)
     }
 
-    /** Fetch the chapter text for a stored chapter (always a source hit; reading isn't cached).
-     *  Routed through the chapter's own source so a gap-filled sibling chapter reads correctly. */
+    /** Fetch the chapter text for a stored chapter. A downloaded chapter is read from disk (no host
+     *  hit); otherwise it's a source hit routed through the chapter's own source so a gap-filled
+     *  sibling chapter reads correctly. */
     internal suspend fun loadChapterText(chapter: NovelChapter): ChapterRead {
-        val src = sourceForChapter(chapter) ?: error("Source not ready")
+        val chapterId = chapter.id ?: error("Stored chapter has no id")
+        val html = downloadManager.getChapterText(chapter)
+            ?: (sourceForChapter(chapter) ?: error("Source not ready")).parseChapter(chapter.url)
         return ChapterRead(
-            chapterId = chapter.id ?: error("Stored chapter has no id"),
+            chapterId = chapterId,
             initialProgress = chapter.lastTextProgress,
-            paragraphs = htmlToParagraphs(src.parseChapter(chapter.url)),
+            paragraphs = htmlToParagraphs(html),
         )
     }
 
@@ -798,6 +839,10 @@ sealed interface NovelDetailsState {
         val selection: Set<Long> = emptySet(),
         val resumeChapter: NovelChapter? = null,
         val hasStarted: Boolean = false,
+        // Per-chapter in-flight download state (QUEUED/DOWNLOADING/ERROR) keyed by chapter id, mirrored
+        // from the download engine's queue. A finished download drops out of this map; the chapter's
+        // own `isDownloaded` flag then renders the DOWNLOADED check.
+        val downloads: Map<Long, DetailsDownloadState> = emptyMap(),
         // Resolved chapter sort/filter/display values (per-novel override or global default).
         val sorting: Int = Manga.CHAPTER_SORTING_SOURCE,
         val sortDescending: Boolean = false,

@@ -27,4 +27,10 @@ data class NovelChapter(
      * sub-header in the future Novels tab.
      */
     val page: String = "",
+    /**
+     * True when the chapter's text was downloaded for offline reading. The on-disk HTML file is the
+     * read-back source of truth; this flag is the fast signal the chapter list uses to render the
+     * download chip. Defaulted so non-DB construction sites (backup, sync) don't have to set it.
+     */
+    val isDownloaded: Boolean = false,
 )

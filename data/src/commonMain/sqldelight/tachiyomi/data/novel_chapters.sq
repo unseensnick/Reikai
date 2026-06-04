@@ -22,6 +22,7 @@ CREATE TABLE novel_chapters(
     date_fetch INTEGER NOT NULL,
     date_upload INTEGER NOT NULL,
     page TEXT NOT NULL DEFAULT '',
+    is_downloaded INTEGER AS Boolean NOT NULL DEFAULT 0,
     FOREIGN KEY(novel_id) REFERENCES novels (_id)
     ON DELETE CASCADE
 );
@@ -66,6 +67,10 @@ WHERE _id = :chapterId;
 
 delete:
 DELETE FROM novel_chapters
+WHERE _id = :chapterId;
+
+setDownloaded:
+UPDATE novel_chapters SET is_downloaded = :isDownloaded
 WHERE _id = :chapterId;
 
 fixSourceOrder:

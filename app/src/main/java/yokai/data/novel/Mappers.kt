@@ -97,6 +97,7 @@ fun novelChapterMapper(
     date_fetch: Long,
     date_upload: Long,
     page: String,
+    is_downloaded: Boolean,
 ): NovelChapter = NovelChapter(
     id = id,
     novelId = novel_id,
@@ -110,4 +111,5 @@ fun novelChapterMapper(
     dateFetch = date_fetch,
     dateUpload = date_upload,
     page = page,
+    isDownloaded = is_downloaded,
 )

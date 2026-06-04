@@ -43,6 +43,9 @@ class StorageManager(
                     parent.createDirectory(DOWNLOADS_PATH).also {
                         DiskUtil.createNoMediaFile(it, context)
                     }
+                    parent.createDirectory(NOVEL_DOWNLOADS_PATH).also {
+                        DiskUtil.createNoMediaFile(it, context)
+                    }
                     parent.createDirectory(COVERS_PATH)
                     parent.createDirectory(PAGES_PATH)
                     parent.createDirectory(LOGS_PATH)?.also {
@@ -78,6 +81,12 @@ class StorageManager(
         return baseDir?.createDirectory(DOWNLOADS_PATH)
     }
 
+    /** Dedicated subtree for downloaded novel chapter text (`<base>/novel_downloads/...`), kept
+     *  separate from manga image downloads. */
+    fun getNovelDownloadsDirectory(): UniFile? {
+        return baseDir?.createDirectory(NOVEL_DOWNLOADS_PATH)
+    }
+
     fun getLocalSourceDirectory(): UniFile? {
         return baseDir?.createDirectory(LOCAL_SOURCE_PATH)
     }
@@ -98,6 +107,7 @@ class StorageManager(
         private const val BACKUPS_PATH = "backup"
         private const val AUTOMATIC_BACKUPS_PATH = "autobackup"
         private const val DOWNLOADS_PATH = "downloads"
+        private const val NOVEL_DOWNLOADS_PATH = "novel_downloads"
         const val LOCAL_SOURCE_PATH = "local"
         private const val COVERS_PATH = "covers"
         private const val PAGES_PATH = "pages"

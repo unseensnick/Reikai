@@ -76,6 +76,7 @@ import yokai.novel.source.NovelSourceManager
 import yokai.presentation.component.ReikaiTopBar
 import yokai.presentation.details.ChangeCategoryDialog
 import yokai.presentation.details.DetailsChapterRow
+import yokai.presentation.details.DetailsDownloadState
 import yokai.presentation.details.EditInfoDialog
 import yokai.presentation.details.DetailsContent
 import yokai.presentation.details.DetailsFilterSortSheet
@@ -393,7 +394,7 @@ class NovelDetailsScreen(
                                     )
                                 },
                             ) {
-                                val rows = remember(s.chapters, s.selection, searchQuery, s.hideChapterTitles, s.hiddenChapterIds) {
+                                val rows = remember(s.chapters, s.selection, searchQuery, s.hideChapterTitles, s.hiddenChapterIds, s.downloads) {
                                     s.chapters.mapNotNull { ch ->
                                         val displayName = if (s.hideChapterTitles && ch.chapterNumber > 0f) {
                                             val num = ch.chapterNumber
@@ -411,6 +412,8 @@ class NovelDetailsScreen(
                                             name = displayName,
                                             read = ch.read,
                                             bookmark = ch.bookmark,
+                                            downloadState = s.downloads[ch.id]
+                                                ?: if (ch.isDownloaded) DetailsDownloadState.DOWNLOADED else DetailsDownloadState.NONE,
                                             selected = ch.id in s.selection,
                                             dimmed = ch.id in s.hiddenChapterIds,
                                         )
@@ -431,6 +434,7 @@ class NovelDetailsScreen(
                                     onChapterClick = { id ->
                                         s.chapters.find { it.id == id }?.let { openChapter(it) }
                                     },
+                                    onDownloadClick = { screenModel.downloadAction(it) },
                                     selectionActive = s.selection.isNotEmpty(),
                                     onToggleSelection = { id, sel, long -> screenModel.toggleSelection(id, sel, long) },
                                     onFilterClick = { showSheet = true },

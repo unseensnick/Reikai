@@ -1,0 +1,6 @@
+-- Marks a novel chapter whose text was downloaded for offline reading. The on-disk HTML file
+-- (novel_downloads/<novelId>/<chapterId>.html) is the read-back source of truth; this flag is the
+-- fast, queryable signal the chapter list uses to render the download chip and to filter. Additive +
+-- defaulted, so older app versions ignore it and backup round-tripping with upstream Yokai is
+-- unaffected.
+ALTER TABLE novel_chapters ADD COLUMN is_downloaded INTEGER NOT NULL DEFAULT 0;

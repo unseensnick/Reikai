@@ -123,6 +123,14 @@ class NovelChapterRepositoryImpl(private val handler: DatabaseHandler) : NovelCh
         false
     }
 
+    override suspend fun setDownloaded(id: Long, downloaded: Boolean): Boolean = try {
+        handler.await { novel_chaptersQueries.setDownloaded(downloaded, id) }
+        true
+    } catch (e: Exception) {
+        Logger.e(e) { "Failed to set downloaded on novel chapter id=$id" }
+        false
+    }
+
     override suspend fun delete(id: Long) {
         handler.await { novel_chaptersQueries.delete(id) }
     }

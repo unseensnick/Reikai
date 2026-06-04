@@ -20,5 +20,9 @@ interface NovelChapterRepository {
      *  synthetic `source_order` (a merged unified-list copy) can't overwrite the stored order. */
     suspend fun setRead(id: Long, read: Boolean): Boolean
     suspend fun setBookmark(id: Long, bookmark: Boolean): Boolean
+
+    /** Toggle the offline-download flag. Dedicated single-column write so the download engine never
+     *  round-trips the whole row (which could clobber a merged copy's synthetic source_order). */
+    suspend fun setDownloaded(id: Long, downloaded: Boolean): Boolean
     suspend fun delete(id: Long)
 }
