@@ -1,6 +1,5 @@
 package yokai.presentation.details.manga
 
-import android.content.ClipData
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -34,10 +33,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -89,9 +86,7 @@ import eu.kanade.tachiyomi.util.compose.LocalRouter
 import eu.kanade.tachiyomi.util.compose.currentOrThrow
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.mapStatus
-import eu.kanade.tachiyomi.util.storage.getUriCompat
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
-import java.text.DecimalFormat
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -103,8 +98,10 @@ import yokai.util.lang.getString
 import yokai.presentation.component.ReikaiTopBar
 import yokai.presentation.core.util.shouldExpandFAB
 import yokai.presentation.details.ChangeCategoryDialog
+import yokai.presentation.details.HandleDetailsEvents
 import yokai.presentation.details.CoverDialog
 import yokai.presentation.details.EditInfoDialog
+import yokai.presentation.details.detailsResumeLabel
 import yokai.presentation.details.DetailsChapterRow
 import yokai.presentation.details.DetailsContent
 import yokai.presentation.details.DetailsDownloadState
@@ -163,33 +160,14 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
         var sourceToRemove by remember { mutableStateOf<Long?>(null) }
 
         val snackbarHostState = remember { SnackbarHostState() }
-        // One-shot screen effects from the ScreenModel: undo snackbars (mark-read, merge split/remove)
-        // and post-split navigation to a sibling source.
-        LaunchedEffect(Unit) {
-            screenModel.events.collect { event ->
-                when (event) {
-                    is DetailsEvent.Snackbar -> {
-                        val result = snackbarHostState.showSnackbar(
-                            message = event.message,
-                            actionLabel = event.actionLabel,
-                            duration = SnackbarDuration.Short,
-                        )
-                        if (result == SnackbarResult.ActionPerformed) event.onAction?.invoke() else event.onDismiss?.invoke()
-                    }
-                    is DetailsEvent.NavigateToSibling -> navigator.replace(MangaDetailsScreen(event.mangaId))
-                    is DetailsEvent.ShareImage -> {
-                        val uri = event.file.getUriCompat(context)
-                        val intent = Intent(Intent.ACTION_SEND).apply {
-                            type = "image/*"
-                            putExtra(Intent.EXTRA_STREAM, uri)
-                            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                            clipData = ClipData.newRawUri(null, uri)
-                        }
-                        context.startActivity(Intent.createChooser(intent, null))
-                    }
-                }
-            }
-        }
+        // One-shot screen effects from the ScreenModel: undo snackbars (mark-read, merge split/remove),
+        // cover-share, and post-split navigation to a sibling source. Shared with the novel screen.
+        HandleDetailsEvents(
+            events = screenModel.events,
+            snackbarHostState = snackbarHostState,
+            context = context,
+            onNavigateToSibling = { navigator.replace(MangaDetailsScreen(it)) },
+        )
         // A mark-read tracker push lands a few seconds later (and off this screen's scope), so re-sync
         // the tracking sheet from remote once it completes instead of waiting for a close/reopen.
         LaunchedEffect(Unit) {
@@ -198,7 +176,6 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
 
         val isHttpSource = remember(loaded?.displayManga?.source) { screenModel.isHttpSource() }
         val chapterSwipeEnabled = remember { screenModel.isChapterSwipeEnabled() }
-        val chapterNumberFormat = remember { DecimalFormat("#.###") }
         val clipboard = LocalClipboardManager.current
         var showCoverDialog by remember { mutableStateOf(false) }
         val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -461,15 +438,7 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                 // its header button here; a re-read entry point is friendlier for a FAB).
                 val fabTarget = resume ?: loaded?.chapters?.maxByOrNull { it.chapter_number }
                 if (loaded != null && fabTarget != null && !selectionActive) {
-                    val label = when {
-                        resume == null -> context.getString(MR.strings.all_chapters_read)
-                        resume.chapter_number > 0 && resume.last_page_read > 0 ->
-                            context.getString(MR.strings.continue_reading_chapter_, chapterNumberFormat.format(resume.chapter_number.toDouble()))
-                        resume.chapter_number > 0 ->
-                            context.getString(MR.strings.start_reading_chapter_, chapterNumberFormat.format(resume.chapter_number.toDouble()))
-                        resume.last_page_read > 0 -> context.getString(MR.strings.continue_reading)
-                        else -> context.getString(MR.strings.start_reading)
-                    }
+                    val label = detailsResumeLabel(context, resume?.chapter_number, (resume?.last_page_read ?: 0) > 0)
                     ExtendedFloatingActionButton(
                         text = { Text(label) },
                         icon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },

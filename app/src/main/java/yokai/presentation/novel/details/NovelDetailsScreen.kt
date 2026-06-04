@@ -35,6 +35,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -59,11 +61,15 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
+import cafe.adriel.voyager.navigator.LocalNavigator
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
+import eu.kanade.tachiyomi.util.chapter.ChapterUtil
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
@@ -77,12 +83,16 @@ import yokai.novel.source.NovelSource
 import yokai.novel.source.NovelSourceManager
 import yokai.presentation.component.ReikaiTopBar
 import yokai.presentation.details.ChangeCategoryDialog
+import yokai.presentation.details.CoverDialog
 import yokai.presentation.details.DetailsChapterRow
 import yokai.presentation.details.DetailsDownloadState
 import yokai.presentation.details.EditInfoDialog
 import yokai.presentation.details.DetailsContent
 import yokai.presentation.details.DetailsFilterSortSheet
+import yokai.presentation.core.util.shouldExpandFAB
 import yokai.presentation.details.DetailsSourceTab
+import yokai.presentation.details.HandleDetailsEvents
+import yokai.presentation.details.detailsResumeLabel
 import yokai.presentation.details.ManageSourcesDialog
 import yokai.presentation.library.components.SelectionAction
 import yokai.presentation.library.components.SelectionAppBar
@@ -113,6 +123,7 @@ class NovelDetailsScreen(
         val manager = remember { Injekt.get<NovelSourceManager>() }
         val chapterRepo = remember { Injekt.get<NovelChapterRepository>() }
         val backPress = LocalBackPress.current
+        val navigator = LocalNavigator.current
         val scope = rememberCoroutineScope()
         val listState = rememberLazyListState()
         // Top bar fades from transparent (over the header backdrop) to opaque as the header scrolls
@@ -129,6 +140,8 @@ class NovelDetailsScreen(
 
         val screenModel = rememberScreenModel { NovelDetailsScreenModel(sourceId, novelUrl) }
         val state by screenModel.state.collectAsState()
+        val chapterSwipeEnabled = remember { screenModel.isChapterSwipeEnabled() }
+        val clipboard = LocalClipboardManager.current
 
         // Resolve the source once and hand it to the ScreenModel.
         var resolvedSource by remember { mutableStateOf<NovelSource?>(null) }
@@ -160,6 +173,7 @@ class NovelDetailsScreen(
         var showSheet by remember { mutableStateOf(false) }
         // A grouped source pending long-press removal from the group (confirmation gate).
         var sourceToRemove by remember { mutableStateOf<Long?>(null) }
+        var showCoverDialog by remember { mutableStateOf(false) }
 
         fun openChapter(chapter: NovelChapter) {
             if (readerLoading) return
@@ -207,7 +221,20 @@ class NovelDetailsScreen(
         BackHandler(enabled = !isReading && searchActive) { searchActive = false; searchQuery = "" }
         BackHandler(enabled = selectionActive) { screenModel.clearSelection() }
 
+        val snackbarHostState = remember { SnackbarHostState() }
+        // One-shot screen effects from the ScreenModel (undo snackbars, cover share, post-split
+        // navigation to a sibling source). Shared with the manga screen.
+        HandleDetailsEvents(
+            events = screenModel.events,
+            snackbarHostState = snackbarHostState,
+            context = context,
+            onNavigateToSibling = { id ->
+                screenModel.siblingRoute(id)?.let { (src, url) -> navigator?.replace(NovelDetailsScreen(src, url)) }
+            },
+        )
+
         Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 if (selectionActive) {
                     val selectedChapters = loaded?.chapters?.filter { it.id in loaded.selection }.orEmpty()
@@ -395,11 +422,15 @@ class NovelDetailsScreen(
             },
             floatingActionButton = {
                 val resume = loaded?.resumeChapter
-                if (loaded != null && resume != null && !selectionActive && !isReading) {
+                // When everything is read the FAB re-reads the most recent chapter (matches manga).
+                val fabTarget = resume ?: loaded?.chapters?.maxByOrNull { it.chapterNumber }
+                if (loaded != null && fabTarget != null && !selectionActive && !isReading) {
+                    val label = detailsResumeLabel(context, resume?.chapterNumber, (resume?.lastTextProgress ?: 0) > 0)
                     ExtendedFloatingActionButton(
-                        text = { Text(if (loaded.hasStarted) "Resume" else "Start reading") },
+                        text = { Text(label) },
                         icon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
-                        onClick = { openChapter(resume) },
+                        expanded = listState.shouldExpandFAB(),
+                        onClick = { openChapter(fabTarget) },
                         containerColor = MaterialTheme.colorScheme.primary,
                     )
                 }
@@ -466,21 +497,31 @@ class NovelDetailsScreen(
                                                 ?: if (ch.isDownloaded) DetailsDownloadState.DOWNLOADED else DetailsDownloadState.NONE,
                                             selected = ch.id in s.selection,
                                             dimmed = ch.id in s.hiddenChapterIds,
+                                            date = ChapterUtil.relativeDate(ch.dateUpload),
+                                            // lastTextProgress is hundredths-of-a-percent (0..10000).
+                                            readProgress = if (!ch.read && ch.lastTextProgress > 0) {
+                                                "${ch.lastTextProgress / 100}% read"
+                                            } else {
+                                                null
+                                            },
                                         )
                                     }
                                 }
                                 DetailsContent(
-                                    coverData = s.novel.thumbnailUrl,
-                                    title = s.novel.title,
-                                    author = s.novel.author,
-                                    artist = s.novel.artist,
+                                    // Header metadata follows the viewed source (displayNovel); favorite
+                                    // + identity below still key off the anchor (s.novel).
+                                    coverData = s.displayNovel.thumbnailUrl,
+                                    title = s.displayNovel.title,
+                                    author = s.displayNovel.author,
+                                    artist = s.displayNovel.artist,
                                     status = s.displayStatus,
                                     statusText = statusLabel(s.displayStatus),
                                     sourceName = s.sourceLabel,
                                     isStubSource = false,
                                     accentColor = s.accentColor?.let { Color(it) },
-                                    description = s.novel.description,
-                                    genres = s.novel.genres.orEmpty(),
+                                    onCoverClick = { showCoverDialog = true },
+                                    description = s.displayNovel.description,
+                                    genres = s.displayNovel.genres.orEmpty(),
                                     chapters = rows,
                                     onChapterClick = { id ->
                                         s.chapters.find { it.id == id }?.let { openChapter(it) }
@@ -489,6 +530,10 @@ class NovelDetailsScreen(
                                     onDownloadClick = { id, _ -> screenModel.downloadAction(id) },
                                     selectionActive = s.selection.isNotEmpty(),
                                     onToggleSelection = { id, sel, long -> screenModel.toggleSelection(id, sel, long) },
+                                    chapterSwipeEnabled = chapterSwipeEnabled,
+                                    onSwipeToRead = { screenModel.toggleChapterRead(it) },
+                                    onSwipeToBookmark = { screenModel.toggleChapterBookmark(it) },
+                                    onCopy = { clipboard.setText(AnnotatedString(it)) },
                                     onFilterClick = { showSheet = true },
                                     listState = listState,
                                     topInset = padding.calculateTopPadding(),
@@ -564,9 +609,12 @@ class NovelDetailsScreen(
                     initialArtist = dialog.artist,
                     initialDescription = dialog.description,
                     initialGenre = dialog.genre,
+                    statusOptions = remember { (0..6).map { it to (statusLabel(it) ?: "Unknown") } },
+                    initialStatus = dialog.status,
+                    onReset = { screenModel.resetNovelInfo() },
                     onDismiss = { screenModel.dismissDialog() },
-                    onConfirm = { title, author, artist, description, genre, _ ->
-                        screenModel.updateNovelInfo(title, author, artist, description, genre)
+                    onConfirm = { title, author, artist, description, genre, status ->
+                        screenModel.updateNovelInfo(title, author, artist, description, genre, status)
                     },
                 )
                 is NovelDetailsDialog.ManageSources -> ManageSourcesDialog(
@@ -592,6 +640,20 @@ class NovelDetailsScreen(
                 dismissButton = {
                     TextButton(onClick = { sourceToRemove = null }) { Text("Cancel") }
                 },
+            )
+        }
+
+        if (showCoverDialog && loaded != null) {
+            // No custom-cover edit/reset for novels (no novel CoverCache); zoom + save + share only.
+            CoverDialog(
+                coverData = loaded.displayNovel.thumbnailUrl,
+                isCustomCover = false,
+                canEdit = false,
+                onShare = { screenModel.shareCover() },
+                onSave = { screenModel.saveCover() },
+                onEditCover = {},
+                onResetCover = {},
+                onDismiss = { showCoverDialog = false },
             )
         }
 

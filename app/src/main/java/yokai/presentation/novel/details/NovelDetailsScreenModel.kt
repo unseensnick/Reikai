@@ -2,10 +2,12 @@ package yokai.presentation.novel.details
 
 import android.graphics.Bitmap
 import androidx.core.graphics.drawable.toBitmap
+import androidx.core.net.toFile
 import androidx.palette.graphics.Palette
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import co.touchlab.kermit.Logger
+import com.hippo.unifile.UniFile
 import coil3.asDrawable
 import coil3.imageLoader
 import coil3.request.ImageRequest
@@ -14,12 +16,16 @@ import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.coil.getBestColor
 import eu.kanade.tachiyomi.data.database.models.NovelCategory
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithNovelSource
 import eu.kanade.tachiyomi.util.system.launchIO
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
@@ -34,6 +40,7 @@ import yokai.domain.novel.NovelChapterRepository
 import yokai.domain.novel.NovelMergeManager
 import yokai.domain.novel.NovelPreferences
 import yokai.domain.novel.NovelRepository
+import yokai.domain.storage.StorageManager
 import yokai.domain.novel.interactor.GetNovelCategories
 import yokai.domain.novel.interactor.SetNovelCategories
 import yokai.domain.novel.models.Novel
@@ -45,12 +52,14 @@ import yokai.domain.novel.models.effectiveSortDescending
 import yokai.domain.novel.models.effectiveSorting
 import yokai.domain.novel.models.setFlag
 import yokai.domain.novel.models.sortedAndFiltered
+import yokai.domain.ui.UiPreferences
 import yokai.novel.download.NovelDownload
 import yokai.novel.download.NovelDownloadManager
 import yokai.novel.source.NovelSource
 import yokai.novel.source.NovelSourceManager
 import yokai.novel.text.htmlToParagraphs
 import yokai.presentation.details.DetailsDownloadState
+import yokai.presentation.details.DetailsEvent
 import yokai.presentation.details.ManageSourceItem
 import yokai.presentation.novel.browse.ChapterRead
 
@@ -81,6 +90,8 @@ class NovelDetailsScreenModel(
     private val setNovelCategories: SetNovelCategories by injectLazy()
     private val novelPreferences: NovelPreferences by injectLazy()
     private val preferences: PreferencesHelper by injectLazy()
+    private val uiPreferences: UiPreferences by injectLazy()
+    private val storageManager: StorageManager by injectLazy()
 
     // The novel source registry, populated by the screen's plugin-host load. Used to resolve a
     // grouped sibling's source for the chip label and for opening a gap-filled chapter (which must
@@ -88,6 +99,16 @@ class NovelDetailsScreenModel(
     private val sourceManager: NovelSourceManager by injectLazy()
     private val downloadManager: NovelDownloadManager by injectLazy()
     private val mergeManager = NovelMergeManager()
+
+    /** One-shot screen effects (undo snackbars, sibling navigation, cover share). Buffered so emits
+     *  never suspend; collected by [yokai.presentation.details.HandleDetailsEvents] in the screen. */
+    private val _events = MutableSharedFlow<DetailsEvent>(extraBufferCapacity = 8)
+    val events: SharedFlow<DetailsEvent> = _events.asSharedFlow()
+    fun emitEvent(event: DetailsEvent) { _events.tryEmit(event) }
+
+    /** Resolve a grouped sibling's (sourceId, url) route for post-split navigation (the novel screen
+     *  is keyed by source+url, not the Long id [DetailsEvent.NavigateToSibling] carries). */
+    fun siblingRoute(novelId: Long): Pair<String, String>? = novelsById[novelId]?.let { it.source to it.url }
 
     // Merge state. groupIdsFlow drives the chapter source set (just the anchor, or every grouped
     // sibling once resolved); sourceViewFlow picks the unified list (null) or one source's view.
@@ -325,6 +346,7 @@ class NovelDetailsScreenModel(
         mutableState.update { current ->
             NovelDetailsState.Loaded(
                 novel = novel,
+                displayNovel = displayNovel,
                 chapters = rawChapters.sortedAndFiltered(novel, novelPreferences),
                 isRefreshing = (current as? NovelDetailsState.Loaded)?.isRefreshing ?: false,
                 // Preserve transient screen state across DB re-emissions (a read/bookmark write
@@ -361,19 +383,54 @@ class NovelDetailsScreenModel(
      */
     fun loadAccentColor() {
         if (accentColorLoaded || !preferences.themeMangaDetails().get()) return
-        val url = (state.value as? NovelDetailsState.Loaded)?.novel?.thumbnailUrl?.takeIf { it.isNotBlank() } ?: return
+        if ((state.value as? NovelDetailsState.Loaded)?.novel?.thumbnailUrl.isNullOrBlank()) return
         accentColorLoaded = true
         screenModelScope.launchIO {
-            val context = preferences.context
-            val request = ImageRequest.Builder(context).data(url).build()
-            val drawable = context.imageLoader.execute(request).image?.asDrawable(context.resources) ?: return@launchIO
-            // toBitmap may hand back a HARDWARE-config bitmap (a BitmapDrawable's own); Palette can't
-            // read those, so copy to a software config first.
-            val bitmap = drawable.toBitmap().let {
-                if (it.config == Bitmap.Config.HARDWARE) it.copy(Bitmap.Config.ARGB_8888, false) else it
-            }
+            val bitmap = loadCoverBitmap() ?: return@launchIO
             val color = Palette.from(bitmap).generate().getBestColor() ?: return@launchIO
             mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(accentColor = color) ?: it }
+        }
+    }
+
+    /** Load the cover into a software bitmap via Coil (novels have no on-disk CoverCache), else null. */
+    private suspend fun loadCoverBitmap(): Bitmap? {
+        val url = (state.value as? NovelDetailsState.Loaded)?.displayNovel?.thumbnailUrl?.takeIf { it.isNotBlank() } ?: return null
+        val context = preferences.context
+        val request = ImageRequest.Builder(context).data(url).build()
+        val drawable = context.imageLoader.execute(request).image?.asDrawable(context.resources) ?: return null
+        // toBitmap may hand back a HARDWARE-config bitmap; Palette / compress can't read those.
+        return drawable.toBitmap().let {
+            if (it.config == Bitmap.Config.HARDWARE) it.copy(Bitmap.Config.ARGB_8888, false) else it
+        }
+    }
+
+    /** Save the cover to the device's Covers directory; result reported via a snackbar event. */
+    fun saveCover() {
+        screenModelScope.launchIO {
+            val ok = runCatching {
+                val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@runCatching false
+                val bitmap = loadCoverBitmap() ?: return@runCatching false
+                val dir = storageManager.getCoversDirectory() ?: return@runCatching false
+                val file = dir.createFile(DiskUtil.buildValidFilename("${novel.title}.jpg")) ?: return@runCatching false
+                file.openOutputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+                DiskUtil.scanMedia(preferences.context, file)
+                true
+            }.getOrDefault(false)
+            emitEvent(DetailsEvent.Snackbar(if (ok) "Cover saved" else "Couldn't save cover"))
+        }
+    }
+
+    /** Copy the cover into a cache dir and hand the file to the screen to launch a share chooser. */
+    fun shareCover() {
+        screenModelScope.launchIO {
+            val file = runCatching {
+                val bitmap = loadCoverBitmap() ?: return@runCatching null
+                val destDir = UniFile.fromFile(preferences.context.cacheDir)!!.createDirectory("shared_image")!!
+                val out = destDir.createFile("cover.jpg")!!
+                out.openOutputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+                out.uri.toFile()
+            }.getOrNull()
+            if (file != null) emitEvent(DetailsEvent.ShareImage(file)) else emitEvent(DetailsEvent.Snackbar("Couldn't share cover"))
         }
     }
 
@@ -537,7 +594,8 @@ class NovelDetailsScreenModel(
      *  inserts a favorited row if the novel somehow isn't persisted yet. The reactive Flow then
      *  re-emits the updated chapter list. */
     private suspend fun fetchAndSync(src: NovelSource, existing: Novel?) {
-        val sourceNovel = src.parseNovel(novelUrl)
+        // Parse the target novel's own url (the anchor's, or a grouped sibling's on a per-source edit).
+        val sourceNovel = src.parseNovel(existing?.url ?: novelUrl)
         val target = if (existing != null) {
             // Refresh stored metadata from the source. A novel added from a browse / search list
             // carries only name + path + cover (no summary), and syncChaptersWithNovelSource touches
@@ -558,7 +616,8 @@ class NovelDetailsScreenModel(
                     else parsed.description?.takeIf { it.isNotBlank() } ?: existing.description,
                 genres = if (f and EDITED_GENRES != 0) existing.genres
                     else parsed.genres?.takeIf { it.isNotEmpty() } ?: existing.genres,
-                status = if (parsed.status != NovelStatusCode.UNKNOWN) parsed.status else existing.status,
+                status = if (f and EDITED_STATUS != 0) existing.status
+                    else if (parsed.status != NovelStatusCode.UNKNOWN) parsed.status else existing.status,
                 thumbnailUrl = parsed.thumbnailUrl?.takeIf { it.isNotBlank() } ?: existing.thumbnailUrl,
             )
             if (merged != existing) novelRepo.update(merged)
@@ -626,8 +685,22 @@ class NovelDetailsScreenModel(
         }
     }
 
+    /** The novel whose metadata the header shows + edits target: the viewed source's, or the anchor. */
+    private fun displayedNovel(): Novel? = (state.value as? NovelDetailsState.Loaded)?.displayNovel
+
+    /** A grouped sibling isn't watched by the anchor flow, so after editing its row refresh the
+     *  snapshot and rebuild the header. Anchor edits re-emit through getByUrlAndSourceAsFlow already. */
+    private suspend fun reSnapshotDisplayed(novelId: Long?) {
+        novelId ?: return
+        val anchor = (state.value as? NovelDetailsState.Loaded)?.novel ?: return
+        if (novelId == anchor.id) return
+        val fresh = novelRepo.getById(novelId) ?: return
+        novelsById = novelsById.toMutableMap().apply { put(novelId, fresh) }
+        rebuildLoaded(anchor, chaptersByNovel)
+    }
+
     fun showEditNovelInfoDialog() {
-        val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return
+        val n = displayedNovel() ?: return
         mutableState.update {
             (it as? NovelDetailsState.Loaded)?.copy(
                 dialog = NovelDetailsDialog.EditInfo(
@@ -636,6 +709,7 @@ class NovelDetailsScreenModel(
                     artist = n.artist.orEmpty(),
                     description = n.description.orEmpty(),
                     genre = n.genres?.joinToString().orEmpty(),
+                    status = n.status,
                 ),
             ) ?: it
         }
@@ -644,9 +718,9 @@ class NovelDetailsScreenModel(
     /** Persist a manual metadata override. A blank field clears its lock so the source value wins
      *  again on the next refresh; a changed non-blank field locks it so the edit survives refresh;
      *  an unchanged field keeps its current lock state (saving the dialog doesn't lock everything). */
-    fun updateNovelInfo(title: String?, author: String?, artist: String?, description: String?, genre: String?) {
+    fun updateNovelInfo(title: String?, author: String?, artist: String?, description: String?, genre: String?, status: Int?) {
         screenModelScope.launchIO {
-            val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
+            val n = displayedNovel() ?: return@launchIO
             var flags = n.editedFlags
             fun reconcile(bit: Int, newValue: String?, current: String?) {
                 flags = when {
@@ -659,18 +733,42 @@ class NovelDetailsScreenModel(
             reconcile(EDITED_ARTIST, artist, n.artist)
             reconcile(EDITED_DESCRIPTION, description, n.description)
             reconcile(EDITED_GENRES, genre, n.genres?.joinToString())
-            novelRepo.update(
-                n.copy(
-                    title = title ?: n.title,
-                    author = author ?: n.author,
-                    artist = artist ?: n.artist,
-                    description = description ?: n.description,
-                    genres = if (genre == null) n.genres
-                    else genre.split(",").map { it.trim() }.filter { it.isNotEmpty() },
-                    editedFlags = flags,
-                ),
+            // Status: lock when overridden to a known value; UNKNOWN clears the lock (source wins again).
+            flags = when {
+                status == null || status == NovelStatusCode.UNKNOWN -> flags and EDITED_STATUS.inv()
+                status != n.status -> flags or EDITED_STATUS
+                else -> flags
+            }
+            val newStatus = if (status != null && status != NovelStatusCode.UNKNOWN) status else n.status
+            val updated = n.copy(
+                title = title ?: n.title,
+                author = author ?: n.author,
+                artist = artist ?: n.artist,
+                description = description ?: n.description,
+                genres = if (genre == null) n.genres
+                else genre.split(",").map { it.trim() }.filter { it.isNotEmpty() },
+                status = newStatus,
+                editedFlags = flags,
             )
+            novelRepo.update(updated)
             dismissDialog()
+            reSnapshotDisplayed(updated.id)
+        }
+    }
+
+    /** Clear every metadata override and re-fetch source values (mirrors the manga reset-to-source).
+     *  Passes the cleared novel straight to [fetchAndSync]: calling [refresh] here would re-merge
+     *  against the not-yet-re-emitted stale state (locks still set), keeping the edits and even
+     *  re-writing the old flags. */
+    fun resetNovelInfo() {
+        screenModelScope.launchIO {
+            val n = displayedNovel() ?: return@launchIO
+            val cleared = n.copy(editedFlags = 0)
+            novelRepo.update(cleared)
+            dismissDialog()
+            // Re-fetch source values for the displayed source (anchor or sibling), then refresh the header.
+            sourceManager.get(n.source)?.let { src -> runCatching { fetchAndSync(src, cleared) } }
+            reSnapshotDisplayed(cleared.id)
         }
     }
 
@@ -920,6 +1018,22 @@ class NovelDetailsScreenModel(
         expandToSiblings(targets).forEach { if (it.bookmark != bookmark) it.id?.let { id -> chapterRepo.setBookmark(id, bookmark) } }
     }
 
+    /** Whether chapter swipe gestures are enabled (Settings -> Reader). Reuses the shared manga pref. */
+    fun isChapterSwipeEnabled(): Boolean = uiPreferences.enableChapterSwipeAction().get()
+
+    /** Swipe a single chapter: flip its read / bookmark state. */
+    fun toggleChapterRead(chapterId: Long) = toggleSingle(chapterId) { applyRead(listOf(it), !it.read) }
+
+    fun toggleChapterBookmark(chapterId: Long) = toggleSingle(chapterId) { applyBookmark(listOf(it), !it.bookmark) }
+
+    private inline fun toggleSingle(chapterId: Long, crossinline apply: suspend (NovelChapter) -> Unit) {
+        screenModelScope.launchIO {
+            val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
+            val chapter = loaded.chapters.find { it.id == chapterId } ?: return@launchIO
+            apply(chapter)
+        }
+    }
+
     /**
      * For a merged novel, expand a set of chapters to every sibling row sharing each chapter's
      * cross-source [NovelChapterAggregation.matchKey] (title-first, number fallback), so a read /
@@ -946,7 +1060,11 @@ class NovelDetailsScreenModel(
 sealed interface NovelDetailsState {
     data object Loading : NovelDetailsState
     data class Loaded(
+        /** The anchor novel (this screen's url/source). Favorite + identity key off it. */
         val novel: Novel,
+        /** The novel whose metadata the header shows: the selected source's novel in a per-source chip
+         *  view, otherwise the anchor. Drives title/author/artist/description/genres/status. */
+        val displayNovel: Novel,
         val chapters: List<NovelChapter>,
         val isRefreshing: Boolean,
         val dialog: NovelDetailsDialog? = null,
@@ -998,6 +1116,7 @@ sealed interface NovelDetailsDialog {
         val artist: String,
         val description: String,
         val genre: String,
+        val status: Int,
     ) : NovelDetailsDialog
 
     /** Grouped sources for the Manage sources checklist (split / remove from library). */
@@ -1009,3 +1128,4 @@ private const val EDITED_AUTHOR = 1
 private const val EDITED_ARTIST = 1 shl 1
 private const val EDITED_DESCRIPTION = 1 shl 2
 private const val EDITED_GENRES = 1 shl 3
+private const val EDITED_STATUS = 1 shl 4

@@ -80,6 +80,7 @@ import yokai.domain.storage.StorageManager
 import yokai.domain.ui.UiPreferences
 import yokai.i18n.MR
 import yokai.presentation.details.ChapterDownloadAction
+import yokai.presentation.details.DetailsEvent
 import yokai.presentation.details.ManageSourceItem
 import yokai.presentation.details.detailsLog
 import yokai.util.lang.getString
@@ -101,24 +102,6 @@ sealed interface MangaDetailsDialog {
 
 /** One grouped source for the details source-view chip row. */
 data class SourceTab(val mangaId: Long, val sourceName: String)
-
-/**
- * One-shot screen effects the ScreenModel can't express through state: transient messages (with an
- * optional undo action) and navigation. Collected once by [MangaDetailsScreen]. The action/dismiss
- * callbacks back the deferred-commit undo pattern (mark-read, merge split/remove).
- */
-sealed interface DetailsEvent {
-    data class Snackbar(
-        val message: String,
-        val actionLabel: String? = null,
-        val onAction: (() -> Unit)? = null,
-        val onDismiss: (() -> Unit)? = null,
-    ) : DetailsEvent
-    /** Replace this screen with a sibling source (after splitting away the currently-viewed one). */
-    data class NavigateToSibling(val mangaId: Long) : DetailsEvent
-    /** Hand a saved cover image file to the screen so it can launch a share chooser (needs a Context). */
-    data class ShareImage(val file: java.io.File) : DetailsEvent
-}
 
 sealed interface MangaDetailsState {
     data object Loading : MangaDetailsState

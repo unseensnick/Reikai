@@ -35,12 +35,10 @@ class ChapterUtil {
                 .apply { decimalSeparator = '.' },
         )
 
-        fun relativeDate(chapter: Chapter): String? {
-            return when (chapter.date_upload > 0) {
-                true -> chapter.date_upload.timeSpanFromNow
-                false -> null
-            }
-        }
+        fun relativeDate(chapter: Chapter): String? = relativeDate(chapter.date_upload)
+
+        /** Relative upload date for any epoch-millis timestamp (the novel surface passes its dateUpload). */
+        fun relativeDate(date: Long): String? = if (date > 0) date.timeSpanFromNow else null
 
         fun setTextViewForChapter(
             textView: TextView,
