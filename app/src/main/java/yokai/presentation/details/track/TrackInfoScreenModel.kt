@@ -85,7 +85,11 @@ class TrackInfoScreenModel(
             state.value.items.forEach { item ->
                 val track = item.track ?: return@forEach
                 try {
-                    insertTrack.await(item.service.refresh(track))
+                    val refreshed = item.service.refresh(track)
+                    insertTrack.await(refreshed)
+                    // Pull the tracker's remote read-progress into local chapters (two-way), so a
+                    // refresh can mark chapters read from a bump made on the tracker's site.
+                    syncChaptersWithTrackServiceTwoWay(getChapter.awaitAll(mangaId, false), refreshed, item.service)
                 } catch (e: Exception) {
                     detailsLog { "track refresh failed sync=${item.service.id}: ${e.message}" }
                 }

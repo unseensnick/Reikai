@@ -1,7 +1,11 @@
 package yokai.presentation.details.manga
 
+import android.net.Uri
+import androidx.core.net.toFile
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import com.hippo.unifile.UniFile
+import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.bookmarkedFilter
@@ -11,6 +15,7 @@ import eu.kanade.tachiyomi.data.database.models.hideChapterTitle
 import eu.kanade.tachiyomi.data.database.models.readFilter
 import eu.kanade.tachiyomi.data.database.models.sortDescending
 import eu.kanade.tachiyomi.data.database.models.create
+import eu.kanade.tachiyomi.data.database.models.updateCoverLastModified
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
@@ -28,12 +33,19 @@ import eu.kanade.tachiyomi.util.chapter.ChapterFilter
 import eu.kanade.tachiyomi.util.chapter.ChapterSort
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
+import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.manga.MangaUtil
+import eu.kanade.tachiyomi.util.storage.DiskUtil
+import eu.kanade.tachiyomi.util.system.ImageUtil
+import eu.kanade.tachiyomi.util.system.isOnline
 import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.launchNonCancellableIO
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -56,6 +68,9 @@ import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.interactor.InsertManga
 import yokai.domain.manga.interactor.UpdateManga
 import yokai.domain.manga.models.MangaUpdate
+import yokai.domain.storage.StorageManager
+import yokai.domain.ui.UiPreferences
+import yokai.presentation.details.ChapterDownloadAction
 import yokai.presentation.details.ManageSourceItem
 import yokai.presentation.details.detailsLog
 
@@ -74,6 +89,24 @@ sealed interface MangaDetailsDialog {
 
 /** One grouped source for the details source-view chip row. */
 data class SourceTab(val mangaId: Long, val sourceName: String)
+
+/**
+ * One-shot screen effects the ScreenModel can't express through state: transient messages (with an
+ * optional undo action) and navigation. Collected once by [MangaDetailsScreen]. The action/dismiss
+ * callbacks back the deferred-commit undo pattern (mark-read, merge split/remove).
+ */
+sealed interface DetailsEvent {
+    data class Snackbar(
+        val message: String,
+        val actionLabel: String? = null,
+        val onAction: (() -> Unit)? = null,
+        val onDismiss: (() -> Unit)? = null,
+    ) : DetailsEvent
+    /** Replace this screen with a sibling source (after splitting away the currently-viewed one). */
+    data class NavigateToSibling(val mangaId: Long) : DetailsEvent
+    /** Hand a saved cover image file to the screen so it can launch a share chooser (needs a Context). */
+    data class ShareImage(val file: java.io.File) : DetailsEvent
+}
 
 sealed interface MangaDetailsState {
     data object Loading : MangaDetailsState
@@ -183,6 +216,15 @@ class MangaDetailsScreenModel(
     private val insertManga: InsertManga by inject()
     private val relatedMangasLoader: RelatedMangasLoader by inject()
     private val relatedMangasHandoff: RelatedMangasHandoff by inject()
+    private val uiPreferences: UiPreferences by inject()
+    private val coverCache: CoverCache by inject()
+    private val storageManager: StorageManager by inject()
+
+    /** One-shot screen effects (snackbars, navigation). Buffered so emits never suspend the caller. */
+    private val _events = MutableSharedFlow<DetailsEvent>(extraBufferCapacity = 8)
+    val events: SharedFlow<DetailsEvent> = _events.asSharedFlow()
+
+    fun emitEvent(event: DetailsEvent) { _events.tryEmit(event) }
 
     /** Range-select anchors (first/last selected index in the displayed list), like Mihon. */
     private val selectedPositions = intArrayOf(-1, -1)
@@ -350,6 +392,8 @@ class MangaDetailsScreenModel(
     fun fetchChaptersFromSource() {
         if (chapterRefreshJob?.isActive == true) return
         val loaded = state.value as? MangaDetailsState.Loaded ?: return
+        // Skip the network entirely for a local title, and bail when offline (mirrors legacy refreshAll).
+        if (!loaded.manga.isLocal() && !preferences.context.isOnline()) return
         chapterRefreshJob = screenModelScope.launchIO {
             mutableState.update { (it as? MangaDetailsState.Loaded)?.copy(isRefreshing = true) ?: it }
             try {
@@ -644,20 +688,20 @@ class MangaDetailsScreenModel(
         }
     }
 
-    /** Tap a chapter's download indicator: download when absent/errored, otherwise delete or cancel. */
-    fun downloadAction(chapterId: Long) {
+    /** Act on a chapter's download indicator: queue, jump the queue, or cancel/delete. */
+    fun downloadAction(chapterId: Long, action: ChapterDownloadAction) {
         screenModelScope.launchIO {
             val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
             val manga = loaded.manga
             val chapter = loaded.chapters.find { it.id == chapterId } ?: return@launchIO
-            val current = loaded.downloads[chapterId]?.state ?: Download.State.NOT_DOWNLOADED
-            detailsLog { "downloadAction chapter=$chapterId state=$current" }
-            when (current) {
-                Download.State.NOT_DOWNLOADED, Download.State.ERROR -> {
+            detailsLog { "downloadAction chapter=$chapterId action=$action" }
+            when (action) {
+                ChapterDownloadAction.START -> {
                     applyDownloadState(chapterId, Download.State.QUEUE)
                     downloadManager.downloadChapters(manga, listOf(chapter))
                 }
-                else -> {
+                ChapterDownloadAction.START_NOW -> downloadManager.startDownloadNow(chapter)
+                ChapterDownloadAction.CANCEL, ChapterDownloadAction.DELETE -> {
                     // deleteChapters(force) removes from the queue and deletes files in one call,
                     // so it covers both "delete a downloaded chapter" and "cancel a queued one".
                     val source = sourceManager.getOrStub(manga.source)
@@ -678,6 +722,24 @@ class MangaDetailsScreenModel(
     fun downloadUnread() = queueDownload { chapters, _ -> chapters.filter { !it.read } }
 
     fun downloadAll() = queueDownload { chapters, _ -> chapters }
+
+    fun removeAllDownloads() = removeDownloads { true }
+
+    fun removeReadDownloads() = removeDownloads { it.read }
+
+    fun removeNonBookmarkedDownloads() = removeDownloads { !it.bookmark }
+
+    private fun removeDownloads(predicate: (Chapter) -> Boolean) {
+        screenModelScope.launchIO {
+            val manga = currentManga() ?: return@launchIO
+            val source = sourceManager.getOrStub(manga.source)
+            val targets = getChapter.awaitAll(manga, filterScanlators = false)
+                .filter(predicate)
+                .filter { downloadManager.isChapterDownloaded(it, manga) }
+            detailsLog { "removeDownloads count=${targets.size}" }
+            if (targets.isNotEmpty()) downloadManager.deleteChapters(targets, manga, source, force = true)
+        }
+    }
 
     private fun queueDownload(select: (notDownloaded: List<Chapter>, sort: ChapterSort) -> List<Chapter>) {
         screenModelScope.launchIO {
@@ -815,6 +877,22 @@ class MangaDetailsScreenModel(
         }
     }
 
+    /** Whether chapter swipe gestures are enabled (Settings -> Reader). Read once by the screen. */
+    fun isChapterSwipeEnabled(): Boolean = uiPreferences.enableChapterSwipeAction().get()
+
+    /** Swipe a single chapter: flip its read / bookmark state. */
+    fun toggleChapterRead(chapterId: Long) = toggleSingle(chapterId) { ch -> applyRead(listOf(ch), !ch.read) }
+
+    fun toggleChapterBookmark(chapterId: Long) = toggleSingle(chapterId) { ch -> applyBookmark(listOf(ch), !ch.bookmark) }
+
+    private inline fun toggleSingle(chapterId: Long, crossinline apply: suspend (Chapter) -> Unit) {
+        screenModelScope.launchIO {
+            val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
+            val chapter = loaded.chapters.find { it.id == chapterId } ?: return@launchIO
+            apply(chapter)
+        }
+    }
+
     fun downloadSelected() {
         screenModelScope.launchIO {
             val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
@@ -920,7 +998,7 @@ class MangaDetailsScreenModel(
         mutableState.value = loaded.copy(dialog = MangaDetailsDialog.EditMangaInfo(loaded.manga))
     }
 
-    fun updateMangaInfo(title: String?, author: String?, artist: String?, description: String?, genre: String?) {
+    fun updateMangaInfo(title: String?, author: String?, artist: String?, description: String?, genre: String?, status: Int?) {
         screenModelScope.launchIO {
             val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
             val id = loaded.manga.id ?: return@launchIO
@@ -932,10 +1010,22 @@ class MangaDetailsScreenModel(
                     artist = artist,
                     description = description,
                     genre = genre,
+                    status = status,
                 ),
             )
             dismissDialog()
             // custom_manga_info is a separate table the manga flow doesn't watch, so refresh by hand.
+            reload()
+        }
+    }
+
+    /** Clear every metadata override, reverting the header to the source's values. */
+    fun resetMangaInfo() {
+        screenModelScope.launchIO {
+            val loaded = state.value as? MangaDetailsState.Loaded ?: return@launchIO
+            val id = loaded.manga.id ?: return@launchIO
+            createCustomManga.await(CustomMangaInfo(mangaId = id))
+            dismissDialog()
             reload()
         }
     }
@@ -1133,6 +1223,9 @@ class MangaDetailsScreenModel(
         }
     }
 
+    /** Remove every grouped source from the library at once (favorite long-press on a merged title). */
+    fun removeAllSourcesFromLibrary() = removeSourcesFromLibrary(groupIdsFlow.value)
+
     // --- Share / WebView ---
 
     /** Returns the displayed source's URL for share and WebView; null for local/stub sources. In a
@@ -1146,6 +1239,88 @@ class MangaDetailsScreenModel(
     fun isHttpSource(): Boolean {
         val manga = currentDisplayManga() ?: return false
         return sourceManager.getOrStub(manga.source) is HttpSource
+    }
+
+    /** A single chapter's URL for WebView / share, resolved against its own (possibly merged) source;
+     *  null for local/stub sources. */
+    fun getChapterUrl(chapterId: Long): String? {
+        val loaded = state.value as? MangaDetailsState.Loaded ?: return null
+        val chapter = loaded.chapters.find { it.id == chapterId } ?: return null
+        val owningManga = chapter.manga_id?.let { mangaBySource[it] } ?: loaded.manga
+        val source = sourceManager.getOrStub(owningManga.source) as? HttpSource ?: return null
+        return runCatching { source.getChapterUrl(chapter) }.getOrNull()
+    }
+
+    // --- Cover ---
+
+    /** True when the user has set a custom cover for this title. */
+    fun isCustomCover(): Boolean {
+        val manga = currentManga() ?: return false
+        return coverCache.getCustomCoverFile(manga).exists()
+    }
+
+    /** Save the cover to the device's Covers directory; result reported via a snackbar event. */
+    fun saveCover() {
+        screenModelScope.launchIO {
+            val manga = currentManga() ?: return@launchIO
+            val ok = runCatching {
+                val directory = if (preferences.folderPerManga().get()) {
+                    storageManager.getCoversDirectory()!!.createDirectory(DiskUtil.buildValidFilename(manga.title))!!
+                } else {
+                    storageManager.getCoversDirectory()!!
+                }
+                val file = saveCoverToDir(manga, directory)
+                DiskUtil.scanMedia(preferences.context, file)
+                true
+            }.getOrElse { detailsLog { "saveCover failed: ${it.message}" }; false }
+            emitEvent(DetailsEvent.Snackbar(if (ok) "Cover saved" else "Couldn't save cover"))
+        }
+    }
+
+    /** Copy the cover into a cache dir and hand the file to the screen to launch a share chooser. */
+    fun shareCover() {
+        screenModelScope.launchIO {
+            val manga = currentManga() ?: return@launchIO
+            val file = runCatching {
+                val destDir = UniFile.fromFile(coverCache.context.cacheDir)!!.createDirectory("shared_image")!!
+                saveCoverToDir(manga, destDir).uri.toFile()
+            }.getOrNull()
+            if (file != null) emitEvent(DetailsEvent.ShareImage(file)) else emitEvent(DetailsEvent.Snackbar("Couldn't share cover"))
+        }
+    }
+
+    /** Copy the (custom or source) cover into [directory] under a safe filename; returns the new file. */
+    private fun saveCoverToDir(manga: Manga, directory: UniFile): UniFile {
+        val cover = coverCache.getCustomCoverFile(manga).takeIf { it.exists() }
+            ?: coverCache.getCoverFile(manga.thumbnail_url, !manga.favorite)
+        val type = cover?.let { ImageUtil.findImageType(it.inputStream()) } ?: throw Exception("Not an image")
+        val filename = DiskUtil.buildValidFilename("${manga.title}.${type.extension}")
+        val destFile = directory.createFile(filename)!!
+        cover.inputStream().use { input -> destFile.openOutputStream().use { output -> input.copyTo(output) } }
+        return destFile
+    }
+
+    /** Replace the cover with a user-picked image (library titles only). */
+    fun setCustomCover(uri: Uri) {
+        screenModelScope.launchIO {
+            val manga = currentManga() ?: return@launchIO
+            if (!manga.favorite) return@launchIO
+            runCatching {
+                preferences.context.contentResolver.openInputStream(uri)?.use { input ->
+                    coverCache.setCustomCoverToCache(manga, input)
+                }
+                manga.updateCoverLastModified(updateManga)
+            }.onFailure { detailsLog { "setCustomCover failed: ${it.message}" } }
+        }
+    }
+
+    /** Remove the custom cover, reverting to the source's. */
+    fun resetCover() {
+        screenModelScope.launchIO {
+            val manga = currentManga() ?: return@launchIO
+            coverCache.deleteCustomCover(manga)
+            manga.updateCoverLastModified(updateManga)
+        }
     }
 
     fun skipPreMigration(): Boolean = preferences.skipPreMigration().get()

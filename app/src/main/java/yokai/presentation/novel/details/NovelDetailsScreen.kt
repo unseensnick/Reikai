@@ -483,7 +483,8 @@ class NovelDetailsScreen(
                                     onChapterClick = { id ->
                                         s.chapters.find { it.id == id }?.let { openChapter(it) }
                                     },
-                                    onDownloadClick = { screenModel.downloadAction(it) },
+                                    // Novels keep the simple single-tap toggle (no Start-now/Cancel menu).
+                                    onDownloadClick = { id, _ -> screenModel.downloadAction(id) },
                                     selectionActive = s.selection.isNotEmpty(),
                                     onToggleSelection = { id, sel, long -> screenModel.toggleSelection(id, sel, long) },
                                     onFilterClick = { showSheet = true },
@@ -562,7 +563,7 @@ class NovelDetailsScreen(
                     initialDescription = dialog.description,
                     initialGenre = dialog.genre,
                     onDismiss = { screenModel.dismissDialog() },
-                    onConfirm = { title, author, artist, description, genre ->
+                    onConfirm = { title, author, artist, description, genre, _ ->
                         screenModel.updateNovelInfo(title, author, artist, description, genre)
                     },
                 )

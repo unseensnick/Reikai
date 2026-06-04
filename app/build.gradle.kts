@@ -232,6 +232,7 @@ dependencies {
     implementation(libs.viewstatepageradapter)
     implementation(libs.slice)
     implementation(libs.markwon)
+    implementation(libs.bundles.markdown) // Compose markdown renderer (manga description)
 
     implementation(libs.photoview)
     implementation(libs.directionalviewpager)

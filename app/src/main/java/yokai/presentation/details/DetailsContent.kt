@@ -4,6 +4,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,6 +36,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.ArrowCircleDown
 import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.BookmarkRemove
 import androidx.compose.material.icons.outlined.Brush
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Done
@@ -47,16 +50,23 @@ import androidx.compose.material.icons.outlined.MonetizationOn
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material.icons.outlined.RemoveDone
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxState
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -68,6 +78,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -78,7 +89,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import dev.icerock.moko.resources.compose.pluralStringResource
 import eu.kanade.tachiyomi.source.model.SManga
+import yokai.i18n.MR
 import yokai.presentation.manga.components.MangaCover
 import yokai.presentation.manga.components.MangaCoverRatio
 
@@ -87,6 +100,9 @@ import yokai.presentation.manga.components.MangaCoverRatio
  * sees the `Download.State` model; the manga screen maps into this and novels leave it [NONE].
  */
 enum class DetailsDownloadState { NONE, QUEUED, DOWNLOADING, DOWNLOADED, ERROR }
+
+/** Action chosen from a chapter's download indicator: a plain tap (START/DELETE) or a menu pick. */
+enum class ChapterDownloadAction { START, START_NOW, CANCEL, DELETE }
 
 /**
  * Plain, type-agnostic view data for one chapter row. Both a manga `Chapter` and a `NovelChapter`
@@ -103,6 +119,14 @@ data class DetailsChapterRow(
     val selected: Boolean = false,
     /** Rendered dimmed; used by the novel "Show hidden chapters" view to mark hidden rows. */
     val dimmed: Boolean = false,
+    /** Secondary line: relative upload date. Null hides it (and on the novel surface, which omits all three). */
+    val date: String? = null,
+    /** Secondary line: "Page X of Y" partial-read progress; only set for partially-read chapters. */
+    val readProgress: String? = null,
+    /** Secondary line: scanlator/group name, when the chapter has one. */
+    val scanlator: String? = null,
+    /** Whole chapter numbers missing before this row (number-sort only); renders a divider above it. */
+    val missingCount: Int = 0,
 )
 
 /**
@@ -154,10 +178,18 @@ fun DetailsContent(
     isFavorited: Boolean = false,
     /** When non-null, renders the favorite action button. Null = no favorite UI (future novel probe). */
     onFavoriteClick: (() -> Unit)? = null,
-    /** Favorite long-press (edit categories). Null = no long-press. */
+    /** Favorite long-press menu: edit categories. Null hides the item. */
     onEditCategoryClick: (() -> Unit)? = null,
+    /** Favorite long-press menu: remove from library. Null hides the item. */
+    onRemoveFromLibrary: (() -> Unit)? = null,
+    /** Favorite long-press menu: remove all grouped sources (merged titles). Null hides the item. */
+    onRemoveAllSources: (() -> Unit)? = null,
     /** Tapping the cover (zoom). Null = not clickable. */
     onCoverClick: (() -> Unit)? = null,
+    /** Tap a tag / title / author / artist to search for it. Null disables (novels). */
+    onSearch: ((String) -> Unit)? = null,
+    /** Long-press a tag / title / author / artist to copy it. Null disables. */
+    onCopy: ((String) -> Unit)? = null,
     /** True when at least one tracker is registered, so the Tracking button shows its active accent. */
     trackingActive: Boolean = false,
     /** When non-null, renders the Tracking action button. Null = no tracking UI (novels). */
@@ -168,8 +200,18 @@ fun DetailsContent(
     onShareClick: (() -> Unit)? = null,
     /** Tapping the chapters header (open sort/filter). Null = not clickable. */
     onFilterClick: (() -> Unit)? = null,
-    /** When non-null, each row shows a download indicator; tapping it calls back with the id. Null = no download UI (novels). */
-    onDownloadClick: ((Long) -> Unit)? = null,
+    /** True when any chapter filter is active (read/downloaded/bookmarked/scanlator); tints the filter icon. */
+    filtersActive: Boolean = false,
+    /** When non-null, each row shows a download indicator; it calls back with the chapter id + chosen action. Null = no download UI (novels). */
+    onDownloadClick: ((Long, ChapterDownloadAction) -> Unit)? = null,
+    /** When true the indicator offers a dropdown (Start now / Cancel / Delete) for in-progress/downloaded chapters; false keeps a plain single-tap toggle (novels). */
+    downloadMenuEnabled: Boolean = false,
+    /** Enables row swipe gestures (when both swipe callbacks are set and not selecting). */
+    chapterSwipeEnabled: Boolean = false,
+    /** Swipe-left a row to toggle its read state. Null disables that swipe (novels). */
+    onSwipeToRead: ((Long) -> Unit)? = null,
+    /** Swipe-right a row to toggle its bookmark. Null disables that swipe (novels). */
+    onSwipeToBookmark: ((Long) -> Unit)? = null,
     /** True while at least one chapter is selected; rows toggle selection on tap instead of opening. */
     selectionActive: Boolean = false,
     /** When non-null, long-press (and, while [selectionActive], tap) toggles selection. Null = no multi-select (novels). */
@@ -212,6 +254,8 @@ fun DetailsContent(
                 sourceName = sourceName,
                 isStubSource = isStubSource,
                 onCoverClick = onCoverClick,
+                onSearch = onSearch,
+                onCopy = onCopy,
                 topInset = topInset,
             )
         }
@@ -221,6 +265,8 @@ fun DetailsContent(
                     isFavorited = isFavorited,
                     onFavoriteClick = onFavoriteClick,
                     onEditCategoryClick = onEditCategoryClick,
+                    onRemoveFromLibrary = onRemoveFromLibrary,
+                    onRemoveAllSources = onRemoveAllSources,
                     trackingActive = trackingActive,
                     onTrackingClick = onTrackingClick,
                     onWebViewClick = onWebViewClick,
@@ -240,7 +286,7 @@ fun DetailsContent(
             }
         }
         item(key = "description") {
-            ExpandableDescription(description = description, genres = genres)
+            ExpandableDescription(description = description, genres = genres, onSearch = onSearch, onCopy = onCopy)
         }
         if ((relatedMangas.isNotEmpty() || relatedMangasLoading) && onRelatedClick != null) {
             item(key = "related") {
@@ -254,9 +300,12 @@ fun DetailsContent(
             }
         }
         item(key = "chapter_count") {
-            ChapterHeader(count = chapters.size, onClick = onFilterClick)
+            ChapterHeader(count = chapters.size, onClick = onFilterClick, filtersActive = filtersActive)
         }
         items(items = chapters, key = { it.id }) { chapter ->
+            if (chapter.missingCount > 0) {
+                MissingChapterCountListItem(count = chapter.missingCount)
+            }
             DetailsChapterListRow(
                 chapter = chapter,
                 selectionActive = selectionActive,
@@ -268,7 +317,11 @@ fun DetailsContent(
                     }
                 },
                 onLongClick = onToggleSelection?.let { cb -> { cb(chapter.id, true, true) } },
-                onDownloadClick = onDownloadClick?.let { cb -> { cb(chapter.id) } },
+                onDownloadClick = onDownloadClick?.let { cb -> { action -> cb(chapter.id, action) } },
+                downloadMenuEnabled = downloadMenuEnabled,
+                swipeEnabled = chapterSwipeEnabled,
+                onSwipeToRead = onSwipeToRead?.let { cb -> { cb(chapter.id) } },
+                onSwipeToBookmark = onSwipeToBookmark?.let { cb -> { cb(chapter.id) } },
             )
         }
     }
@@ -285,6 +338,8 @@ private fun DetailsHeaderBox(
     sourceName: String,
     isStubSource: Boolean,
     onCoverClick: (() -> Unit)?,
+    onSearch: ((String) -> Unit)?,
+    onCopy: ((String) -> Unit)?,
     topInset: Dp,
 ) {
     Box(modifier = Modifier.fillMaxWidth()) {
@@ -332,10 +387,23 @@ private fun DetailsHeaderBox(
                 onClick = onCoverClick,
             )
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(text = title, style = MaterialTheme.typography.titleLarge)
-                IconLabel(icon = Icons.Filled.Person, text = author?.takeIf { it.isNotBlank() } ?: "Unknown author")
-                artist?.takeIf { it.isNotBlank() && it != author }?.let {
-                    IconLabel(icon = Icons.Outlined.Brush, text = it)
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.searchable(title, onSearch, onCopy),
+                )
+                val authorText = author?.takeIf { it.isNotBlank() }
+                IconLabel(
+                    icon = Icons.Filled.Person,
+                    text = authorText ?: "Unknown author",
+                    modifier = if (authorText != null) Modifier.searchable(authorText, onSearch, onCopy) else Modifier,
+                )
+                artist?.takeIf { it.isNotBlank() && it != author }?.let { artistText ->
+                    IconLabel(
+                        icon = Icons.Outlined.Brush,
+                        text = artistText,
+                        modifier = Modifier.searchable(artistText, onSearch, onCopy),
+                    )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -370,8 +438,8 @@ private fun DetailsHeaderBox(
 }
 
 @Composable
-private fun IconLabel(icon: ImageVector, text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+private fun IconLabel(icon: ImageVector, text: String, modifier: Modifier = Modifier) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         Icon(
             imageVector = icon,
             contentDescription = null,
@@ -401,21 +469,41 @@ private fun DetailsActionRow(
     isFavorited: Boolean,
     onFavoriteClick: () -> Unit,
     onEditCategoryClick: (() -> Unit)?,
+    onRemoveFromLibrary: (() -> Unit)?,
+    onRemoveAllSources: (() -> Unit)?,
     trackingActive: Boolean,
     onTrackingClick: (() -> Unit)?,
     onWebViewClick: (() -> Unit)?,
     onShareClick: (() -> Unit)?,
 ) {
     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
-        DetailsActionButton(
-            label = if (isFavorited) "In library" else "Add to library",
-            icon = if (isFavorited) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-            active = isFavorited,
-            onClick = onFavoriteClick,
-            onLongClick = onEditCategoryClick,
-        )
+        // Favorite + its long-press menu live in a weighted Box so the menu anchors to the button.
+        Box(modifier = Modifier.weight(1f)) {
+            var favMenuOpen by remember { mutableStateOf(false) }
+            val hasMenu = onEditCategoryClick != null || onRemoveFromLibrary != null || onRemoveAllSources != null
+            DetailsActionButton(
+                modifier = Modifier.fillMaxWidth(),
+                label = if (isFavorited) "In library" else "Add to library",
+                icon = if (isFavorited) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                active = isFavorited,
+                onClick = onFavoriteClick,
+                onLongClick = if (hasMenu) ({ favMenuOpen = true }) else null,
+            )
+            DropdownMenu(expanded = favMenuOpen, onDismissRequest = { favMenuOpen = false }) {
+                if (onEditCategoryClick != null) {
+                    DropdownMenuItem(text = { Text("Edit categories") }, onClick = { favMenuOpen = false; onEditCategoryClick() })
+                }
+                if (onRemoveFromLibrary != null) {
+                    DropdownMenuItem(text = { Text("Remove from library") }, onClick = { favMenuOpen = false; onRemoveFromLibrary() })
+                }
+                if (onRemoveAllSources != null) {
+                    DropdownMenuItem(text = { Text("Remove all sources from library") }, onClick = { favMenuOpen = false; onRemoveAllSources() })
+                }
+            }
+        }
         if (onTrackingClick != null) {
             DetailsActionButton(
+                modifier = Modifier.weight(1f),
                 label = if (trackingActive) "Tracked" else "Tracking",
                 icon = if (trackingActive) Icons.Outlined.Done else Icons.Outlined.Sync,
                 active = trackingActive,
@@ -424,6 +512,7 @@ private fun DetailsActionRow(
         }
         if (onWebViewClick != null) {
             DetailsActionButton(
+                modifier = Modifier.weight(1f),
                 label = "WebView",
                 icon = Icons.Outlined.Public,
                 active = false,
@@ -432,6 +521,7 @@ private fun DetailsActionRow(
         }
         if (onShareClick != null) {
             DetailsActionButton(
+                modifier = Modifier.weight(1f),
                 label = "Share",
                 icon = Icons.Outlined.IosShare,
                 active = false,
@@ -442,11 +532,12 @@ private fun DetailsActionRow(
 }
 
 @Composable
-private fun RowScope.DetailsActionButton(
+private fun DetailsActionButton(
     label: String,
     icon: ImageVector,
     active: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     onLongClick: (() -> Unit)? = null,
 ) {
     val color = if (active) {
@@ -455,8 +546,7 @@ private fun RowScope.DetailsActionButton(
         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
     }
     Column(
-        modifier = Modifier
-            .weight(1f)
+        modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(vertical = 8.dp),
@@ -541,7 +631,12 @@ private fun SourceChip(
 }
 
 @Composable
-private fun ExpandableDescription(description: String?, genres: List<String>) {
+private fun ExpandableDescription(
+    description: String?,
+    genres: List<String>,
+    onSearch: ((String) -> Unit)?,
+    onCopy: ((String) -> Unit)?,
+) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val text = description?.takeIf { it.isNotBlank() } ?: "No description"
     val backgroundColor = MaterialTheme.colorScheme.background
@@ -551,26 +646,23 @@ private fun ExpandableDescription(description: String?, genres: List<String>) {
             .padding(horizontal = 16.dp)
             .animateContentSize(),
     ) {
-        // Description text and the expand caret are a single tap target with no ripple: tapping
-        // anywhere on the text or the caret toggles expansion. Genre chips sit outside it so they
-        // keep their own taps.
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                ) { expanded = !expanded },
-        ) {
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = if (expanded) Int.MAX_VALUE else 3,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                // Soft fade over the clamped last line, hinting there's more to read.
-                if (!expanded) {
+        // Expanded: full markdown (tappable links) in a SelectionContainer so the text can be copied.
+        // Collapsed: a plain 3-line preview with a fade. Only the caret toggles, leaving the body's
+        // taps free for link-following / text selection.
+        Column(modifier = Modifier.fillMaxWidth()) {
+            if (expanded) {
+                SelectionContainer {
+                    MarkdownRender(content = text)
+                }
+            } else {
+                // Same markdown, height-clamped (MarkdownRender has no maxLines) with a fade over the cut.
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 72.dp)
+                        .clipToBounds(),
+                ) {
+                    MarkdownRender(content = text)
                     Box(
                         modifier = Modifier
                             .matchParentSize()
@@ -584,7 +676,13 @@ private fun ExpandableDescription(description: String?, genres: List<String>) {
                 }
             }
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { expanded = !expanded }
+                    .padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.Center,
             ) {
                 Icon(
@@ -598,11 +696,11 @@ private fun ExpandableDescription(description: String?, genres: List<String>) {
             Spacer(Modifier.height(4.dp))
             if (expanded) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    genres.forEach { GenreChip(it) }
+                    genres.forEach { GenreChip(it, onSearch, onCopy) }
                 }
             } else {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(items = genres) { GenreChip(it) }
+                    items(items = genres) { GenreChip(it, onSearch, onCopy) }
                 }
             }
         }
@@ -613,11 +711,11 @@ private fun ExpandableDescription(description: String?, genres: List<String>) {
 }
 
 @Composable
-private fun GenreChip(text: String) {
+private fun GenreChip(text: String, onSearch: ((String) -> Unit)?, onCopy: ((String) -> Unit)?) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(8.dp),
-        modifier = Modifier.padding(vertical = 4.dp),
+        modifier = Modifier.padding(vertical = 4.dp).searchable(text, onSearch, onCopy),
     ) {
         Text(
             text = text,
@@ -628,8 +726,25 @@ private fun GenreChip(text: String) {
     }
 }
 
+/** Tap to search for [value], long-press to copy it. A no-op when both callbacks are null (novels). */
 @Composable
-private fun ChapterHeader(count: Int, onClick: (() -> Unit)?) {
+private fun Modifier.searchable(
+    value: String,
+    onSearch: ((String) -> Unit)?,
+    onCopy: ((String) -> Unit)?,
+): Modifier = if (onSearch == null && onCopy == null) {
+    this
+} else {
+    this.combinedClickable(
+        interactionSource = remember { MutableInteractionSource() },
+        indication = null,
+        onClick = { onSearch?.invoke(value) },
+        onLongClick = onCopy?.let { copy -> { copy(value) } },
+    )
+}
+
+@Composable
+private fun ChapterHeader(count: Int, onClick: (() -> Unit)?, filtersActive: Boolean = false) {
     Column(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -637,13 +752,14 @@ private fun ChapterHeader(count: Int, onClick: (() -> Unit)?) {
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.weight(1f),
             )
-            // Only the icon opens filter/sort, not the whole row.
+            // Only the icon opens filter/sort, not the whole row. Accented while a filter is active,
+            // muted otherwise, so the header signals when chapters are being hidden.
             if (onClick != null) {
                 IconButton(onClick = onClick) {
                     Icon(
                         imageVector = Icons.Outlined.FilterList,
                         contentDescription = "Filter and sort",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = if (filtersActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -653,51 +769,98 @@ private fun ChapterHeader(count: Int, onClick: (() -> Unit)?) {
     }
 }
 
+/** Divider-flanked "Missing N chapters" marker shown above a row when chapters are skipped (number-sort). */
+@Composable
+private fun MissingChapterCountListItem(count: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        HorizontalDivider(modifier = Modifier.weight(1f))
+        Text(
+            text = pluralStringResource(MR.plurals.missing_chapters, quantity = count, count),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        HorizontalDivider(modifier = Modifier.weight(1f))
+    }
+}
+
 @Composable
 private fun DetailsChapterListRow(
     chapter: DetailsChapterRow,
     selectionActive: Boolean,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)?,
-    onDownloadClick: (() -> Unit)?,
+    onDownloadClick: ((ChapterDownloadAction) -> Unit)?,
+    downloadMenuEnabled: Boolean,
+    swipeEnabled: Boolean,
+    onSwipeToRead: (() -> Unit)?,
+    onSwipeToBookmark: (() -> Unit)?,
 ) {
+    val canSwipe = swipeEnabled && !selectionActive && onSwipeToRead != null && onSwipeToBookmark != null
     val contentColor = if (chapter.read) {
         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
     } else {
         MaterialTheme.colorScheme.onSurface
     }
-    val rowBackground = if (chapter.selected) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-    } else {
-        Color.Transparent
+    val rowBackground = when {
+        chapter.selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+        // Opaque so the swipe-reveal background only shows where the row is dragged.
+        canSwipe -> MaterialTheme.colorScheme.surface
+        else -> Color.Transparent
     }
+    val rowContent = @Composable {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            // Fixed height so rows don't shrink in selection mode (a bare 24dp check icon) vs normal
-            // mode (the ~48dp download IconButton); content-driven height made the two differ.
-            .height(56.dp)
+            // Min height keeps short rows tap-friendly; a second metadata line grows it from there.
+            .heightIn(min = 56.dp)
             .then(if (chapter.dimmed) Modifier.alpha(0.4f) else Modifier)
             .background(rowBackground)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(start = 16.dp, end = 8.dp),
+            .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (chapter.bookmark) {
-            Icon(
-                imageVector = Icons.Filled.Bookmark,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.width(16.dp),
-            )
-        }
-        Text(
-            text = chapter.name,
-            style = MaterialTheme.typography.bodyMedium,
-            color = contentColor,
+        Column(
             modifier = Modifier.weight(1f),
-        )
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (chapter.bookmark) {
+                    Icon(
+                        imageVector = Icons.Filled.Bookmark,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+                Text(
+                    text = chapter.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = contentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            // Secondary line: date • read-progress • scanlator, joined like the legacy row.
+            val subtitle = listOfNotNull(chapter.date, chapter.readProgress, chapter.scanlator)
+            if (subtitle.isNotEmpty()) {
+                Text(
+                    text = subtitle.joinToString("  •  "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (chapter.read) 0.4f else 0.65f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
         when {
             selectionActive -> Icon(
                 imageVector = if (chapter.selected) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
@@ -708,8 +871,52 @@ private fun DetailsChapterListRow(
             onDownloadClick != null -> ChapterDownloadIndicator(
                 state = chapter.downloadState,
                 progress = chapter.downloadProgress,
-                onClick = onDownloadClick,
+                enableMenu = downloadMenuEnabled,
+                onAction = onDownloadClick,
             )
+        }
+    }
+    }
+    if (canSwipe) {
+        val dismissState = rememberSwipeToDismissBoxState(
+            confirmValueChange = { value ->
+                when (value) {
+                    SwipeToDismissBoxValue.StartToEnd -> onSwipeToBookmark?.invoke()
+                    SwipeToDismissBoxValue.EndToStart -> onSwipeToRead?.invoke()
+                    SwipeToDismissBoxValue.Settled -> {}
+                }
+                // Never actually dismiss the row; fire the action and snap back.
+                false
+            },
+        )
+        SwipeToDismissBox(
+            state = dismissState,
+            backgroundContent = { ChapterSwipeBackground(dismissState, chapter) },
+            content = { rowContent() },
+        )
+    } else {
+        rowContent()
+    }
+}
+
+/** Swipe-reveal behind a chapter row: bookmark when swiping right (start->end), toggle read when swiping left. */
+@Composable
+private fun ChapterSwipeBackground(state: SwipeToDismissBoxState, chapter: DetailsChapterRow) {
+    val direction = state.dismissDirection
+    val icon = when (direction) {
+        SwipeToDismissBoxValue.StartToEnd -> if (chapter.bookmark) Icons.Outlined.BookmarkRemove else Icons.Filled.Bookmark
+        SwipeToDismissBoxValue.EndToStart -> if (chapter.read) Icons.Outlined.RemoveDone else Icons.Outlined.Done
+        SwipeToDismissBoxValue.Settled -> null
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .padding(horizontal = 20.dp),
+        contentAlignment = if (direction == SwipeToDismissBoxValue.StartToEnd) Alignment.CenterStart else Alignment.CenterEnd,
+    ) {
+        if (icon != null) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
         }
     }
 }
@@ -718,9 +925,22 @@ private fun DetailsChapterListRow(
 private fun ChapterDownloadIndicator(
     state: DetailsDownloadState,
     progress: Int,
-    onClick: () -> Unit,
+    enableMenu: Boolean,
+    onAction: (ChapterDownloadAction) -> Unit,
 ) {
-    IconButton(onClick = onClick, modifier = Modifier.size(32.dp)) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Box {
+    IconButton(
+        onClick = {
+            when {
+                state == DetailsDownloadState.NONE || state == DetailsDownloadState.ERROR -> onAction(ChapterDownloadAction.START)
+                // Without the menu (novels) a tap just removes/cancels, matching the old single-tap toggle.
+                !enableMenu -> onAction(ChapterDownloadAction.DELETE)
+                else -> menuOpen = true
+            }
+        },
+        modifier = Modifier.size(32.dp),
+    ) {
         when (state) {
             DetailsDownloadState.NONE -> Icon(
                 imageVector = Icons.Outlined.ArrowCircleDown,
@@ -751,6 +971,28 @@ private fun ChapterDownloadIndicator(
                 tint = MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(22.dp),
             )
+        }
+    }
+        if (enableMenu) {
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                when (state) {
+                    DetailsDownloadState.QUEUED, DetailsDownloadState.DOWNLOADING -> {
+                        DropdownMenuItem(
+                            text = { Text("Start downloading now") },
+                            onClick = { menuOpen = false; onAction(ChapterDownloadAction.START_NOW) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Cancel") },
+                            onClick = { menuOpen = false; onAction(ChapterDownloadAction.CANCEL) },
+                        )
+                    }
+                    DetailsDownloadState.DOWNLOADED -> DropdownMenuItem(
+                        text = { Text("Delete download") },
+                        onClick = { menuOpen = false; onAction(ChapterDownloadAction.DELETE) },
+                    )
+                    else -> {}
+                }
+            }
         }
     }
 }

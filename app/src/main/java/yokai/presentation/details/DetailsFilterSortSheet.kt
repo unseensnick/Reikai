@@ -139,13 +139,21 @@ fun DetailsFilterSortSheet(
                         containerColor = MaterialTheme.colorScheme.surface,
                         tonalElevation = 0.dp,
                     ) {
+                        // Tab-aware so filter and sort defaults move independently (the Display tab's
+                        // hide-titles persists with the filter default, per setGlobalFilters).
                         DropdownMenuItem(
                             text = { Text("Set as default") },
-                            onClick = { overflowOpen = false; onSetFilterDefault(); onSetSortDefault() },
+                            onClick = {
+                                overflowOpen = false
+                                if (selectedTab == TAB_SORT) onSetSortDefault() else onSetFilterDefault()
+                            },
                         )
                         DropdownMenuItem(
                             text = { Text("Reset") },
-                            onClick = { overflowOpen = false; onResetFilterDefault(); onResetSortDefault() },
+                            onClick = {
+                                overflowOpen = false
+                                if (selectedTab == TAB_SORT) onResetSortDefault() else onResetFilterDefault()
+                            },
                         )
                     }
                 }

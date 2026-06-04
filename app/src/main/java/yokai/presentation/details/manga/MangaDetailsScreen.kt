@@ -1,7 +1,10 @@
 package yokai.presentation.details.manga
 
+import android.content.ClipData
 import android.content.Intent
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,10 +29,15 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -54,8 +62,10 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -63,25 +73,32 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import eu.kanade.tachiyomi.data.download.model.Download
+import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.data.recommendation.RECOMMENDS_SOURCE
 import eu.kanade.tachiyomi.ui.manga.related.browse.RelatedMangasBrowseController
 import eu.kanade.tachiyomi.ui.migration.manga.design.PreMigrationController
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.source.globalsearch.GlobalSearchController
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
+import eu.kanade.tachiyomi.util.chapter.ChapterUtil
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.preferredChapterName
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import eu.kanade.tachiyomi.util.compose.LocalRouter
 import eu.kanade.tachiyomi.util.compose.currentOrThrow
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.mapStatus
+import eu.kanade.tachiyomi.util.storage.getUriCompat
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import yokai.domain.chapter.services.calculateChapterGap
 import yokai.domain.manga.models.MangaCover
 import yokai.domain.manga.models.cover
+import yokai.i18n.MR
+import yokai.util.lang.getString
 import yokai.presentation.component.ReikaiTopBar
 import yokai.presentation.details.ChangeCategoryDialog
+import yokai.presentation.details.CoverDialog
 import yokai.presentation.details.EditInfoDialog
 import yokai.presentation.details.DetailsChapterRow
 import yokai.presentation.details.DetailsContent
@@ -140,7 +157,42 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
         // long-pressed source chip's manga id.
         var sourceToRemove by remember { mutableStateOf<Long?>(null) }
 
+        val snackbarHostState = remember { SnackbarHostState() }
+        // One-shot screen effects from the ScreenModel: undo snackbars (mark-read, merge split/remove)
+        // and post-split navigation to a sibling source.
+        LaunchedEffect(Unit) {
+            screenModel.events.collect { event ->
+                when (event) {
+                    is DetailsEvent.Snackbar -> {
+                        val result = snackbarHostState.showSnackbar(
+                            message = event.message,
+                            actionLabel = event.actionLabel,
+                            duration = if (event.actionLabel != null) SnackbarDuration.Long else SnackbarDuration.Short,
+                        )
+                        if (result == SnackbarResult.ActionPerformed) event.onAction?.invoke() else event.onDismiss?.invoke()
+                    }
+                    is DetailsEvent.NavigateToSibling -> navigator.replace(MangaDetailsScreen(event.mangaId))
+                    is DetailsEvent.ShareImage -> {
+                        val uri = event.file.getUriCompat(context)
+                        val intent = Intent(Intent.ACTION_SEND).apply {
+                            type = "image/*"
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            clipData = ClipData.newRawUri(null, uri)
+                        }
+                        context.startActivity(Intent.createChooser(intent, null))
+                    }
+                }
+            }
+        }
+
         val isHttpSource = remember(loaded?.displayManga?.source) { screenModel.isHttpSource() }
+        val chapterSwipeEnabled = remember { screenModel.isChapterSwipeEnabled() }
+        val clipboard = LocalClipboardManager.current
+        var showCoverDialog by remember { mutableStateOf(false) }
+        val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            uri?.let { screenModel.setCustomCover(it) }
+        }
         // Label + stub flag follow the displayed source (state-driven), so they switch with the chips.
         val sourceName = loaded?.sourceLabel.orEmpty()
         val isStubSource = loaded?.isStubSource ?: false
@@ -161,6 +213,7 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
         }
 
         Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 if (loaded != null && selectionActive) {
                     val selectedChapters = loaded.chapters.filter { it.id in loaded.selection }
@@ -171,21 +224,45 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                         selectionCount = loaded.selection.size,
                         onClose = { screenModel.clearSelection() },
                         colors = TopAppBarDefaults.topAppBarColors(),
-                        actions = listOf(
-                            SelectionAction("Mark as read", icon = Icons.Outlined.Done) { screenModel.markSelectedRead(true) },
-                            if (allBookmarked) {
-                                SelectionAction("Remove bookmark", icon = Icons.Outlined.BookmarkRemove) { screenModel.bookmarkSelected(false) }
-                            } else {
-                                SelectionAction("Bookmark", icon = Icons.Outlined.BookmarkAdd) { screenModel.bookmarkSelected(true) }
-                            },
-                            SelectionAction("Download", icon = Icons.Outlined.Download) { screenModel.downloadSelected() },
-                            SelectionAction("Delete", icon = Icons.Outlined.Delete) { screenModel.deleteSelected() },
-                            SelectionAction("Mark as unread") { screenModel.markSelectedRead(false) },
-                            SelectionAction("Mark previous as read") { screenModel.markPreviousRead(true) },
-                            SelectionAction("Mark previous as unread") { screenModel.markPreviousRead(false) },
-                            SelectionAction("Select all") { screenModel.selectAll() },
-                            SelectionAction("Invert selection") { screenModel.invertSelection() },
-                        ),
+                        actions = buildList {
+                            add(SelectionAction("Mark as read", icon = Icons.Outlined.Done) { screenModel.markSelectedRead(true) })
+                            add(
+                                if (allBookmarked) {
+                                    SelectionAction("Remove bookmark", icon = Icons.Outlined.BookmarkRemove) { screenModel.bookmarkSelected(false) }
+                                } else {
+                                    SelectionAction("Bookmark", icon = Icons.Outlined.BookmarkAdd) { screenModel.bookmarkSelected(true) }
+                                },
+                            )
+                            add(SelectionAction("Download", icon = Icons.Outlined.Download) { screenModel.downloadSelected() })
+                            add(SelectionAction("Delete", icon = Icons.Outlined.Delete) { screenModel.deleteSelected() })
+                            add(SelectionAction("Mark as unread") { screenModel.markSelectedRead(false) })
+                            add(SelectionAction("Mark previous as read") { screenModel.markPreviousRead(true) })
+                            add(SelectionAction("Mark previous as unread") { screenModel.markPreviousRead(false) })
+                            // Single-chapter web actions, mirroring the legacy per-chapter long-press menu.
+                            if (loaded.selection.size == 1 && isHttpSource) {
+                                val chapterId = loaded.selection.first()
+                                add(
+                                    SelectionAction("Open in browser") {
+                                        screenModel.getChapterUrl(chapterId)?.let { url ->
+                                            navigator.push(WebViewScreen(url = url, initialTitle = loaded.manga.title, sourceId = loaded.manga.source))
+                                        }
+                                    },
+                                )
+                                add(
+                                    SelectionAction("Share URL") {
+                                        screenModel.getChapterUrl(chapterId)?.let { url ->
+                                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                                type = "text/plain"
+                                                putExtra(Intent.EXTRA_TEXT, url)
+                                            }
+                                            context.startActivity(Intent.createChooser(intent, null))
+                                        }
+                                    },
+                                )
+                            }
+                            add(SelectionAction("Select all") { screenModel.selectAll() })
+                            add(SelectionAction("Invert selection") { screenModel.invertSelection() })
+                        },
                     )
                 } else {
                     ReikaiTopBar(
@@ -278,6 +355,19 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                                             DropdownMenuItem(
                                                 text = { Text("Download all") },
                                                 onClick = { downloadMenuOpen = false; screenModel.downloadAll() },
+                                            )
+                                            HorizontalDivider()
+                                            DropdownMenuItem(
+                                                text = { Text("Remove all downloads") },
+                                                onClick = { downloadMenuOpen = false; screenModel.removeAllDownloads() },
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Remove read downloads") },
+                                                onClick = { downloadMenuOpen = false; screenModel.removeReadDownloads() },
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Remove non-bookmarked downloads") },
+                                                onClick = { downloadMenuOpen = false; screenModel.removeNonBookmarkedDownloads() },
                                             )
                                         }
                                     }
@@ -385,21 +475,43 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                     }
                     // Key on the content hash, not s.chapters: Chapter.equals is url-only, so a
                     // read/bookmark change leaves the list "equal" and the rows would go stale.
-                    val rows = remember(s.chapterStateHash, s.hideChapterTitles, s.downloads, s.selection, searchQuery) {
-                        s.chapters.mapNotNull {
-                            val name = it.preferredChapterName(context, s.hideChapterTitles)
-                            if (searchQuery.isNotBlank() && !name.contains(searchQuery, ignoreCase = true)) {
-                                return@mapNotNull null
+                    val rows = remember(s.chapterStateHash, s.hideChapterTitles, s.downloads, s.selection, searchQuery, s.sorting) {
+                        // Filter to the visible chapters first (with display names), then map to rows so a
+                        // row's "missing N before it" gap is measured against the previous *visible* chapter.
+                        val visible = s.chapters.mapNotNull { ch ->
+                            val name = ch.preferredChapterName(context, s.hideChapterTitles)
+                            if (searchQuery.isNotBlank() && !name.contains(searchQuery, ignoreCase = true)) null else ch to name
+                        }
+                        // Gaps only make sense when sorted by chapter number; under source/date order
+                        // the adjacent difference is noise, so skip it.
+                        val byNumber = s.sorting == Manga.CHAPTER_SORTING_NUMBER
+                        visible.mapIndexed { index, (ch, name) ->
+                            val info = s.downloads[ch.id]
+                            val missing = if (byNumber && index > 0) {
+                                val prev = visible[index - 1].first
+                                calculateChapterGap(
+                                    maxOf(ch.chapter_number, prev.chapter_number).toDouble(),
+                                    minOf(ch.chapter_number, prev.chapter_number).toDouble(),
+                                ).coerceAtLeast(0)
+                            } else {
+                                0
                             }
-                            val info = s.downloads[it.id]
                             DetailsChapterRow(
-                                id = it.id ?: 0L,
+                                id = ch.id ?: 0L,
                                 name = name,
-                                read = it.read,
-                                bookmark = it.bookmark,
+                                read = ch.read,
+                                bookmark = ch.bookmark,
                                 downloadState = info?.state.toDetailsDownloadState(),
                                 downloadProgress = info?.progress ?: 0,
-                                selected = it.id in s.selection,
+                                selected = ch.id in s.selection,
+                                date = ChapterUtil.relativeDate(ch),
+                                readProgress = if (!ch.read && ch.last_page_read > 0) {
+                                    context.getString(MR.strings.page_x_of_y, ch.last_page_read + 1, ch.pages_left + ch.last_page_read)
+                                } else {
+                                    null
+                                },
+                                scanlator = ch.scanlator?.takeIf { text -> text.isNotBlank() },
+                                missingCount = missing,
                             )
                         }
                     }
@@ -453,11 +565,14 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                         statusText = context.mapStatus(displayManga.status),
                         sourceName = sourceName,
                         isStubSource = isStubSource,
+                        onCoverClick = { showCoverDialog = true },
                         description = displayManga.description,
                         genres = genres,
                         isFavorited = manga.favorite,
                         onFavoriteClick = { screenModel.toggleFavorite() },
                         onEditCategoryClick = if (manga.favorite) ({ screenModel.showChangeCategoryDialog() }) else null,
+                        onRemoveFromLibrary = if (manga.favorite) ({ screenModel.toggleFavorite() }) else null,
+                        onRemoveAllSources = if (manga.favorite && s.relatedMangaIds.size > 1) ({ screenModel.removeAllSourcesFromLibrary() }) else null,
                         trackingActive = isTracked,
                         onTrackingClick = { showTrackingSheet = true; trackModel.refresh() },
                         onWebViewClick = if (isHttpSource) ({
@@ -477,6 +592,14 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                             }
                         }) else null,
                         onFilterClick = { showSheet = true },
+                        filtersActive = s.readFilter != 0 || s.downloadedFilter != 0 ||
+                            s.bookmarkedFilter != 0 || s.filteredScanlators.isNotEmpty(),
+                        // transitional: legacy GlobalSearchController until global search ports
+                        onSearch = { query -> router?.pushController(GlobalSearchController(query).withFadeTransaction()) },
+                        onCopy = { text ->
+                            clipboard.setText(AnnotatedString(text))
+                            scope.launch { snackbarHostState.showSnackbar("Copied to clipboard") }
+                        },
                         chapters = rows,
                         onChapterClick = { id ->
                             s.chapters.find { it.id == id }?.let { chapter ->
@@ -491,7 +614,12 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                         listState = listState,
                         topInset = padding.calculateTopPadding(),
                         bottomInset = padding.calculateBottomPadding(),
-                        onDownloadClick = { id -> screenModel.downloadAction(id) },
+                        // Local titles have nothing to download; hide the row indicator (matches legacy).
+                        onDownloadClick = if (displayManga.isLocal()) null else screenModel::downloadAction,
+                        downloadMenuEnabled = true,
+                        chapterSwipeEnabled = chapterSwipeEnabled,
+                        onSwipeToRead = screenModel::toggleChapterRead,
+                        onSwipeToBookmark = screenModel::toggleChapterBookmark,
                         selectionActive = selectionActive,
                         onToggleSelection = { id, sel, long -> screenModel.toggleSelection(id, sel, long) },
                         relatedMangas = relatedItems,
@@ -614,6 +742,22 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
             )
         }
 
+        if (showCoverDialog && loaded != null) {
+            val dm = loaded.displayManga
+            val cover = remember(dm.id, dm.cover_last_modified) { dm.cover() }
+            val custom = remember(dm.id, dm.cover_last_modified) { screenModel.isCustomCover() }
+            CoverDialog(
+                coverData = cover,
+                isCustomCover = custom,
+                canEdit = loaded.manga.favorite,
+                onShare = { screenModel.shareCover() },
+                onSave = { screenModel.saveCover() },
+                onEditCover = { coverPicker.launch("image/*") },
+                onResetCover = { screenModel.resetCover() },
+                onDismiss = { showCoverDialog = false },
+            )
+        }
+
         when (val dialog = loaded?.dialog) {
             is MangaDetailsDialog.ChangeCategory -> ChangeCategoryDialog(
                 allCategories = dialog.allCategories,
@@ -627,9 +771,12 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                 initialArtist = dialog.manga.artist.orEmpty(),
                 initialDescription = dialog.manga.description.orEmpty(),
                 initialGenre = dialog.manga.genre.orEmpty(),
+                statusOptions = remember { listOf(0, 1, 2, 3, 4, 5, 6).map { it to (context.mapStatus(it) ?: "Unknown") } },
+                initialStatus = dialog.manga.status,
+                onReset = { screenModel.resetMangaInfo() },
                 onDismiss = { screenModel.dismissDialog() },
-                onConfirm = { title, author, artist, description, genre ->
-                    screenModel.updateMangaInfo(title, author, artist, description, genre)
+                onConfirm = { title, author, artist, description, genre, status ->
+                    screenModel.updateMangaInfo(title, author, artist, description, genre, status)
                 },
             )
             is MangaDetailsDialog.ManageSources -> ManageSourcesDialog(
