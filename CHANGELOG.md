@@ -80,6 +80,7 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - Light-novel sources now load **once per app launch** and stay loaded across screens, instead of reloading every time you open LN browse, a source, or a novel's details. Those screens open faster, and a memory leak from the old per-screen loading is gone.
 
 ### Fixes
+- The light-novel reader no longer **crashes when a chapter has repeated paragraphs** (blank lines, scene breaks, recurring phrases). Paragraphs were keyed by their text, so identical ones collided; they're now keyed by position.
 - Adding a light novel to the library no longer **creates a duplicate entry**. Adding the same novel from a source (e.g. after browsing and searching for it again) could insert a second copy that lived on independently; adds now resolve to the existing entry and just flag it as a favorite.
 - The legacy manga details top bar no longer **turns solid (its scrolled-down color) after a pull-to-refresh** while the page is still at the top. The refresh briefly reported the list as scrolled while it relaid out, which flipped the bar to its colored state and left it stuck there; the bar color is now re-checked once the list settles.
 - The legacy manga details page no longer **gets the "Library" top bar painted over it** (wrong title, expanded bar, mismatched color), most visibly after switching sources on a grouped manga. The library, which stays loaded behind the details page, was restyling the shared top bar while off-screen; it now only does so when it is actually the visible screen.

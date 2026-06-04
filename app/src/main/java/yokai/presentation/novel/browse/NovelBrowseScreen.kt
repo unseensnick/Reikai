@@ -716,7 +716,11 @@ internal fun ChapterReader(
     Box(modifier = Modifier.fillMaxSize().background(bg)) {
         SelectionContainer(modifier = Modifier.fillMaxSize()) {
             LazyColumn(state = lazyListState, modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp)) {
-                items(items = paragraphs, key = { it.hashCode() }) { p ->
+                // Key by index, not the paragraph text: duplicate paragraphs (blank lines, scene
+                // breaks like "***", repeated phrases) share a String hashCode and would collide,
+                // crashing the LazyColumn. The list is read-only and never reorders, so the index is
+                // a stable, unique key.
+                itemsIndexed(items = paragraphs, key = { index, _ -> index }) { _, p ->
                     Text(
                         text = p,
                         color = fg,
