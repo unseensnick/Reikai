@@ -3,9 +3,13 @@ package yokai.presentation.details.track
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.tachiyomi.data.database.models.Track
+import eu.kanade.tachiyomi.data.track.EnhancedTrackService
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.TrackService
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
+import eu.kanade.tachiyomi.domain.manga.models.Manga
+import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.manga.track.TrackItem
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithTrackServiceTwoWay
 import eu.kanade.tachiyomi.util.system.launchIO
@@ -43,6 +47,13 @@ data class TrackInfoState(
     val searchError: String? = null,
     /** Suggested start/finish date from reading history for the date editor, or null when none. */
     val suggestedDate: Long? = null,
+    /**
+     * Bumped on every track-table emission. [eu.kanade.tachiyomi.data.database.models.TrackImpl]'s
+     * equals compares only identity (manga/sync/media id), not progress, so a status- or
+     * chapter-only edit would leave the new state equal to the old one and get deduped by StateFlow,
+     * showing stale values until the sheet is reopened. This forces a distinct state per write.
+     */
+    val revision: Int = 0,
 )
 
 /**
@@ -62,19 +73,26 @@ class TrackInfoScreenModel(
     private val getManga: GetManga by inject()
     private val getHistory: GetHistory by inject()
     private val trackManager: TrackManager by inject()
+    private val sourceManager: SourceManager by inject()
 
     private var mangaTitle: String = ""
+    /** The tracked manga + its source, loaded once; needed to filter and auto-match enhanced trackers. */
+    private var manga: Manga? = null
+    private var source: Source? = null
 
     init {
         screenModelScope.launchIO {
-            mangaTitle = getManga.awaitById(mangaId)?.title.orEmpty()
-        }
-        screenModelScope.launchIO {
+            manga = getManga.awaitById(mangaId)
+            mangaTitle = manga?.title.orEmpty()
+            source = manga?.let { sourceManager.getOrStub(it.source) }
             getTrack.subscribe(mangaId).collectLatest { tracks ->
+                val src = source
                 val items = trackManager.services
-                    .filter { it.isLogged }
+                    // Enhanced trackers (Komga/Kavita/Suwayomi) only apply to their own sources; hide
+                    // them for incompatible sources, matching the legacy presenter.
+                    .filter { it.isLogged && (src == null || it !is EnhancedTrackService || it.accept(src)) }
                     .map { service -> TrackItem(track = tracks.find { it.sync_id == service.id }, service = service) }
-                mutableState.update { it.copy(loading = false, items = items) }
+                mutableState.update { it.copy(loading = false, items = items, revision = it.revision + 1) }
             }
         }
     }
@@ -98,6 +116,29 @@ class TrackInfoScreenModel(
     }
 
     // --- page navigation ---
+
+    /**
+     * Add a tracker. Enhanced trackers (Komga/Kavita/Suwayomi) auto-match against the source instead
+     * of prompting a search (falling back to search when no match is found); everything else opens the
+     * manual search page. Mirrors the legacy presenter's enhanced-tracker bind.
+     */
+    fun addTracking(serviceId: Long) {
+        val service = trackManager.getService(serviceId) ?: return
+        val manga = manga
+        if (service !is EnhancedTrackService || manga == null) {
+            openSearch(serviceId)
+            return
+        }
+        screenModelScope.launchIO {
+            val match = try {
+                service.match(manga)
+            } catch (e: Exception) {
+                detailsLog { "enhanced track match failed sync=$serviceId: ${e.message}" }
+                null
+            }
+            if (match != null) registerTracking(serviceId, match) else openSearch(serviceId)
+        }
+    }
 
     fun openSearch(serviceId: Long) {
         mutableState.update {
@@ -219,6 +260,9 @@ class TrackInfoScreenModel(
     }
 
     private fun updateRemote(track: Track, service: TrackService) {
+        // The caller mutated [track] (the live state item) in place; bump so the edit shows at once,
+        // then persist. The subscription re-confirms from the DB once the remote update lands.
+        mutableState.update { it.copy(revision = it.revision + 1) }
         screenModelScope.launchIO {
             val binding = try {
                 service.update(track)

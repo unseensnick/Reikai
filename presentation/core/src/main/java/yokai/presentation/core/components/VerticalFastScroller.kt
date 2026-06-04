@@ -34,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
@@ -173,12 +174,20 @@ fun VerticalFastScroller(
                         },
                     )
                     .height(ThumbLength)
-                    .padding(horizontal = 8.dp)
-                    .padding(end = endContentPadding)
-                    .width(ThumbThickness)
-                    .alpha(alpha.value)
-                    .background(color = thumbColor, shape = ThumbShape),
-            )
+                    .width(ThumbTouchTarget),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                // Visual thumb is a thin 6dp bar; the wider parent Box is an invisible touch target.
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 8.dp)
+                        .padding(end = endContentPadding)
+                        .height(ThumbLength)
+                        .width(ThumbThickness)
+                        .alpha(alpha.value)
+                        .background(color = thumbColor, shape = ThumbShape),
+                )
+            }
         }.map { it.measure(scrollerConstraints) }
         val scrollerWidth = scrollerPlaceable.fastMaxBy { it.width }?.width ?: 0
 
@@ -417,11 +426,19 @@ fun VerticalGridFastScroller(
                         },
                     )
                     .height(ThumbLength)
-                    .padding(end = endContentPadding)
-                    .width(ThumbThickness)
-                    .alpha(alpha.value)
-                    .background(color = thumbColor, shape = ThumbShape),
-            )
+                    .width(ThumbTouchTarget),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                // Visual thumb is a thin 6dp bar; the wider parent Box is an invisible touch target.
+                Box(
+                    modifier = Modifier
+                        .padding(end = endContentPadding)
+                        .height(ThumbLength)
+                        .width(ThumbThickness)
+                        .alpha(alpha.value)
+                        .background(color = thumbColor, shape = ThumbShape),
+                )
+            }
         }.map { it.measure(scrollerConstraints) }
         val scrollerWidth = scrollerPlaceable.fastMaxBy { it.width }?.width ?: 0
 
@@ -540,6 +557,9 @@ object Scroller {
 // Match legacy thumb_drawable.xml dimensions: 6dp x 54dp pill.
 private val ThumbLength = 54.dp
 private val ThumbThickness = 6.dp
+// Invisible grab area around the thin visual thumb so it's easy to catch on large / edge displays
+// (the 6dp bar alone is well under the 48dp Material touch-target minimum).
+private val ThumbTouchTarget = 48.dp
 private val ThumbShape = RoundedCornerShape(ThumbThickness / 2)
 private val FadeOutAnimationSpec = tween<Float>(
     durationMillis = ViewConfiguration.getScrollBarFadeDuration(),

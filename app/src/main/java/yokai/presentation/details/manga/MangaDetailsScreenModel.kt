@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.data.database.models.hideChapterTitle
 import eu.kanade.tachiyomi.data.database.models.readFilter
 import eu.kanade.tachiyomi.data.database.models.sortDescending
 import eu.kanade.tachiyomi.data.database.models.create
+import eu.kanade.tachiyomi.data.database.models.prepareCoverUpdate
 import eu.kanade.tachiyomi.data.database.models.updateCoverLastModified
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
@@ -23,6 +24,7 @@ import eu.kanade.tachiyomi.data.recommendation.RECOMMENDS_SOURCE
 import eu.kanade.tachiyomi.data.recommendation.RelatedMangasLoader
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.CatalogueSource
+import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
@@ -33,7 +35,9 @@ import eu.kanade.tachiyomi.util.chapter.ChapterFilter
 import eu.kanade.tachiyomi.util.chapter.ChapterSort
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
+import eu.kanade.tachiyomi.util.chapter.updateTrackChapterMarkedAsRead
 import eu.kanade.tachiyomi.util.isLocal
+import eu.kanade.tachiyomi.util.shouldDownloadNewChapters
 import eu.kanade.tachiyomi.util.manga.MangaUtil
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.system.ImageUtil
@@ -85,6 +89,8 @@ sealed interface MangaDetailsDialog {
     data class EditMangaInfo(val manga: Manga) : MangaDetailsDialog
     /** Merge-group "Manage sources" panel: the grouped sources the user can split or remove. */
     data class ManageSources(val sources: List<ManageSourceItem>) : MangaDetailsDialog
+    /** Confirm deleting downloads orphaned by chapters removed at the source on refresh. */
+    data class ConfirmRemovedDownloads(val chapters: List<Chapter>, val manga: Manga) : MangaDetailsDialog
 }
 
 /** One grouped source for the details source-view chip row. */
@@ -225,6 +231,10 @@ class MangaDetailsScreenModel(
     val events: SharedFlow<DetailsEvent> = _events.asSharedFlow()
 
     fun emitEvent(event: DetailsEvent) { _events.tryEmit(event) }
+
+    /** Pinged after a mark-read tracker push lands, so an open tracking sheet can re-sync from remote. */
+    private val _trackRefresh = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val trackRefresh: SharedFlow<Unit> = _trackRefresh.asSharedFlow()
 
     /** Range-select anchors (first/last selected index in the displayed list), like Mihon. */
     private val selectedPositions = intArrayOf(-1, -1)
@@ -402,13 +412,65 @@ class MangaDetailsScreenModel(
                     runCatching {
                         val manga = if (id == loaded.manga.id) loaded.manga else getManga.awaitById(id) ?: return@forEach
                         val source = sourceManager.getOrStub(manga.source)
-                        syncChaptersWithSource(source.getChapterList(manga), manga, source)
+                        fetchMangaFromSource(manga, source)
+                        val (added, removed) = syncChaptersWithSource(source.getChapterList(manga), manga, source)
+                        handleSyncedChapters(manga, source, added, removed)
                     }.onFailure { detailsLog { "refresh source for manga $id failed: ${it.message}" } }
                 }
             } finally {
                 mutableState.update { (it as? MangaDetailsState.Loaded)?.copy(isRefreshing = false) ?: it }
             }
         }
+    }
+
+    /**
+     * Pull fresh manga metadata (cover, description, status, ...) from the source and persist it.
+     * Mirrors legacy [eu.kanade.tachiyomi.ui.manga.MangaDetailsPresenter.fetchMangaFromSource]; the
+     * palette warm-up is deferred (Phase 6). Failures are swallowed so a metadata miss never aborts
+     * the chapter sync. The reactive flow re-emits the persisted manga, so no manual state push.
+     */
+    private suspend fun fetchMangaFromSource(manga: Manga, source: Source) {
+        runCatching {
+            val networkManga = source.getMangaDetails(manga)
+            manga.prepareCoverUpdate(coverCache, networkManga, false)
+            manga.copyFrom(networkManga)
+            manga.initialized = true
+            updateManga.await(manga.toMangaUpdate())
+        }.onFailure { detailsLog { "refresh manga ${manga.id} failed: ${it.message}" } }
+    }
+
+    /**
+     * React to a source sync: auto-download newly [added] chapters when the manga opts in, and handle
+     * downloads orphaned by [removed] chapters per the user's "deleted chapters" preference (auto /
+     * never / ask). Mirrors legacy `fetchChaptersFromSource`'s post-sync block.
+     */
+    private suspend fun handleSyncedChapters(manga: Manga, source: Source, added: List<Chapter>, removed: List<Chapter>) {
+        if (added.isNotEmpty() && manga.shouldDownloadNewChapters(preferences)) {
+            downloadManager.downloadChapters(manga, added.sortedBy { it.chapter_number })
+        }
+        if (removed.isEmpty()) return
+        val orphaned = removed.filter { downloadManager.isChapterDownloaded(it, manga) }
+        if (orphaned.isEmpty()) return
+        when (preferences.deleteRemovedChapters().get()) {
+            2 -> deleteDownloads(orphaned, manga, source) // always delete
+            1 -> Unit // never delete
+            else -> { // ask
+                val loaded = state.value as? MangaDetailsState.Loaded ?: return
+                mutableState.value = loaded.copy(dialog = MangaDetailsDialog.ConfirmRemovedDownloads(orphaned, manga))
+            }
+        }
+    }
+
+    /** Delete on-disk downloads for [chapters] and reflect the cleared state in the row indicators. */
+    private fun deleteDownloads(chapters: List<Chapter>, manga: Manga, source: Source = sourceManager.getOrStub(manga.source)) {
+        downloadManager.deleteChapters(chapters, manga, source, force = true)
+        chapters.forEach { ch -> ch.id?.let { applyDownloadState(it, Download.State.NOT_DOWNLOADED) } }
+    }
+
+    /** Confirm handler for [MangaDetailsDialog.ConfirmRemovedDownloads]: delete the orphaned downloads. */
+    fun deleteRemovedDownloads(chapters: List<Chapter>, manga: Manga) {
+        screenModelScope.launchIO { deleteDownloads(chapters, manga) }
+        dismissDialog()
     }
 
     /** Stitches the merged group into the unified list with the preferred-source trunk pick applied.
@@ -570,9 +632,61 @@ class MangaDetailsScreenModel(
         }
     }
 
+    private data class ChapterProgressSnapshot(val id: Long, val read: Boolean, val lastPageRead: Long, val pagesLeft: Long)
+
+    /**
+     * Mark [chapters] (and their merged siblings) read/unread, then fire the legacy side effects:
+     * unmarking rewinds page progress; marking read optionally deletes downloads
+     * ([PreferencesHelper.removeAfterMarkedAsRead]) and pushes the latest read chapter to trackers.
+     * Every path offers an undo that restores the pre-mark read flag + page progress (it does not
+     * restore deleted downloads, matching legacy). Mirrors `MangaDetailsPresenter.markChaptersRead`.
+     */
     private suspend fun applyRead(chapters: List<Chapter>, read: Boolean) {
-        val updates = expandToSiblings(chapters).mapNotNull { ch -> ch.id?.let { ChapterUpdate(id = it, read = read) } }
-        if (updates.isNotEmpty()) updateChapter.awaitAll(updates)
+        val targets = expandToSiblings(chapters)
+        val snapshot = targets.mapNotNull { ch ->
+            ch.id?.let { ChapterProgressSnapshot(it, ch.read, ch.last_page_read.toLong(), ch.pages_left.toLong()) }
+        }
+        val updates = targets.mapNotNull { ch ->
+            ch.id?.let {
+                ChapterUpdate(
+                    id = it,
+                    read = read,
+                    lastPageRead = if (!read) 0L else null,
+                    pagesLeft = if (!read) 0L else null,
+                )
+            }
+        }
+        if (updates.isEmpty()) return
+        updateChapter.awaitAll(updates)
+
+        if (read) {
+            val manga = (state.value as? MangaDetailsState.Loaded)?.manga
+            if (manga != null && preferences.removeAfterMarkedAsRead().get()) {
+                val downloaded = targets.filter { downloadManager.isChapterDownloaded(it, manga) }
+                if (downloaded.isNotEmpty()) deleteDownloads(downloaded, manga)
+            }
+            updateTrackChapterMarkedAsRead(preferences, targets.maxByOrNull { it.chapter_number }, mangaId) {
+                _trackRefresh.tryEmit(Unit)
+            }
+        }
+
+        emitEvent(
+            DetailsEvent.Snackbar(
+                message = if (read) "Marked as read" else "Marked as unread",
+                actionLabel = "Undo",
+                onAction = { restoreProgress(snapshot) },
+            ),
+        )
+    }
+
+    /** Undo path for [applyRead]: restore the captured read flag + page progress for each chapter. */
+    private fun restoreProgress(snapshot: List<ChapterProgressSnapshot>) {
+        if (snapshot.isEmpty()) return
+        screenModelScope.launchIO {
+            updateChapter.awaitAll(
+                snapshot.map { ChapterUpdate(id = it.id, read = it.read, lastPageRead = it.lastPageRead, pagesLeft = it.pagesLeft) },
+            )
+        }
     }
 
     private suspend fun applyBookmark(chapters: List<Chapter>, bookmark: Boolean) {

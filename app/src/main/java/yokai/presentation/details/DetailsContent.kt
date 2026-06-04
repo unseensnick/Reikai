@@ -92,6 +92,7 @@ import coil3.compose.AsyncImage
 import dev.icerock.moko.resources.compose.pluralStringResource
 import eu.kanade.tachiyomi.source.model.SManga
 import yokai.i18n.MR
+import yokai.presentation.core.components.VerticalFastScroller
 import yokai.presentation.manga.components.MangaCover
 import yokai.presentation.manga.components.MangaCoverRatio
 
@@ -237,92 +238,101 @@ fun DetailsContent(
     /** The source being viewed (the anchor of this screen); its chip can't be long-press-removed. */
     currentSourceId: Long? = null,
 ) {
-    LazyColumn(
-        state = listState,
-        modifier = modifier.fillMaxSize(),
-        // Leave room so the resume FAB doesn't cover the last chapter row.
-        contentPadding = PaddingValues(bottom = 88.dp + bottomInset),
-    ) {
-        item(key = "header") {
-            DetailsHeaderBox(
-                coverData = coverData,
-                title = title,
-                author = author,
-                artist = artist,
-                status = status,
-                statusText = statusText,
-                sourceName = sourceName,
-                isStubSource = isStubSource,
-                onCoverClick = onCoverClick,
-                onSearch = onSearch,
-                onCopy = onCopy,
-                topInset = topInset,
-            )
-        }
-        if (onFavoriteClick != null) {
-            item(key = "actions") {
-                DetailsActionRow(
-                    isFavorited = isFavorited,
-                    onFavoriteClick = onFavoriteClick,
-                    onEditCategoryClick = onEditCategoryClick,
-                    onRemoveFromLibrary = onRemoveFromLibrary,
-                    onRemoveAllSources = onRemoveAllSources,
-                    trackingActive = trackingActive,
-                    onTrackingClick = onTrackingClick,
-                    onWebViewClick = onWebViewClick,
-                    onShareClick = onShareClick,
-                )
-            }
-        }
-        if (sourceTabs.isNotEmpty() && onSourceViewChange != null) {
-            item(key = "source_tabs") {
-                SourceViewChips(
-                    tabs = sourceTabs,
-                    selected = selectedSourceView,
-                    onSelect = onSourceViewChange,
-                    onRemove = onSourceRemove,
-                    currentSourceId = currentSourceId,
-                )
-            }
-        }
-        item(key = "description") {
-            ExpandableDescription(description = description, genres = genres, onSearch = onSearch, onCopy = onCopy)
-        }
-        if ((relatedMangas.isNotEmpty() || relatedMangasLoading) && onRelatedClick != null) {
-            item(key = "related") {
-                RelatedMangaCarousel(
-                    items = relatedMangas,
-                    total = relatedMangasTotal,
-                    loading = relatedMangasLoading,
-                    onClick = onRelatedClick,
-                    onSeeAllClick = onSeeAllClick,
-                )
-            }
-        }
-        item(key = "chapter_count") {
-            ChapterHeader(count = chapters.size, onClick = onFilterClick, filtersActive = filtersActive)
-        }
-        items(items = chapters, key = { it.id }) { chapter ->
-            if (chapter.missingCount > 0) {
-                MissingChapterCountListItem(count = chapter.missingCount)
-            }
-            DetailsChapterListRow(
-                chapter = chapter,
-                selectionActive = selectionActive,
-                onClick = {
-                    if (selectionActive && onToggleSelection != null) {
-                        onToggleSelection(chapter.id, !chapter.selected, false)
-                    } else {
-                        onChapterClick(chapter.id)
+    Box(modifier = modifier.fillMaxSize()) {
+        VerticalFastScroller(
+            listState = listState,
+            thumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+            topContentPadding = topInset,
+            bottomContentPadding = 88.dp + bottomInset,
+        ) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                // Leave room so the resume FAB doesn't cover the last chapter row.
+                contentPadding = PaddingValues(bottom = 88.dp + bottomInset),
+            ) {
+                item(key = "header") {
+                    DetailsHeaderBox(
+                        coverData = coverData,
+                        title = title,
+                        author = author,
+                        artist = artist,
+                        status = status,
+                        statusText = statusText,
+                        sourceName = sourceName,
+                        isStubSource = isStubSource,
+                        onCoverClick = onCoverClick,
+                        onSearch = onSearch,
+                        onCopy = onCopy,
+                        topInset = topInset,
+                    )
+                }
+                if (onFavoriteClick != null) {
+                    item(key = "actions") {
+                        DetailsActionRow(
+                            isFavorited = isFavorited,
+                            onFavoriteClick = onFavoriteClick,
+                            onEditCategoryClick = onEditCategoryClick,
+                            onRemoveFromLibrary = onRemoveFromLibrary,
+                            onRemoveAllSources = onRemoveAllSources,
+                            trackingActive = trackingActive,
+                            onTrackingClick = onTrackingClick,
+                            onWebViewClick = onWebViewClick,
+                            onShareClick = onShareClick,
+                        )
                     }
-                },
-                onLongClick = onToggleSelection?.let { cb -> { cb(chapter.id, true, true) } },
-                onDownloadClick = onDownloadClick?.let { cb -> { action -> cb(chapter.id, action) } },
-                downloadMenuEnabled = downloadMenuEnabled,
-                swipeEnabled = chapterSwipeEnabled,
-                onSwipeToRead = onSwipeToRead?.let { cb -> { cb(chapter.id) } },
-                onSwipeToBookmark = onSwipeToBookmark?.let { cb -> { cb(chapter.id) } },
-            )
+                }
+                if (sourceTabs.isNotEmpty() && onSourceViewChange != null) {
+                    item(key = "source_tabs") {
+                        SourceViewChips(
+                            tabs = sourceTabs,
+                            selected = selectedSourceView,
+                            onSelect = onSourceViewChange,
+                            onRemove = onSourceRemove,
+                            currentSourceId = currentSourceId,
+                        )
+                    }
+                }
+                item(key = "description") {
+                    ExpandableDescription(description = description, genres = genres, onSearch = onSearch, onCopy = onCopy)
+                }
+                if ((relatedMangas.isNotEmpty() || relatedMangasLoading) && onRelatedClick != null) {
+                    item(key = "related") {
+                        RelatedMangaCarousel(
+                            items = relatedMangas,
+                            total = relatedMangasTotal,
+                            loading = relatedMangasLoading,
+                            onClick = onRelatedClick,
+                            onSeeAllClick = onSeeAllClick,
+                        )
+                    }
+                }
+                item(key = "chapter_count") {
+                    ChapterHeader(count = chapters.size, onClick = onFilterClick, filtersActive = filtersActive)
+                }
+                items(items = chapters, key = { it.id }) { chapter ->
+                    if (chapter.missingCount > 0) {
+                        MissingChapterCountListItem(count = chapter.missingCount)
+                    }
+                    DetailsChapterListRow(
+                        chapter = chapter,
+                        selectionActive = selectionActive,
+                        onClick = {
+                            if (selectionActive && onToggleSelection != null) {
+                                onToggleSelection(chapter.id, !chapter.selected, false)
+                            } else {
+                                onChapterClick(chapter.id)
+                            }
+                        },
+                        onLongClick = onToggleSelection?.let { cb -> { cb(chapter.id, true, true) } },
+                        onDownloadClick = onDownloadClick?.let { cb -> { action -> cb(chapter.id, action) } },
+                        downloadMenuEnabled = downloadMenuEnabled,
+                        swipeEnabled = chapterSwipeEnabled,
+                        onSwipeToRead = onSwipeToRead?.let { cb -> { cb(chapter.id) } },
+                        onSwipeToBookmark = onSwipeToBookmark?.let { cb -> { cb(chapter.id) } },
+                    )
+                }
+            }
         }
     }
 }

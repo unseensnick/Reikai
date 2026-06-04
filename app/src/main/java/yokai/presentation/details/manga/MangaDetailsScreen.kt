@@ -72,6 +72,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
+import dev.icerock.moko.resources.compose.pluralStringResource
+import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.data.recommendation.RECOMMENDS_SOURCE
@@ -89,6 +91,7 @@ import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.mapStatus
 import eu.kanade.tachiyomi.util.storage.getUriCompat
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
+import java.text.DecimalFormat
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import yokai.domain.chapter.services.calculateChapterGap
@@ -97,6 +100,7 @@ import yokai.domain.manga.models.cover
 import yokai.i18n.MR
 import yokai.util.lang.getString
 import yokai.presentation.component.ReikaiTopBar
+import yokai.presentation.core.util.shouldExpandFAB
 import yokai.presentation.details.ChangeCategoryDialog
 import yokai.presentation.details.CoverDialog
 import yokai.presentation.details.EditInfoDialog
@@ -185,9 +189,15 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                 }
             }
         }
+        // A mark-read tracker push lands a few seconds later (and off this screen's scope), so re-sync
+        // the tracking sheet from remote once it completes instead of waiting for a close/reopen.
+        LaunchedEffect(Unit) {
+            screenModel.trackRefresh.collect { trackModel.refresh() }
+        }
 
         val isHttpSource = remember(loaded?.displayManga?.source) { screenModel.isHttpSource() }
         val chapterSwipeEnabled = remember { screenModel.isChapterSwipeEnabled() }
+        val chapterNumberFormat = remember { DecimalFormat("#.###") }
         val clipboard = LocalClipboardManager.current
         var showCoverDialog by remember { mutableStateOf(false) }
         val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -220,12 +230,21 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                     // Show "Remove bookmark" only when every selected chapter is already bookmarked;
                     // an empty/none or mixed selection adds bookmarks.
                     val allBookmarked = selectedChapters.isNotEmpty() && selectedChapters.all { it.bookmark }
+                    // Likewise the read toggle flips to "Mark as unread" only when every selected
+                    // chapter is already read; a mixed selection keeps "Mark as read".
+                    val allSelectedRead = selectedChapters.isNotEmpty() && selectedChapters.all { it.read }
                     SelectionAppBar(
                         selectionCount = loaded.selection.size,
                         onClose = { screenModel.clearSelection() },
                         colors = TopAppBarDefaults.topAppBarColors(),
                         actions = buildList {
-                            add(SelectionAction("Mark as read", icon = Icons.Outlined.Done) { screenModel.markSelectedRead(true) })
+                            add(
+                                if (allSelectedRead) {
+                                    SelectionAction("Mark as unread", icon = Icons.Outlined.RemoveDone) { screenModel.markSelectedRead(false) }
+                                } else {
+                                    SelectionAction("Mark as read", icon = Icons.Outlined.Done) { screenModel.markSelectedRead(true) }
+                                },
+                            )
                             add(
                                 if (allBookmarked) {
                                     SelectionAction("Remove bookmark", icon = Icons.Outlined.BookmarkRemove) { screenModel.bookmarkSelected(false) }
@@ -235,7 +254,6 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                             )
                             add(SelectionAction("Download", icon = Icons.Outlined.Download) { screenModel.downloadSelected() })
                             add(SelectionAction("Delete", icon = Icons.Outlined.Delete) { screenModel.deleteSelected() })
-                            add(SelectionAction("Mark as unread") { screenModel.markSelectedRead(false) })
                             add(SelectionAction("Mark previous as read") { screenModel.markPreviousRead(true) })
                             add(SelectionAction("Mark previous as unread") { screenModel.markPreviousRead(false) })
                             // Single-chapter web actions, mirroring the legacy per-chapter long-press menu.
@@ -438,14 +456,27 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
             },
             floatingActionButton = {
                 val resume = loaded?.resumeChapter
-                if (loaded != null && resume != null && !selectionActive) {
+                // When everything is read the FAB re-reads the most recent chapter (legacy disables
+                // its header button here; a re-read entry point is friendlier for a FAB).
+                val fabTarget = resume ?: loaded?.chapters?.maxByOrNull { it.chapter_number }
+                if (loaded != null && fabTarget != null && !selectionActive) {
+                    val label = when {
+                        resume == null -> context.getString(MR.strings.all_chapters_read)
+                        resume.chapter_number > 0 && resume.last_page_read > 0 ->
+                            context.getString(MR.strings.continue_reading_chapter_, chapterNumberFormat.format(resume.chapter_number.toDouble()))
+                        resume.chapter_number > 0 ->
+                            context.getString(MR.strings.start_reading_chapter_, chapterNumberFormat.format(resume.chapter_number.toDouble()))
+                        resume.last_page_read > 0 -> context.getString(MR.strings.continue_reading)
+                        else -> context.getString(MR.strings.start_reading)
+                    }
                     ExtendedFloatingActionButton(
-                        text = { Text(if (loaded.hasStarted) "Resume" else "Start reading") },
+                        text = { Text(label) },
                         icon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
+                        expanded = listState.shouldExpandFAB(),
                         onClick = {
                             scope.launch {
-                                val origin = screenModel.mangaForChapter(resume) ?: loaded.manga
-                                context.startActivity(ReaderActivity.newIntent(context, origin, resume))
+                                val origin = screenModel.mangaForChapter(fabTarget) ?: loaded.manga
+                                context.startActivity(ReaderActivity.newIntent(context, origin, fabTarget))
                             }
                         },
                         containerColor = MaterialTheme.colorScheme.primary,
@@ -724,7 +755,7 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                 state = trackState,
                 onSearchQueryChange = trackModel::onSearchQueryChange,
                 onSearch = trackModel::search,
-                onOpenSearch = trackModel::openSearch,
+                onOpenSearch = trackModel::addTracking,
                 onRegister = trackModel::registerTracking,
                 onSetPrivate = trackModel::setPrivate,
                 onOpenStatus = trackModel::openStatus,
@@ -785,6 +816,36 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                 onRemoveFromLibrary = { screenModel.removeSourcesFromLibrary(it) },
                 onDismiss = { screenModel.dismissDialog() },
             )
+            is MangaDetailsDialog.ConfirmRemovedDownloads -> {
+                val names = remember(dialog.chapters) {
+                    dialog.chapters.take(5).joinToString("\n") { it.name } +
+                        if (dialog.chapters.size > 5) "\n…" else ""
+                }
+                AlertDialog(
+                    onDismissRequest = { screenModel.dismissDialog() },
+                    title = { Text(stringResource(MR.strings.chapters_removed)) },
+                    text = {
+                        Text(
+                            pluralStringResource(
+                                MR.plurals.deleted_chapters,
+                                quantity = dialog.chapters.size,
+                                dialog.chapters.size,
+                                names,
+                            ),
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { screenModel.deleteRemovedDownloads(dialog.chapters, dialog.manga) }) {
+                            Text(stringResource(MR.strings.delete))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { screenModel.dismissDialog() }) {
+                            Text(stringResource(MR.strings.cancel))
+                        }
+                    },
+                )
+            }
             null -> Unit
         }
     }
