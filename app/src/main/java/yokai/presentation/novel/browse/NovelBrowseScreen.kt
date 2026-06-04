@@ -508,9 +508,7 @@ internal suspend fun loadChapterForReading(
     novelRepo: NovelRepository,
     chapterRepo: NovelChapterRepository,
 ): ChapterRead {
-    val existingNovel = novelRepo.getByUrlAndSource(novel.path, source.id)
-    val novelId = existingNovel?.id
-        ?: novelRepo.insert(novel.toNovel(sourceId = source.id, favorite = false))
+    val novelId = novelRepo.insertOrGet(novel.toNovel(sourceId = source.id, favorite = false))?.id
         ?: error("failed to insert novel")
     val existingChapter = chapterRepo.getByUrlAndNovelId(chapter.path, novelId)
     val chapterId = existingChapter?.id
@@ -612,14 +610,13 @@ internal fun NovelDetails(
                             scope.launch {
                                 busy = true
                                 try {
-                                    val existing = savedNovel
-                                    val persisted = if (existing == null) {
-                                        repo.insert(novel.toNovel(sourceId = source.id, favorite = true))
-                                        repo.getByUrlAndSource(novel.path, source.id)
-                                    } else {
-                                        val updated = existing.copy(favorite = true)
-                                        repo.update(updated)
-                                        updated
+                                    // Resolve the row FRESH (not from the stale collectAsState value)
+                                    // so a concurrent/just-created row is reused instead of duplicated.
+                                    val resolved = repo.insertOrGet(novel.toNovel(sourceId = source.id, favorite = true))
+                                    val persisted = when {
+                                        resolved == null -> null
+                                        resolved.favorite -> resolved
+                                        else -> resolved.copy(favorite = true).also { repo.update(it) }
                                     }
                                     // Persist the already-parsed chapters so the library badge has
                                     // something to count (library_novel_view sums novel_chapters).

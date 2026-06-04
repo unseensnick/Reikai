@@ -20,6 +20,12 @@ interface NovelRepository {
     fun getAllAsFlow(): Flow<List<Novel>>
     fun getByUrlAndSourceAsFlow(url: String, source: String): Flow<Novel?>
     suspend fun insert(novel: Novel): Long?
+
+    /** Get-or-insert by (url, source): return the stored row if one exists, else insert [novel] and
+     *  return it. The single funnel that prevents duplicate library rows (mirrors the manga side's
+     *  `networkToLocalManga`). Callers must route through this with a FRESH call rather than deciding
+     *  insert-vs-update from a cached/Compose value, which is what let duplicates slip in. */
+    suspend fun insertOrGet(novel: Novel): Novel?
     suspend fun update(novel: Novel): Boolean
     suspend fun getLibraryNovel(): List<LibraryNovel>
     fun getLibraryNovelAsFlow(): Flow<List<LibraryNovel>>

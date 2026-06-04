@@ -22,6 +22,12 @@ class NovelRepositoryImpl(private val handler: DatabaseHandler) : NovelRepositor
     override suspend fun getFavorites(): List<Novel> =
         handler.awaitList { novelsQueries.findFavorites(::novelMapper) }
 
+    override suspend fun insertOrGet(novel: Novel): Novel? {
+        getByUrlAndSource(novel.url, novel.source)?.let { return it }
+        val id = insert(novel) ?: return null
+        return getById(id)
+    }
+
     override fun getAllAsFlow(): Flow<List<Novel>> =
         handler.subscribeToList { novelsQueries.findAll(::novelMapper) }
 

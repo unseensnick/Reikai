@@ -490,8 +490,9 @@ class NovelDetailsScreenModel(
             if (merged != existing) novelRepo.update(merged)
             merged
         } else {
-            val id = novelRepo.insert(sourceNovel.toNovel(sourceId = src.id, favorite = true)) ?: return
-            novelRepo.getById(id) ?: return
+            // Get-or-insert so a row created concurrently (e.g. the browse reader's favorite=false
+            // shadow row) is reused instead of duplicated.
+            novelRepo.insertOrGet(sourceNovel.toNovel(sourceId = src.id, favorite = true)) ?: return
         }
         val chapters = sourceNovel.chapters.orEmpty()
         if (chapters.isNotEmpty()) {
