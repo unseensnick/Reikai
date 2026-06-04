@@ -144,7 +144,7 @@ fun appModule(app: Application) = module {
     single { DownloadCache(app) }
 
     single { yokai.novel.download.NovelDownloadProvider() }
-    single { yokai.novel.download.NovelDownloadManager() }
+    single { yokai.novel.download.NovelDownloadManager(app) }
 
     // Concrete type, not bound to LibraryUpdater, so Phase 7's NovelLibraryUpdater can register
     // alongside without ambiguity. The interface stays a contract for tab-agnostic composables.

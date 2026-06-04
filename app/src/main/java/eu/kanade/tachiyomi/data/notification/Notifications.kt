@@ -75,6 +75,8 @@ object Notifications {
     const val ID_NOVEL_LIBRARY_SIZE_WARNING = -113
     const val CHANNEL_NOVEL_LIBRARY_SKIPPED = "novel_library_skipped_channel"
     const val ID_NOVEL_LIBRARY_SKIPPED = -114
+    const val CHANNEL_NOVEL_DOWNLOADER = "novel_downloader_channel"
+    const val ID_NOVEL_DOWNLOADER = -210
 
     /**
      * Notification channel and ids used by the library updater.
@@ -230,6 +232,14 @@ object Notifications {
                 NotificationManager.IMPORTANCE_DEFAULT,
             ).apply {
                 group = GROUP_LIBRARY
+            },
+            NotificationChannel(
+                CHANNEL_NOVEL_DOWNLOADER,
+                context.getString(MR.strings.downloads),
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                group = GROUP_LIBRARY
+                setShowBadge(false)
             },
             NotificationChannel(
                 CHANNEL_BACKUP_RESTORE_PROGRESS,

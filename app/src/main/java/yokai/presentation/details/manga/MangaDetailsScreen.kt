@@ -268,6 +268,10 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                                                 onClick = { downloadMenuOpen = false; screenModel.downloadNext(5) },
                                             )
                                             DropdownMenuItem(
+                                                text = { Text("Download next 10") },
+                                                onClick = { downloadMenuOpen = false; screenModel.downloadNext(10) },
+                                            )
+                                            DropdownMenuItem(
                                                 text = { Text("Download unread") },
                                                 onClick = { downloadMenuOpen = false; screenModel.downloadUnread() },
                                             )

@@ -750,6 +750,40 @@ class NovelDetailsScreenModel(
         }
     }
 
+    // --- Downloads (bulk) ---
+    // Pre-filter by the isDownloaded DB flag so a "download all" on a long novel doesn't stat
+    // thousands of files on the caller; the manager still double-checks existence per chapter. Run
+    // on IO since the manager's existence pre-check touches disk.
+
+    fun downloadSelected() {
+        val targets = selectedChapters() ?: return
+        screenModelScope.launchIO { downloadManager.downloadChapters(targets.filter { !it.isDownloaded }) }
+        clearSelection()
+    }
+
+    fun deleteSelectedDownloads() {
+        val targets = selectedChapters() ?: return
+        screenModelScope.launchIO { downloadManager.deleteChapters(targets.filter { it.isDownloaded }) }
+        clearSelection()
+    }
+
+    fun downloadUnread() {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        screenModelScope.launchIO { downloadManager.downloadChapters(loaded.chapters.filter { !it.read && !it.isDownloaded }) }
+    }
+
+    fun downloadAll() {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        screenModelScope.launchIO { downloadManager.downloadChapters(loaded.chapters.filter { !it.isDownloaded }) }
+    }
+
+    /** Queue the next [count] not-yet-downloaded chapters in reading (source) order. */
+    fun downloadNext(count: Int) {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        val next = loaded.chapters.sortedBy { it.sourceOrder }.filter { !it.isDownloaded }.take(count)
+        screenModelScope.launchIO { downloadManager.downloadChapters(next) }
+    }
+
     fun markAllRead(read: Boolean) {
         screenModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO

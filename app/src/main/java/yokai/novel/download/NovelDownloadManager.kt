@@ -1,5 +1,6 @@
 package yokai.novel.download
 
+import android.content.Context
 import co.touchlab.kermit.Logger
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
@@ -23,12 +24,12 @@ import yokai.novel.source.NovelSourceManager
  * a copy of the manga [eu.kanade.tachiyomi.data.download.DownloadManager] / Downloader stack (no
  * pages, no on-disk cache, no CBZ, no tall-image splitting).
  *
- * Self-contained: each chapter's owning source is resolved from its `novelId` (chapter row ->
- * sibling Novel -> plugin id), so the engine needs no screen state and the same entry points work
- * from a future background WorkManager job (Slice 2). Registered as a Koin `single` and reached via
- * `injectLazy` like the manga DownloadManager.
+ * The actual draining runs inside [NovelDownloadJob] (a foreground worker) so downloads survive
+ * backgrounding and resume after a restart; [downloadChapters] enqueues + persists, then starts the
+ * job. Self-contained: each chapter's owning source is resolved from its `novelId` (chapter row ->
+ * sibling Novel -> plugin id), so the same entry points work from a cold background process.
  */
-class NovelDownloadManager {
+class NovelDownloadManager(private val context: Context) {
 
     private val provider: NovelDownloadProvider by injectLazy()
     private val chapterRepo: NovelChapterRepository by injectLazy()
@@ -36,13 +37,19 @@ class NovelDownloadManager {
     private val sourceManager: NovelSourceManager by injectLazy()
     private val installer: LnPluginInstaller by injectLazy()
 
+    private val store = NovelDownloadStore(context)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _queueState = MutableStateFlow<List<NovelDownload>>(emptyList())
     val queueState: StateFlow<List<NovelDownload>> = _queueState.asStateFlow()
 
-    /** Guards a single drain loop. */
-    private val draining = AtomicBoolean(false)
+    /** True while [runQueue] is draining; gates a single drain. */
+    private val running = AtomicBoolean(false)
+
+    init {
+        // Resume a queue persisted by a previous process: kick the job, which restores + drains.
+        if (!store.isEmpty) NovelDownloadJob.start(context)
+    }
 
     fun isChapterDownloaded(chapter: NovelChapter): Boolean {
         val id = chapter.id ?: return false
@@ -73,7 +80,8 @@ class NovelDownloadManager {
             }
             byId.values.toList()
         }
-        startDraining()
+        store.addAll(targets)
+        NovelDownloadJob.start(context)
     }
 
     fun deleteChapters(chapters: List<NovelChapter>) {
@@ -83,49 +91,54 @@ class NovelDownloadManager {
         scope.launch {
             chapters.forEach { ch ->
                 val id = ch.id ?: return@forEach
+                store.remove(id)
                 provider.deleteChapter(ch.novelId, id)
                 chapterRepo.setDownloaded(id, false)
             }
         }
     }
 
-    private fun startDraining() {
-        if (!draining.compareAndSet(false, true)) return
-        scope.launch {
-            try {
-                // A background-cold process has an empty source registry; ensure plugins are loaded
-                // before any parseChapter (mirrors NovelUpdateJob.doWork).
-                installer.ensureLoaded()
-                while (true) {
-                    val next = _queueState.value.firstOrNull { it.state == NovelDownload.State.QUEUE }
-                        ?: break
-                    setState(next.chapterId, NovelDownload.State.DOWNLOADING)
-                    val ok = runCatching { downloadOne(next) }.getOrElse {
-                        Logger.e(it) { "Novel chapter download failed: chapter=${next.chapterId}" }
-                        false
-                    }
-                    if (ok) {
-                        chapterRepo.setDownloaded(next.chapterId, true)
-                        // Done: leave the queue. The DB flag now carries the downloaded state.
-                        _queueState.update { q -> q.filter { it.chapterId != next.chapterId } }
-                    } else {
-                        setState(next.chapterId, NovelDownload.State.ERROR)
-                    }
-                }
-            } finally {
-                draining.set(false)
+    /**
+     * Drain the queue sequentially until empty. Called by [NovelDownloadJob]; the worker stays
+     * foreground for the duration. Restores the persisted queue first if the in-memory one is empty
+     * (cold restart). [onProgress] reports `(done, total, novelTitle)` for the notification.
+     */
+    suspend fun runQueue(onProgress: (current: Int, total: Int, title: String) -> Unit) {
+        if (!running.compareAndSet(false, true)) return
+        try {
+            installer.ensureLoaded()
+            if (_queueState.value.isEmpty()) {
+                store.restore().takeIf { it.isNotEmpty() }?.let { _queueState.value = it }
             }
-            // Catch an enqueue that raced the loop's exit, so the queue never stalls with work left.
-            if (_queueState.value.any { it.state == NovelDownload.State.QUEUE }) startDraining()
+            var done = 0
+            while (true) {
+                val next = _queueState.value.firstOrNull { it.state == NovelDownload.State.QUEUE } ?: break
+                setState(next.chapterId, NovelDownload.State.DOWNLOADING)
+                val novel = novelRepo.getById(next.novelId)
+                val total = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
+                onProgress(done, total, novel?.title.orEmpty())
+                val ok = runCatching {
+                    val source = novel?.let { sourceManager.get(it.source) } ?: return@runCatching false
+                    val html = source.parseChapter(next.url)
+                    html.isNotBlank() && provider.writeChapter(next.novelId, next.chapterId, html)
+                }.getOrElse {
+                    Logger.e(it) { "Novel chapter download failed: chapter=${next.chapterId}" }
+                    false
+                }
+                if (ok) {
+                    chapterRepo.setDownloaded(next.chapterId, true)
+                    store.remove(next.chapterId)
+                    _queueState.update { q -> q.filter { it.chapterId != next.chapterId } }
+                    done++
+                } else {
+                    // Don't retry forever across restarts; surface ERROR and drop from persistence.
+                    setState(next.chapterId, NovelDownload.State.ERROR)
+                    store.remove(next.chapterId)
+                }
+            }
+        } finally {
+            running.set(false)
         }
-    }
-
-    private suspend fun downloadOne(download: NovelDownload): Boolean {
-        val novel = novelRepo.getById(download.novelId) ?: return false
-        val source = sourceManager.get(novel.source) ?: return false
-        val html = source.parseChapter(download.url)
-        if (html.isBlank()) return false
-        return provider.writeChapter(download.novelId, download.chapterId, html)
     }
 
     private fun setState(chapterId: Long, state: NovelDownload.State) {

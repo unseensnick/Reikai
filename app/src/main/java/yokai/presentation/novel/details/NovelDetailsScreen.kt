@@ -18,8 +18,10 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material.icons.outlined.BookmarkRemove
 import androidx.compose.material.icons.outlined.Clear
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Done
 import androidx.compose.material.icons.outlined.DoneAll
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.RemoveDone
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
@@ -154,6 +156,7 @@ class NovelDetailsScreen(
         val searchFocus = remember { FocusRequester() }
         var confirmMarkAll by remember { mutableStateOf(false) }
         var overflowOpen by remember { mutableStateOf(false) }
+        var downloadMenuOpen by remember { mutableStateOf(false) }
         var showSheet by remember { mutableStateOf(false) }
         // A grouped source pending long-press removal from the group (confirmation gate).
         var sourceToRemove by remember { mutableStateOf<Long?>(null) }
@@ -210,6 +213,7 @@ class NovelDetailsScreen(
                     val selectedChapters = loaded?.chapters?.filter { it.id in loaded.selection }.orEmpty()
                     val allBookmarked = selectedChapters.isNotEmpty() && selectedChapters.all { it.bookmark }
                     val allReadSelected = selectedChapters.isNotEmpty() && selectedChapters.all { it.read }
+                    val allDownloadedSelected = selectedChapters.isNotEmpty() && selectedChapters.all { it.isDownloaded }
                     // Only offer Unhide when every selected row is already hidden (reachable via the
                     // "Show hidden chapters" view); otherwise the action hides them.
                     val allHiddenSelected = loaded?.showHidden == true && selectedChapters.isNotEmpty() &&
@@ -230,6 +234,11 @@ class NovelDetailsScreen(
                                 SelectionAction("Remove bookmark", icon = Icons.Outlined.BookmarkRemove) { screenModel.bookmarkSelected(false) }
                             } else {
                                 SelectionAction("Bookmark", icon = Icons.Outlined.BookmarkAdd) { screenModel.bookmarkSelected(true) }
+                            },
+                            if (allDownloadedSelected) {
+                                SelectionAction("Delete download", icon = Icons.Outlined.Delete) { screenModel.deleteSelectedDownloads() }
+                            } else {
+                                SelectionAction("Download", icon = Icons.Outlined.Download) { screenModel.downloadSelected() }
                             },
                             SelectionAction("Mark previous as read") { screenModel.markPreviousRead(true) },
                             SelectionAction("Mark previous as unread") { screenModel.markPreviousRead(false) },
@@ -288,6 +297,40 @@ class NovelDetailsScreen(
                                 loaded != null -> {
                                     IconButton(onClick = { searchActive = true }) {
                                         Icon(Icons.Outlined.Search, contentDescription = "Search chapters")
+                                    }
+                                    // Box-wrapped so the menu anchors to the icon (a bare DropdownMenu
+                                    // in the actions RowScope mis-anchors).
+                                    Box {
+                                        IconButton(onClick = { downloadMenuOpen = true }) {
+                                            Icon(Icons.Outlined.Download, contentDescription = "Download")
+                                        }
+                                        DropdownMenu(
+                                            expanded = downloadMenuOpen,
+                                            onDismissRequest = { downloadMenuOpen = false },
+                                            containerColor = MaterialTheme.colorScheme.surface,
+                                            tonalElevation = 0.dp,
+                                        ) {
+                                            DropdownMenuItem(
+                                                text = { Text("Download next") },
+                                                onClick = { downloadMenuOpen = false; screenModel.downloadNext(1) },
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Download next 5") },
+                                                onClick = { downloadMenuOpen = false; screenModel.downloadNext(5) },
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Download next 10") },
+                                                onClick = { downloadMenuOpen = false; screenModel.downloadNext(10) },
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Download unread") },
+                                                onClick = { downloadMenuOpen = false; screenModel.downloadUnread() },
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Download all") },
+                                                onClick = { downloadMenuOpen = false; screenModel.downloadAll() },
+                                            )
+                                        }
                                     }
                                     IconButton(onClick = { confirmMarkAll = true }) {
                                         Icon(
