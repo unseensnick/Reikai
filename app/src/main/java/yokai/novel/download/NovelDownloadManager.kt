@@ -3,6 +3,7 @@ package yokai.novel.download
 import android.content.Context
 import co.touchlab.kermit.Logger
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.random.Random
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -46,6 +47,10 @@ class NovelDownloadManager(private val context: Context) {
 
     /** True while [runQueue] is draining; gates a single drain. */
     private val running = AtomicBoolean(false)
+
+    /** Per-source pacing delay (ms), adapted by [runQueue]: halved on success, doubled on failure.
+     *  Only touched inside the single active drain, so a plain map is safe. */
+    private val sourceDelays = HashMap<String, Long>()
 
     init {
         // Resume a queue persisted by a previous process: kick the job, which restores + drains.
@@ -144,10 +149,23 @@ class NovelDownloadManager(private val context: Context) {
                     setState(next.chapterId, NovelDownload.State.ERROR)
                     store.remove(next.chapterId)
                 }
-                // Politeness pause between chapters. Downloads are already sequential (one request
-                // chain at a time), but LN plugins go through the shared client with no per-source
-                // rate limiter, so a large batch would otherwise hammer a single site back-to-back.
-                if (_queueState.value.any { it.state == NovelDownload.State.QUEUE }) delay(INTER_CHAPTER_DELAY_MS)
+                // Per-source adaptive pacing. Downloads are sequential and LN plugins share one client
+                // with no per-source rate limiter, so each source self-throttles: halve its delay
+                // toward the floor on success, double it toward the cap on failure. A rate-limited or
+                // blocked site backs off on its own without dragging healthy sources.
+                novel?.source?.let { sourceId ->
+                    val current = sourceDelays[sourceId] ?: BASE_DELAY_MS
+                    sourceDelays[sourceId] = if (ok) {
+                        (current / 2).coerceAtLeast(BASE_DELAY_MS)
+                    } else {
+                        (current.coerceAtLeast(BASE_DELAY_MS) * 2).coerceAtMost(MAX_DELAY_MS)
+                    }
+                }
+                if (_queueState.value.any { it.state == NovelDownload.State.QUEUE }) {
+                    val paceMs = novel?.source?.let { sourceDelays[it] } ?: BASE_DELAY_MS
+                    // +/-25% jitter so the cadence isn't perfectly metronomic.
+                    delay((paceMs * (0.75 + Random.nextDouble() * 0.5)).toLong())
+                }
             }
         } finally {
             running.set(false)
@@ -159,9 +177,11 @@ class NovelDownloadManager(private val context: Context) {
     }
 
     companion object {
-        /** Pause between sequential chapter downloads so a big batch doesn't pummel one source.
-         *  Matches LNReader's per-chapter `sleep(1000)` (services/download/downloadChapter.ts), the
-         *  cadence the community plugins are effectively tuned against. */
-        private const val INTER_CHAPTER_DELAY_MS = 1000L
+        /** Per-source pacing bounds. A source cruises at [BASE_DELAY_MS] when healthy and backs off
+         *  toward [MAX_DELAY_MS] (x2 per failure, /2 per success). The floor sits below LNReader's
+         *  flat 1s because parseChapter's own latency already adds dead time, keeping the effective
+         *  rate to a single host polite (~<=1 req/s); the adaptive cap covers sites that push back. */
+        private const val BASE_DELAY_MS = 500L
+        private const val MAX_DELAY_MS = 30_000L
     }
 }
