@@ -74,9 +74,11 @@ import yokai.domain.manga.interactor.UpdateManga
 import yokai.domain.manga.models.MangaUpdate
 import yokai.domain.storage.StorageManager
 import yokai.domain.ui.UiPreferences
+import yokai.i18n.MR
 import yokai.presentation.details.ChapterDownloadAction
 import yokai.presentation.details.ManageSourceItem
 import yokai.presentation.details.detailsLog
+import yokai.util.lang.getString
 
 sealed interface MangaDetailsDialog {
     /** Categories picker shown when adding to library (or explicitly from overflow). */
@@ -1259,6 +1261,10 @@ class MangaDetailsScreenModel(
         screenModelScope.launchIO {
             val result = mergeManager.computeRelatedMangaIds(mangaId, manga.title)
             detailsLog { "loadRelatedMangaIds group=${result.ids.size} cleaned=${result.cleanupCount}" }
+            // Surface the merge auto-cleanup outcome once per open (the fetched gate above bounds it).
+            if (result.cleanupCount > 0) {
+                emitEvent(DetailsEvent.Snackbar(preferences.context.getString(MR.strings.cleaned_n_suspicious_merges, result.cleanupCount)))
+            }
             updateGroup(result.ids.toList())
         }
     }
@@ -1307,34 +1313,63 @@ class MangaDetailsScreenModel(
         }
     }
 
-    /** Split [targetIds] out of the merge group (they stay in the library, just ungrouped). */
+    /**
+     * Split [targetIds] out of the merge group (they stay in the library, just ungrouped). The commit
+     * is deferred behind an undo snackbar (mirrors the legacy `showSourceUndoSnackbar`): tapping Undo
+     * cancels it outright, so nothing is persisted. If the source currently being viewed is split out,
+     * redirect to a remaining sibling so the user stays on the group.
+     */
     fun splitSources(targetIds: List<Long>) {
         if (targetIds.isEmpty()) { dismissDialog(); return }
-        screenModelScope.launchIO {
-            val newIds = mergeManager.removeFromGroup(groupIdsFlow.value.toLongArray(), targetIds)
-            detailsLog { "splitSources removed=${targetIds.size} remaining=${newIds.size}" }
-            // Re-aggregates the chapter list off the smaller group; rebuildState refreshes the gate.
-            updateGroup(newIds.toList())
-            dismissDialog()
+        dismissDialog()
+        val sibling = if (mangaId in targetIds) {
+            groupIdsFlow.value.firstOrNull { it != mangaId && it !in targetIds }
+        } else {
+            null
         }
+        val currentGroup = groupIdsFlow.value
+        emitEvent(
+            DetailsEvent.Snackbar(
+                message = preferences.context.getString(MR.strings.sources_split_from_group, targetIds.size),
+                actionLabel = preferences.context.getString(MR.strings.undo),
+                onDismiss = {
+                    screenModelScope.launchIO {
+                        val newIds = mergeManager.removeFromGroup(currentGroup.toLongArray(), targetIds)
+                        detailsLog { "splitSources removed=${targetIds.size} remaining=${newIds.size}" }
+                        if (sibling != null) emitEvent(DetailsEvent.NavigateToSibling(sibling))
+                        else updateGroup(newIds.toList())
+                    }
+                },
+            ),
+        )
     }
 
     /**
      * Remove [targetIds] from the library: unfavorite + invalidate tracker reconciliation (awaited),
      * then delete covers / downloads / tracks in a non-cancellable scope so a mid-run back-out still
-     * finishes the cleanup. Mirrors the legacy presenter's removeFromLibrary.
+     * finishes the cleanup. Mirrors the legacy presenter's removeFromLibrary. The commit is deferred
+     * behind an undo snackbar; tapping Undo cancels it so nothing is unfavorited or deleted.
      */
     fun removeSourcesFromLibrary(targetIds: List<Long>) {
         if (targetIds.isEmpty()) { dismissDialog(); return }
-        screenModelScope.launchIO {
-            mergeManager.unfavoriteAndReconcile(targetIds)
-            detailsLog { "removeSourcesFromLibrary count=${targetIds.size}" }
-            val targetSet = targetIds.toSet()
-            // Drop the removed sources from the group so the pipeline re-aggregates without them.
-            updateGroup(groupIdsFlow.value.filterNot { it in targetSet })
-            dismissDialog()
-            screenModelScope.launchNonCancellableIO { mergeManager.cleanupRemoved(targetIds) }
-        }
+        dismissDialog()
+        val currentGroup = groupIdsFlow.value
+        emitEvent(
+            DetailsEvent.Snackbar(
+                message = preferences.context.getString(MR.strings.sources_removed_from_library, targetIds.size),
+                actionLabel = preferences.context.getString(MR.strings.undo),
+                onDismiss = {
+                    screenModelScope.launchIO {
+                        mergeManager.unfavoriteAndReconcile(targetIds)
+                        detailsLog { "removeSourcesFromLibrary count=${targetIds.size}" }
+                        val targetSet = targetIds.toSet()
+                        // Drop the removed sources from the group so the pipeline re-aggregates without them.
+                        updateGroup(currentGroup.filterNot { it in targetSet })
+                        screenModelScope.launchNonCancellableIO { mergeManager.cleanupRemoved(targetIds) }
+                    }
+                },
+            ),
+        )
     }
 
     /** Remove every grouped source from the library at once (favorite long-press on a merged title). */

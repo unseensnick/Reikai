@@ -94,6 +94,7 @@ import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import java.text.DecimalFormat
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import yokai.domain.chapter.services.calculateChapterGap
 import yokai.domain.manga.models.MangaCover
 import yokai.domain.manga.models.cover
@@ -171,7 +172,7 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                         val result = snackbarHostState.showSnackbar(
                             message = event.message,
                             actionLabel = event.actionLabel,
-                            duration = if (event.actionLabel != null) SnackbarDuration.Long else SnackbarDuration.Short,
+                            duration = SnackbarDuration.Short,
                         )
                         if (result == SnackbarResult.ActionPerformed) event.onAction?.invoke() else event.onDismiss?.invoke()
                     }
