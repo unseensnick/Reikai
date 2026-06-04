@@ -46,6 +46,10 @@ import yokai.presentation.details.DetailsDownloadState
 import yokai.presentation.details.ManageSourceItem
 import yokai.presentation.novel.browse.ChapterRead
 
+/** Max chapters held in the reader's session text cache (LRU). Small: covers the current chapter,
+ *  a prefetched next, and a little back-flip history without holding much text in memory. */
+private const val MAX_CACHED_CHAPTERS = 5
+
 /**
  * Database-first details for a SAVED (library) novel (Phase 7). The chapter list comes from the DB
  * via a reactive Flow, so a saved novel opens offline and shows read/bookmark from stored rows; the
@@ -110,6 +114,16 @@ class NovelDetailsScreenModel(
     /** Range-select anchors [min, max] into the displayed chapter order; -1 when no selection.
      *  Mirrors the manga side so a long-press extends the range. */
     private val selectedPositions = intArrayOf(-1, -1)
+
+    /** Session-scoped LRU of parsed chapter paragraphs keyed by chapter id (RAM-only, dies with the
+     *  screen). Makes re-opening and prefetched next chapters instant. Synchronized because the
+     *  prefetch coroutine and the reader both touch it. */
+    private val chapterTextCache: MutableMap<Long, List<String>> = java.util.Collections.synchronizedMap(
+        object : LinkedHashMap<Long, List<String>>(MAX_CACHED_CHAPTERS + 1, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, List<String>>) =
+                size > MAX_CACHED_CHAPTERS
+        },
+    )
 
     init {
         observeFromDb()
@@ -419,18 +433,43 @@ class NovelDetailsScreenModel(
         if (chapters.isNotEmpty()) syncChaptersWithNovelSource(chapters, novel, src, chapterRepo, novelRepo, handler)
     }
 
-    /** Fetch the chapter text for a stored chapter. A downloaded chapter is read from disk (no host
-     *  hit); otherwise it's a source hit routed through the chapter's own source so a gap-filled
-     *  sibling chapter reads correctly. */
+    /**
+     * Fetch the chapter text for a stored chapter. Precedence: session cache -> on-disk download
+     * (no host hit) -> live source. After serving, warms the next chapter into the cache so flipping
+     * forward is instant (LNReader's reader feel). The cache is RAM-only and dies with the screen.
+     */
     internal suspend fun loadChapterText(chapter: NovelChapter): ChapterRead {
         val chapterId = chapter.id ?: error("Stored chapter has no id")
-        val html = downloadManager.getChapterText(chapter)
-            ?: (sourceForChapter(chapter) ?: error("Source not ready")).parseChapter(chapter.url)
+        val paragraphs = chapterTextCache[chapterId]
+            ?: loadParagraphs(chapter).also { chapterTextCache[chapterId] = it }
+        prefetchNextChapter(chapter)
         return ChapterRead(
             chapterId = chapterId,
             initialProgress = chapter.lastTextProgress,
-            paragraphs = htmlToParagraphs(html),
+            paragraphs = paragraphs,
         )
+    }
+
+    /** Downloaded chapter -> read from disk; otherwise a source hit routed through the chapter's own
+     *  source so a gap-filled sibling reads correctly. */
+    private suspend fun loadParagraphs(chapter: NovelChapter): List<String> {
+        val html = downloadManager.getChapterText(chapter)
+            ?: (sourceForChapter(chapter) ?: error("Source not ready")).parseChapter(chapter.url)
+        return htmlToParagraphs(html)
+    }
+
+    /** Warm the next chapter (in reading order) into the cache off-thread. One speculative request
+     *  per chapter-open at most, and none when the next chapter is already cached or downloaded, so
+     *  it stays gentle on the source. */
+    private fun prefetchNextChapter(current: NovelChapter) {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        val ordered = loaded.chapters.sortedBy { it.sourceOrder }
+        val next = ordered.getOrNull(ordered.indexOfFirst { it.id == current.id } + 1) ?: return
+        val nextId = next.id ?: return
+        if (chapterTextCache.containsKey(nextId)) return
+        screenModelScope.launchIO {
+            runCatching { chapterTextCache[nextId] = loadParagraphs(next) }
+        }
     }
 
     /** Absolute web URL for this novel. Prefer the plugin's `resolveUrl` (handles sources whose URL

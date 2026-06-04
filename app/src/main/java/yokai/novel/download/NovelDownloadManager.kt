@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -143,6 +144,10 @@ class NovelDownloadManager(private val context: Context) {
                     setState(next.chapterId, NovelDownload.State.ERROR)
                     store.remove(next.chapterId)
                 }
+                // Politeness pause between chapters. Downloads are already sequential (one request
+                // chain at a time), but LN plugins go through the shared client with no per-source
+                // rate limiter, so a large batch would otherwise hammer a single site back-to-back.
+                if (_queueState.value.any { it.state == NovelDownload.State.QUEUE }) delay(INTER_CHAPTER_DELAY_MS)
             }
         } finally {
             running.set(false)
@@ -151,5 +156,12 @@ class NovelDownloadManager(private val context: Context) {
 
     private fun setState(chapterId: Long, state: NovelDownload.State) {
         _queueState.update { q -> q.map { if (it.chapterId == chapterId) it.copy(state = state) else it } }
+    }
+
+    companion object {
+        /** Pause between sequential chapter downloads so a big batch doesn't pummel one source.
+         *  Matches LNReader's per-chapter `sleep(1000)` (services/download/downloadChapter.ts), the
+         *  cadence the community plugins are effectively tuned against. */
+        private const val INTER_CHAPTER_DELAY_MS = 1000L
     }
 }
