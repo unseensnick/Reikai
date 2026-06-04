@@ -70,6 +70,7 @@ import yokai.domain.novel.models.Novel
 import yokai.domain.novel.models.NovelChapter
 import yokai.i18n.MR
 import yokai.novel.host.ChapterItem
+import yokai.novel.download.NovelDownloadManager
 import yokai.novel.install.LnPluginInstaller
 import yokai.novel.source.NovelSource
 import yokai.novel.source.NovelSourceManager
@@ -104,6 +105,7 @@ class NovelUpdateJob(private val context: Context, workerParams: WorkerParameter
     private val novelRepository: NovelRepository by inject()
     private val novelChapterRepository: NovelChapterRepository by inject()
     private val novelSourceManager: NovelSourceManager by inject()
+    private val novelDownloadManager: NovelDownloadManager by inject()
     private val installer: LnPluginInstaller by inject()
     private val novelPreferences: NovelPreferences by inject()
     private val handler: DatabaseHandler by inject()
@@ -356,13 +358,14 @@ class NovelUpdateJob(private val context: Context, workerParams: WorkerParameter
     }
 
     /**
-     * Stub. Real novel downloads are deferred per Phase 7 Decision #4; this method exists so
-     * the call site reads symmetrically to the manga side and so wiring up downloads later
-     * doesn't require an `updateNovelChapters` patch.
+     * Auto-download freshly synced chapters when the user enabled it (novel-only toggle, default
+     * off). The manager pre-filters already-downloaded chapters and resolves each chapter's source
+     * from its novelId, so [novel] isn't needed here (kept for call-site symmetry with manga).
      */
     @Suppress("UNUSED_PARAMETER")
     private fun downloadChapters(novel: Novel, chapters: List<NovelChapter>) {
-        // No-op until novel downloads ship.
+        if (!novelPreferences.downloadNewChapters().get()) return
+        novelDownloadManager.downloadChapters(chapters)
     }
 
     private fun filterNovelsToUpdate(novelToAdd: List<LibraryNovel>): List<LibraryNovel> {

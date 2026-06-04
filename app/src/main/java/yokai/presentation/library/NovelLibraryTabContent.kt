@@ -402,9 +402,8 @@ internal fun NovelLibraryTabContent(
             screenModel.clearSelection()
         },
         onDownloadUnread = {
-            // Decision #4: stub. The screen-model action is a no-op until novel downloads
-            // ship. UI surface stays consistent with manga so the menu entry is reachable
-            // (and a future undefer wires real behavior without a UI change).
+            // Queues the selected novels' unread chapters (merged-sibling aware). Selection clears
+            // immediately; the download notification surfaces progress.
             screenModel.downloadUnreadSelection()
             screenModel.clearSelection()
         },

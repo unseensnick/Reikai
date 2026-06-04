@@ -310,6 +310,12 @@ class NovelDetailsScreen(
                                             containerColor = MaterialTheme.colorScheme.surface,
                                             tonalElevation = 0.dp,
                                         ) {
+                                            if (loaded.downloads.isNotEmpty()) {
+                                                DropdownMenuItem(
+                                                    text = { Text("Cancel downloads") },
+                                                    onClick = { downloadMenuOpen = false; screenModel.cancelDownloads() },
+                                                )
+                                            }
                                             DropdownMenuItem(
                                                 text = { Text("Download next") },
                                                 onClick = { downloadMenuOpen = false; screenModel.downloadNext(1) },

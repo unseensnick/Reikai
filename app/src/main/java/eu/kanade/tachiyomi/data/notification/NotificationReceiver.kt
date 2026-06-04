@@ -54,6 +54,8 @@ class NotificationReceiver : BroadcastReceiver() {
      */
     private val downloadManager: DownloadManager by injectLazy()
 
+    private val novelDownloadManager: yokai.novel.download.NovelDownloadManager by injectLazy()
+
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             // Dismiss notification
@@ -76,6 +78,7 @@ class NotificationReceiver : BroadcastReceiver() {
             ACTION_CANCEL_LIBRARY_UPDATE -> cancelLibraryUpdate(context)
             // Cancel novel library update (Phase 7); body becomes NovelUpdateJob.stop in C14d.
             ACTION_CANCEL_NOVEL_LIBRARY_UPDATE -> cancelNovelLibraryUpdate(context)
+            ACTION_CANCEL_NOVEL_DOWNLOAD -> novelDownloadManager.cancelAllDownloads()
             ACTION_CANCEL_EXTENSION_UPDATE -> cancelExtensionUpdate(context)
             ACTION_START_EXTENSION_INSTALL -> startExtensionUpdater(context, intent)
             ACTION_CANCEL_UPDATE_DOWNLOAD -> cancelDownloadUpdate(context)
@@ -273,6 +276,7 @@ class NotificationReceiver : BroadcastReceiver() {
         // Called to cancel library update.
         private const val ACTION_CANCEL_LIBRARY_UPDATE = "$ID.$NAME.CANCEL_LIBRARY_UPDATE"
         private const val ACTION_CANCEL_NOVEL_LIBRARY_UPDATE = "$ID.$NAME.CANCEL_NOVEL_LIBRARY_UPDATE"
+        private const val ACTION_CANCEL_NOVEL_DOWNLOAD = "$ID.$NAME.CANCEL_NOVEL_DOWNLOAD"
 
         // Called to cancel extension update.
         private const val ACTION_CANCEL_EXTENSION_UPDATE = "$ID.$NAME.CANCEL_EXTENSION_UPDATE"
@@ -580,6 +584,13 @@ class NotificationReceiver : BroadcastReceiver() {
         internal fun cancelNovelLibraryUpdatePendingBroadcast(context: Context): PendingIntent {
             val intent = Intent(context, NotificationReceiver::class.java).apply {
                 action = ACTION_CANCEL_NOVEL_LIBRARY_UPDATE
+            }
+            return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        }
+
+        internal fun cancelNovelDownloadPendingBroadcast(context: Context): PendingIntent {
+            val intent = Intent(context, NotificationReceiver::class.java).apply {
+                action = ACTION_CANCEL_NOVEL_DOWNLOAD
             }
             return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         }

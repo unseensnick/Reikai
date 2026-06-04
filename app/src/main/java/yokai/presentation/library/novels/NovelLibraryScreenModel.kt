@@ -41,6 +41,7 @@ import yokai.domain.novel.models.NovelCategoryUpdate
 import yokai.domain.novel.models.NovelChapter
 import yokai.domain.ui.UiPreferences
 import yokai.i18n.MR
+import yokai.novel.download.NovelDownloadManager
 import yokai.novel.source.NovelSourceManager
 import yokai.presentation.library.LibraryTabState
 import yokai.presentation.library.novels.actions.NovelLibraryActions
@@ -81,6 +82,7 @@ class NovelLibraryScreenModel :
     private val getNovelCategories: GetNovelCategories by inject()
     private val novelRepository: NovelRepository by inject()
     private val novelChapterRepository: NovelChapterRepository by inject()
+    private val novelDownloadManager: NovelDownloadManager by inject()
     private val novelTrackRepository: NovelTrackRepository by inject()
     private val novelSourceManager: NovelSourceManager by inject()
     private val novelLibraryUpdater: NovelLibraryUpdater by inject()
@@ -544,19 +546,15 @@ class NovelLibraryScreenModel :
         NovelLibraryActions.share(selectedNovelList(), novelSourceManager)
 
     /**
-     * Stub passthrough per Decision #4. Capture the selection synchronously before launchIO
-     * so the wiring matches the live actions; the underlying [NovelLibraryActions.downloadUnread]
-     * is a no-op until novel downloads ship.
-     *
-     * TODO(unseensnick): when Decision #4 undefers (novel downloads ship), swap
-     * [selectedNovelList] for [selectedNovelListWithMergedSiblings] so a download on a
-     * merged-group leader pulls every sibling. This is the same Phase 6 C11 lesson
-     * [removeFromLibrary] already inherits. Latent today because downloads are a no-op.
+     * Queue every unread chapter of the selection for download. Uses
+     * [selectedNovelListWithMergedSiblings] (captured synchronously before launchIO) so a download
+     * on a merged-group leader pulls every sibling, the same Phase 6 C11 lesson [removeFromLibrary]
+     * inherits.
      */
     fun downloadUnreadSelection() {
-        val novels = selectedNovelList()
+        val novels = selectedNovelListWithMergedSiblings()
         screenModelScope.launchIO {
-            NovelLibraryActions.downloadUnread(novels)
+            NovelLibraryActions.downloadUnread(novels, novelChapterRepository, novelDownloadManager)
         }
     }
 
@@ -579,12 +577,11 @@ class NovelLibraryScreenModel :
     }
 
     fun confirmMarkReadStatus(snapshot: Map<Novel, List<NovelChapter>>, markRead: Boolean) {
-        // Body is a no-op until novel downloads ship (Decision #4). Kept on the surface so the
-        // wiring matches manga and the future Compose binding has a stable call to make.
         NovelLibraryActions.confirmMarkReadStatus(
             snapshot = snapshot,
             markRead = markRead,
             removeAfterMarkedAsRead = preferences.removeAfterMarkedAsRead().get(),
+            novelDownloadManager = novelDownloadManager,
         )
     }
 

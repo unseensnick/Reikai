@@ -1072,6 +1072,7 @@
     <string name="auto_download_while_reading">Auto download while reading</string>
     <string name="download_ahead_info">Only works on entries in library and if the current chapter plus the next one are already downloaded</string>
     <string name="download_new_chapters">Download new chapters</string>
+    <string name="download_new_novel_chapters">Download new novel chapters</string>
     <string name="categories_to_include_in_download">Categories to include in download</string>
     <string name="delete_removed_chapters">Delete removed chapters</string>
     <string name="delete_downloaded_if_removed_online">Delete downloaded chapters if the source

@@ -1,12 +1,12 @@
 package yokai.presentation.library.novels.actions
 
-import co.touchlab.kermit.Logger
 import yokai.domain.novel.NovelChapterRepository
 import yokai.domain.novel.NovelPreferences
 import yokai.domain.novel.NovelRepository
 import yokai.domain.novel.NovelTrackRepository
 import yokai.domain.novel.models.Novel
 import yokai.domain.novel.models.NovelChapter
+import yokai.novel.download.NovelDownloadManager
 import yokai.novel.source.NovelSourceManager
 
 /**
@@ -48,12 +48,20 @@ object NovelLibraryActions {
         }
 
     /**
-     * Stub. Real novel downloads are deferred per Phase 7 Decision #4; this function exists so
-     * the screen model can wire `downloadUnreadSelection()` in C32 symmetrically to manga.
+     * Bulk-download every unread, not-yet-downloaded chapter of each selected novel. Pre-filters on
+     * the `isDownloaded` flag; the manager double-checks file existence before queueing.
      */
-    @Suppress("UNUSED_PARAMETER")
-    suspend fun downloadUnread(novels: List<Novel>) {
-        Logger.d("Novel downloads deferred (Phase 7 Decision #4) — selection ignored")
+    suspend fun downloadUnread(
+        novels: List<Novel>,
+        novelChapterRepository: NovelChapterRepository,
+        novelDownloadManager: NovelDownloadManager,
+    ) {
+        novels.forEach { novel ->
+            val novelId = novel.id ?: return@forEach
+            val targets = novelChapterRepository.getByNovelId(novelId)
+                .filter { !it.read && !it.isDownloaded }
+            if (targets.isNotEmpty()) novelDownloadManager.downloadChapters(targets)
+        }
     }
 
     /**
@@ -92,18 +100,17 @@ object NovelLibraryActions {
     }
 
     /**
-     * Post-snackbar cleanup hook. Manga deletes downloaded chapters here when the user opted
-     * into `removeAfterMarkedAsRead`; novels stub it because downloads aren't wired (Decision
-     * #4). Kept on the call surface so the screen model wiring reads symmetrically; the body
-     * gets a real implementation when novel downloads land.
+     * Post-snackbar cleanup hook. When the user marked chapters read AND opted into
+     * `removeAfterMarkedAsRead`, delete each novel's downloaded chapters from disk.
      */
-    @Suppress("UNUSED_PARAMETER")
     fun confirmMarkReadStatus(
         snapshot: Map<Novel, List<NovelChapter>>,
         markRead: Boolean,
         removeAfterMarkedAsRead: Boolean,
+        novelDownloadManager: NovelDownloadManager,
     ) {
-        // No-op until novel downloads ship.
+        if (!markRead || !removeAfterMarkedAsRead) return
+        snapshot.forEach { (_, chapters) -> novelDownloadManager.deleteChapters(chapters) }
     }
 
     /**

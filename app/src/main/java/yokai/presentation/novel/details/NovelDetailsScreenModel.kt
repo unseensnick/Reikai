@@ -784,6 +784,11 @@ class NovelDetailsScreenModel(
         screenModelScope.launchIO { downloadManager.downloadChapters(next) }
     }
 
+    /** Stop the downloader and clear the whole pending queue (downloaded chapters are kept). */
+    fun cancelDownloads() {
+        downloadManager.cancelAllDownloads()
+    }
+
     fun markAllRead(read: Boolean) {
         screenModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO

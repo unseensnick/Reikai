@@ -102,6 +102,11 @@ class NovelPreferences(
     /** 0 = never, 1 = ask, 2 = always. Mirrors manga's deleteRemovedChapters. */
     fun deleteRemovedChapters() = preferenceStore.getInt("ln_delete_removed_chapters", 0)
 
+    /** Auto-download newly fetched chapters on a background library update. Independent of the
+     *  manga `PreferencesHelper.downloadNewChapters` toggle (Decision #2 keeps the surfaces
+     *  decoupled). Default off. */
+    fun downloadNewChapters() = preferenceStore.getBoolean("novel_download_new_chapters", false)
+
     // Details-screen chapter sort / filter / display defaults (parallel to PreferencesHelper's
     // defaultChapter* prefs). A novel uses these unless it sets its own local override in
     // Novel.chapterFlags. Default sort is source order ascending (chapter 1 first), the novel

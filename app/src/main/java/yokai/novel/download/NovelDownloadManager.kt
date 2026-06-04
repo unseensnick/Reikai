@@ -84,6 +84,14 @@ class NovelDownloadManager(private val context: Context) {
         NovelDownloadJob.start(context)
     }
 
+    /** Stop the running job and clear the entire pending queue. Already-downloaded chapters (files +
+     *  flags) are kept; only what's still queued is discarded. */
+    fun cancelAllDownloads() {
+        NovelDownloadJob.stop(context)
+        _queueState.value = emptyList()
+        store.clear()
+    }
+
     fun deleteChapters(chapters: List<NovelChapter>) {
         val ids = chapters.mapNotNull { it.id }.toSet()
         if (ids.isEmpty()) return

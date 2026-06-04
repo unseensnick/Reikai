@@ -17,6 +17,7 @@ import kotlinx.collections.immutable.toPersistentList
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.download.DownloadPreferences
+import yokai.domain.novel.NovelPreferences
 import yokai.i18n.MR
 import yokai.presentation.component.preference.Preference
 import yokai.presentation.settings.ComposableSettings
@@ -32,6 +33,7 @@ object SettingsDownloadScreen : ComposableSettings() {
     override fun getPreferences(): List<Preference> {
         val preferences: PreferencesHelper by injectLazy()
         val downloadPreferences: DownloadPreferences by injectLazy()
+        val novelPreferences: NovelPreferences by injectLazy()
         val getCategories: GetCategories by injectLazy()
         val context = LocalContext.current
 
@@ -138,6 +140,12 @@ object SettingsDownloadScreen : ComposableSettings() {
                                 ),
                             )
                         }
+                        add(
+                            Preference.PreferenceItem.SwitchPreference(
+                                pref = novelPreferences.downloadNewChapters(),
+                                title = stringResource(MR.strings.download_new_novel_chapters),
+                            ),
+                        )
                     }.toPersistentList(),
                 ),
             )

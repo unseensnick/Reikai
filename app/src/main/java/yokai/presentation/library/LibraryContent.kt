@@ -317,7 +317,8 @@ fun <T : LibraryItem, C : ILibraryCategory> LibraryContent(
     onDownloadUnread: () -> Unit,
     /**
      * Bulk-download menu entries for the selection (next / next 5 / unread / all / bookmarked).
-     * When null, falls back to the single [onDownloadUnread] action (novels have no downloads).
+     * When null, falls back to the single [onDownloadUnread] action (the novel tab, which offers
+     * only "download unread" from the library).
      */
     downloadActions: List<yokai.presentation.library.components.SelectionAction>? = null,
     /** C3: show the mark-all-as-read confirmation dialog. */
