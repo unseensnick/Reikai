@@ -11,6 +11,7 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 
 ### Additions
+- Browse now **remembers whether you were on the Manga or Light novels tab**, so backing out of a source returns you to the same side instead of resetting to Manga.
 - **Browsing a light novel source now opens the full novel details screen** (blurred cover backdrop, expandable description with genres, merged-source switcher, edit info, downloads, chapter filter/sort) instead of a basic preview, with the in-screen reader shared between both. Opening a novel from browse no longer silently adds it to your library; use the "Add to library" button.
 - The Compose library search now uses a **random library title as its example hint**, and when a search turns up **no matches it offers a "Global search"** action to look the query up across your sources (restoring two affordances from the legacy library).
 - Reading a light novel now keeps recently-read chapters in memory and **prefetches the next chapter**, so flipping forward within a reading session is instant (no extra disk use; the cache clears when you leave).

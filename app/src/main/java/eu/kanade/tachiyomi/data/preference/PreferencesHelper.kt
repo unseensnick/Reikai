@@ -63,6 +63,10 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
     fun startingTab() = preferenceStore.getInt(Keys.startingTab, 0)
     fun backReturnsToStart() = preferenceStore.getBoolean(Keys.backToStart, true)
 
+    /** Which Browse source-type tab was last active (0 = Manga, 1 = Light novels), restored on
+     *  return so backing out of a source lands on the same side you were browsing. */
+    fun lastUsedSourceTypeTab() = preferenceStore.getInt("last_used_source_type_tab", 0)
+
     fun hasShownNotifPermission() = preferenceStore.getBoolean("has_shown_notification_permission", false)
 
     fun hasDeniedA11FilePermission() = preferenceStore.getBoolean(Keys.deniedA11FilePermission, false)

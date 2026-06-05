@@ -351,24 +351,28 @@ class BrowseController :
         val tabs = activityBinding?.mainTabs ?: return
         tabs.removeAllTabs()
         tabs.clearOnTabSelectedListeners()
+        // Restore the side (Manga / Light novels) the user last browsed, so backing out of a source
+        // returns to the same tab instead of always resetting to Manga.
+        val savedTab = preferences.lastUsedSourceTypeTab().get().coerceIn(0, 1)
         val mangaTab = tabs.newTab().setText(view?.context?.getString(MR.strings.manga)).also {
             it.view.compatToolTipText = null
         }
         val novelTab = tabs.newTab().setText(view?.context?.getString(MR.strings.light_novels)).also {
             it.view.compatToolTipText = null
         }
-        tabs.addTab(mangaTab, true)
-        tabs.addTab(novelTab, false)
+        tabs.addTab(mangaTab, savedTab == 0)
+        tabs.addTab(novelTab, savedTab == 1)
         tabs.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
-                applySourceTypeTab(tab?.position ?: 0)
+                val position = tab?.position ?: 0
+                preferences.lastUsedSourceTypeTab().set(position)
+                applySourceTypeTab(position)
             }
             override fun onTabUnselected(tab: TabLayout.Tab?) {}
             override fun onTabReselected(tab: TabLayout.Tab?) {}
         })
         (activity as? MainActivity)?.showTabBar(true)
-        // Default to Manga on entry.
-        applySourceTypeTab(0)
+        applySourceTypeTab(savedTab)
     }
 
     /**
