@@ -280,29 +280,65 @@ class NovelDetailsScreenModel(
         }
     }
 
-    /** Split [targetIds] out of the merge group (they stay in the library, just ungrouped). The
-     *  smaller group re-aggregates via [updateGroup]. */
+    /**
+     * Split [targetIds] out of the merge group (they stay in the library, just ungrouped). The commit
+     * is deferred behind an Undo snackbar: tapping Undo cancels it so nothing is persisted. If the
+     * currently-viewed source is split out, redirect to a remaining sibling so the user stays on the
+     * group. Mirrors the manga side.
+     */
     fun splitSources(targetIds: List<Long>) {
         if (targetIds.isEmpty()) { dismissDialog(); return }
-        screenModelScope.launchIO {
-            val newIds = mergeManager.removeFromGroup(groupIdsFlow.value.toLongArray(), targetIds)
-            novelLog { "splitSources removed=${targetIds.size} remaining=${newIds.size}" }
-            updateGroup(newIds.toList())
-            dismissDialog()
+        dismissDialog()
+        val anchorId = (state.value as? NovelDetailsState.Loaded)?.novel?.id
+        val sibling = if (anchorId != null && anchorId in targetIds) {
+            groupIdsFlow.value.firstOrNull { it != anchorId && it !in targetIds }
+        } else {
+            null
         }
+        val currentGroup = groupIdsFlow.value
+        emitEvent(
+            DetailsEvent.Snackbar(
+                message = if (targetIds.size == 1) "Source split from group" else "${targetIds.size} sources split from group",
+                actionLabel = "Undo",
+                onDismiss = {
+                    screenModelScope.launchIO {
+                        val newIds = mergeManager.removeFromGroup(currentGroup.toLongArray(), targetIds)
+                        novelLog { "splitSources removed=${targetIds.size} remaining=${newIds.size}" }
+                        if (sibling != null) emitEvent(DetailsEvent.NavigateToSibling(sibling))
+                        else updateGroup(newIds.toList())
+                    }
+                },
+            ),
+        )
     }
 
-    /** Remove [targetIds] from the library (unfavorite) and drop them from the group. */
+    /**
+     * Remove [targetIds] from the library (unfavorite) and drop them from the group. Deferred behind an
+     * Undo snackbar; tapping Undo cancels it so nothing is unfavorited. No tracker / download / cover
+     * cleanup (none exists for novels). Mirrors the manga side.
+     */
     fun removeSourcesFromLibrary(targetIds: List<Long>) {
         if (targetIds.isEmpty()) { dismissDialog(); return }
-        screenModelScope.launchIO {
-            mergeManager.unfavoriteFromGroup(targetIds)
-            novelLog { "removeSourcesFromLibrary count=${targetIds.size}" }
-            val targetSet = targetIds.toSet()
-            updateGroup(groupIdsFlow.value.filterNot { it in targetSet })
-            dismissDialog()
-        }
+        dismissDialog()
+        val currentGroup = groupIdsFlow.value
+        emitEvent(
+            DetailsEvent.Snackbar(
+                message = if (targetIds.size == 1) "Source removed from library" else "${targetIds.size} sources removed from library",
+                actionLabel = "Undo",
+                onDismiss = {
+                    screenModelScope.launchIO {
+                        mergeManager.unfavoriteFromGroup(targetIds)
+                        novelLog { "removeSourcesFromLibrary count=${targetIds.size}" }
+                        val targetSet = targetIds.toSet()
+                        updateGroup(currentGroup.filterNot { it in targetSet })
+                    }
+                },
+            ),
+        )
     }
+
+    /** Remove every grouped source from the library at once (favorite long-press on a merged title). */
+    fun removeAllSourcesFromLibrary() = removeSourcesFromLibrary(groupIdsFlow.value)
 
     /** Build [NovelDetailsState.Loaded] from the per-novel chapter map, preserving transient UI. */
     private fun rebuildLoaded(novel: Novel, byNovel: Map<Long, List<NovelChapter>>) {

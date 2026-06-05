@@ -553,6 +553,11 @@ class NovelDetailsScreen(
                                     } else {
                                         null
                                     },
+                                    onRemoveAllSources = if (s.novel.favorite && s.sourceTabs.size > 1) {
+                                        { screenModel.removeAllSourcesFromLibrary() }
+                                    } else {
+                                        null
+                                    },
                                     onWebViewClick = {
                                         scope.launch {
                                             val url = screenModel.novelWebUrl() ?: return@launch
