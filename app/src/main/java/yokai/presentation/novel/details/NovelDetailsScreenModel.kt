@@ -493,6 +493,8 @@ class NovelDetailsScreenModel(
         refreshJob = screenModelScope.launchIO {
             mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(isRefreshing = true) ?: it }
             try {
+                val added = mutableListOf<NovelChapter>()
+                val removed = mutableListOf<NovelChapter>()
                 val group = groupIdsFlow.value
                 if (group.size > 1) {
                     // Merged: refresh every grouped source so the unified list rebuilds with all of
@@ -501,17 +503,24 @@ class NovelDetailsScreenModel(
                     group.forEach { id ->
                         runCatching {
                             val n = novelsById[id] ?: novelRepo.getById(id) ?: return@forEach
-                            if (id == loaded.novel.id) {
-                                source?.let { fetchAndSync(it, n) }
+                            val (a, r) = if (id == loaded.novel.id) {
+                                source?.let { fetchAndSync(it, n) } ?: return@forEach
                             } else {
-                                sourceManager.get(n.source)?.let { fetchSiblingChapters(it, n) }
+                                sourceManager.get(n.source)?.let { fetchSiblingChapters(it, n) } ?: return@forEach
                             }
+                            added += a
+                            removed += r
                         }.onFailure { novelLog { "refresh source for novel $id failed: ${it.message}" } }
                     }
                 } else {
                     val src = source ?: return@launchIO
-                    runCatching { fetchAndSync(src, loaded.novel) }
+                    runCatching {
+                        val (a, r) = fetchAndSync(src, loaded.novel)
+                        added += a
+                        removed += r
+                    }
                 }
+                handleSyncedChapters(added, removed)
             } finally {
                 mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(isRefreshing = false) ?: it }
             }
@@ -519,10 +528,42 @@ class NovelDetailsScreenModel(
     }
 
     /** Refresh one grouped source's chapters from its own url. No metadata merge (that's the anchor's
-     *  job for the displayed header); the reactive flow re-emits and the unified list rebuilds. */
-    private suspend fun fetchSiblingChapters(src: NovelSource, novel: Novel) {
+     *  job for the displayed header); the reactive flow re-emits and the unified list rebuilds. Returns
+     *  the (added, removed) chapter diff so the caller can auto-download / prompt-on-removal. */
+    private suspend fun fetchSiblingChapters(src: NovelSource, novel: Novel): Pair<List<NovelChapter>, List<NovelChapter>> {
         val chapters = src.parseNovel(novel.url).chapters.orEmpty()
-        if (chapters.isNotEmpty()) syncChaptersWithNovelSource(chapters, novel, src, chapterRepo, novelRepo, handler)
+        return if (chapters.isNotEmpty()) syncChaptersWithNovelSource(chapters, novel, src, chapterRepo, novelRepo, handler)
+        else emptyList<NovelChapter>() to emptyList()
+    }
+
+    /**
+     * React to a refresh sync: auto-download newly [added] chapters when the novel download-new pref
+     * is on, and handle downloads orphaned by [removed] chapters per
+     * [NovelPreferences.deleteRemovedChapters] (ask / keep / always). Mirrors the manga side's
+     * handleSyncedChapters. The download-manager calls are fire-and-forget (they launch internally),
+     * and the reactive flow re-emits the cleared download flags, so no manual row-state push.
+     */
+    private fun handleSyncedChapters(added: List<NovelChapter>, removed: List<NovelChapter>) {
+        if (added.isNotEmpty() && novelPreferences.downloadNewChapters().get()) {
+            downloadManager.downloadChapters(added.sortedBy { it.chapterNumber })
+        }
+        if (removed.isEmpty()) return
+        val orphaned = removed.filter { downloadManager.isChapterDownloaded(it) }
+        if (orphaned.isEmpty()) return
+        when (novelPreferences.deleteRemovedChapters().get()) {
+            2 -> downloadManager.deleteChapters(orphaned) // always delete
+            1 -> Unit // always keep
+            else -> { // ask
+                val loaded = state.value as? NovelDetailsState.Loaded ?: return
+                mutableState.value = loaded.copy(dialog = NovelDetailsDialog.ConfirmRemovedDownloads(orphaned))
+            }
+        }
+    }
+
+    /** Confirm handler for [NovelDetailsDialog.ConfirmRemovedDownloads]: delete the orphaned downloads. */
+    fun deleteRemovedDownloads(chapters: List<NovelChapter>) {
+        downloadManager.deleteChapters(chapters)
+        dismissDialog()
     }
 
     /**
@@ -592,8 +633,9 @@ class NovelDetailsScreenModel(
 
     /** parseNovel + persist + sync. For a library novel [existing] is the stored row; defensively
      *  inserts a favorited row if the novel somehow isn't persisted yet. The reactive Flow then
-     *  re-emits the updated chapter list. */
-    private suspend fun fetchAndSync(src: NovelSource, existing: Novel?) {
+     *  re-emits the updated chapter list. Returns the (added, removed) chapter diff for the refresh
+     *  path's auto-download / removed-download handling; first-open and edit-info reset ignore it. */
+    private suspend fun fetchAndSync(src: NovelSource, existing: Novel?): Pair<List<NovelChapter>, List<NovelChapter>> {
         // Parse the target novel's own url (the anchor's, or a grouped sibling's on a per-source edit).
         val sourceNovel = src.parseNovel(existing?.url ?: novelUrl)
         val target = if (existing != null) {
@@ -625,11 +667,14 @@ class NovelDetailsScreenModel(
         } else {
             // Get-or-insert so a row created concurrently (e.g. the browse reader's favorite=false
             // shadow row) is reused instead of duplicated.
-            novelRepo.insertOrGet(sourceNovel.toNovel(sourceId = src.id, favorite = true)) ?: return
+            novelRepo.insertOrGet(sourceNovel.toNovel(sourceId = src.id, favorite = true))
+                ?: return emptyList<NovelChapter>() to emptyList()
         }
         val chapters = sourceNovel.chapters.orEmpty()
-        if (chapters.isNotEmpty()) {
+        return if (chapters.isNotEmpty()) {
             syncChaptersWithNovelSource(chapters, target, src, chapterRepo, novelRepo, handler)
+        } else {
+            emptyList<NovelChapter>() to emptyList()
         }
     }
 
@@ -1166,6 +1211,9 @@ sealed interface NovelDetailsDialog {
 
     /** Grouped sources for the Manage sources checklist (split / remove from library). */
     data class ManageSources(val sources: List<ManageSourceItem>) : NovelDetailsDialog
+
+    /** Downloads orphaned when a refresh found chapters removed at the source; user confirms deletion. */
+    data class ConfirmRemovedDownloads(val chapters: List<NovelChapter>) : NovelDetailsDialog
 }
 
 // Edit-info lock bits, persisted in Novel.editedFlags (must match the 38.sqm migration comment).

@@ -623,6 +623,25 @@ class NovelDetailsScreen(
                     onRemoveFromLibrary = { screenModel.removeSourcesFromLibrary(it) },
                     onDismiss = { screenModel.dismissDialog() },
                 )
+                is NovelDetailsDialog.ConfirmRemovedDownloads -> {
+                    val count = dialog.chapters.size
+                    AlertDialog(
+                        onDismissRequest = { screenModel.dismissDialog() },
+                        title = { Text("Chapters removed") },
+                        text = {
+                            Text(
+                                if (count == 1) "1 downloaded chapter was removed from the source. Delete it from your device?"
+                                else "$count downloaded chapters were removed from the source. Delete them from your device?",
+                            )
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { screenModel.deleteRemovedDownloads(dialog.chapters) }) { Text("Delete") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { screenModel.dismissDialog() }) { Text("Cancel") }
+                        },
+                    )
+                }
             }
         }
 

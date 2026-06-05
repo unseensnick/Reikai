@@ -179,6 +179,18 @@ object SettingsDownloadScreen : ComposableSettings() {
                                 ).toImmutableMap(),
                             ),
                         )
+                        add(
+                            Preference.PreferenceItem.ListPreference(
+                                pref = novelPreferences.deleteRemovedChapters(),
+                                title = stringResource(MR.strings.delete_removed_novel_chapters),
+                                subtitle = stringResource(MR.strings.delete_downloaded_if_removed_online),
+                                entries = mapOf(
+                                    0 to stringResource(MR.strings.ask_on_chapters_page),
+                                    1 to stringResource(MR.strings.always_keep),
+                                    2 to stringResource(MR.strings.always_delete),
+                                ).toImmutableMap(),
+                            ),
+                        )
                     }.toPersistentList(),
                 ),
             )

@@ -99,7 +99,8 @@ class NovelPreferences(
      *  novel CoverCache), but the pref is in place so the future setting toggles a real switch. */
     fun refreshCoversToo() = preferenceStore.getBoolean("ln_refresh_covers_too", true)
     fun hideNotificationContent() = preferenceStore.getBoolean("ln_hide_notification_content", false)
-    /** 0 = never, 1 = ask, 2 = always. Mirrors manga's deleteRemovedChapters. */
+    /** 0 = ask (delete on a background update, prompt on the details page), 1 = always keep,
+     *  2 = always delete. Mirrors manga's deleteRemovedChapters. */
     fun deleteRemovedChapters() = preferenceStore.getInt("ln_delete_removed_chapters", 0)
 
     /** Auto-download newly fetched chapters on a background library update. Independent of the

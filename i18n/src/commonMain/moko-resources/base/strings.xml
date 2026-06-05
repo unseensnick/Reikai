@@ -1076,6 +1076,7 @@
     <string name="download_new_novel_chapters">Download new novel chapters</string>
     <string name="categories_to_include_in_download">Categories to include in download</string>
     <string name="delete_removed_chapters">Delete removed chapters</string>
+    <string name="delete_removed_novel_chapters">Delete removed novel chapters</string>
     <string name="delete_downloaded_if_removed_online">Delete downloaded chapters if the source
         has removed the chapter online</string>
     <string name="ask_on_chapters_page">Delete during global updates, ask on chapters page</string>
