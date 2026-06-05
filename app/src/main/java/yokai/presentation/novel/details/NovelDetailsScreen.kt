@@ -535,7 +535,8 @@ class NovelDetailsScreen(
                                         s.chapters.find { it.id == id }?.let { openChapter(it) }
                                     },
                                     // Novels keep the simple single-tap toggle (no Start-now/Cancel menu).
-                                    onDownloadClick = { id, _ -> screenModel.downloadAction(id) },
+                                    onDownloadClick = { id, action -> screenModel.downloadAction(id, action) },
+                                    downloadMenuEnabled = true,
                                     selectionActive = s.selection.isNotEmpty(),
                                     onToggleSelection = { id, sel, long -> screenModel.toggleSelection(id, sel, long) },
                                     chapterSwipeEnabled = chapterSwipeEnabled,

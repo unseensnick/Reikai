@@ -98,6 +98,17 @@ class NovelDownloadManager(private val context: Context) {
         store.clear()
     }
 
+    /** Bump a queued chapter to the front so it downloads next. No-op if it isn't queued (already
+     *  downloading, or not enqueued). In-memory only: the persisted store keeps its order, so a cold
+     *  restart drains in the original sequence. */
+    fun startDownloadNow(chapterId: Long) {
+        _queueState.update { q ->
+            val idx = q.indexOfFirst { it.chapterId == chapterId }
+            if (idx <= 0) q else listOf(q[idx]) + q.filterIndexed { i, _ -> i != idx }
+        }
+        NovelDownloadJob.start(context)
+    }
+
     fun deleteChapters(chapters: List<NovelChapter>) {
         val ids = chapters.mapNotNull { it.id }.toSet()
         if (ids.isEmpty()) return

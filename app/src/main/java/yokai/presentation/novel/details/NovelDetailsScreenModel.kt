@@ -58,6 +58,7 @@ import yokai.novel.download.NovelDownloadManager
 import yokai.novel.source.NovelSource
 import yokai.novel.source.NovelSourceManager
 import yokai.novel.text.htmlToParagraphs
+import yokai.presentation.details.ChapterDownloadAction
 import yokai.presentation.details.DetailsDownloadState
 import yokai.presentation.details.DetailsEvent
 import yokai.presentation.details.ManageSourceItem
@@ -179,15 +180,18 @@ class NovelDetailsScreenModel(
         NovelDownload.State.ERROR -> DetailsDownloadState.ERROR
     }
 
-    /** Chip tap: queue a download for a not-downloaded/errored chapter, else cancel/delete it. */
-    fun downloadAction(chapterId: Long) {
+    /** Act on a chapter's download indicator: queue (or retry an error), jump the queue, or
+     *  cancel/delete. The menu surfaces Start-now / Cancel while queued and Delete while downloaded; a
+     *  plain tap on a not-downloaded (or errored) chapter starts it. Mirrors the manga side. */
+    fun downloadAction(chapterId: Long, action: ChapterDownloadAction) {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
         val chapter = loaded.chapters.find { it.id == chapterId } ?: return
-        val queued = loaded.downloads[chapterId]
-        when {
-            queued == null && !chapter.isDownloaded -> downloadManager.downloadChapters(listOf(chapter))
-            queued == DetailsDownloadState.ERROR -> downloadManager.downloadChapters(listOf(chapter))
-            else -> downloadManager.deleteChapters(listOf(chapter))
+        when (action) {
+            ChapterDownloadAction.START -> downloadManager.downloadChapters(listOf(chapter))
+            ChapterDownloadAction.START_NOW -> downloadManager.startDownloadNow(chapterId)
+            // deleteChapters removes a queued entry and deletes a downloaded file in one call, covering
+            // both Cancel (queued) and Delete (downloaded).
+            ChapterDownloadAction.CANCEL, ChapterDownloadAction.DELETE -> downloadManager.deleteChapters(listOf(chapter))
         }
     }
 
