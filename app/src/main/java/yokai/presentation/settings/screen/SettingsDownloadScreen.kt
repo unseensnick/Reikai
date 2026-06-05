@@ -88,6 +88,12 @@ object SettingsDownloadScreen : ComposableSettings() {
                             ),
                         )
                         add(
+                            Preference.PreferenceItem.SwitchPreference(
+                                pref = novelPreferences.removeAfterMarkedAsRead(),
+                                title = stringResource(MR.strings.remove_novel_when_marked_as_read),
+                            ),
+                        )
+                        add(
                             Preference.PreferenceItem.ListPreference(
                                 pref = preferences.removeAfterReadSlots(),
                                 title = stringResource(MR.strings.remove_after_read),

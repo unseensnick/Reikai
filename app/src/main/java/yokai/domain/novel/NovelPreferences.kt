@@ -107,6 +107,11 @@ class NovelPreferences(
      *  decoupled). Default off. */
     fun downloadNewChapters() = preferenceStore.getBoolean("novel_download_new_chapters", false)
 
+    /** Delete a novel chapter's offline download once it's marked read. Independent of the manga
+     *  `PreferencesHelper.removeAfterMarkedAsRead` toggle (Decision #2 keeps the surfaces
+     *  decoupled). Default off. */
+    fun removeAfterMarkedAsRead() = preferenceStore.getBoolean("novel_remove_after_marked_as_read", false)
+
     // Details-screen chapter sort / filter / display defaults (parallel to PreferencesHelper's
     // defaultChapter* prefs). A novel uses these unless it sets its own local override in
     // Novel.chapterFlags. Default sort is source order ascending (chapter 1 first), the novel

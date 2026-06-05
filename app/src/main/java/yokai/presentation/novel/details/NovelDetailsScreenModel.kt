@@ -1010,8 +1010,53 @@ class NovelDetailsScreenModel(
         showHiddenFlow.value = !showHiddenFlow.value
     }
 
+    private data class ChapterReadSnapshot(val id: Long, val read: Boolean, val lastTextProgress: Int)
+
+    /**
+     * Mark [targets] (and their merged siblings) read/unread, then fire the side effects: unmarking
+     * rewinds reading position; marking read optionally deletes downloads
+     * ([NovelPreferences.removeAfterMarkedAsRead]). Every path offers an Undo restoring the pre-mark
+     * read flag + progress.
+     *
+     * Download deletion is **deferred-commit**: the delete only runs when the snackbar dismisses, so
+     * tapping Undo preserves the downloads with no re-fetch. This diverges from the manga side, where
+     * the delete is immediate and Undo does not restore downloads; it's safe here because a novel
+     * download is a single HTML file with no cache/CBZ cleanup to coordinate.
+     */
     private suspend fun applyRead(targets: List<NovelChapter>, read: Boolean) {
-        expandToSiblings(targets).forEach { if (it.read != read) it.id?.let { id -> chapterRepo.setRead(id, read) } }
+        val expanded = expandToSiblings(targets)
+        val snapshot = expanded.mapNotNull { ch -> ch.id?.let { ChapterReadSnapshot(it, ch.read, ch.lastTextProgress) } }
+        if (snapshot.isEmpty()) return
+        expanded.forEach { ch ->
+            val id = ch.id ?: return@forEach
+            if (ch.read != read) chapterRepo.setRead(id, read)
+            if (!read && ch.lastTextProgress != 0) chapterRepo.setLastTextProgress(id, 0)
+        }
+
+        val toDelete = if (read && novelPreferences.removeAfterMarkedAsRead().get()) {
+            expanded.filter { downloadManager.isChapterDownloaded(it) }
+        } else {
+            emptyList()
+        }
+
+        emitEvent(
+            DetailsEvent.Snackbar(
+                message = if (read) "Marked as read" else "Marked as unread",
+                actionLabel = "Undo",
+                onAction = { restoreReadProgress(snapshot) },
+                onDismiss = { if (toDelete.isNotEmpty()) downloadManager.deleteChapters(toDelete) },
+            ),
+        )
+    }
+
+    /** Undo path for [applyRead]: restore the captured read flag + text progress per chapter. */
+    private fun restoreReadProgress(snapshot: List<ChapterReadSnapshot>) {
+        screenModelScope.launchIO {
+            snapshot.forEach { snap ->
+                chapterRepo.setRead(snap.id, snap.read)
+                chapterRepo.setLastTextProgress(snap.id, snap.lastTextProgress)
+            }
+        }
     }
 
     private suspend fun applyBookmark(targets: List<NovelChapter>, bookmark: Boolean) {
