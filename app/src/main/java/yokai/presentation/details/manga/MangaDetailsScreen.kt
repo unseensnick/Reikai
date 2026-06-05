@@ -232,6 +232,9 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                             )
                             add(SelectionAction("Download", icon = Icons.Outlined.Download) { screenModel.downloadSelected() })
                             add(SelectionAction("Delete", icon = Icons.Outlined.Delete) { screenModel.deleteSelected() })
+                            // Dedicated overflow unread for a mixed/none-read selection (where the bar
+                            // icon shows "Mark as read"); redundant once the icon itself is "Mark as unread".
+                            if (!allSelectedRead) add(SelectionAction("Mark as unread") { screenModel.markSelectedRead(false) })
                             add(SelectionAction("Mark previous as read") { screenModel.markPreviousRead(true) })
                             add(SelectionAction("Mark previous as unread") { screenModel.markPreviousRead(false) })
                             // Single-chapter web actions, mirroring the legacy per-chapter long-press menu.

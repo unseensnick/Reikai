@@ -249,34 +249,42 @@ class NovelDetailsScreen(
                         selectionCount = loaded?.selection?.size ?: 0,
                         onClose = { screenModel.clearSelection() },
                         colors = TopAppBarDefaults.topAppBarColors(),
-                        actions = listOf(
-                            // Stateful read toggle: flips to "unread" once every selected chapter is
-                            // read (mirrors the bookmark action), so no separate overflow entry.
-                            if (allReadSelected) {
-                                SelectionAction("Mark as unread", icon = Icons.Outlined.RemoveDone) { screenModel.markSelectedRead(false) }
-                            } else {
-                                SelectionAction("Mark as read", icon = Icons.Outlined.Done) { screenModel.markSelectedRead(true) }
-                            },
-                            if (allBookmarked) {
-                                SelectionAction("Remove bookmark", icon = Icons.Outlined.BookmarkRemove) { screenModel.bookmarkSelected(false) }
-                            } else {
-                                SelectionAction("Bookmark", icon = Icons.Outlined.BookmarkAdd) { screenModel.bookmarkSelected(true) }
-                            },
-                            if (allDownloadedSelected) {
-                                SelectionAction("Delete download", icon = Icons.Outlined.Delete) { screenModel.deleteSelectedDownloads() }
-                            } else {
-                                SelectionAction("Download", icon = Icons.Outlined.Download) { screenModel.downloadSelected() }
-                            },
-                            SelectionAction("Mark previous as read") { screenModel.markPreviousRead(true) },
-                            SelectionAction("Mark previous as unread") { screenModel.markPreviousRead(false) },
+                        actions = buildList {
+                            // Stateful read toggle: flips to "unread" once every selected chapter is read
+                            // (mirrors the bookmark action). A dedicated overflow "Mark as unread" is added
+                            // below for mixed/none-read selections, where this icon shows "Mark as read".
+                            add(
+                                if (allReadSelected) {
+                                    SelectionAction("Mark as unread", icon = Icons.Outlined.RemoveDone) { screenModel.markSelectedRead(false) }
+                                } else {
+                                    SelectionAction("Mark as read", icon = Icons.Outlined.Done) { screenModel.markSelectedRead(true) }
+                                },
+                            )
+                            add(
+                                if (allBookmarked) {
+                                    SelectionAction("Remove bookmark", icon = Icons.Outlined.BookmarkRemove) { screenModel.bookmarkSelected(false) }
+                                } else {
+                                    SelectionAction("Bookmark", icon = Icons.Outlined.BookmarkAdd) { screenModel.bookmarkSelected(true) }
+                                },
+                            )
+                            add(
+                                if (allDownloadedSelected) {
+                                    SelectionAction("Delete download", icon = Icons.Outlined.Delete) { screenModel.deleteSelectedDownloads() }
+                                } else {
+                                    SelectionAction("Download", icon = Icons.Outlined.Download) { screenModel.downloadSelected() }
+                                },
+                            )
+                            if (!allReadSelected) add(SelectionAction("Mark as unread") { screenModel.markSelectedRead(false) })
+                            add(SelectionAction("Mark previous as read") { screenModel.markPreviousRead(true) })
+                            add(SelectionAction("Mark previous as unread") { screenModel.markPreviousRead(false) })
                             if (allHiddenSelected) {
-                                SelectionAction("Unhide") { screenModel.unhideSelected() }
+                                add(SelectionAction("Unhide") { screenModel.unhideSelected() })
                             } else {
-                                SelectionAction("Hide") { screenModel.hideSelected() }
-                            },
-                            SelectionAction("Select all") { screenModel.selectAll() },
-                            SelectionAction("Invert selection") { screenModel.invertSelection() },
-                        ),
+                                add(SelectionAction("Hide") { screenModel.hideSelected() })
+                            }
+                            add(SelectionAction("Select all") { screenModel.selectAll() })
+                            add(SelectionAction("Invert selection") { screenModel.invertSelection() })
+                        },
                     )
                 } else {
                     val barAlpha = if (showBackdrop) barFraction else 1f
