@@ -62,7 +62,7 @@ import yokai.presentation.details.ChapterDownloadAction
 import yokai.presentation.details.DetailsDownloadState
 import yokai.presentation.details.DetailsEvent
 import yokai.presentation.details.ManageSourceItem
-import yokai.presentation.novel.browse.ChapterRead
+import yokai.presentation.novel.reader.ChapterRead
 
 /** Max chapters held in the reader's session text cache (LRU). Small: covers the current chapter,
  *  a prefetched next, and a little back-flip history without holding much text in memory. */
@@ -705,9 +705,11 @@ class NovelDetailsScreenModel(
             if (merged != existing) novelRepo.update(merged)
             merged
         } else {
-            // Get-or-insert so a row created concurrently (e.g. the browse reader's favorite=false
-            // shadow row) is reused instead of duplicated.
-            novelRepo.insertOrGet(sourceNovel.toNovel(sourceId = src.id, favorite = true))
+            // Get-or-insert a non-favorite shadow row so a novel opened from Browse is viewable
+            // without being silently added to the library; the "Add to library" toggle favorites it.
+            // insertOrGet reuses a concurrently-created row (e.g. the browse reader's) instead of
+            // duplicating, and the existing-row branch above preserves whatever favorite it holds.
+            novelRepo.insertOrGet(sourceNovel.toNovel(sourceId = src.id, favorite = false))
                 ?: return emptyList<NovelChapter>() to emptyList()
         }
         val chapters = sourceNovel.chapters.orEmpty()

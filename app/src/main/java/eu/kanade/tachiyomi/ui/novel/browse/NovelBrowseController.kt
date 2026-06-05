@@ -3,6 +3,8 @@ package eu.kanade.tachiyomi.ui.novel.browse
 import android.os.Bundle
 import androidx.compose.runtime.Composable
 import eu.kanade.tachiyomi.ui.base.controller.BaseComposeController
+import eu.kanade.tachiyomi.ui.novel.NovelDetailsController
+import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import yokai.presentation.novel.browse.NovelBrowseScreen
 
 class NovelBrowseController(bundle: Bundle? = null) : BaseComposeController(bundle) {
@@ -13,7 +15,12 @@ class NovelBrowseController(bundle: Bundle? = null) : BaseComposeController(bund
 
     @Composable
     override fun ScreenContent() {
-        NovelBrowseScreen(initialSourceId = args.getString(ARG_SOURCE_ID))
+        NovelBrowseScreen(
+            initialSourceId = args.getString(ARG_SOURCE_ID),
+            onSelectNovel = { sourceId, novelUrl ->
+                router.pushController(NovelDetailsController(sourceId, novelUrl).withFadeTransaction())
+            },
+        )
     }
 
     companion object {

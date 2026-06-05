@@ -96,8 +96,8 @@ import yokai.presentation.details.detailsResumeLabel
 import yokai.presentation.details.ManageSourcesDialog
 import yokai.presentation.library.components.SelectionAction
 import yokai.presentation.library.components.SelectionAppBar
-import yokai.presentation.novel.browse.ChapterRead
-import yokai.presentation.novel.browse.ChapterReader
+import yokai.presentation.novel.reader.ChapterRead
+import yokai.presentation.novel.reader.ChapterReader
 import yokai.util.Screen
 
 /**
