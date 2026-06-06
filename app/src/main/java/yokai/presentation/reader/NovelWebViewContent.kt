@@ -35,7 +35,9 @@ fun NovelWebViewContent(
     baseUrl: String?,
     settings: ReaderSettings,
     chapterTitle: String,
+    initialProgressPercent: Int,
     onToggleMenu: () -> Unit,
+    onSaveProgress: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -61,10 +63,11 @@ fun NovelWebViewContent(
     // Keyed on chapter + app theme only (NOT settings): settings changes push live instead of
     // reloading. The initial document bakes in the settings present at build time.
     val currentSettings = rememberUpdatedState(settings)
-    val document = remember(html, themeColors, chapterTitle) {
+    val document = remember(html, themeColors, chapterTitle, initialProgressPercent) {
         buildReaderHtml(
             chapterHtml = html,
             chapterName = chapterTitle,
+            progressPercent = initialProgressPercent,
             settings = currentSettings.value,
             colors = themeColors,
             statusBarHeightPx = 0,
@@ -73,6 +76,7 @@ fun NovelWebViewContent(
     }
 
     val onToggle = rememberUpdatedState(onToggleMenu)
+    val onSave = rememberUpdatedState(onSaveProgress)
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
     val webView = remember {
         WebView(context).apply {
@@ -82,6 +86,7 @@ fun NovelWebViewContent(
                 ReaderWebInterface(
                     onHide = { mainHandler.post { onToggle.value() } },
                     onConsole = { msg -> if (BuildConfig.DEBUG) Logger.d("NovelReaderWeb") { msg } },
+                    onSave = { percent -> onSave.value(percent) },
                 ),
                 "NativeReader",
             )

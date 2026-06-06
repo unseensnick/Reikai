@@ -40,6 +40,7 @@ data class ReaderThemeColors(
 fun buildReaderHtml(
     chapterHtml: String,
     chapterName: String,
+    progressPercent: Int,
     settings: ReaderSettings,
     colors: ReaderThemeColors,
     statusBarHeightPx: Int,
@@ -70,7 +71,7 @@ fun buildReaderHtml(
         put("readerSettings", readerSettings)
         put("chapterGeneralSettings", generalSettings)
         put("novel", JSONObject.NULL)
-        put("chapter", JSONObject().apply { put("name", chapterName); put("progress", 0) })
+        put("chapter", JSONObject().apply { put("name", chapterName); put("progress", progressPercent) })
         put("nextChapter", JSONObject.NULL)
         put("prevChapter", JSONObject.NULL)
         put("batteryLevel", 1.0)

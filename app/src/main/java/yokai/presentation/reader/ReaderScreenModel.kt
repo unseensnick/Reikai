@@ -27,6 +27,8 @@ sealed interface ReaderState {
         /** Base URL for resolving relative links/images in the chapter HTML; null for a downloaded
          *  chapter (read from disk, no source resolved). */
         val baseUrl: String?,
+        /** Resume position as a whole percent (0..100) for the web layer's initial scroll. */
+        val initialProgressPercent: Int,
     ) : ReaderState
     data class Failed(val message: String) : ReaderState
 }
@@ -132,10 +134,24 @@ class ReaderScreenModel(
                     val src = sourceManager.get(sourceId) ?: error("Source not installed: $sourceId")
                     src.parseChapter(chapter.url) to src.site.ifBlank { null }
                 }
-                ReaderState.Loaded(chapterTitle = chapter.name, html = html, baseUrl = baseUrl)
+                ReaderState.Loaded(
+                    chapterTitle = chapter.name,
+                    html = html,
+                    baseUrl = baseUrl,
+                    // Stored as 0..10000 (hundredths of a percent); the web layer wants 0..100.
+                    initialProgressPercent = (chapter.lastTextProgress / 100).coerceIn(0, 100),
+                )
             } catch (e: Throwable) {
                 ReaderState.Failed(e.message ?: "Failed to load chapter")
             }
+        }
+    }
+
+    /** Persist the reader's scroll position. The web layer reports a whole percent (0..100); store it
+     *  as 0..10000 to match [yokai.domain.novel.models.NovelChapter.lastTextProgress]. */
+    fun saveProgress(percent: Int) {
+        screenModelScope.launchIO {
+            chapterRepo.setLastTextProgress(chapterId, percent.coerceIn(0, 100) * 100)
         }
     }
 }

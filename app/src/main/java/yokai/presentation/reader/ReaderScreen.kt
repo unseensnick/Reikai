@@ -118,7 +118,9 @@ class ReaderScreen(
                     baseUrl = s.baseUrl,
                     settings = settings,
                     chapterTitle = s.chapterTitle,
+                    initialProgressPercent = s.initialProgressPercent,
                     onToggleMenu = { menuVisible = !menuVisible },
+                    onSaveProgress = screenModel::saveProgress,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
