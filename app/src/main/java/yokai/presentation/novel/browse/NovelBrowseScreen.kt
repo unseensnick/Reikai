@@ -19,9 +19,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.items as staggeredItems
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -56,17 +53,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
-import eu.kanade.tachiyomi.ui.library.LibraryItem
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlin.math.max
+import kotlin.math.pow
+import kotlin.math.roundToInt
 import yokai.novel.host.NovelItem
 import yokai.novel.source.NovelSource
 import yokai.presentation.component.ReikaiTopBar
-import yokai.presentation.library.settings.tabs.columnsForGridValue
 import yokai.presentation.manga.components.MangaCover
 import yokai.presentation.manga.components.MangaCoverRatio
 import yokai.util.Screen
@@ -128,7 +126,7 @@ class NovelBrowseScreen(
                     actions = {
                         val m = state.mode
                         if (m is NovelBrowseState.Mode.BrowsingNovels) {
-                            val isList = state.display.layout == LibraryItem.LAYOUT_LIST
+                            val isList = state.display.asList
                             IconButton(onClick = { screenModel.toggleListGrid() }) {
                                 Icon(
                                     imageVector = if (isList) Icons.Default.GridView else Icons.AutoMirrored.Filled.ViewList,
@@ -288,57 +286,50 @@ private fun NovelList(
             )
             return@Column
         }
-        when {
-            display.layout == LibraryItem.LAYOUT_LIST -> LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
+        if (display.asList) {
+            LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
                 items(items = novels, key = { it.path }) { item ->
                     NovelResultRow(item, onClick = { onPick(item) }, onLongClick = { onLongPick(item) })
                     HorizontalDivider()
                 }
             }
-            display.staggered && !display.uniformGrid -> {
-                val columns = columnsForGridValue(display.gridSize, LocalConfiguration.current.screenWidthDp)
-                LazyVerticalStaggeredGrid(
-                    columns = StaggeredGridCells.Fixed(columns),
-                    modifier = Modifier.fillMaxWidth().weight(1f),
-                    verticalItemSpacing = 4.dp,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    staggeredItems(items = novels, key = { it.path }) { item ->
-                        NovelBrowseGridCell(
-                            item = item,
-                            inLibrary = false,
-                            libraryLayout = display.layout,
-                            outlineOnCovers = display.outlineOnCovers,
-                            coverAspectRatio = null,
-                            onClick = { onPick(item) },
-                            onLongClick = { onLongPick(item) },
-                        )
-                    }
-                }
-            }
-            else -> {
-                val columns = columnsForGridValue(display.gridSize, LocalConfiguration.current.screenWidthDp)
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(columns),
-                    modifier = Modifier.fillMaxWidth().weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    gridItems(items = novels, key = { it.path }) { item ->
-                        NovelBrowseGridCell(
-                            item = item,
-                            inLibrary = false,
-                            libraryLayout = display.layout,
-                            outlineOnCovers = display.outlineOnCovers,
-                            coverAspectRatio = if (display.uniformGrid) MangaCoverRatio.BOOK else null,
-                            onClick = { onPick(item) },
-                            onLongClick = { onLongPick(item) },
-                        )
-                    }
+        } else {
+            val columns = browseGridColumns(display.gridSize, LocalConfiguration.current.screenWidthDp)
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(columns),
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                gridItems(items = novels, key = { it.path }) { item ->
+                    NovelBrowseGridCell(
+                        item = item,
+                        inLibrary = false,
+                        libraryLayout = display.gridLayout,
+                        outlineOnCovers = display.outlineOnCovers,
+                        coverAspectRatio = MangaCoverRatio.BOOK,
+                        onClick = { onPick(item) },
+                        onLongClick = { onLongPick(item) },
+                    )
                 }
             }
         }
     }
+}
+
+/**
+ * Browse grid column count, matching the manga catalogue's sizing
+ * ([eu.kanade.tachiyomi.widget.AutofitRecyclerView.setGridSize]): cover width is `1.5^gridSize`
+ * snapped to 25dp units, columns = screen width / that width. The novel library's
+ * `columnsForGridValue` remaps gridSize differently, so browse uses this to match the manga browse
+ * rather than the novel library.
+ */
+private fun browseGridColumns(gridSize: Float, screenWidthDp: Int): Int {
+    val multiple = 25f
+    val size = 1.5f.pow(gridSize)
+    val columnWidth = multiple * (size * 100f / multiple).roundToInt() / 100f
+    val dpUnits = (screenWidthDp / 100f).roundToInt()
+    return max(1, (dpUnits / columnWidth).roundToInt())
 }
 
 @OptIn(ExperimentalFoundationApi::class)

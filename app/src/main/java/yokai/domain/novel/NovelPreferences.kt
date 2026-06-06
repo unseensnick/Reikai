@@ -214,6 +214,13 @@ class NovelPreferences(
     /** Mirrors PreferencesHelper.categoryNumberOfItems (default false). */
     fun novelCategoryNumberOfItems() = preferenceStore.getBoolean("novel_category_number_of_items", false)
 
+    /** List vs grid for the LN source browse screen. Browse-specific (the manga catalogue's
+     *  [eu.kanade.tachiyomi.data.preference.PreferencesHelper.browseAsList] parallel), kept separate
+     *  from the library layout so toggling browse display doesn't reshape the Novels library. The
+     *  browse grid otherwise borrows the manga catalogue's sizing (grid size + density) so the two
+     *  Browse surfaces match. */
+    fun novelBrowseAsList() = preferenceStore.getBoolean("novel_browse_as_list", false)
+
     // Screen state. lastUsedNovelCategory persists which category tab was last visible so the
     // user lands back on it after process death. showAllCategories renders every category
     // header even when one is filtered to empty. showEmptyCategoriesWhileFiltering keeps

@@ -5,15 +5,11 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import eu.kanade.tachiyomi.util.system.launchIO
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.JsonElement
-import eu.kanade.tachiyomi.core.preference.Preference
 import uy.kohesive.injekt.injectLazy
-import yokai.domain.base.BasePreferences
 import yokai.domain.novel.NovelPreferences
 import yokai.domain.ui.UiPreferences
 import yokai.novel.host.NovelItem
@@ -39,7 +35,6 @@ class NovelBrowseScreenModel(
     private val preferences: PreferencesHelper by injectLazy()
     private val uiPreferences: UiPreferences by injectLazy()
     private val novelPreferences: NovelPreferences by injectLazy()
-    private val basePreferences: BasePreferences by injectLazy()
 
     init {
         // Seed synchronously so the first frame isn't an empty picker, then keep following the flow.
@@ -49,17 +44,21 @@ class NovelBrowseScreenModel(
                 mutableState.update { it.copy(sources = list) }
             }
         }
-        // Resolve display prefs the same way the novel library does (shared/independent toggle), so
-        // browse matches the library look. Read here, exposed as state (Compose-port item 5).
+        // Browse display: a browse-only list/grid toggle, but grid sizing + density borrowed from the
+        // manga catalogue prefs (gridSize, libraryLayout, outlineOnCovers) so the LN browse matches
+        // the manga browse and stays independent of the Novels library layout. Read here, exposed as
+        // state (Compose-port item 5).
         screenModelScope.launchIO {
             combine(
-                sharedOrNovel(preferences.libraryLayout(), novelPreferences.novelLibraryLayout()),
-                sharedOrNovel(uiPreferences.uniformGrid(), novelPreferences.novelUniformGrid()),
-                sharedOrNovel(preferences.useStaggeredGrid(), novelPreferences.novelUseStaggeredGrid()),
-                sharedOrNovel(preferences.gridSize(), novelPreferences.novelGridSize()),
-                sharedOrNovel(uiPreferences.outlineOnCovers(), novelPreferences.novelOutlineOnCovers()),
-            ) { layout, uniform, staggered, gridSize, outline ->
-                NovelBrowseState.Display(layout, gridSize, uniform, staggered, outline)
+                novelPreferences.novelBrowseAsList().changes(),
+                preferences.libraryLayout().changes(),
+                preferences.gridSize().changes(),
+                uiPreferences.outlineOnCovers().changes(),
+            ) { asList, layout, gridSize, outline ->
+                // libraryLayout may be LAYOUT_LIST; the browse grid only needs a grid density, so
+                // fall back to comfortable when the manga library is itself in list mode.
+                val gridLayout = if (layout == LibraryItem.LAYOUT_LIST) LibraryItem.LAYOUT_COMFORTABLE_GRID else layout
+                NovelBrowseState.Display(asList, gridLayout, gridSize, outline)
             }.collectLatest { display -> mutableState.update { it.copy(display = display) } }
         }
         screenModelScope.launchIO {
@@ -69,21 +68,11 @@ class NovelBrowseScreenModel(
         }
     }
 
-    /** Flip the effective library layout between list and grid, writing whichever pref (manga vs
-     *  novel) the shared toggle resolves, so browse and library stay consistent. */
+    /** Flip the browse-only list/grid toggle. Independent of the Novels library layout. */
     fun toggleListGrid() {
-        val pref = if (basePreferences.useSharedLibraryDisplayPrefs().get()) {
-            preferences.libraryLayout()
-        } else {
-            novelPreferences.novelLibraryLayout()
-        }
-        pref.set(if (pref.get() == LibraryItem.LAYOUT_LIST) LibraryItem.LAYOUT_COMFORTABLE_GRID else LibraryItem.LAYOUT_LIST)
+        val pref = novelPreferences.novelBrowseAsList()
+        pref.set(!pref.get())
     }
-
-    private fun <T> sharedOrNovel(mangaPref: Preference<T>, novelPref: Preference<T>): Flow<T> =
-        basePreferences.useSharedLibraryDisplayPrefs().changes().flatMapLatest { shared ->
-            if (shared) mangaPref.changes() else novelPref.changes()
-        }
 
     fun pickSource(source: NovelSource) {
         if (state.value.loading) return
@@ -179,12 +168,15 @@ data class NovelBrowseState(
     val lastAttemptedSource: NovelSource? = null,
     val display: Display = Display(),
 ) {
-    /** Effective grid/list display, resolved from the library display prefs (shared or novel). */
+    /**
+     * Browse display. [asList] is the browse-only list/grid toggle; [gridLayout] (comfortable /
+     * compact / cover-only), [gridSize], and [outlineOnCovers] borrow the manga catalogue prefs so
+     * the LN browse grid matches the manga browse.
+     */
     data class Display(
-        val layout: Int = LibraryItem.LAYOUT_COMFORTABLE_GRID,
+        val asList: Boolean = false,
+        val gridLayout: Int = LibraryItem.LAYOUT_COMFORTABLE_GRID,
         val gridSize: Float = 1f,
-        val uniformGrid: Boolean = true,
-        val staggered: Boolean = false,
         val outlineOnCovers: Boolean = true,
     )
 
