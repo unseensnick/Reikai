@@ -144,6 +144,7 @@ import eu.kanade.tachiyomi.util.view.isCollapsed
 import eu.kanade.tachiyomi.util.view.isExpanded
 import eu.kanade.tachiyomi.util.view.popupMenu
 import eu.kanade.tachiyomi.util.view.setAction
+import eu.kanade.tachiyomi.util.view.setComposeContent
 import eu.kanade.tachiyomi.util.view.setMessage
 import eu.kanade.tachiyomi.util.view.snack
 import eu.kanade.tachiyomi.widget.doOnEnd
@@ -155,6 +156,8 @@ import java.util.Collections
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -164,9 +167,11 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.sample
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.injectLazy
@@ -174,6 +179,8 @@ import yokai.domain.base.BasePreferences
 import yokai.domain.ui.settings.ReaderPreferences
 import yokai.domain.ui.settings.ReaderPreferences.LandscapeCutoutBehaviour
 import yokai.i18n.MR
+import yokai.presentation.reader.chrome.ReaderChromeOverlay
+import yokai.presentation.reader.chrome.ReaderChromeState
 import yokai.util.lang.getString
 import android.R as AR
 
@@ -205,6 +212,8 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
     private var menuTemporarilyVisible = false
 
     private var coroutine: Job? = null
+
+    private val readerChromeState = MutableStateFlow(ReaderChromeState())
 
     private var fromUrl = false
 
@@ -379,6 +388,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
 
         if (savedInstanceState != null) {
             menuVisible = savedInstanceState.getBoolean(::menuVisible.name)
+            readerChromeState.update { it.copy(menuVisible = menuVisible) }
             lastShiftDoubleState = savedInstanceState.getBoolean(SHIFT_DOUBLE_PAGES)
                 .takeIf { savedInstanceState.containsKey(SHIFT_DOUBLE_PAGES) }
             indexPageToShift = savedInstanceState.getInt(SHIFTED_PAGE_INDEX, Int.MIN_VALUE)
@@ -393,6 +403,14 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         binding.chaptersSheet.chaptersBottomSheet.setup(this)
         config = ReaderConfig()
         initializeMenu()
+
+        binding.composeOverlay.setComposeContent {
+            val chrome by readerChromeState.collectAsState()
+            ReaderChromeOverlay(
+                state = chrome,
+                onBack = { onBackPressedDispatcher.onBackPressed() },
+            )
+        }
 
         preferences.incognitoMode()
             .changesIn(lifecycleScope) {
@@ -1164,12 +1182,15 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
     private fun setMenuVisibility(visible: Boolean, animate: Boolean = true) {
         val oldVisibility = menuVisible
         menuVisible = visible
+        readerChromeState.update { it.copy(menuVisible = visible) }
+        // The legacy XML toolbar is replaced by the Compose overlay; keep it hidden. setSupportActionBar
+        // un-goes app_bar at init, so this owns it the way the old show/hide code used to.
+        binding.appBar.isVisible = false
         if (visible) coroutine?.cancel()
         binding.viewerContainer.requestLayout()
         if (visible) {
             snackbar?.dismiss()
             wic.show(systemBars())
-            binding.appBar.isVisible = true
 
             if (binding.chaptersSheet.chaptersBottomSheet.sheetBehavior.isExpanded()) {
                 binding.chaptersSheet.chaptersBottomSheet.sheetBehavior?.isHideable = false
@@ -1178,16 +1199,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                 window.navigationBarColor = Color.TRANSPARENT
             }
             if (animate && oldVisibility != menuVisible) {
-                if (!menuTemporarilyVisible) {
-                    val toolbarAnimation = AnimationUtils.loadAnimation(this, R.anim.enter_from_top)
-                    toolbarAnimation.doOnStart {
-                        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-                    }
-                    toolbarAnimation.doOnEnd { delayTitleScroll() }
-                    binding.appBar.startAnimation(toolbarAnimation)
-                } else {
-                    delayTitleScroll()
-                }
+                window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
                 binding.chaptersSheet.chaptersBottomSheet.sheetBehavior?.collapse()
             }
         } else {
@@ -1196,18 +1208,9 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                 wic.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
             }
 
-            if (animate && binding.appBar.isVisible) {
-                val toolbarAnimation = AnimationUtils.loadAnimation(this, R.anim.exit_to_top)
-                toolbarAnimation.doOnEnd {
-                    binding.appBar.isVisible = false
-                    stopTitleScroll()
-                }
-                binding.appBar.startAnimation(toolbarAnimation)
+            if (animate && oldVisibility) {
                 binding.chaptersSheet.chaptersBottomSheet.sheetBehavior?.isHideable = true
                 binding.chaptersSheet.chaptersBottomSheet.sheetBehavior?.hide()
-            } else if (!animate) {
-                binding.appBar.isVisible = false
-                stopTitleScroll()
             }
         }
         menuTemporarilyVisible = false
@@ -1290,6 +1293,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         binding.navigationOverlay.isLTR = viewer !is R2LPagerViewer
 
         supportActionBar?.title = manga.title
+        readerChromeState.update { it.copy(title = manga.title) }
 
         binding.readerNav.pageSeekbar.isRTL = newViewer is R2LPagerViewer
 
@@ -1373,8 +1377,9 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         intentPageNumber?.let { moveToPageIndex(it) }
         intentPageNumber = null
         val chapter = viewerChapters.currChapter.chapter
-        binding.toolbar.subtitle =
-            chapter.preferredChapterName(this, viewModel.manga!!, preferences)
+        val chapterSubtitle = chapter.preferredChapterName(this, viewModel.manga!!, preferences)
+        binding.toolbar.subtitle = chapterSubtitle
+        readerChromeState.update { it.copy(subtitle = chapterSubtitle) }
 
         listOfNotNull(getTitleTextView(), getSubtitleTextView()).forEach { textView ->
             textView.ellipsize = TextUtils.TruncateAt.MARQUEE
@@ -1792,7 +1797,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
     }
 
     private fun onVisibilityChange(visible: Boolean) {
-        if (visible && !menuTemporarilyVisible && !menuVisible && !binding.appBar.isVisible) {
+        if (visible && !menuTemporarilyVisible && !menuVisible) {
             menuTemporarilyVisible = true
             coroutine = scope.launchUI {
                 delay(2000)
@@ -1816,12 +1821,8 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                         },
                     )
             }
-            binding.appBar.isVisible = true
-            val toolbarAnimation = AnimationUtils.loadAnimation(this, R.anim.enter_from_top)
-            toolbarAnimation.doOnStart {
-                window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-            }
-            binding.appBar.startAnimation(toolbarAnimation)
+            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+            readerChromeState.update { it.copy(menuVisible = true) }
         } else if (!visible && (menuTemporarilyVisible || menuVisible)) {
             if (menuTemporarilyVisible && !menuVisible) {
                 setMenuVisibility(false)

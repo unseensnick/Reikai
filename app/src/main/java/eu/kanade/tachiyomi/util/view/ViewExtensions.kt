@@ -47,6 +47,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionContext
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.animation.addListener
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
@@ -102,6 +104,26 @@ inline fun ComponentActivity.setComposeContent(
     crossinline content: @Composable () -> Unit,
 ) {
     setContent(parent) {
+        YokaiTheme {
+            CompositionLocalProvider(
+                LocalTextStyle provides MaterialTheme.typography.bodySmall,
+                LocalContentColor provides MaterialTheme.colorScheme.onBackground,
+            ) {
+                content()
+            }
+        }
+    }
+}
+
+/**
+ * Themed Compose host for a [ComposeView] embedded in a View-based screen (e.g. the reader chrome
+ * overlay over [eu.kanade.tachiyomi.ui.reader.ReaderActivity]'s viewer). Mirrors the Mihon/Komikku
+ * `setComposeOverlay` pattern: wraps content in [YokaiTheme] and ties composition to the view-tree
+ * lifecycle so it disposes with the host.
+ */
+fun ComposeView.setComposeContent(content: @Composable () -> Unit) {
+    setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+    setContent {
         YokaiTheme {
             CompositionLocalProvider(
                 LocalTextStyle provides MaterialTheme.typography.bodySmall,
