@@ -1060,11 +1060,8 @@ class NovelDetailsScreenModel(
         val expanded = expandToSiblings(targets)
         val snapshot = expanded.mapNotNull { ch -> ch.id?.let { ChapterReadSnapshot(it, ch.read, ch.lastTextProgress) } }
         if (snapshot.isEmpty()) return
-        expanded.forEach { ch ->
-            val id = ch.id ?: return@forEach
-            if (ch.read != read) chapterRepo.setRead(id, read)
-            if (!read && ch.lastTextProgress != 0) chapterRepo.setLastTextProgress(id, 0)
-        }
+        // One batched transaction (not a write per chapter) so mark-all is instant on large novels.
+        chapterRepo.setReadBulk(snapshot.map { it.id }, read)
 
         val toDelete = if (read && novelPreferences.removeAfterMarkedAsRead().get()) {
             expanded.filter { downloadManager.isChapterDownloaded(it) }

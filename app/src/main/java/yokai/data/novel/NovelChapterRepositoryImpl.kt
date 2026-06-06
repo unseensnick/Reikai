@@ -109,6 +109,25 @@ class NovelChapterRepositoryImpl(private val handler: DatabaseHandler) : NovelCh
         false
     }
 
+    override suspend fun setReadBulk(ids: List<Long>, read: Boolean): Boolean = try {
+        // One transaction for the whole batch so mark-all on a large novel is a single commit.
+        // Marking unread also rewinds text progress (lastTextProgress = 0); marking read keeps it.
+        handler.await(inTransaction = true) {
+            ids.forEach { id ->
+                novel_chaptersQueries.update(
+                    novelId = null, url = null, name = null, read = read, bookmark = null,
+                    lastTextProgress = if (!read) 0L else null,
+                    chapterNumber = null, sourceOrder = null,
+                    dateFetch = null, dateUpload = null, page = null, chapterId = id,
+                )
+            }
+        }
+        true
+    } catch (e: Exception) {
+        Logger.e(e) { "Failed to bulk set read on ${ids.size} novel chapters" }
+        false
+    }
+
     override suspend fun setBookmark(id: Long, bookmark: Boolean): Boolean = try {
         handler.await {
             novel_chaptersQueries.update(

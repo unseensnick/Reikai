@@ -652,6 +652,16 @@ class MangaDetailsScreenModel(
         if (updates.isEmpty()) return
         updateChapter.awaitAll(updates)
 
+        // Show the Undo snackbar right after the (batched) read write, before the heavier
+        // download-delete / tracker side-effects, so it appears instantly on a large mark-all.
+        emitEvent(
+            DetailsEvent.Snackbar(
+                message = if (read) "Marked as read" else "Marked as unread",
+                actionLabel = "Undo",
+                onAction = { restoreProgress(snapshot) },
+            ),
+        )
+
         if (read) {
             val manga = (state.value as? MangaDetailsState.Loaded)?.manga
             if (manga != null && preferences.removeAfterMarkedAsRead().get()) {
@@ -662,14 +672,6 @@ class MangaDetailsScreenModel(
                 _trackRefresh.tryEmit(Unit)
             }
         }
-
-        emitEvent(
-            DetailsEvent.Snackbar(
-                message = if (read) "Marked as read" else "Marked as unread",
-                actionLabel = "Undo",
-                onAction = { restoreProgress(snapshot) },
-            ),
-        )
     }
 
     /** Undo path for [applyRead]: restore the captured read flag + page progress for each chapter. */

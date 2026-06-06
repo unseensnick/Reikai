@@ -21,6 +21,11 @@ interface NovelChapterRepository {
     suspend fun setRead(id: Long, read: Boolean): Boolean
     suspend fun setBookmark(id: Long, bookmark: Boolean): Boolean
 
+    /** Set read for many chapters in a single transaction (marking unread also rewinds text
+     *  progress, matching [setRead] + [setLastTextProgress]). One transaction keeps mark-all on a
+     *  large novel instant instead of one commit per chapter. */
+    suspend fun setReadBulk(ids: List<Long>, read: Boolean): Boolean
+
     /** Toggle the offline-download flag. Dedicated single-column write so the download engine never
      *  round-trips the whole row (which could clobber a merged copy's synthetic source_order). */
     suspend fun setDownloaded(id: Long, downloaded: Boolean): Boolean
