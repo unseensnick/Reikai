@@ -987,6 +987,11 @@ class BrowseController :
     private fun performGlobalSearch(query: String) {
         // On the Light novels source-type tab (1), search across LN sources; otherwise manga.
         if (preferences.lastUsedSourceTypeTab().get() == 1) {
+            // The LN global search hosts its own search field (it doesn't take over the activity
+            // search toolbar the way the manga GlobalSearchController does), so collapse the Browse
+            // search box here. Otherwise it would still hold the query on return; the manga side
+            // ends up cleared because its controller owns the shared toolbar.
+            activityBinding?.searchToolbar?.searchItem?.collapseActionView()
             router.pushController(NovelGlobalSearchController(query).withFadeTransaction())
         } else {
             router.pushController(GlobalSearchController(query).withFadeTransaction())
