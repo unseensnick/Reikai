@@ -409,8 +409,22 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             ReaderChromeOverlay(
                 state = chrome,
                 onBack = { onBackPressedDispatcher.onBackPressed() },
+                // Semantic prev/next regardless of reading direction: loadAdjacentChapter takes a
+                // physical button and xors it with R2L, so feed it the button that yields the wanted side.
+                onPrevChapter = { loadAdjacentChapter(viewer is R2LPagerViewer) },
+                onNextChapter = { loadAdjacentChapter(viewer !is R2LPagerViewer) },
+                onSeek = { moveToPageIndex(it) },
+                // transitional: legacy TabbedReaderSettingsSheet until the Compose settings sheet ports (Phase 2.3)
+                onSettings = { TabbedReaderSettingsSheet(this@ReaderActivity).show() },
             )
         }
+
+        // Phase 2.2: the Compose overlay's bottom bar replaces the legacy seekbar; the chapters sheet stays
+        // in the hierarchy (its chapter-load lifecycle still runs resetChapter/refreshList) but is kept
+        // hidden off-screen via its bottom-sheet behavior rather than View visibility.
+        binding.navLayout.isVisible = false
+        binding.chaptersSheet.chaptersBottomSheet.sheetBehavior?.isHideable = true
+        binding.chaptersSheet.chaptersBottomSheet.sheetBehavior?.hide()
 
         preferences.incognitoMode()
             .changesIn(lifecycleScope) {
@@ -1200,7 +1214,9 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             }
             if (animate && oldVisibility != menuVisible) {
                 window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-                binding.chaptersSheet.chaptersBottomSheet.sheetBehavior?.collapse()
+                // Keep the chapters sheet hidden (Compose owns the bottom chrome); don't collapse it
+                // back into a visible peek that would overlap the Compose bottom bar.
+                binding.chaptersSheet.chaptersBottomSheet.sheetBehavior?.hide()
             }
         } else {
             if (preferences.fullscreen().get()) {
@@ -1402,6 +1418,12 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
             binding.readerNav.rightChapter.alpha = if (viewerChapters.nextChapter != null) 1f else 0.5f
             binding.readerNav.leftChapter.alpha = if (viewerChapters.prevChapter != null) 1f else 0.5f
         }
+        readerChromeState.update {
+            it.copy(
+                hasPrevChapter = viewerChapters.prevChapter != null,
+                hasNextChapter = viewerChapters.nextChapter != null,
+            )
+        }
         if (didTransitionFromChapter) {
             MainActivity.chapterIdToExitTo = viewerChapters.currChapter.chapter.id ?: 0L
         }
@@ -1528,6 +1550,13 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         val progress = page.index + if (hasExtraPage) 1 else 0
         // For a double page, show the last 2 pages as if it was the final part of the seekbar
         binding.readerNav.pageSeekbar.value = (if (progress == pages.lastIndex) progress else page.index).toFloat()
+        readerChromeState.update {
+            it.copy(
+                currentPage = binding.readerNav.pageSeekbar.value.roundToInt(),
+                pageCount = pages.size,
+                currentPageText = currentPage,
+            )
+        }
     }
 
     /**
