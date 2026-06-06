@@ -1080,18 +1080,23 @@ class NovelDetailsScreenModel(
         // One batched transaction (not a write per chapter) so mark-all is instant on large novels.
         chapterRepo.setReadBulk(snapshot.map { it.id }, read)
 
-        val toDelete = if (read && novelPreferences.removeAfterMarkedAsRead().get()) {
-            expanded.filter { downloadManager.isChapterDownloaded(it) }
-        } else {
-            emptyList()
-        }
-
+        val removeDownloads = read && novelPreferences.removeAfterMarkedAsRead().get()
         emitEvent(
             DetailsEvent.Snackbar(
                 message = if (read) "Marked as read" else "Marked as unread",
                 actionLabel = "Undo",
                 onAction = { restoreReadProgress(snapshot) },
-                onDismiss = { if (toDelete.isNotEmpty()) downloadManager.deleteChapters(toDelete) },
+                // Deferred-commit AND off the emit path: scanning for downloaded files is a stat per
+                // chapter, which would delay the snackbar on a large novel. Runs only on dismiss
+                // (not Undo), on IO.
+                onDismiss = {
+                    if (removeDownloads) {
+                        screenModelScope.launchIO {
+                            val toDelete = expanded.filter { downloadManager.isChapterDownloaded(it) }
+                            if (toDelete.isNotEmpty()) downloadManager.deleteChapters(toDelete)
+                        }
+                    }
+                },
             ),
         )
     }
