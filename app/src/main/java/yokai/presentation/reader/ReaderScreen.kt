@@ -1,12 +1,16 @@
 package yokai.presentation.reader
 
+import android.app.Activity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Settings
@@ -20,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,17 +32,21 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import yokai.util.Screen
 
 /**
  * Unified reader shell (Phase 1). Hosts a [ReaderScreenModel] and renders the novel WebView content
- * with tap-to-toggle immersive chrome (top app bar + bottom bar overlay the content; a single tap
- * hides/shows them). Holds only serializable args and routes back via [LocalBackPress]; no
- * constructor lambdas (Voyager serializes the screen into saved state).
+ * with tap-to-toggle immersive chrome: a single tap hides/shows the top + bottom bars *and* the
+ * phone's system bars together (LNReader-style), so the reading area is unobstructed. Holds only
+ * serializable args and routes back via [LocalBackPress]; no constructor lambdas (Voyager serializes
+ * the screen into saved state).
  */
 class ReaderScreen(
     private val sourceId: String,
@@ -48,11 +57,35 @@ class ReaderScreen(
     @Composable
     override fun Content() {
         val backPress = LocalBackPress.current
+        val context = LocalContext.current
         val screenModel = rememberScreenModel { ReaderScreenModel(sourceId, chapterId) }
         val state by screenModel.state.collectAsState()
 
         var menuVisible by rememberSaveable { mutableStateOf(true) }
         var settingsOpen by rememberSaveable { mutableStateOf(false) }
+
+        // Immersive: hide the system bars while reading, reveal them with the chrome on tap. Restore
+        // them when leaving the reader so the rest of the app is unaffected.
+        DisposableEffect(menuVisible) {
+            val window = (context as? Activity)?.window
+            val controller = window?.let { WindowInsetsControllerCompat(it, it.decorView) }
+            controller?.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            if (menuVisible) {
+                controller?.show(WindowInsetsCompat.Type.systemBars())
+            } else {
+                controller?.hide(WindowInsetsCompat.Type.systemBars())
+            }
+            onDispose {}
+        }
+        DisposableEffect(Unit) {
+            onDispose {
+                (context as? Activity)?.window?.let {
+                    WindowInsetsControllerCompat(it, it.decorView)
+                        .show(WindowInsetsCompat.Type.systemBars())
+                }
+            }
+        }
 
         val title = when (val s = state) {
             is ReaderState.Loaded -> s.chapterTitle
@@ -94,6 +127,7 @@ class ReaderScreen(
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     },
+                    windowInsets = WindowInsets.statusBars,
                 )
             }
 
@@ -104,7 +138,7 @@ class ReaderScreen(
                 exit = slideOutVertically { it },
             ) {
                 // Placeholder bottom bar (Phase 1.2): holds the settings entry; chapter nav lands in 1.6.
-                BottomAppBar {
+                BottomAppBar(windowInsets = WindowInsets.navigationBars) {
                     Spacer(Modifier.weight(1f))
                     IconButton(onClick = { settingsOpen = true }) {
                         Icon(Icons.Filled.Settings, contentDescription = "Reader settings")
