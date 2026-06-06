@@ -202,6 +202,16 @@ class NovelBrowseScreenModel(
 
     fun goBackToPicker() = mutableState.update { it.copy(mode = NovelBrowseState.Mode.PickingSource, error = null) }
 
+    /** Re-attempt the last fetch after an error: re-pick the source (early pick failure), or re-run
+     *  the current listing (popular or search). */
+    fun retry() {
+        when (val mode = state.value.mode) {
+            is NovelBrowseState.Mode.PickingSource -> state.value.lastAttemptedSource?.let { pickSource(it) }
+            is NovelBrowseState.Mode.BrowsingNovels ->
+                if (mode.query.isBlank()) applyFilters() else runSearch(mode.query)
+        }
+    }
+
     /**
      * Long-press a result: add it to the library if not already in (favorite + default-category
      * routing), otherwise remove it with an undo. The in-library badge updates reactively via the

@@ -207,6 +207,8 @@ class NovelBrowseScreen(
                 }
                 state.error?.let {
                     Text(text = it, color = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedButton(onClick = { screenModel.retry() }) { Text("Retry") }
                     // Prefer the source from current mode (the one the user is interacting with); fall
                     // back to the last attempted source when an early-fail left the screen in the picker.
                     val cfTarget = when (val m = state.mode) {
