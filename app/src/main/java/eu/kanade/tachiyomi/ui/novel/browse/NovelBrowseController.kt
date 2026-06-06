@@ -5,8 +5,6 @@ import androidx.compose.runtime.Composable
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.transitions.CrossfadeTransition
 import eu.kanade.tachiyomi.ui.base.controller.BaseComposeController
-import eu.kanade.tachiyomi.ui.novel.NovelDetailsController
-import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import yokai.presentation.novel.browse.NovelBrowseScreen
 
 class NovelBrowseController(bundle: Bundle? = null) : BaseComposeController(bundle) {
@@ -17,13 +15,10 @@ class NovelBrowseController(bundle: Bundle? = null) : BaseComposeController(bund
 
     @Composable
     override fun ScreenContent() {
+        // The screen routes to details itself via LocalRouter; no lambda is passed in (Voyager
+        // serializes the screen into saved state, and a captured lambda isn't serializable).
         Navigator(
-            screen = NovelBrowseScreen(
-                initialSourceId = args.getString(ARG_SOURCE_ID),
-                onSelectNovel = { sourceId, novelUrl ->
-                    router.pushController(NovelDetailsController(sourceId, novelUrl).withFadeTransaction())
-                },
-            ),
+            screen = NovelBrowseScreen(initialSourceId = args.getString(ARG_SOURCE_ID)),
             content = { CrossfadeTransition(navigator = it) },
         )
     }

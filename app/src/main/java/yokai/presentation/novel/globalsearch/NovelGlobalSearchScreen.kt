@@ -36,8 +36,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import eu.kanade.tachiyomi.ui.novel.NovelDetailsController
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
+import eu.kanade.tachiyomi.util.compose.LocalRouter
 import eu.kanade.tachiyomi.util.system.LocaleHelper
+import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import yokai.novel.host.NovelItem
 import yokai.presentation.component.ReikaiTopBar
 import yokai.presentation.novel.browse.NovelBrowseGridCell
@@ -54,13 +57,16 @@ private val RESULT_CELL_WIDTH = 112.dp
  */
 class NovelGlobalSearchScreen(
     private val initialQuery: String = "",
-    private val onSelectNovel: (sourceId: String, novelUrl: String) -> Unit = { _, _ -> },
 ) : Screen() {
 
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
         val backPress = LocalBackPress.current
+        val router = LocalRouter.current
+        val onSelectNovel: (sourceId: String, novelUrl: String) -> Unit = { sourceId, novelUrl ->
+            router?.pushController(NovelDetailsController(sourceId, novelUrl).withFadeTransaction())
+        }
         val screenModel = rememberScreenModel { NovelGlobalSearchScreenModel(initialQuery) }
         val state by screenModel.state.collectAsState()
         var queryDraft by remember { mutableStateOf(initialQuery) }

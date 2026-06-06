@@ -64,9 +64,12 @@ import androidx.compose.ui.unit.dp
 import android.app.Activity
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import dev.icerock.moko.resources.compose.stringResource
+import eu.kanade.tachiyomi.ui.novel.NovelDetailsController
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
+import eu.kanade.tachiyomi.util.compose.LocalRouter
 import eu.kanade.tachiyomi.util.moveCategories
+import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -88,10 +91,12 @@ import yokai.util.Screen
  * [onSelectNovel] (wired by the host controller to push NovelDetailsController), so browse, library,
  * and global search all open the same polished details + reader flow. State lives in
  * [NovelBrowseScreenModel]; this screen is the renderer.
+ *
+ * Routing lives here (via [LocalRouter]) rather than a constructor lambda: Voyager serializes the
+ * screen into saved instance state, and a captured lambda isn't serializable (it crashed on stop).
  */
 class NovelBrowseScreen(
     private val initialSourceId: String? = null,
-    private val onSelectNovel: (sourceId: String, novelUrl: String) -> Unit = { _, _ -> },
 ) : Screen() {
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -99,6 +104,10 @@ class NovelBrowseScreen(
     override fun Content() {
         val context = LocalContext.current
         val backPress = LocalBackPress.current
+        val router = LocalRouter.current
+        val onSelectNovel: (sourceId: String, novelUrl: String) -> Unit = { sourceId, novelUrl ->
+            router?.pushController(NovelDetailsController(sourceId, novelUrl).withFadeTransaction())
+        }
         val screenModel = rememberScreenModel { NovelBrowseScreenModel(initialSourceId) }
         val state by screenModel.state.collectAsState()
 
