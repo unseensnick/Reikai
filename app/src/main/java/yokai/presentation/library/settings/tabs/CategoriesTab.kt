@@ -103,6 +103,9 @@ fun CategoriesTab(
     val hopperLongPressAction by hopperLongPressActionPref.collectAsState()
     val categorySortOrderPref = rememberRoutedPref(routeShared, preferences.categorySortOrder(), novelPrefs.categorySortOrder())
     val categorySortOrder by categorySortOrderPref.collectAsState()
+    // Browse add-to-library default category (novel tab only). Browse-specific, so not routed.
+    val novelDefaultCategoryPref = novelPrefs.novelDefaultCategory()
+    val novelDefaultCategory by novelDefaultCategoryPref.collectAsState()
 
     // Mirrors the legacy hideHopperSpinner: index 0 = always shown, 1 = autohide on scroll,
     // 2 = always hidden. Encoded as (hideHopper * 2) + autohideHopper, clamped to [0, 2].
@@ -129,6 +132,15 @@ fun CategoriesTab(
         1 to stringResource(MR.strings.category_sort_a_to_z),
         2 to stringResource(MR.strings.category_sort_z_to_a),
     )
+
+    // Default-category options for the novel browse add: the two sentinels + the synthetic Default
+    // (id 0, prepended since getNovelCategories returns only real rows) + the user's novel categories.
+    val novelDefaultCategoryEntries: Map<Int, String> = buildMap {
+        put(-2, stringResource(MR.strings.last_used))
+        put(-1, stringResource(MR.strings.always_ask))
+        put(0, stringResource(MR.strings.default_value))
+        novelCategories.forEach { category -> category.id?.takeIf { it > 0 }?.let { put(it, category.name) } }
+    }
 
     // Order mirrors the legacy library_category_layout.xml row order so users moving between
     // the two paths see the same affordances in the same positions:
@@ -211,6 +223,20 @@ fun CategoriesTab(
             entries = categorySortOrderEntries,
             onValueChange = { categorySortOrderPref.set(it) },
         )
+
+        // Browse add-to-library default category (Novels only; the manga parallel lives in
+        // Settings -> Library, which novels don't have a screen for).
+        if (isNovelTab) {
+            ListPreferenceWidget(
+                value = novelDefaultCategory,
+                title = stringResource(MR.strings.default_category),
+                subtitle = novelDefaultCategoryEntries[novelDefaultCategory]
+                    ?: stringResource(MR.strings.last_used),
+                icon = null,
+                entries = novelDefaultCategoryEntries,
+                onValueChange = { novelDefaultCategoryPref.set(it) },
+            )
+        }
 
         // Group-by now lives in its own Group tab; only the expand/collapse-all action (which
         // depends on BY_DEFAULT grouping) and Add/edit categories remain here.

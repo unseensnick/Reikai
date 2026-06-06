@@ -41,6 +41,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -58,10 +62,12 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import android.app.Activity
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
+import eu.kanade.tachiyomi.util.moveCategories
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -100,6 +106,37 @@ class NovelBrowseScreen(
         // Pure-UI sheet visibility; the sheet contents read filter/source state from the model.
         var filterSheetOpen by remember { mutableStateOf(false) }
         var settingsSheetOpen by remember { mutableStateOf(false) }
+        val snackbarHostState = remember { SnackbarHostState() }
+
+        // Long-press add/remove effects: the model favorites + routes categories, then signals here to
+        // show the category sheet (always-ask) or an add/remove snackbar, since the Activity and the
+        // SnackbarHost live in the composable.
+        LaunchedEffect(Unit) {
+            screenModel.events.collect { event ->
+                when (event) {
+                    is BrowseEvent.ShowCategorySheet ->
+                        (context as? Activity)?.let { event.novel.moveCategories(it, addingToLibrary = true) {} }
+                    is BrowseEvent.AddedToLibrary -> {
+                        val result = snackbarHostState.showSnackbar(
+                            message = "Added to library",
+                            actionLabel = "Change",
+                            duration = SnackbarDuration.Short,
+                        )
+                        if (result == SnackbarResult.ActionPerformed) {
+                            (context as? Activity)?.let { event.novel.moveCategories(it, addingToLibrary = true) {} }
+                        }
+                    }
+                    is BrowseEvent.RemovedFromLibrary -> {
+                        val result = snackbarHostState.showSnackbar(
+                            message = "Removed from library",
+                            actionLabel = "Undo",
+                            duration = SnackbarDuration.Short,
+                        )
+                        if (result == SnackbarResult.ActionPerformed) screenModel.undoRemove(event.novel)
+                    }
+                }
+            }
+        }
 
         fun goBack() {
             when (state.mode) {
@@ -155,6 +192,7 @@ class NovelBrowseScreen(
                     colors = TopAppBarDefaults.topAppBarColors(),
                 )
             },
+            snackbarHost = { SnackbarHost(snackbarHostState) },
         ) { padding ->
             Column(
                 modifier = Modifier
@@ -200,7 +238,7 @@ class NovelBrowseScreen(
                         loadingMore = state.loadingMore,
                         onSearch = { screenModel.runSearch(it) },
                         onPick = { item -> onSelectNovel(m.source.id, item.path) },
-                        onLongPick = { /* long-press add-to-library lands in B2e */ },
+                        onLongPick = { item -> screenModel.onLongPress(item) },
                         onLoadMore = { screenModel.loadMore() },
                     )
                 }

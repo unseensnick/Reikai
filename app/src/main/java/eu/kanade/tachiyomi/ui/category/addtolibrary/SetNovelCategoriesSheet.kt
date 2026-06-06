@@ -305,6 +305,9 @@ class SetNovelCategoriesSheet(
 
         val addCategories = checkedItems.map(AddNovelCategoryItem::category)
         val removeCategories = uncheckedItems.map(AddNovelCategoryItem::category)
+        // Remember the chosen categories so the "Last used" default-category option can reuse them on
+        // the next add-to-library (mirrors the manga SetCategoriesSheet).
+        NovelCategory.lastCategoriesAddedTo = addCategories.mapNotNull { it.id }.toSet()
         // Parallel per-novel existing-categories fetch, matching the manga sheet's anti-ANR
         // shape (sequential awaitByNovelId calls would N×DB round-trip on bulk-add).
         val perNovel = coroutineScope {

@@ -2,9 +2,13 @@ package yokai.presentation.novel.browse
 
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import eu.kanade.tachiyomi.data.database.models.NovelCategory
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import eu.kanade.tachiyomi.util.system.launchIO
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
@@ -12,6 +16,9 @@ import kotlinx.serialization.json.JsonElement
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.novel.NovelPreferences
 import yokai.domain.novel.NovelRepository
+import yokai.domain.novel.interactor.GetNovelCategories
+import yokai.domain.novel.interactor.SetNovelCategories
+import yokai.domain.novel.models.Novel
 import yokai.domain.ui.UiPreferences
 import yokai.novel.host.NovelItem
 import yokai.novel.install.LnPluginInstaller
@@ -37,6 +44,13 @@ class NovelBrowseScreenModel(
     private val uiPreferences: UiPreferences by injectLazy()
     private val novelPreferences: NovelPreferences by injectLazy()
     private val novelRepository: NovelRepository by injectLazy()
+    private val getNovelCategories: GetNovelCategories by injectLazy()
+    private val setNovelCategories: SetNovelCategories by injectLazy()
+
+    /** One-shot effects the screen turns into a category sheet / snackbar (it owns the Activity +
+     *  SnackbarHost). Buffered so emits from [screenModelScope] never suspend. */
+    private val _events = MutableSharedFlow<BrowseEvent>(extraBufferCapacity = 8)
+    val events: SharedFlow<BrowseEvent> = _events.asSharedFlow()
 
     init {
         // Seed synchronously so the first frame isn't an empty picker, then keep following the flow.
@@ -188,6 +202,81 @@ class NovelBrowseScreenModel(
 
     fun goBackToPicker() = mutableState.update { it.copy(mode = NovelBrowseState.Mode.PickingSource, error = null) }
 
+    /**
+     * Long-press a result: add it to the library if not already in (favorite + default-category
+     * routing), otherwise remove it with an undo. The in-library badge updates reactively via the
+     * library flow, so nothing is pushed back to the UI beyond the snackbar / sheet event.
+     */
+    fun onLongPress(item: NovelItem) {
+        val mode = state.value.mode as? NovelBrowseState.Mode.BrowsingNovels ?: return
+        val sourceId = mode.source.id
+        screenModelScope.launchIO {
+            val existing = novelRepository.getByUrlAndSource(item.path, sourceId)
+            if (existing?.favorite == true) {
+                novelRepository.update(existing.copy(favorite = false))
+                _events.tryEmit(BrowseEvent.RemovedFromLibrary(existing))
+                return@launchIO
+            }
+            // Reuse a pre-existing (e.g. previously-opened) row, else insert a lightweight shadow;
+            // details/refresh enriches it later. insertOrGet funnels concurrent inserts to one row.
+            val row = (existing ?: novelRepository.insertOrGet(shadowNovel(item, sourceId))) ?: return@launchIO
+            val favorited = row.copy(
+                favorite = true,
+                dateAdded = if (row.dateAdded == 0L) System.currentTimeMillis() else row.dateAdded,
+            )
+            novelRepository.update(favorited)
+            routeDefaultCategory(favorited)
+        }
+    }
+
+    /** Re-favorite after an undo. */
+    fun undoRemove(novel: Novel) = screenModelScope.launchIO {
+        novelRepository.update(novel.copy(favorite = true))
+    }
+
+    /** Assign categories per the Default-category pref (-2 last used, -1 ask, 0 Default, >0 specific),
+     *  then signal the screen to show the sheet (ask) or an "added" snackbar (auto-filed). */
+    private suspend fun routeDefaultCategory(novel: Novel) {
+        val id = novel.id ?: return
+        when (val default = novelPreferences.novelDefaultCategory().get()) {
+            DEFAULT_CATEGORY_ASK -> _events.tryEmit(BrowseEvent.ShowCategorySheet(novel))
+            DEFAULT_CATEGORY_DEFAULT -> {
+                setNovelCategories.await(id, emptyList())
+                _events.tryEmit(BrowseEvent.AddedToLibrary(novel))
+            }
+            DEFAULT_CATEGORY_LAST_USED -> {
+                val existingIds = getNovelCategories.await().mapNotNull { it.id }.toSet()
+                val ids = NovelCategory.lastCategoriesAddedTo.filter { it in existingIds }.map { it.toLong() }
+                setNovelCategories.await(id, ids)
+                _events.tryEmit(BrowseEvent.AddedToLibrary(novel))
+            }
+            else -> {
+                setNovelCategories.await(id, listOf(default.toLong()))
+                _events.tryEmit(BrowseEvent.AddedToLibrary(novel))
+            }
+        }
+    }
+
+    private fun shadowNovel(item: NovelItem, sourceId: String) = Novel(
+        id = null,
+        source = sourceId,
+        url = item.path,
+        title = item.name,
+        author = null,
+        artist = null,
+        description = null,
+        genres = null,
+        status = 0,
+        thumbnailUrl = item.cover,
+        favorite = false,
+        lastUpdate = 0L,
+        initialized = false,
+        chapterFlags = 0,
+        dateAdded = 0L,
+        updateStrategy = 0,
+        coverLastModified = 0L,
+    )
+
     /** Apply [block] to the BrowsingNovels mode (clearing the loading flag), or no-op otherwise. */
     private inline fun updateBrowsing(block: (NovelBrowseState.Mode.BrowsingNovels) -> NovelBrowseState.Mode.BrowsingNovels) {
         mutableState.update {
@@ -197,6 +286,25 @@ class NovelBrowseScreenModel(
     }
 
     private fun errorText(e: Throwable) = "${e.javaClass.simpleName}: ${e.message ?: ""}"
+
+    companion object {
+        // novelDefaultCategory sentinels, mirroring the manga defaultCategory pref.
+        const val DEFAULT_CATEGORY_LAST_USED = -2
+        const val DEFAULT_CATEGORY_ASK = -1
+        const val DEFAULT_CATEGORY_DEFAULT = 0
+    }
+}
+
+/** One-shot effects from [NovelBrowseScreenModel] that need the Activity / SnackbarHost the screen owns. */
+sealed interface BrowseEvent {
+    /** Default category is "always ask": show the category sheet for [novel] (already favorited). */
+    data class ShowCategorySheet(val novel: Novel) : BrowseEvent
+
+    /** [novel] was added + auto-filed; show an "added" snackbar with a Change action. */
+    data class AddedToLibrary(val novel: Novel) : BrowseEvent
+
+    /** [novel] was removed; show a "removed" snackbar with an Undo action. */
+    data class RemovedFromLibrary(val novel: Novel) : BrowseEvent
 }
 
 /** Stable key for the in-library lookup, matching a novel row's (source, url) identity. */

@@ -221,6 +221,12 @@ class NovelPreferences(
      *  Browse surfaces match. */
     fun novelBrowseAsList() = preferenceStore.getBoolean("novel_browse_as_list", false)
 
+    /** Default category when adding a novel to the library from browse, mirroring the manga
+     *  [eu.kanade.tachiyomi.data.preference.PreferencesHelper.defaultCategory]: -2 = last used,
+     *  -1 = always ask (show the category sheet), 0 = Default (uncategorized), >0 = a specific
+     *  category id. */
+    fun novelDefaultCategory() = preferenceStore.getInt("novel_default_category", -2)
+
     // Screen state. lastUsedNovelCategory persists which category tab was last visible so the
     // user lands back on it after process death. showAllCategories renders every category
     // header even when one is filtered to empty. showEmptyCategoriesWhileFiltering keeps
