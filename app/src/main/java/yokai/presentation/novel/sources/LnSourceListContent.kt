@@ -80,7 +80,6 @@ private const val UNKNOWN_LANG = "?"
 @Composable
 fun LnSourceListContent(
     onOpenSource: (NovelSource) -> Unit,
-    searchQuery: String = "",
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     /**
@@ -167,11 +166,8 @@ fun LnSourceListContent(
                 // section is intentionally omitted today: it requires a pin row-action which
                 // is its own future polish item; without that affordance there's no way to
                 // populate the bucket so the header would never render.
-                val needle = searchQuery.trim().lowercase()
-                val visible = if (needle.isEmpty()) sources
-                else sources.filter { it.name.lowercase().contains(needle) }
-                val lastUsed = visible.firstOrNull { it.id == lastUsedId && lastUsedId.isNotEmpty() }
-                val byLang = visible.filter { it != lastUsed }
+                val lastUsed = sources.firstOrNull { it.id == lastUsedId && lastUsedId.isNotEmpty() }
+                val byLang = sources.filter { it != lastUsed }
                     .groupBy { it.lang.ifBlank { UNKNOWN_LANG } }
                     .toSortedMap()
                     .mapValues { (_, list) -> list.sortedBy { it.name.lowercase() } }

@@ -134,13 +134,6 @@ class BrowseController :
      *  collapses, matching the manga RV's clipToPadding=false behavior. */
     private val lnContentPaddingPx = MutableStateFlow(0 to 0)
 
-    private val _lnSourcesSearchQuery = MutableStateFlow("")
-
-    /** Search query for the main Browse view's Light novel sources sub-tab. Live-filters the
-     *  LN sources list by name on every keystroke; submit on this tab is a no-op (the manga
-     *  side's submit-to-global-search behavior stays on the manga side). */
-    val lnSourcesSearchQuery: StateFlow<String> = _lnSourcesSearchQuery.asStateFlow()
-
     var headerHeight = 0
 
     var showingExtensions = false
@@ -542,7 +535,6 @@ class BrowseController :
                     )
                     binding.lnSourcesCompose.setContent {
                         yokai.presentation.theme.YokaiTheme {
-                            val searchQuery by lnSourcesSearchQuery.collectAsState()
                             val paddingPx by lnContentPaddingPx.collectAsState()
                             val density = androidx.compose.ui.platform.LocalDensity.current
                             val contentPadding = androidx.compose.foundation.layout.PaddingValues(
@@ -550,7 +542,6 @@ class BrowseController :
                                 bottom = with(density) { paddingPx.second.toDp() },
                             )
                             yokai.presentation.novel.sources.LnSourceListContent(
-                                searchQuery = searchQuery,
                                 contentPadding = contentPadding,
                                 onOpenSource = { source ->
                                     if (!preferences.incognitoMode().get()) {
@@ -977,15 +968,11 @@ class BrowseController :
         // Change hint to show global search.
         activityBinding?.searchToolbar?.searchQueryHint = view?.context?.getString(MR.strings.global_search)
 
-        // Direct OnQueryTextListener (not the helper) so text-change can drive the LN sources
-        // filter live while submit keeps firing the manga global-search controller. The helper
-        // forces a single onlyOnSubmit mode; we need both.
+        // The Browse search box is global-search only (submit), for both the manga and LN tabs;
+        // typing does not filter the source list (matching the manga side, and avoiding the LN
+        // list emptying itself as you type a content query).
         searchView?.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextChange(newText: String?): Boolean {
-                if (router.backstack.lastOrNull()?.controller != this@BrowseController) return false
-                _lnSourcesSearchQuery.value = newText.orEmpty()
-                return true
-            }
+            override fun onQueryTextChange(newText: String?): Boolean = false
 
             override fun onQueryTextSubmit(query: String?): Boolean {
                 if (!isControllerVisible) return true
