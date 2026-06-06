@@ -95,6 +95,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import dev.icerock.moko.resources.compose.pluralStringResource
 import eu.kanade.tachiyomi.source.model.SManga
+import kotlinx.coroutines.withTimeoutOrNull
 import yokai.i18n.MR
 import yokai.presentation.core.components.VerticalFastScroller
 import yokai.presentation.manga.components.MangaCover
@@ -1151,10 +1152,11 @@ private fun RelatedMangaCard(item: DetailsRelatedItem, onClick: () -> Unit) {
 }
 
 /**
- * Detect two fingers pressed on two different chapter rows at once and fire [onRange] with their
- * chapter ids (the chapter list keys its rows by id). Observes the Initial pass and consumes so the
- * two-finger gesture wins over the list scroll; single-finger input is untouched (tap / long-press /
- * scroll all still work).
+ * Detect a two-finger long-press on two different chapter rows and fire [onRange] with their chapter
+ * ids (the chapter list keys its rows by id). Requires a stationary hold for the long-press timeout
+ * (matching single-finger long-press), so a two-finger scroll or a brief two-finger tap doesn't
+ * select. Observes the Initial pass and consumes once it fires so the gesture wins over the list
+ * scroll; single-finger input is untouched (tap / long-press / scroll all still work).
  */
 private fun Modifier.twoFingerRangeSelect(
     listState: LazyListState,
@@ -1165,14 +1167,35 @@ private fun Modifier.twoFingerRangeSelect(
             val event = awaitPointerEvent(PointerEventPass.Initial)
             val pressed = event.changes.filter { it.pressed }
             if (pressed.size >= 2) {
-                val idA = listState.chapterIdAtY(pressed[0].position.y)
-                val idB = listState.chapterIdAtY(pressed[1].position.y)
+                val p0 = pressed[0]
+                val p1 = pressed[1]
+                val idA = listState.chapterIdAtY(p0.position.y)
+                val idB = listState.chapterIdAtY(p1.position.y)
                 if (idA != null && idB != null && idA != idB) {
-                    onRange(idA, idB)
-                    pressed.forEach { it.consume() }
-                    // Swallow the rest of the gesture so it neither scrolls nor refires.
-                    while (currentEvent.changes.any { it.pressed }) {
-                        awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
+                    val id0 = p0.id
+                    val id1 = p1.id
+                    val start0 = p0.position
+                    val start1 = p1.position
+                    // Wait out the long-press timeout. A lift or movement past touch slop interrupts
+                    // (returns Unit); a clean timeout (null) means it was a deliberate held press.
+                    val interrupted = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                        while (true) {
+                            val e = awaitPointerEvent(PointerEventPass.Initial)
+                            val c0 = e.changes.firstOrNull { it.id == id0 }
+                            val c1 = e.changes.firstOrNull { it.id == id1 }
+                            if (c0 == null || c1 == null || !c0.pressed || !c1.pressed) return@withTimeoutOrNull
+                            val moved = (c0.position - start0).getDistance() > viewConfiguration.touchSlop ||
+                                (c1.position - start1).getDistance() > viewConfiguration.touchSlop
+                            if (moved) return@withTimeoutOrNull
+                        }
+                    }
+                    if (interrupted == null) {
+                        onRange(idA, idB)
+                        // Swallow the rest of the gesture so it neither scrolls nor refires.
+                        currentEvent.changes.forEach { it.consume() }
+                        while (currentEvent.changes.any { it.pressed }) {
+                            awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
+                        }
                     }
                 }
             }
