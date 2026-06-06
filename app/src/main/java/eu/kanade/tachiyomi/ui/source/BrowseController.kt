@@ -52,6 +52,7 @@ import eu.kanade.tachiyomi.ui.main.TabbedInterface
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsBrowseController
 import eu.kanade.tachiyomi.ui.setting.controllers.SettingsSourcesController
 import eu.kanade.tachiyomi.ui.source.browse.BrowseSourceController
+import eu.kanade.tachiyomi.ui.novel.globalsearch.NovelGlobalSearchController
 import eu.kanade.tachiyomi.ui.source.globalsearch.GlobalSearchController
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.getBottomGestureInsets
@@ -997,7 +998,12 @@ class BrowseController :
     }
 
     private fun performGlobalSearch(query: String) {
-        router.pushController(GlobalSearchController(query).withFadeTransaction())
+        // On the Light novels source-type tab (1), search across LN sources; otherwise manga.
+        if (preferences.lastUsedSourceTypeTab().get() == 1) {
+            router.pushController(NovelGlobalSearchController(query).withFadeTransaction())
+        } else {
+            router.pushController(GlobalSearchController(query).withFadeTransaction())
+        }
     }
 
     /**
