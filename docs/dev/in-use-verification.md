@@ -22,3 +22,13 @@ Tick an item once it has been seen working on-device in real use.
 - [ ] **Manga , removed-chapter download prompt.** Same as the novel case; honors the manga
   "Delete removed chapters" setting (always/keep/ask).
   (`MangaDetailsScreenModel.handleSyncedChapters` + `MangaDetailsDialog.ConfirmRemovedDownloads`)
+
+## Unified reader (novel)
+
+- [ ] **Images in a chapter load.** Open a novel chapter that contains inline images
+  (illustrations) and confirm they render in the WebView. Non-downloaded chapters set the
+  WebView base URL to the source site, so relative `<img>` resolve and load over the network
+  for the common case. Hard to force (few LN chapters carry images), so confirm during normal
+  use. If a source's images come up blank, the fallback is a `WebViewClient.shouldInterceptRequest`
+  that injects the source's Referer / User-Agent headers for image requests.
+  (`NovelWebViewContent` + `ReaderScreenModel.loadChapterHtml`)
