@@ -57,16 +57,10 @@ import yokai.novel.download.NovelDownload
 import yokai.novel.download.NovelDownloadManager
 import yokai.novel.source.NovelSource
 import yokai.novel.source.NovelSourceManager
-import yokai.novel.text.htmlToParagraphs
 import yokai.presentation.details.ChapterDownloadAction
 import yokai.presentation.details.DetailsDownloadState
 import yokai.presentation.details.DetailsEvent
 import yokai.presentation.details.ManageSourceItem
-import yokai.presentation.novel.reader.ChapterRead
-
-/** Max chapters held in the reader's session text cache (LRU). Small: covers the current chapter,
- *  a prefetched next, and a little back-flip history without holding much text in memory. */
-private const val MAX_CACHED_CHAPTERS = 5
 
 /**
  * Database-first details for a SAVED (library) novel (Phase 7). The chapter list comes from the DB
@@ -145,17 +139,6 @@ class NovelDetailsScreenModel(
     /** Range-select anchors [min, max] into the displayed chapter order; -1 when no selection.
      *  Mirrors the manga side so a long-press extends the range. */
     private val selectedPositions = intArrayOf(-1, -1)
-
-    /** Session-scoped LRU of raw chapter HTML keyed by chapter id (RAM-only, dies with the screen).
-     *  Makes re-opening and prefetched next chapters instant. Raw HTML (not parsed paragraphs) so the
-     *  WebView reader can render markup; the plain-text reader parses it on serve. Synchronized because
-     *  the prefetch coroutine and the reader both touch it. */
-    private val chapterTextCache: MutableMap<Long, String> = java.util.Collections.synchronizedMap(
-        object : LinkedHashMap<Long, String>(MAX_CACHED_CHAPTERS + 1, 0.75f, true) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, String>) =
-                size > MAX_CACHED_CHAPTERS
-        },
-    )
 
     init {
         observeFromDb()
@@ -498,15 +481,6 @@ class NovelDetailsScreenModel(
         chapters.sortedWith(compareBy { it.chapterNumber })
             .mapIndexed { index, chapter -> chapter.copy(sourceOrder = index.toLong()) }
 
-    /** The source a chapter belongs to, so the reader opens against the source that has it. A merged
-     *  list mixes sources; a gap-filled chapter resolves to its sibling's source. */
-    private fun sourceForChapter(chapter: NovelChapter): NovelSource? {
-        return sourceManager.get(ownerSourceId(chapter)) ?: source
-    }
-
-    /** Source id that owns [chapter] (a grouped sibling's, else the anchor's). */
-    private fun ownerSourceId(chapter: NovelChapter): String = novelsById[chapter.novelId]?.source ?: sourceId
-
     /** The displayed chapters' ids in reading (source) order, handed to the reader for prev/next
      *  navigation so it walks exactly the list the user sees (the reader resolves each chapter's own
      *  source, so a merged novel navigates across sources). */
@@ -615,44 +589,6 @@ class NovelDetailsScreenModel(
     fun deleteRemovedDownloads(chapters: List<NovelChapter>) {
         downloadManager.deleteChapters(chapters)
         dismissDialog()
-    }
-
-    /**
-     * Fetch the chapter text for a stored chapter. Precedence: session cache -> on-disk download
-     * (no host hit) -> live source. After serving, warms the next chapter into the cache so flipping
-     * forward is instant (LNReader's reader feel). The cache is RAM-only and dies with the screen.
-     */
-    internal suspend fun loadChapterText(chapter: NovelChapter): ChapterRead {
-        val chapterId = chapter.id ?: error("Stored chapter has no id")
-        val html = chapterTextCache[chapterId]
-            ?: loadChapterHtml(chapter).also { chapterTextCache[chapterId] = it }
-        prefetchNextChapter(chapter)
-        return ChapterRead(
-            chapterId = chapterId,
-            initialProgress = chapter.lastTextProgress,
-            rawHtml = html,
-            paragraphs = htmlToParagraphs(html),
-        )
-    }
-
-    /** Downloaded chapter -> read from disk; otherwise a source hit routed through the chapter's own
-     *  source so a gap-filled sibling reads correctly. Returns the raw HTML the source emitted. */
-    private suspend fun loadChapterHtml(chapter: NovelChapter): String =
-        downloadManager.getChapterText(chapter)
-            ?: (sourceForChapter(chapter) ?: error("Source not ready")).parseChapter(chapter.url)
-
-    /** Warm the next chapter (in reading order) into the cache off-thread. One speculative request
-     *  per chapter-open at most, and none when the next chapter is already cached or downloaded, so
-     *  it stays gentle on the source. */
-    private fun prefetchNextChapter(current: NovelChapter) {
-        val loaded = state.value as? NovelDetailsState.Loaded ?: return
-        val ordered = loaded.chapters.sortedBy { it.sourceOrder }
-        val next = ordered.getOrNull(ordered.indexOfFirst { it.id == current.id } + 1) ?: return
-        val nextId = next.id ?: return
-        if (chapterTextCache.containsKey(nextId)) return
-        screenModelScope.launchIO {
-            runCatching { chapterTextCache[nextId] = loadChapterHtml(next) }
-        }
     }
 
     /** Absolute web URL for this novel. Prefer the plugin's `resolveUrl` (handles sources whose URL

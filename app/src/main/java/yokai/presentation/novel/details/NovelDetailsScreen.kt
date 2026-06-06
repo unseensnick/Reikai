@@ -14,7 +14,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material.icons.outlined.BookmarkRemove
 import androidx.compose.material.icons.outlined.Clear
@@ -79,7 +78,6 @@ import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.data.novel.NovelStatusCode
-import yokai.domain.novel.NovelChapterRepository
 import yokai.domain.novel.models.NovelChapter
 import yokai.novel.install.LnPluginInstaller
 import yokai.novel.source.NovelSource
@@ -99,8 +97,6 @@ import yokai.presentation.details.detailsResumeLabel
 import yokai.presentation.details.ManageSourcesDialog
 import yokai.presentation.library.components.SelectionAction
 import yokai.presentation.library.components.SelectionAppBar
-import yokai.presentation.novel.reader.ChapterRead
-import yokai.presentation.novel.reader.ChapterReader
 import yokai.util.Screen
 
 /**
@@ -124,7 +120,6 @@ class NovelDetailsScreen(
         val context = LocalContext.current
         val installer = remember { Injekt.get<LnPluginInstaller>() }
         val manager = remember { Injekt.get<NovelSourceManager>() }
-        val chapterRepo = remember { Injekt.get<NovelChapterRepository>() }
         val backPress = LocalBackPress.current
         val navigator = LocalNavigator.current
         val router = LocalRouter.current
@@ -161,12 +156,6 @@ class NovelDetailsScreen(
             }
         }
 
-        // Transient reader state: reading a chapter is always a source fetch, not cached.
-        var readingChapter by remember { mutableStateOf<NovelChapter?>(null) }
-        var readerData by remember { mutableStateOf<ChapterRead?>(null) }
-        var readerLoading by remember { mutableStateOf(false) }
-        var readerSettingsOpen by remember { mutableStateOf(false) }
-
         // Chapter search (composable-local, survives process death) + mark-all confirmation.
         var searchActive by rememberSaveable { mutableStateOf(false) }
         var searchQuery by rememberSaveable { mutableStateOf("") }
@@ -187,34 +176,26 @@ class NovelDetailsScreen(
         }
 
         fun goBack() {
-            if (readingChapter != null) {
-                readingChapter = null
-                readerData = null
-                return
-            }
             backPress?.invoke()
         }
 
-        val isReading = readingChapter != null
         val title = when {
-            isReading -> readingChapter?.name.orEmpty()
             state is NovelDetailsState.Loaded -> (state as NovelDetailsState.Loaded).novel.title
             state is NovelDetailsState.Failed -> "Error"
             else -> "Loading…"
         }
         // Only the Loaded details body draws the cover backdrop, so only then should the bar go
-        // transparent; reader / loading / error keep an opaque bar.
-        val showBackdrop = !isReading && state is NovelDetailsState.Loaded
+        // transparent; loading / error keep an opaque bar.
+        val showBackdrop = state is NovelDetailsState.Loaded
         val loaded = state as? NovelDetailsState.Loaded
-        val selectionActive = !isReading && loaded?.selection?.isNotEmpty() == true
+        val selectionActive = loaded?.selection?.isNotEmpty() == true
         val allRead = loaded?.chapters?.let { it.isNotEmpty() && it.all { c -> c.read } } == true
 
         LaunchedEffect(searchActive) { if (searchActive) searchFocus.requestFocus() }
 
-        // Back priority (last enabled handler wins): clear selection, then close search, then exit
-        // the reader, before the default pop to the library.
-        BackHandler(enabled = isReading) { goBack() }
-        BackHandler(enabled = !isReading && searchActive) { searchActive = false; searchQuery = "" }
+        // Back priority (last enabled handler wins): clear selection, then close search, before the
+        // default pop to the library.
+        BackHandler(enabled = searchActive) { searchActive = false; searchQuery = "" }
         BackHandler(enabled = selectionActive) { screenModel.clearSelection() }
 
         val snackbarHostState = remember { SnackbarHostState() }
@@ -286,7 +267,7 @@ class NovelDetailsScreen(
                     val barAlpha = if (showBackdrop) barFraction else 1f
                     ReikaiTopBar(
                         title = {
-                            if (searchActive && !isReading) {
+                            if (searchActive) {
                                 TextField(
                                     value = searchQuery,
                                     onValueChange = { searchQuery = it },
@@ -310,16 +291,13 @@ class NovelDetailsScreen(
                         },
                         navigationIcon = {
                             IconButton(onClick = {
-                                if (searchActive && !isReading) { searchActive = false; searchQuery = "" } else goBack()
+                                if (searchActive) { searchActive = false; searchQuery = "" } else goBack()
                             }) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                             }
                         },
                         actions = {
                             when {
-                                isReading -> IconButton(onClick = { readerSettingsOpen = true }) {
-                                    Icon(Icons.Default.Settings, contentDescription = "Reader settings")
-                                }
                                 searchActive -> if (searchQuery.isNotEmpty()) {
                                     IconButton(onClick = { searchQuery = "" }) {
                                         Icon(Icons.Outlined.Clear, contentDescription = "Clear")
@@ -428,7 +406,7 @@ class NovelDetailsScreen(
                 val resume = loaded?.resumeChapter
                 // When everything is read the FAB re-reads the most recent chapter (matches manga).
                 val fabTarget = resume ?: loaded?.chapters?.maxByOrNull { it.chapterNumber }
-                if (loaded != null && fabTarget != null && !selectionActive && !isReading) {
+                if (loaded != null && fabTarget != null && !selectionActive) {
                     val label = detailsResumeLabel(context, resume?.chapterNumber, (resume?.lastTextProgress ?: 0) > 0)
                     ExtendedFloatingActionButton(
                         text = { Text(label) },
@@ -440,167 +418,139 @@ class NovelDetailsScreen(
                 }
             },
         ) { padding ->
-            val reading = readingChapter
-            val data = readerData
             Box(modifier = Modifier.fillMaxSize()) {
-                when {
-                    reading != null && data != null -> Column(
+                when (val s = state) {
+                    is NovelDetailsState.Loading -> Box(
+                        modifier = Modifier.fillMaxSize().padding(padding),
+                        contentAlignment = Alignment.Center,
+                    ) { CircularProgressIndicator() }
+                    is NovelDetailsState.Loaded -> {
+                        LaunchedEffect(s.novel.id) { screenModel.loadAccentColor() }
+                        val pullRefreshState = rememberPullToRefreshState()
+                        PullToRefreshBox(
+                            isRefreshing = s.isRefreshing,
+                            onRefresh = { screenModel.refresh() },
+                            state = pullRefreshState,
+                            indicator = {
+                                PullToRefreshDefaults.Indicator(
+                                    modifier = Modifier.align(Alignment.TopCenter),
+                                    isRefreshing = s.isRefreshing,
+                                    state = pullRefreshState,
+                                )
+                            },
+                        ) {
+                            val rows = remember(s.chapters, s.selection, searchQuery, s.hideChapterTitles, s.hiddenChapterIds, s.downloads) {
+                                s.chapters.mapNotNull { ch ->
+                                    val displayName = if (s.hideChapterTitles && ch.chapterNumber > 0f) {
+                                        val num = ch.chapterNumber
+                                        "Chapter " + (if (num % 1f == 0f) num.toInt().toString() else num.toString())
+                                    } else {
+                                        ch.name
+                                    }
+                                    if (searchQuery.isNotBlank() &&
+                                        !displayName.contains(searchQuery, ignoreCase = true)
+                                    ) {
+                                        return@mapNotNull null
+                                    }
+                                    DetailsChapterRow(
+                                        id = ch.id ?: 0L,
+                                        name = displayName,
+                                        read = ch.read,
+                                        bookmark = ch.bookmark,
+                                        downloadState = s.downloads[ch.id]
+                                            ?: if (ch.isDownloaded) DetailsDownloadState.DOWNLOADED else DetailsDownloadState.NONE,
+                                        selected = ch.id in s.selection,
+                                        dimmed = ch.id in s.hiddenChapterIds,
+                                        date = ChapterUtil.relativeDate(ch.dateUpload),
+                                        // lastTextProgress is hundredths-of-a-percent (0..10000).
+                                        readProgress = if (!ch.read && ch.lastTextProgress > 0) {
+                                            "${ch.lastTextProgress / 100}% read"
+                                        } else {
+                                            null
+                                        },
+                                    )
+                                }
+                            }
+                            DetailsContent(
+                                // Header metadata follows the viewed source (displayNovel); favorite
+                                // + identity below still key off the anchor (s.novel).
+                                coverData = s.displayNovel.thumbnailUrl,
+                                title = s.displayNovel.title,
+                                author = s.displayNovel.author,
+                                artist = s.displayNovel.artist,
+                                status = s.displayStatus,
+                                statusText = statusLabel(s.displayStatus),
+                                sourceName = s.sourceLabel,
+                                isStubSource = false,
+                                accentColor = s.accentColor?.let { Color(it) },
+                                onCoverClick = { showCoverDialog = true },
+                                description = s.displayNovel.description,
+                                genres = s.displayNovel.genres.orEmpty(),
+                                chapters = rows,
+                                onChapterClick = { id ->
+                                    s.chapters.find { it.id == id }?.let { openChapter(it) }
+                                },
+                                // Novels keep the simple single-tap toggle (no Start-now/Cancel menu).
+                                onDownloadClick = { id, action -> screenModel.downloadAction(id, action) },
+                                downloadMenuEnabled = true,
+                                selectionActive = s.selection.isNotEmpty(),
+                                onToggleSelection = { id, sel, long -> screenModel.toggleSelection(id, sel, long) },
+                                chapterSwipeEnabled = chapterSwipeEnabled,
+                                onSwipeToRead = { screenModel.toggleChapterRead(it) },
+                                onSwipeToBookmark = { screenModel.toggleChapterBookmark(it) },
+                                onCopy = { clipboard.setText(AnnotatedString(it)) },
+                                onFilterClick = { showSheet = true },
+                                listState = listState,
+                                topInset = padding.calculateTopPadding(),
+                                bottomInset = padding.calculateBottomPadding(),
+                                isFavorited = s.novel.favorite,
+                                onFavoriteClick = { screenModel.toggleFavorite() },
+                                onEditCategoryClick = if (s.novel.favorite) {
+                                    { screenModel.showChangeCategoryDialog() }
+                                } else {
+                                    null
+                                },
+                                onRemoveAllSources = if (s.novel.favorite && s.sourceTabs.size > 1) {
+                                    { screenModel.removeAllSourcesFromLibrary() }
+                                } else {
+                                    null
+                                },
+                                onWebViewClick = {
+                                    scope.launch {
+                                        val url = screenModel.novelWebUrl() ?: return@launch
+                                        context.startActivity(
+                                            WebViewActivity.newIntent(context, url, null, resolvedSource?.name ?: ""),
+                                        )
+                                    }
+                                },
+                                onShareClick = {
+                                    scope.launch {
+                                        val url = screenModel.novelWebUrl() ?: return@launch
+                                        context.startActivity(
+                                            Intent.createChooser(
+                                                Intent(Intent.ACTION_SEND).apply {
+                                                    type = "text/plain"
+                                                    putExtra(Intent.EXTRA_TEXT, url)
+                                                },
+                                                null,
+                                            ),
+                                        )
+                                    }
+                                },
+                                sourceTabs = s.sourceTabs.map { DetailsSourceTab(it.novelId, it.label) },
+                                selectedSourceView = s.sourceView,
+                                onSourceViewChange = { screenModel.setSourceView(it) },
+                                onSourceRemove = { sourceToRemove = it },
+                                currentSourceId = s.novel.id,
+                            )
+                        }
+                    }
+                    is NovelDetailsState.Failed -> Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(padding)
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                    ) {
-                        ChapterReader(
-                            paragraphs = data.paragraphs,
-                            chapterId = data.chapterId,
-                            initialProgress = data.initialProgress,
-                            chapterRepo = chapterRepo,
-                            settingsOpen = readerSettingsOpen,
-                            onSettingsOpenChange = { readerSettingsOpen = it },
-                        )
-                    }
-                    else -> when (val s = state) {
-                        is NovelDetailsState.Loading -> Box(
-                            modifier = Modifier.fillMaxSize().padding(padding),
-                            contentAlignment = Alignment.Center,
-                        ) { CircularProgressIndicator() }
-                        is NovelDetailsState.Loaded -> {
-                            LaunchedEffect(s.novel.id) { screenModel.loadAccentColor() }
-                            val pullRefreshState = rememberPullToRefreshState()
-                            PullToRefreshBox(
-                                isRefreshing = s.isRefreshing,
-                                onRefresh = { screenModel.refresh() },
-                                state = pullRefreshState,
-                                indicator = {
-                                    PullToRefreshDefaults.Indicator(
-                                        modifier = Modifier.align(Alignment.TopCenter),
-                                        isRefreshing = s.isRefreshing,
-                                        state = pullRefreshState,
-                                    )
-                                },
-                            ) {
-                                val rows = remember(s.chapters, s.selection, searchQuery, s.hideChapterTitles, s.hiddenChapterIds, s.downloads) {
-                                    s.chapters.mapNotNull { ch ->
-                                        val displayName = if (s.hideChapterTitles && ch.chapterNumber > 0f) {
-                                            val num = ch.chapterNumber
-                                            "Chapter " + (if (num % 1f == 0f) num.toInt().toString() else num.toString())
-                                        } else {
-                                            ch.name
-                                        }
-                                        if (searchQuery.isNotBlank() &&
-                                            !displayName.contains(searchQuery, ignoreCase = true)
-                                        ) {
-                                            return@mapNotNull null
-                                        }
-                                        DetailsChapterRow(
-                                            id = ch.id ?: 0L,
-                                            name = displayName,
-                                            read = ch.read,
-                                            bookmark = ch.bookmark,
-                                            downloadState = s.downloads[ch.id]
-                                                ?: if (ch.isDownloaded) DetailsDownloadState.DOWNLOADED else DetailsDownloadState.NONE,
-                                            selected = ch.id in s.selection,
-                                            dimmed = ch.id in s.hiddenChapterIds,
-                                            date = ChapterUtil.relativeDate(ch.dateUpload),
-                                            // lastTextProgress is hundredths-of-a-percent (0..10000).
-                                            readProgress = if (!ch.read && ch.lastTextProgress > 0) {
-                                                "${ch.lastTextProgress / 100}% read"
-                                            } else {
-                                                null
-                                            },
-                                        )
-                                    }
-                                }
-                                DetailsContent(
-                                    // Header metadata follows the viewed source (displayNovel); favorite
-                                    // + identity below still key off the anchor (s.novel).
-                                    coverData = s.displayNovel.thumbnailUrl,
-                                    title = s.displayNovel.title,
-                                    author = s.displayNovel.author,
-                                    artist = s.displayNovel.artist,
-                                    status = s.displayStatus,
-                                    statusText = statusLabel(s.displayStatus),
-                                    sourceName = s.sourceLabel,
-                                    isStubSource = false,
-                                    accentColor = s.accentColor?.let { Color(it) },
-                                    onCoverClick = { showCoverDialog = true },
-                                    description = s.displayNovel.description,
-                                    genres = s.displayNovel.genres.orEmpty(),
-                                    chapters = rows,
-                                    onChapterClick = { id ->
-                                        s.chapters.find { it.id == id }?.let { openChapter(it) }
-                                    },
-                                    // Novels keep the simple single-tap toggle (no Start-now/Cancel menu).
-                                    onDownloadClick = { id, action -> screenModel.downloadAction(id, action) },
-                                    downloadMenuEnabled = true,
-                                    selectionActive = s.selection.isNotEmpty(),
-                                    onToggleSelection = { id, sel, long -> screenModel.toggleSelection(id, sel, long) },
-                                    chapterSwipeEnabled = chapterSwipeEnabled,
-                                    onSwipeToRead = { screenModel.toggleChapterRead(it) },
-                                    onSwipeToBookmark = { screenModel.toggleChapterBookmark(it) },
-                                    onCopy = { clipboard.setText(AnnotatedString(it)) },
-                                    onFilterClick = { showSheet = true },
-                                    listState = listState,
-                                    topInset = padding.calculateTopPadding(),
-                                    bottomInset = padding.calculateBottomPadding(),
-                                    isFavorited = s.novel.favorite,
-                                    onFavoriteClick = { screenModel.toggleFavorite() },
-                                    onEditCategoryClick = if (s.novel.favorite) {
-                                        { screenModel.showChangeCategoryDialog() }
-                                    } else {
-                                        null
-                                    },
-                                    onRemoveAllSources = if (s.novel.favorite && s.sourceTabs.size > 1) {
-                                        { screenModel.removeAllSourcesFromLibrary() }
-                                    } else {
-                                        null
-                                    },
-                                    onWebViewClick = {
-                                        scope.launch {
-                                            val url = screenModel.novelWebUrl() ?: return@launch
-                                            context.startActivity(
-                                                WebViewActivity.newIntent(context, url, null, resolvedSource?.name ?: ""),
-                                            )
-                                        }
-                                    },
-                                    onShareClick = {
-                                        scope.launch {
-                                            val url = screenModel.novelWebUrl() ?: return@launch
-                                            context.startActivity(
-                                                Intent.createChooser(
-                                                    Intent(Intent.ACTION_SEND).apply {
-                                                        type = "text/plain"
-                                                        putExtra(Intent.EXTRA_TEXT, url)
-                                                    },
-                                                    null,
-                                                ),
-                                            )
-                                        }
-                                    },
-                                    sourceTabs = s.sourceTabs.map { DetailsSourceTab(it.novelId, it.label) },
-                                    selectedSourceView = s.sourceView,
-                                    onSourceViewChange = { screenModel.setSourceView(it) },
-                                    onSourceRemove = { sourceToRemove = it },
-                                    currentSourceId = s.novel.id,
-                                )
-                            }
-                        }
-                        is NovelDetailsState.Failed -> Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(padding)
-                                .padding(16.dp),
-                        ) { FailedBody(message = s.message, source = resolvedSource, context = context) }
-                    }
-                }
-                if (readerLoading) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(padding)
-                            .padding(8.dp),
-                        contentAlignment = Alignment.TopCenter,
-                    ) { CircularProgressIndicator() }
+                            .padding(16.dp),
+                    ) { FailedBody(message = s.message, source = resolvedSource, context = context) }
                 }
             }
         }

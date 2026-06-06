@@ -71,10 +71,6 @@ class NovelPreferences(
     // per-novel overrides if needed.
     fun readerFontSize() = preferenceStore.getInt("ln_reader_font_size_sp", 16)
     fun readerLineSpacing() = preferenceStore.getFloat("ln_reader_line_spacing", 1.5f)
-    /** 0 = follow system, 1 = light, 2 = dark. Legacy: consumed only by the plain-text reader that
-     *  the WebView reader replaces (retired in the unified-reader Phase 1.7). The WebView reader uses
-     *  [readerFollowSystemTheme] + [readerBackgroundColor]/[readerTextColor] instead. */
-    fun readerTheme() = preferenceStore.getInt("ln_reader_theme", 0)
     /** CSS text-align for the chapter body: left / center / justify / right. */
     fun readerTextAlign() = preferenceStore.getString("ln_reader_text_align", "left")
     /** Bundled font family name (matches assets/fonts/<name>.ttf); empty = source's original font. */
