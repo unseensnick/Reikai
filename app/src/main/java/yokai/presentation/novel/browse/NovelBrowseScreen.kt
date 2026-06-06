@@ -1,7 +1,10 @@
 package yokai.presentation.novel.browse
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,12 +15,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.items as staggeredItems
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
@@ -40,10 +51,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
+import eu.kanade.tachiyomi.ui.library.LibraryItem
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import kotlinx.serialization.json.JsonElement
@@ -53,6 +66,7 @@ import kotlinx.serialization.json.put
 import yokai.novel.host.NovelItem
 import yokai.novel.source.NovelSource
 import yokai.presentation.component.ReikaiTopBar
+import yokai.presentation.library.settings.tabs.columnsForGridValue
 import yokai.presentation.manga.components.MangaCover
 import yokai.presentation.manga.components.MangaCoverRatio
 import yokai.util.Screen
@@ -114,6 +128,13 @@ class NovelBrowseScreen(
                     actions = {
                         val m = state.mode
                         if (m is NovelBrowseState.Mode.BrowsingNovels) {
+                            val isList = state.display.layout == LibraryItem.LAYOUT_LIST
+                            IconButton(onClick = { screenModel.toggleListGrid() }) {
+                                Icon(
+                                    imageVector = if (isList) Icons.Default.GridView else Icons.AutoMirrored.Filled.ViewList,
+                                    contentDescription = if (isList) "Switch to grid" else "Switch to list",
+                                )
+                            }
                             if (!m.source.pluginSettings.isNullOrEmpty()) {
                                 IconButton(onClick = { settingsSheetOpen = true }) {
                                     Icon(Icons.Default.Settings, contentDescription = "Source settings")
@@ -166,8 +187,10 @@ class NovelBrowseScreen(
                     is NovelBrowseState.Mode.BrowsingNovels -> NovelList(
                         novels = m.novels,
                         query = m.query,
+                        display = state.display,
                         onSearch = { screenModel.runSearch(it) },
                         onPick = { item -> onSelectNovel(m.source.id, item.path) },
+                        onLongPick = { /* long-press add-to-library lands in B2e */ },
                     )
                 }
 
@@ -228,11 +251,13 @@ private fun SourcePicker(sources: List<NovelSource>, onPick: (NovelSource) -> Un
 private fun NovelList(
     novels: List<NovelItem>,
     query: String,
+    display: NovelBrowseState.Display,
     onSearch: (String) -> Unit,
     onPick: (NovelItem) -> Unit,
+    onLongPick: (NovelItem) -> Unit,
 ) {
     var queryDraft by remember(query) { mutableStateOf(query) }
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = Modifier.fillMaxSize()) {
         OutlinedTextField(
             value = queryDraft,
             onValueChange = { queryDraft = it },
@@ -263,32 +288,82 @@ private fun NovelList(
             )
             return@Column
         }
-        LazyColumn(modifier = Modifier.fillMaxWidth()) {
-            items(items = novels, key = { it.path }) { item ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onPick(item) }
-                    .padding(vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                MangaCover(
-                    data = item.cover,
-                    ratio = MangaCoverRatio.BOOK,
-                    modifier = Modifier.width(56.dp),
-                )
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(item.name, style = MaterialTheme.typography.titleSmall)
-                    Text(
-                        text = item.path,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+        when {
+            display.layout == LibraryItem.LAYOUT_LIST -> LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                items(items = novels, key = { it.path }) { item ->
+                    NovelResultRow(item, onClick = { onPick(item) }, onLongClick = { onLongPick(item) })
+                    HorizontalDivider()
                 }
             }
-            HorizontalDivider()
+            display.staggered && !display.uniformGrid -> {
+                val columns = columnsForGridValue(display.gridSize, LocalConfiguration.current.screenWidthDp)
+                LazyVerticalStaggeredGrid(
+                    columns = StaggeredGridCells.Fixed(columns),
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    verticalItemSpacing = 4.dp,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    staggeredItems(items = novels, key = { it.path }) { item ->
+                        NovelBrowseGridCell(
+                            item = item,
+                            inLibrary = false,
+                            libraryLayout = display.layout,
+                            outlineOnCovers = display.outlineOnCovers,
+                            coverAspectRatio = null,
+                            onClick = { onPick(item) },
+                            onLongClick = { onLongPick(item) },
+                        )
+                    }
+                }
             }
+            else -> {
+                val columns = columnsForGridValue(display.gridSize, LocalConfiguration.current.screenWidthDp)
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(columns),
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    gridItems(items = novels, key = { it.path }) { item ->
+                        NovelBrowseGridCell(
+                            item = item,
+                            inLibrary = false,
+                            libraryLayout = display.layout,
+                            outlineOnCovers = display.outlineOnCovers,
+                            coverAspectRatio = if (display.uniformGrid) MangaCoverRatio.BOOK else null,
+                            onClick = { onPick(item) },
+                            onLongClick = { onLongPick(item) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun NovelResultRow(item: NovelItem, onClick: () -> Unit, onLongClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MangaCover(
+            data = item.cover,
+            ratio = MangaCoverRatio.BOOK,
+            modifier = Modifier.width(56.dp),
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(item.name, style = MaterialTheme.typography.titleSmall)
+            Text(
+                text = item.path,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

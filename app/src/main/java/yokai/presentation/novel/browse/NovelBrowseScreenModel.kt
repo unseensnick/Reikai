@@ -2,11 +2,20 @@ package yokai.presentation.novel.browse
 
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.ui.library.LibraryItem
 import eu.kanade.tachiyomi.util.system.launchIO
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.JsonElement
+import eu.kanade.tachiyomi.core.preference.Preference
 import uy.kohesive.injekt.injectLazy
+import yokai.domain.base.BasePreferences
+import yokai.domain.novel.NovelPreferences
+import yokai.domain.ui.UiPreferences
 import yokai.novel.host.NovelItem
 import yokai.novel.install.LnPluginInstaller
 import yokai.novel.source.NovelSource
@@ -27,6 +36,10 @@ class NovelBrowseScreenModel(
 
     private val installer: LnPluginInstaller by injectLazy()
     private val manager: NovelSourceManager by injectLazy()
+    private val preferences: PreferencesHelper by injectLazy()
+    private val uiPreferences: UiPreferences by injectLazy()
+    private val novelPreferences: NovelPreferences by injectLazy()
+    private val basePreferences: BasePreferences by injectLazy()
 
     init {
         // Seed synchronously so the first frame isn't an empty picker, then keep following the flow.
@@ -36,12 +49,41 @@ class NovelBrowseScreenModel(
                 mutableState.update { it.copy(sources = list) }
             }
         }
+        // Resolve display prefs the same way the novel library does (shared/independent toggle), so
+        // browse matches the library look. Read here, exposed as state (Compose-port item 5).
+        screenModelScope.launchIO {
+            combine(
+                sharedOrNovel(preferences.libraryLayout(), novelPreferences.novelLibraryLayout()),
+                sharedOrNovel(uiPreferences.uniformGrid(), novelPreferences.novelUniformGrid()),
+                sharedOrNovel(preferences.useStaggeredGrid(), novelPreferences.novelUseStaggeredGrid()),
+                sharedOrNovel(preferences.gridSize(), novelPreferences.novelGridSize()),
+                sharedOrNovel(uiPreferences.outlineOnCovers(), novelPreferences.novelOutlineOnCovers()),
+            ) { layout, uniform, staggered, gridSize, outline ->
+                NovelBrowseState.Display(layout, gridSize, uniform, staggered, outline)
+            }.collectLatest { display -> mutableState.update { it.copy(display = display) } }
+        }
         screenModelScope.launchIO {
             try { installer.ensureLoaded() } catch (_: Throwable) {}
             val id = initialSourceId ?: return@launchIO
             manager.get(id)?.let { pickSource(it) }
         }
     }
+
+    /** Flip the effective library layout between list and grid, writing whichever pref (manga vs
+     *  novel) the shared toggle resolves, so browse and library stay consistent. */
+    fun toggleListGrid() {
+        val pref = if (basePreferences.useSharedLibraryDisplayPrefs().get()) {
+            preferences.libraryLayout()
+        } else {
+            novelPreferences.novelLibraryLayout()
+        }
+        pref.set(if (pref.get() == LibraryItem.LAYOUT_LIST) LibraryItem.LAYOUT_COMFORTABLE_GRID else LibraryItem.LAYOUT_LIST)
+    }
+
+    private fun <T> sharedOrNovel(mangaPref: Preference<T>, novelPref: Preference<T>): Flow<T> =
+        basePreferences.useSharedLibraryDisplayPrefs().changes().flatMapLatest { shared ->
+            if (shared) mangaPref.changes() else novelPref.changes()
+        }
 
     fun pickSource(source: NovelSource) {
         if (state.value.loading) return
@@ -135,7 +177,17 @@ data class NovelBrowseState(
     /** Source of the most recent pick attempt; drives the CF/WebView affordance even when a
      *  failure left us in [Mode.PickingSource] with no mode-side source reference. */
     val lastAttemptedSource: NovelSource? = null,
+    val display: Display = Display(),
 ) {
+    /** Effective grid/list display, resolved from the library display prefs (shared or novel). */
+    data class Display(
+        val layout: Int = LibraryItem.LAYOUT_COMFORTABLE_GRID,
+        val gridSize: Float = 1f,
+        val uniformGrid: Boolean = true,
+        val staggered: Boolean = false,
+        val outlineOnCovers: Boolean = true,
+    )
+
     sealed interface Mode {
         data object PickingSource : Mode
 
