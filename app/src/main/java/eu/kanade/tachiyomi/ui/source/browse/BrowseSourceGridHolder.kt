@@ -54,7 +54,7 @@ class BrowseSourceGridHolder(
                     MangaCompactGridItem(
                         coverData = cover,
                         title = title,
-                        isSelected = cover.inLibrary,
+                        isSelected = false,
                         showOutline = showOutline,
                         badgeSegments = badgeSegments,
                     )
@@ -62,7 +62,7 @@ class BrowseSourceGridHolder(
                     MangaComfortableGridItem(
                         coverData = cover,
                         title = title,
-                        isSelected = cover.inLibrary,
+                        isSelected = false,
                         showOutline = showOutline,
                         badgeSegments = badgeSegments,
                     )

@@ -57,7 +57,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
@@ -462,8 +461,7 @@ private fun NovelResultRow(
         MangaCover(
             data = item.cover,
             ratio = MangaCoverRatio.BOOK,
-            // Dim the cover of an already-favorited result, matching the manga catalogue list.
-            modifier = Modifier.width(56.dp).alpha(if (inLibrary) 0.34f else 1f),
+            modifier = Modifier.width(56.dp),
         )
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {

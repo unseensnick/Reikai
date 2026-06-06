@@ -21,7 +21,7 @@ import yokai.presentation.manga.components.MangaCoverRatio
  * unread/download counts, so this builds a [MangaCoverModel] straight from the item (`sourceId = 0L`,
  * like the library cell, since novel covers load by URL, not through manga-source Coil fetchers) and
  * renders through the same grid building blocks with the count badges off. [inLibrary] marks results
- * already favorited with an "In library" badge + dimmed cover, matching the manga catalogue
+ * already favorited with an "In library" badge (no cover tint), matching the manga catalogue
  * ([eu.kanade.tachiyomi.ui.source.browse.BrowseSourceGridHolder]).
  */
 @Composable
@@ -63,7 +63,7 @@ fun NovelBrowseGridCell(
             title = item.name,
             modifier = modifier,
             badgeSegments = badgeSegments,
-            isSelected = inLibrary,
+            isSelected = false,
             showOutline = outlineOnCovers,
             coverAspectRatio = coverAspectRatio,
             isLocal = false,
@@ -77,7 +77,7 @@ fun NovelBrowseGridCell(
             title = item.name,
             modifier = modifier,
             badgeSegments = badgeSegments,
-            isSelected = inLibrary,
+            isSelected = false,
             showOutline = outlineOnCovers,
             showTitle = false,
             coverAspectRatio = coverAspectRatio,
@@ -91,7 +91,7 @@ fun NovelBrowseGridCell(
             title = item.name,
             modifier = modifier,
             badgeSegments = badgeSegments,
-            isSelected = inLibrary,
+            isSelected = false,
             showOutline = outlineOnCovers,
             coverAspectRatio = coverAspectRatio,
             isLocal = false,
