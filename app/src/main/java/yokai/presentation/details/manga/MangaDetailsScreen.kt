@@ -630,6 +630,7 @@ class MangaDetailsScreen(private val mangaId: Long) : Screen() {
                         onSwipeToBookmark = screenModel::toggleChapterBookmark,
                         selectionActive = selectionActive,
                         onToggleSelection = { id, sel, long -> screenModel.toggleSelection(id, sel, long) },
+                        onRangeSelect = { a, b -> screenModel.selectRange(a, b) },
                         relatedMangas = relatedItems,
                         relatedMangasTotal = s.relatedMangasTotal,
                         relatedMangasLoading = s.relatedMangasLoading,

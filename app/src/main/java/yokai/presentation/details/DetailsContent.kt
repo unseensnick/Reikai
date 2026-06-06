@@ -71,10 +71,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
@@ -220,6 +223,9 @@ fun DetailsContent(
     selectionActive: Boolean = false,
     /** When non-null, long-press (and, while [selectionActive], tap) toggles selection. Null = no multi-select (novels). */
     onToggleSelection: ((id: Long, selected: Boolean, fromLongPress: Boolean) -> Unit)? = null,
+    /** Two-finger range select: pressing two chapter rows at once selects everything between them
+     *  (receives the two chapter ids). Null = disabled. */
+    onRangeSelect: ((firstId: Long, secondId: Long) -> Unit)? = null,
     /** Related-manga carousel cards; empty (or null [onRelatedClick]) hides the carousel. */
     relatedMangas: List<DetailsRelatedItem> = emptyList(),
     /** Full ranked-pool size, for the "See all (N)" label. */
@@ -241,6 +247,7 @@ fun DetailsContent(
     /** The source being viewed (the anchor of this screen); its chip can't be long-press-removed. */
     currentSourceId: Long? = null,
 ) {
+    val currentRangeSelect = rememberUpdatedState(onRangeSelect)
     Box(modifier = modifier.fillMaxSize()) {
         VerticalFastScroller(
             listState = listState,
@@ -250,7 +257,9 @@ fun DetailsContent(
         ) {
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .twoFingerRangeSelect(listState) { a, b -> currentRangeSelect.value?.invoke(a, b) },
                 // Leave room so the resume FAB doesn't cover the last chapter row.
                 contentPadding = PaddingValues(bottom = 88.dp + bottomInset),
             ) {
@@ -1139,4 +1148,42 @@ private fun RelatedMangaCard(item: DetailsRelatedItem, onClick: () -> Unit) {
             )
         }
     }
+}
+
+/**
+ * Detect two fingers pressed on two different chapter rows at once and fire [onRange] with their
+ * chapter ids (the chapter list keys its rows by id). Observes the Initial pass and consumes so the
+ * two-finger gesture wins over the list scroll; single-finger input is untouched (tap / long-press /
+ * scroll all still work).
+ */
+private fun Modifier.twoFingerRangeSelect(
+    listState: LazyListState,
+    onRange: (Long, Long) -> Unit,
+): Modifier = this.pointerInput(Unit) {
+    awaitPointerEventScope {
+        while (true) {
+            val event = awaitPointerEvent(PointerEventPass.Initial)
+            val pressed = event.changes.filter { it.pressed }
+            if (pressed.size >= 2) {
+                val idA = listState.chapterIdAtY(pressed[0].position.y)
+                val idB = listState.chapterIdAtY(pressed[1].position.y)
+                if (idA != null && idB != null && idA != idB) {
+                    onRange(idA, idB)
+                    pressed.forEach { it.consume() }
+                    // Swallow the rest of the gesture so it neither scrolls nor refires.
+                    while (currentEvent.changes.any { it.pressed }) {
+                        awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Chapter id under the given y (in the list's coordinate space), or null if y is over a non-chapter
+ *  row (header/description/etc.). Chapter rows are keyed by their Long id; other rows use String keys. */
+private fun LazyListState.chapterIdAtY(y: Float): Long? {
+    val yi = y.toInt()
+    val item = layoutInfo.visibleItemsInfo.firstOrNull { yi >= it.offset && yi < it.offset + it.size } ?: return null
+    return item.key as? Long
 }

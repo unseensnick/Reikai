@@ -495,6 +495,7 @@ class NovelDetailsScreen(
                                 downloadMenuEnabled = true,
                                 selectionActive = s.selection.isNotEmpty(),
                                 onToggleSelection = { id, sel, long -> screenModel.toggleSelection(id, sel, long) },
+                                onRangeSelect = { a, b -> screenModel.selectRange(a, b) },
                                 chapterSwipeEnabled = chapterSwipeEnabled,
                                 onSwipeToRead = { screenModel.toggleChapterRead(it) },
                                 onSwipeToBookmark = { screenModel.toggleChapterBookmark(it) },

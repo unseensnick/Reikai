@@ -917,6 +917,23 @@ class NovelDetailsScreenModel(
         mutableState.value = loaded.copy(selection = newSelection)
     }
 
+    /** Two-finger range select: select every chapter between (and including) the two pressed ones,
+     *  and set them as the new range anchors so a following long-press extends from here. */
+    fun selectRange(firstId: Long, secondId: Long) {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        val chapters = loaded.chapters
+        val i1 = chapters.indexOfFirst { it.id == firstId }
+        val i2 = chapters.indexOfFirst { it.id == secondId }
+        if (i1 < 0 || i2 < 0) return
+        val lo = minOf(i1, i2)
+        val hi = maxOf(i1, i2)
+        val newSelection = loaded.selection.toMutableSet()
+        for (i in lo..hi) chapters[i].id?.let { newSelection.add(it) }
+        selectedPositions[0] = lo
+        selectedPositions[1] = hi
+        mutableState.value = loaded.copy(selection = newSelection)
+    }
+
     fun selectAll() {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
         resetSelectionAnchors()
