@@ -146,12 +146,13 @@ class NovelDetailsScreenModel(
      *  Mirrors the manga side so a long-press extends the range. */
     private val selectedPositions = intArrayOf(-1, -1)
 
-    /** Session-scoped LRU of parsed chapter paragraphs keyed by chapter id (RAM-only, dies with the
-     *  screen). Makes re-opening and prefetched next chapters instant. Synchronized because the
-     *  prefetch coroutine and the reader both touch it. */
-    private val chapterTextCache: MutableMap<Long, List<String>> = java.util.Collections.synchronizedMap(
-        object : LinkedHashMap<Long, List<String>>(MAX_CACHED_CHAPTERS + 1, 0.75f, true) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, List<String>>) =
+    /** Session-scoped LRU of raw chapter HTML keyed by chapter id (RAM-only, dies with the screen).
+     *  Makes re-opening and prefetched next chapters instant. Raw HTML (not parsed paragraphs) so the
+     *  WebView reader can render markup; the plain-text reader parses it on serve. Synchronized because
+     *  the prefetch coroutine and the reader both touch it. */
+    private val chapterTextCache: MutableMap<Long, String> = java.util.Collections.synchronizedMap(
+        object : LinkedHashMap<Long, String>(MAX_CACHED_CHAPTERS + 1, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, String>) =
                 size > MAX_CACHED_CHAPTERS
         },
     )
@@ -613,23 +614,22 @@ class NovelDetailsScreenModel(
      */
     internal suspend fun loadChapterText(chapter: NovelChapter): ChapterRead {
         val chapterId = chapter.id ?: error("Stored chapter has no id")
-        val paragraphs = chapterTextCache[chapterId]
-            ?: loadParagraphs(chapter).also { chapterTextCache[chapterId] = it }
+        val html = chapterTextCache[chapterId]
+            ?: loadChapterHtml(chapter).also { chapterTextCache[chapterId] = it }
         prefetchNextChapter(chapter)
         return ChapterRead(
             chapterId = chapterId,
             initialProgress = chapter.lastTextProgress,
-            paragraphs = paragraphs,
+            rawHtml = html,
+            paragraphs = htmlToParagraphs(html),
         )
     }
 
     /** Downloaded chapter -> read from disk; otherwise a source hit routed through the chapter's own
-     *  source so a gap-filled sibling reads correctly. */
-    private suspend fun loadParagraphs(chapter: NovelChapter): List<String> {
-        val html = downloadManager.getChapterText(chapter)
+     *  source so a gap-filled sibling reads correctly. Returns the raw HTML the source emitted. */
+    private suspend fun loadChapterHtml(chapter: NovelChapter): String =
+        downloadManager.getChapterText(chapter)
             ?: (sourceForChapter(chapter) ?: error("Source not ready")).parseChapter(chapter.url)
-        return htmlToParagraphs(html)
-    }
 
     /** Warm the next chapter (in reading order) into the cache off-thread. One speculative request
      *  per chapter-open at most, and none when the next chapter is already cached or downloaded, so
@@ -641,7 +641,7 @@ class NovelDetailsScreenModel(
         val nextId = next.id ?: return
         if (chapterTextCache.containsKey(nextId)) return
         screenModelScope.launchIO {
-            runCatching { chapterTextCache[nextId] = loadParagraphs(next) }
+            runCatching { chapterTextCache[nextId] = loadChapterHtml(next) }
         }
     }
 

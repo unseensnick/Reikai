@@ -44,12 +44,15 @@ import yokai.domain.novel.NovelPreferences
 
 /**
  * Result of the chapter-load pipeline: the persisted chapter row id, the resume scroll progress
- * (0..10000 hundredths of a percent), and the paragraph-parsed chapter text. Built by the browse
- * screen and by [yokai.presentation.novel.details.NovelDetailsScreenModel]; consumed by [ChapterReader].
+ * (0..10000 hundredths of a percent), the raw chapter HTML (what the source's `parseChapter`
+ * returns), and the paragraph-parsed text. Built by
+ * [yokai.presentation.novel.details.NovelDetailsScreenModel]; consumed by [ChapterReader] (paragraphs)
+ * and, from Phase 1.2 on, by the WebView reader (rawHtml).
  */
 data class ChapterRead(
     val chapterId: Long,
     val initialProgress: Int,
+    val rawHtml: String,
     val paragraphs: List<String>,
 )
 
