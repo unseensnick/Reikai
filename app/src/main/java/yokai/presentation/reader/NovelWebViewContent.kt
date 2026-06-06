@@ -1,27 +1,32 @@
 package yokai.presentation.reader
 
 import android.annotation.SuppressLint
-import android.graphics.Color as AndroidColor
-import android.view.GestureDetector
-import android.view.MotionEvent
+import android.os.Handler
+import android.os.Looper
 import android.webkit.WebView
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import co.touchlab.kermit.Logger
+import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 
 /**
- * Renders a novel chapter's HTML in a raw [WebView] with minimal default styling (Phase 1.2). The
- * LNReader web assets (CSS/JS, theming, scroll bridge) arrive in 1.3+. A single tap anywhere fires
- * [onTap] (to toggle the reader chrome) while leaving scrolling and text selection to the WebView.
+ * Renders a novel chapter in a WebView using the bundled LNReader web layer (Phase 1.3): typography,
+ * theme, and the side scrollbar come from the vendored CSS/JS. A center tap posts a `hide` message
+ * over the native bridge, which fires [onToggleMenu] to toggle the reader chrome (replacing the
+ * Compose-side tap detection from 1.2).
  */
-@SuppressLint("ClickableViewAccessibility")
+@SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun NovelWebViewContent(
     html: String,
@@ -29,36 +34,62 @@ fun NovelWebViewContent(
     fontSize: Int,
     lineSpacing: Float,
     theme: Int,
-    onTap: () -> Unit,
+    chapterTitle: String,
+    onToggleMenu: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val systemDark = isSystemInDarkTheme()
-    val (bg, fg) = readerWebColors(theme, systemDark)
-    val document = remember(html, fontSize, lineSpacing, bg, fg) {
-        wrapChapterHtml(html, fontSize, lineSpacing, bg, fg)
+    val (background, textColor) = readerWebColors(theme, systemDark)
+    val colorScheme = MaterialTheme.colorScheme
+    val themeColors = remember(colorScheme) {
+        ReaderThemeColors(
+            primary = colorScheme.primary.toCssHex(),
+            onPrimary = colorScheme.onPrimary.toCssHex(),
+            secondary = colorScheme.secondary.toCssHex(),
+            onSecondary = colorScheme.onSecondary.toCssHex(),
+            tertiary = colorScheme.tertiary.toCssHex(),
+            onTertiary = colorScheme.onTertiary.toCssHex(),
+            surface = colorScheme.surface.toCssHex(),
+            surface09 = colorScheme.surface.toCssRgba(0.9f),
+            onSurface = colorScheme.onSurface.toCssHex(),
+            surfaceVariant = colorScheme.surfaceVariant.toCssHex(),
+            onSurfaceVariant = colorScheme.onSurfaceVariant.toCssHex(),
+            outline = colorScheme.outline.toCssHex(),
+            rippleColor = colorScheme.onSurface.toCssHex(),
+        )
     }
 
-    // Latest onTap read at gesture time so the listener (attached once) never goes stale.
-    val onTapState = rememberUpdatedState(onTap)
+    val document = remember(html, fontSize, lineSpacing, background, textColor, themeColors, chapterTitle) {
+        buildReaderHtml(
+            chapterHtml = html,
+            chapterName = chapterTitle,
+            fontSize = fontSize,
+            lineSpacing = lineSpacing,
+            background = background,
+            textColor = textColor,
+            padding = DEFAULT_PADDING,
+            textAlign = DEFAULT_TEXT_ALIGN,
+            fontFamily = "",
+            colors = themeColors,
+            statusBarHeightPx = 0,
+            debug = BuildConfig.DEBUG,
+        )
+    }
+
+    val onToggle = rememberUpdatedState(onToggleMenu)
+    val mainHandler = remember { Handler(Looper.getMainLooper()) }
     val webView = remember {
         WebView(context).apply {
             setDefaultSettings()
-            val gestureDetector = GestureDetector(
-                context,
-                object : GestureDetector.SimpleOnGestureListener() {
-                    override fun onSingleTapUp(e: MotionEvent): Boolean {
-                        onTapState.value()
-                        return false
-                    }
-                },
+            settings.allowFileAccess = true // file:///android_asset bundled CSS/JS
+            addJavascriptInterface(
+                ReaderWebInterface(
+                    onHide = { mainHandler.post { onToggle.value() } },
+                    onConsole = { msg -> if (BuildConfig.DEBUG) Logger.d("NovelReaderWeb") { msg } },
+                ),
+                "NativeReader",
             )
-            // Return false: feed the event to the detector but let the WebView keep handling
-            // scroll, links, and text selection.
-            setOnTouchListener { _, event ->
-                gestureDetector.onTouchEvent(event)
-                false
-            }
         }
     }
 
@@ -67,12 +98,14 @@ fun NovelWebViewContent(
     }
 
     LaunchedEffect(document, baseUrl) {
-        webView.setBackgroundColor(AndroidColor.parseColor(bg))
         webView.loadDataWithBaseURL(baseUrl, document, "text/html", "UTF-8", null)
     }
 
     AndroidView(factory = { webView }, modifier = modifier)
 }
+
+private const val DEFAULT_PADDING = 16
+private const val DEFAULT_TEXT_ALIGN = "left"
 
 /** Reader background / foreground as CSS hex strings, mirroring the plain-text reader's color map. */
 private fun readerWebColors(theme: Int, systemDark: Boolean): Pair<String, String> = when (theme) {
@@ -81,29 +114,12 @@ private fun readerWebColors(theme: Int, systemDark: Boolean): Pair<String, Strin
     else -> if (systemDark) "#101010" to "#e0e0e0" else "#ffffff" to "#000000"
 }
 
-/** Wrap raw chapter HTML in a minimal, mobile-readable document. Replaced by the bundled LNReader
- *  stylesheet in 1.3; this is the Phase 1.2 default look. */
-private fun wrapChapterHtml(body: String, fontSize: Int, lineSpacing: Float, bg: String, fg: String): String =
-    """
-    <!DOCTYPE html>
-    <html>
-    <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <style>
-      html, body { margin: 0; padding: 0; background: $bg; color: $fg; }
-      body {
-        padding: 16px 16px 72px;
-        font-size: ${fontSize}px;
-        line-height: $lineSpacing;
-        font-family: sans-serif;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-      }
-      img { max-width: 100%; height: auto; }
-      a { color: #4ea1ff; }
-    </style>
-    </head>
-    <body>$body</body>
-    </html>
-    """.trimIndent()
+private fun Color.toCssHex(): String = "#%06X".format(0xFFFFFF and toArgb())
+
+private fun Color.toCssRgba(alpha: Float): String {
+    val argb = toArgb()
+    val r = (argb shr 16) and 0xFF
+    val g = (argb shr 8) and 0xFF
+    val b = argb and 0xFF
+    return "rgba($r, $g, $b, $alpha)"
+}

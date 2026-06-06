@@ -75,7 +75,8 @@ class ReaderScreen(
                     fontSize = s.fontSize,
                     lineSpacing = s.lineSpacing,
                     theme = s.theme,
-                    onTap = { menuVisible = !menuVisible },
+                    chapterTitle = s.chapterTitle,
+                    onToggleMenu = { menuVisible = !menuVisible },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
