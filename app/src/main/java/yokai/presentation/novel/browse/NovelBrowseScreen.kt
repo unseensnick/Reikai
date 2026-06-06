@@ -53,6 +53,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -62,6 +63,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import android.app.Activity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.ui.novel.NovelDetailsController
@@ -115,6 +118,16 @@ class NovelBrowseScreen(
         var filterSheetOpen by remember { mutableStateOf(false) }
         var settingsSheetOpen by remember { mutableStateOf(false) }
         val snackbarHostState = remember { SnackbarHostState() }
+
+        // After "Open in WebView" (to clear Cloudflare), auto-retry the failed listing when we come
+        // back, so the user doesn't have to tap Retry. Survives the activity stop the WebView causes.
+        var pendingWebViewRetry by rememberSaveable { mutableStateOf(false) }
+        LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+            if (pendingWebViewRetry) {
+                pendingWebViewRetry = false
+                screenModel.retry()
+            }
+        }
 
         // Long-press add/remove effects: the model favorites + routes categories, then signals here to
         // show the category sheet (always-ask) or an add/remove snackbar, since the Activity and the
@@ -226,6 +239,7 @@ class NovelBrowseScreen(
                     cfTarget?.site?.takeIf { it.isNotBlank() }?.let { siteUrl ->
                         Spacer(Modifier.height(4.dp))
                         OutlinedButton(onClick = {
+                            pendingWebViewRetry = true
                             context.startActivity(
                                 WebViewActivity.newIntent(context, siteUrl, null, cfTarget.name),
                             )
