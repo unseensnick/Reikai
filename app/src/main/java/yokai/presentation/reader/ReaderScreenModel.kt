@@ -57,7 +57,10 @@ class ReaderScreenModel(
             novelPreferences.readerLineSpacing().changes(),
             novelPreferences.readerTextAlign().changes(),
             novelPreferences.readerPadding().changes(),
-        ) { fontSize, lineHeight, textAlign, padding -> DisplayPrefs(fontSize, lineHeight, textAlign, padding) },
+            novelPreferences.readerFontFamily().changes(),
+        ) { fontSize, lineHeight, textAlign, padding, fontFamily ->
+            DisplayPrefs(fontSize, lineHeight, textAlign, padding, fontFamily)
+        },
         combine(
             novelPreferences.readerFollowSystemTheme().changes(),
             novelPreferences.readerBackgroundColor().changes(),
@@ -69,14 +72,20 @@ class ReaderScreenModel(
             lineHeight = display.lineHeight,
             textAlign = display.textAlign,
             padding = display.padding,
-            fontFamily = "",
+            fontFamily = display.fontFamily,
             followSystemTheme = theme.followSystem,
             backgroundColor = theme.background,
             textColor = theme.textColor,
         )
     }.stateIn(screenModelScope, SharingStarted.Eagerly, currentSettings())
 
-    private data class DisplayPrefs(val fontSize: Int, val lineHeight: Float, val textAlign: String, val padding: Int)
+    private data class DisplayPrefs(
+        val fontSize: Int,
+        val lineHeight: Float,
+        val textAlign: String,
+        val padding: Int,
+        val fontFamily: String,
+    )
     private data class ThemePrefs(val followSystem: Boolean, val background: String, val textColor: String)
 
     private fun currentSettings() = ReaderSettings(
@@ -84,7 +93,7 @@ class ReaderScreenModel(
         lineHeight = novelPreferences.readerLineSpacing().get(),
         textAlign = novelPreferences.readerTextAlign().get(),
         padding = novelPreferences.readerPadding().get(),
-        fontFamily = "",
+        fontFamily = novelPreferences.readerFontFamily().get(),
         followSystemTheme = novelPreferences.readerFollowSystemTheme().get(),
         backgroundColor = novelPreferences.readerBackgroundColor().get(),
         textColor = novelPreferences.readerTextColor().get(),
@@ -100,6 +109,7 @@ class ReaderScreenModel(
     fun setLineHeight(value: Float) = novelPreferences.readerLineSpacing().set(value)
     fun setTextAlign(value: String) = novelPreferences.readerTextAlign().set(value)
     fun setPadding(value: Int) = novelPreferences.readerPadding().set(value)
+    fun setFontFamily(value: String) = novelPreferences.readerFontFamily().set(value)
 
     fun setFollowSystemTheme() = novelPreferences.readerFollowSystemTheme().set(true)
 

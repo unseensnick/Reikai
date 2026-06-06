@@ -31,3 +31,21 @@ val readerThemePresets = listOf(
 /** Presets used by the "Auto" (follow-system) option for light and dark system modes. */
 val readerLightPreset = readerThemePresets.first { it.name == "Light" }
 val readerDarkPreset = readerThemePresets.first { it.name == "Dark" }
+
+/** A selectable reader font. [family] is empty for the source's original font and otherwise matches
+ *  a bundled `assets/fonts/<family>.ttf` (the path the LNReader web layer loads). */
+data class ReaderFont(val family: String, val name: String)
+
+/** Bundled fonts from LNReader (Original + 9 families shipped under assets/fonts/). */
+val readerFonts = listOf(
+    ReaderFont("", "Original"),
+    ReaderFont("lora", "Lora"),
+    ReaderFont("nunito", "Nunito"),
+    ReaderFont("noto-sans", "Noto Sans"),
+    ReaderFont("open-sans", "Open Sans"),
+    ReaderFont("arbutus-slab", "Arbutus Slab"),
+    ReaderFont("domine", "Domine"),
+    ReaderFont("lato", "Lato"),
+    ReaderFont("pt-serif", "PT Serif"),
+    ReaderFont("OpenDyslexic3-Regular", "OpenDyslexic"),
+)

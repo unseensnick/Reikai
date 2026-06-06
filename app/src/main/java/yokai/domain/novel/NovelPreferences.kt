@@ -77,6 +77,8 @@ class NovelPreferences(
     fun readerTheme() = preferenceStore.getInt("ln_reader_theme", 0)
     /** CSS text-align for the chapter body: left / center / justify / right. */
     fun readerTextAlign() = preferenceStore.getString("ln_reader_text_align", "left")
+    /** Bundled font family name (matches assets/fonts/<name>.ttf); empty = source's original font. */
+    fun readerFontFamily() = preferenceStore.getString("ln_reader_font_family", "")
     /** Horizontal chapter padding in px. */
     fun readerPadding() = preferenceStore.getInt("ln_reader_padding", 16)
     /** When true the reader background/text follow the system light/dark setting (light/dark

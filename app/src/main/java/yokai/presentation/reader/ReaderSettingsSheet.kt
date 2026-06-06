@@ -3,6 +3,7 @@ package yokai.presentation.reader
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.FormatAlignRight
 import androidx.compose.material.icons.filled.FormatAlignCenter
 import androidx.compose.material.icons.filled.FormatAlignJustify
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -71,6 +73,7 @@ fun ReaderSettingsSheet(
     onLineHeight: (Float) -> Unit,
     onTextAlign: (String) -> Unit,
     onPadding: (Int) -> Unit,
+    onFontFamily: (String) -> Unit,
     onFollowSystem: () -> Unit,
     onPreset: (ReaderThemePreset) -> Unit,
     onDismiss: () -> Unit,
@@ -141,6 +144,26 @@ fun ReaderSettingsSheet(
                             AlignButton(Icons.Filled.FormatAlignCenter, "center", settings.textAlign, onTextAlign)
                             AlignButton(Icons.Filled.FormatAlignJustify, "justify", settings.textAlign, onTextAlign)
                             AlignButton(Icons.AutoMirrored.Filled.FormatAlignRight, "right", settings.textAlign, onTextAlign)
+                        }
+                        Text(
+                            "Font",
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(top = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            readerFonts.forEach { font ->
+                                FilterChip(
+                                    selected = settings.fontFamily == font.family,
+                                    onClick = { onFontFamily(font.family) },
+                                    label = { Text(font.name) },
+                                )
+                            }
                         }
                     }
                     TAB_THEME -> {

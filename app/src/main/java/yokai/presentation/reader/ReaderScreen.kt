@@ -163,6 +163,7 @@ class ReaderScreen(
                 onLineHeight = screenModel::setLineHeight,
                 onTextAlign = screenModel::setTextAlign,
                 onPadding = screenModel::setPadding,
+                onFontFamily = screenModel::setFontFamily,
                 onFollowSystem = screenModel::setFollowSystemTheme,
                 onPreset = screenModel::setThemePreset,
                 onDismiss = { settingsOpen = false },
