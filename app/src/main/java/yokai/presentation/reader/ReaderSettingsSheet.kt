@@ -51,6 +51,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -158,10 +160,19 @@ fun ReaderSettingsSheet(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             readerFonts.forEach { font ->
+                                // Preview each chip in its own bundled font. Compose caches the parsed
+                                // typeface, so the only cost is a one-time parse on first render.
+                                val fontFamily = remember(font.family) {
+                                    if (font.family.isEmpty()) {
+                                        FontFamily.Default
+                                    } else {
+                                        FontFamily(Font(path = "fonts/${font.family}.ttf", assetManager = context.assets))
+                                    }
+                                }
                                 FilterChip(
                                     selected = settings.fontFamily == font.family,
                                     onClick = { onFontFamily(font.family) },
-                                    label = { Text(font.name) },
+                                    label = { Text(font.name, fontFamily = fontFamily) },
                                 )
                             }
                         }
