@@ -40,42 +40,12 @@ data class ReaderThemeColors(
 fun buildReaderHtml(
     chapterHtml: String,
     chapterName: String,
-    fontSize: Int,
-    lineSpacing: Float,
-    background: String,
-    textColor: String,
-    padding: Int,
-    textAlign: String,
-    fontFamily: String,
+    settings: ReaderSettings,
     colors: ReaderThemeColors,
     statusBarHeightPx: Int,
     debug: Boolean,
 ): String {
-    val readerSettings = JSONObject().apply {
-        put("theme", background)
-        put("textColor", textColor)
-        put("textSize", fontSize)
-        put("textAlign", textAlign)
-        put("padding", padding)
-        put("fontFamily", fontFamily)
-        put("lineHeight", lineSpacing.toDouble())
-        put("customCSS", "")
-        put("customJS", "")
-        put("customThemes", JSONArray())
-        put(
-            "tts",
-            JSONObject().apply {
-                put("rate", 1)
-                put("pitch", 1)
-                put("autoPageAdvance", false)
-                put("scrollToTop", true)
-            },
-        )
-        put("epubLocation", "")
-        put("epubUseAppTheme", false)
-        put("epubUseCustomCSS", false)
-        put("epubUseCustomJS", false)
-    }
+    val readerSettings = readerSettingsJson(settings)
 
     val generalSettings = JSONObject().apply {
         put("keepScreenOn", true)
@@ -130,13 +100,13 @@ fun buildReaderHtml(
         <style>
         :root {
           --StatusBar-currentHeight: ${statusBarHeightPx}px;
-          --readerSettings-theme: $background;
-          --readerSettings-padding: ${padding}px;
-          --readerSettings-textSize: ${fontSize}px;
-          --readerSettings-textColor: $textColor;
-          --readerSettings-textAlign: $textAlign;
-          --readerSettings-lineHeight: $lineSpacing;
-          --readerSettings-fontFamily: $fontFamily;
+          --readerSettings-theme: ${settings.backgroundColor};
+          --readerSettings-padding: ${settings.padding}px;
+          --readerSettings-textSize: ${settings.fontSize}px;
+          --readerSettings-textColor: ${settings.textColor};
+          --readerSettings-textAlign: ${settings.textAlign};
+          --readerSettings-lineHeight: ${settings.lineHeight};
+          --readerSettings-fontFamily: ${settings.fontFamily};
           --theme-primary: ${colors.primary};
           --theme-onPrimary: ${colors.onPrimary};
           --theme-secondary: ${colors.secondary};
@@ -171,6 +141,37 @@ fun buildReaderHtml(
         <script src="$ASSET_BASE/js/index.js"></script>
         </html>
     """.trimIndent()
+}
+
+/**
+ * The LNReader `readerSettings` object the web layer reads. Used both for the initial
+ * [buildReaderHtml] config and for live updates pushed via `reader.readerSettings.val = ...`, so the
+ * two stay in sync.
+ */
+fun readerSettingsJson(settings: ReaderSettings): JSONObject = JSONObject().apply {
+    put("theme", settings.backgroundColor)
+    put("textColor", settings.textColor)
+    put("textSize", settings.fontSize)
+    put("textAlign", settings.textAlign)
+    put("padding", settings.padding)
+    put("fontFamily", settings.fontFamily)
+    put("lineHeight", settings.lineHeight.toDouble())
+    put("customCSS", "")
+    put("customJS", "")
+    put("customThemes", JSONArray())
+    put(
+        "tts",
+        JSONObject().apply {
+            put("rate", 1)
+            put("pitch", 1)
+            put("autoPageAdvance", false)
+            put("scrollToTop", true)
+        },
+    )
+    put("epubLocation", "")
+    put("epubUseAppTheme", false)
+    put("epubUseCustomCSS", false)
+    put("epubUseCustomJS", false)
 }
 
 private fun escapeHtml(text: String): String = text

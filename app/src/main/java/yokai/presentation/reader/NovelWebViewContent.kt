@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.os.Handler
 import android.os.Looper
 import android.webkit.WebView
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -21,26 +20,25 @@ import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 
 /**
- * Renders a novel chapter in a WebView using the bundled LNReader web layer (Phase 1.3): typography,
- * theme, and the side scrollbar come from the vendored CSS/JS. A center tap posts a `hide` message
- * over the native bridge, which fires [onToggleMenu] to toggle the reader chrome (replacing the
- * Compose-side tap detection from 1.2).
+ * Renders a novel chapter in a WebView using the bundled LNReader web layer. Typography, theme, and
+ * the side scrollbar come from the vendored CSS/JS. A center tap posts a `hide` message over the
+ * native bridge, firing [onToggleMenu] to toggle the reader chrome.
+ *
+ * [settings] changes are pushed live via `reader.readerSettings.val` (no reload), so font, spacing,
+ * alignment, padding, and theme update in place. The document is rebuilt only when the chapter [html]
+ * or the app [MaterialTheme] colors change.
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun NovelWebViewContent(
     html: String,
     baseUrl: String?,
-    fontSize: Int,
-    lineSpacing: Float,
-    theme: Int,
+    settings: ReaderSettings,
     chapterTitle: String,
     onToggleMenu: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val systemDark = isSystemInDarkTheme()
-    val (background, textColor) = readerWebColors(theme, systemDark)
     val colorScheme = MaterialTheme.colorScheme
     val themeColors = remember(colorScheme) {
         ReaderThemeColors(
@@ -60,17 +58,14 @@ fun NovelWebViewContent(
         )
     }
 
-    val document = remember(html, fontSize, lineSpacing, background, textColor, themeColors, chapterTitle) {
+    // Keyed on chapter + app theme only (NOT settings): settings changes push live instead of
+    // reloading. The initial document bakes in the settings present at build time.
+    val currentSettings = rememberUpdatedState(settings)
+    val document = remember(html, themeColors, chapterTitle) {
         buildReaderHtml(
             chapterHtml = html,
             chapterName = chapterTitle,
-            fontSize = fontSize,
-            lineSpacing = lineSpacing,
-            background = background,
-            textColor = textColor,
-            padding = DEFAULT_PADDING,
-            textAlign = DEFAULT_TEXT_ALIGN,
-            fontFamily = "",
+            settings = currentSettings.value,
             colors = themeColors,
             statusBarHeightPx = 0,
             debug = BuildConfig.DEBUG,
@@ -82,7 +77,7 @@ fun NovelWebViewContent(
     val webView = remember {
         WebView(context).apply {
             setDefaultSettings()
-            settings.allowFileAccess = true // file:///android_asset bundled CSS/JS
+            this.settings.allowFileAccess = true // file:///android_asset bundled CSS/JS
             addJavascriptInterface(
                 ReaderWebInterface(
                     onHide = { mainHandler.post { onToggle.value() } },
@@ -101,17 +96,16 @@ fun NovelWebViewContent(
         webView.loadDataWithBaseURL(baseUrl, document, "text/html", "UTF-8", null)
     }
 
+    // Push settings live once the page is up (guarded so it no-ops before the reader exists).
+    LaunchedEffect(settings) {
+        val json = readerSettingsJson(settings).toString()
+        webView.evaluateJavascript(
+            "if (window.reader) { reader.readerSettings.val = $json; }",
+            null,
+        )
+    }
+
     AndroidView(factory = { webView }, modifier = modifier)
-}
-
-private const val DEFAULT_PADDING = 16
-private const val DEFAULT_TEXT_ALIGN = "left"
-
-/** Reader background / foreground as CSS hex strings, mirroring the plain-text reader's color map. */
-private fun readerWebColors(theme: Int, systemDark: Boolean): Pair<String, String> = when (theme) {
-    1 -> "#ffffff" to "#000000"
-    2 -> "#101010" to "#e0e0e0"
-    else -> if (systemDark) "#101010" to "#e0e0e0" else "#ffffff" to "#000000"
 }
 
 private fun Color.toCssHex(): String = "#%06X".format(0xFFFFFF and toArgb())

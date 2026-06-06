@@ -71,8 +71,21 @@ class NovelPreferences(
     // per-novel overrides if needed.
     fun readerFontSize() = preferenceStore.getInt("ln_reader_font_size_sp", 16)
     fun readerLineSpacing() = preferenceStore.getFloat("ln_reader_line_spacing", 1.5f)
-    /** 0 = follow system, 1 = light, 2 = dark. */
+    /** 0 = follow system, 1 = light, 2 = dark. Legacy: consumed only by the plain-text reader that
+     *  the WebView reader replaces (retired in the unified-reader Phase 1.7). The WebView reader uses
+     *  [readerFollowSystemTheme] + [readerBackgroundColor]/[readerTextColor] instead. */
     fun readerTheme() = preferenceStore.getInt("ln_reader_theme", 0)
+    /** CSS text-align for the chapter body: left / center / justify / right. */
+    fun readerTextAlign() = preferenceStore.getString("ln_reader_text_align", "left")
+    /** Horizontal chapter padding in px. */
+    fun readerPadding() = preferenceStore.getInt("ln_reader_padding", 16)
+    /** When true the reader background/text follow the system light/dark setting (light/dark
+     *  presets); when false the stored [readerBackgroundColor]/[readerTextColor] preset is used. */
+    fun readerFollowSystemTheme() = preferenceStore.getBoolean("ln_reader_follow_system_theme", true)
+    /** Chosen theme preset's background / text color (used when [readerFollowSystemTheme] is off).
+     *  Default mirrors the LNReader dark preset. */
+    fun readerBackgroundColor() = preferenceStore.getString("ln_reader_bg_color", "#292832")
+    fun readerTextColor() = preferenceStore.getString("ln_reader_text_color", "#CCCCCC")
 
     // Library update preferences. Defaults and key shapes mirror PreferencesHelper.libraryUpdate*
     // (manga side) so a user with parallel manga + novel libraries gets the same defaults on both.

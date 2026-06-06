@@ -4,12 +4,12 @@ import android.app.Activity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -19,7 +19,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -28,13 +27,13 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import cafe.adriel.voyager.core.model.rememberScreenModel
@@ -60,6 +59,18 @@ class ReaderScreen(
         val context = LocalContext.current
         val screenModel = rememberScreenModel { ReaderScreenModel(sourceId, chapterId) }
         val state by screenModel.state.collectAsState()
+        val rawSettings by screenModel.settings.collectAsState()
+
+        // Resolve "Auto" into the effective light/dark preset; otherwise use the chosen preset as-is.
+        val systemDark = isSystemInDarkTheme()
+        val settings = remember(rawSettings, systemDark) {
+            if (rawSettings.followSystemTheme) {
+                val preset = if (systemDark) readerDarkPreset else readerLightPreset
+                rawSettings.copy(backgroundColor = preset.background, textColor = preset.textColor)
+            } else {
+                rawSettings
+            }
+        }
 
         var menuVisible by rememberSaveable { mutableStateOf(true) }
         var settingsOpen by rememberSaveable { mutableStateOf(false) }
@@ -105,9 +116,7 @@ class ReaderScreen(
                 is ReaderState.Loaded -> NovelWebViewContent(
                     html = s.html,
                     baseUrl = s.baseUrl,
-                    fontSize = s.fontSize,
-                    lineSpacing = s.lineSpacing,
-                    theme = s.theme,
+                    settings = settings,
                     chapterTitle = s.chapterTitle,
                     onToggleMenu = { menuVisible = !menuVisible },
                     modifier = Modifier.fillMaxSize(),
@@ -148,14 +157,16 @@ class ReaderScreen(
         }
 
         if (settingsOpen) {
-            ModalBottomSheet(onDismissRequest = { settingsOpen = false }) {
-                // Scaffold only (Phase 1.2). Real reader settings (fonts, theme presets, alignment)
-                // land in 1.4.
-                Text(
-                    "Reader settings coming soon",
-                    modifier = Modifier.padding(24.dp),
-                )
-            }
+            ReaderSettingsSheet(
+                settings = rawSettings,
+                onFontSize = screenModel::setFontSize,
+                onLineHeight = screenModel::setLineHeight,
+                onTextAlign = screenModel::setTextAlign,
+                onPadding = screenModel::setPadding,
+                onFollowSystem = screenModel::setFollowSystemTheme,
+                onPreset = screenModel::setThemePreset,
+                onDismiss = { settingsOpen = false },
+            )
         }
     }
 }
