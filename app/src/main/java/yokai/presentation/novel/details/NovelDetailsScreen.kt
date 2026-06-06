@@ -182,7 +182,7 @@ class NovelDetailsScreen(
         fun openChapter(chapter: NovelChapter) {
             val id = chapter.id ?: return
             router?.pushController(
-                ReaderController(screenModel.ownerSourceId(chapter), id).withFadeTransaction(),
+                ReaderController(screenModel.orderedChapterIds(), id).withFadeTransaction(),
             )
         }
 

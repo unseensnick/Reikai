@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.CircularProgressIndicator
@@ -48,8 +49,8 @@ import yokai.util.Screen
  * the screen into saved state).
  */
 class ReaderScreen(
-    private val sourceId: String,
-    private val chapterId: Long,
+    private val chapterIds: List<Long>,
+    private val initialChapterId: Long,
 ) : Screen() {
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -57,7 +58,7 @@ class ReaderScreen(
     override fun Content() {
         val backPress = LocalBackPress.current
         val context = LocalContext.current
-        val screenModel = rememberScreenModel { ReaderScreenModel(sourceId, chapterId) }
+        val screenModel = rememberScreenModel { ReaderScreenModel(chapterIds, initialChapterId) }
         val state by screenModel.state.collectAsState()
         val rawSettings by screenModel.settings.collectAsState()
 
@@ -119,8 +120,12 @@ class ReaderScreen(
                     settings = settings,
                     chapterTitle = s.chapterTitle,
                     initialProgressPercent = s.initialProgressPercent,
+                    hasPrev = s.hasPrev,
+                    hasNext = s.hasNext,
                     onToggleMenu = { menuVisible = !menuVisible },
                     onSaveProgress = screenModel::saveProgress,
+                    onNext = screenModel::next,
+                    onPrev = screenModel::prev,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -148,11 +153,18 @@ class ReaderScreen(
                 enter = slideInVertically { it },
                 exit = slideOutVertically { it },
             ) {
-                // Placeholder bottom bar (Phase 1.2): holds the settings entry; chapter nav lands in 1.6.
+                val loaded = state as? ReaderState.Loaded
                 BottomAppBar(windowInsets = WindowInsets.navigationBars) {
+                    IconButton(onClick = { screenModel.prev() }, enabled = loaded?.hasPrev == true) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous chapter")
+                    }
                     Spacer(Modifier.weight(1f))
                     IconButton(onClick = { settingsOpen = true }) {
                         Icon(Icons.Filled.Settings, contentDescription = "Reader settings")
+                    }
+                    Spacer(Modifier.weight(1f))
+                    IconButton(onClick = { screenModel.next() }, enabled = loaded?.hasNext == true) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next chapter")
                     }
                 }
             }

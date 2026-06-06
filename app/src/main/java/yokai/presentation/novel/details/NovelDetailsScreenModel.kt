@@ -504,9 +504,16 @@ class NovelDetailsScreenModel(
         return sourceManager.get(ownerSourceId(chapter)) ?: source
     }
 
-    /** Source id that owns [chapter] (a grouped sibling's, else the anchor's). The reader resolves
-     *  the NovelSource from this so a merged novel opens each chapter against its own source. */
-    fun ownerSourceId(chapter: NovelChapter): String = novelsById[chapter.novelId]?.source ?: sourceId
+    /** Source id that owns [chapter] (a grouped sibling's, else the anchor's). */
+    private fun ownerSourceId(chapter: NovelChapter): String = novelsById[chapter.novelId]?.source ?: sourceId
+
+    /** The displayed chapters' ids in reading (source) order, handed to the reader for prev/next
+     *  navigation so it walks exactly the list the user sees (the reader resolves each chapter's own
+     *  source, so a merged novel navigates across sources). */
+    fun orderedChapterIds(): LongArray {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return LongArray(0)
+        return loaded.chapters.sortedBy { it.sourceOrder }.mapNotNull { it.id }.toLongArray()
+    }
 
     /** Called by the screen after it resolves the plugin source (host construction needs a Context).
      *  Kicks off a pending first-open fetch if the stored chapter list is empty. */

@@ -41,6 +41,8 @@ fun buildReaderHtml(
     chapterHtml: String,
     chapterName: String,
     progressPercent: Int,
+    hasPrev: Boolean,
+    hasNext: Boolean,
     settings: ReaderSettings,
     colors: ReaderThemeColors,
     statusBarHeightPx: Int,
@@ -72,8 +74,10 @@ fun buildReaderHtml(
         put("chapterGeneralSettings", generalSettings)
         put("novel", JSONObject.NULL)
         put("chapter", JSONObject().apply { put("name", chapterName); put("progress", progressPercent) })
-        put("nextChapter", JSONObject.NULL)
-        put("prevChapter", JSONObject.NULL)
+        // Non-null enables the web layer's chapter-ending "Next" button / prev affordance; the name
+        // is unused in scroll mode (only the page-reader transition shows it).
+        put("nextChapter", if (hasNext) JSONObject().apply { put("name", "") } else JSONObject.NULL)
+        put("prevChapter", if (hasPrev) JSONObject().apply { put("name", "") } else JSONObject.NULL)
         put("batteryLevel", 1.0)
         put("autoSaveInterval", 2222)
         put("DEBUG", debug)
