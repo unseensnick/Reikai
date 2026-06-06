@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.JsonElement
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.novel.NovelPreferences
+import yokai.domain.novel.NovelRepository
 import yokai.domain.ui.UiPreferences
 import yokai.novel.host.NovelItem
 import yokai.novel.install.LnPluginInstaller
@@ -35,6 +36,7 @@ class NovelBrowseScreenModel(
     private val preferences: PreferencesHelper by injectLazy()
     private val uiPreferences: UiPreferences by injectLazy()
     private val novelPreferences: NovelPreferences by injectLazy()
+    private val novelRepository: NovelRepository by injectLazy()
 
     init {
         // Seed synchronously so the first frame isn't an empty picker, then keep following the flow.
@@ -42,6 +44,14 @@ class NovelBrowseScreenModel(
         screenModelScope.launchIO {
             manager.sources.collectLatest { list ->
                 mutableState.update { it.copy(sources = list) }
+            }
+        }
+        // In-library marking: keep a set of favorited (source, url) keys so browse results already in
+        // the library are dimmed/badged, matching the manga catalogue. Read-only; no rows written.
+        screenModelScope.launchIO {
+            novelRepository.getLibraryNovelAsFlow().collectLatest { library ->
+                val keys = library.mapTo(HashSet()) { favoriteKey(it.novel.source, it.novel.url) }
+                mutableState.update { it.copy(favoritedKeys = keys) }
             }
         }
         // Browse display: a browse-only list/grid toggle, but grid sizing + density borrowed from the
@@ -107,7 +117,7 @@ class NovelBrowseScreenModel(
                     1,
                     buildOptions(mode.source.filters, mode.filterValues, mode.showLatest),
                 )
-                updateBrowsing { it.copy(novels = novels, query = "") }
+                updateBrowsing { it.copy(novels = novels, query = "", page = 1, endReached = false) }
             } catch (e: Throwable) {
                 mutableState.update { it.copy(loading = false, error = errorText(e)) }
             }
@@ -125,9 +135,45 @@ class NovelBrowseScreenModel(
                 } else {
                     mode.source.searchNovels(query, 1)
                 }
-                updateBrowsing { it.copy(novels = novels, query = query) }
+                updateBrowsing { it.copy(novels = novels, query = query, page = 1, endReached = false) }
             } catch (e: Throwable) {
                 mutableState.update { it.copy(loading = false, error = errorText(e)) }
+            }
+        }
+    }
+
+    /** Fetch and append the next page of the current listing (popular or search). An empty page marks
+     *  the listing exhausted. Failures stop pagination for this listing (a fresh search/filter resets
+     *  it) rather than wiping the results already shown. */
+    fun loadMore() {
+        val mode = state.value.mode as? NovelBrowseState.Mode.BrowsingNovels ?: return
+        if (state.value.loading || state.value.loadingMore || mode.endReached) return
+        val next = mode.page + 1
+        mutableState.update { it.copy(loadingMore = true) }
+        screenModelScope.launchIO {
+            try {
+                val more = if (mode.query.isBlank()) {
+                    mode.source.popularNovels(next, buildOptions(mode.source.filters, mode.filterValues, mode.showLatest))
+                } else {
+                    mode.source.searchNovels(mode.query, next)
+                }
+                mutableState.update {
+                    val m = it.mode as? NovelBrowseState.Mode.BrowsingNovels ?: return@update it.copy(loadingMore = false)
+                    if (more.isEmpty()) {
+                        it.copy(loadingMore = false, mode = m.copy(endReached = true))
+                    } else {
+                        // Dedupe by path so a source repeating entries across a page boundary doesn't
+                        // duplicate keys (LazyGrid keys must be unique).
+                        val seen = m.novels.mapTo(HashSet()) { n -> n.path }
+                        val appended = m.novels + more.filter { n -> seen.add(n.path) }
+                        it.copy(loadingMore = false, mode = m.copy(novels = appended, page = next))
+                    }
+                }
+            } catch (e: Throwable) {
+                mutableState.update {
+                    val m = it.mode as? NovelBrowseState.Mode.BrowsingNovels ?: return@update it.copy(loadingMore = false)
+                    it.copy(loadingMore = false, error = errorText(e), mode = m.copy(endReached = true))
+                }
             }
         }
     }
@@ -153,6 +199,9 @@ class NovelBrowseScreenModel(
     private fun errorText(e: Throwable) = "${e.javaClass.simpleName}: ${e.message ?: ""}"
 }
 
+/** Stable key for the in-library lookup, matching a novel row's (source, url) identity. */
+internal fun favoriteKey(source: String, url: String): Pair<String, String> = source to url
+
 /**
  * Whole-screen browse state. [Mode] is the in-screen stack: the source picker, or a source's
  * catalog. Cross-cutting flags ([loading], [error]) sit at the top level since an early
@@ -162,11 +211,15 @@ data class NovelBrowseState(
     val sources: List<NovelSource> = emptyList(),
     val mode: Mode = Mode.PickingSource,
     val loading: Boolean = false,
+    /** Next-page fetch in flight (footer spinner), distinct from the first-page [loading]. */
+    val loadingMore: Boolean = false,
     val error: String? = null,
     /** Source of the most recent pick attempt; drives the CF/WebView affordance even when a
      *  failure left us in [Mode.PickingSource] with no mode-side source reference. */
     val lastAttemptedSource: NovelSource? = null,
     val display: Display = Display(),
+    /** (source, url) pairs currently in the library, for in-library marking of results. */
+    val favoritedKeys: Set<Pair<String, String>> = emptySet(),
 ) {
     /**
      * Browse display. [asList] is the browse-only list/grid toggle; [gridLayout] (comfortable /
@@ -194,6 +247,10 @@ data class NovelBrowseState(
             val query: String = "",
             val filterValues: Map<String, JsonElement> = emptyMap(),
             val showLatest: Boolean = false,
+            /** Highest page fetched so far; [loadMore] requests page+1. */
+            val page: Int = 1,
+            /** Set once a page comes back empty (or pagination errors): no more pages to fetch. */
+            val endReached: Boolean = false,
         ) : Mode
     }
 }

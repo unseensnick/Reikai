@@ -16,9 +16,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -41,20 +44,25 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
+import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -62,6 +70,7 @@ import kotlinx.serialization.json.put
 import kotlin.math.max
 import kotlin.math.pow
 import kotlin.math.roundToInt
+import yokai.i18n.MR
 import yokai.novel.host.NovelItem
 import yokai.novel.source.NovelSource
 import yokai.presentation.component.ReikaiTopBar
@@ -186,9 +195,13 @@ class NovelBrowseScreen(
                         novels = m.novels,
                         query = m.query,
                         display = state.display,
+                        sourceId = m.source.id,
+                        favoritedKeys = state.favoritedKeys,
+                        loadingMore = state.loadingMore,
                         onSearch = { screenModel.runSearch(it) },
                         onPick = { item -> onSelectNovel(m.source.id, item.path) },
                         onLongPick = { /* long-press add-to-library lands in B2e */ },
+                        onLoadMore = { screenModel.loadMore() },
                     )
                 }
 
@@ -250,9 +263,13 @@ private fun NovelList(
     novels: List<NovelItem>,
     query: String,
     display: NovelBrowseState.Display,
+    sourceId: String,
+    favoritedKeys: Set<Pair<String, String>>,
+    loadingMore: Boolean,
     onSearch: (String) -> Unit,
     onPick: (NovelItem) -> Unit,
     onLongPick: (NovelItem) -> Unit,
+    onLoadMore: () -> Unit,
 ) {
     var queryDraft by remember(query) { mutableStateOf(query) }
     Column(modifier = Modifier.fillMaxSize()) {
@@ -287,24 +304,39 @@ private fun NovelList(
             return@Column
         }
         if (display.asList) {
-            LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            val listState = rememberLazyListState()
+            LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f), state = listState) {
                 items(items = novels, key = { it.path }) { item ->
-                    NovelResultRow(item, onClick = { onPick(item) }, onLongClick = { onLongPick(item) })
+                    NovelResultRow(
+                        item = item,
+                        inLibrary = (sourceId to item.path) in favoritedKeys,
+                        onClick = { onPick(item) },
+                        onLongClick = { onLongPick(item) },
+                    )
                     HorizontalDivider()
                 }
+                if (loadingMore) item { LoadingMoreFooter() }
             }
+            LoadMoreOnScrollEnd(
+                totalItems = { listState.layoutInfo.totalItemsCount },
+                lastVisible = { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 },
+                key = novels,
+                onLoadMore = onLoadMore,
+            )
         } else {
             val columns = browseGridColumns(display.gridSize, LocalConfiguration.current.screenWidthDp)
+            val gridState = rememberLazyGridState()
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columns),
                 modifier = Modifier.fillMaxWidth().weight(1f),
+                state = gridState,
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 gridItems(items = novels, key = { it.path }) { item ->
                     NovelBrowseGridCell(
                         item = item,
-                        inLibrary = false,
+                        inLibrary = (sourceId to item.path) in favoritedKeys,
                         libraryLayout = display.gridLayout,
                         outlineOnCovers = display.outlineOnCovers,
                         coverAspectRatio = MangaCoverRatio.BOOK,
@@ -312,10 +344,50 @@ private fun NovelList(
                         onLongClick = { onLongPick(item) },
                     )
                 }
+                if (loadingMore) item(span = { GridItemSpan(maxLineSpan) }) { LoadingMoreFooter() }
             }
+            LoadMoreOnScrollEnd(
+                totalItems = { gridState.layoutInfo.totalItemsCount },
+                lastVisible = { gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 },
+                key = novels,
+                onLoadMore = onLoadMore,
+            )
         }
     }
 }
+
+/** Footer shown at the tail of the list/grid while the next page is loading. */
+@Composable
+private fun LoadingMoreFooter() {
+    Box(modifier = Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator()
+    }
+}
+
+/**
+ * Fires [onLoadMore] once when the list/grid scrolls within [PREFETCH_DISTANCE] items of the end.
+ * `distinctUntilChanged` plus the ScreenModel's own loading/end guards keep it from firing in a loop
+ * while a fetch is in flight. [key] re-arms the watch when the backing list identity changes.
+ */
+@Composable
+private fun LoadMoreOnScrollEnd(
+    totalItems: () -> Int,
+    lastVisible: () -> Int,
+    key: Any,
+    onLoadMore: () -> Unit,
+) {
+    LaunchedEffect(key) {
+        snapshotFlow {
+            val total = totalItems()
+            total > 0 && lastVisible() >= total - 1 - PREFETCH_DISTANCE
+        }
+            .distinctUntilChanged()
+            .collect { nearEnd -> if (nearEnd) onLoadMore() }
+    }
+}
+
+/** How many items from the end to trigger the next-page fetch. */
+private const val PREFETCH_DISTANCE = 6
 
 /**
  * Browse grid column count, matching the manga catalogue's sizing
@@ -334,7 +406,12 @@ private fun browseGridColumns(gridSize: Float, screenWidthDp: Int): Int {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun NovelResultRow(item: NovelItem, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun NovelResultRow(
+    item: NovelItem,
+    inLibrary: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -345,13 +422,14 @@ private fun NovelResultRow(item: NovelItem, onClick: () -> Unit, onLongClick: ()
         MangaCover(
             data = item.cover,
             ratio = MangaCoverRatio.BOOK,
-            modifier = Modifier.width(56.dp),
+            // Dim the cover of an already-favorited result, matching the manga catalogue list.
+            modifier = Modifier.width(56.dp).alpha(if (inLibrary) 0.34f else 1f),
         )
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(item.name, style = MaterialTheme.typography.titleSmall)
             Text(
-                text = item.path,
+                text = if (inLibrary) stringResource(MR.strings.in_library) else item.path,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
