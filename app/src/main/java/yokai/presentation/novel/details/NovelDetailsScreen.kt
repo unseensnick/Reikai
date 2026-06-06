@@ -68,10 +68,13 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import eu.kanade.tachiyomi.domain.manga.models.Manga
+import eu.kanade.tachiyomi.ui.reader.compose.ReaderController
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
+import eu.kanade.tachiyomi.util.compose.LocalRouter
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.view.withFadeTransaction
 import kotlinx.coroutines.launch
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -124,6 +127,7 @@ class NovelDetailsScreen(
         val chapterRepo = remember { Injekt.get<NovelChapterRepository>() }
         val backPress = LocalBackPress.current
         val navigator = LocalNavigator.current
+        val router = LocalRouter.current
         val scope = rememberCoroutineScope()
         val listState = rememberLazyListState()
         // Top bar fades from transparent (over the header backdrop) to opaque as the header scrolls
@@ -176,18 +180,10 @@ class NovelDetailsScreen(
         var showCoverDialog by remember { mutableStateOf(false) }
 
         fun openChapter(chapter: NovelChapter) {
-            if (readerLoading) return
-            scope.launch {
-                readerLoading = true
-                try {
-                    readerData = screenModel.loadChapterText(chapter)
-                    readingChapter = chapter
-                } catch (e: Throwable) {
-                    context.toast("Failed to open chapter: ${e.message ?: ""}")
-                } finally {
-                    readerLoading = false
-                }
-            }
+            val id = chapter.id ?: return
+            router?.pushController(
+                ReaderController(screenModel.ownerSourceId(chapter), id).withFadeTransaction(),
+            )
         }
 
         fun goBack() {

@@ -501,9 +501,12 @@ class NovelDetailsScreenModel(
     /** The source a chapter belongs to, so the reader opens against the source that has it. A merged
      *  list mixes sources; a gap-filled chapter resolves to its sibling's source. */
     private fun sourceForChapter(chapter: NovelChapter): NovelSource? {
-        val owningSourceId = novelsById[chapter.novelId]?.source ?: sourceId
-        return sourceManager.get(owningSourceId) ?: source
+        return sourceManager.get(ownerSourceId(chapter)) ?: source
     }
+
+    /** Source id that owns [chapter] (a grouped sibling's, else the anchor's). The reader resolves
+     *  the NovelSource from this so a merged novel opens each chapter against its own source. */
+    fun ownerSourceId(chapter: NovelChapter): String = novelsById[chapter.novelId]?.source ?: sourceId
 
     /** Called by the screen after it resolves the plugin source (host construction needs a Context).
      *  Kicks off a pending first-open fetch if the stored chapter list is empty. */
