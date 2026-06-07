@@ -36,13 +36,6 @@ class ReikaiLibraryPreferences(
 
     // region Display / layout
 
-    val useStaggeredGrid: Preference<Boolean> = preferenceStore.getBoolean("use_staggered_grid", false)
-
-    val uniformGrid: Preference<Boolean> = preferenceStore.getBoolean("uniform_grid", true)
-
-    /** Raw grid-size slider value (0..7); the column count is derived from it per screen width. */
-    val gridSize: Preference<Float> = preferenceStore.getFloat("grid_size_float", 1f)
-
     val outlineOnCovers: Preference<Boolean> = preferenceStore.getBoolean("outline_on_covers", true)
 
     // endregion

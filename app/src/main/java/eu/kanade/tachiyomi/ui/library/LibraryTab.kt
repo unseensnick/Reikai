@@ -255,12 +255,14 @@ data object LibraryTab : Tab {
                             val isLandscape =
                                 LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
                             val columns by screenModel.getColumnsForOrientation(isLandscape)
+                            val displayMode by screenModel.getDisplayMode()
                             ReikaiLibraryContent(
                                 categories = state.displayedCategories,
                                 getItemsForCategory = { state.getItemsForCategory(it) },
                                 collapsedCategories = state.reikai.collapsedCategories,
                                 collapsedDynamicCategories = state.reikai.collapsedDynamicCategories,
                                 showItemCounts = state.showMangaCount,
+                                displayMode = displayMode,
                                 columns = columns,
                                 selection = state.selection,
                                 searchQuery = state.searchQuery,
