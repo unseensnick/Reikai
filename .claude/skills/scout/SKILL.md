@@ -2,7 +2,7 @@
 name: scout
 description: Investigate a non-trivial task before planning. Produces a findings report with file:line citations covering current behavior, upstream/reference equivalents, framework bridges, helpers to reuse, and open questions. Use before porting an upstream change, migrating a screen to Compose, touching unfamiliar modules, or any cross-cutting change. The point is to ground the plan in evidence, not memory.
 argument-hint: "<task description> (e.g., 'port General settings to Compose', 'add per-category sort')"
-disable-model-invocation: true
+disable-model-invocation: false
 allowed-tools:
   - Bash(git *)
   - Bash(JAVA_HOME=* ./gradlew *)
