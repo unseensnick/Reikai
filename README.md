@@ -12,7 +12,7 @@
 
 A free and open source manga reader
 
-[![CI](https://github.com/unseensnick/Reikai/actions/workflows/build_push.yml/badge.svg?labelColor=27303D)](https://github.com/unseensnick/Reikai/actions/workflows/build_push.yml)
+[![CI](https://github.com/unseensnick/Reikai/actions/workflows/build_check.yml/badge.svg?labelColor=27303D)](https://github.com/unseensnick/Reikai/actions/workflows/build_check.yml)
 [![License: Apache-2.0](https://img.shields.io/github/license/unseensnick/Reikai?labelColor=27303D&color=0877d2)](/LICENSE)
 
 <img src="./.github/readme-images/screens.gif" alt="screenshots" />
@@ -21,13 +21,15 @@ A free and open source manga reader
 
 [![Reikai Stable](https://img.shields.io/github/v/release/unseensnick/Reikai?maxAge=3600&label=Stable&labelColor=06599d&color=043b69)](https://github.com/unseensnick/Reikai/releases)
 
-*Requires Android 6.0 or higher.*
+*Requires Android 8.0 or higher.*
 
 ## About
 
-Reikai (霊界, "spirit world") is a personal fork of [Yōkai](https://github.com/null2264/yokai) (妖怪, "spirit-creature"). Same Japanese-mythology vocabulary, different angle. Built for personal use; updates are sporadic.
+Reikai (霊界, "spirit world") is a personal manga + light-novel reader **built on [Mihon](https://github.com/mihonapp/mihon)**. It started as a fork of [Yōkai](https://github.com/null2264/yokai) (妖怪, "spirit-creature") and is being rebased onto Mihon. Built for personal use; updates are sporadic.
 
-The goal is to stay in sync with upstream Yōkai while layering on features that suit my needs and aren't likely to land upstream as PRs.
+The goal is to ride Mihon's actively maintained Compose base while layering on the features below, which suit my needs and aren't likely to land upstream as PRs.
+
+> **Status:** the rebase onto Mihon is in progress, so feature availability is in flux while the features below are ported over from the Yōkai-based build. See [docs/dev/development.md](docs/dev/development.md) for the current state.
 
 ## Features
 
@@ -92,14 +94,11 @@ The goal is to stay in sync with upstream Yōkai while layering on features that
 * UI redesign.
 * New Manga details screens, themed by their manga covers.
 * Combine 2 pages while reading into a single one for a better tablet experience.
-* An expanded toolbar for easier one handed use (with the option to reduce the size back down).
 * Floating searchbar to easily start a search in your library or while browsing.
 * Library redesigned as a single list view: categories in a vertical view, collapsible with a tap.
 * Staggered Library grid.
-* Drag & Drop Sorting in Library.
 * Dynamic Categories: group your library automatically by tags, tracking status, source, and more.
 * New Recents page: quick access to newly added manga, new chapters, and where you left off.
-* Stats Page.
 * New Themes.
 * Dynamic Shortcuts: open the latest chapter of what you were last reading right from your homescreen.
 * [New material snackbar](.github/readme-images/material%20snackbar.png): removing manga auto-deletes chapters with an undo button.
@@ -128,11 +127,11 @@ This is a personal fork; pull requests may not be reviewed. Feel free to open an
 
 </details>
 
-<details><summary>Syncing from upstream Yōkai</summary>
+<details><summary>Syncing from upstream</summary>
 
-Upstream changes are ported manually. Clone [null2264/yokai](https://github.com/null2264/yokai) locally, check what changed, and apply the relevant diffs to Reikai by hand. Re-target to the Compose screen where Reikai has already migrated ahead of upstream.
+Upstream is now [Mihon](https://github.com/mihonapp/mihon); changes are ported manually (clone it locally, check what changed, apply the relevant diffs by hand, fenced with `// RK` markers). Reikai's own pre-rebase features are ported from the `design/library-compose` branch.
 
-See [docs/dev/development.md](docs/dev/development.md#syncing-with-upstream) for details.
+See [docs/dev/development.md](docs/dev/development.md#porting) for details.
 
 </details>
 
