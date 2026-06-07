@@ -1,0 +1,20 @@
+# Build files
+.gradle
+.kotlin
+build
+
+# IDE files
+*.iml
+.idea/*
+!.idea/icon.svg
+/captures
+
+# Configuration files
+local.properties
+
+# Secrets (RK: never commit Firebase config)
+google-services.json
+app/google-services.json
+
+# macOS specific files
+.DS_Store

@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "additionalDirectories": [
+      "E:\\code\\yokai-y2k\\refs\\komikku",
+      "E:\\code\\yokai-y2k\\refs\\yokai",
+      "E:\\code\\yokai-y2k\\refs\\mihon",
+      "E:\\code\\yokai-y2k\\refs\\tachiyomi-extension",
+      "E:\\code\\yokai-y2k\\refs\\keiyoushi-extensions",
+      "E:\\code\\yokai-y2k\\refs\\keiyoushi-extensions-source",
+      "E:\\code\\yokai-y2k\\refs\\blueth-yokai",
+      "E:\\code\\yokai-y2k\\refs\\Yōkai-Y2K-New-Icons",
+      "E:\\code\\yokai-y2k\\refs\\lnreader-main",
+      "E:\\code\\yokai-y2k\\refs\\lnreader-2.0.3-Pre-release",
+      "E:\\code\\yokai-y2k\\refs\\lnreader-plugins"
+    ],
+    "allow": [
+      "Bash(./gradlew :domain:test)",
+      "Bash(./gradlew clean)",
+      "Bash(./gradlew tasks)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch *)",
+      "Bash(git stash *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git fetch *)",
+      "Bash(git checkout *)",
+      "Bash(git switch *)",
+      "Bash(git merge main)",
+      "Bash(git rev-parse *)",
+      "Bash(git show *)",
+      "Bash(gh pr *)",
+      "Bash(gh issue *)",
+      "Bash(gh run *)",
+      "Read(E:\\Code\\yokai-y2k\\app\\**)",
+      "Read(E:\\code\\yokai-y2k\\refs\\**)",
+      "Grep(E:\\Code\\yokai-y2k\\app\\**)",
+      "Grep(E:\\code\\yokai-y2k\\refs\\**)",
+      "Glob(E:\\Code\\yokai-y2k\\app\\**)",
+      "Glob(E:\\code\\yokai-y2k\\refs\\**)"
+    ],
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/secrets/**)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.jks)",
+      "Read(**/*.keystore)",
+      "Read(**/google-services.json)",
+      "Write(**/.env)",
+      "Write(**/.env.*)",
+      "Write(**/secrets/**)",
+      "Write(**/*.pem)",
+      "Write(**/*.key)",
+      "Write(**/*.jks)",
+      "Write(**/*.keystore)",
+      "Edit(**/.env)",
+      "Edit(**/.env.*)",
+      "Edit(**/secrets/**)",
+      "Edit(**/*.pem)",
+      "Edit(**/*.key)",
+      "Edit(**/*.jks)",
+      "Edit(**/*.keystore)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/protect-files.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking file protections..."
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/warn-large-files.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking for build artifacts..."
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/scan-secrets.sh",
+            "timeout": 5000,
+            "statusMessage": "Scanning for secrets..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/block-dangerous-commands.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking command safety..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/format-on-save.sh",
+            "timeout": 15000,
+            "statusMessage": "Formatting..."
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh",
+            "timeout": 5000,
+            "statusMessage": "Loading project context..."
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/notify.sh",
+            "timeout": 5000
+          }
+        ]
+      }
+    ]
+  }
+}
