@@ -207,6 +207,54 @@ abstract class HttpSource : CatalogueSource {
      */
     protected abstract fun latestUpdatesParse(response: Response): MangasPage
 
+    // RK -->
+
+    /**
+     * Ported from Komikku's HttpSource baseline. Every HTTP-backed extension opts in to
+     * related-mangas by default so the source-native flow and cross-recommendation have a real
+     * signal to consume. Extensions whose details page doesn't parse cleanly as a listing can opt
+     * out via [disableRelatedMangas]; extensions that ship overrides for [relatedMangaListRequest] /
+     * [relatedMangaListParse] light up automatically via JVM virtual dispatch.
+     *
+     * @since y2k/extensions-lib 1.6
+     */
+    override val supportsRelatedMangas: Boolean get() = true
+
+    /**
+     * Default related-mangas fetch: requests [relatedMangaListRequest] (the manga details URL
+     * by default) and runs [relatedMangaListParse] on the response (which reuses
+     * [popularMangaParse] by default). Override either hook to customize.
+     *
+     * @since y2k/extensions-lib 1.6
+     */
+    override suspend fun fetchRelatedMangaList(manga: SManga): List<SManga> {
+        return client.newCall(relatedMangaListRequest(manga))
+            .awaitSuccess()
+            .let { response -> relatedMangaListParse(response) }
+    }
+
+    /**
+     * Request used by the default [fetchRelatedMangaList]. Override only if a different URL,
+     * different headers, or a different HTTP method is needed.
+     *
+     * @since y2k/extensions-lib 1.6
+     */
+    protected open fun relatedMangaListRequest(manga: SManga): Request {
+        return mangaDetailsRequest(manga)
+    }
+
+    /**
+     * Parses the response into related mangas. Defaults to [popularMangaParse] so any extension
+     * whose details page contains a parseable manga listing gets related-mangas for free; override
+     * when a dedicated parser is needed.
+     *
+     * @since y2k/extensions-lib 1.6
+     */
+    protected open fun relatedMangaListParse(response: Response): List<SManga> =
+        popularMangaParse(response).mangas
+
+    // RK <--
+
     /**
      * Get the updated details for a manga.
      * Normally it's not needed to override this method.
