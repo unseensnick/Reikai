@@ -287,6 +287,12 @@ private fun ColumnScope.DisplayPage(
     )
 
     HeadingItem(MR.strings.tabs_header)
+    // RK --> single-list (show-all) view toggle; off keeps Mihon's swipeable pager
+    CheckboxItem(
+        label = stringResource(MR.strings.action_display_show_all_categories),
+        pref = screenModel.reikaiLibraryPreferences.showAllCategories,
+    )
+    // RK <--
     CheckboxItem(
         label = stringResource(MR.strings.action_display_show_tabs),
         pref = screenModel.libraryPreferences.categoryTabs,

@@ -4,6 +4,9 @@ import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.tachiyomi.data.track.TrackerManager
+// RK -->
+import reikai.domain.library.ReikaiLibraryPreferences
+// RK <--
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import tachiyomi.core.common.preference.Preference
@@ -23,6 +26,9 @@ import kotlin.time.Duration.Companion.seconds
 class LibrarySettingsScreenModel(
     val preferences: BasePreferences = Injekt.get(),
     val libraryPreferences: LibraryPreferences = Injekt.get(),
+    // RK -->
+    val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
+    // RK <--
     private val setDisplayMode: SetDisplayMode = Injekt.get(),
     private val setSortModeForCategory: SetSortModeForCategory = Injekt.get(),
     trackerManager: TrackerManager = Injekt.get(),

@@ -1,10 +1,16 @@
 package eu.kanade.tachiyomi.ui.library
 
+import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material3.SnackbarHost
@@ -13,13 +19,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAll
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -44,10 +57,18 @@ import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import mihon.feature.migration.config.MigrationConfigScreen
+// RK -->
+import reikai.presentation.library.ReikaiCategoryHopper
+import reikai.presentation.library.ReikaiCategoryPickerSheet
+import reikai.presentation.library.ReikaiLibraryContent
+import reikai.presentation.library.reikaiCategoryHeaderIndices
+import reikai.presentation.library.reikaiIsCollapsed
+// RK <--
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.model.Category
@@ -91,6 +112,53 @@ data object LibraryTab : Tab {
         val state by screenModel.state.collectAsState()
 
         val snackbarHostState = remember { SnackbarHostState() }
+
+        // RK --> hopper + jump-to-category picker drive both views through a single `hopperTarget`,
+        // so rapid taps coalesce into one smooth animation (pager page / list scroll) to the final
+        // category instead of restarting per tap.
+        val singleListGridState = rememberLazyGridState()
+        val pagerState = rememberPagerState(initialPage = state.coercedActiveCategoryIndex) {
+            state.displayedCategories.size
+        }
+        var pickerOpen by remember { mutableStateOf(false) }
+        var hopperTarget by remember { mutableStateOf<Int?>(null) }
+        var hopperDragAccum by remember { mutableFloatStateOf(0f) }
+        fun reikaiHeaderIndices(): List<Int> = reikaiCategoryHeaderIndices(
+            categories = state.displayedCategories,
+            hasSearchItem = !state.searchQuery.isNullOrEmpty(),
+            isCollapsed = {
+                reikaiIsCollapsed(it, state.reikai.collapsedCategories, state.reikai.collapsedDynamicCategories)
+            },
+            itemCount = { state.getItemsForCategory(it).size },
+        )
+        fun currentCategoryIndex(): Int = if (state.reikai.showAllCategories) {
+            reikaiHeaderIndices().indexOfLast { it <= singleListGridState.firstVisibleItemIndex }.coerceAtLeast(0)
+        } else {
+            pagerState.currentPage
+        }
+        LaunchedEffect(hopperTarget) {
+            val target = hopperTarget ?: return@LaunchedEffect
+            if (state.reikai.showAllCategories) {
+                // Coalesce rapid prev/next taps: a newer tap cancels this and restarts, so only the
+                // final target scrolls once taps settle, instead of restarting the scroll each tap.
+                delay(80)
+                reikaiHeaderIndices().getOrNull(target)?.let { itemIndex ->
+                    // animateScrollToItem alone stutters over a large or upward distance (it measures
+                    // many off-screen grid items). For far targets, jump instantly to within a few
+                    // items, then animate the short landing so it stays smooth and quick like the pager.
+                    val current = singleListGridState.firstVisibleItemIndex
+                    if (kotlin.math.abs(itemIndex - current) > 12) {
+                        val approach = if (itemIndex > current) itemIndex - 8 else itemIndex + 8
+                        singleListGridState.scrollToItem(approach.coerceAtLeast(0))
+                    }
+                    singleListGridState.animateScrollToItem(itemIndex)
+                }
+            } else {
+                pagerState.animateScrollToPage(target)
+            }
+            hopperTarget = null
+        }
+        // RK <--
 
         val onClickRefresh: (Category?) -> Boolean = { category ->
             val started = LibraryUpdateJob.startNow(context, category)
@@ -177,43 +245,136 @@ data object LibraryTab : Tab {
                     )
                 }
                 else -> {
-                    LibraryContent(
-                        categories = state.displayedCategories,
-                        searchQuery = state.searchQuery,
-                        selection = state.selection,
-                        contentPadding = contentPadding,
-                        currentPage = state.coercedActiveCategoryIndex,
-                        hasActiveFilters = state.hasActiveFilters,
-                        showPageTabs = state.showCategoryTabs || !state.searchQuery.isNullOrEmpty(),
-                        onChangeCurrentPage = screenModel::updateActiveCategoryIndex,
-                        onClickManga = { navigator.push(MangaScreen(it)) },
-                        onContinueReadingClicked = { it: LibraryManga ->
-                            scope.launchIO {
-                                val chapter = screenModel.getNextUnreadChapter(it.manga)
-                                if (chapter != null) {
-                                    context.startActivity(
-                                        ReaderActivity.newIntent(context, chapter.mangaId, chapter.id),
-                                    )
-                                } else {
-                                    snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))
-                                }
+                    // RK --> both library views (pager + single-list) with hopper + picker overlaid
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        if (state.reikai.showAllCategories) {
+                            val isLandscape =
+                                LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+                            val columns by screenModel.getColumnsForOrientation(isLandscape)
+                            ReikaiLibraryContent(
+                                categories = state.displayedCategories,
+                                getItemsForCategory = { state.getItemsForCategory(it) },
+                                collapsedCategories = state.reikai.collapsedCategories,
+                                collapsedDynamicCategories = state.reikai.collapsedDynamicCategories,
+                                showItemCounts = state.showMangaCount,
+                                columns = columns,
+                                selection = state.selection,
+                                searchQuery = state.searchQuery,
+                                gridState = singleListGridState,
+                                contentPadding = contentPadding,
+                                onClickManga = { category, manga ->
+                                    if (state.selectionMode) {
+                                        screenModel.toggleSelection(category, manga)
+                                    } else {
+                                        navigator.push(MangaScreen(manga.id))
+                                    }
+                                },
+                                onLongClickManga = { category, manga ->
+                                    screenModel.toggleSelection(category, manga)
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                },
+                                onToggleDefaultCollapse = screenModel::toggleDefaultCategoryCollapse,
+                                onToggleDynamicCollapse = screenModel::toggleDynamicCategoryCollapse,
+                                onGlobalSearchClicked = {
+                                    navigator.push(GlobalSearchScreen(screenModel.state.value.searchQuery ?: ""))
+                                },
+                            )
+                        } else {
+                            LibraryContent(
+                                categories = state.displayedCategories,
+                                searchQuery = state.searchQuery,
+                                selection = state.selection,
+                                contentPadding = contentPadding,
+                                pagerState = pagerState,
+                                hasActiveFilters = state.hasActiveFilters,
+                                showPageTabs = state.showCategoryTabs || !state.searchQuery.isNullOrEmpty(),
+                                onChangeCurrentPage = screenModel::updateActiveCategoryIndex,
+                                onClickManga = { navigator.push(MangaScreen(it)) },
+                                onContinueReadingClicked = { it: LibraryManga ->
+                                    scope.launchIO {
+                                        val chapter = screenModel.getNextUnreadChapter(it.manga)
+                                        if (chapter != null) {
+                                            context.startActivity(
+                                                ReaderActivity.newIntent(context, chapter.mangaId, chapter.id),
+                                            )
+                                        } else {
+                                            snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))
+                                        }
+                                    }
+                                    Unit
+                                }.takeIf { state.showMangaContinueButton },
+                                onToggleSelection = screenModel::toggleSelection,
+                                onToggleRangeSelection = { category, manga ->
+                                    screenModel.toggleRangeSelection(category, manga)
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                },
+                                onRefresh = { onClickRefresh(state.activeCategory) },
+                                onGlobalSearchClicked = {
+                                    navigator.push(GlobalSearchScreen(screenModel.state.value.searchQuery ?: ""))
+                                },
+                                getItemCountForCategory = { state.getItemCountForCategory(it) },
+                                getDisplayMode = { screenModel.getDisplayMode() },
+                                getColumnsForOrientation = { screenModel.getColumnsForOrientation(it) },
+                                getItemsForCategory = { state.getItemsForCategory(it) },
+                            )
+                        }
+
+                        if (!state.reikai.hideHopper && state.displayedCategories.isNotEmpty()) {
+                            val hopperAlignment = when (state.reikai.hopperGravity) {
+                                0 -> Alignment.BottomStart
+                                2 -> Alignment.BottomEnd
+                                else -> Alignment.BottomCenter
                             }
-                            Unit
-                        }.takeIf { state.showMangaContinueButton },
-                        onToggleSelection = screenModel::toggleSelection,
-                        onToggleRangeSelection = { category, manga ->
-                            screenModel.toggleRangeSelection(category, manga)
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        },
-                        onRefresh = { onClickRefresh(state.activeCategory) },
-                        onGlobalSearchClicked = {
-                            navigator.push(GlobalSearchScreen(screenModel.state.value.searchQuery ?: ""))
-                        },
-                        getItemCountForCategory = { state.getItemCountForCategory(it) },
-                        getDisplayMode = { screenModel.getDisplayMode() },
-                        getColumnsForOrientation = { screenModel.getColumnsForOrientation(it) },
-                        getItemsForCategory = { state.getItemsForCategory(it) },
-                    )
+                            ReikaiCategoryHopper(
+                                modifier = Modifier
+                                    .align(hopperAlignment)
+                                    .padding(horizontal = 12.dp)
+                                    .padding(bottom = contentPadding.calculateBottomPadding() + 12.dp)
+                                    // Drag the hopper left/right to move it between start / center / end.
+                                    .pointerInput(state.reikai.hopperGravity) {
+                                        val gravity = state.reikai.hopperGravity
+                                        detectHorizontalDragGestures(
+                                            onDragStart = { hopperDragAccum = 0f },
+                                            onDragEnd = {
+                                                val next = when {
+                                                    hopperDragAccum > 48f -> (gravity + 1).coerceAtMost(2)
+                                                    hopperDragAccum < -48f -> (gravity - 1).coerceAtLeast(0)
+                                                    else -> gravity
+                                                }
+                                                if (next != gravity) screenModel.setHopperGravity(next)
+                                            },
+                                        ) { change, dragAmount ->
+                                            change.consume()
+                                            hopperDragAccum += dragAmount
+                                        }
+                                    },
+                                onUpClick = {
+                                    val last = state.displayedCategories.lastIndex.coerceAtLeast(0)
+                                    hopperTarget = ((hopperTarget ?: currentCategoryIndex()) - 1).coerceIn(0, last)
+                                },
+                                onCenterClick = { pickerOpen = true },
+                                onDownClick = {
+                                    val last = state.displayedCategories.lastIndex.coerceAtLeast(0)
+                                    hopperTarget = ((hopperTarget ?: currentCategoryIndex()) + 1).coerceIn(0, last)
+                                },
+                            )
+                        }
+                    }
+
+                    if (pickerOpen) {
+                        ReikaiCategoryPickerSheet(
+                            categories = state.displayedCategories,
+                            getItemCount = { state.getItemCountForCategory(it) },
+                            showItemCounts = state.showMangaCount,
+                            activeCategoryId = state.displayedCategories.getOrNull(currentCategoryIndex())?.id,
+                            onSelect = { category ->
+                                hopperTarget = state.displayedCategories.indexOf(category)
+                                pickerOpen = false
+                            },
+                            onDismiss = { pickerOpen = false },
+                        )
+                    }
+                    // RK <--
                 }
             }
         }

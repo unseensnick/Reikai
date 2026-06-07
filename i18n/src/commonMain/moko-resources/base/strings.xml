@@ -719,6 +719,12 @@
     <string name="publishing_finished">Publishing finished</string>
     <string name="cancelled">Cancelled</string>
     <string name="on_hiatus">On hiatus</string>
+    <!-- RK: dynamic grouping by tracking status (Y3) -->
+    <string name="not_tracked">Not tracked</string>
+    <!-- RK: single-list library view toggle (Y1) -->
+    <string name="action_display_show_all_categories">Show all categories in one list</string>
+    <!-- RK: category hopper jump-to-category picker (Y2) -->
+    <string name="jump_to_category">Jump to category</string>
     <string name="add_to_library">Add to library</string>
     <string name="in_library">In library</string>
     <!-- missing confirm menu after Compose rewrite #7901 -->
