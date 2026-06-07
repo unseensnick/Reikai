@@ -18,3 +18,9 @@ app/google-services.json
 
 # macOS specific files
 .DS_Store
+
+# Claude tooling (local / globally-installed; not Reikai-specific)
+.agents/
+.claude/launch.json
+.claude/skills/impeccable/
+skills-lock.json
