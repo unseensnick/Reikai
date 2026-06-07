@@ -187,6 +187,11 @@ class SettingsReaderController : SettingsLegacyController() {
                 titleRes = MR.strings.skip_dupe_chapters
             }
             switchPreference {
+                bindTo(readerPreferences.markReadOnSkip())
+                titleRes = MR.strings.pref_mark_read_on_skip
+                summaryRes = MR.strings.pref_mark_read_on_skip_summary
+            }
+            switchPreference {
                 key = Keys.alwaysShowChapterTransition
                 titleRes = MR.strings.always_show_chapter_transition
                 summaryRes = MR.strings.if_disabled_transition_will_skip

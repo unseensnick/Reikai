@@ -1077,6 +1077,8 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         isScrollingThroughPagesOrChapters = true
         lifecycleScope.launch {
             val getNextChapter = (viewer is R2LPagerViewer).xor(rightButton)
+            // Only when moving forward: the chapter being left behind is the "skipped" one.
+            val departedChapter = if (getNextChapter) viewModel.getCurrentChapter() else null
             val adjChapter = viewModel.adjacentChapter(getNextChapter)
             if (adjChapter != null) {
                 if (rightButton) {
@@ -1087,6 +1089,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                     binding.readerNav.leftProgress.isVisible = true
                 }
                 loadChapter(adjChapter)
+                departedChapter?.let { viewModel.markChapterReadOnSkip(it) }
             } else {
                 toast(
                     if (getNextChapter) {

@@ -45,6 +45,8 @@ class ReaderPreferences(private val preferenceStore: PreferenceStore) {
         }
     }
 
+    fun markReadOnSkip() = preferenceStore.getBoolean("pref_mark_read_on_skip", false)
+
     fun webtoonDoubleTapZoomEnabled() = preferenceStore.getBoolean("pref_enable_double_tap_zoom_webtoon", true)
 
     fun debugMode() = preferenceStore.getBoolean("pref_enable_reader_debug_mode", BuildConfig.DEBUG)

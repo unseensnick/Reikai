@@ -87,6 +87,7 @@ import yokai.domain.manga.interactor.UpdateManga
 import yokai.domain.manga.models.MangaUpdate
 import yokai.domain.storage.StorageManager
 import yokai.domain.track.interactor.GetTrack
+import yokai.domain.ui.settings.ReaderPreferences
 import yokai.i18n.MR
 import yokai.util.lang.getString
 
@@ -114,6 +115,7 @@ class ReaderViewModel(
     private val getHistory: GetHistory by injectLazy()
     private val upsertHistory: UpsertHistory by injectLazy()
     private val getTrack: GetTrack by injectLazy()
+    private val readerPreferences: ReaderPreferences by injectLazy()
 
     private val mutableState = MutableStateFlow(State())
     val state = mutableState.asStateFlow()
@@ -673,6 +675,28 @@ class ReaderViewModel(
                 }
             }
         updateChapter.awaitAll(duplicateUnreadChapters)
+    }
+
+    /**
+     * Marks the chapter the user just skipped away from (via the next-chapter button) as read, gated
+     * behind the opt-in "mark skipped chapters as read" preference. [onChapterReadComplete] handles
+     * tracker sync / delete-on-read / duplicates; the read flag itself is persisted here (its usual
+     * caller persists it during page-progress saves, which a skip never reaches).
+     */
+    fun markChapterReadOnSkip(readerChapter: ReaderChapter) {
+        if (readerChapter.chapter.read || !readerPreferences.markReadOnSkip().get()) return
+        viewModelScope.launchNonCancellableIO {
+            // Persist the read flag first so a throwing side-effect (tracker/delete) can't abort it.
+            readerChapter.chapter.read = true
+            updateChapter.await(
+                ChapterUpdate(
+                    id = readerChapter.chapter.id!!,
+                    read = true,
+                    pagesLeft = 0L,
+                ),
+            )
+            onChapterReadComplete(readerChapter)
+        }
     }
 
     fun restartReadTimer() {
