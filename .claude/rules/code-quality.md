@@ -18,13 +18,13 @@ alwaysApply: true
 - Don't add features or improvements beyond what was asked.
 - Don't refactor adjacent code while fixing a bug.
 - No dead code or commented-out blocks. Git has history.
-- Comments, KDoc, and docstrings exist for contributors and maintainers. Keep them short and concise without losing context. Explain WHY, not WHAT (rename if a WHAT comment is needed). Reserve KDoc for module boundaries (public APIs of `source/api`, repository interfaces), not every internal function. Never a wall of text.
+- Comments, KDoc, and docstrings exist for contributors and maintainers. Keep them short and concise without losing context. Explain WHY, not WHAT (rename if a WHAT comment is needed). Reserve KDoc for module boundaries (public APIs of `source-api`, repository interfaces), not every internal function. Never a wall of text.
 - No em dashes (—) in prose, comments, commit messages, or PR bodies. Use commas, parentheses, periods, or colons. Em dashes are a Claude stylistic tic that flags writing as AI-generated.
 - No AI-generated watermarks. Don't add "Co-Authored-By: Claude", "Generated with Claude Code", robot emoji footers, or similar tags to commits, PRs, code, or docs.
 
 ## Naming (Kotlin)
 
-- Files: PascalCase matching the primary class (`LibraryPresenter.kt`, `MangaHeaderHolder.kt`).
+- Files: PascalCase matching the primary class (`LibraryScreenModel.kt`, `LibraryTab.kt`).
 - Classes/objects: PascalCase. Functions/properties: camelCase. Constants: SCREAMING_SNAKE.
 - Booleans: `is` / `has` / `should` / `can` prefix. Predicates: `is*` / `has*`. Factories: `create*`. Converters: `to*`.
 - Composables: PascalCase verb-less noun (`MangaCard`, `SourceChipRow`).
@@ -36,7 +36,7 @@ alwaysApply: true
 
 ## File organization
 
-- Imports: stdlib/jvm, kotlinx/androidx/material, third-party, project (`eu.kanade.*` / `yokai.*` / `tachiyomi.*`). Blank line between groups. No star imports (per `.editorconfig`).
+- Imports: stdlib/jvm, kotlinx/androidx/material, third-party, project (`eu.kanade.*` / `tachiyomi.*` / `mihon.*`). Blank line between groups. No star imports (per `.editorconfig`).
 - One top-level class per file when it's a UI/presenter/screen. Small data classes can co-locate.
 - Function order in classes: public API first, then private helpers in call order.
 - Compose `@OptIn` annotations: propagate at the call site, don't suppress globally.
