@@ -25,8 +25,8 @@ class WebtoonAdapter(val viewer: WebtoonViewer) : RecyclerView.Adapter<RecyclerV
     var currentChapter: ReaderChapter? = null
 
     /**
-     * Updates this adapter with the given [chapters]. It handles setting a few pages of the
-     * next/previous chapter to allow seamless transitions.
+     * Updates this adapter with the given [chapters]. It inlines the adjacent chapters' pages so the
+     * webtoon stream is continuous across boundaries (matches Mihon).
      */
     fun setChapters(chapters: ViewerChapters, forceTransition: Boolean) {
         val newItems = mutableListOf<Any>()
@@ -35,15 +35,9 @@ class WebtoonAdapter(val viewer: WebtoonViewer) : RecyclerView.Adapter<RecyclerV
         val prevHasMissingChapters = hasMissingChapters(chapters.currChapter, chapters.prevChapter)
         val nextHasMissingChapters = hasMissingChapters(chapters.nextChapter, chapters.currChapter)
 
-        // Add previous chapter pages and transition.
-        if (chapters.prevChapter != null) {
-            // We only need to add the last few pages of the previous chapter, because it'll be
-            // selected as the current chapter when one of those pages is selected.
-            val prevPages = chapters.prevChapter.pages
-            if (prevPages != null) {
-                newItems.addAll(prevPages.takeLast(2))
-            }
-        }
+        // Add all previous chapter pages so the stream is continuous (Mihon adds them all; yokai
+        // previously inlined only the last 2, which broke chapter-skip + progress on long strip).
+        chapters.prevChapter?.pages?.let(newItems::addAll)
 
         // Skip transition page if the chapter is loaded & current page is not a transition page
         if (prevHasMissingChapters || forceTransition || chapters.prevChapter?.state !is ReaderChapter.State.Loaded) {
@@ -63,14 +57,10 @@ class WebtoonAdapter(val viewer: WebtoonViewer) : RecyclerView.Adapter<RecyclerV
             newItems.add(ChapterTransition.Next(chapters.currChapter, chapters.nextChapter))
         }
 
-        if (chapters.nextChapter != null) {
-            // Add at most two pages, because this chapter will be selected before the user can
-            // swap more pages.
-            val nextPages = chapters.nextChapter.pages
-            if (nextPages != null) {
-                newItems.addAll(nextPages.take(2))
-            }
-        }
+        // Add all next chapter pages (Mihon) so the next chapter is already in the stream when the
+        // user jumps to it via the chapter button: the move finds the page (no race) and onPageSelected
+        // reports the right chapter (correct subtitle + progress).
+        chapters.nextChapter?.pages?.let(newItems::addAll)
 
         val result = DiffUtil.calculateDiff(Callback(items, newItems))
         items = newItems
