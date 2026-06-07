@@ -24,3 +24,6 @@ app/google-services.json
 .claude/launch.json
 .claude/skills/impeccable/
 skills-lock.json
+
+# Session handoff (local, transient)
+Handoff.md
