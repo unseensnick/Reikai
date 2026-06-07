@@ -57,7 +57,6 @@ import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -113,15 +112,17 @@ data object LibraryTab : Tab {
 
         val snackbarHostState = remember { SnackbarHostState() }
 
-        // RK --> hopper + jump-to-category picker drive both views through a single `hopperTarget`,
-        // so rapid taps coalesce into one smooth animation (pager page / list scroll) to the final
-        // category instead of restarting per tap.
+        // RK --> hopper + jump-to-category picker drive both views through a single `hopperTarget`.
+        // Single-list prev/next jump instantly (categories can hold hundreds of items, so animating
+        // across them stutters) and stay snappy under rapid taps; the picker animates a smooth slide;
+        // the tabbed pager animates its page transition.
         val singleListGridState = rememberLazyGridState()
         val pagerState = rememberPagerState(initialPage = state.coercedActiveCategoryIndex) {
             state.displayedCategories.size
         }
         var pickerOpen by remember { mutableStateOf(false) }
         var hopperTarget by remember { mutableStateOf<Int?>(null) }
+        var instantHopperScroll by remember { mutableStateOf(false) }
         var hopperDragAccum by remember { mutableFloatStateOf(0f) }
         fun reikaiHeaderIndices(): List<Int> = reikaiCategoryHeaderIndices(
             categories = state.displayedCategories,
@@ -139,19 +140,22 @@ data object LibraryTab : Tab {
         LaunchedEffect(hopperTarget) {
             val target = hopperTarget ?: return@LaunchedEffect
             if (state.reikai.showAllCategories) {
-                // Coalesce rapid prev/next taps: a newer tap cancels this and restarts, so only the
-                // final target scrolls once taps settle, instead of restarting the scroll each tap.
-                delay(80)
                 reikaiHeaderIndices().getOrNull(target)?.let { itemIndex ->
-                    // animateScrollToItem alone stutters over a large or upward distance (it measures
-                    // many off-screen grid items). For far targets, jump instantly to within a few
-                    // items, then animate the short landing so it stays smooth and quick like the pager.
-                    val current = singleListGridState.firstVisibleItemIndex
-                    if (kotlin.math.abs(itemIndex - current) > 12) {
-                        val approach = if (itemIndex > current) itemIndex - 8 else itemIndex + 8
-                        singleListGridState.scrollToItem(approach.coerceAtLeast(0))
+                    if (instantHopperScroll) {
+                        // Hopper prev/next: jump instantly. Categories here can hold hundreds of
+                        // items, so animating a scroll across them would have to compose everything
+                        // in between and stutter; an instant jump keeps single and rapid taps snappy.
+                        singleListGridState.scrollToItem(itemIndex)
+                    } else {
+                        // Picker jump: snap to just ABOVE the target, then animate DOWN onto it.
+                        // Animating downward composes items smoothly; animating up onto an
+                        // uncomposed target (e.g. jumping to the first category) stutters.
+                        val current = singleListGridState.firstVisibleItemIndex
+                        if (kotlin.math.abs(itemIndex - current) > 12) {
+                            singleListGridState.scrollToItem((itemIndex - 8).coerceAtLeast(0))
+                        }
+                        singleListGridState.animateScrollToItem(itemIndex)
                     }
-                    singleListGridState.animateScrollToItem(itemIndex)
                 }
             } else {
                 pagerState.animateScrollToPage(target)
@@ -350,11 +354,13 @@ data object LibraryTab : Tab {
                                     },
                                 onUpClick = {
                                     val last = state.displayedCategories.lastIndex.coerceAtLeast(0)
+                                    instantHopperScroll = true
                                     hopperTarget = ((hopperTarget ?: currentCategoryIndex()) - 1).coerceIn(0, last)
                                 },
                                 onCenterClick = { pickerOpen = true },
                                 onDownClick = {
                                     val last = state.displayedCategories.lastIndex.coerceAtLeast(0)
+                                    instantHopperScroll = true
                                     hopperTarget = ((hopperTarget ?: currentCategoryIndex()) + 1).coerceIn(0, last)
                                 },
                             )
@@ -368,6 +374,7 @@ data object LibraryTab : Tab {
                             showItemCounts = state.showMangaCount,
                             activeCategoryId = state.displayedCategories.getOrNull(currentCategoryIndex())?.id,
                             onSelect = { category ->
+                                instantHopperScroll = false
                                 hopperTarget = state.displayedCategories.indexOf(category)
                                 pickerOpen = false
                             },
