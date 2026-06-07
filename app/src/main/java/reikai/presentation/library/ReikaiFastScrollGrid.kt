@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
@@ -193,8 +194,10 @@ fun ReikaiFastScrollLazyVerticalGrid(
                 modifier = Modifier
                     .offset { IntOffset(0, thumbOffsetY.roundToInt()) }
                     .then(
-                        // Recompose opts
-                        if (isThumbVisible && !state.isScrollInProgress) {
+                        // Draggable whenever the thumb is shown (even while a fling is settling: the
+                        // first drag scrolls, which cancels the fling). Gating on !isScrollInProgress
+                        // made the thumb ungrabbable until a fling fully stopped.
+                        if (isThumbVisible) {
                             Modifier.draggable(
                                 interactionSource = dragInteractionSource,
                                 orientation = Orientation.Vertical,
@@ -211,19 +214,26 @@ fun ReikaiFastScrollLazyVerticalGrid(
                         },
                     )
                     .then(
-                        // Exclude thumb from gesture area only when needed
-                        if (isThumbVisible && !isThumbDragged && !state.isScrollInProgress) {
+                        if (isThumbVisible && !isThumbDragged) {
                             Modifier.systemGestureExclusion()
                         } else {
                             Modifier
                         },
                     )
+                    // Transparent touch target, wider than the visible thumb so it is easy to grab.
                     .height(ThumbLength)
                     .padding(end = endContentPadding)
-                    .width(ThumbThickness)
-                    .alpha(alpha.value)
-                    .background(color = thumbColor, shape = ThumbShape),
-            )
+                    .width(ThumbTouchThickness)
+                    .alpha(alpha.value),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                Box(
+                    Modifier
+                        .height(ThumbLength)
+                        .width(ThumbThickness)
+                        .background(color = thumbColor, shape = ThumbShape),
+                )
+            }
         }.map { it.measure(scrollerConstraints) }
         val scrollerWidth = scrollerPlaceable.fastMaxBy { it.width }?.width ?: 0
 
@@ -242,6 +252,7 @@ private class MutableData<T>(var value: T)
 
 private val ThumbLength = 48.dp
 private val ThumbThickness = 12.dp
+private val ThumbTouchThickness = 32.dp
 private val ThumbShape = RoundedCornerShape(ThumbThickness / 2)
 private const val ScrollBarVisibilityDurationMillis = 2000L
 private val ImmediateFadeOutAnimationSpec = tween<Float>(
