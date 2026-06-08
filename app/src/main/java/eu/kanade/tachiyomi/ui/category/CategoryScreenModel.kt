@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 // RK -->
+import reikai.domain.category.flagsWithHidden
+import reikai.domain.category.isHidden
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.presentation.library.reikaiSortCategories
 // RK <--
@@ -19,7 +21,9 @@ import tachiyomi.domain.category.interactor.DeleteCategory
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.RenameCategory
 import tachiyomi.domain.category.interactor.ReorderCategory
+import tachiyomi.domain.category.interactor.UpdateCategory
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.category.model.CategoryUpdate
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -31,6 +35,7 @@ class CategoryScreenModel(
     private val reorderCategory: ReorderCategory = Injekt.get(),
     private val renameCategory: RenameCategory = Injekt.get(),
     // RK -->
+    private val updateCategory: UpdateCategory = Injekt.get(),
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
     // RK <--
 ) : StateScreenModel<CategoryScreenState>(CategoryScreenState.Loading) {
@@ -93,6 +98,17 @@ class CategoryScreenModel(
             when (renameCategory.await(category, name)) {
                 is RenameCategory.Result.InternalError -> _events.send(CategoryEvent.InternalError)
                 else -> {}
+            }
+        }
+    }
+
+    // RK: flip the hidden flag bit so the category drops out of (or returns to) the library
+    fun toggleHidden(category: Category) {
+        screenModelScope.launch {
+            val payload = CategoryUpdate(id = category.id, flags = category.flagsWithHidden(!category.isHidden))
+            when (updateCategory.await(payload)) {
+                is UpdateCategory.Result.Error -> _events.send(CategoryEvent.InternalError)
+                is UpdateCategory.Result.Success -> {}
             }
         }
     }

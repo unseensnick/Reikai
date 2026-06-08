@@ -40,6 +40,8 @@ class CategoryScreen : Screen() {
             onClickCreate = { screenModel.showDialog(CategoryDialog.Create) },
             onClickRename = { screenModel.showDialog(CategoryDialog.Rename(it)) },
             onClickDelete = { screenModel.showDialog(CategoryDialog.Delete(it)) },
+            // RK: hide/show a category (flag bit); list keeps showing hidden ones so they can be revealed
+            onClickToggleHidden = screenModel::toggleHidden,
             onChangeOrder = screenModel::changeOrder,
             navigateUp = navigator::pop,
         )

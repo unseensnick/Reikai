@@ -35,6 +35,8 @@ fun CategoryScreen(
     onClickCreate: () -> Unit,
     onClickRename: (Category) -> Unit,
     onClickDelete: (Category) -> Unit,
+    // RK: toggle a category's hidden flag bit
+    onClickToggleHidden: (Category) -> Unit,
     onChangeOrder: (Category, Int) -> Unit,
     navigateUp: () -> Unit,
 ) {
@@ -68,6 +70,7 @@ fun CategoryScreen(
             paddingValues = paddingValues,
             onClickRename = onClickRename,
             onClickDelete = onClickDelete,
+            onClickToggleHidden = onClickToggleHidden,
             onChangeOrder = onChangeOrder,
             // RK: drag-reorder only in Manual (off) mode; A->Z / Z->A show the sorted list, no drag
             reorderable = state.categorySortOrder == 0,
@@ -82,6 +85,7 @@ private fun CategoryContent(
     paddingValues: PaddingValues,
     onClickRename: (Category) -> Unit,
     onClickDelete: (Category) -> Unit,
+    onClickToggleHidden: (Category) -> Unit,
     onChangeOrder: (Category, Int) -> Unit,
     // RK: false hides the drag handle so the (sorted) list can't be manually reordered
     reorderable: Boolean = true,
@@ -118,6 +122,7 @@ private fun CategoryContent(
                     category = category,
                     onRename = { onClickRename(category) },
                     onDelete = { onClickDelete(category) },
+                    onToggleHidden = { onClickToggleHidden(category) },
                     // RK: hide the drag handle (and thus disable drag) when auto-sorted
                     showDragHandle = reorderable,
                 )

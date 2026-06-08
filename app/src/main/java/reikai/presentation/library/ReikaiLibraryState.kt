@@ -20,6 +20,7 @@ data class ReikaiLibraryState(
     val showCategoryInTitle: Boolean = false,
     val showAllCategories: Boolean = true,
     val showEmptyCategoriesWhileFiltering: Boolean = false,
+    val showHiddenCategories: Boolean = false,
     val hideHopper: Boolean = false,
     val autohideHopper: Boolean = true,
     val hopperGravity: Int = 1,

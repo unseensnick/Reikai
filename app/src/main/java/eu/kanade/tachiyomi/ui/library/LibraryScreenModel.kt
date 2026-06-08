@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import mihon.core.common.utils.mutate
 // RK -->
+import reikai.domain.category.isHidden
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
@@ -154,7 +155,7 @@ class LibraryScreenModel(
                 .map { (data, grouping, dropEmptyWhileFiltering) ->
                     val grouped = if (grouping.groupLibraryBy == LibraryGroup.BY_DEFAULT) {
                         data.favorites
-                            .applyGrouping(data.categories, data.showSystemCategory)
+                            .applyGrouping(data.categories, data.showSystemCategory, grouping.showHiddenCategories)
                             .reorderReikaiCategories(grouping.categorySortOrder)
                     } else {
                         buildReikaiDynamicGrouping(data, grouping)
@@ -249,6 +250,7 @@ class LibraryScreenModel(
             reikaiLibraryPreferences.autohideHopper.changes(),
             reikaiLibraryPreferences.hopperGravity.changes(),
             reikaiLibraryPreferences.hopperLongPressAction.changes(),
+            reikaiLibraryPreferences.showHiddenCategories.changes(),
         ) {
             ReikaiLibraryState(
                 groupLibraryBy = it[0] as Int,
@@ -266,6 +268,7 @@ class LibraryScreenModel(
                 autohideHopper = it[12] as Boolean,
                 hopperGravity = it[13] as Int,
                 hopperLongPressAction = it[14] as Int,
+                showHiddenCategories = it[15] as Boolean,
             )
         }
     }
@@ -326,6 +329,7 @@ class LibraryScreenModel(
         val categorySortOrder: Int,
         val collapsedDynamicCategories: Set<String>,
         val collapsedDynamicAtBottom: Boolean,
+        val showHiddenCategories: Boolean,
     )
 
     private fun ReikaiLibraryState.groupingInputs() = GroupingInputs(
@@ -333,6 +337,7 @@ class LibraryScreenModel(
         categorySortOrder = categorySortOrder,
         collapsedDynamicCategories = collapsedDynamicCategories,
         collapsedDynamicAtBottom = collapsedDynamicAtBottom,
+        showHiddenCategories = showHiddenCategories,
     )
 
     /** R3: order the category buckets (0 = manual/DB order, 1 = A->Z, 2 = Z->A; system pinned on top). */
@@ -516,6 +521,7 @@ class LibraryScreenModel(
     private fun List<LibraryItem>.applyGrouping(
         categories: List<Category>,
         showSystemCategory: Boolean,
+        showHiddenCategories: Boolean,
     ): Map<Category, List</* LibraryItem */ Long>> {
         val groupCache = mutableMapOf</* Category */ Long, MutableList</* LibraryItem */ Long>>()
         forEach { item ->
@@ -524,6 +530,8 @@ class LibraryScreenModel(
             }
         }
         return categories.filter { showSystemCategory || !it.isSystemCategory }
+            // RK: drop hidden categories (a flags bit) unless the user reveals them
+            .filter { showHiddenCategories || !it.isHidden }
             .associateWith { groupCache[it.id]?.toList().orEmpty() }
     }
 

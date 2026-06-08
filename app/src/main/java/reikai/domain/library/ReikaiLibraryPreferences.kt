@@ -62,6 +62,9 @@ class ReikaiLibraryPreferences(
     val showEmptyCategoriesWhileFiltering: Preference<Boolean> =
         preferenceStore.getBoolean("show_empty_categories_filtering", false)
 
+    // Off so a hidden category stays hidden; turning this on reveals hidden categories in the library.
+    val showHiddenCategories: Preference<Boolean> = preferenceStore.getBoolean("show_hidden_categories", false)
+
     // endregion
 
     // region Hopper

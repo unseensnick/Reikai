@@ -745,6 +745,9 @@
     <string name="autohide_category_hopper">Hide hopper while scrolling</string>
     <string name="always_show_current_category">Always show current category</string>
     <string name="show_categories_while_filtering">Show empty categories while filtering</string>
+    <string name="show_hidden_categories">Show hidden categories</string>
+    <string name="action_hide_category">Hide category</string>
+    <string name="action_show_category">Show category</string>
     <string name="hopper_long_press">Hopper long-press</string>
     <string name="hopper_action_search">Search</string>
     <string name="hopper_action_expand_collapse">Expand/collapse</string>

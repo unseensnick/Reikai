@@ -27,7 +27,8 @@ class CategoriesRestorer(
                     if (dbCategory != null) return@map dbCategory
                     val order = nextOrder++
                     database.categoriesQueries
-                        .insert(it.name, order, it.flags)
+                        // RK: flagsForRestore folds a Komikku backup's `hidden` into our flags bit
+                        .insert(it.name, order, it.flagsForRestore())
                         .let { id -> it.toCategory(id).copy(order = order) }
                 }
 

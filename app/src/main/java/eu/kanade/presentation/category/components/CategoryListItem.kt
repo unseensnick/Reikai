@@ -10,6 +10,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -18,7 +20,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
+import reikai.domain.category.isHidden
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
@@ -30,6 +34,8 @@ fun ReorderableCollectionItemScope.CategoryListItem(
     category: Category,
     onRename: () -> Unit,
     onDelete: () -> Unit,
+    // RK: toggle this category's hidden flag bit
+    onToggleHidden: () -> Unit,
     modifier: Modifier = Modifier,
     // RK: when false the drag handle is hidden (auto-sorted categories aren't manually reorderable)
     showDragHandle: Boolean = true,
@@ -62,8 +68,21 @@ fun ReorderableCollectionItemScope.CategoryListItem(
             // RK <--
             Text(
                 text = category.name,
-                modifier = Modifier.weight(1f),
+                // RK: dim a hidden category's name so its state reads at a glance
+                modifier = Modifier
+                    .weight(1f)
+                    .alpha(if (category.isHidden) 0.5f else 1f),
             )
+            // RK -->
+            IconButton(onClick = onToggleHidden) {
+                Icon(
+                    imageVector = if (category.isHidden) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
+                    contentDescription = stringResource(
+                        if (category.isHidden) MR.strings.action_show_category else MR.strings.action_hide_category,
+                    ),
+                )
+            }
+            // RK <--
             IconButton(onClick = onRename) {
                 Icon(
                     imageVector = Icons.Outlined.Edit,

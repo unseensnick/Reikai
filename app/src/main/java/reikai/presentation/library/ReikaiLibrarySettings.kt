@@ -129,6 +129,10 @@ fun ColumnScope.ReikaiCategoriesPage(screenModel: LibrarySettingsScreenModel) {
         pref = screenModel.reikaiLibraryPreferences.showEmptyCategoriesWhileFiltering,
     )
     CheckboxItem(
+        label = stringResource(MR.strings.show_hidden_categories),
+        pref = screenModel.reikaiLibraryPreferences.showHiddenCategories,
+    )
+    CheckboxItem(
         label = stringResource(MR.strings.hide_category_hopper),
         pref = screenModel.reikaiLibraryPreferences.hideHopper,
     )
