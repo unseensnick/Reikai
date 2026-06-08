@@ -125,6 +125,10 @@ fun ColumnScope.ReikaiCategoriesPage(screenModel: LibrarySettingsScreenModel) {
         pref = screenModel.reikaiLibraryPreferences.collapsedDynamicAtBottom,
     )
     CheckboxItem(
+        label = stringResource(MR.strings.show_categories_while_filtering),
+        pref = screenModel.reikaiLibraryPreferences.showEmptyCategoriesWhileFiltering,
+    )
+    CheckboxItem(
         label = stringResource(MR.strings.hide_category_hopper),
         pref = screenModel.reikaiLibraryPreferences.hideHopper,
     )

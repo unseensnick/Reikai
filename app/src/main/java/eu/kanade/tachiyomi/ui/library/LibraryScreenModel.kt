@@ -141,9 +141,17 @@ class LibraryScreenModel(
                 // RK --> branch on the Reikai grouping mode; dynamic grouping (Y3) and category
                 // order (R3) replace Mihon's plain category bucketing. The distinct key includes
                 // only the grouping-relevant Reikai fields so badge/hopper changes don't re-group.
-                .map { it.libraryData to it.reikai.groupingInputs() }
+                .map {
+                    Triple(
+                        it.libraryData,
+                        it.reikai.groupingInputs(),
+                        // drop categories an active filter/search emptied, unless the user keeps them
+                        (it.hasActiveFilters || it.searchQuery != null) &&
+                            !it.reikai.showEmptyCategoriesWhileFiltering,
+                    )
+                }
                 .distinctUntilChanged()
-                .map { (data, grouping) ->
+                .map { (data, grouping, dropEmptyWhileFiltering) ->
                     val grouped = if (grouping.groupLibraryBy == LibraryGroup.BY_DEFAULT) {
                         data.favorites
                             .applyGrouping(data.categories, data.showSystemCategory)
@@ -151,7 +159,8 @@ class LibraryScreenModel(
                     } else {
                         buildReikaiDynamicGrouping(data, grouping)
                     }
-                    grouped.applySort(data.favoritesById, data.tracksMap, data.loggedInTrackerIds)
+                    val sorted = grouped.applySort(data.favoritesById, data.tracksMap, data.loggedInTrackerIds)
+                    if (dropEmptyWhileFiltering) sorted.filterValues { it.isNotEmpty() } else sorted
                 }
                 // RK <--
                 .collectLatest {
