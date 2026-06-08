@@ -13,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -31,6 +32,9 @@ import eu.kanade.tachiyomi.ui.library.LibrarySettingsScreenModel
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.components.CheckboxItem
+import tachiyomi.presentation.core.components.HeadingItem
+import tachiyomi.presentation.core.components.SettingsChipRow
 import tachiyomi.presentation.core.components.SettingsItemsPaddings
 import tachiyomi.presentation.core.components.TriStateItem
 import tachiyomi.presentation.core.i18n.stringResource
@@ -76,6 +80,41 @@ fun ColumnScope.ReikaiGroupPage(screenModel: LibrarySettingsScreenModel) {
             Text(text = stringResource(labelRes), style = MaterialTheme.typography.bodyMedium)
         }
     }
+}
+
+private val categorySortOrders = listOf(
+    MR.strings.category_sort_off to 0,
+    MR.strings.category_sort_a_to_z to 1,
+    MR.strings.category_sort_z_to_a to 2,
+)
+
+/**
+ * The wired Reikai category/hopper settings, rendered under a "Categories" heading at the bottom
+ * of the Display tab. The category-in-title, show-empty-while-filtering, hopper autohide-on-scroll,
+ * and hopper long-press settings are intentionally absent until their backing behavior is wired
+ * (they would otherwise be inert toggles).
+ */
+@Composable
+fun ColumnScope.ReikaiCategoriesPage(screenModel: LibrarySettingsScreenModel) {
+    HeadingItem(MR.strings.categories)
+    val categorySortOrder by screenModel.reikaiLibraryPreferences.categorySortOrder.collectAsState()
+    SettingsChipRow(MR.strings.pref_category_sort_order) {
+        categorySortOrders.forEach { (labelRes, value) ->
+            FilterChip(
+                selected = categorySortOrder == value,
+                onClick = { screenModel.setCategorySortOrder(value) },
+                label = { Text(stringResource(labelRes)) },
+            )
+        }
+    }
+    CheckboxItem(
+        label = stringResource(MR.strings.move_dynamic_to_bottom),
+        pref = screenModel.reikaiLibraryPreferences.collapsedDynamicAtBottom,
+    )
+    CheckboxItem(
+        label = stringResource(MR.strings.hide_category_hopper),
+        pref = screenModel.reikaiLibraryPreferences.hideHopper,
+    )
 }
 
 @Composable

@@ -42,6 +42,7 @@ object LibraryDynamicGrouping {
         unknownLabel: String,
         notTrackedLabel: String,
         ungroupedLabel: String = "",
+        categorySortOrder: Int = 0,
         sourceMeta: Map<Long, Pair<String, Long>> = emptyMap(),
         trackStatuses: Map<Long, String> = emptyMap(),
         languageCodes: Map<Long, String> = emptyMap(),
@@ -92,14 +93,23 @@ object LibraryDynamicGrouping {
             )
         }
 
-        // Step 3: order categories. BY_TRACK_STATUS gets the caller's intent order (Reading first,
-        // Dropped last); everything else is alphabetical, case-insensitive, by display name.
-        val sorted = categories.sortedWith(
-            compareBy(String.CASE_INSENSITIVE_ORDER) { category ->
-                val display = ReikaiDynamicCategory.displayName(category)
-                if (groupType == LibraryGroup.BY_TRACK_STATUS) trackingStatusOrder(display) else display
-            },
-        )
+        // Step 3: order categories by the user's category-sort-order (R3). Z->A reverses;
+        // off/A->Z is alphabetical by display name. BY_TRACK_STATUS keeps the caller's intent
+        // order (Reading first, Dropped last) only when the sort is left on its default (off).
+        val sorted = if (categorySortOrder == 2) {
+            categories.sortedByDescending { ReikaiDynamicCategory.displayName(it).lowercase() }
+        } else {
+            categories.sortedWith(
+                compareBy(String.CASE_INSENSITIVE_ORDER) { category ->
+                    val display = ReikaiDynamicCategory.displayName(category)
+                    if (groupType == LibraryGroup.BY_TRACK_STATUS && categorySortOrder == 0) {
+                        trackingStatusOrder(display)
+                    } else {
+                        display
+                    }
+                },
+            )
+        }
 
         // Step 4: optionally push collapsed groups to the bottom.
         val finalCategories = if (collapsedDynamicAtBottom) {

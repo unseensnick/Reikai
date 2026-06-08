@@ -69,6 +69,8 @@ fun CategoryScreen(
             onClickRename = onClickRename,
             onClickDelete = onClickDelete,
             onChangeOrder = onChangeOrder,
+            // RK: drag-reorder only in Manual (off) mode; A->Z / Z->A show the sorted list, no drag
+            reorderable = state.categorySortOrder == 0,
         )
     }
 }
@@ -81,6 +83,8 @@ private fun CategoryContent(
     onClickRename: (Category) -> Unit,
     onClickDelete: (Category) -> Unit,
     onChangeOrder: (Category, Int) -> Unit,
+    // RK: false hides the drag handle so the (sorted) list can't be manually reordered
+    reorderable: Boolean = true,
 ) {
     val categoriesState = remember { categories.toMutableStateList() }
     val reorderableState = rememberReorderableLazyListState(lazyListState, paddingValues) { from, to ->
@@ -114,6 +118,8 @@ private fun CategoryContent(
                     category = category,
                     onRename = { onClickRename(category) },
                     onDelete = { onClickDelete(category) },
+                    // RK: hide the drag handle (and thus disable drag) when auto-sorted
+                    showDragHandle = reorderable,
                 )
             }
         }

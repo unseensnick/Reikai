@@ -2,8 +2,10 @@ package eu.kanade.presentation.category.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DragHandle
@@ -16,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
@@ -28,6 +31,8 @@ fun ReorderableCollectionItemScope.CategoryListItem(
     onRename: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    // RK: when false the drag handle is hidden (auto-sorted categories aren't manually reorderable)
+    showDragHandle: Boolean = true,
 ) {
     ElevatedCard(modifier = modifier) {
         Row(
@@ -41,13 +46,20 @@ fun ReorderableCollectionItemScope.CategoryListItem(
                 ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = Icons.Outlined.DragHandle,
-                contentDescription = null,
-                modifier = Modifier
-                    .padding(MaterialTheme.padding.medium)
-                    .draggableHandle(),
-            )
+            // RK -->
+            if (showDragHandle) {
+                Icon(
+                    imageVector = Icons.Outlined.DragHandle,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .padding(MaterialTheme.padding.medium)
+                        .draggableHandle(),
+                )
+            } else {
+                // A small left gap so the title isn't flush against the card edge.
+                Spacer(modifier = Modifier.width(12.dp))
+            }
+            // RK <--
             Text(
                 text = category.name,
                 modifier = Modifier.weight(1f),

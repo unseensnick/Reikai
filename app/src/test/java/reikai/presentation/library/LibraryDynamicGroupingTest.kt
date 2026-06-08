@@ -22,6 +22,39 @@ class LibraryDynamicGroupingTest {
     }
 
     @Test
+    fun `categorySortOrder Z to A reverses dynamic groups`() {
+        val result = build(
+            listOf(libraryManga(1), libraryManga(2)),
+            LibraryGroup.BY_SOURCE,
+            sourceMeta = mapOf(1L to ("Alpha" to 1L), 2L to ("Beta" to 2L)),
+            categorySortOrder = 2,
+        )
+        result.keys.map { ReikaiDynamicCategory.displayName(it) } shouldContainExactly listOf("Beta", "Alpha")
+    }
+
+    @Test
+    fun `categorySortOrder reorders BY_STATUS groups A to Z`() {
+        val result = build(
+            listOf(libraryManga(1), libraryManga(2)),
+            LibraryGroup.BY_STATUS,
+            statusNames = mapOf(1L to "Ongoing", 2L to "Completed"),
+            categorySortOrder = 1,
+        )
+        result.keys.map { ReikaiDynamicCategory.displayName(it) } shouldContainExactly listOf("Completed", "Ongoing")
+    }
+
+    @Test
+    fun `categorySortOrder Z to A reverses BY_TRACK_STATUS groups`() {
+        val result = build(
+            listOf(libraryManga(1), libraryManga(2)),
+            LibraryGroup.BY_TRACK_STATUS,
+            trackStatuses = mapOf(1L to "Completed", 2L to "Reading"),
+            categorySortOrder = 2,
+        )
+        result.keys.map { ReikaiDynamicCategory.displayName(it) } shouldContainExactly listOf("Reading", "Completed")
+    }
+
+    @Test
     fun `UNGROUPED returns one flat bucket with every manga`() {
         val result = build(listOf(libraryManga(1), libraryManga(2), libraryManga(3)), LibraryGroup.UNGROUPED)
         result.size shouldBe 1
@@ -190,12 +223,14 @@ class LibraryDynamicGroupingTest {
         trackingStatusOrder: (String) -> String = { it },
         collapsedDynamicCategories: Set<String> = emptySet(),
         collapsedDynamicAtBottom: Boolean = false,
+        categorySortOrder: Int = 0,
     ) = LibraryDynamicGrouping.build(
         library = library,
         groupType = groupType,
         inheritedSort = LibrarySort.default,
         collapsedDynamicCategories = collapsedDynamicCategories,
         collapsedDynamicAtBottom = collapsedDynamicAtBottom,
+        categorySortOrder = categorySortOrder,
         unknownLabel = "Unknown",
         notTrackedLabel = "Not tracked",
         sourceMeta = sourceMeta,

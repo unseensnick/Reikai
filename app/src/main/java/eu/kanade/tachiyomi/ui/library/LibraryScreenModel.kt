@@ -44,6 +44,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.ReikaiLibraryState
+import reikai.presentation.library.reikaiSortCategories
 import reikai.util.isLewd
 // RK <--
 import tachiyomi.core.common.i18n.stringResource
@@ -156,7 +157,8 @@ class LibraryScreenModel(
                     mutableState.update { state ->
                         state.copy(
                             isLoading = false,
-                            groupedFavorites = it,
+                            // RK: store as an ordered list so category reorders aren't deduped away
+                            groupedFavorites = it.toList(),
                         )
                     }
                 }
@@ -305,13 +307,7 @@ class LibraryScreenModel(
     /** R3: order the category buckets (0 = manual/DB order, 1 = A->Z, 2 = Z->A; system pinned on top). */
     private fun Map<Category, List<Long>>.reorderReikaiCategories(categorySortOrder: Int): Map<Category, List<Long>> {
         if (categorySortOrder == 0 || isEmpty()) return this
-        val (system, rest) = keys.partition { it.isSystemCategory }
-        val orderedRest = when (categorySortOrder) {
-            1 -> rest.sortedBy { it.name.lowercase() }
-            2 -> rest.sortedByDescending { it.name.lowercase() }
-            else -> rest
-        }
-        return (system + orderedRest).associateWith { getValue(it) }
+        return reikaiSortCategories(keys.toList(), categorySortOrder).associateWith { getValue(it) }
     }
 
     /** Y3: bucket the library into synthetic dynamic categories, resolving per-manga metadata. */
@@ -367,6 +363,7 @@ class LibraryScreenModel(
             unknownLabel = context.stringResource(MR.strings.unknown),
             notTrackedLabel = context.stringResource(MR.strings.not_tracked),
             ungroupedLabel = context.stringResource(MR.strings.group_ungrouped),
+            categorySortOrder = grouping.categorySortOrder,
             sourceMeta = sourceMeta,
             trackStatuses = trackStatuses,
             languageCodes = languageCodes,
@@ -1029,9 +1026,17 @@ class LibraryScreenModel(
         val reikai: ReikaiLibraryState = ReikaiLibraryState(),
         // RK <--
         private val activeCategoryIndex: Int = 0,
-        private val groupedFavorites: Map<Category, List</* LibraryItem */ Long>> = emptyMap(),
+        // RK --> ordered list, not a Map: Map.equals() ignores key order, so a category reorder
+        // (R3 sort / move-dynamic-to-bottom) would compare equal and StateFlow would dedupe it,
+        // leaving the UI unchanged. A List has order-sensitive equality, so reorders propagate.
+        private val groupedFavorites: List<Pair<Category, List</* LibraryItem */ Long>>> = emptyList(),
+        // RK <--
     ) {
-        val displayedCategories: List<Category> = groupedFavorites.keys.toList()
+        val displayedCategories: List<Category> = groupedFavorites.map { it.first }
+
+        private val groupedFavoritesById: Map<Long, List<Long>> by lazy {
+            groupedFavorites.associate { it.first.id to it.second }
+        }
 
         val coercedActiveCategoryIndex = activeCategoryIndex.coerceIn(
             minimumValue = 0,
@@ -1053,11 +1058,11 @@ class LibraryScreenModel(
         }
 
         fun getItemsForCategory(category: Category): List<LibraryItem> {
-            return groupedFavorites[category].orEmpty().mapNotNull { libraryData.favoritesById[it] }
+            return groupedFavoritesById[category.id].orEmpty().mapNotNull { libraryData.favoritesById[it] }
         }
 
         fun getItemCountForCategory(category: Category): Int? {
-            return if (showMangaCount || !searchQuery.isNullOrEmpty()) groupedFavorites[category]?.size else null
+            return if (showMangaCount || !searchQuery.isNullOrEmpty()) groupedFavoritesById[category.id]?.size else null
         }
 
         fun getToolbarTitle(

@@ -736,6 +736,12 @@
     <string name="group_ungrouped">Ungrouped</string>
     <string name="group_by_author">By author</string>
     <string name="group_by_language">By language</string>
+    <string name="pref_category_sort_order">Category sort order</string>
+    <string name="category_sort_off">Off</string>
+    <string name="category_sort_a_to_z">A to Z</string>
+    <string name="category_sort_z_to_a">Z to A</string>
+    <string name="move_dynamic_to_bottom">Move dynamic groups to the bottom</string>
+    <string name="hide_category_hopper">Hide category hopper</string>
     <string name="add_to_library">Add to library</string>
     <string name="in_library">In library</string>
     <!-- missing confirm menu after Compose rewrite #7901 -->

@@ -67,6 +67,7 @@ import reikai.presentation.library.ReikaiCategoryPickerSheet
 import reikai.presentation.library.ReikaiLibraryContent
 import reikai.presentation.library.reikaiCategoryHeaderIndices
 import reikai.presentation.library.reikaiIsCollapsed
+import reikai.presentation.library.reikaiSortCategories
 // RK <--
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
@@ -395,8 +396,8 @@ data object LibraryTab : Tab {
                     onDismissRequest = onDismissRequest,
                     screenModel = settingsScreenModel,
                     category = state.activeCategory,
-                    // RK --> full category list for the include/exclude filter + route to category manager
-                    categories = state.libraryData.categories,
+                    // RK --> full category list for the include/exclude filter (sorted per R3) + route to category manager
+                    categories = reikaiSortCategories(state.libraryData.categories, state.reikai.categorySortOrder),
                     onManageCategories = {
                         onDismissRequest()
                         navigator.push(CategoryScreen())

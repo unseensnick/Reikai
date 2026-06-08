@@ -39,6 +39,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 // RK -->
 import reikai.presentation.library.ReikaiCategoriesFilter
+import reikai.presentation.library.ReikaiCategoriesPage
 import reikai.presentation.library.ReikaiGroupPage
 // RK <--
 
@@ -58,7 +59,7 @@ fun LibrarySettingsDialog(
             stringResource(MR.strings.action_filter),
             stringResource(MR.strings.action_sort),
             stringResource(MR.strings.action_display),
-            // RK --> Y3 dynamic grouping
+            // RK --> Y3 dynamic grouping (Reikai category/hopper settings live under Display)
             stringResource(MR.strings.group),
             // RK <--
         ),
@@ -342,4 +343,8 @@ private fun ColumnScope.DisplayPage(
         label = stringResource(MR.strings.action_display_show_number_of_items),
         pref = screenModel.libraryPreferences.categoryNumberOfItems,
     )
+
+    // RK --> Reikai category/hopper settings under their own heading
+    ReikaiCategoriesPage(screenModel = screenModel)
+    // RK <--
 }

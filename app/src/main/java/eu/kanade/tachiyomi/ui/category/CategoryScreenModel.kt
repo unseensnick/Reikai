@@ -6,9 +6,14 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import dev.icerock.moko.resources.StringResource
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+// RK -->
+import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.presentation.library.reikaiSortCategories
+// RK <--
 import tachiyomi.domain.category.interactor.CreateCategoryWithName
 import tachiyomi.domain.category.interactor.DeleteCategory
 import tachiyomi.domain.category.interactor.GetCategories
@@ -25,6 +30,9 @@ class CategoryScreenModel(
     private val deleteCategory: DeleteCategory = Injekt.get(),
     private val reorderCategory: ReorderCategory = Injekt.get(),
     private val renameCategory: RenameCategory = Injekt.get(),
+    // RK -->
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
+    // RK <--
 ) : StateScreenModel<CategoryScreenState>(CategoryScreenState.Loading) {
 
     private val _events: Channel<CategoryEvent> = Channel()
@@ -32,15 +40,24 @@ class CategoryScreenModel(
 
     init {
         screenModelScope.launch {
-            getCategories.subscribe()
-                .collectLatest { categories ->
+            // RK --> show the manage list in the same order as every other category surface (R3).
+            // Drag-reorder is only offered in Manual (off) mode; the screen hides the drag handle
+            // when sorted A->Z / Z->A, since those override the manual order anyway.
+            combine(
+                getCategories.subscribe(),
+                reikaiLibraryPreferences.categorySortOrder.changes(),
+            ) { categories, sortOrder ->
+                categories.filterNot(Category::isSystemCategory) to sortOrder
+            }
+                .collectLatest { (categories, sortOrder) ->
                     mutableState.update {
                         CategoryScreenState.Success(
-                            categories = categories
-                                .filterNot(Category::isSystemCategory),
+                            categories = reikaiSortCategories(categories, sortOrder),
+                            categorySortOrder = sortOrder,
                         )
                     }
                 }
+            // RK <--
         }
     }
 
@@ -119,6 +136,8 @@ sealed interface CategoryScreenState {
     data class Success(
         val categories: List<Category>,
         val dialog: CategoryDialog? = null,
+        // RK: 0 = manual (drag to reorder); 1/2 = A->Z / Z->A (drag disabled, sorted to match)
+        val categorySortOrder: Int = 0,
     ) : CategoryScreenState {
 
         val isEmpty: Boolean

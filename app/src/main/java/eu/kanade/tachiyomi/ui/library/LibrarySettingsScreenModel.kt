@@ -81,5 +81,10 @@ class LibrarySettingsScreenModel(
         reikaiLibraryPreferences.filterCategoriesInclude.set(include.map { it.toString() }.toSet())
         reikaiLibraryPreferences.filterCategoriesExclude.set(exclude.map { it.toString() }.toSet())
     }
+
+    /** R3: category list order (0 = manual, 1 = A->Z, 2 = Z->A). */
+    fun setCategorySortOrder(value: Int) {
+        reikaiLibraryPreferences.categorySortOrder.set(value)
+    }
     // RK <--
 }
