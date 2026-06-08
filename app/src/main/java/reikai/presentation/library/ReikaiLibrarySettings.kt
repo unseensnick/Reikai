@@ -119,6 +119,10 @@ fun ColumnScope.ReikaiCategoriesPage(screenModel: LibrarySettingsScreenModel) {
         label = stringResource(MR.strings.hide_category_hopper),
         pref = screenModel.reikaiLibraryPreferences.hideHopper,
     )
+    CheckboxItem(
+        label = stringResource(MR.strings.autohide_category_hopper),
+        pref = screenModel.reikaiLibraryPreferences.autohideHopper,
+    )
 }
 
 @Composable

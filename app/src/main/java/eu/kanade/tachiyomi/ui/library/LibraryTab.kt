@@ -3,6 +3,9 @@ package eu.kanade.tachiyomi.ui.library
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
@@ -337,11 +340,22 @@ data object LibraryTab : Tab {
                                 2 -> Alignment.BottomEnd
                                 else -> Alignment.BottomCenter
                             }
-                            ReikaiCategoryHopper(
+                            // Autohide: fade the hopper out while the single-list is scrolling,
+                            // bring it back when it settles. No effect in the pager (its grid state
+                            // isn't this one), where the hopper stays put.
+                            val hopperVisible = !state.reikai.autohideHopper ||
+                                !singleListGridState.isScrollInProgress
+                            AnimatedVisibility(
+                                visible = hopperVisible,
+                                enter = fadeIn(),
+                                exit = fadeOut(),
                                 modifier = Modifier
                                     .align(hopperAlignment)
                                     .padding(horizontal = 12.dp)
-                                    .padding(bottom = contentPadding.calculateBottomPadding() + 12.dp)
+                                    .padding(bottom = contentPadding.calculateBottomPadding() + 12.dp),
+                            ) {
+                            ReikaiCategoryHopper(
+                                modifier = Modifier
                                     // Drag the hopper left/right to move it between start / center / end.
                                     .pointerInput(state.reikai.hopperGravity) {
                                         val gravity = state.reikai.hopperGravity
@@ -372,6 +386,7 @@ data object LibraryTab : Tab {
                                     hopperTarget = ((hopperTarget ?: currentCategoryIndex()) + 1).coerceIn(0, last)
                                 },
                             )
+                            }
                         }
                     }
 
