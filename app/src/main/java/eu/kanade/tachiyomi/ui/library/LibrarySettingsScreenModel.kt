@@ -60,4 +60,26 @@ class LibrarySettingsScreenModel(
             setSortModeForCategory.await(category, mode, direction)
         }
     }
+
+    // RK --> Reikai settings-sheet actions (Stage 4): dynamic grouping + net-new filter dims
+    /** Y3: set the dynamic grouping mode (see reikai.presentation.library.LibraryGroup). */
+    fun setGrouping(value: Int) {
+        reikaiLibraryPreferences.groupLibraryBy.set(value)
+    }
+
+    /** Cycle the lewd filter through ignore -> include -> exclude. */
+    fun toggleLewdFilter() {
+        reikaiLibraryPreferences.filterLewd.getAndSet { it.next() }
+    }
+
+    fun setFilterCategories(enabled: Boolean) {
+        reikaiLibraryPreferences.filterCategories.set(enabled)
+    }
+
+    /** Persist the include/exclude category id selections from the category-filter picker. */
+    fun setCategoryFilterSelections(include: Set<Long>, exclude: Set<Long>) {
+        reikaiLibraryPreferences.filterCategoriesInclude.set(include.map { it.toString() }.toSet())
+        reikaiLibraryPreferences.filterCategoriesExclude.set(exclude.map { it.toString() }.toSet())
+    }
+    // RK <--
 }

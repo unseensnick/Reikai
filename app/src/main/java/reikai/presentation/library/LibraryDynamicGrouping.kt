@@ -41,6 +41,7 @@ object LibraryDynamicGrouping {
         collapsedDynamicAtBottom: Boolean,
         unknownLabel: String,
         notTrackedLabel: String,
+        ungroupedLabel: String = "",
         sourceMeta: Map<Long, Pair<String, Long>> = emptyMap(),
         trackStatuses: Map<Long, String> = emptyMap(),
         languageCodes: Map<Long, String> = emptyMap(),
@@ -49,6 +50,14 @@ object LibraryDynamicGrouping {
         trackingStatusOrder: (statusName: String) -> String = { it },
     ): Map<Category, List<Long>> {
         if (library.isEmpty()) return emptyMap()
+
+        // UNGROUPED: one flat synthetic bucket holding every manga, no per-manga metadata lookups.
+        if (groupType == LibraryGroup.UNGROUPED) {
+            val allIds = library.distinctBy { it.manga.id }.map { it.manga.id }
+            val category = Category(id = -1L, name = ungroupedLabel, order = 0L, flags = inheritedSort.flag)
+            return mapOf(category to allIds)
+        }
+
         if (groupType !in DYNAMIC_GROUP_TYPES) return emptyMap()
 
         val deduplicated = library.distinctBy { it.manga.id }

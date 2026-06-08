@@ -22,6 +22,13 @@ class LibraryDynamicGroupingTest {
     }
 
     @Test
+    fun `UNGROUPED returns one flat bucket with every manga`() {
+        val result = build(listOf(libraryManga(1), libraryManga(2), libraryManga(3)), LibraryGroup.UNGROUPED)
+        result.size shouldBe 1
+        result.values.first() shouldContainExactlyInAnyOrder listOf(1L, 2L, 3L)
+    }
+
+    @Test
     fun `BY_SOURCE groups by source name and encodes the source id`() {
         val result = build(
             listOf(libraryManga(1), libraryManga(2), libraryManga(3)),

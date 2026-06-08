@@ -37,12 +37,20 @@ import tachiyomi.presentation.core.components.SortItem
 import tachiyomi.presentation.core.components.TriStateItem
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
+// RK -->
+import reikai.presentation.library.ReikaiCategoriesFilter
+import reikai.presentation.library.ReikaiGroupPage
+// RK <--
 
 @Composable
 fun LibrarySettingsDialog(
     onDismissRequest: () -> Unit,
     screenModel: LibrarySettingsScreenModel,
     category: Category?,
+    // RK --> full category list (for the category filter) + route to Mihon's category manager
+    categories: List<Category> = emptyList(),
+    onManageCategories: () -> Unit = {},
+    // RK <--
 ) {
     TabbedDialog(
         onDismissRequest = onDismissRequest,
@@ -50,6 +58,9 @@ fun LibrarySettingsDialog(
             stringResource(MR.strings.action_filter),
             stringResource(MR.strings.action_sort),
             stringResource(MR.strings.action_display),
+            // RK --> Y3 dynamic grouping
+            stringResource(MR.strings.group),
+            // RK <--
         ),
     ) { page ->
         Column(
@@ -60,6 +71,10 @@ fun LibrarySettingsDialog(
             when (page) {
                 0 -> FilterPage(
                     screenModel = screenModel,
+                    // RK -->
+                    categories = categories,
+                    onManageCategories = onManageCategories,
+                    // RK <--
                 )
                 1 -> SortPage(
                     category = category,
@@ -68,6 +83,11 @@ fun LibrarySettingsDialog(
                 2 -> DisplayPage(
                     screenModel = screenModel,
                 )
+                // RK -->
+                3 -> ReikaiGroupPage(
+                    screenModel = screenModel,
+                )
+                // RK <--
             }
         }
     }
@@ -76,6 +96,10 @@ fun LibrarySettingsDialog(
 @Composable
 private fun ColumnScope.FilterPage(
     screenModel: LibrarySettingsScreenModel,
+    // RK -->
+    categories: List<Category> = emptyList(),
+    onManageCategories: () -> Unit = {},
+    // RK <--
 ) {
     val filterDownloaded by screenModel.libraryPreferences.filterDownloaded.collectAsState()
     val downloadedOnly by screenModel.preferences.downloadedOnly.collectAsState()
@@ -125,6 +149,15 @@ private fun ColumnScope.FilterPage(
         )
     }
 
+    // RK --> lewd filter sits with the other tri-state dims, above Tracked
+    val filterLewd by screenModel.reikaiLibraryPreferences.filterLewd.collectAsState()
+    TriStateItem(
+        label = stringResource(MR.strings.lewd),
+        state = filterLewd,
+        onClick = { screenModel.toggleLewdFilter() },
+    )
+    // RK <--
+
     val trackers by screenModel.trackersFlow.collectAsState()
     when (trackers.size) {
         0 -> {
@@ -151,6 +184,14 @@ private fun ColumnScope.FilterPage(
             }
         }
     }
+
+    // RK --> include/exclude category filter, placed below Tracked
+    ReikaiCategoriesFilter(
+        screenModel = screenModel,
+        categories = categories,
+        onManageCategories = onManageCategories,
+    )
+    // RK <--
 }
 
 @Composable

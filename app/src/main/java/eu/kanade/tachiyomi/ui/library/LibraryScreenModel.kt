@@ -44,6 +44,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.ReikaiLibraryState
+import reikai.util.isLewd
 // RK <--
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
@@ -188,9 +189,18 @@ class LibraryScreenModel(
                 prefs.filterBookmarked,
                 prefs.filterCompleted,
                 prefs.filterIntervalCustom,
+                // RK --> lewd counts as an active filter dim
+                prefs.filterLewd,
+                // RK <--
                 *trackFilters.values.toTypedArray(),
             )
-                .any { it != TriState.DISABLED }
+                .any { it != TriState.DISABLED } ||
+                // RK --> include/exclude category filter is a Boolean dim, not a TriState
+                (
+                    prefs.filterCategories &&
+                        (prefs.filterCategoriesInclude.isNotEmpty() || prefs.filterCategoriesExclude.isNotEmpty())
+                    )
+            // RK <--
         }
             .distinctUntilChanged()
             .onEach {
@@ -356,6 +366,7 @@ class LibraryScreenModel(
             collapsedDynamicAtBottom = grouping.collapsedDynamicAtBottom,
             unknownLabel = context.stringResource(MR.strings.unknown),
             notTrackedLabel = context.stringResource(MR.strings.not_tracked),
+            ungroupedLabel = context.stringResource(MR.strings.group_ungrouped),
             sourceMeta = sourceMeta,
             trackStatuses = trackStatuses,
             languageCodes = languageCodes,
@@ -437,6 +448,28 @@ class LibraryScreenModel(
             !isExcluded && isIncluded
         }
 
+        // RK --> net-new Reikai filter dims (lewd + include/exclude category)
+        val filterLewd = preferences.filterLewd
+        val filterCategoriesActive = preferences.filterCategories &&
+            (preferences.filterCategoriesInclude.isNotEmpty() || preferences.filterCategoriesExclude.isNotEmpty())
+        val includeCategories = preferences.filterCategoriesInclude
+        val excludeCategories = preferences.filterCategoriesExclude
+
+        val filterFnLewd: (LibraryItem) -> Boolean = {
+            applyFilter(filterLewd) {
+                it.libraryManga.manga.isLewd(sourceManager.getOrStub(it.libraryManga.manga.source).name)
+            }
+        }
+
+        val filterFnCategories: (LibraryItem) -> Boolean = catFilter@{ item ->
+            if (!filterCategoriesActive) return@catFilter true
+            val mangaCategories = item.libraryManga.categories
+            val isIncluded = includeCategories.isEmpty() || mangaCategories.fastAny { it in includeCategories }
+            val isExcluded = excludeCategories.isNotEmpty() && mangaCategories.fastAny { it in excludeCategories }
+            isIncluded && !isExcluded
+        }
+        // RK <--
+
         return fastFilter {
             filterFnDownloaded(it) &&
                 filterFnUnread(it) &&
@@ -444,7 +477,11 @@ class LibraryScreenModel(
                 filterFnBookmarked(it) &&
                 filterFnCompleted(it) &&
                 filterFnIntervalCustom(it) &&
-                filterFnTracking(it)
+                filterFnTracking(it) &&
+                // RK -->
+                filterFnLewd(it) &&
+                filterFnCategories(it)
+            // RK <--
         }
     }
 
@@ -558,6 +595,12 @@ class LibraryScreenModel(
             libraryPreferences.filterBookmarked.changes(),
             libraryPreferences.filterCompleted.changes(),
             libraryPreferences.filterIntervalCustom.changes(),
+            // RK --> net-new Reikai filter dims
+            reikaiLibraryPreferences.filterLewd.changes(),
+            reikaiLibraryPreferences.filterCategories.changes(),
+            reikaiLibraryPreferences.filterCategoriesInclude.changes(),
+            reikaiLibraryPreferences.filterCategoriesExclude.changes(),
+            // RK <--
         ) {
             ItemPreferences(
                 downloadBadge = it[0] as Boolean,
@@ -572,6 +615,12 @@ class LibraryScreenModel(
                 filterBookmarked = it[9] as TriState,
                 filterCompleted = it[10] as TriState,
                 filterIntervalCustom = it[11] as TriState,
+                // RK -->
+                filterLewd = it[12] as TriState,
+                filterCategories = it[13] as Boolean,
+                filterCategoriesInclude = (it[14] as Set<*>).mapNotNull { id -> (id as? String)?.toLongOrNull() }.toSet(),
+                filterCategoriesExclude = (it[15] as Set<*>).mapNotNull { id -> (id as? String)?.toLongOrNull() }.toSet(),
+                // RK <--
             )
         }
     }
@@ -944,6 +993,12 @@ class LibraryScreenModel(
         val filterBookmarked: TriState,
         val filterCompleted: TriState,
         val filterIntervalCustom: TriState,
+        // RK --> net-new Reikai filter dims (lewd + include/exclude category)
+        val filterLewd: TriState = TriState.DISABLED,
+        val filterCategories: Boolean = false,
+        val filterCategoriesInclude: Set<Long> = emptySet(),
+        val filterCategoriesExclude: Set<Long> = emptySet(),
+        // RK <--
     )
 
     @Immutable

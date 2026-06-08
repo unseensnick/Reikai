@@ -395,6 +395,13 @@ data object LibraryTab : Tab {
                     onDismissRequest = onDismissRequest,
                     screenModel = settingsScreenModel,
                     category = state.activeCategory,
+                    // RK --> full category list for the include/exclude filter + route to category manager
+                    categories = state.libraryData.categories,
+                    onManageCategories = {
+                        onDismissRequest()
+                        navigator.push(CategoryScreen())
+                    },
+                    // RK <--
                 )
             }
             is LibraryScreenModel.Dialog.ChangeCategory -> {

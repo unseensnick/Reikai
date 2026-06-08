@@ -725,6 +725,17 @@
     <string name="action_display_show_all_categories">Show all categories in one list</string>
     <!-- RK: category hopper jump-to-category picker (Y2) -->
     <string name="jump_to_category">Jump to category</string>
+    <!-- RK: library settings sheet, Stage 4 (group tab, lewd filter, dynamic-grouping labels) -->
+    <string name="group">Group</string>
+    <string name="lewd">Lewd</string>
+    <string name="group_by_default">By default</string>
+    <string name="group_by_tag">By tag</string>
+    <string name="group_by_source">By source</string>
+    <string name="group_by_status">By status</string>
+    <string name="group_by_tracking_status">By tracking status</string>
+    <string name="group_ungrouped">Ungrouped</string>
+    <string name="group_by_author">By author</string>
+    <string name="group_by_language">By language</string>
     <string name="add_to_library">Add to library</string>
     <string name="in_library">In library</string>
     <!-- missing confirm menu after Compose rewrite #7901 -->
