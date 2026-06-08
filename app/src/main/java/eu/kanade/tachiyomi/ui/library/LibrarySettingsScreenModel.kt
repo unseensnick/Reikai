@@ -86,5 +86,10 @@ class LibrarySettingsScreenModel(
     fun setCategorySortOrder(value: Int) {
         reikaiLibraryPreferences.categorySortOrder.set(value)
     }
+
+    /** Hopper long-press action (0 search .. 5 random-global; see ReikaiLibrarySettings). */
+    fun setHopperLongPressAction(value: Int) {
+        reikaiLibraryPreferences.hopperLongPressAction.set(value)
+    }
     // RK <--
 }

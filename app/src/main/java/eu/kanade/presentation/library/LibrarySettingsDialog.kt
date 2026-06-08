@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -51,18 +52,21 @@ fun LibrarySettingsDialog(
     // RK --> full category list (for the category filter) + route to Mihon's category manager
     categories: List<Category> = emptyList(),
     onManageCategories: () -> Unit = {},
+    initialTab: Int = 0,
     // RK <--
 ) {
+    val tabTitles = listOf(
+        stringResource(MR.strings.action_filter),
+        stringResource(MR.strings.action_sort),
+        stringResource(MR.strings.action_display),
+        // RK: Y3 dynamic grouping (Reikai category/hopper settings live under Display)
+        stringResource(MR.strings.group),
+    )
     TabbedDialog(
         onDismissRequest = onDismissRequest,
-        tabTitles = listOf(
-            stringResource(MR.strings.action_filter),
-            stringResource(MR.strings.action_sort),
-            stringResource(MR.strings.action_display),
-            // RK --> Y3 dynamic grouping (Reikai category/hopper settings live under Display)
-            stringResource(MR.strings.group),
-            // RK <--
-        ),
+        // RK: open on the requested tab (hopper long-press "Group" jumps straight here)
+        pagerState = rememberPagerState(initialPage = initialTab) { tabTitles.size },
+        tabTitles = tabTitles,
     ) { page ->
         Column(
             modifier = Modifier

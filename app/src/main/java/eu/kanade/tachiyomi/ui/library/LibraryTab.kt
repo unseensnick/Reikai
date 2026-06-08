@@ -200,7 +200,7 @@ data object LibraryTab : Tab {
                     onClickUnselectAll = screenModel::clearSelection,
                     onClickSelectAll = screenModel::selectAll,
                     onClickInvertSelection = screenModel::invertSelection,
-                    onClickFilter = screenModel::showSettingsDialog,
+                    onClickFilter = { screenModel.showSettingsDialog() },
                     onClickRefresh = { onClickRefresh(state.activeCategory) },
                     onClickGlobalUpdate = { onClickRefresh(null) },
                     onClickOpenRandomManga = {
@@ -380,6 +380,22 @@ data object LibraryTab : Tab {
                                     hopperTarget = ((hopperTarget ?: currentCategoryIndex()) - 1).coerceIn(0, last)
                                 },
                                 onCenterClick = { pickerOpen = true },
+                                onCenterLongClick = {
+                                    when (state.reikai.hopperLongPressAction) {
+                                        0 -> screenModel.search("")
+                                        1 -> screenModel.toggleAllCategoriesCollapsed(state.displayedCategories)
+                                        2 -> screenModel.showSettingsDialog(initialTab = 2)
+                                        3 -> screenModel.showSettingsDialog(initialTab = 3)
+                                        4 -> scope.launch {
+                                            val item = screenModel.getRandomLibraryItemForCurrentCategory()
+                                            if (item != null) navigator.push(MangaScreen(item.libraryManga.manga.id))
+                                        }
+                                        5 -> scope.launch {
+                                            val item = screenModel.getRandomLibraryItem()
+                                            if (item != null) navigator.push(MangaScreen(item.libraryManga.manga.id))
+                                        }
+                                    }
+                                },
                                 onDownClick = {
                                     val last = state.displayedCategories.lastIndex.coerceAtLeast(0)
                                     instantHopperScroll = true
@@ -422,6 +438,7 @@ data object LibraryTab : Tab {
                         onDismissRequest()
                         navigator.push(CategoryScreen())
                     },
+                    initialTab = dialog.initialTab,
                     // RK <--
                 )
             }

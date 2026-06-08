@@ -744,6 +744,13 @@
     <string name="hide_category_hopper">Hide category hopper</string>
     <string name="autohide_category_hopper">Hide hopper while scrolling</string>
     <string name="always_show_current_category">Always show current category</string>
+    <string name="hopper_long_press">Hopper long-press</string>
+    <string name="hopper_action_search">Search</string>
+    <string name="hopper_action_expand_collapse">Expand/collapse</string>
+    <string name="hopper_action_display">Display</string>
+    <string name="hopper_action_group">Group</string>
+    <string name="hopper_action_random">Random</string>
+    <string name="hopper_action_random_global">Random (global)</string>
     <string name="add_to_library">Add to library</string>
     <string name="in_library">In library</string>
     <!-- missing confirm menu after Compose rewrite #7901 -->

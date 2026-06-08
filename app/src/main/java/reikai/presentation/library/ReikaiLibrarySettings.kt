@@ -88,6 +88,15 @@ private val categorySortOrders = listOf(
     MR.strings.category_sort_z_to_a to 2,
 )
 
+private val hopperLongPressActions = listOf(
+    MR.strings.hopper_action_search to 0,
+    MR.strings.hopper_action_expand_collapse to 1,
+    MR.strings.hopper_action_display to 2,
+    MR.strings.hopper_action_group to 3,
+    MR.strings.hopper_action_random to 4,
+    MR.strings.hopper_action_random_global to 5,
+)
+
 /**
  * The wired Reikai category/hopper settings, rendered under a "Categories" heading at the bottom
  * of the Display tab. The category-in-title, show-empty-while-filtering, hopper autohide-on-scroll,
@@ -123,6 +132,16 @@ fun ColumnScope.ReikaiCategoriesPage(screenModel: LibrarySettingsScreenModel) {
         label = stringResource(MR.strings.autohide_category_hopper),
         pref = screenModel.reikaiLibraryPreferences.autohideHopper,
     )
+    val hopperLongPress by screenModel.reikaiLibraryPreferences.hopperLongPressAction.collectAsState()
+    SettingsChipRow(MR.strings.hopper_long_press) {
+        hopperLongPressActions.forEach { (labelRes, value) ->
+            FilterChip(
+                selected = hopperLongPress == value,
+                onClick = { screenModel.setHopperLongPressAction(value) },
+                label = { Text(stringResource(labelRes)) },
+            )
+        }
+    }
 }
 
 @Composable

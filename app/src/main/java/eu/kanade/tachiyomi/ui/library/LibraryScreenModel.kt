@@ -291,6 +291,27 @@ class LibraryScreenModel(
         pref.set(if (current.containsAll(headerKeys)) current - headerKeys else current + headerKeys)
     }
 
+    /**
+     * Toggle every currently-displayed category collapsed/expanded (hopper long-press). Handles
+     * both real categories (collapsedCategories) and dynamic groups (collapsedDynamicCategories).
+     */
+    fun toggleAllCategoriesCollapsed(categories: List<Category>) {
+        val defaultKeys = categories.filterNot { ReikaiDynamicCategory.isDynamic(it) }
+            .map { it.id.toString() }.toSet()
+        val dynamicKeys = categories.filter { ReikaiDynamicCategory.isDynamic(it) }
+            .map { ReikaiDynamicCategory.headerKey(it) }.toSet()
+        val defaultPref = reikaiLibraryPreferences.collapsedCategories
+        val dynamicPref = reikaiLibraryPreferences.collapsedDynamicCategories
+        val allCollapsed = defaultPref.get().containsAll(defaultKeys) && dynamicPref.get().containsAll(dynamicKeys)
+        if (allCollapsed) {
+            defaultPref.set(defaultPref.get() - defaultKeys)
+            dynamicPref.set(dynamicPref.get() - dynamicKeys)
+        } else {
+            defaultPref.set(defaultPref.get() + defaultKeys)
+            dynamicPref.set(dynamicPref.get() + dynamicKeys)
+        }
+    }
+
     private data class GroupingInputs(
         val groupLibraryBy: Int,
         val categorySortOrder: Int,
@@ -847,8 +868,12 @@ class LibraryScreenModel(
         return state.getItemsForCategoryId(state.activeCategory?.id).randomOrNull()
     }
 
-    fun showSettingsDialog() {
-        mutableState.update { it.copy(dialog = Dialog.SettingsSheet) }
+    // RK: a random entry from the whole library (hopper long-press "random, global" action)
+    fun getRandomLibraryItem(): LibraryItem? = state.value.libraryData.favorites.randomOrNull()
+
+    // RK: initialTab lets the hopper long-press open straight to a tab (e.g. Group)
+    fun showSettingsDialog(initialTab: Int = 0) {
+        mutableState.update { it.copy(dialog = Dialog.SettingsSheet(initialTab)) }
     }
 
     private var lastSelectionCategory: Long? = null
@@ -968,7 +993,8 @@ class LibraryScreenModel(
     }
 
     sealed interface Dialog {
-        data object SettingsSheet : Dialog
+        // RK: initialTab = which settings tab to open on (0 = Filter)
+        data class SettingsSheet(val initialTab: Int = 0) : Dialog
         data class ChangeCategory(
             val manga: List<Manga>,
             val initialSelection: List<CheckboxState<Category>>,
