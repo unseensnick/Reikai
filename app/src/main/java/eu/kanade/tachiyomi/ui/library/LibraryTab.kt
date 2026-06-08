@@ -183,7 +183,12 @@ data object LibraryTab : Tab {
                 val title = state.getToolbarTitle(
                     defaultTitle = stringResource(MR.strings.label_library),
                     defaultCategoryTitle = stringResource(MR.strings.label_default),
-                    page = state.coercedActiveCategoryIndex,
+                    // RK: single-list tracks the visible category on scroll, so the title follows it
+                    page = if (state.reikai.showAllCategories) {
+                        currentCategoryIndex()
+                    } else {
+                        state.coercedActiveCategoryIndex
+                    },
                 )
                 LibraryToolbar(
                     hasActiveFilters = state.hasActiveFilters,

@@ -108,6 +108,10 @@ fun ColumnScope.ReikaiCategoriesPage(screenModel: LibrarySettingsScreenModel) {
         }
     }
     CheckboxItem(
+        label = stringResource(MR.strings.always_show_current_category),
+        pref = screenModel.reikaiLibraryPreferences.showCategoryInTitle,
+    )
+    CheckboxItem(
         label = stringResource(MR.strings.move_dynamic_to_bottom),
         pref = screenModel.reikaiLibraryPreferences.collapsedDynamicAtBottom,
     )

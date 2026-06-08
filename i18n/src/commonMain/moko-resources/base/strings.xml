@@ -742,6 +742,7 @@
     <string name="category_sort_z_to_a">Z to A</string>
     <string name="move_dynamic_to_bottom">Move dynamic groups to the bottom</string>
     <string name="hide_category_hopper">Hide category hopper</string>
+    <string name="always_show_current_category">Always show current category</string>
     <string name="add_to_library">Add to library</string>
     <string name="in_library">In library</string>
     <!-- missing confirm menu after Compose rewrite #7901 -->

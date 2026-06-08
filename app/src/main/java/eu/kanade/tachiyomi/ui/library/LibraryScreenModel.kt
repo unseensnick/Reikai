@@ -43,6 +43,7 @@ import mihon.core.common.utils.mutate
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
+import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.ReikaiLibraryState
 import reikai.presentation.library.reikaiSortCategories
 import reikai.util.isLewd
@@ -1071,10 +1072,14 @@ class LibraryScreenModel(
             page: Int,
         ): LibraryToolbarTitle {
             val category = displayedCategories.getOrNull(page) ?: return LibraryToolbarTitle(defaultTitle)
-            val categoryName = category.let {
-                if (it.isSystemCategory) defaultCategoryTitle else it.name
+            val categoryName = when {
+                category.isSystemCategory -> defaultCategoryTitle
+                // RK: dynamic-grouping categories store an encoded name; show the decoded label.
+                ReikaiDynamicCategory.isDynamic(category) -> ReikaiDynamicCategory.displayName(category)
+                else -> category.name
             }
-            val title = if (showCategoryTabs) defaultTitle else categoryName
+            // RK: "Always show current category" forces the category name into the title.
+            val title = if (reikai.showCategoryInTitle || !showCategoryTabs) categoryName else defaultTitle
             val count = when {
                 !showMangaCount -> null
                 !showCategoryTabs -> getItemCountForCategory(category)
