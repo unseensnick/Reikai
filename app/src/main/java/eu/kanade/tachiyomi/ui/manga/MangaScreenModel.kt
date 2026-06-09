@@ -243,18 +243,11 @@ class MangaScreenModel(
 
         observeDownloads()
 
-        // RK --> keep the source-switcher chip list + selection mirrored into state
+        // RK --> keep the source-switcher chip list + selection mirrored into state. The eager
+        // load below seeds the initial chips into State.Success; this handles later changes (splits).
         screenModelScope.launchIO {
             relatedMangaIds.collectLatest { ids ->
-                val chips = if (ids.size <= 1) {
-                    emptyList()
-                } else {
-                    val sourceManager = Injekt.get<SourceManager>()
-                    ids.map { id ->
-                        val m = getMangaAndChapters.awaitManga(id)
-                        MergeSourceInfo(id, sourceManager.getOrStub(m.source).name, id == mangaId)
-                    }
-                }
+                val chips = buildMergeSources(ids)
                 updateSuccessState { it.copy(mergeSources = chips) }
             }
         }
@@ -279,6 +272,7 @@ class MangaScreenModel(
                     )
                 }
             }
+            val mergeChips = buildMergeSources(related.ids)
             // RK <--
             val chapters = getMangaAndChapters.awaitChapters(mangaId, applyScanlatorFilter = true)
                 .toChapterListItems(manga)
@@ -302,6 +296,9 @@ class MangaScreenModel(
                     isRefreshingData = needRefreshInfo || needRefreshChapter,
                     dialog = null,
                     hideMissingChapters = libraryPreferences.hideMissingChapters.get(),
+                    // RK: seed the merge chips so they show on first render (avoids a race where the
+                    // chip collector fired before State.Success existed)
+                    mergeSources = mergeChips,
                 )
             }
 
@@ -648,6 +645,16 @@ class MangaScreenModel(
     private suspend fun singleSourceChaptersFlow(displayManga: Manga, sourceMangaId: Long): Flow<MergedChapters> =
         getMangaAndChapters.subscribe(sourceMangaId, applyScanlatorFilter = true)
             .map { (sourceManga, chapters) -> MergedChapters(displayManga, chapters, mapOf(sourceManga.id to sourceManga)) }
+
+    /** Resolve the source-switcher chips for the full group (empty when not merged). */
+    private suspend fun buildMergeSources(ids: LongArray): List<MergeSourceInfo> {
+        if (ids.size <= 1) return emptyList()
+        val sourceManager = Injekt.get<SourceManager>()
+        return ids.map { id ->
+            val sourceManga = getMangaAndChapters.awaitManga(id)
+            MergeSourceInfo(id, sourceManager.getOrStub(sourceManga.source).name, id == mangaId)
+        }
+    }
 
     /** Combine every grouped source's chapters into one aggregated, deduped, reading-ordered list.
      *  Suspend because [GetMangaWithChapters.subscribe] is; called from the suspend flatMapLatest. */
