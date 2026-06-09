@@ -294,7 +294,9 @@ data object LibraryTab : Tab {
                                     }
                                 },
                                 onLongClickManga = { category, manga ->
-                                    screenModel.toggleSelection(category, manga)
+                                    // RK: range-select (incl. the in-between) like the tabbed view,
+                                    // instead of toggling only the long-pressed manga
+                                    screenModel.toggleRangeSelection(category, manga)
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 },
                                 onToggleDefaultCollapse = screenModel::toggleDefaultCategoryCollapse,
