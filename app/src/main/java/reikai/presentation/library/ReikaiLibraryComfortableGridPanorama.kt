@@ -62,6 +62,7 @@ fun ReikaiLibraryComfortableGridPanorama(
                         isLocal = libraryItem.badges.isLocal,
                         sourceLanguage = libraryItem.badges.sourceLanguage,
                     )
+                    SourceIconBadge(source = libraryItem.badges.source)
                 },
                 onLongClick = { onLongClick(libraryItem.libraryManga) },
                 onClick = { onClick(libraryItem.libraryManga) },

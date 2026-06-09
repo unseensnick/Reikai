@@ -330,6 +330,11 @@ private fun ColumnScope.DisplayPage(
         label = stringResource(MR.strings.action_display_language_badge),
         pref = screenModel.libraryPreferences.languageBadge,
     )
+    // RK: source/extension icon badge toggle
+    CheckboxItem(
+        label = stringResource(MR.strings.action_display_source_badge),
+        pref = screenModel.reikaiLibraryPreferences.sourceBadge,
+    )
     CheckboxItem(
         label = stringResource(MR.strings.action_display_show_continue_reading_button),
         pref = screenModel.libraryPreferences.showContinueReadingButton,

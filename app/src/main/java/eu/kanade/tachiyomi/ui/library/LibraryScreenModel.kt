@@ -42,6 +42,8 @@ import mihon.core.common.utils.mutate
 // RK -->
 import reikai.domain.category.isHidden
 import reikai.domain.library.ReikaiLibraryPreferences
+import tachiyomi.domain.source.model.Source as DomainSource
+import tachiyomi.domain.source.model.StubSource
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.ReikaiDynamicCategory
@@ -240,9 +242,6 @@ class LibraryScreenModel(
             reikaiLibraryPreferences.collapsedDynamicCategories.changes(),
             reikaiLibraryPreferences.collapsedDynamicAtBottom.changes(),
             reikaiLibraryPreferences.categorySortOrder.changes(),
-            reikaiLibraryPreferences.outlineOnCovers.changes(),
-            reikaiLibraryPreferences.unreadBadgeType.changes(),
-            reikaiLibraryPreferences.hideStartReadingButton.changes(),
             reikaiLibraryPreferences.showCategoryInTitle.changes(),
             reikaiLibraryPreferences.showAllCategories.changes(),
             reikaiLibraryPreferences.showEmptyCategoriesWhileFiltering.changes(),
@@ -258,17 +257,14 @@ class LibraryScreenModel(
                 collapsedDynamicCategories = it[2] as Set<String>,
                 collapsedDynamicAtBottom = it[3] as Boolean,
                 categorySortOrder = it[4] as Int,
-                outlineOnCovers = it[5] as Boolean,
-                unreadBadgeType = it[6] as Int,
-                hideStartReadingButton = it[7] as Boolean,
-                showCategoryInTitle = it[8] as Boolean,
-                showAllCategories = it[9] as Boolean,
-                showEmptyCategoriesWhileFiltering = it[10] as Boolean,
-                hideHopper = it[11] as Boolean,
-                autohideHopper = it[12] as Boolean,
-                hopperGravity = it[13] as Int,
-                hopperLongPressAction = it[14] as Int,
-                showHiddenCategories = it[15] as Boolean,
+                showCategoryInTitle = it[5] as Boolean,
+                showAllCategories = it[6] as Boolean,
+                showEmptyCategoriesWhileFiltering = it[7] as Boolean,
+                hideHopper = it[8] as Boolean,
+                autohideHopper = it[9] as Boolean,
+                hopperGravity = it[10] as Int,
+                hopperLongPressAction = it[11] as Int,
+                showHiddenCategories = it[12] as Boolean,
             )
         }
     }
@@ -631,11 +627,12 @@ class LibraryScreenModel(
             libraryPreferences.filterBookmarked.changes(),
             libraryPreferences.filterCompleted.changes(),
             libraryPreferences.filterIntervalCustom.changes(),
-            // RK --> net-new Reikai filter dims
+            // RK --> net-new Reikai filter dims + badge data
             reikaiLibraryPreferences.filterLewd.changes(),
             reikaiLibraryPreferences.filterCategories.changes(),
             reikaiLibraryPreferences.filterCategoriesInclude.changes(),
             reikaiLibraryPreferences.filterCategoriesExclude.changes(),
+            reikaiLibraryPreferences.sourceBadge.changes(),
             // RK <--
         ) {
             ItemPreferences(
@@ -656,6 +653,7 @@ class LibraryScreenModel(
                 filterCategories = it[13] as Boolean,
                 filterCategoriesInclude = (it[14] as Set<*>).mapNotNull { id -> (id as? String)?.toLongOrNull() }.toSet(),
                 filterCategoriesExclude = (it[15] as Set<*>).mapNotNull { id -> (id as? String)?.toLongOrNull() }.toSet(),
+                sourceBadge = it[16] as Boolean,
                 // RK <--
             )
         }
@@ -693,6 +691,14 @@ class LibraryScreenModel(
                             sourceManager.getOrStub(manga.manga.source).lang
                         } else {
                             ""
+                        },
+                        // RK: source/extension icon badge data (null when the source badge is off)
+                        source = if (preferences.sourceBadge) {
+                            sourceManager.getOrStub(manga.manga.source).let { s ->
+                                DomainSource(s.id, s.lang, s.name, supportsLatest = false, isStub = s is StubSource)
+                            }
+                        } else {
+                            null
                         },
                     ),
                 )
@@ -1034,11 +1040,12 @@ class LibraryScreenModel(
         val filterBookmarked: TriState,
         val filterCompleted: TriState,
         val filterIntervalCustom: TriState,
-        // RK --> net-new Reikai filter dims (lewd + include/exclude category)
+        // RK --> net-new Reikai filter dims (lewd + include/exclude category) + badge data
         val filterLewd: TriState = TriState.DISABLED,
         val filterCategories: Boolean = false,
         val filterCategoriesInclude: Set<Long> = emptySet(),
         val filterCategoriesExclude: Set<Long> = emptySet(),
+        val sourceBadge: Boolean = true,
         // RK <--
     )
 

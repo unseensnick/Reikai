@@ -36,18 +36,10 @@ class ReikaiLibraryPreferences(
 
     // endregion
 
-    // region Display / layout
-
-    val outlineOnCovers: Preference<Boolean> = preferenceStore.getBoolean("outline_on_covers", true)
-
-    // endregion
-
     // region Badges
 
-    /** Unread badge style: 0 = hide, 1 = dot, 2 = count. */
-    val unreadBadgeType: Preference<Int> = preferenceStore.getInt("unread_badge_type", 2)
-
-    val hideStartReadingButton: Preference<Boolean> = preferenceStore.getBoolean("hide_reading_button", false)
+    /** Show the source/extension icon on each cover. */
+    val sourceBadge: Preference<Boolean> = preferenceStore.getBoolean("source_badge", true)
 
     // endregion
 

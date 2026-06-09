@@ -232,6 +232,7 @@ fun ReikaiLibraryContent(
                                         isLocal = libraryItem.badges.isLocal,
                                         sourceLanguage = libraryItem.badges.sourceLanguage,
                                     )
+                                    SourceIconBadge(source = libraryItem.badges.source)
                                 },
                                 isSelected = isSelected,
                             )
@@ -250,6 +251,7 @@ fun ReikaiLibraryContent(
                                         isLocal = libraryItem.badges.isLocal,
                                         sourceLanguage = libraryItem.badges.sourceLanguage,
                                     )
+                                    SourceIconBadge(source = libraryItem.badges.source)
                                 },
                             )
                             // Panorama: same uniform Book-height cell, wide covers shown whole (letterboxed).
@@ -268,6 +270,7 @@ fun ReikaiLibraryContent(
                                         isLocal = libraryItem.badges.isLocal,
                                         sourceLanguage = libraryItem.badges.sourceLanguage,
                                     )
+                                    SourceIconBadge(source = libraryItem.badges.source)
                                 },
                             )
                             // Compact grid (with title) and cover-only grid (title null) share a cell.
@@ -286,6 +289,7 @@ fun ReikaiLibraryContent(
                                         isLocal = libraryItem.badges.isLocal,
                                         sourceLanguage = libraryItem.badges.sourceLanguage,
                                     )
+                                    SourceIconBadge(source = libraryItem.badges.source)
                                 },
                             )
                         }
