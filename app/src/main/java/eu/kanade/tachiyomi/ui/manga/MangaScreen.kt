@@ -166,6 +166,8 @@ class MangaScreen(
             // RK: source management only when this manga is part of a merge group
             onManageSourcesClicked = screenModel::showManageSourcesDialog
                 .takeIf { successState.mergedMangaById.size > 1 },
+            // RK: source-switcher chips
+            onSelectSource = screenModel::selectSource,
             onMultiBookmarkClicked = screenModel::bookmarkChapters,
             onMultiMarkAsReadClicked = screenModel::markChaptersRead,
             onMarkPreviousAsReadClicked = screenModel::markPreviousChapterRead,

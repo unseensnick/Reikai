@@ -54,6 +54,7 @@ import eu.kanade.presentation.manga.components.MangaActionRow
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.manga.components.MangaChapterListItem
 import eu.kanade.presentation.manga.components.MangaInfoBox
+import reikai.presentation.manga.MergeSourceChips // RK
 import eu.kanade.presentation.manga.components.MangaToolbar
 import eu.kanade.presentation.manga.components.MissingChapterCountListItem
 import eu.kanade.presentation.util.formatChapterNumber
@@ -113,6 +114,7 @@ fun MangaScreen(
     onEditNotesClicked: () -> Unit,
     // RK: merge-group source management; null when the manga is not part of a group
     onManageSourcesClicked: (() -> Unit)? = null,
+    onSelectSource: (Long?) -> Unit = {},
 
     // For bottom action menu
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
@@ -163,6 +165,7 @@ fun MangaScreen(
             onMigrateClicked = onMigrateClicked,
             onEditNotesClicked = onEditNotesClicked,
             onManageSourcesClicked = onManageSourcesClicked,
+            onSelectSource = onSelectSource,
             onMultiBookmarkClicked = onMultiBookmarkClicked,
             onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
             onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
@@ -200,6 +203,7 @@ fun MangaScreen(
             onMigrateClicked = onMigrateClicked,
             onEditNotesClicked = onEditNotesClicked,
             onManageSourcesClicked = onManageSourcesClicked,
+            onSelectSource = onSelectSource,
             onMultiBookmarkClicked = onMultiBookmarkClicked,
             onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
             onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
@@ -248,6 +252,7 @@ private fun MangaScreenSmallImpl(
     onEditNotesClicked: () -> Unit,
     // RK: merge-group source management; null when the manga is not part of a group
     onManageSourcesClicked: (() -> Unit)? = null,
+    onSelectSource: (Long?) -> Unit = {},
 
     // For bottom action menu
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
@@ -425,6 +430,17 @@ private fun MangaScreenSmallImpl(
                         )
                     }
 
+                    // RK: source-switcher chips for a merged group
+                    if (state.mergeSources.size > 1) {
+                        item(key = "rk-merge-source-chips") {
+                            MergeSourceChips(
+                                sources = state.mergeSources,
+                                selectedSourceMangaId = state.selectedSourceMangaId,
+                                onSelect = onSelectSource,
+                            )
+                        }
+                    }
+
                     item(
                         key = MangaScreenItem.CHAPTER_HEADER,
                         contentType = MangaScreenItem.CHAPTER_HEADER,
@@ -493,6 +509,7 @@ fun MangaScreenLargeImpl(
     onEditNotesClicked: () -> Unit,
     // RK: merge-group source management; null when the manga is not part of a group
     onManageSourcesClicked: (() -> Unit)? = null,
+    onSelectSource: (Long?) -> Unit = {},
 
     // For bottom action menu
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
@@ -665,6 +682,17 @@ fun MangaScreenLargeImpl(
                                 bottom = contentPadding.calculateBottomPadding(),
                             ),
                         ) {
+                            // RK: source-switcher chips for a merged group
+                            if (state.mergeSources.size > 1) {
+                                item(key = "rk-merge-source-chips") {
+                                    MergeSourceChips(
+                                        sources = state.mergeSources,
+                                        selectedSourceMangaId = state.selectedSourceMangaId,
+                                        onSelect = onSelectSource,
+                                    )
+                                }
+                            }
+
                             item(
                                 key = MangaScreenItem.CHAPTER_HEADER,
                                 contentType = MangaScreenItem.CHAPTER_HEADER,
