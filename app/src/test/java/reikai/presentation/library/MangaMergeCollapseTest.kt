@@ -55,7 +55,7 @@ class MangaMergeCollapseTest {
     }
 
     @Test
-    fun `same-title items collapse to one entry with summed unread and the larger primary`() {
+    fun `same-title items collapse to one entry with the larger source as primary`() {
         val result = collapse(
             listOf(
                 item(1, title = "One Piece", source = 100L, totalChapters = 5, unread = 2),
@@ -65,7 +65,7 @@ class MangaMergeCollapseTest {
         result.size shouldBe 1
         val merged = result.single()
         merged.id shouldBe 2L // more chapters wins the primary
-        merged.unreadCount shouldBe 5L
+        merged.unreadCount shouldBe 3L // primary's unread (not summed), closer to the deduped count
         merged.relatedMangaIds shouldContainExactlyInAnyOrder listOf(1L, 2L)
         merged.badges.mergedSources.map { it.id } shouldContainExactlyInAnyOrder listOf(100L, 200L)
     }

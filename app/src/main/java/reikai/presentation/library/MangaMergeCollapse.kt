@@ -66,12 +66,13 @@ object MangaMergeCollapse {
                 .thenBy { it.libraryManga.manga.dateAdded },
         )
         return primary.copy(
-            unreadCount = subGroup.sumOf { it.unreadCount },
+            // Unread tracks the primary (most-chapters) source rather than summing every source, which
+            // double-counts the chapters they share. The primary is effectively the unified list, so
+            // this is far closer to the real deduped unread than a sum. Downloads stay summed (each is
+            // a real per-source file).
             downloadCount = subGroup.sumOf { it.downloadCount },
             relatedMangaIds = subGroup.map { it.libraryManga.manga.id },
             badges = primary.badges.copy(
-                // Sum the pref-gated badge counts so the badge stays off when the user disabled it.
-                unreadCount = subGroup.sumOf { it.badges.unreadCount },
                 downloadCount = subGroup.sumOf { it.badges.downloadCount },
                 mergedSources = if (showMergeSourceIcons) {
                     subGroup.map { resolveSource(it.libraryManga.manga.source) }

@@ -662,6 +662,24 @@ class MangaScreenModel(
             }
     }
 
+    /** Expand [chapters] to include the matching chapter (same recognized number) from every
+     *  grouped source, so read / bookmark applies across the whole merge group. No-op when not
+     *  merged or when none of the chapters have a recognized number. */
+    private suspend fun expandToGroup(chapters: List<Chapter>): List<Chapter> {
+        val ids = relatedMangaIds.value
+        if (ids.size <= 1) return chapters
+        val numbers = chapters.asSequence().filter { it.isRecognizedNumber }.map { it.chapterNumber }.toHashSet()
+        if (numbers.isEmpty()) return chapters
+        val result = chapters.toMutableList()
+        val seen = chapters.mapTo(HashSet()) { it.id }
+        for (sibId in ids) {
+            getMangaAndChapters.awaitChapters(sibId).forEach { c ->
+                if (c.isRecognizedNumber && c.chapterNumber in numbers && seen.add(c.id)) result += c
+            }
+        }
+        return result
+    }
+
     /** Resolve the source-switcher chips for the full group (empty when not merged). */
     private suspend fun buildMergeSources(ids: LongArray): List<MergeSourceInfo> {
         if (ids.size <= 1) return emptyList()
@@ -900,7 +918,8 @@ class MangaScreenModel(
         screenModelScope.launchIO {
             setReadStatus.await(
                 read = read,
-                chapters = chapters.toTypedArray(),
+                // RK: also mark the matching chapter in every grouped source
+                chapters = expandToGroup(chapters).toTypedArray(),
             )
 
             if (!read || successState?.hasLoggedInTrackers == false || autoTrackState == AutoTrackState.NEVER) {
@@ -980,7 +999,8 @@ class MangaScreenModel(
      */
     fun bookmarkChapters(chapters: List<Chapter>, bookmarked: Boolean) {
         screenModelScope.launchIO {
-            chapters
+            // RK: bookmark the matching chapter in every grouped source too
+            expandToGroup(chapters)
                 .filterNot { it.bookmark == bookmarked }
                 .map { ChapterUpdate(id = it.id, bookmark = bookmarked) }
                 .let { updateChapter.awaitAll(it) }
@@ -1277,11 +1297,9 @@ class MangaScreenModel(
 
     fun showManageSourcesDialog() {
         val state = successState ?: return
-        val sourceManager = Injekt.get<SourceManager>()
-        val sources = state.mergedMangaById.values
-            .map { m -> MergeSourceInfo(m.id, sourceManager.getOrStub(m.source).name, m.id == mangaId) }
-            .sortedByDescending { it.isCurrent }
-        updateSuccessState { it.copy(dialog = Dialog.ManageSources(sources)) }
+        // Use the full group (stable) so the dialog works even while viewing a single source chip.
+        if (state.mergeSources.size <= 1) return
+        updateSuccessState { it.copy(dialog = Dialog.ManageSources(state.mergeSources)) }
     }
 
     /** Split [targetIds] out of the merge group, with an Undo that restores the prior merge prefs. */

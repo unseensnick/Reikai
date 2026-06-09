@@ -163,9 +163,10 @@ class MangaScreen(
                 navigator.push(MigrationConfigScreen(successState.manga.id))
             }.takeIf { successState.manga.favorite },
             onEditNotesClicked = { navigator.push(MangaNotesScreen(manga = successState.manga)) },
-            // RK: source management only when this manga is part of a merge group
+            // RK: source management only when this manga is part of a merge group (full group, so it
+            // stays available while viewing a single source chip)
             onManageSourcesClicked = screenModel::showManageSourcesDialog
-                .takeIf { successState.mergedMangaById.size > 1 },
+                .takeIf { successState.mergeSources.size > 1 },
             // RK: source-switcher chips
             onSelectSource = screenModel::selectSource,
             onMultiBookmarkClicked = screenModel::bookmarkChapters,
