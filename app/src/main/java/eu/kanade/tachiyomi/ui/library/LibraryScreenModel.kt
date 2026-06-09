@@ -46,6 +46,7 @@ import tachiyomi.domain.source.model.Source as DomainSource
 import tachiyomi.domain.source.model.StubSource
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
+import reikai.domain.manga.MangaMergeManager
 import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.ReikaiLibraryState
@@ -102,6 +103,7 @@ class LibraryScreenModel(
     private val trackerManager: TrackerManager = Injekt.get(),
     // RK -->
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
+    private val mergeManager: MangaMergeManager = Injekt.get(),
     // RK <--
 ) : StateScreenModel<LibraryScreenModel.State>(State()) {
 
@@ -941,6 +943,14 @@ class LibraryScreenModel(
     fun clearSelection() {
         lastSelectionCategory = null
         mutableState.update { it.copy(selection = setOf()) }
+    }
+
+    // RK: manually merge the selected manga into one group (covers both library views)
+    fun mergeSelection() {
+        val ids = state.value.selection.toList()
+        if (ids.size < 2) return
+        mergeManager.mergeManga(ids)
+        clearSelection()
     }
 
     fun toggleSelection(category: Category, manga: LibraryManga) {

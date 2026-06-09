@@ -110,6 +110,22 @@ class MangaMergeManager(
     private suspend fun trackerKeysFor(mangaId: Long): Set<Pair<Long, Long>> =
         getTracks.await(mangaId).mapTo(HashSet()) { it.trackerId to it.remoteId }
 
+    /**
+     * Manually merge [ids] into one group: add a merge entry and drop any unmerge pair between them
+     * so they collapse together (even with different titles or auto-merge off). No-op for < 2 ids.
+     */
+    fun mergeManga(ids: List<Long>) {
+        val sorted = ids.distinct().sorted()
+        if (sorted.size < 2) return
+        preferences.mangaManualMerges.set(preferences.mangaManualMerges.get() + sorted.joinToString(","))
+        val pairs = buildSet {
+            for (i in sorted.indices) {
+                for (j in (i + 1) until sorted.size) add("${sorted[i]},${sorted[j]}")
+            }
+        }
+        preferences.mangaManualUnmerges.set(preferences.mangaManualUnmerges.get() - pairs)
+    }
+
     /** Clear every manual merge entry. Same-title auto-grouping (when on) is left untouched. */
     fun clearManualMerges() {
         preferences.mangaManualMerges.set(emptySet())

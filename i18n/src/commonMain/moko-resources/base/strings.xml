@@ -154,6 +154,7 @@
     <string name="action_edit_notes">Edit notes</string>
     <!-- RK: pref-based merge (manage grouped sources) -->
     <string name="action_manage_sources">Manage sources</string>
+    <string name="action_merge">Merge</string>
     <string name="merge_sources_current">%s (current)</string>
     <string name="merge_sources_split_action">Split</string>
     <string name="merge_sources_remove_action">Remove from library</string>

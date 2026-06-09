@@ -242,6 +242,8 @@ data object LibraryTab : Tab {
                         screenModel.clearSelection()
                         navigator.push(MigrationConfigScreen(selection))
                     },
+                    // RK: manual merge of the selected manga (needs at least two)
+                    onMergeClicked = screenModel::mergeSelection.takeIf { state.selection.size >= 2 },
                 )
             },
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
