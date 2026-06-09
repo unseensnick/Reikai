@@ -171,6 +171,11 @@
     <string name="pref_separate_auto_merges">Separate all merged series</string>
     <string name="pref_separate_auto_merges_summary">Split every merged series apart, including same-title auto-merges. New entries can still auto-merge later.</string>
     <string name="merges_cleared">Merged series cleared</string>
+    <string name="pref_preferred_sources">Preferred sources</string>
+    <string name="pref_preferred_sources_summary">Rank sources to pick which one leads a merged chapter list</string>
+    <string name="pref_preferred_sources_guide">Higher-ranked sources lead a merged series\' combined chapter list. Unranked sources fall back to the one with the most chapters.</string>
+    <string name="pref_preferred_sources_empty">No preferred sources yet. Add one below to rank it.</string>
+    <string name="pref_preferred_sources_add">Add a source</string>
     <string name="action_install">Install</string>
     <string name="action_share">Share</string>
     <string name="action_save">Save</string>

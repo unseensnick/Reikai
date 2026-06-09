@@ -21,6 +21,7 @@ import eu.kanade.presentation.more.settings.widget.TriStateListDialog
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import kotlinx.coroutines.launch
+import reikai.presentation.library.preferredsources.PreferredSourcesScreen
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.ResetCategoryFlags
 import tachiyomi.domain.category.model.Category
@@ -57,8 +58,26 @@ object SettingsLibraryScreen : SearchableSettings {
             getCategoriesGroup(LocalNavigator.currentOrThrow, allCategories, libraryPreferences),
             getGlobalUpdateGroup(allCategories, libraryPreferences),
             getBehaviorGroup(libraryPreferences),
+            // RK: merge-group preferred-source ranking
+            getSourcesGroup(LocalNavigator.currentOrThrow),
         )
     }
+
+    // RK -->
+    @Composable
+    private fun getSourcesGroup(navigator: Navigator): Preference.PreferenceGroup {
+        return Preference.PreferenceGroup(
+            title = stringResource(MR.strings.label_sources),
+            preferenceItems = listOf(
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.pref_preferred_sources),
+                    subtitle = stringResource(MR.strings.pref_preferred_sources_summary),
+                    onClick = { navigator.push(PreferredSourcesScreen()) },
+                ),
+            ),
+        )
+    }
+    // RK <--
 
     @Composable
     private fun getCategoriesGroup(
