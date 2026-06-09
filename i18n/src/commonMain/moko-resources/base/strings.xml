@@ -160,6 +160,7 @@
     <string name="merge_sources_split_action">Split</string>
     <string name="merge_sources_split_confirm">Split %s out of this merged group?</string>
     <string name="merge_sources_remove_action">Remove from library</string>
+    <string name="merge_sources_remove_all_action">Remove all from library</string>
     <string name="merge_sources_split">Split from the merged group</string>
     <string name="merge_sources_removed">Removed from library</string>
     <string name="merge_sources_healed">Unmerged sources that did not match</string>

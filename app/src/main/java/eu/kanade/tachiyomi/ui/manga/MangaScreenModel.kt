@@ -1357,6 +1357,11 @@ class MangaScreenModel(
     }
     // RK <--
 
+    // RK: remove the whole merge group from the library at once (Manage Sources shortcut)
+    fun removeAllSourcesFromLibrary() {
+        removeSourcesFromLibrary(relatedMangaIds.value.toList())
+    }
+
     fun showSettingsDialog() {
         updateSuccessState { it.copy(dialog = Dialog.SettingsSheet) }
     }

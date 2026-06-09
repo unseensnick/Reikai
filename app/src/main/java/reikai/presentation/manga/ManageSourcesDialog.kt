@@ -9,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -31,6 +32,7 @@ fun ManageSourcesDialog(
     onDismissRequest: () -> Unit,
     onSplit: (List<Long>) -> Unit,
     onRemoveFromLibrary: (List<Long>) -> Unit,
+    onRemoveAll: () -> Unit,
 ) {
     val checked = remember { mutableStateMapOf<Long, Boolean>() }
     val selected = sources.mapNotNull { source -> source.mangaId.takeIf { checked[it] == true } }
@@ -61,6 +63,14 @@ fun ManageSourcesDialog(
                             modifier = Modifier.padding(start = 8.dp),
                         )
                     }
+                }
+                // Group-wide shortcut, independent of the per-source checkboxes above.
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                TextButton(
+                    onClick = onRemoveAll,
+                    modifier = Modifier.align(Alignment.End),
+                ) {
+                    Text(stringResource(MR.strings.merge_sources_remove_all_action))
                 }
             }
         },

@@ -296,6 +296,7 @@ class MangaScreen(
                     onDismissRequest = onDismissRequest,
                     onSplit = screenModel::splitSources,
                     onRemoveFromLibrary = screenModel::removeSourcesFromLibrary,
+                    onRemoveAll = screenModel::removeAllSourcesFromLibrary,
                 )
             }
             // RK <--
