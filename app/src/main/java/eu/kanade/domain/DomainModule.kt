@@ -36,6 +36,11 @@ import mihon.domain.extension.interactor.UpdateExtensionStores
 import mihon.domain.extension.repository.ExtensionStoreRepository
 import mihon.domain.migration.usecases.MigrateMangaUseCase
 import mihon.domain.upcoming.interactor.GetUpcomingManga
+import reikai.data.library.updateerror.LibraryUpdateErrorRepositoryImpl
+import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
+import reikai.domain.library.updateerror.GetLibraryUpdateErrors
+import reikai.domain.library.updateerror.LibraryUpdateErrorRepository
+import reikai.domain.library.updateerror.UpsertLibraryUpdateError
 import tachiyomi.data.category.CategoryRepositoryImpl
 import tachiyomi.data.chapter.ChapterRepositoryImpl
 import tachiyomi.data.history.HistoryRepositoryImpl
@@ -104,6 +109,12 @@ import uy.kohesive.injekt.api.get
 class DomainModule : InjektModule {
 
     override fun InjektRegistrar.registerInjectables() {
+        // RK --> library update-errors (R11)
+        addSingletonFactory<LibraryUpdateErrorRepository> { LibraryUpdateErrorRepositoryImpl(get()) }
+        addFactory { GetLibraryUpdateErrors(get()) }
+        addFactory { UpsertLibraryUpdateError(get()) }
+        addFactory { DeleteLibraryUpdateErrors(get()) }
+        // RK <--
         addSingletonFactory<CategoryRepository> { CategoryRepositoryImpl(get()) }
         addFactory { GetCategories(get()) }
         addFactory { ResetCategoryFlags(get(), get()) }

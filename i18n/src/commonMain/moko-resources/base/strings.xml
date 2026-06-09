@@ -638,6 +638,11 @@
     <string name="pref_tablet_ui_mode">Tablet UI</string>
     <string name="pref_verbose_logging">Verbose logging</string>
     <string name="pref_verbose_logging_summary">Print verbose logs to system log (reduces app performance)</string>
+    <string name="pref_track_update_errors">Track library update errors</string>
+    <string name="pref_track_update_errors_summary">Record entries that fail to update and show them in a list (reached from the library menu)</string>
+    <string name="label_update_errors">Update errors</string>
+    <string name="info_empty_update_errors">No update errors</string>
+    <string name="action_clear_all">Clear all</string>
     <string name="pref_debug_info">Debug info</string>
     <string name="pref_update_library_manga_titles">Update library manga titles to match source</string>
     <string name="pref_update_library_manga_titles_summary">Warning: if a manga is renamed, it will be removed from the download queue (if present).</string>

@@ -49,6 +49,9 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.model.LibraryManga
+import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
+import reikai.domain.library.updateerror.UpsertLibraryUpdateError
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_CHARGING
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_NETWORK_NOT_METERED
@@ -90,6 +93,11 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
     private val syncChaptersWithSource: SyncChaptersWithSource = Injekt.get()
     private val fetchInterval: FetchInterval = Injekt.get()
     private val filterChaptersForDownload: FilterChaptersForDownload = Injekt.get()
+
+    // RK: opt-in persistence of per-manga update failures (the Update errors screen, R11)
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get()
+    private val upsertLibraryUpdateError: UpsertLibraryUpdateError = Injekt.get()
+    private val deleteLibraryUpdateErrors: DeleteLibraryUpdateErrors = Injekt.get()
 
     private val notifier = LibraryUpdateNotifier(context)
 
@@ -277,6 +285,10 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
                                             // Convert to the manga that contains new chapters
                                             newUpdates.add(manga to newChapters.toTypedArray())
                                         }
+                                        // RK: a successful check clears any previously recorded error
+                                        if (reikaiLibraryPreferences.trackUpdateErrors.get()) {
+                                            runCatching { deleteLibraryUpdateErrors.byMangaIds(listOf(manga.id)) }
+                                        }
                                     } catch (e: Throwable) {
                                         val errorMessage = when (e) {
                                             is NoChaptersException -> context.stringResource(
@@ -289,6 +301,15 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
                                             else -> e.message
                                         }
                                         failedUpdates.add(manga to errorMessage)
+                                        // RK: record the failure for the Update errors screen
+                                        if (reikaiLibraryPreferences.trackUpdateErrors.get()) {
+                                            runCatching {
+                                                upsertLibraryUpdateError.await(
+                                                    manga.id,
+                                                    errorMessage ?: context.stringResource(MR.strings.unknown),
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }

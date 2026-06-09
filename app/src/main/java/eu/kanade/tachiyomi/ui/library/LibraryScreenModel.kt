@@ -250,6 +250,7 @@ class LibraryScreenModel(
             reikaiLibraryPreferences.hopperGravity.changes(),
             reikaiLibraryPreferences.hopperLongPressAction.changes(),
             reikaiLibraryPreferences.showHiddenCategories.changes(),
+            reikaiLibraryPreferences.trackUpdateErrors.changes(),
         ) {
             ReikaiLibraryState(
                 groupLibraryBy = it[0] as Int,
@@ -265,6 +266,7 @@ class LibraryScreenModel(
                 hopperGravity = it[10] as Int,
                 hopperLongPressAction = it[11] as Int,
                 showHiddenCategories = it[12] as Boolean,
+                trackUpdateErrors = it[13] as Boolean,
             )
         }
     }

@@ -68,6 +68,7 @@ import mihon.feature.migration.config.MigrationConfigScreen
 import reikai.presentation.library.ReikaiCategoryHopper
 import reikai.presentation.library.ReikaiCategoryPickerSheet
 import reikai.presentation.library.ReikaiLibraryContent
+import reikai.presentation.library.updateerror.UpdateErrorsScreen
 import reikai.presentation.library.reikaiCategoryHeaderIndices
 import reikai.presentation.library.reikaiIsCollapsed
 import reikai.presentation.library.reikaiSortCategories
@@ -214,6 +215,12 @@ data object LibraryTab : Tab {
                                 )
                             }
                         }
+                    },
+                    // RK: opt-in Update errors screen (hidden unless the Advanced toggle is on)
+                    onClickUpdateErrors = if (state.reikai.trackUpdateErrors) {
+                        { navigator.push(UpdateErrorsScreen()) }
+                    } else {
+                        null
                     },
                     searchQuery = state.searchQuery,
                     onSearchQueryChange = screenModel::search,

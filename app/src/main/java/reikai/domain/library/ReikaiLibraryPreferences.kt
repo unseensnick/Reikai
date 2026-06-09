@@ -43,6 +43,13 @@ class ReikaiLibraryPreferences(
 
     // endregion
 
+    // region Update errors
+
+    /** Opt-in: record library update failures and expose the Update errors screen (Settings > Advanced). */
+    val trackUpdateErrors: Preference<Boolean> = preferenceStore.getBoolean("track_update_errors", false)
+
+    // endregion
+
     // region Category display
 
     val showCategoryInTitle: Preference<Boolean> = preferenceStore.getBoolean("category_in_title", false)

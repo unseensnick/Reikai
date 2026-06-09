@@ -60,6 +60,7 @@ import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.logcat
+import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.ResetViewerFlags
 import tachiyomi.i18n.MR
@@ -84,6 +85,8 @@ object SettingsAdvancedScreen : SearchableSettings {
         val basePreferences = remember { Injekt.get<BasePreferences>() }
         val networkPreferences = remember { Injekt.get<NetworkPreferences>() }
         val libraryPreferences = remember { Injekt.get<LibraryPreferences>() }
+        // RK: opt-in for the library update-errors screen
+        val reikaiLibraryPreferences = remember { Injekt.get<ReikaiLibraryPreferences>() }
 
         return listOf(
             Preference.PreferenceItem.TextPreference(
@@ -103,6 +106,12 @@ object SettingsAdvancedScreen : SearchableSettings {
                     context.toast(MR.strings.requires_app_restart)
                     true
                 },
+            ),
+            // RK: opt-in for recording library update failures + the Update errors screen
+            Preference.PreferenceItem.SwitchPreference(
+                preference = reikaiLibraryPreferences.trackUpdateErrors,
+                title = stringResource(MR.strings.pref_track_update_errors),
+                subtitle = stringResource(MR.strings.pref_track_update_errors_summary),
             ),
             Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.pref_debug_info),
