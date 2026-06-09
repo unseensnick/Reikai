@@ -58,6 +58,7 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.feature.migration.config.MigrationConfigScreen
 import mihon.feature.migration.dialog.MigrateMangaDialog
+import reikai.presentation.manga.ManageSourcesDialog
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.model.Chapter
@@ -162,6 +163,9 @@ class MangaScreen(
                 navigator.push(MigrationConfigScreen(successState.manga.id))
             }.takeIf { successState.manga.favorite },
             onEditNotesClicked = { navigator.push(MangaNotesScreen(manga = successState.manga)) },
+            // RK: source management only when this manga is part of a merge group
+            onManageSourcesClicked = screenModel::showManageSourcesDialog
+                .takeIf { successState.mergedMangaById.size > 1 },
             onMultiBookmarkClicked = screenModel::bookmarkChapters,
             onMultiMarkAsReadClicked = screenModel::markChaptersRead,
             onMarkPreviousAsReadClicked = screenModel::markPreviousChapterRead,
@@ -275,6 +279,16 @@ class MangaScreen(
                         .takeIf { screenModel.isUpdateIntervalEnabled },
                 )
             }
+            // RK -->
+            is MangaScreenModel.Dialog.ManageSources -> {
+                ManageSourcesDialog(
+                    sources = dialog.sources,
+                    onDismissRequest = onDismissRequest,
+                    onSplit = screenModel::splitSources,
+                    onRemoveFromLibrary = screenModel::removeSourcesFromLibrary,
+                )
+            }
+            // RK <--
         }
 
         if (showScanlatorsDialog) {

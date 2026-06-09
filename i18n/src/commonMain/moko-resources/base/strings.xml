@@ -152,6 +152,14 @@
     <string name="action_move_to_bottom_all_for_series">Move series to bottom</string>
     <string name="action_notes">Notes</string>
     <string name="action_edit_notes">Edit notes</string>
+    <!-- RK: pref-based merge (manage grouped sources) -->
+    <string name="action_manage_sources">Manage sources</string>
+    <string name="merge_sources_current">%s (current)</string>
+    <string name="merge_sources_split_action">Split</string>
+    <string name="merge_sources_remove_action">Remove from library</string>
+    <string name="merge_sources_split">Split from the merged group</string>
+    <string name="merge_sources_removed">Removed from library</string>
+    <string name="merge_sources_healed">Unmerged sources that did not match</string>
     <string name="action_install">Install</string>
     <string name="action_share">Share</string>
     <string name="action_save">Save</string>

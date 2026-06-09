@@ -37,6 +37,8 @@ fun MangaToolbar(
     onClickRefresh: () -> Unit,
     onClickMigrate: (() -> Unit)?,
     onClickEditNotes: () -> Unit,
+    // RK: non-null only when the manga is part of a merge group
+    onClickManageSources: (() -> Unit)? = null,
 
     // For action mode
     actionModeCounter: Int,
@@ -146,6 +148,16 @@ fun MangaToolbar(
                             onClick = onClickEditNotes,
                         ),
                     )
+                    // RK -->
+                    if (onClickManageSources != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_manage_sources),
+                                onClick = onClickManageSources,
+                            ),
+                        )
+                    }
+                    // RK <--
                 },
             )
         },

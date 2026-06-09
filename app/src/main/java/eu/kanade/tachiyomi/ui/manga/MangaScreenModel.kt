@@ -239,7 +239,17 @@ class MangaScreenModel(
         screenModelScope.launchIO {
             val manga = getMangaAndChapters.awaitManga(mangaId)
             // RK --> resolve + heal the merge group so the combined chapter list builds on open
-            relatedMangaIds.value = mergeManager.computeRelatedMangaIds(mangaId, manga.title).ids
+            val related = mergeManager.computeRelatedMangaIds(mangaId, manga.title)
+            relatedMangaIds.value = related.ids
+            if (related.cleanupCount > 0) {
+                screenModelScope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = context.stringResource(MR.strings.merge_sources_healed),
+                        duration = SnackbarDuration.Short,
+                        withDismissAction = true,
+                    )
+                }
+            }
             // RK <--
             val chapters = getMangaAndChapters.awaitChapters(mangaId, applyScanlatorFilter = true)
                 .toChapterListItems(manga)
@@ -1178,7 +1188,13 @@ class MangaScreenModel(
         data object SettingsSheet : Dialog
         data object TrackSheet : Dialog
         data object FullCover : Dialog
+
+        // RK: pref-based merge, manage the grouped sources (split / remove from library)
+        data class ManageSources(val sources: List<MergeSourceInfo>) : Dialog
     }
+
+    // RK: a grouped source row shown in the Manage sources dialog.
+    data class MergeSourceInfo(val mangaId: Long, val sourceName: String, val isCurrent: Boolean)
 
     fun dismissDialog() {
         updateSuccessState { it.copy(dialog = null) }
@@ -1187,6 +1203,69 @@ class MangaScreenModel(
     fun showDeleteChapterDialog(chapters: List<Chapter>) {
         updateSuccessState { it.copy(dialog = Dialog.DeleteChapters(chapters)) }
     }
+
+    // RK -->
+    fun showManageSourcesDialog() {
+        val state = successState ?: return
+        val sourceManager = Injekt.get<SourceManager>()
+        val sources = state.mergedMangaById.values
+            .map { m -> MergeSourceInfo(m.id, sourceManager.getOrStub(m.source).name, m.id == mangaId) }
+            .sortedByDescending { it.isCurrent }
+        updateSuccessState { it.copy(dialog = Dialog.ManageSources(sources)) }
+    }
+
+    /** Split [targetIds] out of the merge group, with an Undo that restores the prior merge prefs. */
+    fun splitSources(targetIds: List<Long>) {
+        if (targetIds.isEmpty()) return
+        val prevMerges = reikaiLibraryPreferences.mangaManualMerges.get()
+        val prevUnmerges = reikaiLibraryPreferences.mangaManualUnmerges.get()
+        val prevRelated = relatedMangaIds.value
+        relatedMangaIds.value = mergeManager.removeFromGroup(prevRelated, targetIds)
+        dismissDialog()
+        screenModelScope.launch {
+            val result = snackbarHostState.showSnackbar(
+                message = context.stringResource(MR.strings.merge_sources_split),
+                actionLabel = context.stringResource(MR.strings.action_undo),
+                duration = SnackbarDuration.Short,
+                withDismissAction = true,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                reikaiLibraryPreferences.mangaManualMerges.set(prevMerges)
+                reikaiLibraryPreferences.mangaManualUnmerges.set(prevUnmerges)
+                relatedMangaIds.value = prevRelated
+            }
+        }
+    }
+
+    /** Split [targetIds] out and unfavorite them, with an Undo that re-favorites and re-groups. */
+    fun removeSourcesFromLibrary(targetIds: List<Long>) {
+        if (targetIds.isEmpty()) return
+        val prevMerges = reikaiLibraryPreferences.mangaManualMerges.get()
+        val prevUnmerges = reikaiLibraryPreferences.mangaManualUnmerges.get()
+        val prevRelated = relatedMangaIds.value
+        relatedMangaIds.value = mergeManager.removeFromGroup(prevRelated, targetIds)
+        dismissDialog()
+        screenModelScope.launchNonCancellable {
+            targetIds.forEach { updateManga.awaitUpdateFavorite(it, false) }
+        }
+        screenModelScope.launch {
+            val result = snackbarHostState.showSnackbar(
+                message = context.stringResource(MR.strings.merge_sources_removed),
+                actionLabel = context.stringResource(MR.strings.action_undo),
+                duration = SnackbarDuration.Short,
+                withDismissAction = true,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                reikaiLibraryPreferences.mangaManualMerges.set(prevMerges)
+                reikaiLibraryPreferences.mangaManualUnmerges.set(prevUnmerges)
+                relatedMangaIds.value = prevRelated
+                screenModelScope.launchNonCancellable {
+                    targetIds.forEach { updateManga.awaitUpdateFavorite(it, true) }
+                }
+            }
+        }
+    }
+    // RK <--
 
     fun showSettingsDialog() {
         updateSuccessState { it.copy(dialog = Dialog.SettingsSheet) }
