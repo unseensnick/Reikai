@@ -41,6 +41,7 @@ import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
 import reikai.domain.library.updateerror.GetLibraryUpdateErrors
 import reikai.domain.library.updateerror.LibraryUpdateErrorRepository
 import reikai.domain.library.updateerror.UpsertLibraryUpdateError
+import reikai.domain.manga.MangaMergeManager
 import tachiyomi.data.category.CategoryRepositoryImpl
 import tachiyomi.data.chapter.ChapterRepositoryImpl
 import tachiyomi.data.history.HistoryRepositoryImpl
@@ -114,6 +115,9 @@ class DomainModule : InjektModule {
         addFactory { GetLibraryUpdateErrors(get()) }
         addFactory { UpsertLibraryUpdateError(get()) }
         addFactory { DeleteLibraryUpdateErrors(get()) }
+        // RK <--
+        // RK --> pref-based merge (P3)
+        addSingletonFactory { MangaMergeManager(get(), get(), get()) }
         // RK <--
         addSingletonFactory<CategoryRepository> { CategoryRepositoryImpl(get()) }
         addFactory { GetCategories(get()) }

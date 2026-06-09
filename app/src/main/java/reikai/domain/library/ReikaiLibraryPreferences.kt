@@ -4,6 +4,7 @@ import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.preference.getEnum
+import tachiyomi.core.common.preference.getLongArray
 
 /**
  * Reikai's net-new library preferences, the ones Mihon's [tachiyomi.domain.library.service.LibraryPreferences]
@@ -95,6 +96,25 @@ class ReikaiLibraryPreferences(
     /** Category ids (as strings) a manga must not belong to any of. */
     val filterCategoriesExclude: Preference<Set<String>> =
         preferenceStore.getStringSet("pref_filter_library_categories_exclude", emptySet())
+
+    // endregion
+
+    // region Merging (pref-based; no DB join table)
+
+    /** Manual merge groups: each entry is a comma-joined, sorted manga-id group (e.g. "1,5,9"). */
+    val mangaManualMerges: Preference<Set<String>> = preferenceStore.getStringSet("manga_manual_merges", emptySet())
+
+    /** Explicit unmerges: normalized "min,max" id pairs that must never be grouped. */
+    val mangaManualUnmerges: Preference<Set<String>> = preferenceStore.getStringSet("manga_manual_unmerges", emptySet())
+
+    /** Auto-group favorited series that share a title across sources (guarded by the healing pass). */
+    val autoMergeSameTitle: Preference<Boolean> = preferenceStore.getBoolean("auto_merge_same_title", true)
+
+    /** On a merged library cover, show the grouped sources' icons instead of a numeric group count. */
+    val showMergeSourceIcons: Preference<Boolean> = preferenceStore.getBoolean("merge_source_icons", true)
+
+    /** Source ids ranked highest-priority-first; the trunk source when stitching a merged chapter list. */
+    val preferredMangaSources: Preference<List<Long>> = preferenceStore.getLongArray("preferred_manga_sources", emptyList())
 
     // endregion
 }
