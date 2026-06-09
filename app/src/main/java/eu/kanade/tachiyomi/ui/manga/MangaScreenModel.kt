@@ -44,11 +44,16 @@ import eu.kanade.tachiyomi.util.removeCovers
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -85,6 +90,9 @@ import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
+import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.manga.ChapterAggregation
+import reikai.domain.manga.MangaMergeManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.math.floor
@@ -118,6 +126,10 @@ class MangaScreenModel(
     private val setMangaCategories: SetMangaCategories = Injekt.get(),
     private val mangaRepository: MangaRepository = Injekt.get(),
     private val filterChaptersForDownload: FilterChaptersForDownload = Injekt.get(),
+    // RK -->
+    private val mergeManager: MangaMergeManager = Injekt.get(),
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
+    // RK <--
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : StateScreenModel<MangaScreenModel.State>(State.Loading) {
 
@@ -151,6 +163,11 @@ class MangaScreenModel(
     private val selectedPositions: Array<Int> = arrayOf(-1, -1) // first and last selected index in list
     private val selectedChapterIds: HashSet<Long> = HashSet()
 
+    // RK --> merge group ids for this manga (just its own id when not grouped). Drives the combined
+    // chapter list; updated on open (same-title + manual merges, healed) and after a split.
+    private val relatedMangaIds = MutableStateFlow(longArrayOf(mangaId))
+    // RK <--
+
     /**
      * Helper function to update the UI state only if it's currently in success state
      */
@@ -165,20 +182,34 @@ class MangaScreenModel(
 
     init {
         screenModelScope.launchIO {
+            // RK --> when the manga is part of a merge group, the chapter list is the aggregated
+            // union of every grouped source; otherwise it stays the single-source list.
             combine(
                 getMangaAndChapters.subscribe(mangaId, applyScanlatorFilter = true).distinctUntilChanged(),
+                relatedMangaIds,
                 downloadCache.changes,
                 downloadManager.queueState,
-            ) { mangaAndChapters, _, _ -> mangaAndChapters }
+            ) { mangaAndChapters, relatedIds, _, _ ->
+                Triple(mangaAndChapters.first, mangaAndChapters.second, relatedIds)
+            }
+                .flatMapLatest { (manga, ownChapters, relatedIds) ->
+                    if (relatedIds.size <= 1) {
+                        flowOf(MergedChapters(manga, ownChapters, emptyMap()))
+                    } else {
+                        mergedChaptersFlow(manga, relatedIds)
+                    }
+                }
                 .flowWithLifecycle(lifecycle)
-                .collectLatest { (manga, chapters) ->
+                .collectLatest { (manga, chapters, mangaBySource) ->
                     updateSuccessState {
                         it.copy(
                             manga = manga,
-                            chapters = chapters.toChapterListItems(manga),
+                            chapters = chapters.toChapterListItems(manga, mangaBySource),
+                            mergedMangaById = mangaBySource,
                         )
                     }
                 }
+            // RK <--
         }
 
         screenModelScope.launchIO {
@@ -207,6 +238,9 @@ class MangaScreenModel(
 
         screenModelScope.launchIO {
             val manga = getMangaAndChapters.awaitManga(mangaId)
+            // RK --> resolve + heal the merge group so the combined chapter list builds on open
+            relatedMangaIds.value = mergeManager.computeRelatedMangaIds(mangaId, manga.title).ids
+            // RK <--
             val chapters = getMangaAndChapters.awaitChapters(mangaId, applyScanlatorFilter = true)
                 .toChapterListItems(manga)
 
@@ -514,9 +548,15 @@ class MangaScreenModel(
         }
     }
 
-    private fun List<Chapter>.toChapterListItems(manga: Manga): List<ChapterList.Item> {
-        val isLocal = manga.isLocal()
+    private fun List<Chapter>.toChapterListItems(
+        manga: Manga,
+        // RK: for merged groups, each chapter's own source-manga, so download status resolves
+        // against the source it actually came from (key: mangaId). Empty for non-merged manga.
+        mangaBySource: Map<Long, Manga> = emptyMap(),
+    ): List<ChapterList.Item> {
         return map { chapter ->
+            val owner = mangaBySource[chapter.mangaId] ?: manga
+            val isLocal = owner.isLocal()
             val activeDownload = if (isLocal) {
                 null
             } else {
@@ -529,8 +569,8 @@ class MangaScreenModel(
                     chapter.name,
                     chapter.scanlator,
                     chapter.url,
-                    manga.title,
-                    manga.source,
+                    owner.title,
+                    owner.source,
                 )
             }
             val downloadState = when {
@@ -547,6 +587,42 @@ class MangaScreenModel(
             )
         }
     }
+
+    // RK -->
+    /** Display payload for the chapter flow: the screen manga, the (possibly merged) chapter list,
+     *  and the per-source manga for merged groups (empty when not merged). */
+    private data class MergedChapters(
+        val manga: Manga,
+        val chapters: List<Chapter>,
+        val mangaBySource: Map<Long, Manga>,
+    )
+
+    /** Combine every grouped source's chapters into one aggregated, deduped, reading-ordered list.
+     *  Suspend because [GetMangaWithChapters.subscribe] is; called from the suspend flatMapLatest. */
+    private suspend fun mergedChaptersFlow(displayManga: Manga, relatedIds: LongArray): Flow<MergedChapters> {
+        val preferredSourceIds = reikaiLibraryPreferences.preferredMangaSources.get()
+        val perSibling = mutableListOf<Flow<Triple<Long, Manga, List<Chapter>>>>()
+        for (id in relatedIds) {
+            perSibling += getMangaAndChapters.subscribe(id, applyScanlatorFilter = true)
+                .map { (manga, chapters) -> Triple(id, manga, chapters) }
+        }
+        return combine(perSibling) { siblings ->
+            val mangaBySource = siblings.associate { (id, manga, _) -> id to manga }
+            val chaptersBySource = siblings.associate { (id, _, chapters) -> id to chapters }
+            val sourceIdByManga = siblings.associate { (id, manga, _) -> id to manga.source }
+            val aggregated = ChapterAggregation
+                .aggregate(chaptersBySource, sourceIdByManga, preferredSourceIds)
+                .let(::restampReadingOrder)
+            MergedChapters(displayManga, aggregated, mangaBySource)
+        }
+    }
+
+    /** Renumber source_order over the unified list (descending by chapter number) so a "by source
+     *  order" sort doesn't interleave sources. Copies, leaving each source's own order untouched. */
+    private fun restampReadingOrder(chapters: List<Chapter>): List<Chapter> =
+        chapters.sortedByDescending { it.chapterNumber }
+            .mapIndexed { index, chapter -> chapter.copy(sourceOrder = index.toLong()) }
+    // RK <--
 
     /**
      * Requests an updated list of chapters from the source.
@@ -810,8 +886,16 @@ class MangaScreenModel(
      * @param chapters the list of chapters to download.
      */
     private fun downloadChapters(chapters: List<Chapter>) {
-        val manga = successState?.manga ?: return
-        downloadManager.downloadChapters(manga, chapters)
+        val state = successState ?: return
+        // RK --> in a merged group, download each chapter from its own source-manga
+        if (state.mergedMangaById.isNotEmpty()) {
+            chapters.groupBy { it.mangaId }.forEach { (mangaId, group) ->
+                downloadManager.downloadChapters(state.mergedMangaById[mangaId] ?: state.manga, group)
+            }
+        } else {
+            downloadManager.downloadChapters(state.manga, chapters)
+        }
+        // RK <--
         toggleAllSelection(false)
     }
 
@@ -838,11 +922,17 @@ class MangaScreenModel(
         screenModelScope.launchNonCancellable {
             try {
                 successState?.let { state ->
-                    downloadManager.deleteChapters(
-                        chapters,
-                        state.manga,
-                        state.source,
-                    )
+                    // RK --> in a merged group, delete each chapter's download from its own source
+                    if (state.mergedMangaById.isNotEmpty()) {
+                        val sourceManager = Injekt.get<SourceManager>()
+                        chapters.groupBy { it.mangaId }.forEach { (mangaId, group) ->
+                            val owner = state.mergedMangaById[mangaId] ?: state.manga
+                            downloadManager.deleteChapters(group, owner, sourceManager.getOrStub(owner.source))
+                        }
+                    } else {
+                        downloadManager.deleteChapters(chapters, state.manga, state.source)
+                    }
+                    // RK <--
                 }
             } catch (e: Throwable) {
                 logcat(LogPriority.ERROR, e)
@@ -1131,6 +1221,9 @@ class MangaScreenModel(
             val source: Source,
             val isFromSource: Boolean,
             val chapters: List<ChapterList.Item>,
+            // RK: per-source manga for a merged group (key: mangaId), empty when not merged. Lets
+            // chapter actions (download/delete) target each chapter's own source.
+            val mergedMangaById: Map<Long, Manga> = emptyMap(),
             val availableScanlators: Set<String>,
             val excludedScanlators: Set<String>,
             val trackingCount: Int = 0,
