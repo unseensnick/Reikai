@@ -9,6 +9,7 @@ import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import eu.kanade.tachiyomi.network.AndroidCookieJar
+import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.util.system.isOutdated
 import eu.kanade.tachiyomi.util.system.toast
 import okhttp3.Cookie
@@ -26,6 +27,10 @@ class CloudflareInterceptor(
     private val context: Context,
     private val cookieManager: AndroidCookieJar,
     defaultUserAgentProvider: () -> String,
+    // RK -->
+    private val networkPreferences: NetworkPreferences,
+    private val flareSolverr: FlareSolverrClient,
+    // RK <--
 ) : WebViewInterceptor(context, defaultUserAgentProvider) {
 
     private val executor = ContextCompat.getMainExecutor(context)
@@ -56,9 +61,37 @@ class CloudflareInterceptor(
             cookieManager.remove(request.url, COOKIE_NAMES, 0)
             val oldCookie = cookieManager.get(request.url)
                 .firstOrNull { it.name == "cf_clearance" }
-            resolveWithWebView(request, oldCookie)
 
-            return chain.proceed(request)
+            // RK -->
+            val host = request.url.host
+            val flareSolverrUrl = networkPreferences.flareSolverrUrl.get().trim()
+            val fsActive = networkPreferences.enableFlareSolverr.get() && flareSolverrUrl.isNotBlank()
+
+            // FlareSolverr returns a fully-fetched response, so serve it directly. Replaying its
+            // cookies through OkHttp doesn't work for hosts on Cloudflare's stricter bot-management
+            // tier (cf_clearance is bound to a TLS / __cf_bm fingerprint OkHttp can't reproduce).
+            // A null return means a sibling thread did the solve; fall through to a normal retry
+            // with whatever the cookie jar holds.
+            if (fsActive && flareSolverr.shouldSkipWebView(host)) {
+                flareSolverr.resolve(flareSolverrUrl, request)?.let { return it }
+            } else {
+                try {
+                    resolveWithWebView(request, oldCookie)
+                } catch (e: CloudflareBypassException) {
+                    if (!fsActive) throw e
+                    flareSolverr.resolve(flareSolverrUrl, request)?.let { return it }
+                }
+            }
+
+            // WebView path (or sibling-solve fallback): retry the request normally. The
+            // application interceptor chain doesn't re-run on chain.proceed() from inside an
+            // interceptor, so apply any FS-pinned UA directly here.
+            val retryRequest = flareSolverr.pinnedUserAgentFor(host)?.let { pinnedUa ->
+                request.newBuilder().header("User-Agent", pinnedUa).build()
+            } ?: request
+
+            return chain.proceed(retryRequest)
+            // RK <--
         }
         // Because OkHttp's enqueue only handles IOExceptions, wrap the exception so that
         // we don't crash the entire app

@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.network
 
 import android.content.Context
 import eu.kanade.tachiyomi.network.interceptor.CloudflareInterceptor
+import eu.kanade.tachiyomi.network.interceptor.FlareSolverrClient
 import eu.kanade.tachiyomi.network.interceptor.IgnoreGzipInterceptor
 import eu.kanade.tachiyomi.network.interceptor.UncaughtExceptionInterceptor
 import eu.kanade.tachiyomi.network.interceptor.UserAgentInterceptor
@@ -19,6 +20,10 @@ class NetworkHelper(
 
     val cookieJar = AndroidCookieJar()
 
+    // RK -->
+    val flareSolverr = FlareSolverrClient(cookieJar)
+    // RK <--
+
     private val clientBuilder: OkHttpClient.Builder = run {
         val builder = OkHttpClient.Builder()
             .cookieJar(cookieJar)
@@ -32,7 +37,9 @@ class NetworkHelper(
                 ),
             )
             .addInterceptor(UncaughtExceptionInterceptor())
-            .addInterceptor(UserAgentInterceptor(::defaultUserAgentProvider))
+            // RK --> pin per-host UA after a FlareSolverr solve
+            .addInterceptor(UserAgentInterceptor(::defaultUserAgentProvider, flareSolverr::pinnedUserAgentFor))
+            // RK <--
             .addNetworkInterceptor(IgnoreGzipInterceptor())
             .addNetworkInterceptor(BrotliInterceptor)
 
@@ -64,7 +71,9 @@ class NetworkHelper(
 
     val client = clientBuilder
         .addInterceptor(
-            CloudflareInterceptor(context, cookieJar, ::defaultUserAgentProvider),
+            // RK --> pass preferences + the FlareSolverr client for the FS bypass path
+            CloudflareInterceptor(context, cookieJar, ::defaultUserAgentProvider, preferences, flareSolverr),
+            // RK <--
         )
         .build()
 

@@ -607,6 +607,16 @@
     <string name="error_user_agent_string_blank">User agent string can not be blank</string>
     <string name="error_user_agent_string_invalid">Invalid user agent string</string>
     <string name="pref_reset_user_agent_string">Reset default user agent string</string>
+    <!-- RK: FlareSolverr Cloudflare bypass -->
+    <string name="pref_enable_flaresolverr">Enable FlareSolverr</string>
+    <string name="pref_enable_flaresolverr_summary">Route Cloudflare challenges through a FlareSolverr proxy instead of the in-app WebView</string>
+    <string name="pref_flaresolverr_url">FlareSolverr URL</string>
+    <string name="pref_flaresolverr_url_summary">Address of your FlareSolverr server, for example http://192.168.1.10:8191</string>
+    <string name="pref_test_flaresolverr">Test FlareSolverr</string>
+    <string name="pref_test_flaresolverr_summary">Check the server and update the default user agent to match</string>
+    <string name="flaresolverr_test_success">FlareSolverr is working. User agent updated.</string>
+    <string name="flaresolverr_test_failure">FlareSolverr test failed. Check the URL and that the server is running.</string>
+    <string name="error_flaresolverr_invalid_url">Invalid URL, must start with http:// or https://</string>
     <string name="requires_app_restart">Requires app restart to take effect</string>
     <string name="cookies_cleared">Cookies cleared</string>
     <string name="pref_invalidate_download_cache">Reindex downloads</string>

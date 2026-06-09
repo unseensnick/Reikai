@@ -56,6 +56,7 @@ import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import okhttp3.Headers
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.ImageUtil
@@ -213,6 +214,10 @@ object SettingsAdvancedScreen : SearchableSettings {
         val userAgentPref = networkPreferences.defaultUserAgent
         val userAgent by userAgentPref.collectAsState()
 
+        // RK: FlareSolverr settings live in the Network group, gated on the enable toggle
+        val scope = rememberCoroutineScope()
+        val flareSolverrEnabled by networkPreferences.enableFlareSolverr.collectAsState()
+
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.label_network),
             preferenceItems = listOf(
@@ -289,6 +294,49 @@ object SettingsAdvancedScreen : SearchableSettings {
                         context.toast(MR.strings.requires_app_restart)
                     },
                 ),
+                // RK -->
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = networkPreferences.enableFlareSolverr,
+                    title = stringResource(MR.strings.pref_enable_flaresolverr),
+                    subtitle = stringResource(MR.strings.pref_enable_flaresolverr_summary),
+                ),
+                Preference.PreferenceItem.EditTextPreference(
+                    preference = networkPreferences.flareSolverrUrl,
+                    title = stringResource(MR.strings.pref_flaresolverr_url),
+                    subtitle = stringResource(MR.strings.pref_flaresolverr_url_summary),
+                    enabled = flareSolverrEnabled,
+                    onValueChanged = {
+                        if (it.isBlank() || it.trim().toHttpUrlOrNull() != null) {
+                            true
+                        } else {
+                            context.toast(MR.strings.error_flaresolverr_invalid_url)
+                            false
+                        }
+                    },
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.pref_test_flaresolverr),
+                    subtitle = stringResource(MR.strings.pref_test_flaresolverr_summary),
+                    enabled = flareSolverrEnabled,
+                    onClick = {
+                        val url = networkPreferences.flareSolverrUrl.get().trim()
+                        if (url.isBlank()) {
+                            context.toast(MR.strings.error_flaresolverr_invalid_url)
+                        } else {
+                            scope.launch {
+                                networkHelper.flareSolverr.test(url)
+                                    .onSuccess { userAgent ->
+                                        userAgentPref.set(userAgent)
+                                        context.toast(MR.strings.flaresolverr_test_success)
+                                    }
+                                    .onFailure {
+                                        context.toast(MR.strings.flaresolverr_test_failure)
+                                    }
+                            }
+                        }
+                    },
+                ),
+                // RK <--
             ),
         )
     }

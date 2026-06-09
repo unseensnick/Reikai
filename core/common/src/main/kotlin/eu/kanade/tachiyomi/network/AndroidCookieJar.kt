@@ -48,6 +48,10 @@ class AndroidCookieJar : CookieJar {
             .count()
     }
 
+    // RK -->
+    fun saveCookieString(url: HttpUrl, cookieString: String) = manager.setCookie(url.toString(), cookieString)
+    // RK <--
+
     fun removeAll() {
         manager.removeAllCookies {}
     }
