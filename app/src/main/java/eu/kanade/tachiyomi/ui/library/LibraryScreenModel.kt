@@ -46,6 +46,7 @@ import tachiyomi.domain.source.model.Source as DomainSource
 import tachiyomi.domain.source.model.StubSource
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
+import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.ReikaiLibraryState
 import reikai.presentation.library.reikaiSortCategories
@@ -666,8 +667,10 @@ class LibraryScreenModel(
             getLibraryManga.subscribe(),
             getLibraryItemPreferencesFlow(),
             downloadCache.changes,
-        ) { libraryManga, preferences, _ ->
-            libraryManga.map { manga ->
+            // RK: re-collapse when the merge prefs change
+            mergePrefsFlow(),
+        ) { libraryManga, preferences, _, mergePrefs ->
+            val items = libraryManga.map { manga ->
                 LibraryItem(
                     libraryManga = manga,
                     downloadCount = downloadManager.getDownloadCount(manga.manga),
@@ -705,8 +708,35 @@ class LibraryScreenModel(
                     ),
                 )
             }
+            // RK: collapse pref-based merge groups into one entry per group
+            MangaMergeCollapse.collapse(
+                items = items,
+                manualMerges = mergePrefs.merges,
+                manualUnmerges = mergePrefs.unmerges,
+                autoMergeSameTitle = mergePrefs.autoMergeSameTitle,
+                resolveSource = ::resolveMergeSource,
+            )
         }
     }
+
+    // RK -->
+    private data class MergePrefs(
+        val merges: Set<String>,
+        val unmerges: Set<String>,
+        val autoMergeSameTitle: Boolean,
+    )
+
+    private fun mergePrefsFlow(): Flow<MergePrefs> = combine(
+        reikaiLibraryPreferences.mangaManualMerges.changes(),
+        reikaiLibraryPreferences.mangaManualUnmerges.changes(),
+        reikaiLibraryPreferences.autoMergeSameTitle.changes(),
+    ) { merges, unmerges, auto -> MergePrefs(merges, unmerges, auto) }
+
+    private fun resolveMergeSource(sourceId: Long): DomainSource {
+        val s = sourceManager.getOrStub(sourceId)
+        return DomainSource(s.id, s.lang, s.name, supportsLatest = false, isStub = s is StubSource)
+    }
+    // RK <--
 
     /**
      * Flow of tracking filter preferences

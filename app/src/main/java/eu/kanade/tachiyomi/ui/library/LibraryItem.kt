@@ -14,6 +14,9 @@ data class LibraryItem(
     val unreadCount: Long,
     val isLocal: Boolean,
     val badges: Badges,
+    // RK: ids of every source-manga collapsed into this entry (size > 1 means it is a merge group).
+    // List (not LongArray) so the data-class equality the library StateFlow relies on still holds.
+    val relatedMangaIds: List<Long> = emptyList(),
 ) {
     val id: Long = libraryManga.id
 
@@ -74,5 +77,7 @@ data class LibraryItem(
         val sourceLanguage: String,
         // RK: source-icon badge data (null when the source badge is off)
         val source: Source? = null,
+        // RK: the grouped sources for a merge entry (empty when not merged), for the merge badge.
+        val mergedSources: List<Source> = emptyList(),
     )
 }
