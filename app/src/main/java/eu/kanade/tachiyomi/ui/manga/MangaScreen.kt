@@ -238,12 +238,18 @@ class MangaScreen(
                 onScanlatorFilterClicked = { showScanlatorsDialog = true },
             )
             MangaScreenModel.Dialog.TrackSheet -> {
-                NavigatorAdaptiveSheet(
-                    screen = TrackInfoDialogHomeScreen(
+                // RK: remember the screen so frequent state updates (the merge collectors recompose
+                // the details screen) don't rebuild it and reset the sheet's navigator mid-update,
+                // which was cancelling the tracker write (InsertTrack JobCancellationException).
+                val trackScreen = remember(successState.manga.id, successState.source.id) {
+                    TrackInfoDialogHomeScreen(
                         mangaId = successState.manga.id,
                         mangaTitle = successState.manga.title,
                         sourceId = successState.source.id,
-                    ),
+                    )
+                }
+                NavigatorAdaptiveSheet(
+                    screen = trackScreen,
                     enableSwipeDismiss = { it.lastItem is TrackInfoDialogHomeScreen },
                     onDismissRequest = onDismissRequest,
                 )
