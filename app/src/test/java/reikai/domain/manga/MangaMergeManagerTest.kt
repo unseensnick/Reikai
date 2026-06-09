@@ -169,4 +169,44 @@ class MangaMergeManagerTest {
         // The suspect is unmerged from every survivor so it can't regroup with either.
         result.newUnmerges shouldContainExactlyInAnyOrder setOf("1,3", "2,3")
     }
+
+    // Mirrors unmergeManga's per-target loop: recompute the group from the CURRENT prefs before each
+    // split. This is the invariant that prevents a re-merge when two members of one group are
+    // unmerged in a single pass.
+    @Test
+    fun `bulk unmerge of two members from one group does not re-merge the rest`() {
+        var merges = setOf("1,2,3")
+        var unmerges = emptySet<String>()
+
+        for (target in listOf(1L, 2L)) {
+            val group = MangaMergeManager.computeGroupIds(target, merges, emptySet(), unmerges)
+            val split = MangaMergeManager.computeSplit(group, listOf(target), merges, unmerges)
+            split.shouldNotBeNull()
+            merges = split.newMerges
+            unmerges = split.newUnmerges
+        }
+
+        // All three are separated; no entry resurrects a broken pair (e.g. "1,3").
+        merges shouldContainExactly emptySet()
+        unmerges shouldContainExactlyInAnyOrder setOf("1,2", "1,3", "2,3")
+    }
+
+    // Re-running the same approach with a STALE group snapshot would re-add "1,3" after 1 was split;
+    // this asserts the fresh-prefs recompute used above is what avoids it.
+    @Test
+    fun `bulk unmerge with a stale group snapshot would re-merge a broken pair`() {
+        val staleGroup = longArrayOf(1L, 2L, 3L)
+        var merges = setOf("1,2,3")
+        var unmerges = emptySet<String>()
+
+        // Split 1 using the live group.
+        MangaMergeManager.computeSplit(staleGroup, listOf(1L), merges, unmerges)!!.let {
+            merges = it.newMerges
+            unmerges = it.newUnmerges
+        }
+        // Split 2 reusing the STALE [1,2,3] snapshot instead of recomputing.
+        val stale = MangaMergeManager.computeSplit(staleGroup, listOf(2L), merges, unmerges)!!
+
+        stale.newMerges shouldContainExactly setOf("1,3")
+    }
 }

@@ -136,6 +136,41 @@ class MangaMergeManager(
         preferences.mangaManualUnmerges.set(preferences.mangaManualUnmerges.get() - pairs)
     }
 
+    /**
+     * Split each of [targetIds] out of its own merge group (the library bulk "Unmerge"). Each target
+     * is recomputed against the CURRENT prefs right before it is split, so unmerging several members
+     * of the same group in one pass cannot re-merge a pair that an earlier iteration just broke (a
+     * stale group snapshot would re-add the survivors and resurrect the broken pair). Non-merged
+     * targets are skipped. Same-title auto-grouped members are included so they are separated too.
+     */
+    suspend fun unmergeManga(targetIds: List<Long>) {
+        val targets = targetIds.distinct()
+        if (targets.isEmpty()) return
+        val autoSameTitle = preferences.autoMergeSameTitle.get()
+        val favorites = if (autoSameTitle) getFavorites.await() else emptyList()
+
+        for (target in targets) {
+            val merges = preferences.mangaManualMerges.get()
+            val unmerges = preferences.mangaManualUnmerges.get()
+            val sameTitle = if (autoSameTitle) {
+                val title = favorites.firstOrNull { it.id == target }?.title?.trim()?.lowercase().orEmpty()
+                if (title.isEmpty()) {
+                    emptySet()
+                } else {
+                    favorites.asSequence()
+                        .filter { it.title.trim().equals(title, ignoreCase = true) }
+                        .map { it.id }
+                        .toSet()
+                }
+            } else {
+                emptySet()
+            }
+
+            val group = computeGroupIds(target, merges, sameTitle, unmerges)
+            if (group.size > 1) removeFromGroup(group, listOf(target))
+        }
+    }
+
     /** Clear every manual merge entry. Same-title auto-grouping (when on) is left untouched. */
     fun clearManualMerges() {
         preferences.mangaManualMerges.set(emptySet())

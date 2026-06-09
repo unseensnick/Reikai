@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material.icons.outlined.BookmarkRemove
+import androidx.compose.material.icons.outlined.CallSplit
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.Download
@@ -240,6 +241,8 @@ fun LibraryBottomActionMenu(
     onMigrateClicked: () -> Unit,
     // RK: merge the selected manga into one group (only when 2+ are selected)
     onMergeClicked: (() -> Unit)? = null,
+    // RK: split the selected manga out of their merge groups (only when a merged one is selected)
+    onUnmergeClicked: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     AnimatedVisibility(
@@ -303,6 +306,16 @@ fun LibraryBottomActionMenu(
                         toConfirm = false,
                         onLongClick = {},
                         onClick = onMergeClicked,
+                    )
+                }
+                // RK: unmerge selected manga (shown only when a merged one is selected)
+                if (onUnmergeClicked != null) {
+                    Button(
+                        title = stringResource(MR.strings.action_unmerge),
+                        icon = Icons.Outlined.CallSplit,
+                        toConfirm = false,
+                        onLongClick = {},
+                        onClick = onUnmergeClicked,
                     )
                 }
                 if (onDownloadClicked != null) {

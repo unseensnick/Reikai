@@ -953,6 +953,14 @@ class LibraryScreenModel(
         clearSelection()
     }
 
+    // RK: split the selected manga out of their merge groups (no-op for non-merged selections)
+    fun unmergeSelection() {
+        val ids = state.value.selection.toList()
+        if (ids.isEmpty()) return
+        screenModelScope.launchIO { mergeManager.unmergeManga(ids) }
+        clearSelection()
+    }
+
     fun toggleSelection(category: Category, manga: LibraryManga) {
         mutableState.update { state ->
             val newSelection = state.selection.mutate { set ->
@@ -1161,6 +1169,11 @@ class LibraryScreenModel(
         val selectionMode = selection.isNotEmpty()
 
         val selectedManga by lazy { selection.mapNotNull { libraryData.favoritesById[it]?.libraryManga?.manga } }
+
+        // RK: any selected manga is part of a merge group (drives the bulk Unmerge action)
+        val selectionContainsMerged: Boolean by lazy {
+            selection.any { (libraryData.favoritesById[it]?.relatedMangaIds?.size ?: 0) > 1 }
+        }
 
         fun getItemsForCategoryId(categoryId: Long?): List<LibraryItem> {
             if (categoryId == null) return emptyList()

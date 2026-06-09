@@ -155,6 +155,7 @@
     <!-- RK: pref-based merge (manage grouped sources) -->
     <string name="action_manage_sources">Manage sources</string>
     <string name="action_merge">Merge</string>
+    <string name="action_unmerge">Unmerge</string>
     <string name="merge_sources_current">%s (current)</string>
     <string name="merge_sources_split_action">Split</string>
     <string name="merge_sources_split_confirm">Split %s out of this merged group?</string>

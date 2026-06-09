@@ -244,6 +244,8 @@ data object LibraryTab : Tab {
                     },
                     // RK: manual merge of the selected manga (needs at least two)
                     onMergeClicked = screenModel::mergeSelection.takeIf { state.selection.size >= 2 },
+                    // RK: unmerge selected manga (only when the selection includes a merged one)
+                    onUnmergeClicked = screenModel::unmergeSelection.takeIf { state.selectionContainsMerged },
                 )
             },
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
