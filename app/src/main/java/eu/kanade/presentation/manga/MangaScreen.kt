@@ -115,6 +115,7 @@ fun MangaScreen(
     // RK: merge-group source management; null when the manga is not part of a group
     onManageSourcesClicked: (() -> Unit)? = null,
     onSelectSource: (Long?) -> Unit = {},
+    onSplitSource: (Long) -> Unit = {},
 
     // For bottom action menu
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
@@ -166,6 +167,7 @@ fun MangaScreen(
             onEditNotesClicked = onEditNotesClicked,
             onManageSourcesClicked = onManageSourcesClicked,
             onSelectSource = onSelectSource,
+            onSplitSource = onSplitSource,
             onMultiBookmarkClicked = onMultiBookmarkClicked,
             onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
             onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
@@ -204,6 +206,7 @@ fun MangaScreen(
             onEditNotesClicked = onEditNotesClicked,
             onManageSourcesClicked = onManageSourcesClicked,
             onSelectSource = onSelectSource,
+            onSplitSource = onSplitSource,
             onMultiBookmarkClicked = onMultiBookmarkClicked,
             onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
             onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
@@ -253,6 +256,7 @@ private fun MangaScreenSmallImpl(
     // RK: merge-group source management; null when the manga is not part of a group
     onManageSourcesClicked: (() -> Unit)? = null,
     onSelectSource: (Long?) -> Unit = {},
+    onSplitSource: (Long) -> Unit = {},
 
     // For bottom action menu
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
@@ -442,6 +446,7 @@ private fun MangaScreenSmallImpl(
                                 sources = state.mergeSources,
                                 selectedSourceMangaId = state.selectedSourceMangaId,
                                 onSelect = onSelectSource,
+                                onSplitSource = onSplitSource,
                             )
                         }
                     }
@@ -515,6 +520,7 @@ fun MangaScreenLargeImpl(
     // RK: merge-group source management; null when the manga is not part of a group
     onManageSourcesClicked: (() -> Unit)? = null,
     onSelectSource: (Long?) -> Unit = {},
+    onSplitSource: (Long) -> Unit = {},
 
     // For bottom action menu
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
@@ -699,6 +705,7 @@ fun MangaScreenLargeImpl(
                                         sources = state.mergeSources,
                                         selectedSourceMangaId = state.selectedSourceMangaId,
                                         onSelect = onSelectSource,
+                                        onSplitSource = onSplitSource,
                                     )
                                 }
                             }

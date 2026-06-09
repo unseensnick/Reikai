@@ -169,6 +169,7 @@ class MangaScreen(
                 .takeIf { successState.mergeSources.size > 1 },
             // RK: source-switcher chips
             onSelectSource = screenModel::selectSource,
+            onSplitSource = { screenModel.splitSources(listOf(it)) },
             onMultiBookmarkClicked = screenModel::bookmarkChapters,
             onMultiMarkAsReadClicked = screenModel::markChaptersRead,
             onMarkPreviousAsReadClicked = screenModel::markPreviousChapterRead,
