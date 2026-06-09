@@ -389,9 +389,14 @@ private fun MangaScreenSmallImpl(
                         MangaInfoBox(
                             isTabletUi = false,
                             appBarPadding = topPadding,
-                            manga = state.manga,
-                            sourceName = remember { state.source.getNameForMangaInfo() },
-                            isStubSource = remember { state.source is StubSource },
+                            // RK: show the active source's metadata; "Unified" label for the merged view
+                            manga = state.mergeDisplayManga ?: state.manga,
+                            sourceName = if (state.mergeSources.size > 1 && state.selectedSourceMangaId == null) {
+                                stringResource(MR.strings.merge_unified)
+                            } else {
+                                (state.mergeDisplaySource ?: state.source).getNameForMangaInfo()
+                            },
+                            isStubSource = (state.mergeDisplaySource ?: state.source) is StubSource,
                             onCoverClick = onCoverClicked,
                             doSearch = onSearch,
                         )
@@ -640,9 +645,14 @@ fun MangaScreenLargeImpl(
                         MangaInfoBox(
                             isTabletUi = true,
                             appBarPadding = contentPadding.calculateTopPadding(),
-                            manga = state.manga,
-                            sourceName = remember { state.source.getNameForMangaInfo() },
-                            isStubSource = remember { state.source is StubSource },
+                            // RK: show the active source's metadata; "Unified" label for the merged view
+                            manga = state.mergeDisplayManga ?: state.manga,
+                            sourceName = if (state.mergeSources.size > 1 && state.selectedSourceMangaId == null) {
+                                stringResource(MR.strings.merge_unified)
+                            } else {
+                                (state.mergeDisplaySource ?: state.source).getNameForMangaInfo()
+                            },
+                            isStubSource = (state.mergeDisplaySource ?: state.source) is StubSource,
                             onCoverClick = onCoverClicked,
                             doSearch = onSearch,
                         )
