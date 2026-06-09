@@ -23,6 +23,8 @@ object MangaMergeCollapse {
         manualMerges: Set<String>,
         manualUnmerges: Set<String>,
         autoMergeSameTitle: Boolean,
+        // When false, the group's sources are not resolved and the badge falls back to a count.
+        showMergeSourceIcons: Boolean,
         resolveSource: (Long) -> Source,
     ): List<LibraryItem> {
         if (items.size <= 1) return items
@@ -47,14 +49,18 @@ object MangaMergeCollapse {
                 if (subGroup.size == 1) {
                     result.add(subGroup.first())
                 } else {
-                    result.add(mergePrimary(subGroup, resolveSource))
+                    result.add(mergePrimary(subGroup, showMergeSourceIcons, resolveSource))
                 }
             }
         }
         return result
     }
 
-    private fun mergePrimary(subGroup: List<LibraryItem>, resolveSource: (Long) -> Source): LibraryItem {
+    private fun mergePrimary(
+        subGroup: List<LibraryItem>,
+        showMergeSourceIcons: Boolean,
+        resolveSource: (Long) -> Source,
+    ): LibraryItem {
         val primary = subGroup.maxWith(
             compareBy<LibraryItem> { it.libraryManga.totalChapters }
                 .thenBy { it.libraryManga.manga.dateAdded },
@@ -67,7 +73,11 @@ object MangaMergeCollapse {
                 // Sum the pref-gated badge counts so the badge stays off when the user disabled it.
                 unreadCount = subGroup.sumOf { it.badges.unreadCount },
                 downloadCount = subGroup.sumOf { it.badges.downloadCount },
-                mergedSources = subGroup.map { resolveSource(it.libraryManga.manga.source) },
+                mergedSources = if (showMergeSourceIcons) {
+                    subGroup.map { resolveSource(it.libraryManga.manga.source) }
+                } else {
+                    emptyList()
+                },
             ),
         )
     }

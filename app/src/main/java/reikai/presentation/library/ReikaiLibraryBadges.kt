@@ -25,6 +25,28 @@ import tachiyomi.source.local.LocalSource
  * domain [Source]. Resolves the icon via [Source.icon] (an ExtensionManager lookup); reading it in
  * the composable is the same Injekt-in-composable idiom Mihon/Komikku use for source icons.
  */
+private const val MAX_MERGE_ICONS = 3
+
+/**
+ * Badge for a collapsed merge group (more than one grouped source). When [sources] is populated
+ * (the "show source icons on merged covers" setting is on) it shows up to three distinct source
+ * icons plus a "+N" overflow; otherwise it falls back to the numeric group count.
+ */
+@Composable
+fun MergeBadge(relatedMangaIds: List<Long>, sources: List<Source>) {
+    val count = relatedMangaIds.size
+    if (count <= 1) return
+    if (sources.isEmpty()) {
+        Badge(text = count.toString())
+        return
+    }
+    val distinct = sources.distinctBy { it.id }
+    val shown = distinct.take(MAX_MERGE_ICONS)
+    shown.forEach { SourceIconBadge(it) }
+    val extra = distinct.size - shown.size
+    if (extra > 0) Badge(text = "+$extra")
+}
+
 @Composable
 fun SourceIconBadge(source: Source?) {
     if (source == null) return

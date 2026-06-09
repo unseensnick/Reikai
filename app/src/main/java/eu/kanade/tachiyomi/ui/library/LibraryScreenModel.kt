@@ -714,6 +714,7 @@ class LibraryScreenModel(
                 manualMerges = mergePrefs.merges,
                 manualUnmerges = mergePrefs.unmerges,
                 autoMergeSameTitle = mergePrefs.autoMergeSameTitle,
+                showMergeSourceIcons = mergePrefs.showMergeSourceIcons,
                 resolveSource = ::resolveMergeSource,
             )
         }
@@ -724,13 +725,15 @@ class LibraryScreenModel(
         val merges: Set<String>,
         val unmerges: Set<String>,
         val autoMergeSameTitle: Boolean,
+        val showMergeSourceIcons: Boolean,
     )
 
     private fun mergePrefsFlow(): Flow<MergePrefs> = combine(
         reikaiLibraryPreferences.mangaManualMerges.changes(),
         reikaiLibraryPreferences.mangaManualUnmerges.changes(),
         reikaiLibraryPreferences.autoMergeSameTitle.changes(),
-    ) { merges, unmerges, auto -> MergePrefs(merges, unmerges, auto) }
+        reikaiLibraryPreferences.showMergeSourceIcons.changes(),
+    ) { merges, unmerges, auto, showIcons -> MergePrefs(merges, unmerges, auto, showIcons) }
 
     private fun resolveMergeSource(sourceId: Long): DomainSource {
         val s = sourceManager.getOrStub(sourceId)

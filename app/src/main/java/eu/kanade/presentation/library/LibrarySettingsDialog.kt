@@ -335,6 +335,16 @@ private fun ColumnScope.DisplayPage(
         label = stringResource(MR.strings.action_display_source_badge),
         pref = screenModel.reikaiLibraryPreferences.sourceBadge,
     )
+    // RK --> pref-based merge toggles
+    CheckboxItem(
+        label = stringResource(MR.strings.action_merge_same_title),
+        pref = screenModel.reikaiLibraryPreferences.autoMergeSameTitle,
+    )
+    CheckboxItem(
+        label = stringResource(MR.strings.action_merge_source_icons),
+        pref = screenModel.reikaiLibraryPreferences.showMergeSourceIcons,
+    )
+    // RK <--
     CheckboxItem(
         label = stringResource(MR.strings.action_display_show_continue_reading_button),
         pref = screenModel.libraryPreferences.showContinueReadingButton,

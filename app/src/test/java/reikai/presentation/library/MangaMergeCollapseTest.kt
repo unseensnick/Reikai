@@ -46,7 +46,7 @@ class MangaMergeCollapseTest {
         merges: Set<String> = emptySet(),
         unmerges: Set<String> = emptySet(),
         auto: Boolean = true,
-    ) = MangaMergeCollapse.collapse(items, merges, unmerges, auto, resolveSource)
+    ) = MangaMergeCollapse.collapse(items, merges, unmerges, auto, showMergeSourceIcons = true, resolveSource)
 
     @Test
     fun `a single item is returned unchanged`() {

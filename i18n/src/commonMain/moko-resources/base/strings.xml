@@ -160,6 +160,8 @@
     <string name="merge_sources_split">Split from the merged group</string>
     <string name="merge_sources_removed">Removed from library</string>
     <string name="merge_sources_healed">Unmerged sources that did not match</string>
+    <string name="action_merge_same_title">Merge same-title series across sources</string>
+    <string name="action_merge_source_icons">Show source icons on merged covers</string>
     <string name="action_install">Install</string>
     <string name="action_share">Share</string>
     <string name="action_save">Save</string>
