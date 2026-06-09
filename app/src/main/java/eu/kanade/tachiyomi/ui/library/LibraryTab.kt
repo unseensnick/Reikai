@@ -293,6 +293,12 @@ data object LibraryTab : Tab {
                                 onGlobalSearchClicked = {
                                     navigator.push(GlobalSearchScreen(screenModel.state.value.searchQuery ?: ""))
                                 },
+                                // RK 4.6: per-category header sort (Sort tab scoped to it), refresh, select-all
+                                onClickCategorySort = { category ->
+                                    screenModel.showSettingsDialog(initialTab = 1, categoryId = category.id)
+                                },
+                                onRefreshCategory = { category -> onClickRefresh(category) },
+                                onSelectAllInCategory = screenModel::selectAllInCategory,
                             )
                         } else {
                             LibraryContent(
@@ -431,7 +437,10 @@ data object LibraryTab : Tab {
                 LibrarySettingsDialog(
                     onDismissRequest = onDismissRequest,
                     screenModel = settingsScreenModel,
-                    category = state.activeCategory,
+                    // RK: a single-list header scopes the sheet to its category (Sort tab). Resolve the
+                    // live category by id so the Sort tab reflects the current sort after it changes.
+                    category = dialog.categoryId?.let { id -> state.libraryData.categories.find { it.id == id } }
+                        ?: state.activeCategory,
                     // RK --> full category list for the include/exclude filter (sorted per R3) + route to category manager
                     categories = reikaiSortCategories(state.libraryData.categories, state.reikai.categorySortOrder),
                     onManageCategories = {

@@ -894,9 +894,11 @@ class LibraryScreenModel(
     // RK: a random entry from the whole library (hopper long-press "random, global" action)
     fun getRandomLibraryItem(): LibraryItem? = state.value.libraryData.favorites.randomOrNull()
 
-    // RK: initialTab lets the hopper long-press open straight to a tab (e.g. Group)
-    fun showSettingsDialog(initialTab: Int = 0) {
-        mutableState.update { it.copy(dialog = Dialog.SettingsSheet(initialTab)) }
+    // RK: initialTab opens straight to a tab (e.g. Group); categoryId scopes the sheet so a single-list
+    // header can open the Sort tab for that category. Store the id (not the Category) so the sheet reads
+    // the live category at the mount site; a snapshot would show a stale sort after changing it.
+    fun showSettingsDialog(initialTab: Int = 0, categoryId: Long? = null) {
+        mutableState.update { it.copy(dialog = Dialog.SettingsSheet(initialTab, categoryId)) }
     }
 
     private var lastSelectionCategory: Long? = null
@@ -951,6 +953,19 @@ class LibraryScreenModel(
         mutableState.update { state ->
             val newSelection = state.selection.mutate { list ->
                 state.getItemsForCategoryId(state.activeCategory?.id).map { it.id }.let(list::addAll)
+            }
+            state.copy(selection = newSelection)
+        }
+    }
+
+    // RK: select every manga in a single category, or deselect them if all are already selected
+    // (drives the single-list header's select-all circle).
+    fun selectAllInCategory(category: Category) {
+        lastSelectionCategory = null
+        mutableState.update { state ->
+            val ids = state.getItemsForCategory(category).map { it.id }
+            val newSelection = state.selection.mutate { set ->
+                if (ids.isNotEmpty() && ids.all { it in set }) set.removeAll(ids.toSet()) else set.addAll(ids)
             }
             state.copy(selection = newSelection)
         }
@@ -1017,7 +1032,7 @@ class LibraryScreenModel(
 
     sealed interface Dialog {
         // RK: initialTab = which settings tab to open on (0 = Filter)
-        data class SettingsSheet(val initialTab: Int = 0) : Dialog
+        data class SettingsSheet(val initialTab: Int = 0, val categoryId: Long? = null) : Dialog
         data class ChangeCategory(
             val manga: List<Manga>,
             val initialSelection: List<CheckboxState<Category>>,

@@ -24,6 +24,7 @@ import eu.kanade.tachiyomi.ui.library.LibraryItem
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryManga
+import tachiyomi.domain.library.model.sort
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.presentation.core.util.plus
 
@@ -126,6 +127,10 @@ fun ReikaiLibraryContent(
     onToggleDefaultCollapse: (String) -> Unit,
     onToggleDynamicCollapse: (String) -> Unit,
     onGlobalSearchClicked: () -> Unit,
+    // RK 4.6: per-category header affordances (real categories only; dynamic groups opt out)
+    onClickCategorySort: (Category) -> Unit,
+    onRefreshCategory: (Category) -> Unit,
+    onSelectAllInCategory: (Category) -> Unit,
 ) {
     val isList = displayMode is LibraryDisplayMode.List
     // Mode-qualified so Compose doesn't recycle a list-row slot as a grid cell when the mode flips.
@@ -197,6 +202,13 @@ fun ReikaiLibraryContent(
                         onClick = {
                             if (dynamic) onToggleDynamicCollapse(headerKey) else onToggleDefaultCollapse(headerKey)
                         },
+                        selectionMode = selection.isNotEmpty(),
+                        allSelected = items.isNotEmpty() && items.all { it.id in selection },
+                        onToggleSelectAll = { onSelectAllInCategory(category) },
+                        // Dynamic groups have no real category to sort/refresh.
+                        sort = if (dynamic) null else category.sort,
+                        onClickSort = if (dynamic) null else { { onClickCategorySort(category) } },
+                        onClickRefresh = if (dynamic) null else { { onRefreshCategory(category) } },
                     )
                 }
 
