@@ -252,6 +252,24 @@ fun ReikaiLibraryContent(
                                     )
                                 },
                             )
+                            // Panorama: same uniform Book-height cell, wide covers shown whole (letterboxed).
+                            LibraryDisplayMode.ComfortableGridPanorama -> ReikaiComfortableGridPanoramaItem(
+                                coverData = coverData,
+                                title = manga.title,
+                                onClick = onClick,
+                                onLongClick = onLongClick,
+                                isSelected = isSelected,
+                                coverBadgeStart = {
+                                    DownloadsBadge(count = libraryItem.badges.downloadCount)
+                                    UnreadBadge(count = libraryItem.badges.unreadCount)
+                                },
+                                coverBadgeEnd = {
+                                    LanguageBadge(
+                                        isLocal = libraryItem.badges.isLocal,
+                                        sourceLanguage = libraryItem.badges.sourceLanguage,
+                                    )
+                                },
+                            )
                             // Compact grid (with title) and cover-only grid (title null) share a cell.
                             LibraryDisplayMode.CompactGrid, LibraryDisplayMode.CoverOnlyGrid -> MangaCompactGridItem(
                                 coverData = coverData,

@@ -266,8 +266,11 @@ private fun ColumnScope.SortPage(
 private val displayModes = listOf(
     MR.strings.action_display_grid to LibraryDisplayMode.CompactGrid,
     MR.strings.action_display_comfortable_grid to LibraryDisplayMode.ComfortableGrid,
-    MR.strings.action_display_cover_only_grid to LibraryDisplayMode.CoverOnlyGrid,
+    // RK: order matches Komikku (List before Cover-only, panorama last) so the panorama chip
+    // wraps to the end of the row instead of wedging into the middle.
     MR.strings.action_display_list to LibraryDisplayMode.List,
+    MR.strings.action_display_cover_only_grid to LibraryDisplayMode.CoverOnlyGrid,
+    MR.strings.action_display_comfortable_grid_panorama to LibraryDisplayMode.ComfortableGridPanorama,
 )
 
 @Composable

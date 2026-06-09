@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
 import eu.kanade.presentation.util.rememberResourceBitmapPainter
 import eu.kanade.tachiyomi.R
 
@@ -27,6 +28,10 @@ enum class MangaCover(val ratio: Float) {
         contentDescription: String = "",
         shape: Shape = MaterialTheme.shapes.extraSmall,
         onClick: (() -> Unit)? = null,
+        // RK: scale + load callback let the panorama display mode letterbox wide covers and measure
+        // each cover's real aspect ratio at load (see reikai.presentation.library panorama cell).
+        scale: ContentScale = ContentScale.Crop,
+        onSuccess: ((AsyncImagePainter.State.Success) -> Unit)? = null,
     ) {
         AsyncImage(
             model = data,
@@ -46,7 +51,9 @@ enum class MangaCover(val ratio: Float) {
                         Modifier
                     },
                 ),
-            contentScale = ContentScale.Crop,
+            contentScale = scale,
+            // RK: report the loaded image so the caller can measure its aspect ratio
+            onSuccess = onSuccess,
         )
     }
 }

@@ -54,15 +54,16 @@ object CommonMangaItemDefaults {
 }
 
 private val ContinueReadingButtonSizeSmall = 28.dp
-private val ContinueReadingButtonSizeLarge = 32.dp
+// RK: internal so the net-new Reikai panorama cell (reikai.presentation.library) can reuse them
+internal val ContinueReadingButtonSizeLarge = 32.dp
 
 private val ContinueReadingButtonIconSizeSmall = 16.dp
-private val ContinueReadingButtonIconSizeLarge = 20.dp
+internal val ContinueReadingButtonIconSizeLarge = 20.dp
 
-private val ContinueReadingButtonGridPadding = 6.dp
+internal val ContinueReadingButtonGridPadding = 6.dp
 private val ContinueReadingButtonListSpacing = 8.dp
 
-private const val GRID_SELECTED_COVER_ALPHA = 0.76f
+internal const val GRID_SELECTED_COVER_ALPHA = 0.76f
 
 /**
  * Layout of grid list item with title overlaying the cover.
@@ -230,8 +231,9 @@ fun MangaComfortableGridItem(
 /**
  * Common cover layout to add contents to be drawn on top of the cover.
  */
+// RK: internal so the net-new Reikai panorama cell can reuse this Book-ratio cover box
 @Composable
-private fun MangaGridCover(
+internal fun MangaGridCover(
     modifier: Modifier = Modifier,
     cover: @Composable BoxScope.() -> Unit = {},
     badgesStart: (@Composable RowScope.() -> Unit)? = null,
@@ -265,8 +267,9 @@ private fun MangaGridCover(
     }
 }
 
+// RK: internal so the net-new Reikai panorama cell can reuse it
 @Composable
-private fun GridItemTitle(
+internal fun GridItemTitle(
     title: String,
     style: TextStyle,
     minLines: Int,
@@ -288,8 +291,9 @@ private fun GridItemTitle(
 /**
  * Wrapper for grid items to handle selection state, click and long click.
  */
+// RK: internal so the net-new Reikai panorama cell can reuse it
 @Composable
-private fun GridItemSelectable(
+internal fun GridItemSelectable(
     isSelected: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
@@ -377,8 +381,9 @@ fun MangaListItem(
     }
 }
 
+// RK: internal so the net-new Reikai panorama cell can reuse it
 @Composable
-private fun ContinueReadingButton(
+internal fun ContinueReadingButton(
     size: Dp,
     iconSize: Dp,
     onClick: () -> Unit,

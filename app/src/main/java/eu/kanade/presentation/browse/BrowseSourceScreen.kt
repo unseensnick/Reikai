@@ -117,7 +117,9 @@ fun BrowseSourceContent(
     }
 
     when (displayMode) {
-        LibraryDisplayMode.ComfortableGrid -> {
+        // RK: panorama is a library-only display mode; browse has no toggle for it, so a backup
+        // restore that carried it just renders the normal comfortable grid here.
+        LibraryDisplayMode.ComfortableGrid, LibraryDisplayMode.ComfortableGridPanorama -> {
             BrowseSourceComfortableGrid(
                 mangaList = mangaList,
                 columns = columns,
