@@ -110,6 +110,36 @@ class MangaMergeManager(
     private suspend fun trackerKeysFor(mangaId: Long): Set<Pair<Long, Long>> =
         getTracks.await(mangaId).mapTo(HashSet()) { it.trackerId to it.remoteId }
 
+    /** Clear every manual merge entry. Same-title auto-grouping (when on) is left untouched. */
+    fun clearManualMerges() {
+        preferences.mangaManualMerges.set(emptySet())
+    }
+
+    /**
+     * Separate every currently merged series, including same-title auto-groups: clears the manual
+     * merge entries and records an unmerge pair for each same-title duplicate among favorites so
+     * auto-grouping stops re-joining them. Newly added favorites still auto-group on first sight.
+     */
+    suspend fun clearAllMergesIncludingAuto() {
+        val byTitle = HashMap<String, MutableList<Long>>()
+        for (manga in getFavorites.await()) {
+            val key = manga.title.trim().lowercase()
+            if (key.isEmpty()) continue
+            byTitle.getOrPut(key) { mutableListOf() } += manga.id
+        }
+        val newUnmerges = buildSet {
+            for ((_, ids) in byTitle) {
+                if (ids.size < 2) continue
+                val sorted = ids.sorted()
+                for (i in sorted.indices) {
+                    for (j in (i + 1) until sorted.size) add("${sorted[i]},${sorted[j]}")
+                }
+            }
+        }
+        preferences.mangaManualMerges.set(emptySet())
+        preferences.mangaManualUnmerges.set(preferences.mangaManualUnmerges.get() + newUnmerges)
+    }
+
     class SplitResult(
         val survivors: LongArray,
         val newMerges: Set<String>,

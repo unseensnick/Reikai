@@ -62,6 +62,7 @@ import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.logcat
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.manga.MangaMergeManager
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.ResetViewerFlags
 import tachiyomi.i18n.MR
@@ -88,6 +89,8 @@ object SettingsAdvancedScreen : SearchableSettings {
         val libraryPreferences = remember { Injekt.get<LibraryPreferences>() }
         // RK: opt-in for the library update-errors screen
         val reikaiLibraryPreferences = remember { Injekt.get<ReikaiLibraryPreferences>() }
+        // RK: pref-based merge maintenance
+        val mergeManager = remember { Injekt.get<MangaMergeManager>() }
 
         return listOf(
             Preference.PreferenceItem.TextPreference(
@@ -114,6 +117,26 @@ object SettingsAdvancedScreen : SearchableSettings {
                 title = stringResource(MR.strings.pref_track_update_errors),
                 subtitle = stringResource(MR.strings.pref_track_update_errors_summary),
             ),
+            // RK --> clear pref-based merge state
+            Preference.PreferenceItem.TextPreference(
+                title = stringResource(MR.strings.pref_clear_manual_merges),
+                subtitle = stringResource(MR.strings.pref_clear_manual_merges_summary),
+                onClick = {
+                    mergeManager.clearManualMerges()
+                    context.toast(MR.strings.merges_cleared)
+                },
+            ),
+            Preference.PreferenceItem.TextPreference(
+                title = stringResource(MR.strings.pref_separate_auto_merges),
+                subtitle = stringResource(MR.strings.pref_separate_auto_merges_summary),
+                onClick = {
+                    scope.launch {
+                        mergeManager.clearAllMergesIncludingAuto()
+                        context.toast(MR.strings.merges_cleared)
+                    }
+                },
+            ),
+            // RK <--
             Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.pref_debug_info),
                 onClick = { navigator.push(DebugInfoScreen()) },
