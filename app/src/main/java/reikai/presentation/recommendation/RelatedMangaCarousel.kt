@@ -100,8 +100,9 @@ fun RelatedMangaCarousel(
             }
         }
 
-        // Separates the carousel from the chapter list below it (matches Komikku's suggestions row).
-        HorizontalDivider(modifier = Modifier.padding(top = MaterialTheme.padding.small))
+        // Flush, theme-aware divider separating the carousel from the chapter list, as Komikku does
+        // (bare HorizontalDivider, default outlineVariant color).
+        HorizontalDivider()
     }
 }
 
