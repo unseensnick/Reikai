@@ -1,6 +1,7 @@
 package reikai.presentation.manga
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,7 +10,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -23,8 +23,9 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * Lists the sources merged into one series so the user can split a source back out, or split it and
- * remove it from the library. Net-new Reikai UI for the pref-based merge feature.
+ * Lists the sources merged into one series so the user can split a source back out, split it and
+ * remove it from the library, or remove the whole group at once. Net-new Reikai UI for the
+ * pref-based merge feature.
  */
 @Composable
 fun ManageSourcesDialog(
@@ -64,30 +65,33 @@ fun ManageSourcesDialog(
                         )
                     }
                 }
-                // Group-wide shortcut, independent of the per-source checkboxes above.
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                TextButton(
-                    onClick = onRemoveAll,
-                    modifier = Modifier.align(Alignment.End),
-                ) {
+            }
+        },
+        // One button row: the group-wide "Remove all" sits opposite the checkbox-driven Split /
+        // Remove actions (independent of the per-source selection).
+        confirmButton = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(onClick = onRemoveAll) {
                     Text(stringResource(MR.strings.merge_sources_remove_all_action))
                 }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onSplit(selected) },
-                enabled = selected.isNotEmpty(),
-            ) {
-                Text(stringResource(MR.strings.merge_sources_split_action))
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = { onRemoveFromLibrary(selected) },
-                enabled = selected.isNotEmpty(),
-            ) {
-                Text(stringResource(MR.strings.merge_sources_remove_action))
+                Row {
+                    TextButton(
+                        onClick = { onRemoveFromLibrary(selected) },
+                        enabled = selected.isNotEmpty(),
+                    ) {
+                        Text(stringResource(MR.strings.merge_sources_remove_action))
+                    }
+                    TextButton(
+                        onClick = { onSplit(selected) },
+                        enabled = selected.isNotEmpty(),
+                    ) {
+                        Text(stringResource(MR.strings.merge_sources_split_action))
+                    }
+                }
             }
         },
     )
