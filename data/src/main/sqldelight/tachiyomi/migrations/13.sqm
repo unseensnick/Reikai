@@ -1,0 +1,14 @@
+-- RK: taste-profile cache for recommendations (the user's pulled tracker libraries).
+CREATE TABLE taste_library (
+    _id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    tracker_id INTEGER NOT NULL,
+    remote_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    score REAL NOT NULL,
+    status TEXT NOT NULL,
+    tags TEXT NOT NULL,
+    mal_id INTEGER,
+    anilist_id INTEGER,
+    fetched_at INTEGER NOT NULL,
+    UNIQUE(tracker_id, remote_id) ON CONFLICT REPLACE
+);

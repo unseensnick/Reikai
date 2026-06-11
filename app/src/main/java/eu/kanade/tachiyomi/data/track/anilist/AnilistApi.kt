@@ -5,7 +5,9 @@ import androidx.core.net.toUri
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALAddMangaResult
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALCurrentUserResult
+import eu.kanade.tachiyomi.data.track.anilist.dto.ALLibraryEntry
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALOAuth
+import eu.kanade.tachiyomi.data.track.anilist.dto.ALUserLibraryResult
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALSearchResult
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALUserListMangaQueryResult
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
@@ -317,6 +319,47 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
             }
         }
     }
+
+    // RK --> full library pull for the recommendation taste profile (one MediaListCollection call,
+    // genres + tag names inline; scoreRaw as POINT_100 regardless of the user's display format).
+    suspend fun getUserLibrary(userId: Int): List<ALLibraryEntry> {
+        return withIOContext {
+            val query = $$"""
+            |query UserLibrary($userId: Int!) {
+                |MediaListCollection(userId: $userId, type: MANGA) {
+                    |lists {
+                        |entries {
+                            |status
+                            |scoreRaw: score(format: POINT_100)
+                            |media {
+                                |id
+                                |idMal
+                                |title { userPreferred }
+                                |genres
+                                |tags { name }
+                            |}
+                        |}
+                    |}
+                |}
+            |}
+            |
+            """.trimMargin()
+            val payload = buildJsonObject {
+                put("query", query)
+                putJsonObject("variables") {
+                    put("userId", userId)
+                }
+            }
+            with(json) {
+                authClient.newCall(POST(API_URL, body = payload.toString().toRequestBody(jsonMime)))
+                    .awaitSuccess()
+                    .parseAs<ALUserLibraryResult>()
+                    .data.mediaListCollection.lists
+                    .flatMap { it.entries }
+            }
+        }
+    }
+    // RK <--
 
     private fun createDate(dateValue: Long): JsonObject {
         if (dateValue == 0L) {

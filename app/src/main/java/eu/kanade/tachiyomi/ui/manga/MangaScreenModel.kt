@@ -100,7 +100,8 @@ import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.RelatedMangasLoader
-import reikai.domain.recommendation.taste.TasteProfile
+import reikai.domain.recommendation.taste.GetTasteProfile
+import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import uy.kohesive.injekt.Injekt
@@ -142,6 +143,8 @@ class MangaScreenModel(
     private val relatedMangasLoader: RelatedMangasLoader = Injekt.get(),
     private val recommendationPreferences: ReikaiRecommendationPreferences = Injekt.get(),
     private val relatedMangaCache: RelatedMangaCache = Injekt.get(),
+    private val getTasteProfile: GetTasteProfile = Injekt.get(),
+    private val refreshTrackerLibrary: RefreshTrackerLibrary = Injekt.get(),
     private val getFavorites: GetFavorites = Injekt.get(),
     private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
     // RK <--
@@ -1390,6 +1393,9 @@ class MangaScreenModel(
         val state = successState ?: return
         val source = state.source as? CatalogueSource ?: return
         relatedLoadStarted = true
+        // Bootstrap / refresh the taste cache out of band (never on the carousel's critical path);
+        // the profile read below uses whatever is already cached, the pull lands for the next open.
+        screenModelScope.launchIO { refreshTrackerLibrary.refreshIfStale() }
         screenModelScope.launchIO {
             val favoriteKeys = getFavorites.await().mapTo(HashSet()) { it.url to it.source }
             val cached = relatedMangaCache.get(state.manga.id)
@@ -1404,7 +1410,7 @@ class MangaScreenModel(
                 source = source,
                 tracks = getTracks.await(state.manga.id),
                 ranker = recommendationPreferences.buildRanker(),
-                taste = TasteProfile.EMPTY, // R4 wires the real taste profile
+                taste = getTasteProfile.await(),
                 onUpdate = { applyRelated(it, favoriteKeys) },
             )
             relatedMangaCache.put(state.manga.id, pool, pool)

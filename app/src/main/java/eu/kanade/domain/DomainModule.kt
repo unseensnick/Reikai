@@ -25,6 +25,7 @@ import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.domain.track.interactor.RefreshTracks
 import eu.kanade.domain.track.interactor.SyncChapterProgressWithTrack
 import eu.kanade.domain.track.interactor.TrackChapter
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import mihon.data.extension.repository.ExtensionStoreRepositoryImpl
 import mihon.data.extension.service.ExtensionStoreService
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
@@ -41,11 +42,16 @@ import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
 import reikai.domain.library.updateerror.GetLibraryUpdateErrors
 import reikai.domain.library.updateerror.LibraryUpdateErrorRepository
 import reikai.domain.library.updateerror.UpsertLibraryUpdateError
+import reikai.data.recommendation.taste.TasteLibraryRepositoryImpl
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.recommendation.RecommendationsFetcher
 import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangasLoader
+import reikai.domain.recommendation.taste.AnilistLibraryFetcher
 import reikai.domain.recommendation.taste.ComputeTasteProfile
+import reikai.domain.recommendation.taste.GetTasteProfile
+import reikai.domain.recommendation.taste.RefreshTrackerLibrary
+import reikai.domain.recommendation.taste.TasteLibraryRepository
 import tachiyomi.data.category.CategoryRepositoryImpl
 import tachiyomi.data.chapter.ChapterRepositoryImpl
 import tachiyomi.data.history.HistoryRepositoryImpl
@@ -128,6 +134,18 @@ class DomainModule : InjektModule {
         addFactory { ComputeTasteProfile() }
         addFactory { RecommendationsFetcher() }
         addFactory { RelatedMangasLoader(get()) }
+        // RK: taste profile (library pull -> cache -> profile -> ranker)
+        addSingletonFactory<TasteLibraryRepository> { TasteLibraryRepositoryImpl(get()) }
+        addFactory { GetTasteProfile(get(), get()) }
+        addSingletonFactory {
+            val trackerManager = get<TrackerManager>()
+            RefreshTrackerLibrary(
+                fetchers = listOf(
+                    AnilistLibraryFetcher(trackerManager.aniList, get()),
+                ),
+                repository = get(),
+            )
+        }
         // RK <--
         addSingletonFactory<CategoryRepository> { CategoryRepositoryImpl(get()) }
         addFactory { GetCategories(get()) }

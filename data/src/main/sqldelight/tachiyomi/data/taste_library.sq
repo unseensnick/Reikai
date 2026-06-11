@@ -1,0 +1,39 @@
+-- RK: cached snapshot of the user's tracker libraries, reduced into the recommendation taste
+-- profile. One row per (tracker, remote series). Rebuilt by the tracker-library pull; safe to drop.
+CREATE TABLE taste_library (
+    _id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    tracker_id INTEGER NOT NULL,
+    remote_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    score REAL NOT NULL,
+    status TEXT NOT NULL,
+    tags TEXT NOT NULL,
+    mal_id INTEGER,
+    anilist_id INTEGER,
+    fetched_at INTEGER NOT NULL,
+    UNIQUE(tracker_id, remote_id) ON CONFLICT REPLACE
+);
+
+getAll:
+SELECT tracker_id, remote_id, title, score, status, tags, mal_id, anilist_id
+FROM taste_library;
+
+insert:
+INSERT INTO taste_library(tracker_id, remote_id, title, score, status, tags, mal_id, anilist_id, fetched_at)
+VALUES (:trackerId, :remoteId, :title, :score, :status, :tags, :malId, :anilistId, :fetchedAt);
+
+deleteByTracker:
+DELETE FROM taste_library
+WHERE tracker_id = :trackerId;
+
+deleteAll:
+DELETE FROM taste_library;
+
+count:
+SELECT COUNT(*)
+FROM taste_library;
+
+lastFetchByTracker:
+SELECT MAX(fetched_at) AS last_fetch
+FROM taste_library
+WHERE tracker_id = :trackerId;

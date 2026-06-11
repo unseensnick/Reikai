@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.DeletableTracker
+import eu.kanade.tachiyomi.data.track.anilist.dto.ALLibraryEntry
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALOAuth
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.serialization.json.Json
@@ -139,6 +140,13 @@ class Anilist(id: Long) : BaseTracker(id, "AniList"), DeletableTracker {
 
     private suspend fun add(track: Track): Track {
         return api.addLibManga(track)
+    }
+
+    // RK: full library pull for the recommendation taste profile (the AniList user id is stored as
+    // the username). Returns empty when not logged in or the username isn't a numeric id.
+    suspend fun getUserLibrary(): List<ALLibraryEntry> {
+        val userId = getUsername().toIntOrNull() ?: return emptyList()
+        return api.getUserLibrary(userId)
     }
 
     override suspend fun update(track: Track, didReadChapter: Boolean): Track {
