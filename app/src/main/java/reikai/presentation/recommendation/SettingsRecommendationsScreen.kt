@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
+import reikai.data.recommendation.taste.TrackerLibraryRefreshJob
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import tachiyomi.core.common.preference.Preference as PreferenceData
@@ -97,12 +98,25 @@ object SettingsRecommendationsScreen : SearchableSettings {
                 pullToggle(trackerManager.kitsu, prefs.pullLibraryFromKitsu),
                 pullToggle(trackerManager.shikimori, prefs.pullLibraryFromShikimori),
                 pullToggle(trackerManager.bangumi, prefs.pullLibraryFromBangumi),
+                Preference.PreferenceItem.ListPreference(
+                    preference = prefs.trackerLibraryAutoRefreshHours,
+                    entries = mapOf(
+                        0 to stringResource(MR.strings.off),
+                        168 to stringResource(MR.strings.update_weekly),
+                        720 to stringResource(MR.strings.pref_update_monthly),
+                    ),
+                    title = stringResource(MR.strings.pref_tracker_library_auto_refresh),
+                    onValueChanged = {
+                        TrackerLibraryRefreshJob.setupTask(context, it)
+                        true
+                    },
+                ),
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_refresh_now),
                     subtitle = stringResource(MR.strings.pref_refresh_now_summary),
                     onClick = {
                         context.toast(MR.strings.pref_refresh_now_started)
-                        scope.launch { refreshTrackerLibrary.await() }
+                        scope.launch { refreshTrackerLibrary.refreshNow() }
                     },
                 ),
             ),

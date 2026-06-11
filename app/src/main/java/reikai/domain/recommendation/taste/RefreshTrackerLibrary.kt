@@ -23,10 +23,21 @@ class RefreshTrackerLibrary(
     private val repository: TasteLibraryRepository,
 ) {
     private val mutex = Mutex()
+    private var lastManualRefresh = 0L
 
     /** Pull every enabled tracker now, unconditionally. */
     suspend fun await() {
         mutex.withLock { runPull(fetchers.filter { it.isEnabled() }) }
+    }
+
+    /** Manual "refresh now" with a short cooldown so the button can't be spammed. Returns false (and
+     *  does nothing) when pressed again within [cooldownMs]. */
+    suspend fun refreshNow(cooldownMs: Long = MANUAL_COOLDOWN_MS): Boolean {
+        val now = System.currentTimeMillis()
+        if (now - lastManualRefresh < cooldownMs) return false
+        lastManualRefresh = now
+        await()
+        return true
     }
 
     /** Pull only if an enabled tracker has never been pulled or its cache is older than [maxAgeMs].
@@ -59,5 +70,6 @@ class RefreshTrackerLibrary(
 
     companion object {
         private const val DEFAULT_STALE_MS = 6L * 60 * 60 * 1000 // 6h
+        private const val MANUAL_COOLDOWN_MS = 60L * 1000 // 60s
     }
 }

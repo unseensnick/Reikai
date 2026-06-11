@@ -186,6 +186,8 @@
     <string name="pref_include_tracker_recommendations">Tracker recommendations</string>
     <string name="pref_include_tracker_recommendations_summary">Suggest similar manga from your trackers</string>
     <string name="pref_taste_profile">Taste profile</string>
+    <string name="pref_tracker_library_auto_refresh">Auto-refresh library</string>
+    <string name="pref_update_monthly">Monthly</string>
     <string name="pref_refresh_now">Refresh now</string>
     <string name="pref_refresh_now_summary">Pull your tracker libraries now</string>
     <string name="pref_refresh_now_started">Refreshing tracker libraries…</string>
