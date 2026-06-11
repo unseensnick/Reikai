@@ -43,6 +43,7 @@ import reikai.domain.library.updateerror.LibraryUpdateErrorRepository
 import reikai.domain.library.updateerror.UpsertLibraryUpdateError
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.recommendation.RelatedMangaCache
+import reikai.domain.recommendation.RelatedMangasLoader
 import reikai.domain.recommendation.taste.ComputeTasteProfile
 import tachiyomi.data.category.CategoryRepositoryImpl
 import tachiyomi.data.chapter.ChapterRepositoryImpl
@@ -124,6 +125,7 @@ class DomainModule : InjektModule {
         // RK --> recommendations (engine core)
         addSingletonFactory { RelatedMangaCache() }
         addFactory { ComputeTasteProfile() }
+        addFactory { RelatedMangasLoader() }
         // RK <--
         addSingletonFactory<CategoryRepository> { CategoryRepositoryImpl(get()) }
         addFactory { GetCategories(get()) }
