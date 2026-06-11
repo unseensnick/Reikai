@@ -90,9 +90,19 @@ import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
+import eu.kanade.tachiyomi.source.CatalogueSource
+import mihon.domain.manga.model.toDomainManga
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.ChapterAggregation
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.recommendation.RECOMMENDS_SOURCE
+import reikai.domain.recommendation.ReikaiRecommendationPreferences
+import reikai.domain.recommendation.RelatedMangaCache
+import reikai.domain.recommendation.RelatedMangaCandidate
+import reikai.domain.recommendation.RelatedMangasLoader
+import reikai.domain.recommendation.taste.TasteProfile
+import tachiyomi.domain.manga.interactor.GetFavorites
+import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.math.floor
@@ -129,6 +139,11 @@ class MangaScreenModel(
     // RK -->
     private val mergeManager: MangaMergeManager = Injekt.get(),
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
+    private val relatedMangasLoader: RelatedMangasLoader = Injekt.get(),
+    private val recommendationPreferences: ReikaiRecommendationPreferences = Injekt.get(),
+    private val relatedMangaCache: RelatedMangaCache = Injekt.get(),
+    private val getFavorites: GetFavorites = Injekt.get(),
+    private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
     // RK <--
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : StateScreenModel<MangaScreenModel.State>(State.Loading) {
@@ -1281,6 +1296,9 @@ class MangaScreenModel(
     // RK: a grouped source row shown in the Manage sources dialog.
     data class MergeSourceInfo(val mangaId: Long, val sourceName: String, val isCurrent: Boolean)
 
+    // RK: a related-carousel candidate plus whether it already resolves to a favorited library entry.
+    data class RelatedMangaItem(val candidate: RelatedMangaCandidate, val inLibrary: Boolean)
+
     fun dismissDialog() {
         updateSuccessState { it.copy(dialog = null) }
     }
@@ -1362,6 +1380,51 @@ class MangaScreenModel(
         removeSourcesFromLibrary(relatedMangaIds.value.toList())
     }
 
+    // RK --> related-mangas carousel (recommendations)
+    private var relatedLoadStarted = false
+
+    /** Load the related carousel once per screen open. Serves a fresh cache hit instantly; otherwise
+     *  streams source-native related, marking which candidates are already in the library. */
+    fun loadRelatedMangas() {
+        if (relatedLoadStarted) return
+        val state = successState ?: return
+        val source = state.source as? CatalogueSource ?: return
+        relatedLoadStarted = true
+        screenModelScope.launchIO {
+            val favoriteKeys = getFavorites.await().mapTo(HashSet()) { it.url to it.source }
+            val cached = relatedMangaCache.get(state.manga.id)
+            if (cached != null) {
+                applyRelated(cached.fullPool, favoriteKeys)
+                if (relatedMangaCache.isFresh(cached)) return@launchIO
+            } else {
+                updateSuccessState { it.copy(relatedLoading = true) }
+            }
+            val pool = relatedMangasLoader.loadFromSource(
+                manga = state.manga.toSManga(),
+                source = source,
+                ranker = recommendationPreferences.buildRanker(),
+                taste = TasteProfile.EMPTY, // R4 wires the real taste profile
+                onUpdate = { applyRelated(it, favoriteKeys) },
+            )
+            relatedMangaCache.put(state.manga.id, pool, pool)
+            applyRelated(pool, favoriteKeys)
+            updateSuccessState { it.copy(relatedLoading = false) }
+        }
+    }
+
+    private fun applyRelated(pool: List<RelatedMangaCandidate>, favoriteKeys: Set<Pair<String, Long>>) {
+        val items = pool.map { RelatedMangaItem(it, (it.manga.url to it.sourceId) in favoriteKeys) }
+        updateSuccessState { it.copy(relatedItems = items) }
+    }
+
+    /** Resolve a tapped candidate to a local manga id to open, or null for a tracker-origin card
+     *  (whose URL belongs to no installed source) so the caller can route it through global search. */
+    suspend fun resolveRelatedToLocalId(candidate: RelatedMangaCandidate): Long? {
+        if (candidate.sourceId == RECOMMENDS_SOURCE) return null
+        return networkToLocalManga(candidate.manga.toDomainManga(candidate.sourceId)).id
+    }
+    // RK <--
+
     fun showSettingsDialog() {
         updateSuccessState { it.copy(dialog = Dialog.SettingsSheet) }
     }
@@ -1404,6 +1467,9 @@ class MangaScreenModel(
             // RK: per-source metadata for the info box when a chip is active (null = unified -> primary).
             val mergeDisplayManga: Manga? = null,
             val mergeDisplaySource: Source? = null,
+            // RK: related-mangas carousel (recommendations), loaded lazily when the screen opens.
+            val relatedItems: List<RelatedMangaItem> = emptyList(),
+            val relatedLoading: Boolean = false,
             val availableScanlators: Set<String>,
             val excludedScanlators: Set<String>,
             val trackingCount: Int = 0,

@@ -112,6 +112,11 @@ class MangaScreen(
             }
         }
 
+        // RK: load the related-mangas carousel once the screen is open (idempotent per open).
+        LaunchedEffect(successState.manga.id) {
+            screenModel.loadRelatedMangas()
+        }
+
         MangaScreen(
             state = successState,
             snackbarHostState = screenModel.snackbarHostState,
@@ -170,6 +175,17 @@ class MangaScreen(
             // RK: source-switcher chips
             onSelectSource = screenModel::selectSource,
             onSplitSource = { screenModel.splitSources(listOf(it)) },
+            // RK: open a related card; tracker-origin cards (no installed source) go to global search
+            onRelatedClick = { candidate ->
+                scope.launch {
+                    val id = screenModel.resolveRelatedToLocalId(candidate)
+                    if (id != null) {
+                        navigator.push(MangaScreen(id))
+                    } else {
+                        navigator.push(GlobalSearchScreen(candidate.manga.title))
+                    }
+                }
+            },
             onMultiBookmarkClicked = screenModel::bookmarkChapters,
             onMultiMarkAsReadClicked = screenModel::markChaptersRead,
             onMarkPreviousAsReadClicked = screenModel::markPreviousChapterRead,

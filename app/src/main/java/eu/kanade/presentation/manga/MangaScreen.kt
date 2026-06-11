@@ -54,7 +54,9 @@ import eu.kanade.presentation.manga.components.MangaActionRow
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.manga.components.MangaChapterListItem
 import eu.kanade.presentation.manga.components.MangaInfoBox
+import reikai.domain.recommendation.RelatedMangaCandidate // RK
 import reikai.presentation.manga.MergeSourceChips // RK
+import reikai.presentation.recommendation.RelatedMangaCarousel // RK
 import eu.kanade.presentation.manga.components.MangaToolbar
 import eu.kanade.presentation.manga.components.MissingChapterCountListItem
 import eu.kanade.presentation.util.formatChapterNumber
@@ -116,6 +118,8 @@ fun MangaScreen(
     onManageSourcesClicked: (() -> Unit)? = null,
     onSelectSource: (Long?) -> Unit = {},
     onSplitSource: (Long) -> Unit = {},
+    // RK: related-mangas carousel card tap
+    onRelatedClick: (RelatedMangaCandidate) -> Unit = {},
 
     // For bottom action menu
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
@@ -168,6 +172,7 @@ fun MangaScreen(
             onManageSourcesClicked = onManageSourcesClicked,
             onSelectSource = onSelectSource,
             onSplitSource = onSplitSource,
+            onRelatedClick = onRelatedClick,
             onMultiBookmarkClicked = onMultiBookmarkClicked,
             onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
             onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
@@ -207,6 +212,7 @@ fun MangaScreen(
             onManageSourcesClicked = onManageSourcesClicked,
             onSelectSource = onSelectSource,
             onSplitSource = onSplitSource,
+            onRelatedClick = onRelatedClick,
             onMultiBookmarkClicked = onMultiBookmarkClicked,
             onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
             onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
@@ -257,6 +263,8 @@ private fun MangaScreenSmallImpl(
     onManageSourcesClicked: (() -> Unit)? = null,
     onSelectSource: (Long?) -> Unit = {},
     onSplitSource: (Long) -> Unit = {},
+    // RK: related-mangas carousel card tap
+    onRelatedClick: (RelatedMangaCandidate) -> Unit = {},
 
     // For bottom action menu
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
@@ -451,6 +459,15 @@ private fun MangaScreenSmallImpl(
                         }
                     }
 
+                    // RK: related-mangas carousel (recommendations)
+                    item(key = "rk-related-carousel") {
+                        RelatedMangaCarousel(
+                            items = state.relatedItems,
+                            loading = state.relatedLoading,
+                            onClick = onRelatedClick,
+                        )
+                    }
+
                     item(
                         key = MangaScreenItem.CHAPTER_HEADER,
                         contentType = MangaScreenItem.CHAPTER_HEADER,
@@ -521,6 +538,8 @@ fun MangaScreenLargeImpl(
     onManageSourcesClicked: (() -> Unit)? = null,
     onSelectSource: (Long?) -> Unit = {},
     onSplitSource: (Long) -> Unit = {},
+    // RK: related-mangas carousel card tap
+    onRelatedClick: (RelatedMangaCandidate) -> Unit = {},
 
     // For bottom action menu
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
@@ -682,6 +701,12 @@ fun MangaScreenLargeImpl(
                             onTagSearch = onTagSearch,
                             onCopyTagToClipboard = onCopyTagToClipboard,
                             onEditNotes = onEditNotesClicked,
+                        )
+                        // RK: related-mangas carousel in the tablet left info pane (option A)
+                        RelatedMangaCarousel(
+                            items = state.relatedItems,
+                            loading = state.relatedLoading,
+                            onClick = onRelatedClick,
                         )
                     }
                 },
