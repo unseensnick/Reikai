@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.system.isDebugBuildType
 // RK -->
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.recommendation.ReikaiRecommendationPreferences
 // RK <--
 import tachiyomi.core.common.preference.AndroidPreferenceStore
 import tachiyomi.core.common.preference.PreferenceStore
@@ -53,6 +54,9 @@ class PreferenceModule(val app: Application) : InjektModule {
         // RK -->
         addSingletonFactory {
             ReikaiLibraryPreferences(get())
+        }
+        addSingletonFactory {
+            ReikaiRecommendationPreferences(get())
         }
         // RK <--
         addSingletonFactory {
