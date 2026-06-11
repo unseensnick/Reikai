@@ -3,7 +3,9 @@ package eu.kanade.tachiyomi.data.track.bangumi
 import android.net.Uri
 import androidx.core.net.toUri
 import eu.kanade.tachiyomi.data.database.models.Track
+import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMCollectionItem
 import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMCollectionResponse
+import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMCollectionsResult
 import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMOAuth
 import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMSearchResult
 import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMUser
@@ -164,7 +166,38 @@ class BangumiApi(
         }
     }
 
+    // RK --> full library pull for the recommendation taste profile. Pages the user's manga
+    // collections (subject_type=1) with subject tags inline, 50/entry.
+    suspend fun getUserLibrary(username: String): List<BGMCollectionItem> {
+        return withIOContext {
+            val results = mutableListOf<BGMCollectionItem>()
+            var offset = 0
+            while (true) {
+                val page = fetchCollectionsPage(username, offset)
+                results += page.data
+                offset += COLLECTIONS_PAGE_LIMIT
+                if (page.data.isEmpty() || offset >= page.total) break
+            }
+            results
+        }
+    }
+
+    private suspend fun fetchCollectionsPage(username: String, offset: Int): BGMCollectionsResult {
+        val url = "$API_URL/v0/users/$username/collections".toUri().buildUpon()
+            .appendQueryParameter("subject_type", "1")
+            .appendQueryParameter("limit", COLLECTIONS_PAGE_LIMIT.toString())
+            .appendQueryParameter("offset", offset.toString())
+            .build()
+        return with(json) {
+            authClient.newCall(GET(url.toString())).awaitSuccess().parseAs<BGMCollectionsResult>()
+        }
+    }
+    // RK <--
+
     companion object {
+        // RK: Bangumi collections page size for the taste-profile pull.
+        private const val COLLECTIONS_PAGE_LIMIT = 50
+
         private const val CLIENT_ID = "bgm291665acbd06a4c28"
         private const val CLIENT_SECRET = "43e5ce36b207de16e5d3cfd3e79118db"
 

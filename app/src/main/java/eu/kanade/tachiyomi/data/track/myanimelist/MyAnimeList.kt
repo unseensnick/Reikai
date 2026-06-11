@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.DeletableTracker
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
+import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALLibraryItem
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALOAuth
 import kotlinx.serialization.json.Json
 import tachiyomi.i18n.MR
@@ -33,6 +34,9 @@ class MyAnimeList(id: Long) : BaseTracker(id, "MyAnimeList"), DeletableTracker {
 
     private val interceptor by lazy { MyAnimeListInterceptor(this) }
     private val api by lazy { MyAnimeListApi(id, client, interceptor) }
+
+    // RK: full library pull for the recommendation taste profile.
+    suspend fun getUserLibrary(): List<MALLibraryItem> = api.getUserLibrary()
 
     override val supportsReadingDates: Boolean = true
 

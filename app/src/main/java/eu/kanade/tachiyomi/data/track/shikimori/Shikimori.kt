@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.DeletableTracker
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMOAuth
+import eu.kanade.tachiyomi.data.track.shikimori.dto.SMUserRate
 import kotlinx.serialization.json.Json
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
@@ -31,6 +32,9 @@ class Shikimori(id: Long) : BaseTracker(id, "Shikimori"), DeletableTracker {
     private val interceptor by lazy { ShikimoriInterceptor(this) }
 
     private val api by lazy { ShikimoriApi(id, client, interceptor) }
+
+    // RK: full library pull for the recommendation taste profile.
+    suspend fun getUserLibrary(): List<SMUserRate> = api.getUserLibrary(api.getCurrentUser())
 
     override fun getScoreList(): List<String> = SCORE_LIST
 

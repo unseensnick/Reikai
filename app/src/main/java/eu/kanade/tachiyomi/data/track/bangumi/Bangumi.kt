@@ -4,6 +4,7 @@ import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
+import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMCollectionItem
 import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMOAuth
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.serialization.json.Json
@@ -18,6 +19,9 @@ class Bangumi(id: Long) : BaseTracker(id, "Bangumi") {
     private val interceptor by lazy { BangumiInterceptor(this) }
 
     private val api by lazy { BangumiApi(id, client, interceptor) }
+
+    // RK: full library pull for the recommendation taste profile.
+    suspend fun getUserLibrary(): List<BGMCollectionItem> = api.getUserLibrary(api.getUsername())
 
     override val supportsPrivateTracking: Boolean = true
 

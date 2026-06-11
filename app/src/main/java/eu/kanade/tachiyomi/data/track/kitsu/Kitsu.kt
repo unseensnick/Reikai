@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.DeletableTracker
+import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuLibraryEntry
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuOAuth
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.serialization.json.Json
@@ -32,6 +33,9 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
     private val interceptor by lazy { KitsuInterceptor(this) }
 
     private val api by lazy { KitsuApi(client, interceptor) }
+
+    // RK: full library pull for the recommendation taste profile.
+    suspend fun getUserLibrary(): List<KitsuLibraryEntry> = api.getUserLibrary(api.getCurrentUser())
 
     override fun getLogo() = R.drawable.brand_kitsu
 

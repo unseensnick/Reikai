@@ -9,6 +9,8 @@ import eu.kanade.tachiyomi.data.track.shikimori.dto.SMManga
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMOAuth
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMUser
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMUserListEntry
+import eu.kanade.tachiyomi.data.track.shikimori.dto.SMUserRate
+import eu.kanade.tachiyomi.data.track.shikimori.dto.SMUserRatesResponse
 import eu.kanade.tachiyomi.network.DELETE
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
@@ -132,6 +134,42 @@ class ShikimoriApi(
         }
     }
 
+    // RK --> full library pull for the recommendation taste profile via GraphQL userRates (genres
+    // inline; the v2 REST user_rates has none), paged 50/entry through the authed client (+ app UA).
+    suspend fun getUserLibrary(userId: Int): List<SMUserRate> {
+        return withIOContext {
+            val results = mutableListOf<SMUserRate>()
+            var page = 1
+            while (true) {
+                val rates = fetchUserRatesPage(userId, page)
+                results += rates
+                if (rates.size < USER_RATES_PAGE_LIMIT) break
+                page++
+            }
+            results
+        }
+    }
+
+    private suspend fun fetchUserRatesPage(userId: Int, page: Int): List<SMUserRate> {
+        val query = """
+            |query {
+            |  userRates(userId: $userId, targetType: Manga, page: $page, limit: $USER_RATES_PAGE_LIMIT) {
+            |    score
+            |    status
+            |    manga { id name genres { name } }
+            |  }
+            |}
+        """.trimMargin()
+        val payload = buildJsonObject { put("query", query) }
+        return with(json) {
+            authClient.newCall(POST("$BASE_URL/api/graphql", body = payload.toString().toRequestBody(jsonMime)))
+                .awaitSuccess()
+                .parseAs<SMUserRatesResponse>()
+                .data.userRates
+        }
+    }
+    // RK <--
+
     suspend fun accessToken(code: String): SMOAuth {
         return withIOContext {
             with(json) {
@@ -156,6 +194,9 @@ class ShikimoriApi(
     companion object {
         const val BASE_URL = "https://shikimori.one"
         private const val API_URL = "$BASE_URL/api"
+
+        // RK: Shikimori GraphQL caps userRates at 50 per page.
+        private const val USER_RATES_PAGE_LIMIT = 50
         private const val OAUTH_URL = "$BASE_URL/oauth/token"
         private const val LOGIN_URL = "$BASE_URL/oauth/authorize"
 

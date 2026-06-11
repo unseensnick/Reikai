@@ -4,6 +4,8 @@ import android.net.Uri
 import androidx.core.net.toUri
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
+import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALLibraryItem
+import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALLibraryResult
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALListItem
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALListItemStatus
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALManga
@@ -211,6 +213,42 @@ class MyAnimeListApi(
         }
     }
 
+    // RK --> full library pull for the recommendation taste profile. Pages /users/@me/mangalist with
+    // genres + list_status inline (one node-field request per page, never per title).
+    suspend fun getUserLibrary(): List<MALLibraryItem> {
+        return withIOContext {
+            val results = mutableListOf<MALLibraryItem>()
+            var offset = 0
+            while (true) {
+                val page = getLibraryPage(offset)
+                results += page.data
+                if (page.paging.next.isNullOrBlank()) break
+                offset += LIST_PAGINATION_AMOUNT
+            }
+            results
+        }
+    }
+
+    private suspend fun getLibraryPage(offset: Int): MALLibraryResult {
+        val urlBuilder = "$BASE_API_URL/users/@me/mangalist".toUri().buildUpon()
+            .appendQueryParameter("fields", LIBRARY_FIELDS)
+            .appendQueryParameter("limit", LIST_PAGINATION_AMOUNT.toString())
+            .appendQueryParameter("nsfw", "true")
+        if (offset > 0) {
+            urlBuilder.appendQueryParameter("offset", offset.toString())
+        }
+        val request = Request.Builder()
+            .url(urlBuilder.build().toString())
+            .get()
+            .build()
+        return with(json) {
+            authClient.newCall(request)
+                .awaitSuccess()
+                .parseAs()
+        }
+    }
+    // RK <--
+
     private fun parseMangaItem(listStatus: MALListItemStatus, track: Track): Track {
         return track.apply {
             val isRereading = listStatus.isRereading
@@ -268,6 +306,9 @@ class MyAnimeListApi(
 
         private const val SEARCH_FIELDS =
             "id,title,synopsis,num_chapters,mean,main_picture,status,media_type,start_date,authors{first_name,last_name}"
+
+        // RK: genres + reading status inline for the taste-profile library pull.
+        private const val LIBRARY_FIELDS = "list_status,genres"
 
         private const val LIST_PAGINATION_AMOUNT = 250
 

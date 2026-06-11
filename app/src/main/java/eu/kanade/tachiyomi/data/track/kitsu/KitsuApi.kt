@@ -5,6 +5,8 @@ import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuAddMangaResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuAlgoliaSearchResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuCurrentUserResult
+import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuLibraryEntry
+import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuLibraryResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuListSearchResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuOAuth
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuSearchResult
@@ -242,8 +244,81 @@ class KitsuApi(private val client: OkHttpClient, interceptor: KitsuInterceptor) 
         }
     }
 
+    // RK --> full library pull for the recommendation taste profile. JSON:API `/library-entries`
+    // with categories (tags) + mappings (cross-tracker ids) side-loaded inline, paged via links.next.
+    suspend fun getUserLibrary(userId: String): List<KitsuLibraryEntry> {
+        return withIOContext {
+            val accumulated = mutableListOf<KitsuLibraryEntry>()
+            var nextUrl: String? = buildInitialLibraryUrl(userId)
+            while (nextUrl != null) {
+                val url = nextUrl
+                val page = with(json) {
+                    authClient.newCall(GET(url)).awaitSuccess().parseAs<KitsuLibraryResult>()
+                }
+                accumulated += resolveLibraryPage(page)
+                nextUrl = page.links.next
+            }
+            accumulated
+        }
+    }
+
+    private fun buildInitialLibraryUrl(userId: String): String {
+        // No `filter[kind]=manga` (silently zeroes this API revision) and no `fields[...]` sparse
+        // fieldsets (they strip the relationships block we need to link entries to manga). Anime
+        // entries are dropped by the resolver via their null manga relationship instead.
+        return "${BASE_URL}library-entries".toUri().buildUpon()
+            .encodedQuery(
+                "filter[user_id]=$userId" +
+                    "&include=manga,manga.categories,manga.mappings" +
+                    "&page[limit]=500",
+            )
+            .build()
+            .toString()
+    }
+
+    private fun resolveLibraryPage(page: KitsuLibraryResult): List<KitsuLibraryEntry> {
+        val mangaById = page.included.filter { it.type == "manga" }.associateBy { it.id }
+        val categoryTitleById = page.included
+            .filter { it.type == "categories" }
+            .associate { it.id to it.attributes.title.orEmpty() }
+        val malIdByMappingId = HashMap<Long, Long>()
+        val anilistIdByMappingId = HashMap<Long, Long>()
+        for (mapping in page.included) {
+            if (mapping.type != "mappings") continue
+            val external = mapping.attributes.externalId?.toLongOrNull() ?: continue
+            when (mapping.attributes.externalSite) {
+                MAL_MAPPING_SITE -> malIdByMappingId[mapping.id] = external
+                ANILIST_MAPPING_SITE -> anilistIdByMappingId[mapping.id] = external
+            }
+        }
+
+        return page.data.mapNotNull { row ->
+            val mangaId = row.relationships.manga?.data?.id ?: return@mapNotNull null
+            val manga = mangaById[mangaId] ?: return@mapNotNull null
+            val tags = manga.relationships?.categories?.data
+                ?.mapNotNull { categoryTitleById[it.id] }
+                ?.filter { it.isNotEmpty() }
+                .orEmpty()
+            val mappingRefs = manga.relationships?.mappings?.data.orEmpty()
+            KitsuLibraryEntry(
+                mangaId = mangaId,
+                title = manga.attributes.canonicalTitle.orEmpty(),
+                status = row.attributes.status,
+                ratingTwenty = row.attributes.ratingTwenty,
+                tags = tags,
+                malId = mappingRefs.firstNotNullOfOrNull { malIdByMappingId[it.id] },
+                anilistId = mappingRefs.firstNotNullOfOrNull { anilistIdByMappingId[it.id] },
+            )
+        }
+    }
+    // RK <--
+
     companion object {
         private const val CLIENT_ID = "dd031b32d2f56c990b1425efe6c42ad847e7fe3ab46bf1299f05ecd856bdb7dd"
+
+        // RK: external-site slugs for resolving cross-tracker ids from a manga's mappings.
+        private const val MAL_MAPPING_SITE = "myanimelist/manga"
+        private const val ANILIST_MAPPING_SITE = "anilist/manga"
         private const val CLIENT_SECRET = "54d7307928f63414defd96399fc31ba847961ceaecef3a5fd93144e960c0e151"
 
         private const val BASE_URL = "https://kitsu.app/api/edge/"

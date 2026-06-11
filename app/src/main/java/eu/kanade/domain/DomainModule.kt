@@ -48,9 +48,13 @@ import reikai.domain.recommendation.RecommendationsFetcher
 import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangasLoader
 import reikai.domain.recommendation.taste.AnilistLibraryFetcher
+import reikai.domain.recommendation.taste.BangumiLibraryFetcher
 import reikai.domain.recommendation.taste.ComputeTasteProfile
 import reikai.domain.recommendation.taste.GetTasteProfile
+import reikai.domain.recommendation.taste.KitsuLibraryFetcher
+import reikai.domain.recommendation.taste.MyAnimeListLibraryFetcher
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
+import reikai.domain.recommendation.taste.ShikimoriLibraryFetcher
 import reikai.domain.recommendation.taste.TasteLibraryRepository
 import tachiyomi.data.category.CategoryRepositoryImpl
 import tachiyomi.data.chapter.ChapterRepositoryImpl
@@ -142,6 +146,10 @@ class DomainModule : InjektModule {
             RefreshTrackerLibrary(
                 fetchers = listOf(
                     AnilistLibraryFetcher(trackerManager.aniList, get()),
+                    MyAnimeListLibraryFetcher(trackerManager.myAnimeList, get()),
+                    KitsuLibraryFetcher(trackerManager.kitsu, get()),
+                    ShikimoriLibraryFetcher(trackerManager.shikimori, get()),
+                    BangumiLibraryFetcher(trackerManager.bangumi, get()),
                 ),
                 repository = get(),
             )
