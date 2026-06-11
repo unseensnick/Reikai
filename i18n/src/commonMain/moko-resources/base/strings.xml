@@ -179,6 +179,22 @@
     <string name="pref_preferred_sources_guide">Higher-ranked sources lead a merged series\' combined chapter list. Unranked sources fall back to the one with the most chapters.</string>
     <string name="pref_preferred_sources_empty">No preferred sources yet. Add one below to rank it.</string>
     <string name="pref_preferred_sources_add">Add a source</string>
+    <!-- RK: recommendations settings -->
+    <string name="pref_recommendations">Recommendations</string>
+    <string name="pref_recommendations_summary">Related-manga suggestions and taste profile</string>
+    <string name="pref_recommendation_sources">Sources</string>
+    <string name="pref_include_tracker_recommendations">Tracker recommendations</string>
+    <string name="pref_include_tracker_recommendations_summary">Suggest similar manga from your trackers</string>
+    <string name="pref_taste_profile">Taste profile</string>
+    <string name="pref_taste_profile_login_required">Log in to a tracker to use it as a taste source</string>
+    <string name="pref_refresh_now">Refresh now</string>
+    <string name="pref_refresh_now_summary">Pull your tracker libraries now</string>
+    <string name="pref_refresh_now_started">Refreshing tracker libraries…</string>
+    <string name="pref_recommendation_reranking">Reranking</string>
+    <string name="pref_enable_recommendation_rerank">Rerank by taste</string>
+    <string name="pref_enable_recommendation_rerank_summary">Reorder suggestions toward your taste profile</string>
+    <string name="pref_recommendation_style">Recommendation style</string>
+    <string name="pref_serendipity">Serendipity</string>
     <string name="action_install">Install</string>
     <string name="action_share">Share</string>
     <string name="action_save">Save</string>

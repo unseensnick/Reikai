@@ -22,6 +22,7 @@ import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import kotlinx.coroutines.launch
 import reikai.presentation.library.preferredsources.PreferredSourcesScreen
+import reikai.presentation.recommendation.SettingsRecommendationsScreen
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.ResetCategoryFlags
 import tachiyomi.domain.category.model.Category
@@ -73,6 +74,11 @@ object SettingsLibraryScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_preferred_sources),
                     subtitle = stringResource(MR.strings.pref_preferred_sources_summary),
                     onClick = { navigator.push(PreferredSourcesScreen()) },
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.pref_recommendations),
+                    subtitle = stringResource(MR.strings.pref_recommendations_summary),
+                    onClick = { navigator.push(SettingsRecommendationsScreen) },
                 ),
             ),
         )

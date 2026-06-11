@@ -102,6 +102,7 @@ import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.RelatedMangasLoader
 import reikai.domain.recommendation.taste.GetTasteProfile
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
+import reikai.domain.recommendation.taste.TasteProfile
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import uy.kohesive.injekt.Injekt
@@ -1410,7 +1411,12 @@ class MangaScreenModel(
                 source = source,
                 tracks = getTracks.await(state.manga.id),
                 ranker = recommendationPreferences.buildRanker(),
-                taste = getTasteProfile.await(),
+                // Rerank off -> empty profile, which collapses the ranker to popularity order.
+                taste = if (recommendationPreferences.enableRecommendationRerank.get()) {
+                    getTasteProfile.await()
+                } else {
+                    TasteProfile.EMPTY
+                },
                 onUpdate = { applyRelated(it, favoriteKeys) },
             )
             relatedMangaCache.put(state.manga.id, pool, pool)
