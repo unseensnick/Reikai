@@ -1399,9 +1399,10 @@ class MangaScreenModel(
             } else {
                 updateSuccessState { it.copy(relatedLoading = true) }
             }
-            val pool = relatedMangasLoader.loadFromSource(
+            val pool = relatedMangasLoader.load(
                 manga = state.manga.toSManga(),
                 source = source,
+                tracks = getTracks.await(state.manga.id),
                 ranker = recommendationPreferences.buildRanker(),
                 taste = TasteProfile.EMPTY, // R4 wires the real taste profile
                 onUpdate = { applyRelated(it, favoriteKeys) },

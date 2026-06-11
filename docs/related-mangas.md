@@ -34,6 +34,8 @@ Three public tracker endpoints, each running without a tracker sign-in:
 
 Per tracker: if you already have a track entry for the current manga, the existing remote id is used directly. Otherwise a title-search resolves the id first, then the recommendation fetch runs. So tracker-backed recommendations work even on untracked manga.
 
+> **Implementation note (alt-title dedup).** Only AniList recommendations currently carry alternative titles (romaji / english / native / synonyms) into the dedup keying. Jikan (MyAnimeList), MangaUpdates, and Shikimori recommendations dedup on their primary title only: their response DTOs don't parse alternative titles yet, so a tracker listing a series under an English title while a source lists the romaji can still produce two cards. The title normalizer (accents, fullwidth, punctuation, case) covers most collisions; full synonym parsing for these three was deferred from R2c. Revisit if duplicate tracker cards show up in practice.
+
 ### 4. Tag search on current source *(Reikai)*
 
 Your top three taste-profile tags (see [Taste profile](#taste-profile) below) run as searches against the current source. Stays on the current source — no source-switching while reading. Limitation: depends on the source supporting tag-style search; on sources that only do title search this contributes nothing.
