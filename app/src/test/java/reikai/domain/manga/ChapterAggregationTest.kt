@@ -90,6 +90,32 @@ class ChapterAggregationTest {
     }
 
     @Test
+    fun `collapses the same number stored as a float in one source and a double in another`() {
+        // The source API stores chapter_number as a 32-bit float, so a source that reports a number
+        // hands back 1.1f (widened: 1.10000002384...), while ChapterRecognition yields the exact
+        // double 1.1. These differ by ~2.4e-8 and must still dedup to one row.
+        val floatOrigin = listOf(chapter(1L, 1.0), chapter(1L, 1.1f.toDouble()), chapter(1L, 1.2f.toDouble()))
+        val doubleOrigin = listOf(chapter(2L, 1.0), chapter(2L, 1.1), chapter(2L, 1.2))
+
+        val unified = ChapterAggregation.aggregate(mapOf(1L to floatOrigin, 2L to doubleOrigin))
+
+        // One row per logical number despite the float/double representation gap.
+        unified.size shouldBe 3
+        unified.map { it.chapterNumber.toFloat() }.sorted() shouldBe listOf(1.0f, 1.1f, 1.2f)
+    }
+
+    @Test
+    fun `keeps genuinely distinct sub-chapters that a coarse round would merge`() {
+        // A 0.005-offset source must not collapse 1.005 into 1.0; float narrowing keeps them apart.
+        val trunk = listOf(chapter(1L, 1.0), chapter(1L, 2.0))
+        val offset = listOf(chapter(2L, 1.005), chapter(2L, 1.1))
+
+        val unified = ChapterAggregation.aggregate(mapOf(1L to trunk, 2L to offset))
+
+        unified.numbers() shouldBe listOf(1.0, 1.005, 1.1, 2.0)
+    }
+
+    @Test
     fun `single source returns its chapters unchanged`() {
         val only = listOf(chapter(1L, 1.0, "A"), chapter(1L, 1.0, "B"), chapter(1L, -1.0))
 

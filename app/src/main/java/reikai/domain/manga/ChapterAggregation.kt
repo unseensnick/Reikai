@@ -20,6 +20,14 @@ import tachiyomi.domain.chapter.model.Chapter
  * its own [Chapter.mangaId], so the caller can read a chapter from its origin source. Output is
  * unsorted: callers apply their own sort.
  *
+ * **Dedup key is the chapter number narrowed to [Float].** The source API stores
+ * `SChapter.chapter_number` as a 32-bit float, so a source that reports a number hands back e.g.
+ * `1.1f` (≈ 1.10000002384), while a source that doesn't falls through to [ChapterRecognition], which
+ * parses in [Double] and yields exact `1.1`. Those differ by ~2.4e-8, so an exact-double key would
+ * leave the same logical chapter duplicated across sources. Narrowing both to [Float] snaps them
+ * onto one grid (`1.1.toFloat() == 1.1f`) while keeping real sub-chapters (`x.005`, `x.1`, `x.2`)
+ * distinct, since their spacing is far wider than a float ULP at realistic chapter magnitudes.
+ *
  * Stateless and side-effect-free so it can be unit-tested in isolation.
  */
 object ChapterAggregation {
@@ -58,15 +66,16 @@ object ChapterAggregation {
             )
 
         val unified = mutableListOf<Chapter>()
-        val seenNumbers = HashSet<Double>()
+        val seenNumbers = HashSet<Float>()
         ranked.forEachIndexed { index, source ->
             val isTrunk = index == 0
             for (chapter in source.chapters) {
                 when {
                     // One row per recognized number across the whole group: add() returns false when
                     // the number is already covered, collapsing scanlator variants and any number an
-                    // earlier source already supplied.
-                    chapter.isRecognizedNumber -> if (seenNumbers.add(chapter.chapterNumber)) unified.add(chapter)
+                    // earlier source already supplied. Narrowed to Float so a float-origin and a
+                    // double-origin "1.1" key to the same value (see the class doc).
+                    chapter.isRecognizedNumber -> if (seenNumbers.add(chapter.chapterNumber.toFloat())) unified.add(chapter)
                     // Unrecognized numbers can't be matched, so keep only the trunk's.
                     isTrunk -> unified.add(chapter)
                 }
@@ -78,7 +87,7 @@ object ChapterAggregation {
     private fun distinctRecognizedCount(chapters: List<Chapter>): Int =
         chapters.asSequence()
             .filter { it.isRecognizedNumber }
-            .map { it.chapterNumber }
+            .map { it.chapterNumber.toFloat() }
             .distinct()
             .count()
 
