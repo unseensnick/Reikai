@@ -2,6 +2,7 @@ package reikai.domain.recommendation
 
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.SManga
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -46,8 +47,11 @@ class RelatedMangasLoader(
                 source.getRelatedMangaList(
                     manga = manga,
                     exceptionHandler = { e ->
-                        // One keyword search failing must not kill the carousel; the rest still populate it.
-                        logcat(LogPriority.WARN, e) { "Related-mangas keyword search failed" }
+                        // One keyword search failing must not kill the carousel; the rest still populate
+                        // it. A cancellation (screen closed) isn't a real failure, so don't log it.
+                        if (e !is CancellationException) {
+                            logcat(LogPriority.WARN, e) { "Related-mangas keyword search failed" }
+                        }
                     },
                     pushResults = { (_, mangas), _ ->
                         val candidates = mangas.map { m ->

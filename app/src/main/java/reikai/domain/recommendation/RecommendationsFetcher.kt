@@ -3,6 +3,7 @@ package reikai.domain.recommendation
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.interceptor.rateLimitHost
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -78,11 +79,17 @@ class RecommendationsFetcher(
         runCatching { withTimeout(REQUEST_TIMEOUT) { provider.fetch(remoteId, title) } }
             .onSuccess { results -> if (results.isNotEmpty()) pushResults(results) }
             .onFailure { e ->
-                // A slow tracker is silently dropped so it can't gate the carousel; real errors are
-                // logged and surfaced (one tracker failing never blocks the others).
-                if (e !is TimeoutCancellationException) {
-                    logcat(LogPriority.WARN, e) { "Tracker recommendations fetch failed (${provider.trackerName})" }
-                    exceptionHandler(e)
+                when (e) {
+                    // A slow tracker is dropped silently so it can't gate the carousel.
+                    is TimeoutCancellationException -> Unit
+                    // A real cancellation (screen closed) must propagate, not be swallowed/logged as a
+                    // failure, so structured concurrency unwinds cleanly.
+                    is CancellationException -> throw e
+                    // One tracker erroring never blocks the others; log and surface it.
+                    else -> {
+                        logcat(LogPriority.WARN, e) { "Tracker recommendations fetch failed (${provider.trackerName})" }
+                        exceptionHandler(e)
+                    }
                 }
             }
     }
