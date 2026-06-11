@@ -163,6 +163,11 @@ object SettingsRecommendationsScreen : SearchableSettings {
             title = stringResource(MR.strings.pref_recommendation_filters),
             preferenceItems = listOf(
                 Preference.PreferenceItem.SwitchPreference(
+                    preference = prefs.hideInLibraryRecommendations,
+                    title = stringResource(MR.strings.pref_hide_in_library_recommendations),
+                    subtitle = stringResource(MR.strings.pref_hide_in_library_recommendations_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.hideTrackedReadingCompleted,
                     title = stringResource(MR.strings.pref_hide_tracked_reading_completed),
                     subtitle = stringResource(MR.strings.pref_recommendation_filters_summary),

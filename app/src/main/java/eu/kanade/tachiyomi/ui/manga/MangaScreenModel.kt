@@ -102,6 +102,7 @@ import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.RelatedMangasLoader
+import reikai.domain.recommendation.TitleNormalizer
 import reikai.domain.recommendation.taste.GetTasteProfile
 import reikai.domain.recommendation.taste.LocalTrackStatusMapper
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
@@ -1406,11 +1407,11 @@ class MangaScreenModel(
         screenModelScope.launchIO {
             val favorites = getFavorites.await()
             val favoriteKeys = favorites.mapTo(HashSet()) { it.url to it.source }
-            // Anti-echo filter: library entries to hide by tracker status (empty = no filter on).
-            val hiddenKeys = computeHiddenFavoriteKeys(favorites)
+            // Anti-echo: normalized titles of library entries to drop from suggestions (empty = off).
+            val hiddenTitleKeys = computeHiddenTitleKeys(favorites)
             val cached = relatedMangaCache.get(state.manga.id)
             if (cached != null) {
-                applyRelated(cached.fullPool, favoriteKeys, hiddenKeys)
+                applyRelated(cached.fullPool, favoriteKeys, hiddenTitleKeys)
                 if (relatedMangaCache.isFresh(cached)) return@launchIO
             } else {
                 updateSuccessState { it.copy(relatedLoading = true) }
@@ -1426,10 +1427,10 @@ class MangaScreenModel(
                 } else {
                     TasteProfile.EMPTY
                 },
-                onUpdate = { applyRelated(it, favoriteKeys, hiddenKeys) },
+                onUpdate = { applyRelated(it, favoriteKeys, hiddenTitleKeys) },
             )
             relatedMangaCache.put(state.manga.id, pool, pool)
-            applyRelated(pool, favoriteKeys, hiddenKeys)
+            applyRelated(pool, favoriteKeys, hiddenTitleKeys)
             updateSuccessState { it.copy(relatedLoading = false) }
         }
     }
@@ -1437,22 +1438,27 @@ class MangaScreenModel(
     private fun applyRelated(
         pool: List<RelatedMangaCandidate>,
         favoriteKeys: Set<Pair<String, Long>>,
-        hiddenKeys: Set<Pair<String, Long>>,
+        hiddenTitleKeys: Set<String>,
     ) {
         val items = pool
-            .filterNot { (it.manga.url to it.sourceId) in hiddenKeys }
+            .filterNot { candidate -> candidate.titleKeys().any { it in hiddenTitleKeys } }
             .map { RelatedMangaItem(it, (it.manga.url to it.sourceId) in favoriteKeys) }
         updateSuccessState { it.copy(relatedItems = items) }
     }
 
-    /** Library entries whose tracker status matches an enabled anti-echo filter pref. Empty (so the
-     *  carousel keeps every in-library item, badged) when no hide filter is on. */
-    private suspend fun computeHiddenFavoriteKeys(favorites: List<Manga>): Set<Pair<String, Long>> {
-        val hideReadingCompleted = recommendationPreferences.hideTrackedReadingCompleted.get()
-        val hideDropped = recommendationPreferences.hideTrackedDropped.get()
-        val hideOnHold = recommendationPreferences.hideTrackedOnHold.get()
-        val hidePlanToRead = recommendationPreferences.hideTrackedPlanToRead.get()
-        if (!(hideReadingCompleted || hideDropped || hideOnHold || hidePlanToRead)) return emptySet()
+    /** Normalized titles of library entries to drop from suggestions, so a candidate is matched to a
+     *  library manga across sources/trackers (by title, not url). Includes every library entry when
+     *  "hide in library" is on, plus any entry whose tracker status matches an enabled status filter.
+     *  Empty (carousel keeps everything, badged) when no filter is on. */
+    private suspend fun computeHiddenTitleKeys(favorites: List<Manga>): Set<String> {
+        val prefs = recommendationPreferences
+        val hideInLibrary = prefs.hideInLibraryRecommendations.get()
+        val hideReadingCompleted = prefs.hideTrackedReadingCompleted.get()
+        val hideDropped = prefs.hideTrackedDropped.get()
+        val hideOnHold = prefs.hideTrackedOnHold.get()
+        val hidePlanToRead = prefs.hideTrackedPlanToRead.get()
+        val statusFiltersOn = hideReadingCompleted || hideDropped || hideOnHold || hidePlanToRead
+        if (!hideInLibrary && !statusFiltersOn) return emptySet()
 
         val hiddenStatuses = buildSet {
             if (hideReadingCompleted) { add(TrackStatus.READING); add(TrackStatus.COMPLETED) }
@@ -1460,12 +1466,17 @@ class MangaScreenModel(
             if (hideOnHold) add(TrackStatus.ON_HOLD)
             if (hidePlanToRead) add(TrackStatus.PLAN_TO_READ)
         }
-        val tracksByManga = getTracksPerManga.subscribe().first()
-        return favorites
-            .filter { manga ->
-                tracksByManga[manga.id].orEmpty().any { localTrackStatusMapper.map(it) in hiddenStatuses }
-            }
-            .mapTo(HashSet()) { it.url to it.source }
+        val tracksByManga = if (statusFiltersOn) getTracksPerManga.subscribe().first() else emptyMap()
+
+        val hiddenKeys = HashSet<String>()
+        for (manga in favorites) {
+            val hide = hideInLibrary || (
+                statusFiltersOn &&
+                    tracksByManga[manga.id].orEmpty().any { localTrackStatusMapper.map(it) in hiddenStatuses }
+                )
+            if (hide) TitleNormalizer.normalize(manga.title).takeIf { it.isNotEmpty() }?.let { hiddenKeys += it }
+        }
+        return hiddenKeys
     }
 
     /** Resolve a tapped candidate to a local manga id to open, or null for a tracker-origin card

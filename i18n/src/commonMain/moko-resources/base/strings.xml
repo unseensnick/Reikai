@@ -197,6 +197,8 @@
     <string name="pref_recommendation_style">Recommendation style</string>
     <string name="pref_serendipity">Serendipity</string>
     <string name="pref_recommendation_filters">Filters</string>
+    <string name="pref_hide_in_library_recommendations">Hide manga already in my library</string>
+    <string name="pref_hide_in_library_recommendations_summary">Drop suggestions that match a library entry, matched by title across sources and trackers</string>
     <string name="pref_recommendation_filters_summary">Hide already-tracked manga from suggestions by their status</string>
     <string name="pref_hide_tracked_reading_completed">Hide reading &amp; completed</string>
     <string name="pref_hide_tracked_dropped">Hide dropped</string>

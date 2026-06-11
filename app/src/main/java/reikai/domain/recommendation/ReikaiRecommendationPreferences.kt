@@ -85,7 +85,12 @@ class ReikaiRecommendationPreferences(
 
     // endregion
 
-    // region Filters (hide tracker-origin candidates the user already tracks)
+    // region Filters (hide already-tracked / in-library candidates from suggestions)
+
+    /** Hide any suggestion that matches a manga already in the library (by normalized title),
+     *  regardless of tracking. The simplest declutter; independent of the status filters below. */
+    val hideInLibraryRecommendations: Preference<Boolean> =
+        preferenceStore.getBoolean("pref_hide_in_library_recommendations", false)
 
     val hideTrackedReadingCompleted: Preference<Boolean> =
         preferenceStore.getBoolean("pref_hide_tracked_reading_completed", false)
