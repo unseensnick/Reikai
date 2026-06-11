@@ -143,7 +143,7 @@ Five sections:
 
 ### Taste profile *(Reikai)*
 
-- **Pull library from these trackers** — per-tracker toggles for AniList / MyAnimeList / Kitsu. Default off; greyed out unless the tracker is logged in.
+- **Pull library from these trackers** — per-tracker toggles for AniList / MyAnimeList / Kitsu / Shikimori / Bangumi. Default off; a tracker's toggle is shown only once you're logged into it (the pull reads your private library).
 - **Auto-refresh tracker library** — `Never` (default) / `every 7 days` / `every 30 days`.
 - **Refresh now** — manual refresh button. 60 s cooldown after each press.
 - **Last refresh** — per-tracker timestamp summary line.

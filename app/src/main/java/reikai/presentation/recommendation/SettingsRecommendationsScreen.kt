@@ -81,14 +81,12 @@ object SettingsRecommendationsScreen : SearchableSettings {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val refreshTrackerLibrary = remember { Injekt.get<RefreshTrackerLibrary>() }
-        // Resolved here (composable scope) so the non-composable helper below can capture it.
-        val loginRequired = stringResource(MR.strings.pref_taste_profile_login_required)
+        // enabled = visible in Mihon's preference DSL, so a tracker's pull toggle only appears once
+        // the user is logged into it (the pull needs their private library, which login gates).
         fun pullToggle(tracker: Tracker, pref: PreferenceData<Boolean>) =
             Preference.PreferenceItem.SwitchPreference(
                 preference = pref,
                 title = tracker.name,
-                // Only meaningful once logged in; greyed out otherwise.
-                subtitle = if (tracker.isLoggedIn) null else loginRequired,
                 enabled = tracker.isLoggedIn,
             )
         return Preference.PreferenceGroup(
