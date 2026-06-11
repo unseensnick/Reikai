@@ -79,7 +79,7 @@ fun RelatedMangaCarousel(
                 horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
             ) {
                 items(items, key = { it.candidate.manga.url }) { item ->
-                    Box(modifier = Modifier.width(96.dp)) {
+                    Box(modifier = Modifier.width(CardWidth)) {
                         MangaComfortableGridItem(
                             title = item.candidate.manga.title,
                             titleMaxLines = 3,
@@ -110,7 +110,7 @@ fun RelatedMangaCarousel(
 private fun SkeletonCard() {
     Box(
         modifier = Modifier
-            .width(96.dp)
+            .width(CardWidth)
             .padding(4.dp)
             .aspectRatio(MangaCoverAspectRatio)
             .clip(RoundedCornerShape(4.dp))
@@ -119,3 +119,4 @@ private fun SkeletonCard() {
 }
 
 private const val MangaCoverAspectRatio = 2f / 3f
+private val CardWidth = 120.dp
