@@ -702,12 +702,6 @@ fun MangaScreenLargeImpl(
                             onCopyTagToClipboard = onCopyTagToClipboard,
                             onEditNotes = onEditNotesClicked,
                         )
-                        // RK: related-mangas carousel in the tablet left info pane (option A)
-                        RelatedMangaCarousel(
-                            items = state.relatedItems,
-                            loading = state.relatedLoading,
-                            onClick = onRelatedClick,
-                        )
                     }
                 },
                 endContent = {
@@ -723,6 +717,14 @@ fun MangaScreenLargeImpl(
                                 bottom = contentPadding.calculateBottomPadding(),
                             ),
                         ) {
+                            // RK: related-mangas carousel at the top of the chapter pane (Komikku-style)
+                            item(key = "rk-related-carousel") {
+                                RelatedMangaCarousel(
+                                    items = state.relatedItems,
+                                    loading = state.relatedLoading,
+                                    onClick = onRelatedClick,
+                                )
+                            }
                             // RK: source-switcher chips for a merged group
                             if (state.mergeSources.size > 1) {
                                 item(key = "rk-merge-source-chips") {
