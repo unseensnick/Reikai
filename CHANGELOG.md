@@ -141,6 +141,13 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - Cloudflare-protected sources that fetch via a POST request now resolve through Flaresolverr too; the bypass fallback previously only replayed GET requests, so those sources failed even with a Flaresolverr server set. Applies to both the manga and light-novel sides.
 - The reader's **next/previous-chapter buttons now work on long-strip (webtoon) chapters**: jumping chapters advances on the first tap and updates the chapter title and progress correctly, instead of stalling or needing repeated taps.
 
+### Changes
+- Extensions no longer tied to a repository are now labeled **Orphaned** (previously "Obsolete"), with a clearer note that they won't receive updates.
+
+### Other
+- Synced upstream library updates from Mihon (Coil, OkHttp, Firebase) and moved to a SQLite driver build that avoids a rare database stall when a write is cancelled.
+- Extension repositories that moved to the newer index format are now followed automatically.
+
 ## [1.9.7.5.9]
 
 ### Additions
