@@ -196,6 +196,12 @@
     <string name="pref_enable_recommendation_rerank_summary">Reorder suggestions toward your taste profile</string>
     <string name="pref_recommendation_style">Recommendation style</string>
     <string name="pref_serendipity">Serendipity</string>
+    <string name="pref_recommendation_filters">Filters</string>
+    <string name="pref_recommendation_filters_summary">Hide already-tracked manga from suggestions by their status</string>
+    <string name="pref_hide_tracked_reading_completed">Hide reading &amp; completed</string>
+    <string name="pref_hide_tracked_dropped">Hide dropped</string>
+    <string name="pref_hide_tracked_on_hold">Hide on-hold</string>
+    <string name="pref_hide_tracked_plan_to_read">Hide plan-to-read</string>
     <string name="action_install">Install</string>
     <string name="action_share">Share</string>
     <string name="action_save">Save</string>

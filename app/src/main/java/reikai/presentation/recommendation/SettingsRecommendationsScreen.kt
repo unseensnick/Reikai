@@ -43,6 +43,7 @@ object SettingsRecommendationsScreen : SearchableSettings {
             sourcesGroup(prefs, trackerManager),
             tasteProfileGroup(prefs, trackerManager),
             rerankingGroup(prefs),
+            filtersGroup(prefs),
         )
     }
 
@@ -155,4 +156,29 @@ object SettingsRecommendationsScreen : SearchableSettings {
             ),
         )
     }
+
+    @Composable
+    private fun filtersGroup(prefs: ReikaiRecommendationPreferences): Preference.PreferenceGroup =
+        Preference.PreferenceGroup(
+            title = stringResource(MR.strings.pref_recommendation_filters),
+            preferenceItems = listOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = prefs.hideTrackedReadingCompleted,
+                    title = stringResource(MR.strings.pref_hide_tracked_reading_completed),
+                    subtitle = stringResource(MR.strings.pref_recommendation_filters_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = prefs.hideTrackedDropped,
+                    title = stringResource(MR.strings.pref_hide_tracked_dropped),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = prefs.hideTrackedOnHold,
+                    title = stringResource(MR.strings.pref_hide_tracked_on_hold),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = prefs.hideTrackedPlanToRead,
+                    title = stringResource(MR.strings.pref_hide_tracked_plan_to_read),
+                ),
+            ),
+        )
 }

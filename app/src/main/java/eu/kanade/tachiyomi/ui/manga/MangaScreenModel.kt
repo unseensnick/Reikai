@@ -51,6 +51,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -88,6 +89,7 @@ import tachiyomi.domain.manga.model.applyFilter
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
+import tachiyomi.domain.track.interactor.GetTracksPerManga
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
 import eu.kanade.tachiyomi.source.CatalogueSource
@@ -101,8 +103,10 @@ import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.RelatedMangasLoader
 import reikai.domain.recommendation.taste.GetTasteProfile
+import reikai.domain.recommendation.taste.LocalTrackStatusMapper
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteProfile
+import reikai.domain.recommendation.taste.TrackStatus
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import uy.kohesive.injekt.Injekt
@@ -146,6 +150,8 @@ class MangaScreenModel(
     private val relatedMangaCache: RelatedMangaCache = Injekt.get(),
     private val getTasteProfile: GetTasteProfile = Injekt.get(),
     private val refreshTrackerLibrary: RefreshTrackerLibrary = Injekt.get(),
+    private val localTrackStatusMapper: LocalTrackStatusMapper = Injekt.get(),
+    private val getTracksPerManga: GetTracksPerManga = Injekt.get(),
     private val getFavorites: GetFavorites = Injekt.get(),
     private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
     // RK <--
@@ -1398,10 +1404,13 @@ class MangaScreenModel(
         // the profile read below uses whatever is already cached, the pull lands for the next open.
         screenModelScope.launchIO { refreshTrackerLibrary.refreshIfStale() }
         screenModelScope.launchIO {
-            val favoriteKeys = getFavorites.await().mapTo(HashSet()) { it.url to it.source }
+            val favorites = getFavorites.await()
+            val favoriteKeys = favorites.mapTo(HashSet()) { it.url to it.source }
+            // Anti-echo filter: library entries to hide by tracker status (empty = no filter on).
+            val hiddenKeys = computeHiddenFavoriteKeys(favorites)
             val cached = relatedMangaCache.get(state.manga.id)
             if (cached != null) {
-                applyRelated(cached.fullPool, favoriteKeys)
+                applyRelated(cached.fullPool, favoriteKeys, hiddenKeys)
                 if (relatedMangaCache.isFresh(cached)) return@launchIO
             } else {
                 updateSuccessState { it.copy(relatedLoading = true) }
@@ -1417,17 +1426,46 @@ class MangaScreenModel(
                 } else {
                     TasteProfile.EMPTY
                 },
-                onUpdate = { applyRelated(it, favoriteKeys) },
+                onUpdate = { applyRelated(it, favoriteKeys, hiddenKeys) },
             )
             relatedMangaCache.put(state.manga.id, pool, pool)
-            applyRelated(pool, favoriteKeys)
+            applyRelated(pool, favoriteKeys, hiddenKeys)
             updateSuccessState { it.copy(relatedLoading = false) }
         }
     }
 
-    private fun applyRelated(pool: List<RelatedMangaCandidate>, favoriteKeys: Set<Pair<String, Long>>) {
-        val items = pool.map { RelatedMangaItem(it, (it.manga.url to it.sourceId) in favoriteKeys) }
+    private fun applyRelated(
+        pool: List<RelatedMangaCandidate>,
+        favoriteKeys: Set<Pair<String, Long>>,
+        hiddenKeys: Set<Pair<String, Long>>,
+    ) {
+        val items = pool
+            .filterNot { (it.manga.url to it.sourceId) in hiddenKeys }
+            .map { RelatedMangaItem(it, (it.manga.url to it.sourceId) in favoriteKeys) }
         updateSuccessState { it.copy(relatedItems = items) }
+    }
+
+    /** Library entries whose tracker status matches an enabled anti-echo filter pref. Empty (so the
+     *  carousel keeps every in-library item, badged) when no hide filter is on. */
+    private suspend fun computeHiddenFavoriteKeys(favorites: List<Manga>): Set<Pair<String, Long>> {
+        val hideReadingCompleted = recommendationPreferences.hideTrackedReadingCompleted.get()
+        val hideDropped = recommendationPreferences.hideTrackedDropped.get()
+        val hideOnHold = recommendationPreferences.hideTrackedOnHold.get()
+        val hidePlanToRead = recommendationPreferences.hideTrackedPlanToRead.get()
+        if (!(hideReadingCompleted || hideDropped || hideOnHold || hidePlanToRead)) return emptySet()
+
+        val hiddenStatuses = buildSet {
+            if (hideReadingCompleted) { add(TrackStatus.READING); add(TrackStatus.COMPLETED) }
+            if (hideDropped) add(TrackStatus.DROPPED)
+            if (hideOnHold) add(TrackStatus.ON_HOLD)
+            if (hidePlanToRead) add(TrackStatus.PLAN_TO_READ)
+        }
+        val tracksByManga = getTracksPerManga.subscribe().first()
+        return favorites
+            .filter { manga ->
+                tracksByManga[manga.id].orEmpty().any { localTrackStatusMapper.map(it) in hiddenStatuses }
+            }
+            .mapTo(HashSet()) { it.url to it.source }
     }
 
     /** Resolve a tapped candidate to a local manga id to open, or null for a tracker-origin card

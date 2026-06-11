@@ -88,10 +88,10 @@ class ReikaiRecommendationPreferences(
     // region Filters (hide tracker-origin candidates the user already tracks)
 
     val hideTrackedReadingCompleted: Preference<Boolean> =
-        preferenceStore.getBoolean("pref_hide_tracked_reading_completed", true)
+        preferenceStore.getBoolean("pref_hide_tracked_reading_completed", false)
 
     val hideTrackedDropped: Preference<Boolean> =
-        preferenceStore.getBoolean("pref_hide_tracked_dropped", true)
+        preferenceStore.getBoolean("pref_hide_tracked_dropped", false)
 
     val hideTrackedOnHold: Preference<Boolean> =
         preferenceStore.getBoolean("pref_hide_tracked_on_hold", false)

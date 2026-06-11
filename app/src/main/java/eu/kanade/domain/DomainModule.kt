@@ -52,6 +52,7 @@ import reikai.domain.recommendation.taste.BangumiLibraryFetcher
 import reikai.domain.recommendation.taste.ComputeTasteProfile
 import reikai.domain.recommendation.taste.GetTasteProfile
 import reikai.domain.recommendation.taste.KitsuLibraryFetcher
+import reikai.domain.recommendation.taste.LocalTrackStatusMapper
 import reikai.domain.recommendation.taste.MyAnimeListLibraryFetcher
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.ShikimoriLibraryFetcher
@@ -141,6 +142,7 @@ class DomainModule : InjektModule {
         // RK: taste profile (library pull -> cache -> profile -> ranker)
         addSingletonFactory<TasteLibraryRepository> { TasteLibraryRepositoryImpl(get()) }
         addFactory { GetTasteProfile(get(), get()) }
+        addFactory { LocalTrackStatusMapper(get()) }
         addSingletonFactory {
             val trackerManager = get<TrackerManager>()
             RefreshTrackerLibrary(
