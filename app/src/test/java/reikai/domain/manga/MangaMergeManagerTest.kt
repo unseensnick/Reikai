@@ -170,43 +170,38 @@ class MangaMergeManagerTest {
         result.newUnmerges shouldContainExactlyInAnyOrder setOf("1,3", "2,3")
     }
 
-    // Mirrors unmergeManga's per-target loop: recompute the group from the CURRENT prefs before each
-    // split. This is the invariant that prevents a re-merge when two members of one group are
-    // unmerged in a single pass.
+    // Bulk Unmerge dissolves the WHOLE group at once: every member is separated and nothing regroups.
     @Test
-    fun `bulk unmerge of two members from one group does not re-merge the rest`() {
-        var merges = setOf("1,2,3")
-        var unmerges = emptySet<String>()
-
-        for (target in listOf(1L, 2L)) {
-            val group = MangaMergeManager.computeGroupIds(target, merges, emptySet(), unmerges)
-            val split = MangaMergeManager.computeSplit(group, listOf(target), merges, unmerges)
-            split.shouldNotBeNull()
-            merges = split.newMerges
-            unmerges = split.newUnmerges
-        }
-
-        // All three are separated; no entry resurrects a broken pair (e.g. "1,3").
-        merges shouldContainExactly emptySet()
-        unmerges shouldContainExactlyInAnyOrder setOf("1,2", "1,3", "2,3")
+    fun `computeDissolve separates every member of the group`() {
+        val result = MangaMergeManager.computeDissolve(
+            group = longArrayOf(1L, 2L, 3L),
+            merges = setOf("1,2,3"),
+            unmerges = emptySet(),
+        )
+        result.newMerges shouldContainExactly emptySet()
+        result.newUnmerges shouldContainExactlyInAnyOrder setOf("1,2", "1,3", "2,3")
     }
 
-    // Re-running the same approach with a STALE group snapshot would re-add "1,3" after 1 was split;
-    // this asserts the fresh-prefs recompute used above is what avoids it.
     @Test
-    fun `bulk unmerge with a stale group snapshot would re-merge a broken pair`() {
-        val staleGroup = longArrayOf(1L, 2L, 3L)
-        var merges = setOf("1,2,3")
-        var unmerges = emptySet<String>()
+    fun `computeDissolve drops only entries referencing the group and keeps the rest`() {
+        val result = MangaMergeManager.computeDissolve(
+            group = longArrayOf(1L, 2L, 3L),
+            merges = setOf("1,2,3", "4,5"),
+            unmerges = setOf("8,9"),
+        )
+        result.newMerges shouldContainExactly setOf("4,5")
+        result.newUnmerges shouldContainExactlyInAnyOrder setOf("8,9", "1,2", "1,3", "2,3")
+    }
 
-        // Split 1 using the live group.
-        MangaMergeManager.computeSplit(staleGroup, listOf(1L), merges, unmerges)!!.let {
-            merges = it.newMerges
-            unmerges = it.newUnmerges
-        }
-        // Split 2 reusing the STALE [1,2,3] snapshot instead of recomputing.
-        val stale = MangaMergeManager.computeSplit(staleGroup, listOf(2L), merges, unmerges)!!
-
-        stale.newMerges shouldContainExactly setOf("1,3")
+    // A same-title-only member (no merge entry of its own) is still pinned apart so it can't re-auto-merge.
+    @Test
+    fun `computeDissolve pins same-title-only members apart`() {
+        val result = MangaMergeManager.computeDissolve(
+            group = longArrayOf(1L, 2L, 5L),
+            merges = setOf("1,2"),
+            unmerges = emptySet(),
+        )
+        result.newMerges shouldContainExactly emptySet()
+        result.newUnmerges shouldContainExactlyInAnyOrder setOf("1,2", "1,5", "2,5")
     }
 }

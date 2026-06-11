@@ -137,11 +137,13 @@ class MangaMergeManager(
     }
 
     /**
-     * Split each of [targetIds] out of its own merge group (the library bulk "Unmerge"). Each target
-     * is recomputed against the CURRENT prefs right before it is split, so unmerging several members
-     * of the same group in one pass cannot re-merge a pair that an earlier iteration just broke (a
-     * stale group snapshot would re-add the survivors and resurrect the broken pair). Non-merged
-     * targets are skipped. Same-title auto-grouped members are included so they are separated too.
+     * Fully dissolve the merge group of each of [targetIds] (the library bulk "Unmerge"): every
+     * member of the group is separated in one pass, so the user does not have to unmerge a group
+     * source-by-source. Each target's group is resolved against the CURRENT prefs (so dissolving one
+     * group does not act on stale state from a previous iteration), then every pairwise combination
+     * of its members is recorded as unmerged and all merge entries referencing the group are dropped.
+     * Same-title auto-grouped members are included so they cannot re-merge on the next open. Targets
+     * that are not part of a group are skipped.
      */
     suspend fun unmergeManga(targetIds: List<Long>) {
         val targets = targetIds.distinct()
@@ -167,7 +169,10 @@ class MangaMergeManager(
             }
 
             val group = computeGroupIds(target, merges, sameTitle, unmerges)
-            if (group.size > 1) removeFromGroup(group, listOf(target))
+            if (group.size <= 1) continue
+            val result = computeDissolve(group, merges, unmerges)
+            preferences.mangaManualMerges.set(result.newMerges)
+            preferences.mangaManualUnmerges.set(result.newUnmerges)
         }
     }
 
@@ -211,6 +216,11 @@ class MangaMergeManager(
         val newMerges: Set<String>,
         val newUnmerges: Set<String>,
         val dropped: Int,
+    )
+
+    class DissolveResult(
+        val newMerges: Set<String>,
+        val newUnmerges: Set<String>,
     )
 
     companion object {
@@ -268,6 +278,29 @@ class MangaMergeManager(
             if (others.size >= 2) newMerges += others.sorted().joinToString(",")
 
             return SplitResult(others.toLongArray(), newMerges, newUnmerges)
+        }
+
+        /**
+         * Fully separate every member of [group]: drop all merge entries that reference any member,
+         * and record an unmerge pair for every member combination so nothing (manual or same-title)
+         * regroups them. [group] is the complete resolved group, so dropping its entries cannot strand
+         * an unrelated id.
+         */
+        fun computeDissolve(
+            group: LongArray,
+            merges: Set<String>,
+            unmerges: Set<String>,
+        ): DissolveResult {
+            val members = group.toHashSet()
+            val newMerges = merges.filterNotTo(mutableSetOf()) { entry ->
+                entry.split(",").any { it.trim().toLongOrNull() in members }
+            }
+            val sorted = group.sorted()
+            val newUnmerges = unmerges.toMutableSet()
+            for (i in sorted.indices) {
+                for (j in (i + 1) until sorted.size) newUnmerges += unmergeKey(sorted[i], sorted[j])
+            }
+            return DissolveResult(newMerges, newUnmerges)
         }
 
         /**
