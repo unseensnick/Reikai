@@ -6,6 +6,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.util.fastAny
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle
@@ -28,15 +29,18 @@ import eu.kanade.domain.track.interactor.RefreshTracks
 import eu.kanade.domain.track.interactor.TrackChapter
 import eu.kanade.domain.track.model.AutoTrackState
 import eu.kanade.domain.track.service.TrackPreferences
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.util.formattedMessage
+import eu.kanade.tachiyomi.data.coil.MangaCoverMetadata
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.network.HttpException
+import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.chapter.getNextUnread
@@ -59,6 +63,20 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
+import mihon.domain.manga.model.toDomainManga
+import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.manga.ChapterAggregation
+import reikai.domain.manga.MangaMergeManager
+import reikai.domain.recommendation.BuildRecommendationHideFilter
+import reikai.domain.recommendation.RECOMMENDS_SOURCE
+import reikai.domain.recommendation.RecommendationHideFilter
+import reikai.domain.recommendation.ReikaiRecommendationPreferences
+import reikai.domain.recommendation.RelatedMangaCache
+import reikai.domain.recommendation.RelatedMangaCandidate
+import reikai.domain.recommendation.RelatedMangasLoader
+import reikai.domain.recommendation.taste.GetTasteProfile
+import reikai.domain.recommendation.taste.RefreshTrackerLibrary
+import reikai.domain.recommendation.taste.TasteProfile
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.TriState
@@ -80,33 +98,19 @@ import tachiyomi.domain.chapter.service.calculateChapterGap
 import tachiyomi.domain.chapter.service.getChapterSort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetDuplicateLibraryManga
+import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.GetMangaWithChapters
+import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.interactor.SetMangaChapterFlags
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.manga.model.applyFilter
+import tachiyomi.domain.manga.model.asMangaCover
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
-import eu.kanade.tachiyomi.source.CatalogueSource
-import mihon.domain.manga.model.toDomainManga
-import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.manga.ChapterAggregation
-import reikai.domain.manga.MangaMergeManager
-import reikai.domain.recommendation.BuildRecommendationHideFilter
-import reikai.domain.recommendation.RECOMMENDS_SOURCE
-import reikai.domain.recommendation.RecommendationHideFilter
-import reikai.domain.recommendation.ReikaiRecommendationPreferences
-import reikai.domain.recommendation.RelatedMangaCache
-import reikai.domain.recommendation.RelatedMangaCandidate
-import reikai.domain.recommendation.RelatedMangasLoader
-import reikai.domain.recommendation.taste.GetTasteProfile
-import reikai.domain.recommendation.taste.RefreshTrackerLibrary
-import reikai.domain.recommendation.taste.TasteProfile
-import tachiyomi.domain.manga.interactor.GetFavorites
-import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.math.floor
@@ -155,6 +159,7 @@ class MangaScreenModel(
     private val buildRecommendationHideFilter: BuildRecommendationHideFilter = Injekt.get(),
     private val getFavorites: GetFavorites = Injekt.get(),
     private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
+    private val uiPreferences: UiPreferences = Injekt.get(),
     // RK <--
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : StateScreenModel<MangaScreenModel.State>(State.Loading) {
@@ -208,6 +213,23 @@ class MangaScreenModel(
             }
         }
     }
+
+    // RK --> cover-based theming (Y11)
+    val themeCoverBased = uiPreferences.themeCoverBased.get()
+
+    /** Extract the cover's vibrant color and seed the details theme with it. */
+    fun updateSeedColor() {
+        if (!themeCoverBased) return
+        val manga = manga ?: return
+        screenModelScope.launchIO {
+            val cover = manga.asMangaCover()
+            MangaCoverMetadata.setVibrantColor(cover)
+            cover.vibrantCoverColor?.let { color ->
+                updateSuccessState { it.copy(seedColor = Color(color)) }
+            }
+        }
+    }
+    // RK <--
 
     init {
         screenModelScope.launchIO {
@@ -653,6 +675,7 @@ class MangaScreenModel(
     }
 
     // RK -->
+
     /** Combine inputs for the chapter flow. */
     private data class ChapterInputs(
         val manga: Manga,
@@ -1319,6 +1342,7 @@ class MangaScreenModel(
     }
 
     // RK -->
+
     /** Switch the chapter list to a single grouped source, or null for the unified merged view. */
     fun selectSource(sourceMangaId: Long?) {
         selectedSourceMangaId.value = sourceMangaId
@@ -1524,6 +1548,8 @@ class MangaScreenModel(
             val dialog: Dialog? = null,
             val hasPromptedToAddBefore: Boolean = false,
             val hideMissingChapters: Boolean = false,
+            // RK: cover-derived theming color (Y11), null when off or not yet extracted.
+            val seedColor: Color? = null,
         ) : State {
             val processedChapters by lazy {
                 chapters.applyFilters(manga).toList()

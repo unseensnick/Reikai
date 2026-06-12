@@ -1,5 +1,6 @@
 package eu.kanade.domain.ui
 
+import com.materialkolor.PaletteStyle
 import eu.kanade.domain.ui.model.AppTheme
 import eu.kanade.domain.ui.model.TabletUiMode
 import eu.kanade.domain.ui.model.ThemeMode
@@ -36,6 +37,15 @@ class UiPreferences(
     val tabletUiMode: Preference<TabletUiMode> = preferenceStore.getEnum("tablet_ui_mode", TabletUiMode.AUTOMATIC)
 
     val imagesInDescription: Preference<Boolean> = preferenceStore.getBoolean("pref_render_images_description", true)
+
+    // RK --> cover-based theming (Y11)
+    val themeCoverBased: Preference<Boolean> = preferenceStore.getBoolean("pref_theme_cover_based_key", true)
+
+    val themeCoverBasedStyle: Preference<PaletteStyle> =
+        preferenceStore.getEnum("pref_theme_cover_based_style_key", PaletteStyle.Vibrant)
+
+    val coverVibrantColors: Preference<Set<String>> = preferenceStore.getStringSet("cover_vibrant_colors", emptySet())
+    // RK <--
 
     companion object {
         fun dateFormat(format: String): DateTimeFormatter = when (format) {

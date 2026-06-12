@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.ActivityCompat
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.materialkolor.PaletteStyle
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.model.TabletUiMode
 import eu.kanade.domain.ui.model.ThemeMode
@@ -57,6 +58,11 @@ object SettingsAppearanceScreen : SearchableSettings {
         val amoledPref = uiPreferences.themeDarkAmoled
         val amoled by amoledPref.collectAsState()
 
+        // RK -->
+        val themeCoverBasedPref = uiPreferences.themeCoverBased
+        val themeCoverBased by themeCoverBasedPref.collectAsState()
+        // RK <--
+
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_theme),
             preferenceItems = listOf(
@@ -88,6 +94,19 @@ object SettingsAppearanceScreen : SearchableSettings {
                         true
                     },
                 ),
+                // RK -->
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = themeCoverBasedPref,
+                    title = stringResource(MR.strings.pref_theme_cover_based),
+                    subtitle = stringResource(MR.strings.pref_theme_cover_based_summary),
+                ),
+                Preference.PreferenceItem.ListPreference(
+                    preference = uiPreferences.themeCoverBasedStyle,
+                    entries = PaletteStyle.entries.associateWith { it.name },
+                    title = stringResource(MR.strings.pref_theme_cover_based_style),
+                    enabled = themeCoverBased,
+                ),
+                // RK <--
             ),
         )
     }

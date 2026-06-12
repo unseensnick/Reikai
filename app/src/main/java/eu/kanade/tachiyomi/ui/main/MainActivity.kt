@@ -79,6 +79,7 @@ import eu.kanade.presentation.more.settings.screen.data.RestoreBackupScreen
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.DefaultNavigatorScreenTransition
 import eu.kanade.tachiyomi.data.cache.ChapterCache
+import eu.kanade.tachiyomi.data.coil.MangaCoverMetadata
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.updater.AppUpdateChecker
@@ -283,6 +284,12 @@ class MainActivity : BaseActivity() {
                 screen.onProvideAssistUrl()?.let { outContent.webUri = it.toUri() }
             }
         }
+    }
+
+    // RK: persist cover-based theming colors (Y11)
+    override fun onPause() {
+        super.onPause()
+        MangaCoverMetadata.savePrefs()
     }
 
     @Composable

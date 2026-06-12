@@ -318,6 +318,9 @@
     <string name="theme_yotsuba">Yotsuba</string>
     <string name="theme_tidalwave">Tidal Wave</string>
     <string name="pref_dark_theme_pure_black">Pure black dark mode</string>
+    <!-- RK --><string name="pref_theme_cover_based">Theme based on cover</string>
+    <string name="pref_theme_cover_based_summary">Tint the reader and manga details screen with each manga\'s cover color</string>
+    <string name="pref_theme_cover_based_style">Cover based theme style</string><!-- RK -->
     <string name="pref_relative_format">Relative timestamps</string>
     <!-- "Today" instead of "2023-12-31" -->
     <string name="pref_relative_format_summary">\"%1$s\" instead of \"%2$s\"</string>

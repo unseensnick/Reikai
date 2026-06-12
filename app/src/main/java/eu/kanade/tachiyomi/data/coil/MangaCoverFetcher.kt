@@ -30,6 +30,7 @@ import okio.source
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaCover
+import tachiyomi.domain.manga.model.asMangaCover
 import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.injectLazy
 import java.io.File
@@ -48,6 +49,8 @@ import java.io.IOException
 class MangaCoverFetcher(
     private val url: String?,
     private val isLibraryManga: Boolean,
+    // RK: cover used to extract the vibrant theming color (Y11); null when unavailable
+    private val mangaCover: MangaCover?,
     private val options: Options,
     private val coverFileLazy: Lazy<File?>,
     private val customCoverFileLazy: Lazy<File>,
@@ -81,6 +84,9 @@ class MangaCoverFetcher(
     }
 
     private fun fileLoader(file: File): FetchResult {
+        // RK --> extract the cover's vibrant color for reader/details theming (Y11)
+        mangaCover?.let { MangaCoverMetadata.setVibrantColorAsync(it, ogFile = file) }
+        // RK <--
         return SourceFetchResult(
             source = ImageSource(
                 file = file.toOkioPath(),
@@ -308,6 +314,7 @@ class MangaCoverFetcher(
             return MangaCoverFetcher(
                 url = data.thumbnailUrl,
                 isLibraryManga = data.favorite,
+                mangaCover = data.asMangaCover(), // RK
                 options = options,
                 coverFileLazy = lazy { coverCache.getCoverFile(data.thumbnailUrl) },
                 customCoverFileLazy = lazy { coverCache.getCustomCoverFile(data.id) },
@@ -330,6 +337,7 @@ class MangaCoverFetcher(
             return MangaCoverFetcher(
                 url = data.url,
                 isLibraryManga = data.isMangaFavorite,
+                mangaCover = data, // RK
                 options = options,
                 coverFileLazy = lazy { coverCache.getCoverFile(data.url) },
                 customCoverFileLazy = lazy { coverCache.getCustomCoverFile(data.mangaId) },

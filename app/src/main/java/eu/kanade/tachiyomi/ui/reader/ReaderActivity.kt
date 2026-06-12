@@ -60,6 +60,7 @@ import eu.kanade.presentation.reader.ReadingModeSelectDialog
 import eu.kanade.presentation.reader.appbars.ReaderAppBars
 import eu.kanade.presentation.reader.components.ChapterNavigatorType
 import eu.kanade.presentation.reader.settings.ReaderSettingsDialog
+import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.coil.TachiyomiImageDecoder
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
@@ -103,11 +104,13 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.manga.model.asMangaCover
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.ByteArrayOutputStream
+import androidx.compose.ui.graphics.Color as ComposeColor
 
 class ReaderActivity : BaseActivity() {
 
@@ -266,95 +269,102 @@ class ReaderActivity : BaseActivity() {
             )
         }
 
-        Box(modifier = Modifier.fillMaxSize()) {
-            if (!state.menuVisible && showPageNumber) {
-                ReaderPageIndicator(
-                    currentPage = state.currentPage,
-                    totalPages = state.totalPages,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .navigationBarsPadding(),
-                )
-            }
-
-            ContentOverlay(state = state)
-
-            AppBars(state = state)
-        }
-
-        val onDismissRequest = viewModel::closeDialog
-        when (state.dialog) {
-            is ReaderViewModel.Dialog.Loading -> {
-                AlertDialog(
-                    onDismissRequest = {},
-                    confirmButton = {},
-                    text = {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            CircularProgressIndicator()
-                            Text(stringResource(MR.strings.loading))
-                        }
-                    },
-                )
-            }
-            is ReaderViewModel.Dialog.Settings -> {
-                ReaderSettingsDialog(
-                    onDismissRequest = onDismissRequest,
-                    onShowMenus = { setMenuVisibility(true) },
-                    onHideMenus = { setMenuVisibility(false) },
-                    screenModel = settingsScreenModel,
-                )
-            }
-            is ReaderViewModel.Dialog.ReadingModeSelect -> {
-                ReadingModeSelectDialog(
-                    onDismissRequest = onDismissRequest,
-                    screenModel = settingsScreenModel,
-                    onChange = { stringRes ->
-                        menuToggleToast?.cancel()
-                        if (!readerPreferences.showReadingMode.get()) {
-                            menuToggleToast = toast(stringRes)
-                        }
-                    },
-                )
-            }
-            is ReaderViewModel.Dialog.OrientationModeSelect -> {
-                OrientationSelectDialog(
-                    onDismissRequest = onDismissRequest,
-                    screenModel = settingsScreenModel,
-                    onChange = { stringRes ->
-                        menuToggleToast?.cancel()
-                        menuToggleToast = toast(stringRes)
-                    },
-                )
-            }
-            is ReaderViewModel.Dialog.PageActions -> {
-                ReaderPageActionsDialog(
-                    onDismissRequest = onDismissRequest,
-                    onSetAsCover = viewModel::setAsCover,
-                    onShare = viewModel::shareImage,
-                    onSave = viewModel::saveImage,
-                )
-            }
-            // RK -->
-            is ReaderViewModel.Dialog.ChapterListSelect -> {
-                val chapters = remember { viewModel.getChapters().toImmutableList() }
-                ChapterListDialog(
-                    onDismissRequest = onDismissRequest,
-                    chapters = chapters,
-                    onClickChapter = {
-                        viewModel.loadNewChapterFromDialog(it)
-                        onDismissRequest()
-                    },
-                    onBookmark = { viewModel.toggleBookmark(it.id, !it.bookmark) },
-                    onDownloadAction = viewModel::handleChapterDownload,
-                    dateRelativeTime = uiPreferences.relativeTime.get(),
-                )
-            }
+        // RK -->
+        val seedColor = state.manga?.asMangaCover()?.vibrantCoverColor
+            ?.takeIf { uiPreferences.themeCoverBased.get() }
+            ?.let { ComposeColor(it) }
+        TachiyomiTheme(seedColor = seedColor) {
             // RK <--
-            null -> {}
-        }
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (!state.menuVisible && showPageNumber) {
+                    ReaderPageIndicator(
+                        currentPage = state.currentPage,
+                        totalPages = state.totalPages,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .navigationBarsPadding(),
+                    )
+                }
+
+                ContentOverlay(state = state)
+
+                AppBars(state = state)
+            }
+
+            val onDismissRequest = viewModel::closeDialog
+            when (state.dialog) {
+                is ReaderViewModel.Dialog.Loading -> {
+                    AlertDialog(
+                        onDismissRequest = {},
+                        confirmButton = {},
+                        text = {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                CircularProgressIndicator()
+                                Text(stringResource(MR.strings.loading))
+                            }
+                        },
+                    )
+                }
+                is ReaderViewModel.Dialog.Settings -> {
+                    ReaderSettingsDialog(
+                        onDismissRequest = onDismissRequest,
+                        onShowMenus = { setMenuVisibility(true) },
+                        onHideMenus = { setMenuVisibility(false) },
+                        screenModel = settingsScreenModel,
+                    )
+                }
+                is ReaderViewModel.Dialog.ReadingModeSelect -> {
+                    ReadingModeSelectDialog(
+                        onDismissRequest = onDismissRequest,
+                        screenModel = settingsScreenModel,
+                        onChange = { stringRes ->
+                            menuToggleToast?.cancel()
+                            if (!readerPreferences.showReadingMode.get()) {
+                                menuToggleToast = toast(stringRes)
+                            }
+                        },
+                    )
+                }
+                is ReaderViewModel.Dialog.OrientationModeSelect -> {
+                    OrientationSelectDialog(
+                        onDismissRequest = onDismissRequest,
+                        screenModel = settingsScreenModel,
+                        onChange = { stringRes ->
+                            menuToggleToast?.cancel()
+                            menuToggleToast = toast(stringRes)
+                        },
+                    )
+                }
+                is ReaderViewModel.Dialog.PageActions -> {
+                    ReaderPageActionsDialog(
+                        onDismissRequest = onDismissRequest,
+                        onSetAsCover = viewModel::setAsCover,
+                        onShare = viewModel::shareImage,
+                        onSave = viewModel::saveImage,
+                    )
+                }
+                // RK -->
+                is ReaderViewModel.Dialog.ChapterListSelect -> {
+                    val chapters = remember { viewModel.getChapters().toImmutableList() }
+                    ChapterListDialog(
+                        onDismissRequest = onDismissRequest,
+                        chapters = chapters,
+                        onClickChapter = {
+                            viewModel.loadNewChapterFromDialog(it)
+                            onDismissRequest()
+                        },
+                        onBookmark = { viewModel.toggleBookmark(it.id, !it.bookmark) },
+                        onDownloadAction = viewModel::handleChapterDownload,
+                        dateRelativeTime = uiPreferences.relativeTime.get(),
+                    )
+                }
+                // RK <--
+                null -> {}
+            }
+        } // RK: end cover-based theme wrap
     }
 
     /**

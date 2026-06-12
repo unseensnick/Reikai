@@ -4,9 +4,13 @@ import android.content.Context
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import com.materialkolor.DynamicMaterialExpressiveTheme
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.model.AppTheme
 import eu.kanade.presentation.theme.colorscheme.BaseColorScheme
@@ -40,6 +44,31 @@ fun TachiyomiTheme(
         content = content,
     )
 }
+
+// RK --> cover-based theming (Y11): when a seed color is given, build a dynamic scheme from it,
+// otherwise fall back to the normal app theme.
+@Composable
+fun TachiyomiTheme(
+    seedColor: Color?,
+    amoled: Boolean? = null,
+    typography: Typography = MaterialTheme.typography,
+    content: @Composable () -> Unit,
+) {
+    if (seedColor == null) {
+        TachiyomiTheme(appTheme = null, amoled = amoled, content = content)
+    } else {
+        val uiPreferences = Injekt.get<UiPreferences>()
+        DynamicMaterialExpressiveTheme(
+            seedColor = seedColor,
+            isAmoled = amoled ?: uiPreferences.themeDarkAmoled.get(),
+            style = uiPreferences.themeCoverBasedStyle.get(),
+            typography = typography,
+            animate = true,
+            content = content,
+        )
+    }
+}
+// RK <--
 
 @Composable
 fun TachiyomiPreviewTheme(
