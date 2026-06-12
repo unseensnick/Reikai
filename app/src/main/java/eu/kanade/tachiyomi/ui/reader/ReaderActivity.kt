@@ -49,6 +49,8 @@ import com.google.android.material.transition.platform.MaterialContainerTransfor
 import com.hippo.unifile.UniFile
 import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.domain.base.BasePreferences
+import eu.kanade.domain.ui.UiPreferences
+import eu.kanade.presentation.reader.ChapterListDialog
 import eu.kanade.presentation.reader.DisplayRefreshHost
 import eu.kanade.presentation.reader.OrientationSelectDialog
 import eu.kanade.presentation.reader.ReaderContentOverlay
@@ -84,6 +86,7 @@ import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.view.setComposeContent
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
@@ -120,6 +123,10 @@ class ReaderActivity : BaseActivity() {
 
     private val readerPreferences = Injekt.get<ReaderPreferences>()
     private val preferences = Injekt.get<BasePreferences>()
+
+    // RK -->
+    private val uiPreferences = Injekt.get<UiPreferences>()
+    // RK <--
 
     lateinit var binding: ReaderActivityBinding
 
@@ -330,6 +337,22 @@ class ReaderActivity : BaseActivity() {
                     onSave = viewModel::saveImage,
                 )
             }
+            // RK -->
+            is ReaderViewModel.Dialog.ChapterListSelect -> {
+                val chapters = remember { viewModel.getChapters().toImmutableList() }
+                ChapterListDialog(
+                    onDismissRequest = onDismissRequest,
+                    chapters = chapters,
+                    onClickChapter = {
+                        viewModel.loadNewChapterFromDialog(it)
+                        onDismissRequest()
+                    },
+                    onBookmark = { viewModel.toggleBookmark(it.id, !it.bookmark) },
+                    onDownloadAction = viewModel::handleChapterDownload,
+                    dateRelativeTime = uiPreferences.relativeTime.get(),
+                )
+            }
+            // RK <--
             null -> {}
         }
     }
@@ -463,6 +486,10 @@ class ReaderActivity : BaseActivity() {
         val verticalNavigatorForLongStrip by readerPreferences.verticalNavigatorForLongStrip.collectAsState()
         val verticalNavigatorOnLeft by readerPreferences.verticalNavigatorOnLeft.collectAsState()
 
+        // RK -->
+        val bottomButtons by readerPreferences.readerBottomButtons.collectAsState()
+        // RK <--
+
         ReaderAppBars(
             visible = state.menuVisible,
 
@@ -515,6 +542,10 @@ class ReaderActivity : BaseActivity() {
                 menuToggleToast = toast(if (enabled) MR.strings.on else MR.strings.off)
             },
             onClickSettings = viewModel::openSettingsDialog,
+            // RK -->
+            bottomButtons = bottomButtons,
+            onClickChapterList = viewModel::openChapterListSelectDialog,
+            // RK <--
         )
     }
 

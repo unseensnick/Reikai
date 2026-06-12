@@ -70,6 +70,10 @@ fun ReaderAppBars(
     cropEnabled: Boolean,
     onClickCropBorder: () -> Unit,
     onClickSettings: () -> Unit,
+    // RK -->
+    bottomButtons: Set<String>,
+    onClickChapterList: () -> Unit,
+    // RK <--
 ) {
     val backgroundColor = MaterialTheme.colorScheme
         .surfaceColorAtElevation(3.dp)
@@ -154,6 +158,9 @@ fun ReaderAppBars(
                         .background(backgroundColor)
                         .padding(horizontal = MaterialTheme.padding.small)
                         .windowInsetsPadding(WindowInsets.navigationBars),
+                    // RK -->
+                    enabledButtons = bottomButtons,
+                    // RK <--
                     readingMode = readingMode,
                     onClickReadingMode = onClickReadingMode,
                     orientation = orientation,
@@ -161,6 +168,12 @@ fun ReaderAppBars(
                     cropEnabled = cropEnabled,
                     onClickCropBorder = onClickCropBorder,
                     onClickSettings = onClickSettings,
+                    // RK -->
+                    onClickChapterList = onClickChapterList,
+                    onClickWebView = onOpenInWebView,
+                    onClickBrowser = onOpenInBrowser,
+                    onClickShare = onShare,
+                    // RK <--
                 )
             }
         }

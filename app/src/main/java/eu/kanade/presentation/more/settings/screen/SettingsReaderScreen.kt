@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalView
 import eu.kanade.presentation.more.settings.Preference
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
@@ -194,6 +195,12 @@ object SettingsReaderScreen : SearchableSettings {
                     preference = readerPreferences.markReadOnSkip,
                     title = stringResource(MR.strings.pref_mark_read_on_skip),
                     subtitle = stringResource(MR.strings.pref_mark_read_on_skip_summary),
+                ),
+                Preference.PreferenceItem.MultiSelectListPreference(
+                    preference = readerPreferences.readerBottomButtons,
+                    entries = ReaderBottomButton.entries
+                        .associate { it.value to stringResource(it.stringRes) },
+                    title = stringResource(MR.strings.pref_reader_bottom_buttons),
                 ),
                 // RK <--
                 Preference.PreferenceItem.SwitchPreference(

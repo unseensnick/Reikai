@@ -15,6 +15,8 @@ import eu.kanade.domain.manga.model.readingMode
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.track.interactor.TrackChapter
 import eu.kanade.domain.track.service.TrackPreferences
+import eu.kanade.domain.ui.UiPreferences
+import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.database.models.toDomainChapter
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.DownloadProvider
@@ -24,6 +26,7 @@ import eu.kanade.tachiyomi.data.saver.ImageSaver
 import eu.kanade.tachiyomi.data.saver.Location
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.ui.reader.chapter.ReaderChapterItem
 import eu.kanade.tachiyomi.ui.reader.loader.ChapterLoader
 import eu.kanade.tachiyomi.ui.reader.loader.DownloadPageLoader
 import eu.kanade.tachiyomi.ui.reader.model.InsertPage
@@ -63,6 +66,7 @@ import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.interactor.UpdateChapter
+import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.chapter.service.getChapterSort
 import tachiyomi.domain.download.service.DownloadPreferences
@@ -101,6 +105,9 @@ class ReaderViewModel @JvmOverloads constructor(
     private val setMangaViewerFlags: SetMangaViewerFlags = Injekt.get(),
     private val getIncognitoState: GetIncognitoState = Injekt.get(),
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
+    // RK -->
+    private val uiPreferences: UiPreferences = Injekt.get(),
+    // RK <--
 ) : ViewModel() {
 
     private val mutableState = MutableStateFlow(State())
@@ -807,6 +814,65 @@ class ReaderViewModel @JvmOverloads constructor(
         mutableState.update { it.copy(dialog = Dialog.Settings) }
     }
 
+    // RK -->
+    fun openChapterListSelectDialog() {
+        mutableState.update { it.copy(dialog = Dialog.ChapterListSelect) }
+    }
+
+    /** Snapshot of the reader's chapter list for the in-reader chapter dialog (Y10). */
+    fun getChapters(): List<ReaderChapterItem> {
+        val manga = manga ?: return emptyList()
+        val currentChapter = getCurrentChapter()
+        val dateFormat = UiPreferences.dateFormat(uiPreferences.dateFormat.get())
+        return chapterList.map {
+            ReaderChapterItem(
+                chapter = it.chapter.toDomainChapter()!!,
+                manga = manga,
+                isCurrent = it.chapter.id == currentChapter?.chapter?.id,
+                dateFormat = dateFormat,
+            )
+        }
+    }
+
+    /** Jump to an arbitrary chapter chosen in the chapter dialog (Y10). */
+    fun loadNewChapterFromDialog(chapter: Chapter) {
+        viewModelScope.launchIO {
+            val newChapter = chapterList.firstOrNull { it.chapter.id == chapter.id } ?: return@launchIO
+            loadAdjacent(newChapter)
+        }
+    }
+
+    /** Toggle the bookmark of an arbitrary chapter from the chapter dialog (Y10). */
+    fun toggleBookmark(chapterId: Long, bookmarked: Boolean) {
+        val chapter = chapterList.find { it.chapter.id == chapterId }?.chapter ?: return
+        chapter.bookmark = bookmarked
+        viewModelScope.launchNonCancellable {
+            updateChapter.await(
+                ChapterUpdate(
+                    id = chapterId,
+                    bookmark = bookmarked,
+                ),
+            )
+        }
+    }
+
+    /** Start/cancel/delete a chapter download from the chapter dialog (Y10). */
+    fun handleChapterDownload(chapter: Chapter, action: ChapterDownloadAction) {
+        val manga = manga ?: return
+        when (action) {
+            ChapterDownloadAction.START -> downloadManager.downloadChapters(manga, listOf(chapter))
+            ChapterDownloadAction.START_NOW -> downloadManager.startDownloadNow(chapter.id)
+            ChapterDownloadAction.CANCEL -> {
+                val download = downloadManager.getQueuedDownloadOrNull(chapter.id) ?: return
+                downloadManager.cancelQueuedDownloads(listOf(download))
+            }
+            ChapterDownloadAction.DELETE -> {
+                downloadManager.deleteChapters(listOf(chapter), manga, sourceManager.getOrStub(manga.source))
+            }
+        }
+    }
+    // RK <--
+
     fun closeDialog() {
         mutableState.update { it.copy(dialog = null) }
     }
@@ -997,6 +1063,10 @@ class ReaderViewModel @JvmOverloads constructor(
         data object ReadingModeSelect : Dialog
         data object OrientationModeSelect : Dialog
         data class PageActions(val page: ReaderPage) : Dialog
+
+        // RK -->
+        data object ChapterListSelect : Dialog
+        // RK <--
     }
 
     sealed interface Event {

@@ -97,6 +97,9 @@ class ReaderPreferences(
 
     // RK -->
     val markReadOnSkip: Preference<Boolean> = preferenceStore.getBoolean("mark_read_on_skip", false)
+
+    val readerBottomButtons: Preference<Set<String>> =
+        preferenceStore.getStringSet("reader_bottom_buttons", ReaderBottomButton.BUTTONS_DEFAULTS)
     // RK <--
 
     val webtoonDisableZoomOut: Preference<Boolean> = preferenceStore.getBoolean("webtoon_disable_zoom_out", false)
