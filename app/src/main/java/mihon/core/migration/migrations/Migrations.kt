@@ -9,4 +9,7 @@ val migrations: List<Migration>
         TrustExtensionRepositoryMigration(),
         CategoryPreferencesCleanupMigration(),
         InstallationIdMigration(),
+        // RK -->
+        SetupLnPluginUpdateMigration(),
+        // RK <--
     )

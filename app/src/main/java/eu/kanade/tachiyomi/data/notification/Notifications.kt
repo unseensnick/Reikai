@@ -76,6 +76,10 @@ object Notifications {
     const val ID_UPDATES_TO_EXTS = -401
     const val ID_EXTENSION_INSTALLER = -402
 
+    // RK: light-novel plugin updates (P5 S3a), grouped with the APK/extension updates.
+    const val CHANNEL_LN_PLUGIN_UPDATE = "ln_plugin_update_channel"
+    const val ID_LN_PLUGIN_UPDATES = -403
+
     private val deprecatedChannels = listOf(
         "downloader_channel",
         "downloader_complete_channel",
@@ -167,6 +171,12 @@ object Notifications {
                     setGroup(GROUP_APK_UPDATES)
                     setName(context.stringResource(MR.strings.channel_ext_updates))
                 },
+                // RK -->
+                buildNotificationChannel(CHANNEL_LN_PLUGIN_UPDATE, IMPORTANCE_DEFAULT) {
+                    setGroup(GROUP_APK_UPDATES)
+                    setName(context.stringResource(MR.strings.channel_ln_plugin_updates))
+                },
+                // RK <--
             ),
         )
     }

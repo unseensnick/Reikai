@@ -17,11 +17,14 @@ import eu.kanade.presentation.components.TabbedScreen
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsScreenModel
-import eu.kanade.tachiyomi.ui.browse.extension.extensionsTab
 import eu.kanade.tachiyomi.ui.browse.migration.sources.migrateSourceTab
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
-import eu.kanade.tachiyomi.ui.browse.source.sourcesTab
 import eu.kanade.tachiyomi.ui.main.MainActivity
+// RK -->
+import reikai.presentation.browse.ReikaiBrowseScreenModel
+import reikai.presentation.browse.extension.reikaiExtensionsTab
+import reikai.presentation.browse.source.reikaiSourcesTab
+// RK <--
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
@@ -60,10 +63,13 @@ data object BrowseTab : Tab {
         // Hoisted for extensions tab's search bar
         val extensionsScreenModel = rememberScreenModel { ExtensionsScreenModel() }
         val extensionsState by extensionsScreenModel.state.collectAsState()
+        // RK: shared content-type filter + LN update badge across the Sources/Extensions tabs.
+        val browseScreenModel = rememberScreenModel { ReikaiBrowseScreenModel() }
 
         val tabs = listOf(
-            sourcesTab(),
-            extensionsTab(extensionsScreenModel),
+            // RK: chip-switched manga + light-novel sources / extensions (P5 S3a).
+            reikaiSourcesTab(browseScreenModel),
+            reikaiExtensionsTab(extensionsScreenModel, browseScreenModel),
             migrateSourceTab(),
         )
 

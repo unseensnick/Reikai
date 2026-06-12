@@ -268,8 +268,9 @@ private fun ExtensionContent(
     }
 }
 
+// RK: public so the Reikai unified "All" Browse view can reuse the manga extension row verbatim.
 @Composable
-private fun ExtensionItem(
+fun ExtensionItem(
     item: ExtensionUiModel.Item,
     onClickItem: (Extension) -> Unit,
     onLongClickItem: (Extension) -> Unit,

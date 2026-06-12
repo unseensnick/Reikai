@@ -106,8 +106,9 @@ private fun SourceHeader(
     )
 }
 
+// RK: public so the Reikai unified "All" Browse view can reuse the manga source row verbatim.
 @Composable
-private fun SourceItem(
+fun SourceItem(
     source: Source,
     onClickItem: (Source, Listing) -> Unit,
     onLongClickItem: (Source) -> Unit,

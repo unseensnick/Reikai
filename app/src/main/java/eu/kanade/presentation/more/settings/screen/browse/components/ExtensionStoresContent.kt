@@ -59,8 +59,9 @@ fun ExtensionStoresContent(
     }
 }
 
+// RK: public so the Reikai combined repos screen can reuse the manga repo card under a Manga header.
 @Composable
-private fun ExtensionStoresListItem(
+fun ExtensionStoresListItem(
     store: ExtensionStore,
     onOpenWebsite: () -> Unit,
     onOpenDiscord: () -> Unit,
