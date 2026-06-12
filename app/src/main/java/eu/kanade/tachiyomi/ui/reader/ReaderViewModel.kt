@@ -581,6 +581,24 @@ class ReaderViewModel @JvmOverloads constructor(
         updateChapter.awaitAll(duplicateUnreadChapters)
     }
 
+    // RK --> R12: mark the chapter the user skipped past (forward only) as read, opt-in.
+    // Reuses updateChapterProgressOnComplete for tracker sync / delete-on-read / duplicates;
+    // it does not persist the read flag itself (its normal caller does during a page-progress
+    // save, which a forward skip never reaches), so we persist it here.
+    fun markChapterReadOnSkip(readerChapter: ReaderChapter) {
+        if (readerChapter.chapter.read || incognitoMode || !readerPreferences.markReadOnSkip.get()) return
+        viewModelScope.launchNonCancellable {
+            updateChapterProgressOnComplete(readerChapter)
+            updateChapter.await(
+                ChapterUpdate(
+                    id = readerChapter.chapter.id!!,
+                    read = true,
+                ),
+            )
+        }
+    }
+    // RK <--
+
     fun restartReadTimer() {
         chapterReadStartTime = Instant.now().toEpochMilli()
     }
@@ -606,7 +624,13 @@ class ReaderViewModel @JvmOverloads constructor(
      */
     suspend fun loadNextChapter() {
         val nextChapter = state.value.viewerChapters?.nextChapter ?: return
+        // RK --> mark-read-on-skip (R12): the chapter being left behind on a forward skip
+        val departedChapter = getCurrentChapter()
+        // RK <--
         loadAdjacent(nextChapter)
+        // RK -->
+        departedChapter?.let { markChapterReadOnSkip(it) }
+        // RK <--
     }
 
     /**
