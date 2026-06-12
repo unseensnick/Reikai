@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.network.parseAs
 import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
+import reikai.domain.recommendation.dto.SMMangaDetail
 import reikai.domain.recommendation.dto.SMRecsManga
 
 /**
@@ -34,6 +35,14 @@ class ShikimoriRecommendations(
 
         val data = with(json) { client.newCall(GET(url, headers)).awaitSuccess().parseAs<List<SMRecsManga>>() }
         return data.map { it.toCandidate() }
+    }
+
+    override suspend fun getMediaContext(remoteId: Long): MediaContext {
+        val url = "$API_URL/mangas".toHttpUrl().newBuilder()
+            .addPathSegment(remoteId.toString())
+            .build()
+        val data = with(json) { client.newCall(GET(url, headers)).awaitSuccess().parseAs<SMMangaDetail>() }
+        return MediaContext(genres = data.genres.map { it.name }, recommendations = getRecsById(remoteId))
     }
 
     override suspend fun getRecsBySearch(title: String): List<RelatedMangaCandidate> {

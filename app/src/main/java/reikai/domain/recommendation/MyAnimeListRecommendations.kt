@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.network.parseAs
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import reikai.domain.recommendation.dto.JikanImages
+import reikai.domain.recommendation.dto.JikanMangaResponse
 import reikai.domain.recommendation.dto.JikanRecsResponse
 import reikai.domain.recommendation.dto.JikanSearchResponse
 
@@ -33,6 +34,18 @@ class MyAnimeListRecommendations(
         return data.data.map { it.entry }.map { rec ->
             candidate(url = rec.url, title = rec.title, thumbnailUrl = rec.images?.pickImage(), remoteId = rec.malId)
         }
+    }
+
+    override suspend fun getMediaContext(remoteId: Long): MediaContext {
+        val url = ENDPOINT.toHttpUrl().newBuilder()
+            .addPathSegment("manga")
+            .addPathSegment(remoteId.toString())
+            .build()
+        val data = with(json) { client.newCall(GET(url)).awaitSuccess().parseAs<JikanMangaResponse>() }.data
+        return MediaContext(
+            genres = (data.genres + data.themes).map { it.name },
+            recommendations = getRecsById(remoteId),
+        )
     }
 
     override suspend fun getRecsBySearch(title: String): List<RelatedMangaCandidate> {

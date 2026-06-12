@@ -35,6 +35,23 @@ data class JikanImageUrl(
 )
 
 @Serializable
+data class JikanMangaResponse(
+    val data: JikanMangaData,
+)
+
+@Serializable
+data class JikanMangaData(
+    val genres: List<JikanGenre> = emptyList(),
+    // MAL files "Psychological" / "Isekai" etc. under themes, not genres, so include both.
+    val themes: List<JikanGenre> = emptyList(),
+)
+
+@Serializable
+data class JikanGenre(
+    val name: String,
+)
+
+@Serializable
 data class JikanSearchResponse(
     val data: List<JikanSearchEntry> = emptyList(),
 )

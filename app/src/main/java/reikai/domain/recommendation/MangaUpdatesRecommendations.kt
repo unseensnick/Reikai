@@ -25,21 +25,31 @@ class MangaUpdatesRecommendations(
 
     override val trackerName: String = "MangaUpdates"
 
-    override suspend fun getRecsById(remoteId: Long): List<RelatedMangaCandidate> {
+    override suspend fun getRecsById(remoteId: Long): List<RelatedMangaCandidate> =
+        fetchSeries(remoteId).toCandidates()
+
+    // The series endpoint returns both recommendations and genres, so one call serves both.
+    override suspend fun getMediaContext(remoteId: Long): MediaContext {
+        val data = fetchSeries(remoteId)
+        return MediaContext(genres = data.genres.map { it.genre }, recommendations = data.toCandidates())
+    }
+
+    private suspend fun fetchSeries(remoteId: Long): MUSeriesResponse {
         val url = ENDPOINT.toHttpUrl().newBuilder()
             .addPathSegment("series")
             .addPathSegment(remoteId.toString())
             .build()
+        return with(json) { client.newCall(GET(url)).awaitSuccess().parseAs<MUSeriesResponse>() }
+    }
 
-        val data = with(json) { client.newCall(GET(url)).awaitSuccess().parseAs<MUSeriesResponse>() }
-        return data.recommendations.map { rec ->
+    private fun MUSeriesResponse.toCandidates(): List<RelatedMangaCandidate> =
+        recommendations.map { rec ->
             candidate(
                 url = rec.seriesUrl,
                 title = rec.seriesName,
                 thumbnailUrl = rec.seriesImage?.url?.original,
             )
         }
-    }
 
     override suspend fun getRecsBySearch(title: String): List<RelatedMangaCandidate> {
         val url = ENDPOINT.toHttpUrl().newBuilder()

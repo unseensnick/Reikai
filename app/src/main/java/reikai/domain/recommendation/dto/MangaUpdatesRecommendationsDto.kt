@@ -6,6 +6,12 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class MUSeriesResponse(
     val recommendations: List<MURec> = emptyList(),
+    val genres: List<MUGenre> = emptyList(),
+)
+
+@Serializable
+data class MUGenre(
+    val genre: String,
 )
 
 @Serializable

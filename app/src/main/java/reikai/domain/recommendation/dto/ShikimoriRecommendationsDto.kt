@@ -20,3 +20,14 @@ data class SMRecsImage(
     val original: String? = null,
     val preview: String? = null,
 )
+
+/** `/api/mangas/{id}` (single object) carries the genres the compact array shape omits. */
+@Serializable
+data class SMMangaDetail(
+    val genres: List<SMGenre> = emptyList(),
+)
+
+@Serializable
+data class SMGenre(
+    val name: String,
+)
