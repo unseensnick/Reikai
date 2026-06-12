@@ -1,10 +1,14 @@
 package reikai.presentation.recommendation
 
+import android.text.format.DateUtils
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.SearchableSettings
@@ -15,6 +19,7 @@ import kotlinx.coroutines.launch
 import reikai.data.recommendation.taste.TrackerLibraryRefreshJob
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
+import reikai.domain.recommendation.taste.TasteLibraryRepository
 import tachiyomi.core.common.preference.Preference as PreferenceData
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -39,13 +44,41 @@ object SettingsRecommendationsScreen : SearchableSettings {
         val prefs = remember { Injekt.get<ReikaiRecommendationPreferences>() }
         val trackerManager = remember { Injekt.get<TrackerManager>() }
 
-        return listOf(
+        // Candidate injection needs the manga tracked on a recs-capable tracker, so it's only useful
+        // (and only shown) when the user is logged into one.
+        val recsTrackerLoggedIn = listOf(
+            trackerManager.aniList,
+            trackerManager.myAnimeList,
+            trackerManager.mangaUpdates,
+            trackerManager.shikimori,
+        ).any { it.isLoggedIn }
+
+        return listOfNotNull(
             sourcesGroup(prefs, trackerManager),
             tasteProfileGroup(prefs, trackerManager),
+            injectionGroup(prefs).takeIf { recsTrackerLoggedIn },
             rerankingGroup(prefs),
             filtersGroup(prefs),
         )
     }
+
+    @Composable
+    private fun injectionGroup(prefs: ReikaiRecommendationPreferences): Preference.PreferenceGroup =
+        Preference.PreferenceGroup(
+            title = stringResource(MR.strings.pref_recommendation_injection),
+            preferenceItems = listOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = prefs.injectCrossRecommendationCandidates,
+                    title = stringResource(MR.strings.pref_inject_cross_recommendation),
+                    subtitle = stringResource(MR.strings.pref_inject_cross_recommendation_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = prefs.injectTagSearchCandidates,
+                    title = stringResource(MR.strings.pref_inject_tag_search),
+                    subtitle = stringResource(MR.strings.pref_inject_tag_search_summary),
+                ),
+            ),
+        )
 
     @Composable
     private fun sourcesGroup(
@@ -83,6 +116,13 @@ object SettingsRecommendationsScreen : SearchableSettings {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val refreshTrackerLibrary = remember { Injekt.get<RefreshTrackerLibrary>() }
+        val repository = remember { Injekt.get<TasteLibraryRepository>() }
+        // Bump to recompute the last-refresh summary after a manual pull lands.
+        var refreshTick by remember { mutableIntStateOf(0) }
+        val neverLabel = stringResource(MR.strings.pref_last_refresh_never)
+        val lastRefreshSummary by produceState("", refreshTick, neverLabel) {
+            value = buildLastRefreshSummary(repository, trackerManager, neverLabel)
+        }
         // enabled = visible in Mihon's preference DSL, so a tracker's pull toggle only appears once
         // the user is logged into it (the pull needs their private library, which login gates).
         fun pullToggle(tracker: Tracker, pref: PreferenceData<Boolean>) =
@@ -114,14 +154,48 @@ object SettingsRecommendationsScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_refresh_now),
-                    subtitle = stringResource(MR.strings.pref_refresh_now_summary),
+                    // Per-tracker last-pull times under the title, so it actually tells the user something.
+                    subtitle = lastRefreshSummary.ifBlank { stringResource(MR.strings.pref_refresh_now_summary) },
                     onClick = {
-                        context.toast(MR.strings.pref_refresh_now_started)
-                        scope.launch { refreshTrackerLibrary.refreshNow() }
+                        scope.launch {
+                            val ran = refreshTrackerLibrary.refreshNow()
+                            context.toast(
+                                if (ran) MR.strings.pref_refresh_now_started else MR.strings.pref_refresh_now_cooldown,
+                            )
+                            refreshTick++
+                        }
                     },
                 ),
             ),
         )
+    }
+
+    /** One line per logged-in library tracker: "AniList: 3 days ago". Empty when none are logged in. */
+    private suspend fun buildLastRefreshSummary(
+        repository: TasteLibraryRepository,
+        trackerManager: TrackerManager,
+        neverLabel: String,
+    ): String {
+        val now = System.currentTimeMillis()
+        // lastFetch is a suspend DB read, so resolve every timestamp before the non-suspend join.
+        val rows = listOf(
+            trackerManager.aniList,
+            trackerManager.myAnimeList,
+            trackerManager.kitsu,
+            trackerManager.shikimori,
+            trackerManager.bangumi,
+        )
+            .filter { it.isLoggedIn }
+            .map { it.name to repository.lastFetch(it.id) }
+        if (rows.isEmpty()) return ""
+        return rows.joinToString("\n") { (name, fetchedAt) ->
+            val whenStr = if (fetchedAt == null) {
+                neverLabel
+            } else {
+                DateUtils.getRelativeTimeSpanString(fetchedAt, now, DateUtils.DAY_IN_MILLIS).toString()
+            }
+            "$name: $whenStr"
+        }
     }
 
     @Composable

@@ -191,6 +191,11 @@
     <string name="pref_refresh_now">Refresh now</string>
     <string name="pref_refresh_now_summary">Pull your tracker libraries now</string>
     <string name="pref_refresh_now_started">Refreshing tracker libraries…</string>
+    <string name="pref_recommendation_injection">Suggestions from your tracking</string>
+    <string name="pref_inject_cross_recommendation">Because you\'re reading…</string>
+    <string name="pref_inject_cross_recommendation_summary">For a tracked manga, add titles similar to the ones you\'ve read that your tracker links to it</string>
+    <string name="pref_inject_tag_search">Matching your taste</string>
+    <string name="pref_inject_tag_search_summary">For a tracked manga, search this source for the genres you enjoy</string>
     <string name="pref_recommendation_reranking">Reranking</string>
     <string name="pref_enable_recommendation_rerank">Rerank by taste</string>
     <string name="pref_enable_recommendation_rerank_summary">Reorder suggestions toward your taste profile</string>
@@ -204,6 +209,20 @@
     <string name="pref_hide_tracked_dropped">Hide dropped</string>
     <string name="pref_hide_tracked_on_hold">Hide on-hold</string>
     <string name="pref_hide_tracked_plan_to_read">Hide plan-to-read</string>
+    <!-- RK: recommendations - last-refresh state -->
+    <string name="pref_last_refresh_never">never</string>
+    <string name="pref_refresh_now_cooldown">Please wait before refreshing again</string>
+    <!-- RK: recommendations - "See all" browse grid -->
+    <string name="recs_see_all">See all (%d)</string>
+    <string name="recs_browse_empty">No related manga to show. Reopen the manga to load suggestions.</string>
+    <string name="recs_group_toggle">Group by source</string>
+    <string name="recs_show_hidden">Show hidden</string>
+    <string name="recs_group_source_native">From this source</string>
+    <string name="recs_group_tracker">From your %s recommendations</string>
+    <string name="recs_group_cross_rec">Because you\'re reading %s</string>
+    <string name="recs_group_tag_search">Matching your taste: %s</string>
+    <string name="bulk_added_to_library">Added %d to library</string>
+    <string name="bulk_added_with_skipped">Added %1$d to library, skipped %2$d</string>
     <string name="action_install">Install</string>
     <string name="action_share">Share</string>
     <string name="action_save">Save</string>
