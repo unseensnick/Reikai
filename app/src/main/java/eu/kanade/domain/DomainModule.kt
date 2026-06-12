@@ -42,9 +42,20 @@ import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
 import reikai.domain.library.updateerror.GetLibraryUpdateErrors
 import reikai.domain.library.updateerror.LibraryUpdateErrorRepository
 import reikai.domain.library.updateerror.UpsertLibraryUpdateError
+import reikai.data.novel.NovelCategoryRepositoryImpl
+import reikai.data.novel.NovelChapterRepositoryImpl
+import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.recommendation.taste.TasteLibraryRepositoryImpl
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.PropagateTrackerLinks
+import reikai.domain.novel.NovelCategoryRepository
+import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.DeleteNovelCategories
+import reikai.domain.novel.interactor.GetNovelCategories
+import reikai.domain.novel.interactor.InsertNovelCategories
+import reikai.domain.novel.interactor.ReorderNovelCategories
+import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.RecommendationsFetcher
 import reikai.domain.recommendation.RelatedMangaCache
@@ -133,6 +144,16 @@ class DomainModule : InjektModule {
         addFactory { GetLibraryUpdateErrors(get()) }
         addFactory { UpsertLibraryUpdateError(get()) }
         addFactory { DeleteLibraryUpdateErrors(get()) }
+        // RK <--
+        // RK --> light-novel vertical (P5 S1: domain/DB foundation)
+        addSingletonFactory<NovelRepository> { NovelRepositoryImpl(get()) }
+        addSingletonFactory<NovelChapterRepository> { NovelChapterRepositoryImpl(get()) }
+        addSingletonFactory<NovelCategoryRepository> { NovelCategoryRepositoryImpl(get()) }
+        addFactory { GetNovelCategories(get()) }
+        addFactory { SetNovelCategories(get()) }
+        addFactory { InsertNovelCategories(get()) }
+        addFactory { DeleteNovelCategories(get()) }
+        addFactory { ReorderNovelCategories(get()) }
         // RK <--
         // RK --> pref-based merge (P3)
         addSingletonFactory { MangaMergeManager(get(), get(), get()) }

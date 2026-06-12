@@ -35,6 +35,7 @@ import tachiyomi.data.Database
 import tachiyomi.data.DateColumnAdapter
 import tachiyomi.data.History
 import tachiyomi.data.Mangas
+import tachiyomi.data.Novels
 import tachiyomi.data.StringListColumnAdapter
 import tachiyomi.data.UpdateStrategyColumnAdapter
 import tachiyomi.domain.source.service.SourceManager
@@ -82,6 +83,12 @@ class AppModule(val app: Application) : InjektModule {
                     genreAdapter = StringListColumnAdapter,
                     update_strategyAdapter = UpdateStrategyColumnAdapter,
                 ),
+                // RK --> light-novel vertical (P5 S1)
+                novelsAdapter = Novels.Adapter(
+                    genreAdapter = StringListColumnAdapter,
+                    update_strategyAdapter = UpdateStrategyColumnAdapter,
+                ),
+                // RK <--
             )
         }
 

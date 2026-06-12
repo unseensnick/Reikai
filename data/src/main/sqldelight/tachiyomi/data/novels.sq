@@ -1,0 +1,94 @@
+import eu.kanade.tachiyomi.source.model.UpdateStrategy;
+import kotlin.Boolean;
+import kotlin.String;
+import kotlin.collections.List;
+
+-- Parallel of mangas. Held disjoint from the manga table because the source-id space differs
+-- (lnreader plugin.id is a String; Tachiyomi extension source ids are Long), the reader is
+-- text-based (no `viewer` flags), and there are no scanlators. Fields with direct manga
+-- analogues are named identically so view code and tracker hooks port with minimal diff.
+--
+-- `total_pages` supports paged-novel sources (Royal Road volumes, some Japanese sources) where a
+-- single novel's chapter list spans multiple endpoints; the update job re-fetches
+-- `oldTotalPages + 1` through `total_pages` for completely new content. `last_read_at` is
+-- denormalized off `novel_chapters.last_text_progress` so the LastRead library sort avoids a
+-- JOIN-per-row.
+CREATE TABLE novels(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    source TEXT NOT NULL,
+    url TEXT NOT NULL,
+    title TEXT NOT NULL,
+    author TEXT,
+    artist TEXT,
+    description TEXT,
+    genre TEXT AS List<String>,
+    status INTEGER NOT NULL,
+    thumbnail_url TEXT,
+    favorite INTEGER AS Boolean NOT NULL,
+    last_update INTEGER,
+    initialized INTEGER AS Boolean NOT NULL,
+    chapter_flags INTEGER NOT NULL,
+    date_added INTEGER,
+    update_strategy INTEGER AS UpdateStrategy NOT NULL DEFAULT 0,
+    cover_last_modified INTEGER NOT NULL DEFAULT 0,
+    total_pages INTEGER NOT NULL DEFAULT 1,
+    last_read_at INTEGER,
+    edited_flags INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX novels_url_index ON novels(url);
+CREATE INDEX novels_library_favorite_index ON novels(favorite) WHERE favorite = 1;
+
+findAll:
+SELECT *
+FROM novels;
+
+findByUrlAndSource:
+SELECT *
+FROM novels
+WHERE url = :url AND source = :source
+LIMIT 1;
+
+findById:
+SELECT *
+FROM novels
+WHERE _id = :novelId;
+
+findFavorites:
+SELECT *
+FROM novels
+WHERE favorite = 1
+ORDER BY title;
+
+insert:
+INSERT INTO novels (source, url, title, author, artist, description, genre, status, thumbnail_url, favorite, last_update, initialized, chapter_flags, date_added, update_strategy, cover_last_modified, total_pages, last_read_at, edited_flags)
+VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :favorite, :lastUpdate, :initialized, :chapterFlags, :dateAdded, :updateStrategy, :coverLastModified, :totalPages, :lastReadAt, :editedFlags);
+
+-- Full-row update: every caller writes a complete Novel (read-modify-write via `copy`), so no
+-- `coalesce` partial path is needed. Keeping the columns adapter-typed (no coalesce) means the
+-- `genre` / `update_strategy` adapters survive, so the call site passes the typed values directly.
+update:
+UPDATE novels SET
+    source = :source,
+    url = :url,
+    title = :title,
+    author = :author,
+    artist = :artist,
+    description = :description,
+    genre = :genre,
+    status = :status,
+    thumbnail_url = :thumbnailUrl,
+    favorite = :favorite,
+    last_update = :lastUpdate,
+    initialized = :initialized,
+    chapter_flags = :chapterFlags,
+    date_added = :dateAdded,
+    update_strategy = :updateStrategy,
+    cover_last_modified = :coverLastModified,
+    total_pages = :totalPages,
+    last_read_at = :lastReadAt,
+    edited_flags = :editedFlags
+WHERE _id = :novelId;
+
+selectLastInsertedRowId:
+SELECT last_insert_rowid();

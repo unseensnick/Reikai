@@ -1,0 +1,28 @@
+-- Parallel of manga_sync. Held disjoint from manga_sync because novel ids and manga ids share
+-- the same INTEGER PRIMARY KEY space across separate tables; a single shared sync table would
+-- need a media_type discriminator or risk silent id collisions. Field names mirror manga_sync
+-- wherever they have a direct analogue.
+--
+-- Table only for now: novel tracking is deferred, but the table ships in this migration so a
+-- later tracking stage is purely additive code (no second schema migration). No queries are
+-- wired until that stage.
+CREATE TABLE novel_tracks(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    novel_id INTEGER NOT NULL,
+    sync_id INTEGER NOT NULL,
+    remote_id INTEGER NOT NULL,
+    library_id INTEGER,
+    title TEXT NOT NULL,
+    last_chapter_read REAL NOT NULL,
+    total_chapters INTEGER NOT NULL,
+    status INTEGER NOT NULL,
+    score REAL NOT NULL,
+    remote_url TEXT NOT NULL,
+    start_date INTEGER NOT NULL,
+    finish_date INTEGER NOT NULL,
+    UNIQUE (novel_id, sync_id) ON CONFLICT REPLACE,
+    FOREIGN KEY(novel_id) REFERENCES novels (_id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX novel_tracks_novel_id_index ON novel_tracks(novel_id);
