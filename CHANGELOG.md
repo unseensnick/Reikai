@@ -146,7 +146,7 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - Extensions no longer tied to a repository are now labeled **Orphaned** (previously "Obsolete"), with a clearer note that they won't receive updates.
 
 ### Other
-- Synced upstream library updates from Mihon (Coil, OkHttp, Firebase) and moved to a SQLite driver build that avoids a rare database stall when a write is cancelled.
+- Synced upstream changes from Mihon: library updates (Coil, OkHttp, Firebase), a SQLite driver build that avoids a rare database stall when a write is cancelled, and tying background tasks (downloads, library updates, source loading) to the app's lifecycle so they no longer outlive it.
 - Extension repositories that moved to the newer index format are now followed automatically.
 
 ## [1.9.7.5.9]
