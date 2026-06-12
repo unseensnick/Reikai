@@ -253,6 +253,9 @@ dependencies {
     // Dependency injection
     implementation(libs.injekt)
 
+    // RK: headless QuickJS (dokar3) for the LN plugin host (reikai.novel.host)
+    implementation(libs.quickjs.kt)
+
     // Image loading
     implementation(libs.bundles.coil)
     implementation(libs.subsamplingScaleImageView) {

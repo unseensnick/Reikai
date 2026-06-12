@@ -1,11 +1,17 @@
 package eu.kanade.tachiyomi.network
 
 import android.content.Context
-import app.cash.quickjs.QuickJs
+import com.dokar.quickjs.QuickJs
+import kotlinx.coroutines.Dispatchers
 import tachiyomi.core.common.util.lang.withIOContext
 
 /**
  * Util for evaluating JavaScript in sources.
+ *
+ * RK: backed by the headless QuickJS engine (com.dokar.quickjs), the same engine Reikai's LN
+ * plugin host uses, so the app ships a single native JS library (both QuickJS bindings produce a
+ * `libquickjs.so` and cannot coexist). The public `evaluate` signature is unchanged, so manga
+ * extensions using extensions-lib see no difference.
  */
 @Suppress("UNUSED", "UNCHECKED_CAST")
 class JavaScriptEngine(context: Context) {
@@ -19,8 +25,11 @@ class JavaScriptEngine(context: Context) {
      * @return Result of JavaScript code as a primitive type.
      */
     suspend fun <T> evaluate(script: String): T = withIOContext {
-        QuickJs.create().use {
-            it.evaluate(script) as T
+        val engine = QuickJs.create(Dispatchers.IO)
+        try {
+            engine.evaluate<Any?>(script) as T
+        } finally {
+            engine.close()
         }
     }
 }

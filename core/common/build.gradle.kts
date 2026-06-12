@@ -47,8 +47,10 @@ dependencies {
     // Sort
     implementation(libs.natural.comparator)
 
-    // JavaScript engine
-    implementation(libs.quickJs)
+    // JavaScript engine: headless QuickJS (dokar3 quickjs-kt). RK: one engine for both the
+    // manga extensions-lib helper and Reikai's LN plugin host; a second QuickJS binding would
+    // collide on the shared libquickjs.so.
+    implementation(libs.quickjs.kt)
 
     testImplementation(libs.bundles.test)
     testRuntimeOnly(libs.junit.platform.launcher)
