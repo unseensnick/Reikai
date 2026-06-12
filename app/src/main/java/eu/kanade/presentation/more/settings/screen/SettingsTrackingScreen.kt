@@ -55,6 +55,7 @@ import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeListApi
 import eu.kanade.tachiyomi.data.track.shikimori.ShikimoriApi
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toast
+import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.source.service.SourceManager
@@ -85,6 +86,7 @@ object SettingsTrackingScreen : SearchableSettings {
     override fun getPreferences(): List<Preference> {
         val context = LocalContext.current
         val trackPreferences = remember { Injekt.get<TrackPreferences>() }
+        val reikaiLibraryPreferences = remember { Injekt.get<ReikaiLibraryPreferences>() } // RK
         val trackerManager = remember { Injekt.get<TrackerManager>() }
         val sourceManager = remember { Injekt.get<SourceManager>() }
         val autoTrackStatePref = trackPreferences.autoUpdateTrackOnMarkRead
@@ -133,6 +135,12 @@ object SettingsTrackingScreen : SearchableSettings {
                 entries = AutoTrackState.entries
                     .associateWith { stringResource(it.titleRes) },
                 title = stringResource(MR.strings.pref_auto_update_manga_on_mark_read),
+            ),
+            // RK: share a tracker added to one source across the rest of a merged group
+            Preference.PreferenceItem.SwitchPreference(
+                preference = reikaiLibraryPreferences.syncTrackerLinksGrouped,
+                title = stringResource(MR.strings.pref_sync_tracker_links_grouped),
+                subtitle = stringResource(MR.strings.pref_sync_tracker_links_grouped_summary),
             ),
             Preference.PreferenceGroup(
                 title = stringResource(MR.strings.services),

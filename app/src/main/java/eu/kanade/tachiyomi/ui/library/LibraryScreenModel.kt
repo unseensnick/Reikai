@@ -47,6 +47,7 @@ import tachiyomi.domain.source.model.StubSource
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.manga.PropagateTrackerLinks
 import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.ReikaiLibraryState
@@ -104,6 +105,7 @@ class LibraryScreenModel(
     // RK -->
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
     private val mergeManager: MangaMergeManager = Injekt.get(),
+    private val propagateTrackerLinks: PropagateTrackerLinks = Injekt.get(),
     // RK <--
 ) : StateScreenModel<LibraryScreenModel.State>(State()) {
 
@@ -950,6 +952,8 @@ class LibraryScreenModel(
         val ids = state.value.selection.toList()
         if (ids.size < 2) return
         mergeManager.mergeManga(ids)
+        // RK: share any existing tracker across the newly merged group
+        screenModelScope.launchIO { propagateTrackerLinks.fromSeed(ids.first()) }
         clearSelection()
     }
 

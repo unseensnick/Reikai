@@ -44,6 +44,7 @@ import reikai.domain.library.updateerror.LibraryUpdateErrorRepository
 import reikai.domain.library.updateerror.UpsertLibraryUpdateError
 import reikai.data.recommendation.taste.TasteLibraryRepositoryImpl
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.manga.PropagateTrackerLinks
 import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.RecommendationsFetcher
 import reikai.domain.recommendation.RelatedMangaCache
@@ -135,6 +136,7 @@ class DomainModule : InjektModule {
         // RK <--
         // RK --> pref-based merge (P3)
         addSingletonFactory { MangaMergeManager(get(), get(), get()) }
+        addSingletonFactory { PropagateTrackerLinks(get(), get(), get(), get(), get()) }
         // RK <--
         // RK --> recommendations (engine core)
         addSingletonFactory { RelatedMangaCache() }

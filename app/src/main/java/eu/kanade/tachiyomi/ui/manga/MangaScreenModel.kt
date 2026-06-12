@@ -1331,13 +1331,18 @@ class MangaScreenModel(
         updateSuccessState { it.copy(dialog = Dialog.ManageSources(state.mergeSources)) }
     }
 
-    /** Split [targetIds] out of the merge group, with an Undo that restores the prior merge prefs. */
+    /**
+     * Split [targetIds] out of the merge group, with an Undo that restores the prior merge prefs.
+     * Selecting every source dissolves the whole group (each manga becomes standalone, still in the
+     * library) instead of no-opping. Undo restores the prefs + group either way.
+     */
     fun splitSources(targetIds: List<Long>) {
         if (targetIds.isEmpty()) return
         val prevMerges = reikaiLibraryPreferences.mangaManualMerges.get()
         val prevUnmerges = reikaiLibraryPreferences.mangaManualUnmerges.get()
         val prevRelated = relatedMangaIds.value
-        relatedMangaIds.value = mergeManager.removeFromGroup(prevRelated, targetIds)
+        val newIds = mergeManager.splitOrDissolve(prevRelated, targetIds)
+        relatedMangaIds.value = if (newIds.isEmpty()) longArrayOf(mangaId) else newIds
         selectedSourceMangaId.value = null
         dismissDialog()
         screenModelScope.launch {

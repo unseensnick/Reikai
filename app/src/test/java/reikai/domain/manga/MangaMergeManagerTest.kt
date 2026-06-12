@@ -1,13 +1,53 @@
 package reikai.domain.manga
 
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import org.junit.jupiter.api.Test
+import reikai.domain.library.ReikaiLibraryPreferences
+import tachiyomi.core.common.preference.Preference
 
 class MangaMergeManagerTest {
+
+    private fun managerWith(merges: Set<String>, unmerges: Set<String>): Triple<MangaMergeManager, Preference<Set<String>>, Preference<Set<String>>> {
+        val mergesPref = mockk<Preference<Set<String>>>(relaxed = true)
+        val unmergesPref = mockk<Preference<Set<String>>>(relaxed = true)
+        every { mergesPref.get() } returns merges
+        every { unmergesPref.get() } returns unmerges
+        val preferences = mockk<ReikaiLibraryPreferences> {
+            every { mangaManualMerges } returns mergesPref
+            every { mangaManualUnmerges } returns unmergesPref
+        }
+        return Triple(MangaMergeManager(preferences, mockk(), mockk()), mergesPref, unmergesPref)
+    }
+
+    @Test
+    fun `splitOrDissolve dissolves the group when every source is selected`() {
+        val (manager, mergesPref, unmergesPref) = managerWith(setOf("1,2,3"), emptySet())
+
+        val survivors = manager.splitOrDissolve(longArrayOf(1L, 2L, 3L), listOf(1L, 2L, 3L))
+
+        survivors.toList().shouldBeEmpty()
+        verify { mergesPref.set(emptySet()) }
+        verify { unmergesPref.set(setOf("1,2", "1,3", "2,3")) }
+    }
+
+    @Test
+    fun `splitOrDissolve splits a subset and keeps the survivors grouped`() {
+        val (manager, mergesPref, unmergesPref) = managerWith(setOf("1,2,3"), emptySet())
+
+        val survivors = manager.splitOrDissolve(longArrayOf(1L, 2L, 3L), listOf(3L))
+
+        survivors.toList() shouldContainExactly listOf(1L, 2L)
+        verify { mergesPref.set(setOf("1,2")) }
+        verify { unmergesPref.set(setOf("1,3", "2,3")) }
+    }
 
     @Test
     fun `unmergeKey is normalized min,max regardless of argument order`() {

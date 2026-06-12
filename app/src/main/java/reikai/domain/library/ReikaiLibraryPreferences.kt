@@ -116,5 +116,8 @@ class ReikaiLibraryPreferences(
     /** Source ids ranked highest-priority-first; the trunk source when stitching a merged chapter list. */
     val preferredMangaSources: Preference<List<Long>> = preferenceStore.getLongArray("preferred_manga_sources", emptyList())
 
+    /** Mirror a tracker added to one source onto every favorited member of its merged group. */
+    val syncTrackerLinksGrouped: Preference<Boolean> = preferenceStore.getBoolean("sync_tracker_links_grouped", true)
+
     // endregion
 }

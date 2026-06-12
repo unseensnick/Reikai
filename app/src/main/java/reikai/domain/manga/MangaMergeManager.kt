@@ -72,6 +72,30 @@ class MangaMergeManager(
     }
 
     /**
+     * Manage-sources split. When [targetIds] leave at least one survivor, split them out and keep the
+     * survivors grouped (subset split). When they cover the whole [relatedMangaIds] group, dissolve it
+     * entirely so every member becomes standalone, the "split all sources" case that would otherwise
+     * be a silent no-op. [relatedMangaIds] is the already-resolved group, so dissolving it directly is
+     * complete (its pairwise unmerges also block same-title regrouping). Returns the surviving ids
+     * (empty on a full dissolve).
+     */
+    fun splitOrDissolve(relatedMangaIds: LongArray, targetIds: List<Long>): LongArray {
+        if (targetIds.isEmpty()) return relatedMangaIds
+        val targetSet = targetIds.toSet()
+        val survivesSplit = relatedMangaIds.any { it !in targetSet }
+        if (survivesSplit) return removeFromGroup(relatedMangaIds, targetIds)
+
+        val result = computeDissolve(
+            relatedMangaIds,
+            preferences.mangaManualMerges.get(),
+            preferences.mangaManualUnmerges.get(),
+        )
+        preferences.mangaManualMerges.set(result.newMerges)
+        preferences.mangaManualUnmerges.set(result.newUnmerges)
+        return longArrayOf()
+    }
+
+    /**
      * Walk every merge entry referencing [targetId], pair-check each sibling against the target's
      * tracker key set, and rewrite the prefs to drop suspect siblings. Returns the post-cleanup
      * pref snapshots and the dropped-sibling count.

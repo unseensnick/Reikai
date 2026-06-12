@@ -65,6 +65,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import reikai.domain.manga.PropagateTrackerLinks
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withIOContext
@@ -219,6 +220,8 @@ data class TrackInfoDialogHomeScreen(
                 try {
                     val matchResult = item.tracker.match(manga) ?: throw Exception()
                     item.tracker.register(matchResult, mangaId)
+                    // RK: share the new tracker with the rest of the merged group
+                    Injekt.get<PropagateTrackerLinks>().fromSeed(mangaId)
                 } catch (_: Exception) {
                     withUIContext { Injekt.get<Application>().toast(MR.strings.error_no_match) }
                 }
@@ -719,7 +722,11 @@ data class TrackerSearchScreen(
         }
 
         fun registerTracking(item: TrackSearch) {
-            screenModelScope.launchNonCancellable { tracker.register(item, mangaId) }
+            screenModelScope.launchNonCancellable {
+                tracker.register(item, mangaId)
+                // RK: share the new tracker with the rest of the merged group
+                Injekt.get<PropagateTrackerLinks>().fromSeed(mangaId)
+            }
         }
 
         fun updateSelection(selected: TrackSearch) {

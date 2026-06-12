@@ -179,6 +179,8 @@
     <string name="pref_preferred_sources_guide">Higher-ranked sources lead a merged series\' combined chapter list. Unranked sources fall back to the one with the most chapters.</string>
     <string name="pref_preferred_sources_empty">No preferred sources yet. Add one below to rank it.</string>
     <string name="pref_preferred_sources_add">Add a source</string>
+    <string name="pref_sync_tracker_links_grouped">Share trackers across merged sources</string>
+    <string name="pref_sync_tracker_links_grouped_summary">When you add a tracker to one source of a merged series, link it on the other grouped sources too. Each keeps its own link after you unmerge.</string>
     <!-- RK: recommendations settings -->
     <string name="pref_recommendations">Recommendations</string>
     <string name="pref_recommendations_summary">Related-manga suggestions and taste profile</string>
