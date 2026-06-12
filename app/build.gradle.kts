@@ -294,6 +294,11 @@ dependencies {
     testImplementation(libs.bundles.test)
     testRuntimeOnly(libs.junit.platform.launcher)
 
+    // RK: instrumented test for the headless LN plugin host (network-dependent, on-device only).
+    // quickjs-kt is a main dep above, so androidTest sees it transitively.
+    androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation("androidx.test:runner:1.6.2")
+
     // For detecting memory leaks; see https://square.github.io/leakcanary/
     // debugImplementation(libs.leakCanary.android)
     implementation(libs.leakCanary.plumber)

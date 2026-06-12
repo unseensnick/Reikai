@@ -31,7 +31,10 @@ import nl.adaptivity.xmlutil.XmlDeclMode
 import nl.adaptivity.xmlutil.core.XmlVersion
 import nl.adaptivity.xmlutil.serialization.XML
 import reikai.novel.host.LnPluginHost
+import reikai.novel.host.LnPluginLoader
+import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
+import reikai.novel.update.LnPluginUpdateChecker
 import tachiyomi.core.common.storage.AndroidStorageFolderProvider
 import tachiyomi.data.Database
 import tachiyomi.data.DateColumnAdapter
@@ -125,6 +128,9 @@ class AppModule(val app: Application) : InjektModule {
         // RK --> light-novel plugin host (P5 S2): runs lnreader plugins on the shared OkHttp client
         addSingletonFactory { LnPluginHost(app, get<NetworkHelper>().client, get()) }
         addSingletonFactory { NovelSourceManager() }
+        addSingletonFactory { LnPluginLoader(app, get<NetworkHelper>().client) }
+        addSingletonFactory { LnPluginInstaller(get(), get(), get(), get(), get()) }
+        addSingletonFactory { LnPluginUpdateChecker(get(), get()) }
         // RK <--
 
         addSingletonFactory<SourceManager> { AndroidSourceManager(app, get(), get(), get()) }
