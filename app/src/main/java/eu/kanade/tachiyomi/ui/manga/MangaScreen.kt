@@ -59,6 +59,7 @@ import logcat.LogPriority
 import mihon.feature.migration.config.MigrationConfigScreen
 import mihon.feature.migration.dialog.MigrateMangaDialog
 import reikai.presentation.manga.ManageSourcesDialog
+import reikai.presentation.recommendation.browse.RelatedMangasBrowseScreen
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.model.Chapter
@@ -185,6 +186,10 @@ class MangaScreen(
                         navigator.push(GlobalSearchScreen(candidate.manga.title))
                     }
                 }
+            },
+            // RK: "See all" -> full-screen related-mangas browse grid
+            onRelatedSeeAll = {
+                navigator.push(RelatedMangasBrowseScreen(successState.manga.id, successState.manga.title))
             },
             onMultiBookmarkClicked = screenModel::bookmarkChapters,
             onMultiMarkAsReadClicked = screenModel::markChaptersRead,

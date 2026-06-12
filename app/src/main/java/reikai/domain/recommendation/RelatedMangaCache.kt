@@ -18,6 +18,9 @@ class RelatedMangaCache {
         val carousel: List<RelatedMangaCandidate>,
         val fullPool: List<RelatedMangaCandidate>,
         val fetchedAt: Long,
+        // False while the load is still streaming; a partial entry is served (so "See all" isn't
+        // empty mid-load) but never treated as fresh, so it still refreshes to completion.
+        val isComplete: Boolean = true,
     )
 
     private val entries = ConcurrentHashMap<Long, Entry>()
@@ -34,8 +37,13 @@ class RelatedMangaCache {
 
     fun get(mangaId: Long): Entry? = entries[mangaId]
 
-    fun put(mangaId: Long, carousel: List<RelatedMangaCandidate>, fullPool: List<RelatedMangaCandidate>) {
-        entries[mangaId] = Entry(carousel, fullPool, System.currentTimeMillis())
+    fun put(
+        mangaId: Long,
+        carousel: List<RelatedMangaCandidate>,
+        fullPool: List<RelatedMangaCandidate>,
+        isComplete: Boolean = true,
+    ) {
+        entries[mangaId] = Entry(carousel, fullPool, System.currentTimeMillis(), isComplete)
     }
 
     fun getPooled(anchorId: Long): Entry? = pooledEntries[anchorId]

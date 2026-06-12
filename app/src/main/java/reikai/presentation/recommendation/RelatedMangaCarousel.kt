@@ -1,6 +1,7 @@
 package reikai.presentation.recommendation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -42,7 +44,9 @@ import tachiyomi.presentation.core.i18n.stringResource
 fun RelatedMangaCarousel(
     items: List<MangaScreenModel.RelatedMangaItem>,
     loading: Boolean,
+    totalCount: Int,
     onClick: (RelatedMangaCandidate) -> Unit,
+    onSeeAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (items.isEmpty() && !loading) return
@@ -62,6 +66,19 @@ fun RelatedMangaCarousel(
             )
             if (loading) {
                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+            }
+            // "See all (N)" when the full pool has more than the capped carousel shows.
+            if (totalCount > items.size) {
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = stringResource(MR.strings.recs_see_all, totalCount),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .clickable(onClick = onSeeAll)
+                        .padding(horizontal = MaterialTheme.padding.small, vertical = MaterialTheme.padding.extraSmall),
+                )
             }
         }
 

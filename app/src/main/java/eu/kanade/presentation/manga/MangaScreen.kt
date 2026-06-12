@@ -120,6 +120,8 @@ fun MangaScreen(
     onSplitSource: (Long) -> Unit = {},
     // RK: related-mangas carousel card tap
     onRelatedClick: (RelatedMangaCandidate) -> Unit = {},
+    // RK: related-mangas carousel "See all" -> browse grid
+    onRelatedSeeAll: () -> Unit = {},
 
     // For bottom action menu
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
@@ -173,6 +175,7 @@ fun MangaScreen(
             onSelectSource = onSelectSource,
             onSplitSource = onSplitSource,
             onRelatedClick = onRelatedClick,
+            onRelatedSeeAll = onRelatedSeeAll,
             onMultiBookmarkClicked = onMultiBookmarkClicked,
             onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
             onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
@@ -213,6 +216,7 @@ fun MangaScreen(
             onSelectSource = onSelectSource,
             onSplitSource = onSplitSource,
             onRelatedClick = onRelatedClick,
+            onRelatedSeeAll = onRelatedSeeAll,
             onMultiBookmarkClicked = onMultiBookmarkClicked,
             onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
             onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
@@ -265,6 +269,8 @@ private fun MangaScreenSmallImpl(
     onSplitSource: (Long) -> Unit = {},
     // RK: related-mangas carousel card tap
     onRelatedClick: (RelatedMangaCandidate) -> Unit = {},
+    // RK: related-mangas carousel "See all" -> browse grid
+    onRelatedSeeAll: () -> Unit = {},
 
     // For bottom action menu
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
@@ -464,7 +470,9 @@ private fun MangaScreenSmallImpl(
                         RelatedMangaCarousel(
                             items = state.relatedItems,
                             loading = state.relatedLoading,
+                            totalCount = state.relatedTotalCount,
                             onClick = onRelatedClick,
+                            onSeeAll = onRelatedSeeAll,
                         )
                     }
 
@@ -540,6 +548,8 @@ fun MangaScreenLargeImpl(
     onSplitSource: (Long) -> Unit = {},
     // RK: related-mangas carousel card tap
     onRelatedClick: (RelatedMangaCandidate) -> Unit = {},
+    // RK: related-mangas carousel "See all" -> browse grid
+    onRelatedSeeAll: () -> Unit = {},
 
     // For bottom action menu
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
@@ -722,7 +732,9 @@ fun MangaScreenLargeImpl(
                                 RelatedMangaCarousel(
                                     items = state.relatedItems,
                                     loading = state.relatedLoading,
+                                    totalCount = state.relatedTotalCount,
                                     onClick = onRelatedClick,
+                                    onSeeAll = onRelatedSeeAll,
                                 )
                             }
                             // RK: source-switcher chips for a merged group
