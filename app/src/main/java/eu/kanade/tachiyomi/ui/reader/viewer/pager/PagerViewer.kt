@@ -22,6 +22,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.manga.model.asMangaCover
 import uy.kohesive.injekt.injectLazy
 import kotlin.math.min
 
@@ -32,6 +33,9 @@ import kotlin.math.min
 abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
 
     val downloadManager: DownloadManager by injectLazy()
+
+    // RK: cover seed color for per-page theming (Y11); leaf views gate on the pref themselves
+    val seedColor: Int? get() = activity.viewModel.manga?.asMangaCover()?.vibrantCoverColor
 
     private val scope = MainScope()
 

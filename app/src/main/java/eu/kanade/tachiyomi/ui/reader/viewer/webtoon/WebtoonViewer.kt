@@ -22,6 +22,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.manga.model.asMangaCover
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
@@ -34,6 +35,9 @@ import kotlin.math.min
 class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = true) : Viewer {
 
     val downloadManager: DownloadManager by injectLazy()
+
+    // RK: cover seed color for per-page theming (Y11); leaf views gate on the pref themselves
+    val seedColor: Int? get() = activity.viewModel.manga?.asMangaCover()?.vibrantCoverColor
 
     private val scope = MainScope()
 

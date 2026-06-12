@@ -264,7 +264,7 @@ class WebtoonPageHolder(
         progressContainer = FrameLayout(context)
         frame.addView(progressContainer, MATCH_PARENT, parentHeight)
 
-        val progress = ReaderProgressIndicator(context).apply {
+        val progress = ReaderProgressIndicator(context, seedColor = viewer.seedColor).apply { // RK: Y11
             updateLayoutParams<FrameLayout.LayoutParams> {
                 updateMargins(top = parentHeight / 4)
             }

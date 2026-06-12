@@ -58,7 +58,7 @@ class PagerTransitionHolder(
         val sidePadding = 64.dpToPx
         setPadding(sidePadding, 0, sidePadding, 0)
 
-        val transitionView = ReaderTransitionView(context)
+        val transitionView = ReaderTransitionView(context, seedColor = viewer.seedColor) // RK: Y11
         addView(transitionView)
         addView(pagesContainer)
 

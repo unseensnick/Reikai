@@ -31,7 +31,7 @@ class WebtoonTransitionHolder(
     private val scope = MainScope()
     private var stateJob: Job? = null
 
-    private val transitionView = ReaderTransitionView(context)
+    private val transitionView = ReaderTransitionView(context, seedColor = viewer.seedColor) // RK: Y11
 
     /**
      * View container of the current status of the transition page. Child views will be added
