@@ -100,6 +100,10 @@ class ReaderPreferences(
 
     val readerBottomButtons: Preference<Set<String>> =
         preferenceStore.getStringSet("reader_bottom_buttons", ReaderBottomButton.BUTTONS_DEFAULTS)
+
+    val preserveReadingPosition: Preference<Boolean> = preferenceStore.getBoolean("preserve_reading_position", false)
+
+    val preloadSize: Preference<Int> = preferenceStore.getInt("reader_preload_size", 4)
     // RK <--
 
     val webtoonDisableZoomOut: Preference<Boolean> = preferenceStore.getBoolean("webtoon_disable_zoom_out", false)

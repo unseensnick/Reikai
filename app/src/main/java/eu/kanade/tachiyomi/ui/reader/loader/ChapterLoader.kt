@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import kotlinx.coroutines.CoroutineScope
 import mihon.core.archive.archiveReader
 import mihon.core.archive.epubReader
@@ -17,6 +18,7 @@ import tachiyomi.domain.source.model.StubSource
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.LocalSource
 import tachiyomi.source.local.io.Format
+import uy.kohesive.injekt.injectLazy
 
 /**
  * Loader used to retrieve the [PageLoader] for a given chapter.
@@ -29,6 +31,9 @@ class ChapterLoader(
     private val manga: Manga,
     private val source: Source,
 ) {
+
+    // RK: resume position even on already-read chapters when enabled (Y-feature)
+    private val readerPreferences: ReaderPreferences by injectLazy()
 
     /**
      * Assigns the chapter's page loader and loads the its pages. Returns immediately if the chapter
@@ -55,7 +60,8 @@ class ChapterLoader(
 
                 // If the chapter is partially read, set the starting page to the last the user read
                 // otherwise use the requested page.
-                if (!chapter.chapter.read) {
+                // RK: optionally resume read chapters at the last position too
+                if (!chapter.chapter.read || readerPreferences.preserveReadingPosition.get()) {
                     chapter.requestedPage = chapter.chapter.last_page_read
                 }
 

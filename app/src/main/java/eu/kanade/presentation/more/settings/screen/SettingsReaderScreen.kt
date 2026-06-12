@@ -175,6 +175,9 @@ object SettingsReaderScreen : SearchableSettings {
 
     @Composable
     private fun getReadingGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
+        // RK: collected for the preload slider (Y-feature)
+        val preloadSizePref = readerPreferences.preloadSize
+        val preloadSize by preloadSizePref.collectAsState()
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_reading),
             preferenceItems = listOf(
@@ -201,6 +204,18 @@ object SettingsReaderScreen : SearchableSettings {
                     entries = ReaderBottomButton.entries
                         .associate { it.value to stringResource(it.stringRes) },
                     title = stringResource(MR.strings.pref_reader_bottom_buttons),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = readerPreferences.preserveReadingPosition,
+                    title = stringResource(MR.strings.pref_preserve_reading_position),
+                    subtitle = stringResource(MR.strings.pref_preserve_reading_position_summary),
+                ),
+                Preference.PreferenceItem.SliderPreference(
+                    value = preloadSize,
+                    valueRange = 1..20,
+                    title = stringResource(MR.strings.pref_reader_preload_size),
+                    valueString = pluralStringResource(MR.plurals.pref_pages, preloadSize, preloadSize),
+                    onValueChanged = { preloadSizePref.set(it) },
                 ),
                 // RK <--
                 Preference.PreferenceItem.SwitchPreference(
