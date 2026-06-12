@@ -80,6 +80,8 @@ class LnPluginHost(
         q.evaluate<Any?>(asset("lnhost/vendor/htmlparser2.min.js"))
         q.evaluate<Any?>(asset("lnhost/vendor/cheerio.min.js"))
         q.evaluate<Any?>(asset("lnhost/vendor/protobuf.min.js"))
+        // @noble/ciphers AES-GCM, backs @libs/aes (wtrlab decrypts chapter bodies with it).
+        q.evaluate<Any?>(asset("lnhost/vendor/noble-ciphers.min.js"))
         q.evaluate<Any?>(asset("lnhost/headless.js"))
         qjs = q
         return q

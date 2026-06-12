@@ -56,7 +56,9 @@ class HeadlessJsIntegrationTest {
         // Anchor the sample with proven, non-Cloudflare sources (searched first, so the end-to-end
         // assertion isn't hostage to which plugins sort first), then add a breadth slice. Anchors:
         // novelbin -> new URL(href, base) + object-init URLSearchParams; wuxiaworld -> fetchProto.
-        val anchorIds = listOf("novelhall", "scribblehub", "novelbin", "wuxiaworld")
+        // WTRLAB exercises the @libs/aes (noble-ciphers gcm) + atob polyfills: it AES-decrypts
+        // chapter bodies, so a full chain on it proves those shims work headlessly.
+        val anchorIds = listOf("novelhall", "scribblehub", "novelbin", "wuxiaworld", "WTRLAB")
         val anchors = anchorIds.mapNotNull { id -> entries.firstOrNull { it.id == id } }
         val rest = entries
             .filter { it.lang.equals("English", ignoreCase = true) && it.id !in anchorIds }

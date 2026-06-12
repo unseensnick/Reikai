@@ -163,6 +163,47 @@
     globalThis.TextDecoder = TD;
   }
 
+  // QuickJS has no btoa/atob (the WebView host inherited them from the browser). A few plugins
+  // (wtrlab, komga, fictioneer custom transforms) base64 binary strings directly. Latin1 in/out,
+  // matching the browser contract.
+  if (typeof globalThis.btoa === 'undefined') {
+    var B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    globalThis.btoa = function (input) {
+      var str = String(input);
+      var output = '';
+      for (var i = 0; i < str.length; i += 3) {
+        var hasB1 = i + 1 < str.length;
+        var hasB2 = i + 2 < str.length;
+        var b0 = str.charCodeAt(i) & 0xff;
+        var b1 = hasB1 ? str.charCodeAt(i + 1) & 0xff : 0;
+        var b2 = hasB2 ? str.charCodeAt(i + 2) & 0xff : 0;
+        output += B64_CHARS.charAt(b0 >> 2);
+        output += B64_CHARS.charAt(((b0 & 0x03) << 4) | (b1 >> 4));
+        output += hasB1 ? B64_CHARS.charAt(((b1 & 0x0f) << 2) | (b2 >> 6)) : '=';
+        output += hasB2 ? B64_CHARS.charAt(b2 & 0x3f) : '=';
+      }
+      return output;
+    };
+    globalThis.atob = function (input) {
+      var str = String(input).replace(/[^A-Za-z0-9+/]/g, '');
+      var output = '';
+      for (var i = 0; i < str.length; i += 4) {
+        var e0 = B64_CHARS.indexOf(str.charAt(i));
+        var e1 = B64_CHARS.indexOf(str.charAt(i + 1));
+        output += String.fromCharCode((e0 << 2) | (e1 >> 4));
+        if (i + 2 < str.length) {
+          var e2 = B64_CHARS.indexOf(str.charAt(i + 2));
+          output += String.fromCharCode(((e1 & 0x0f) << 4) | (e2 >> 2));
+          if (i + 3 < str.length) {
+            var e3 = B64_CHARS.indexOf(str.charAt(i + 3));
+            output += String.fromCharCode(((e2 & 0x03) << 6) | e3);
+          }
+        }
+      }
+      return output;
+    };
+  }
+
   // -- @libs/fetch shim -------------------------------------------------------
   // Plugins expect a Response-like object. We synthesize the methods plugins actually use.
   // No .blob(): QuickJS has no Blob and novel sources are text-only; a plugin calling .blob()
@@ -322,10 +363,14 @@
     encode: function (s) { return encodeURIComponent(String(s)); },
     decode: function (s) { return decodeURIComponent(String(s)); },
   };
-  // @libs/aes is unimplemented; throws on use. No smoke-test source needs it.
+  // @libs/aes is backed by the @noble/ciphers vendor bundle (globalThis.nobleCiphers). The stub is
+  // a fallback that throws a clear error if the bundle somehow didn't load.
   var aesStub = new Proxy({}, {
-    get: function (_t, prop) { return function () { throw new Error('@libs/aes not implemented (' + String(prop) + ')'); }; },
+    get: function (_t, prop) { return function () { throw new Error('@libs/aes not available (' + String(prop) + ')'); }; },
   });
+  var aesLib = (typeof globalThis.nobleCiphers !== 'undefined' && globalThis.nobleCiphers.gcm)
+    ? { gcm: globalThis.nobleCiphers.gcm }
+    : aesStub;
 
   // -- the require() resolver -------------------------------------------------
 
@@ -345,7 +390,7 @@
       // import from here rather than the @libs aliases. @/types/plugin is types-only (erased at
       // compile) so it never reaches require.
       '@/types/constants': { NovelStatus: NovelStatus, defaultCover: defaultCover },
-      '@libs/aes': aesStub,
+      '@libs/aes': aesLib,
       '@libs/utils': { utf8ToBytes: utf8ToBytes, bytesToUtf8: bytesToUtf8 },
     };
     return function _require(name) {
