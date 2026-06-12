@@ -1,20 +1,16 @@
 package reikai.domain.recommendation
 
 import eu.kanade.tachiyomi.data.track.TrackerManager
-import eu.kanade.tachiyomi.network.NetworkHelper
-import eu.kanade.tachiyomi.network.interceptor.rateLimitHost
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import logcat.LogPriority
-import okhttp3.OkHttpClient
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.track.model.Track
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -35,37 +31,28 @@ class RecommendationsFetcher(
     suspend fun fetch(
         title: String,
         tracks: List<Track>,
+        skipTrackerIds: Set<Long> = emptySet(),
         exceptionHandler: (Throwable) -> Unit,
         pushResults: suspend (List<RelatedMangaCandidate>) -> Unit,
     ) {
         if (!preferences.includeTrackerRecommendations.get()) return
 
-        val client = recsClient
-
         fun remoteId(trackerId: Long): Long? =
             tracks.firstOrNull { it.trackerId == trackerId }?.remoteId
 
+        suspend fun run(trackerId: Long) {
+            // Skip trackers already handled by the loader's shared media-context fetch (where M is
+            // tracked), so recs(M) isn't queried twice.
+            if (trackerId in skipTrackerIds) return
+            val provider = RecommendationProviders.forTracker(trackerId, trackerManager) ?: return
+            runOne(provider, remoteId(trackerId), title, exceptionHandler, pushResults)
+        }
+
         coroutineScope {
-            if (preferences.anilistRecommendations.get()) {
-                launch {
-                    runOne(AnilistRecommendations(client), remoteId(trackerManager.aniList.id), title, exceptionHandler, pushResults)
-                }
-            }
-            if (preferences.myAnimeListRecommendations.get()) {
-                launch {
-                    runOne(MyAnimeListRecommendations(client), remoteId(trackerManager.myAnimeList.id), title, exceptionHandler, pushResults)
-                }
-            }
-            if (preferences.mangaUpdatesRecommendations.get()) {
-                launch {
-                    runOne(MangaUpdatesRecommendations(client), remoteId(trackerManager.mangaUpdates.id), title, exceptionHandler, pushResults)
-                }
-            }
-            if (preferences.shikimoriRecommendations.get()) {
-                launch {
-                    runOne(ShikimoriRecommendations(client), remoteId(trackerManager.shikimori.id), title, exceptionHandler, pushResults)
-                }
-            }
+            if (preferences.anilistRecommendations.get()) launch { run(trackerManager.aniList.id) }
+            if (preferences.myAnimeListRecommendations.get()) launch { run(trackerManager.myAnimeList.id) }
+            if (preferences.mangaUpdatesRecommendations.get()) launch { run(trackerManager.mangaUpdates.id) }
+            if (preferences.shikimoriRecommendations.get()) launch { run(trackerManager.shikimori.id) }
         }
     }
 
@@ -98,23 +85,5 @@ class RecommendationsFetcher(
         /** Per-tracker hard cap: long enough for AniList GraphQL on a slow link, short enough that one
          *  hung tracker doesn't gate the carousel's load-complete signal for ~30s on the socket timeout. */
         private val REQUEST_TIMEOUT = 15.seconds
-
-        /**
-         * Shared client for the public tracker recommendation endpoints, derived from the app's base
-         * client with per-host rate limits so a burst of carousel opens can't hammer them. Built once
-         * per process (via [lazy]) so the limiter windows persist across fetches; rebuilding per fetch
-         * would reset the windows and defeat the limit. Shikimori carries the tightest caps for IP-ban
-         * headroom; Jikan needs both a per-second and a per-minute bucket.
-         */
-        private val recsClient: OkHttpClient by lazy {
-            Injekt.get<NetworkHelper>().client.newBuilder()
-                .rateLimitHost("https://graphql.anilist.co", permits = 85, period = 1.minutes)
-                .rateLimitHost("https://api.jikan.moe", permits = 3, period = 1.seconds)
-                .rateLimitHost("https://api.jikan.moe", permits = 58, period = 1.minutes)
-                .rateLimitHost("https://api.mangaupdates.com", permits = 30, period = 1.minutes)
-                .rateLimitHost("https://shikimori.one", permits = 2, period = 1.seconds)
-                .rateLimitHost("https://shikimori.one", permits = 60, period = 1.minutes)
-                .build()
-        }
     }
 }

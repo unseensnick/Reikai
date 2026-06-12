@@ -17,6 +17,7 @@ import reikai.domain.recommendation.dto.JikanSearchResponse
  */
 class MyAnimeListRecommendations(
     private val client: OkHttpClient,
+    override val trackerId: Long,
 ) : TrackerRecommendations() {
 
     override val trackerName: String = "MyAnimeList"
@@ -30,7 +31,7 @@ class MyAnimeListRecommendations(
 
         val data = with(json) { client.newCall(GET(url)).awaitSuccess().parseAs<JikanRecsResponse>() }
         return data.data.map { it.entry }.map { rec ->
-            candidate(url = rec.url, title = rec.title, thumbnailUrl = rec.images?.pickImage())
+            candidate(url = rec.url, title = rec.title, thumbnailUrl = rec.images?.pickImage(), remoteId = rec.malId)
         }
     }
 

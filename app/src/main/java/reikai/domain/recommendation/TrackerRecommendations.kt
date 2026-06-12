@@ -25,6 +25,9 @@ abstract class TrackerRecommendations {
 
     abstract val trackerName: String
 
+    /** The tracker's stable id (from `TrackerManager`), stamped onto every candidate for id matching. */
+    abstract val trackerId: Long
+
     abstract suspend fun getRecsById(remoteId: Long): List<RelatedMangaCandidate>
 
     abstract suspend fun getRecsBySearch(title: String): List<RelatedMangaCandidate>
@@ -32,10 +35,25 @@ abstract class TrackerRecommendations {
     suspend fun fetch(remoteId: Long?, title: String): List<RelatedMangaCandidate> =
         if (remoteId != null) getRecsById(remoteId) else getRecsBySearch(title)
 
+    /**
+     * The tracker's view of one media the user already tracks (exact [remoteId]): its recommendations
+     * plus its genres. Used by the taste-driven injection, which needs the tracker's own "similar"
+     * list (cross-rec) and the tracker's clean genres (tag-search). Default fetches recommendations
+     * only; providers that can return genres in the same call override this.
+     */
+    open suspend fun getMediaContext(remoteId: Long): MediaContext =
+        MediaContext(genres = emptyList(), recommendations = getRecsById(remoteId))
+
+    data class MediaContext(
+        val genres: List<String>,
+        val recommendations: List<RelatedMangaCandidate>,
+    )
+
     protected fun candidate(
         url: String,
         title: String,
         thumbnailUrl: String?,
+        remoteId: Long? = null,
         altTitles: List<String> = emptyList(),
     ): RelatedMangaCandidate = RelatedMangaCandidate(
         sourceId = RECOMMENDS_SOURCE,
@@ -48,5 +66,7 @@ abstract class TrackerRecommendations {
         },
         altTitles = altTitles,
         origin = RecommendationOrigin.Tracker(trackerName),
+        trackerId = trackerId,
+        remoteId = remoteId,
     )
 }

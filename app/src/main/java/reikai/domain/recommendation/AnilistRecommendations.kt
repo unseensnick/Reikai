@@ -9,6 +9,8 @@ import kotlinx.serialization.json.put
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
+import reikai.domain.recommendation.dto.ALMediaContextResponse
+import reikai.domain.recommendation.dto.ALRecsEdge
 import reikai.domain.recommendation.dto.ALRecsMedia
 import reikai.domain.recommendation.dto.ALRecsMediaRecommendation
 import reikai.domain.recommendation.dto.ALRecsResponse
@@ -21,6 +23,7 @@ import reikai.domain.recommendation.dto.ALRecsTitle
  */
 class AnilistRecommendations(
     private val client: OkHttpClient,
+    override val trackerId: Long,
 ) : TrackerRecommendations() {
 
     override val trackerName: String = "AniList"
@@ -43,6 +46,22 @@ class AnilistRecommendations(
         return execute(payload) { media -> media.matchesQuery(title) }
     }
 
+    override suspend fun getMediaContext(remoteId: Long): MediaContext {
+        val payload = buildJsonObject {
+            put("query", QUERY_MEDIA_CONTEXT)
+            put("variables", buildJsonObject { put("id", remoteId) })
+        }
+        val body = payload.toString().toRequestBody(JSON_MEDIA_TYPE)
+        val media = with(json) {
+            client.newCall(POST(ENDPOINT, body = body)).awaitSuccess().parseAs<ALMediaContextResponse>()
+        }.data.media ?: return MediaContext(emptyList(), emptyList())
+
+        return MediaContext(
+            genres = media.genres,
+            recommendations = media.recommendations?.edges.orEmpty().toCandidates(),
+        )
+    }
+
     private suspend fun execute(
         payload: JsonObject,
         filter: (ALRecsMedia) -> Boolean = { true },
@@ -55,17 +74,21 @@ class AnilistRecommendations(
         return data.data.page.media
             .filter(filter)
             .flatMap { it.recommendations?.edges.orEmpty() }
-            .mapNotNull { it.node?.mediaRecommendation }
+            .toCandidates()
+    }
+
+    private fun List<ALRecsEdge>.toCandidates(): List<RelatedMangaCandidate> =
+        mapNotNull { it.node?.mediaRecommendation }
             .mapNotNull { rec ->
                 val url = rec.siteUrl ?: return@mapNotNull null
                 candidate(
                     url = url,
                     title = rec.pickTitle(),
                     thumbnailUrl = rec.coverImage?.large,
+                    remoteId = rec.id,
                     altTitles = rec.altTitles(),
                 )
             }
-    }
 
     private fun ALRecsMedia.matchesQuery(query: String): Boolean {
         if (title?.contains(query) == true) return true
@@ -109,12 +132,35 @@ class AnilistRecommendations(
                     edges {
                       node {
                         mediaRecommendation {
+                          id
                           countryOfOrigin
                           siteUrl
                           title { romaji english native }
                           synonyms
                           coverImage { large }
                         }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+        """.trimIndent()
+
+        private val QUERY_MEDIA_CONTEXT = """
+            query MediaContext(${'$'}id: Int!) {
+              Media(id: ${'$'}id, type: MANGA) {
+                genres
+                recommendations {
+                  edges {
+                    node {
+                      mediaRecommendation {
+                        id
+                        countryOfOrigin
+                        siteUrl
+                        title { romaji english native }
+                        synonyms
+                        coverImage { large }
                       }
                     }
                   }
@@ -133,6 +179,7 @@ class AnilistRecommendations(
                     edges {
                       node {
                         mediaRecommendation {
+                          id
                           countryOfOrigin
                           siteUrl
                           title { romaji english native }

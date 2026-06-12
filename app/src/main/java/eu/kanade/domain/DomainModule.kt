@@ -44,6 +44,7 @@ import reikai.domain.library.updateerror.LibraryUpdateErrorRepository
 import reikai.domain.library.updateerror.UpsertLibraryUpdateError
 import reikai.data.recommendation.taste.TasteLibraryRepositoryImpl
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.RecommendationsFetcher
 import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangasLoader
@@ -56,6 +57,7 @@ import reikai.domain.recommendation.taste.LocalTrackStatusMapper
 import reikai.domain.recommendation.taste.MyAnimeListLibraryFetcher
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.ShikimoriLibraryFetcher
+import reikai.domain.recommendation.taste.TasteCandidateFetcher
 import reikai.domain.recommendation.taste.TasteLibraryRepository
 import tachiyomi.data.category.CategoryRepositoryImpl
 import tachiyomi.data.chapter.ChapterRepositoryImpl
@@ -138,7 +140,9 @@ class DomainModule : InjektModule {
         addSingletonFactory { RelatedMangaCache() }
         addFactory { ComputeTasteProfile() }
         addFactory { RecommendationsFetcher() }
-        addFactory { RelatedMangasLoader(get()) }
+        addFactory { TasteCandidateFetcher() }
+        addFactory { BuildRecommendationHideFilter() }
+        addFactory { RelatedMangasLoader(get(), get(), get()) }
         // RK: taste profile (library pull -> cache -> profile -> ranker)
         addSingletonFactory<TasteLibraryRepository> { TasteLibraryRepositoryImpl(get()) }
         addFactory { GetTasteProfile(get(), get()) }

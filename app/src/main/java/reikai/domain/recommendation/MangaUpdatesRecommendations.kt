@@ -20,6 +20,7 @@ import reikai.domain.recommendation.dto.MUSeriesResponse
  */
 class MangaUpdatesRecommendations(
     private val client: OkHttpClient,
+    override val trackerId: Long,
 ) : TrackerRecommendations() {
 
     override val trackerName: String = "MangaUpdates"

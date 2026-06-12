@@ -19,6 +19,7 @@ import reikai.domain.recommendation.dto.SMRecsManga
  */
 class ShikimoriRecommendations(
     private val client: OkHttpClient,
+    override val trackerId: Long,
 ) : TrackerRecommendations() {
 
     override val trackerName: String = "Shikimori"
@@ -50,6 +51,7 @@ class ShikimoriRecommendations(
         url = BASE_URL + url,
         title = name,
         thumbnailUrl = (image?.original ?: image?.preview)?.let { BASE_URL + it },
+        remoteId = id,
     )
 
     companion object {

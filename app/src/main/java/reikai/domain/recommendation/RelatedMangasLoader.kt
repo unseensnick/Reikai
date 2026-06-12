@@ -1,18 +1,25 @@
 package reikai.domain.recommendation
 
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeout
 import logcat.LogPriority
+import reikai.domain.recommendation.taste.TasteCandidateFetcher
 import reikai.domain.recommendation.taste.TasteProfile
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.track.model.Track
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Orchestrates the related-mangas carousel: fetches candidates from every stream, dedups them into
@@ -30,6 +37,8 @@ import uy.kohesive.injekt.api.get
  */
 class RelatedMangasLoader(
     private val fetcher: RecommendationsFetcher = Injekt.get(),
+    private val tasteCandidateFetcher: TasteCandidateFetcher = Injekt.get(),
+    private val trackerManager: TrackerManager = Injekt.get(),
 ) {
 
     suspend fun load(
@@ -38,6 +47,7 @@ class RelatedMangasLoader(
         tracks: List<Track>,
         ranker: RecommendationRanker,
         taste: TasteProfile,
+        currentGenres: List<String>,
         onUpdate: suspend (List<RelatedMangaCandidate>) -> Unit,
     ): List<RelatedMangaCandidate> {
         val accumulator = Accumulator(manga, ranker, taste)
@@ -66,10 +76,29 @@ class RelatedMangasLoader(
                     },
                 )
             }
+            // For each recs-capable tracker M is tracked on, fetch its media context (recs + genres)
+            // once: the recs feed the carousel AND seed the taste-driven injection, so recs(M) isn't
+            // queried twice.
+            val handledTrackerIds = tracks
+                .filter { RecommendationProviders.forTracker(it.trackerId, trackerManager) != null }
+                .map { it.trackerId }
+                .toSet()
+            launch {
+                val contexts = fetchMediaContexts(tracks)
+                contexts.values.forEach { ctx -> accumulator.add(ctx.recommendations)?.let { onUpdate(it) } }
+                tasteCandidateFetcher.fetch(
+                    source = source,
+                    mediaContexts = contexts,
+                    sourceGenres = currentGenres,
+                    exceptionHandler = { /* already logged by the fetcher */ },
+                    pushResults = { candidates -> accumulator.add(candidates)?.let { onUpdate(it) } },
+                )
+            }
             launch {
                 fetcher.fetch(
                     title = manga.title,
                     tracks = tracks,
+                    skipTrackerIds = handledTrackerIds,
                     exceptionHandler = { /* already logged by the fetcher */ },
                     pushResults = { candidates -> accumulator.add(candidates)?.let { onUpdate(it) } },
                 )
@@ -77,6 +106,35 @@ class RelatedMangasLoader(
         }
 
         return accumulator.snapshot()
+    }
+
+    /** Media context (recs + genres) for each recs-capable tracker M is tracked on, keyed by tracker
+     *  id. A tracker that errors or times out is dropped (its injection just doesn't run). */
+    private suspend fun fetchMediaContexts(tracks: List<Track>): Map<Long, TrackerRecommendations.MediaContext> =
+        coroutineScope {
+            tracks
+                .mapNotNull { track -> RecommendationProviders.forTracker(track.trackerId, trackerManager)?.let { track to it } }
+                .map { (track, provider) ->
+                    async {
+                        try {
+                            track.trackerId to withTimeout(MEDIA_CONTEXT_TIMEOUT) { provider.getMediaContext(track.remoteId) }
+                        } catch (e: TimeoutCancellationException) {
+                            null
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Throwable) {
+                            logcat(LogPriority.WARN, e) { "Media context fetch failed (${provider.trackerName})" }
+                            null
+                        }
+                    }
+                }
+                .awaitAll()
+                .filterNotNull()
+                .toMap()
+        }
+
+    companion object {
+        private val MEDIA_CONTEXT_TIMEOUT = 15.seconds
     }
 
     /**

@@ -51,7 +51,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -89,7 +88,6 @@ import tachiyomi.domain.manga.model.applyFilter
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
-import tachiyomi.domain.track.interactor.GetTracksPerManga
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
 import eu.kanade.tachiyomi.source.CatalogueSource
@@ -97,22 +95,25 @@ import mihon.domain.manga.model.toDomainManga
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.ChapterAggregation
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
+import reikai.domain.recommendation.RecommendationHideFilter
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.RelatedMangasLoader
-import reikai.domain.recommendation.TitleNormalizer
 import reikai.domain.recommendation.taste.GetTasteProfile
-import reikai.domain.recommendation.taste.LocalTrackStatusMapper
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteProfile
-import reikai.domain.recommendation.taste.TrackStatus
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.math.floor
+
+// RK: max related candidates shown in the details carousel; the full pool is kept in the cache for
+// the "See all" browse grid.
+private const val CAROUSEL_CAP = 30
 
 class MangaScreenModel(
     private val context: Context,
@@ -151,8 +152,7 @@ class MangaScreenModel(
     private val relatedMangaCache: RelatedMangaCache = Injekt.get(),
     private val getTasteProfile: GetTasteProfile = Injekt.get(),
     private val refreshTrackerLibrary: RefreshTrackerLibrary = Injekt.get(),
-    private val localTrackStatusMapper: LocalTrackStatusMapper = Injekt.get(),
-    private val getTracksPerManga: GetTracksPerManga = Injekt.get(),
+    private val buildRecommendationHideFilter: BuildRecommendationHideFilter = Injekt.get(),
     private val getFavorites: GetFavorites = Injekt.get(),
     private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
     // RK <--
@@ -1407,15 +1407,17 @@ class MangaScreenModel(
         screenModelScope.launchIO {
             val favorites = getFavorites.await()
             val favoriteKeys = favorites.mapTo(HashSet()) { it.url to it.source }
-            // Anti-echo: normalized titles of library entries to drop from suggestions (empty = off).
-            val hiddenTitleKeys = computeHiddenTitleKeys(favorites)
+            // Anti-echo: opt-in filter that hides suggestions the user already has/tracks (by id, then
+            // title). No-op when no filter is enabled.
+            val hideFilter = buildRecommendationHideFilter.await()
             val cached = relatedMangaCache.get(state.manga.id)
             if (cached != null) {
-                applyRelated(cached.fullPool, favoriteKeys, hiddenTitleKeys)
-                if (relatedMangaCache.isFresh(cached)) return@launchIO
+                applyRelated(cached.fullPool, favoriteKeys, hideFilter)
+                if (cached.isComplete && relatedMangaCache.isFresh(cached)) return@launchIO
             } else {
                 updateSuccessState { it.copy(relatedLoading = true) }
             }
+            val mangaId = state.manga.id
             val pool = relatedMangasLoader.load(
                 manga = state.manga.toSManga(),
                 source = source,
@@ -1427,10 +1429,16 @@ class MangaScreenModel(
                 } else {
                     TasteProfile.EMPTY
                 },
-                onUpdate = { applyRelated(it, favoriteKeys, hiddenTitleKeys) },
+                currentGenres = state.manga.genre.orEmpty(),
+                onUpdate = {
+                    // Cache each streamed snapshot (incomplete) so "See all" works before the load
+                    // finishes; the final put below marks it complete.
+                    relatedMangaCache.put(mangaId, it.take(CAROUSEL_CAP), it, isComplete = false)
+                    applyRelated(it, favoriteKeys, hideFilter)
+                },
             )
-            relatedMangaCache.put(state.manga.id, pool, pool)
-            applyRelated(pool, favoriteKeys, hiddenTitleKeys)
+            relatedMangaCache.put(mangaId, pool.take(CAROUSEL_CAP), pool)
+            applyRelated(pool, favoriteKeys, hideFilter)
             updateSuccessState { it.copy(relatedLoading = false) }
         }
     }
@@ -1438,45 +1446,13 @@ class MangaScreenModel(
     private fun applyRelated(
         pool: List<RelatedMangaCandidate>,
         favoriteKeys: Set<Pair<String, Long>>,
-        hiddenTitleKeys: Set<String>,
+        hideFilter: RecommendationHideFilter,
     ) {
         val items = pool
-            .filterNot { candidate -> candidate.titleKeys().any { it in hiddenTitleKeys } }
+            .filterNot { hideFilter.shouldHide(it) }
             .map { RelatedMangaItem(it, (it.manga.url to it.sourceId) in favoriteKeys) }
-        updateSuccessState { it.copy(relatedItems = items) }
-    }
-
-    /** Normalized titles of library entries to drop from suggestions, so a candidate is matched to a
-     *  library manga across sources/trackers (by title, not url). Includes every library entry when
-     *  "hide in library" is on, plus any entry whose tracker status matches an enabled status filter.
-     *  Empty (carousel keeps everything, badged) when no filter is on. */
-    private suspend fun computeHiddenTitleKeys(favorites: List<Manga>): Set<String> {
-        val prefs = recommendationPreferences
-        val hideInLibrary = prefs.hideInLibraryRecommendations.get()
-        val hideReadingCompleted = prefs.hideTrackedReadingCompleted.get()
-        val hideDropped = prefs.hideTrackedDropped.get()
-        val hideOnHold = prefs.hideTrackedOnHold.get()
-        val hidePlanToRead = prefs.hideTrackedPlanToRead.get()
-        val statusFiltersOn = hideReadingCompleted || hideDropped || hideOnHold || hidePlanToRead
-        if (!hideInLibrary && !statusFiltersOn) return emptySet()
-
-        val hiddenStatuses = buildSet {
-            if (hideReadingCompleted) { add(TrackStatus.READING); add(TrackStatus.COMPLETED) }
-            if (hideDropped) add(TrackStatus.DROPPED)
-            if (hideOnHold) add(TrackStatus.ON_HOLD)
-            if (hidePlanToRead) add(TrackStatus.PLAN_TO_READ)
-        }
-        val tracksByManga = if (statusFiltersOn) getTracksPerManga.subscribe().first() else emptyMap()
-
-        val hiddenKeys = HashSet<String>()
-        for (manga in favorites) {
-            val hide = hideInLibrary || (
-                statusFiltersOn &&
-                    tracksByManga[manga.id].orEmpty().any { localTrackStatusMapper.map(it) in hiddenStatuses }
-                )
-            if (hide) TitleNormalizer.normalize(manga.title).takeIf { it.isNotEmpty() }?.let { hiddenKeys += it }
-        }
-        return hiddenKeys
+        // Cap the carousel; the full pool stays in the cache for the "See all" browse grid.
+        updateSuccessState { it.copy(relatedItems = items.take(CAROUSEL_CAP), relatedTotalCount = items.size) }
     }
 
     /** Resolve a tapped candidate to a local manga id to open, or null for a tracker-origin card
@@ -1530,7 +1506,10 @@ class MangaScreenModel(
             val mergeDisplayManga: Manga? = null,
             val mergeDisplaySource: Source? = null,
             // RK: related-mangas carousel (recommendations), loaded lazily when the screen opens.
+            // relatedItems is capped to CAROUSEL_CAP; relatedTotalCount is the full filtered pool size
+            // behind the "See all (N)" affordance.
             val relatedItems: List<RelatedMangaItem> = emptyList(),
+            val relatedTotalCount: Int = 0,
             val relatedLoading: Boolean = false,
             val availableScanlators: Set<String>,
             val excludedScanlators: Set<String>,
