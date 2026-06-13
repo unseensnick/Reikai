@@ -18,7 +18,6 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -32,12 +31,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import eu.kanade.presentation.components.AdaptiveSheet
+import eu.kanade.presentation.components.TabbedDialog
+import eu.kanade.presentation.components.TabbedDialogPaddings
 import reikai.data.novel.NovelStatusCode
 import reikai.domain.novel.model.NovelChapterFlags
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.components.HeadingItem
 import tachiyomi.presentation.core.components.RadioItem
 import tachiyomi.presentation.core.components.SortItem
 import tachiyomi.presentation.core.components.TriStateItem
@@ -155,7 +154,7 @@ private fun StatusDropdown(status: Long, onSelect: (Long) -> Unit) {
     }
 }
 
-/** Chapter sort / filter / display sheet, mirroring the manga `SourceFilterDialog` look. */
+/** Chapter sort / filter / display, mirroring the manga `ChapterSettingsDialog` tabbed layout. */
 @Composable
 fun NovelChapterSettingsDialog(
     sorting: Long,
@@ -167,53 +166,62 @@ fun NovelChapterSettingsDialog(
     onSortChange: (Long, Boolean) -> Unit,
     onFilterChange: (read: Long, bookmarked: Long) -> Unit,
     onDisplayChange: (Boolean) -> Unit,
-    onSetSortDefault: () -> Unit,
-    onSetFilterDefault: () -> Unit,
+    onSetAsDefault: () -> Unit,
+    onReset: () -> Unit,
 ) {
-    AdaptiveSheet(onDismissRequest = onDismiss) {
-        Column(modifier = Modifier.padding(vertical = 8.dp)) {
-            HeadingItem(text = stringResource(MR.strings.action_filter))
-            TriStateItem(
-                label = "Unread",
-                state = readFilter.toTriState(NovelChapterFlags.SHOW_UNREAD, NovelChapterFlags.SHOW_READ),
-                onClick = { onFilterChange(it.toReadFlag(), bookmarkedFilter) },
+    TabbedDialog(
+        onDismissRequest = onDismiss,
+        tabTitles = listOf(
+            stringResource(MR.strings.action_filter),
+            stringResource(MR.strings.action_sort),
+            stringResource(MR.strings.action_display),
+        ),
+        tabOverflowMenuContent = { closeMenu ->
+            DropdownMenuItem(
+                text = { Text(stringResource(MR.strings.set_chapter_settings_as_default)) },
+                onClick = { onSetAsDefault(); closeMenu() },
             )
-            TriStateItem(
-                label = "Bookmarked",
-                state = bookmarkedFilter.toTriState(NovelChapterFlags.SHOW_BOOKMARKED, NovelChapterFlags.SHOW_NOT_BOOKMARKED),
-                onClick = { onFilterChange(readFilter, it.toBookmarkFlag()) },
+            DropdownMenuItem(
+                text = { Text(stringResource(MR.strings.action_reset)) },
+                onClick = { onReset(); closeMenu() },
             )
-            DefaultButton(onSetFilterDefault)
-
-            HeadingItem(text = stringResource(MR.strings.action_sort))
-            SortItem(
-                label = stringResource(MR.strings.sort_by_source),
-                sortDescending = sortDescending.takeIf { sorting == NovelChapterFlags.SORTING_SOURCE },
-                onClick = { onSortChange(NovelChapterFlags.SORTING_SOURCE, toggleDir(sorting == NovelChapterFlags.SORTING_SOURCE, sortDescending)) },
-            )
-            SortItem(
-                label = stringResource(MR.strings.sort_by_number),
-                sortDescending = sortDescending.takeIf { sorting == NovelChapterFlags.SORTING_NUMBER },
-                onClick = { onSortChange(NovelChapterFlags.SORTING_NUMBER, toggleDir(sorting == NovelChapterFlags.SORTING_NUMBER, sortDescending)) },
-            )
-            SortItem(
-                label = stringResource(MR.strings.sort_by_upload_date),
-                sortDescending = sortDescending.takeIf { sorting == NovelChapterFlags.SORTING_UPLOAD_DATE },
-                onClick = { onSortChange(NovelChapterFlags.SORTING_UPLOAD_DATE, toggleDir(sorting == NovelChapterFlags.SORTING_UPLOAD_DATE, sortDescending)) },
-            )
-
-            HeadingItem(text = stringResource(MR.strings.action_display_mode))
-            RadioItem(label = "Source title", selected = !hideChapterTitles, onClick = { onDisplayChange(false) })
-            RadioItem(label = "Chapter number", selected = hideChapterTitles, onClick = { onDisplayChange(true) })
-            DefaultButton(onSetSortDefault)
+        },
+    ) { page ->
+        Column(
+            modifier = Modifier
+                .padding(vertical = TabbedDialogPaddings.Vertical)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            when (page) {
+                0 -> {
+                    TriStateItem(
+                        label = stringResource(MR.strings.action_filter_unread),
+                        state = readFilter.toTriState(NovelChapterFlags.SHOW_UNREAD, NovelChapterFlags.SHOW_READ),
+                        onClick = { onFilterChange(it.toReadFlag(), bookmarkedFilter) },
+                    )
+                    TriStateItem(
+                        label = stringResource(MR.strings.action_filter_bookmarked),
+                        state = bookmarkedFilter.toTriState(NovelChapterFlags.SHOW_BOOKMARKED, NovelChapterFlags.SHOW_NOT_BOOKMARKED),
+                        onClick = { onFilterChange(readFilter, it.toBookmarkFlag()) },
+                    )
+                }
+                1 -> listOf(
+                    MR.strings.sort_by_source to NovelChapterFlags.SORTING_SOURCE,
+                    MR.strings.sort_by_number to NovelChapterFlags.SORTING_NUMBER,
+                    MR.strings.sort_by_upload_date to NovelChapterFlags.SORTING_UPLOAD_DATE,
+                ).forEach { (titleRes, mode) ->
+                    SortItem(
+                        label = stringResource(titleRes),
+                        sortDescending = sortDescending.takeIf { sorting == mode },
+                        onClick = { onSortChange(mode, toggleDir(sorting == mode, sortDescending)) },
+                    )
+                }
+                2 -> {
+                    RadioItem(label = stringResource(MR.strings.show_title), selected = !hideChapterTitles, onClick = { onDisplayChange(false) })
+                    RadioItem(label = stringResource(MR.strings.show_chapter_number), selected = hideChapterTitles, onClick = { onDisplayChange(true) })
+                }
+            }
         }
-    }
-}
-
-@Composable
-private fun DefaultButton(onClick: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
-        TextButton(onClick = onClick) { Text(text = "Set as default", color = MaterialTheme.colorScheme.primary) }
     }
 }
 

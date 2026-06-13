@@ -1,27 +1,27 @@
 package reikai.presentation.novel.details
 
 import android.content.Intent
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Sort
-import androidx.compose.material.icons.outlined.DoneAll
-import androidx.compose.material.icons.outlined.FlipToBack
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.SelectAll
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
-import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.ChapterHeader
 import eu.kanade.presentation.manga.components.ExpandableMangaDescription
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
@@ -31,23 +31,20 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
-import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import tachiyomi.domain.library.service.LibraryPreferences
-import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.TwoPanelBox
 import tachiyomi.presentation.core.components.material.Scaffold
-import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import java.text.DateFormat
 import java.util.Date
 
 /**
- * Light-novel details screen. The novel twin of `MangaScreen` (single-source for now): a header,
- * action row, expandable description, an (empty) merge slot, and the chapter list. Pushed from the
- * browse / global-search result tap, keyed by source + url (serializable). Reader, downloads, and
- * merge are stubbed (S4 / S5 / S8).
+ * Light-novel details screen, the novel twin of `MangaScreen` (single-source for now). Mirrors the
+ * manga small/large layouts: the phone toolbar fades its title + background as you scroll past the
+ * cover; the tablet keeps a two-pane split with the bottom action menu anchored to the chapter pane.
+ * Reader, downloads, and merge are stubbed (S4 / S5 / S8).
  */
 class NovelScreen(
     private val sourceId: String,
@@ -67,65 +64,40 @@ class NovelScreen(
                 topBar = { AppBar(title = null, navigateUp = navigator::pop, scrollBehavior = it) },
             ) { padding -> EmptyScreen(message = s.message, modifier = Modifier.padding(padding)) }
             is NovelDetailsState.Loaded -> TachiyomiTheme(seedColor = s.seedColor) {
-                NovelDetailsScaffold(
-                    state = s,
-                    screenModel = screenModel,
-                    onBack = navigator::pop,
-                    onWebView = {
-                        s.sourceUrl?.takeIf { it.isNotBlank() }?.let { url ->
-                            navigator.push(WebViewScreen(url = url, initialTitle = s.sourceName, sourceId = null))
-                        }
-                    },
-                    onShare = {
-                        s.sourceUrl?.takeIf { it.isNotBlank() }?.let { url ->
-                            context.startActivity(
-                                Intent.createChooser(
-                                    Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(Intent.EXTRA_TEXT, url)
-                                    },
-                                    null,
-                                ),
-                            )
-                        }
-                    },
-                    onChapterClick = { /* TODO(S4): open the novel reader */ },
-                )
-
-                when (val dialog = s.dialog) {
-                    is NovelDetailsDialog.ChangeCategory -> NovelCategoryDialog(
-                        dialog = dialog,
-                        onDismiss = screenModel::dismissDialog,
-                        onConfirm = screenModel::applyCategories,
-                    )
-                    is NovelDetailsDialog.EditInfo -> EditNovelInfoDialog(
-                        dialog = dialog,
-                        onDismiss = screenModel::dismissDialog,
-                        onReset = screenModel::resetNovelInfo,
-                        onConfirm = screenModel::updateNovelInfo,
-                    )
-                    NovelDetailsDialog.ChapterSettings -> NovelChapterSettingsDialog(
-                        sorting = s.sorting,
-                        sortDescending = s.sortDescending,
-                        readFilter = s.readFilter,
-                        bookmarkedFilter = s.bookmarkedFilter,
-                        hideChapterTitles = s.hideChapterTitles,
-                        onDismiss = screenModel::dismissDialog,
-                        onSortChange = screenModel::setSortOrder,
-                        onFilterChange = screenModel::setFilters,
-                        onDisplayChange = screenModel::setHideChapterTitles,
-                        onSetSortDefault = screenModel::setGlobalSort,
-                        onSetFilterDefault = screenModel::setGlobalFilters,
-                    )
-                    null -> {}
+                val onWebView: () -> Unit = {
+                    s.sourceUrl?.takeIf { it.isNotBlank() }?.let { url ->
+                        navigator.push(WebViewScreen(url = url, initialTitle = s.sourceName, sourceId = null))
+                    }
                 }
+                val onShare: () -> Unit = {
+                    s.sourceUrl?.takeIf { it.isNotBlank() }?.let { url ->
+                        context.startActivity(
+                            Intent.createChooser(
+                                Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, url)
+                                },
+                                null,
+                            ),
+                        )
+                    }
+                }
+                val onChapterClick: (NovelChapter) -> Unit = { /* TODO(S4): open the novel reader */ }
+
+                if (isTabletUi()) {
+                    NovelDetailsLargeImpl(s, screenModel, navigator::pop, onWebView, onShare, onChapterClick)
+                } else {
+                    NovelDetailsSmallImpl(s, screenModel, navigator::pop, onWebView, onShare, onChapterClick)
+                }
+
+                NovelDetailsDialogs(s, screenModel)
             }
         }
     }
 }
 
 @Composable
-private fun NovelDetailsScaffold(
+private fun NovelDetailsSmallImpl(
     state: NovelDetailsState.Loaded,
     screenModel: NovelDetailsScreenModel,
     onBack: () -> Unit,
@@ -133,71 +105,146 @@ private fun NovelDetailsScaffold(
     onShare: () -> Unit,
     onChapterClick: (NovelChapter) -> Unit,
 ) {
-    val selectionMode = state.selectionMode
+    val listState = rememberLazyListState()
+    val isFirstItemVisible by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
+    val isFirstItemScrolled by remember { derivedStateOf { listState.firstVisibleItemScrollOffset > 0 } }
+    val titleAlpha by animateFloatAsState(if (!isFirstItemVisible) 1f else 0f, label = "title")
+    val backgroundAlpha by animateFloatAsState(if (!isFirstItemVisible || isFirstItemScrolled) 1f else 0f, label = "bg")
+
     Scaffold(
-        topBar = { scrollBehavior ->
-            AppBar(
-                title = state.novel.title,
-                navigateUp = onBack,
-                actionModeCounter = state.selection.size,
-                onCancelActionMode = screenModel::clearSelection,
-                actions = {
-                    AppBarActions(
-                        actions = listOf(
-                            AppBar.Action(
-                                title = stringResource(MR.strings.action_sort),
-                                icon = Icons.AutoMirrored.Outlined.Sort,
-                                onClick = screenModel::showChapterSettingsDialog,
-                            ),
-                            AppBar.OverflowAction(title = stringResource(MR.strings.action_webview_refresh), onClick = screenModel::refresh),
-                            AppBar.OverflowAction(title = stringResource(MR.strings.action_edit), onClick = screenModel::showEditNovelInfoDialog),
-                            AppBar.OverflowAction(title = stringResource(MR.strings.action_edit_categories), onClick = screenModel::showChangeCategoryDialog),
-                            AppBar.OverflowAction(title = stringResource(MR.strings.action_web_view), onClick = onWebView),
-                            AppBar.OverflowAction(title = stringResource(MR.strings.action_share), onClick = onShare),
-                        ),
-                    )
-                },
-                actionModeActions = {
-                    AppBarActions(
-                        actions = listOf(
-                            AppBar.Action(title = stringResource(MR.strings.action_select_all), icon = Icons.Outlined.SelectAll, onClick = screenModel::selectAll),
-                            AppBar.Action(title = stringResource(MR.strings.action_select_inverse), icon = Icons.Outlined.FlipToBack, onClick = screenModel::invertSelection),
-                        ),
-                    )
-                },
-                scrollBehavior = scrollBehavior,
+        topBar = {
+            NovelDetailsToolbar(
+                state = state,
+                screenModel = screenModel,
+                onBack = onBack,
+                onShare = onShare,
+                titleAlphaProvider = { titleAlpha },
+                backgroundAlphaProvider = { backgroundAlpha },
+            )
+        },
+        bottomBar = { NovelSelectionBar(state, screenModel, Modifier.fillMaxWidth()) },
+    ) { contentPadding ->
+        LazyColumn(state = listState, contentPadding = contentPadding) {
+            novelHeaderItems(state, screenModel, onWebView, onShare, isTabletUi = false)
+            novelChapterItems(state, screenModel, onChapterClick)
+        }
+    }
+}
+
+@Composable
+private fun NovelDetailsLargeImpl(
+    state: NovelDetailsState.Loaded,
+    screenModel: NovelDetailsScreenModel,
+    onBack: () -> Unit,
+    onWebView: () -> Unit,
+    onShare: () -> Unit,
+    onChapterClick: (NovelChapter) -> Unit,
+) {
+    val chapterListState = rememberLazyListState()
+    Scaffold(
+        topBar = {
+            NovelDetailsToolbar(
+                state = state,
+                screenModel = screenModel,
+                onBack = onBack,
+                onShare = onShare,
+                titleAlphaProvider = { 1f },
+                backgroundAlphaProvider = { 1f },
             )
         },
         bottomBar = {
-            MangaBottomActionMenu(
-                visible = selectionMode,
-                onBookmarkClicked = { screenModel.bookmarkSelected(true) },
-                onRemoveBookmarkClicked = { screenModel.bookmarkSelected(false) },
-                onMarkAsReadClicked = { screenModel.markSelectedRead(true) },
-                onMarkAsUnreadClicked = { screenModel.markSelectedRead(false) },
-                onMarkPreviousAsReadClicked = { screenModel.markPreviousRead(true) },
-            )
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomEnd) {
+                NovelSelectionBar(state, screenModel, Modifier.fillMaxWidth(0.5f))
+            }
         },
     ) { contentPadding ->
-        if (isTabletUi()) {
-            TwoPanelBox(
-                startContent = {
-                    LazyColumn(contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding())) {
-                        novelHeaderItems(state, screenModel, onWebView, onShare, isTabletUi = true)
-                    }
-                },
-                endContent = {
-                    LazyColumn(contentPadding = contentPadding) {
-                        novelChapterItems(state, screenModel, onChapterClick)
-                    }
-                },
-            )
-        } else {
-            LazyColumn(contentPadding = contentPadding) {
-                novelHeaderItems(state, screenModel, onWebView, onShare, isTabletUi = false)
-                novelChapterItems(state, screenModel, onChapterClick)
-            }
-        }
+        TwoPanelBox(
+            startContent = {
+                LazyColumn(contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding())) {
+                    novelHeaderItems(state, screenModel, onWebView, onShare, isTabletUi = true)
+                }
+            },
+            endContent = {
+                LazyColumn(state = chapterListState, contentPadding = contentPadding) {
+                    novelChapterItems(state, screenModel, onChapterClick)
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun NovelDetailsToolbar(
+    state: NovelDetailsState.Loaded,
+    screenModel: NovelDetailsScreenModel,
+    onBack: () -> Unit,
+    onShare: () -> Unit,
+    titleAlphaProvider: () -> Float,
+    backgroundAlphaProvider: () -> Float,
+) {
+    NovelToolbar(
+        title = state.novel.title,
+        hasFilters = state.readFilter != 0L || state.bookmarkedFilter != 0L,
+        navigateUp = onBack,
+        onClickFilter = screenModel::showChapterSettingsDialog,
+        onClickRefresh = screenModel::refresh,
+        onClickEditCategory = screenModel::showChangeCategoryDialog,
+        onClickEditInfo = screenModel::showEditNovelInfoDialog,
+        onClickShare = state.sourceUrl?.let { { onShare() } },
+        actionModeCounter = state.selection.size,
+        onCancelActionMode = screenModel::clearSelection,
+        onSelectAll = screenModel::selectAll,
+        onInvertSelection = screenModel::invertSelection,
+        titleAlphaProvider = titleAlphaProvider,
+        backgroundAlphaProvider = backgroundAlphaProvider,
+    )
+}
+
+@Composable
+private fun NovelSelectionBar(
+    state: NovelDetailsState.Loaded,
+    screenModel: NovelDetailsScreenModel,
+    modifier: Modifier,
+) {
+    MangaBottomActionMenu(
+        visible = state.selectionMode,
+        modifier = modifier,
+        onBookmarkClicked = { screenModel.bookmarkSelected(true) },
+        onRemoveBookmarkClicked = { screenModel.bookmarkSelected(false) },
+        onMarkAsReadClicked = { screenModel.markSelectedRead(true) },
+        onMarkAsUnreadClicked = { screenModel.markSelectedRead(false) },
+        onMarkPreviousAsReadClicked = { screenModel.markPreviousRead(true) },
+    )
+}
+
+@Composable
+private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: NovelDetailsScreenModel) {
+    when (val dialog = state.dialog) {
+        is NovelDetailsDialog.ChangeCategory -> NovelCategoryDialog(
+            dialog = dialog,
+            onDismiss = screenModel::dismissDialog,
+            onConfirm = screenModel::applyCategories,
+        )
+        is NovelDetailsDialog.EditInfo -> EditNovelInfoDialog(
+            dialog = dialog,
+            onDismiss = screenModel::dismissDialog,
+            onReset = screenModel::resetNovelInfo,
+            onConfirm = screenModel::updateNovelInfo,
+        )
+        NovelDetailsDialog.ChapterSettings -> NovelChapterSettingsDialog(
+            sorting = state.sorting,
+            sortDescending = state.sortDescending,
+            readFilter = state.readFilter,
+            bookmarkedFilter = state.bookmarkedFilter,
+            hideChapterTitles = state.hideChapterTitles,
+            onDismiss = screenModel::dismissDialog,
+            onSortChange = screenModel::setSortOrder,
+            onFilterChange = screenModel::setFilters,
+            onDisplayChange = screenModel::setHideChapterTitles,
+            onSetAsDefault = screenModel::setChapterSettingsAsDefault,
+            onReset = screenModel::resetChapterSettings,
+        )
+        null -> {}
     }
 }
 
@@ -254,7 +301,6 @@ private fun LazyListScope.novelChapterItems(
     onChapterClick: (NovelChapter) -> Unit,
 ) {
     items(items = state.chapters, key = { "chapter-${it.id}" }) { chapter ->
-        val selected = chapter.id in state.selection
         MangaChapterListItem(
             title = chapterTitle(chapter, state.hideChapterTitles),
             date = chapter.dateUpload.takeIf { it > 0L }?.let { DateFormat.getDateInstance(DateFormat.SHORT).format(Date(it)) },
@@ -262,7 +308,7 @@ private fun LazyListScope.novelChapterItems(
             scanlator = null,
             read = chapter.read,
             bookmark = chapter.bookmark,
-            selected = selected,
+            selected = chapter.id in state.selection,
             downloadIndicatorEnabled = false,
             downloadStateProvider = { Download.State.NOT_DOWNLOADED },
             downloadProgressProvider = { 0 },
@@ -287,6 +333,3 @@ private fun chapterTitle(chapter: NovelChapter, hideTitles: Boolean): String =
 
 private fun formatChapterNumber(number: Double): String =
     if (number % 1.0 == 0.0) number.toInt().toString() else number.toString()
-
-@Suppress("unused")
-private fun Novel.titleOrUntitled(): String = title.ifBlank { "Untitled" }

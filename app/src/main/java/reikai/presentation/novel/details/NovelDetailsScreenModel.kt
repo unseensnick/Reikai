@@ -325,25 +325,29 @@ class NovelDetailsScreenModel(
         setNovelFlag(f, NovelChapterFlags.SORT_LOCAL, NovelChapterFlags.SORT_LOCAL_MASK)
     }
 
-    /** Make the current per-novel sort/display the global default and drop the local override. */
-    fun setGlobalSort() {
+    /** Write the current view as the global chapter-settings default and drop this novel's overrides. */
+    fun setChapterSettingsAsDefault() {
         screenModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
             novelPreferences.defaultChapterSortOrder().set(loaded.sorting)
             novelPreferences.defaultChapterSortDescending().set(loaded.sortDescending)
             novelPreferences.defaultChapterHideTitles().set(loaded.hideChapterTitles)
-            novelRepo.update(loaded.novel.copy(chapterFlags = setNovelFlag(loaded.novel.chapterFlags, 0L, NovelChapterFlags.SORT_LOCAL_MASK)))
+            novelPreferences.defaultChapterFilterUnread().set(loaded.readFilter)
+            novelPreferences.defaultChapterFilterBookmarked().set(loaded.bookmarkedFilter)
+            novelRepo.update(loaded.novel.copy(chapterFlags = clearLocalBits(loaded.novel.chapterFlags)))
         }
     }
 
-    fun setGlobalFilters() {
+    /** Drop this novel's overrides so the global default applies. */
+    fun resetChapterSettings() {
         screenModelScope.launchIO {
-            val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
-            novelPreferences.defaultChapterFilterUnread().set(loaded.readFilter)
-            novelPreferences.defaultChapterFilterBookmarked().set(loaded.bookmarkedFilter)
-            novelRepo.update(loaded.novel.copy(chapterFlags = setNovelFlag(loaded.novel.chapterFlags, 0L, NovelChapterFlags.FILTER_LOCAL_MASK)))
+            val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
+            novelRepo.update(n.copy(chapterFlags = clearLocalBits(n.chapterFlags)))
         }
     }
+
+    private fun clearLocalBits(flags: Long): Long =
+        setNovelFlag(setNovelFlag(flags, 0L, NovelChapterFlags.SORT_LOCAL_MASK), 0L, NovelChapterFlags.FILTER_LOCAL_MASK)
 
     private inline fun updateChapterFlags(crossinline transform: (Long) -> Long) {
         screenModelScope.launchIO {
