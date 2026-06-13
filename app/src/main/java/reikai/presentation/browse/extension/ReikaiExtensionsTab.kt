@@ -18,11 +18,11 @@ import eu.kanade.tachiyomi.ui.browse.extension.ExtensionFilterScreen
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsScreenModel
 import eu.kanade.tachiyomi.ui.browse.extension.details.ExtensionDetailsScreen
 import eu.kanade.tachiyomi.ui.browse.extension.extensionsTab
+import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoresScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.ReikaiBrowseScreenModel
 import reikai.presentation.browse.components.BrowseSectionHeader
-import reikai.presentation.browse.repo.RepoStoresScreen
 import reikai.presentation.components.ContentTypeFilterChips
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
@@ -49,12 +49,12 @@ fun Screen.reikaiExtensionsTab(
     val lnCount by browseScreenModel.lnUpdatesCount.collectAsState()
     val lnModel = rememberScreenModel { LnPluginManagerScreenModel() }
     val lnState by lnModel.state.collectAsState()
-    val openRepos = { navigator.push(RepoStoresScreen()) }
+    val openRepos = { navigator.push(ExtensionStoresScreen()) }
 
     return mihonTab.copy(
         badgeNumber = (extState.updates + lnCount).takeIf { it > 0 },
-        // Replace Mihon's manga-only "Extension stores" action with the combined Manga + LN repos
-        // screen; keep the Filter action. RepoStoresScreen covers manga repos too.
+        // Single "Repos" action -> Mihon's ExtensionStoresScreen, now extended to manage both manga
+        // and light-novel repos; keep the Filter action.
         actions = listOf(
             AppBar.OverflowAction(
                 title = stringResource(MR.strings.action_filter),

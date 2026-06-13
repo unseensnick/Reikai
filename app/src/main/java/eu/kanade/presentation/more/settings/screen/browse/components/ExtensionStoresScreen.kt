@@ -1,7 +1,6 @@
 package eu.kanade.presentation.more.settings.screen.browse.components
 
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Refresh
@@ -9,8 +8,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import eu.kanade.presentation.category.components.CategoryFloatingActionButton
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoreScreenState
 import mihon.domain.extension.model.ExtensionStore
@@ -19,7 +16,6 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.components.material.topSmallPaddingValues
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.util.plus
 
 @Composable
@@ -32,13 +28,17 @@ fun ExtensionStoresScreen(
     onClickDelete: (ExtensionStore) -> Unit,
     onClickRefresh: () -> Unit,
     navigateUp: () -> Unit,
+    // RK: light-novel repo add/delete, rendered as a second section by ExtensionStoresContent.
+    onClickCreateLn: () -> Unit,
+    onClickDeleteLn: (ExtensionStore) -> Unit,
 ) {
     val lazyListState = rememberLazyListState()
     Scaffold(
         topBar = { scrollBehavior ->
             AppBar(
                 navigateUp = navigateUp,
-                title = stringResource(MR.strings.extensionStores),
+                // RK: screen now holds manga + light-novel repos, so the generic "Repos" title.
+                title = stringResource(MR.strings.repos),
                 scrollBehavior = scrollBehavior,
                 actions = {
                     IconButton(onClick = onClickRefresh) {
@@ -50,21 +50,7 @@ fun ExtensionStoresScreen(
                 },
             )
         },
-        floatingActionButton = {
-            CategoryFloatingActionButton(
-                lazyListState = lazyListState,
-                onCreate = onClickCreate,
-            )
-        },
     ) { paddingValues ->
-        if (state.isEmpty) {
-            EmptyScreen(
-                MR.strings.extensionStoresScreen_emptyLabel,
-                modifier = Modifier.padding(paddingValues),
-            )
-            return@Scaffold
-        }
-
         ExtensionStoresContent(
             repos = state.stores,
             lazyListState = lazyListState,
@@ -74,6 +60,12 @@ fun ExtensionStoresScreen(
             onOpenWebsite = onOpenWebsite,
             onOpenDiscord = onOpenDiscord,
             onClickDelete = onClickDelete,
+            // RK -->
+            lnRepos = state.lnRepos,
+            onClickCreate = onClickCreate,
+            onClickCreateLn = onClickCreateLn,
+            onClickDeleteLn = onClickDeleteLn,
+            // RK <--
         )
     }
 }

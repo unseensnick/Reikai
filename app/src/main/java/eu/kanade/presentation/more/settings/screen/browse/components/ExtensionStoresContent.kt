@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Label
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Public
@@ -21,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import mihon.domain.extension.model.ExtensionStore
+import reikai.presentation.browse.components.BrowseSectionHeader
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -36,6 +38,11 @@ fun ExtensionStoresContent(
     onOpenWebsite: (ExtensionStore) -> Unit,
     onOpenDiscord: (ExtensionStore) -> Unit,
     onClickDelete: (ExtensionStore) -> Unit,
+    // RK: light-novel plugin repos rendered as their own section of identical cards.
+    lnRepos: List<ExtensionStore>,
+    onClickCreate: () -> Unit,
+    onClickCreateLn: () -> Unit,
+    onClickDeleteLn: (ExtensionStore) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -44,8 +51,16 @@ fun ExtensionStoresContent(
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
         modifier = modifier,
     ) {
+        // RK: Manga section (add moved from the FAB to a per-section header button).
+        item(key = "repo-manga-header") {
+            BrowseSectionHeader(title = stringResource(MR.strings.content_type_manga)) {
+                IconButton(onClick = onClickCreate) {
+                    Icon(Icons.Outlined.Add, contentDescription = stringResource(MR.strings.action_add))
+                }
+            }
+        }
         repos.forEach {
-            item {
+            item(key = "repo-manga-${it.indexUrl}") {
                 ExtensionStoresListItem(
                     modifier = Modifier.animateItem(),
                     store = it,
@@ -53,6 +68,28 @@ fun ExtensionStoresContent(
                     onOpenDiscord = { onOpenDiscord(it) },
                     onCopy = { onCopy(it) },
                     onDelete = { onClickDelete(it) },
+                )
+            }
+        }
+
+        // RK: Light novels section. onCopy/onOpenWebsite are pure store functions, reused as-is;
+        // only delete routes to the LN preference instead of the manga repo store.
+        item(key = "repo-ln-header") {
+            BrowseSectionHeader(title = stringResource(MR.strings.ln_repos)) {
+                IconButton(onClick = onClickCreateLn) {
+                    Icon(Icons.Outlined.Add, contentDescription = stringResource(MR.strings.action_add))
+                }
+            }
+        }
+        lnRepos.forEach {
+            item(key = "repo-ln-${it.indexUrl}") {
+                ExtensionStoresListItem(
+                    modifier = Modifier.animateItem(),
+                    store = it,
+                    onOpenWebsite = { onOpenWebsite(it) },
+                    onOpenDiscord = { onOpenDiscord(it) },
+                    onCopy = { onCopy(it) },
+                    onDelete = { onClickDeleteLn(it) },
                 )
             }
         }

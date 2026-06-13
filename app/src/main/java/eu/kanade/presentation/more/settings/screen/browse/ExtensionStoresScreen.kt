@@ -49,6 +49,10 @@ class ExtensionStoresScreen(
             onClickDelete = { screenModel.showDialog(ExtensionStoreDialog.Delete(it)) },
             onClickRefresh = { screenModel.refreshRepos() },
             navigateUp = navigator::pop,
+            // RK -->
+            onClickCreateLn = { screenModel.showDialog(ExtensionStoreDialog.CreateLn) },
+            onClickDeleteLn = { screenModel.showDialog(ExtensionStoreDialog.DeleteLn(it.indexUrl)) },
+            // RK <--
         )
 
         when (val dialog = successState.dialog) {
@@ -80,6 +84,25 @@ class ExtensionStoresScreen(
                     errorMessage = dialog.errorMessage,
                 )
             }
+            // RK -->
+            is ExtensionStoreDialog.CreateLn -> {
+                ExtensionStoreCreateDialog(
+                    onDismissRequest = screenModel::dismissDialog,
+                    onCreate = { screenModel.createLnRepo(it) },
+                    storeIndexUrls = successState.lnRepos.map { it.indexUrl }.toSet(),
+                    processing = false,
+                    errorMessage = null,
+                )
+            }
+            is ExtensionStoreDialog.DeleteLn -> {
+                ExtensionStoreDeleteDialog(
+                    onDismissRequest = screenModel::dismissDialog,
+                    onDelete = { screenModel.deleteLnRepo(dialog.url) },
+                    storeName = dialog.url,
+                    storeIndexUrl = dialog.url,
+                )
+            }
+            // RK <--
         }
     }
 }
