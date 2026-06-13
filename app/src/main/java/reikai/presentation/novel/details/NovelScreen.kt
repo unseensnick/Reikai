@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -139,8 +140,9 @@ private fun NovelDetailsSmallImpl(
         },
         bottomBar = { NovelSelectionBar(state, screenModel, Modifier.fillMaxWidth()) },
     ) { contentPadding ->
+        // The list applies the full inset (incl. top), so the info box gets no extra app-bar padding.
         LazyColumn(state = listState, contentPadding = contentPadding) {
-            novelHeaderItems(state, screenModel, onWebView, onShare, isTabletUi = false)
+            novelHeaderItems(state, screenModel, onWebView, onShare, isTabletUi = false, appBarPadding = 0.dp)
             novelChapterItems(state, screenModel, onChapterClick)
         }
     }
@@ -176,7 +178,8 @@ private fun NovelDetailsLargeImpl(
         TwoPanelBox(
             startContent = {
                 LazyColumn(contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding())) {
-                    novelHeaderItems(state, screenModel, onWebView, onShare, isTabletUi = true)
+                    // The start pane only pads the bottom, so the info box clears the app bar itself.
+                    novelHeaderItems(state, screenModel, onWebView, onShare, isTabletUi = true, appBarPadding = contentPadding.calculateTopPadding())
                 }
             },
             endContent = {
@@ -275,12 +278,13 @@ private fun LazyListScope.novelHeaderItems(
     onWebView: () -> Unit,
     onShare: () -> Unit,
     isTabletUi: Boolean,
+    appBarPadding: Dp,
 ) {
     val novel = state.novel
     item(key = "info") {
         NovelInfoBox(
             isTabletUi = isTabletUi,
-            appBarPadding = PaddingValues().calculateTopPadding(),
+            appBarPadding = appBarPadding,
             novel = novel,
             sourceName = state.sourceName,
             onCoverClick = {},
