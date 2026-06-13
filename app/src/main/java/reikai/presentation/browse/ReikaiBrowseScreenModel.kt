@@ -19,7 +19,7 @@ import uy.kohesive.injekt.api.get
  */
 class ReikaiBrowseScreenModel(
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
-    novelPreferences: NovelPreferences = Injekt.get(),
+    private val novelPreferences: NovelPreferences = Injekt.get(),
     updateChecker: LnPluginUpdateChecker = Injekt.get(),
 ) : ScreenModel {
 
@@ -33,5 +33,10 @@ class ReikaiBrowseScreenModel(
 
     fun setContentType(type: ContentType) {
         sourcePreferences.browseContentType.set(type)
+    }
+
+    /** Record the most recently opened LN source so the sources list's Last Used section populates. */
+    fun setLastUsedNovelSource(id: String) {
+        novelPreferences.lastUsedNovelSource().set(id)
     }
 }

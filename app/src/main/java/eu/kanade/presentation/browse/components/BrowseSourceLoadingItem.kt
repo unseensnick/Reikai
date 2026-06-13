@@ -9,8 +9,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
+// RK: public so the net-new novel browse grid reuses the same loading footer
 @Composable
-internal fun BrowseSourceLoadingItem() {
+fun BrowseSourceLoadingItem() {
     Row(
         modifier = Modifier
             .fillMaxWidth()

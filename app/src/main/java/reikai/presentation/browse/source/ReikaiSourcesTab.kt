@@ -37,6 +37,8 @@ import reikai.presentation.browse.ReikaiBrowseScreenModel
 import reikai.presentation.browse.components.BrowseSectionHeader
 import reikai.presentation.browse.components.NovelSourceRow
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.novel.browse.NovelBrowseScreen
+import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
 import tachiyomi.presentation.core.components.material.topSmallPaddingValues
@@ -63,13 +65,24 @@ fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabCont
     val novelState by novelModel.state.collectAsState()
     val contentType by browseScreenModel.contentType.collectAsState()
 
+    // Open a novel source's browse grid, recording it as last-used so the sources list populates.
+    val openNovelSource: (String) -> Unit = { id ->
+        browseScreenModel.setLastUsedNovelSource(id)
+        navigator.push(NovelBrowseScreen(id))
+    }
+
     return TabContent(
         titleRes = MR.strings.label_sources,
         actions = listOf(
             AppBar.Action(
                 title = stringResource(MR.strings.action_global_search),
                 icon = Icons.Outlined.TravelExplore,
-                onClick = { navigator.push(GlobalSearchScreen()) },
+                // Content-type-aware: the Novels chip searches LN sources; Manga / All use Mihon's.
+                onClick = {
+                    navigator.push(
+                        if (contentType == ContentType.NOVELS) NovelGlobalSearchScreen() else GlobalSearchScreen(),
+                    )
+                },
             ),
             AppBar.Action(
                 title = stringResource(MR.strings.action_filter),
@@ -96,7 +109,7 @@ fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabCont
                     ContentType.NOVELS -> NovelSourcesList(
                         state = novelState,
                         contentPadding = contentPadding,
-                        onClickItem = { /* TODO(S3b): open NovelBrowseScreen */ },
+                        onClickItem = openNovelSource,
                     )
                     ContentType.ALL -> CombinedSourcesContent(
                         sourcesState = sourcesState,
@@ -106,7 +119,7 @@ fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabCont
                         onClickMangaItem = { source, listing ->
                             navigator.push(BrowseSourceScreen(source.id, listing.query))
                         },
-                        onClickNovelItem = { /* TODO(S3b): open NovelBrowseScreen */ },
+                        onClickNovelItem = openNovelSource,
                     )
                 }
             }
@@ -144,7 +157,7 @@ fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabCont
 private fun NovelSourcesList(
     state: NovelSourcesScreenModel.State,
     contentPadding: PaddingValues,
-    onClickItem: () -> Unit,
+    onClickItem: (String) -> Unit,
 ) {
     when {
         state.isLoading -> LoadingScreen(Modifier.padding(contentPadding))
@@ -170,7 +183,7 @@ private fun CombinedSourcesContent(
     sourcesModel: SourcesScreenModel,
     contentPadding: PaddingValues,
     onClickMangaItem: (Source, Listing) -> Unit,
-    onClickNovelItem: () -> Unit,
+    onClickNovelItem: (String) -> Unit,
 ) {
     val groups = parseSourceGroups(sourcesState.items)
     val otherGroups = groups.filter { group -> group.sources.any { it.isLocal() } }
@@ -242,7 +255,7 @@ private fun LazyListScope.mangaSourceGroups(
 
 private fun LazyListScope.novelSourceItems(
     models: List<NovelSourceUiModel>,
-    onClickItem: () -> Unit,
+    onClickItem: (String) -> Unit,
 ) {
     items(
         items = models,
@@ -259,7 +272,7 @@ private fun LazyListScope.novelSourceItems(
                 name = model.source.name,
                 lang = "",
                 iconUrl = model.source.iconUrl,
-                onClickItem = onClickItem,
+                onClickItem = { onClickItem(model.source.id) },
             )
         }
     }
