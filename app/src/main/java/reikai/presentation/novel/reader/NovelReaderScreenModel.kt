@@ -10,6 +10,7 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelChapter
+import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
@@ -55,6 +56,7 @@ class NovelReaderScreenModel(
     private val sourceManager: NovelSourceManager by injectLazy()
     private val installer: LnPluginInstaller by injectLazy()
     private val novelPreferences: NovelPreferences by injectLazy()
+    private val downloadManager: NovelDownloadManager by injectLazy()
 
     private var currentId: Long = initialChapterId
 
@@ -156,7 +158,13 @@ class NovelReaderScreenModel(
         val clamped = percent.coerceIn(0, 100)
         screenModelScope.launchIO {
             chapterRepo.setLastTextProgress(id, clamped * 100L)
-            if (clamped >= 97) chapterRepo.setReadBulk(listOf(id), true)
+            if (clamped >= 97) {
+                chapterRepo.setReadBulk(listOf(id), true)
+                // The in-RAM htmlCache keeps the current view alive, so deleting the file is safe here.
+                if (novelPreferences.removeAfterMarkedAsRead().get()) {
+                    chapterRepo.getById(id)?.let { downloadManager.deleteChapters(listOf(it)) }
+                }
+            }
         }
     }
 
@@ -185,16 +193,20 @@ class NovelReaderScreenModel(
         }
     }
 
-    /** Resolve the novel's single source (cached) and parse the chapter live; the source site is the
-     *  base URL so relative image URLs resolve. Offline downloads are S5. */
+    /** Downloaded chapter -> read the self-contained HTML from disk (no source, null base URL, images
+     *  already inlined). Otherwise resolve the chapter's source and parse live, using the source site
+     *  as the base URL so relative image URLs resolve. */
     private suspend fun loadChapterHtml(chapter: NovelChapter): Pair<String, String?> {
+        downloadManager.getChapterText(chapter)?.let { return it to null }
         val src = resolveSource()
         return src.parseChapter(chapter.url) to src.site.ifBlank { null }
     }
 
     private suspend fun resolveSource(): NovelSource {
         source?.let { return it }
-        try { installer.ensureLoaded() } catch (_: Throwable) {}
+        try {
+            installer.ensureLoaded()
+        } catch (_: Throwable) {}
         val sourceId = novelRepo.getById(novelId)?.source ?: error("Novel not found")
         val resolved = sourceManager.get(sourceId) ?: error("Source not installed: $sourceId")
         source = resolved

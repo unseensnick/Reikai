@@ -3,7 +3,11 @@ package eu.kanade.tachiyomi.ui.download
 import android.view.LayoutInflater
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -11,6 +15,7 @@ import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallExtendedFloatingActionButton
@@ -51,6 +56,10 @@ import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.presentation.components.NestedMenuItem
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.databinding.DownloadListBinding
+import reikai.domain.library.ContentType
+import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.download.NovelDownloadQueueList
+import reikai.presentation.download.NovelDownloadQueueScreenModel
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.Pill
@@ -70,6 +79,16 @@ object DownloadQueueScreen : Screen() {
         val downloadCount by remember {
             derivedStateOf { downloadList.sumOf { it.subItems.size } }
         }
+
+        // RK --> novel side of the unified queue + the content-type chip (P5 S5)
+        val novelModel = rememberScreenModel { NovelDownloadQueueScreenModel() }
+        val novelGroups by novelModel.state.collectAsState()
+        val contentType by novelModel.contentType.collectAsState()
+        val novelCount by remember { derivedStateOf { novelGroups.sumOf { it.items.size } } }
+        val showManga = contentType != ContentType.NOVELS
+        val showNovels = contentType != ContentType.MANGA
+        val shownCount = (if (showManga) downloadCount else 0) + (if (showNovels) novelCount else 0)
+        // RK <--
 
         val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
         var fabExpanded by remember { mutableStateOf(true) }
@@ -106,10 +125,10 @@ object DownloadQueueScreen : Screen() {
                                 modifier = Modifier.weight(1f, false),
                                 overflow = TextOverflow.Ellipsis,
                             )
-                            if (downloadCount > 0) {
+                            if (shownCount > 0) {
                                 val pillAlpha = if (isSystemInDarkTheme()) 0.12f else 0.08f
                                 Pill(
-                                    text = "$downloadCount",
+                                    text = "$shownCount",
                                     modifier = Modifier.padding(start = 4.dp),
                                     color = MaterialTheme.colorScheme.onBackground
                                         .copy(alpha = pillAlpha),
@@ -120,7 +139,8 @@ object DownloadQueueScreen : Screen() {
                     },
                     navigateUp = navigator::pop,
                     actions = {
-                        if (downloadList.isNotEmpty()) {
+                        // RK: sort + reorder act on the manga queue; gate to the manga/all view
+                        if (showManga && downloadList.isNotEmpty()) {
                             var sortExpanded by remember { mutableStateOf(false) }
                             val onDismissRequest = { sortExpanded = false }
                             DropdownMenu(
@@ -188,7 +208,21 @@ object DownloadQueueScreen : Screen() {
                                     ),
                                     AppBar.OverflowAction(
                                         title = stringResource(MR.strings.action_cancel_all),
-                                        onClick = { screenModel.clearQueue() },
+                                        // RK: clear the novel queue too when both are shown
+                                        onClick = {
+                                            screenModel.clearQueue()
+                                            if (showNovels) novelModel.cancelAll()
+                                        },
+                                    ),
+                                ),
+                            )
+                        } else if (showNovels && novelGroups.isNotEmpty()) {
+                            // RK: novels-only view, just a cancel-all (no reorder/sort for text downloads)
+                            AppBarActions(
+                                listOf(
+                                    AppBar.OverflowAction(
+                                        title = stringResource(MR.strings.action_cancel_all),
+                                        onClick = { novelModel.cancelAll() },
                                     ),
                                 ),
                             )
@@ -198,90 +232,150 @@ object DownloadQueueScreen : Screen() {
                 )
             },
             floatingActionButton = {
-                val isRunning by screenModel.isDownloaderRunning.collectAsState()
-                SmallExtendedFloatingActionButton(
-                    text = {
-                        val id = if (isRunning) {
-                            MR.strings.action_pause
-                        } else {
-                            MR.strings.action_resume
-                        }
-                        Text(text = stringResource(id))
-                    },
-                    icon = {
-                        val icon = if (isRunning) {
-                            Icons.Outlined.Pause
-                        } else {
-                            Icons.Filled.PlayArrow
-                        }
-                        Icon(imageVector = icon, contentDescription = null)
-                    },
-                    onClick = {
-                        if (isRunning) {
-                            screenModel.pauseDownloads()
-                        } else {
-                            screenModel.startDownloads()
-                        }
-                    },
-                    expanded = fabExpanded,
-                    modifier = Modifier.animateFloatingActionButton(
-                        visible = downloadList.isNotEmpty(),
-                        alignment = Alignment.BottomEnd,
-                    ),
-                )
+                // RK: the FAB pauses/resumes the manga downloader; novels drain on a foreground worker
+                if (showManga) {
+                    val isRunning by screenModel.isDownloaderRunning.collectAsState()
+                    SmallExtendedFloatingActionButton(
+                        text = {
+                            val id = if (isRunning) {
+                                MR.strings.action_pause
+                            } else {
+                                MR.strings.action_resume
+                            }
+                            Text(text = stringResource(id))
+                        },
+                        icon = {
+                            val icon = if (isRunning) {
+                                Icons.Outlined.Pause
+                            } else {
+                                Icons.Filled.PlayArrow
+                            }
+                            Icon(imageVector = icon, contentDescription = null)
+                        },
+                        onClick = {
+                            if (isRunning) {
+                                screenModel.pauseDownloads()
+                            } else {
+                                screenModel.startDownloads()
+                            }
+                        },
+                        expanded = fabExpanded,
+                        modifier = Modifier.animateFloatingActionButton(
+                            visible = downloadList.isNotEmpty(),
+                            alignment = Alignment.BottomEnd,
+                        ),
+                    )
+                }
             },
         ) { contentPadding ->
-            if (downloadList.isEmpty()) {
-                EmptyScreen(
-                    stringRes = MR.strings.information_no_downloads,
-                    modifier = Modifier.padding(contentPadding),
-                )
-                return@Scaffold
-            }
-
-            val density = LocalDensity.current
+            // RK --> chip + content-type-switched body: manga RecyclerView vs novel Compose list (P5 S5)
             val layoutDirection = LocalLayoutDirection.current
-            val left = with(density) { contentPadding.calculateLeftPadding(layoutDirection).toPx().roundToInt() }
-            val top = with(density) { contentPadding.calculateTopPadding().toPx().roundToInt() }
-            val right = with(density) { contentPadding.calculateRightPadding(layoutDirection).toPx().roundToInt() }
-            val bottom = with(density) { contentPadding.calculateBottomPadding().toPx().roundToInt() }
+            // Launch the manga progress collectors once, even though a chip switch can recreate the view.
+            val collectorsStarted = remember { BooleanArray(1) }
 
-            Box(modifier = Modifier.nestedScroll(nestedScrollConnection)) {
-                AndroidView(
-                    modifier = Modifier.fillMaxWidth(),
-                    factory = { context ->
-                        screenModel.controllerBinding = DownloadListBinding.inflate(LayoutInflater.from(context))
-                        screenModel.adapter = DownloadAdapter(screenModel.listener)
-                        screenModel.controllerBinding.root.adapter = screenModel.adapter
-                        screenModel.adapter?.isHandleDragEnabled = true
-                        screenModel.controllerBinding.root.layoutManager = LinearLayoutManager(context)
+            val mangaBody: @Composable (PaddingValues) -> Unit = { pad ->
+                if (downloadList.isEmpty()) {
+                    EmptyScreen(
+                        stringRes = MR.strings.information_no_downloads,
+                        modifier = Modifier.padding(pad),
+                    )
+                } else {
+                    val density = LocalDensity.current
+                    val left = with(density) { pad.calculateLeftPadding(layoutDirection).toPx().roundToInt() }
+                    val top = with(density) { pad.calculateTopPadding().toPx().roundToInt() }
+                    val right = with(density) { pad.calculateRightPadding(layoutDirection).toPx().roundToInt() }
+                    val bottom = with(density) { pad.calculateBottomPadding().toPx().roundToInt() }
+                    Box(modifier = Modifier.nestedScroll(nestedScrollConnection)) {
+                        AndroidView(
+                            modifier = Modifier.fillMaxWidth(),
+                            factory = { context ->
+                                screenModel.controllerBinding =
+                                    DownloadListBinding.inflate(LayoutInflater.from(context))
+                                screenModel.adapter = DownloadAdapter(screenModel.listener)
+                                screenModel.controllerBinding.root.adapter = screenModel.adapter
+                                screenModel.adapter?.isHandleDragEnabled = true
+                                screenModel.controllerBinding.root.layoutManager = LinearLayoutManager(context)
 
-                        ViewCompat.setNestedScrollingEnabled(screenModel.controllerBinding.root, true)
+                                ViewCompat.setNestedScrollingEnabled(screenModel.controllerBinding.root, true)
 
-                        scope.launchUI {
-                            screenModel.getDownloadStatusFlow()
-                                .collect(screenModel::onStatusChange)
-                        }
-                        scope.launchUI {
-                            screenModel.getDownloadProgressFlow()
-                                .collect(screenModel::onUpdateDownloadedPages)
-                        }
+                                if (!collectorsStarted[0]) {
+                                    collectorsStarted[0] = true
+                                    scope.launchUI {
+                                        screenModel.getDownloadStatusFlow()
+                                            .collect(screenModel::onStatusChange)
+                                    }
+                                    scope.launchUI {
+                                        screenModel.getDownloadProgressFlow()
+                                            .collect(screenModel::onUpdateDownloadedPages)
+                                    }
+                                }
 
-                        screenModel.controllerBinding.root
-                    },
-                    update = {
-                        screenModel.controllerBinding.root
-                            .updatePadding(
-                                left = left,
-                                top = top,
-                                right = right,
-                                bottom = bottom,
-                            )
+                                screenModel.controllerBinding.root
+                            },
+                            update = {
+                                screenModel.controllerBinding.root
+                                    .updatePadding(
+                                        left = left,
+                                        top = top,
+                                        right = right,
+                                        bottom = bottom,
+                                    )
 
-                        screenModel.adapter?.updateDataSet(downloadList)
-                    },
-                )
+                                screenModel.adapter?.updateDataSet(downloadList)
+                            },
+                        )
+                    }
+                }
             }
+
+            val novelBody: @Composable (PaddingValues) -> Unit = { pad ->
+                if (novelGroups.isEmpty()) {
+                    EmptyScreen(
+                        stringRes = MR.strings.information_no_downloads,
+                        modifier = Modifier.padding(pad),
+                    )
+                } else {
+                    NovelDownloadQueueList(
+                        groups = novelGroups,
+                        onCancel = novelModel::cancel,
+                        contentPadding = pad,
+                    )
+                }
+            }
+
+            Column(modifier = Modifier.padding(top = contentPadding.calculateTopPadding())) {
+                ContentTypeFilterChips(
+                    selected = contentType,
+                    onSelect = novelModel::setContentType,
+                )
+                // Top inset is consumed by the chip above; the body keeps the side + bottom insets.
+                val bodyPadding = PaddingValues(
+                    start = contentPadding.calculateStartPadding(layoutDirection),
+                    end = contentPadding.calculateEndPadding(layoutDirection),
+                    bottom = contentPadding.calculateBottomPadding(),
+                )
+                when (contentType) {
+                    ContentType.MANGA -> Box(modifier = Modifier.weight(1f)) { mangaBody(bodyPadding) }
+                    ContentType.NOVELS -> Box(modifier = Modifier.weight(1f)) { novelBody(bodyPadding) }
+                    ContentType.ALL -> when {
+                        downloadList.isEmpty() && novelGroups.isEmpty() ->
+                            Box(modifier = Modifier.weight(1f)) {
+                                EmptyScreen(
+                                    stringRes = MR.strings.information_no_downloads,
+                                    modifier = Modifier.padding(bodyPadding),
+                                )
+                            }
+                        novelGroups.isEmpty() -> Box(modifier = Modifier.weight(1f)) { mangaBody(bodyPadding) }
+                        downloadList.isEmpty() -> Box(modifier = Modifier.weight(1f)) { novelBody(bodyPadding) }
+                        else -> {
+                            Box(modifier = Modifier.weight(1f)) { mangaBody(bodyPadding) }
+                            HorizontalDivider()
+                            Box(modifier = Modifier.weight(1f)) { novelBody(bodyPadding) }
+                        }
+                    }
+                }
+            }
+            // RK <--
         }
     }
 }

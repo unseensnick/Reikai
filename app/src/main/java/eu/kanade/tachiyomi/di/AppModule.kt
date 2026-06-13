@@ -30,6 +30,8 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import nl.adaptivity.xmlutil.XmlDeclMode
 import nl.adaptivity.xmlutil.core.XmlVersion
 import nl.adaptivity.xmlutil.serialization.XML
+import reikai.novel.download.NovelDownloadManager
+import reikai.novel.download.NovelDownloadProvider
 import reikai.novel.host.LnPluginHost
 import reikai.novel.host.LnPluginLoader
 import reikai.novel.install.LnPluginInstaller
@@ -131,6 +133,8 @@ class AppModule(val app: Application) : InjektModule {
         addSingletonFactory { LnPluginLoader(app, get<NetworkHelper>().client) }
         addSingletonFactory { LnPluginInstaller(get(), get(), get(), get(), get()) }
         addSingletonFactory { LnPluginUpdateChecker(get(), get()) }
+        addSingletonFactory { NovelDownloadProvider() }
+        addSingletonFactory { NovelDownloadManager(app) }
         // RK <--
 
         addSingletonFactory<SourceManager> { AndroidSourceManager(app, get(), get(), get()) }

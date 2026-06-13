@@ -83,6 +83,15 @@ class NovelPreferences(
     fun readerBackgroundColor() = preferenceStore.getString("ln_reader_bg_color", "#292832")
     fun readerTextColor() = preferenceStore.getString("ln_reader_text_color", "#CCCCCC")
 
+    // Downloads (S5). Key strings preserved from the Yōkai-era fork for upgrade continuity.
+
+    /** Delete a downloaded chapter's offline copy once it's marked read. */
+    fun removeAfterMarkedAsRead() = preferenceStore.getBoolean("novel_remove_after_marked_as_read", false)
+
+    /** Auto-download newly fetched chapters when an update is detected. The pref + manager plumbing
+     *  land in S5; the update-detection trigger that consumes it is wired in S7. */
+    fun downloadNewChapters() = preferenceStore.getBoolean("novel_download_new_chapters", false)
+
     companion object {
         private val metadataMapSerializer =
             MapSerializer(String.serializer(), LnInstalledPluginMetadata.serializer())

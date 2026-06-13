@@ -179,7 +179,14 @@ private fun NovelDetailsLargeImpl(
             startContent = {
                 LazyColumn(contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding())) {
                     // The start pane only pads the bottom, so the info box clears the app bar itself.
-                    novelHeaderItems(state, screenModel, onWebView, onShare, isTabletUi = true, appBarPadding = contentPadding.calculateTopPadding())
+                    novelHeaderItems(
+                        state,
+                        screenModel,
+                        onWebView,
+                        onShare,
+                        isTabletUi = true,
+                        appBarPadding = contentPadding.calculateTopPadding(),
+                    )
                 }
             },
             endContent = {
@@ -232,6 +239,8 @@ private fun NovelSelectionBar(
         onMarkAsReadClicked = { screenModel.markSelectedRead(true) },
         onMarkAsUnreadClicked = { screenModel.markSelectedRead(false) },
         onMarkPreviousAsReadClicked = { screenModel.markPreviousRead(true) },
+        onDownloadClicked = { screenModel.downloadSelected() },
+        onDeleteClicked = { screenModel.deleteSelected() },
     )
 }
 
@@ -374,22 +383,34 @@ private fun LazyListScope.novelChapterItems(
     items(items = state.chapters, key = { "chapter-${it.id}" }) { chapter ->
         MangaChapterListItem(
             title = chapterTitle(chapter, state.hideChapterTitles),
-            date = chapter.dateUpload.takeIf { it > 0L }?.let { DateFormat.getDateInstance(DateFormat.SHORT).format(Date(it)) },
+            date = chapter.dateUpload.takeIf {
+                it > 0L
+            }?.let { DateFormat.getDateInstance(DateFormat.SHORT).format(Date(it)) },
             readProgress = (chapter.lastTextProgress / 100L).toInt().takeIf { !chapter.read && it > 0 }?.let { "$it%" },
             scanlator = null,
             read = chapter.read,
             bookmark = chapter.bookmark,
             selected = chapter.id in state.selection,
-            downloadIndicatorEnabled = false,
-            downloadStateProvider = { Download.State.NOT_DOWNLOADED },
+            downloadIndicatorEnabled = !state.selectionMode,
+            downloadStateProvider = {
+                state.downloadStates[chapter.id]
+                    ?: if (chapter.isDownloaded) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED
+            },
             downloadProgressProvider = { 0 },
             chapterSwipeStartAction = LibraryPreferences.ChapterSwipeAction.Disabled,
             chapterSwipeEndAction = LibraryPreferences.ChapterSwipeAction.Disabled,
             onLongClick = { screenModel.toggleSelection(chapter.id, fromLongPress = true) },
             onClick = {
-                if (state.selectionMode) screenModel.toggleSelection(chapter.id, fromLongPress = false) else onChapterClick(chapter)
+                if (state.selectionMode) {
+                    screenModel.toggleSelection(
+                        chapter.id,
+                        fromLongPress = false,
+                    )
+                } else {
+                    onChapterClick(chapter)
+                }
             },
-            onDownloadClick = null,
+            onDownloadClick = { screenModel.onChapterDownloadAction(chapter, it) },
             onChapterSwipe = {},
         )
     }

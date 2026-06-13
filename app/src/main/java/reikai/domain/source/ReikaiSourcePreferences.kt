@@ -20,4 +20,8 @@ class ReikaiSourcePreferences(
      */
     val browseContentType: Preference<ContentType> =
         preferenceStore.getEnum("browse_content_type", ContentType.ALL)
+
+    /** Sticky content-type filter on the unified download queue (manga + novels), its own key. */
+    val downloadContentType: Preference<ContentType> =
+        preferenceStore.getEnum("download_content_type", ContentType.ALL)
 }

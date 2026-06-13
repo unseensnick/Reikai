@@ -5,7 +5,9 @@ import androidx.compose.ui.graphics.Color
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.domain.ui.UiPreferences
+import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.coil.MangaCoverMetadata
+import eu.kanade.tachiyomi.data.download.model.Download
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -33,6 +35,8 @@ import reikai.domain.novel.model.mergeRefreshedNovel
 import reikai.domain.novel.model.setEditedFlag
 import reikai.domain.novel.model.setNovelFlag
 import reikai.domain.novel.model.sortedAndFiltered
+import reikai.novel.download.NovelDownload
+import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
@@ -58,6 +62,7 @@ class NovelDetailsScreenModel(
     private val novelRepo: NovelRepository by injectLazy()
     private val chapterRepo: NovelChapterRepository by injectLazy()
     private val database: Database by injectLazy()
+    private val downloadManager: NovelDownloadManager by injectLazy()
     private val sourceManager: NovelSourceManager by injectLazy()
     private val installer: LnPluginInstaller by injectLazy()
     private val getNovelCategories: GetNovelCategories by injectLazy()
@@ -85,12 +90,27 @@ class NovelDetailsScreenModel(
 
     init {
         observeFromDb()
+        observeDownloadQueue()
         resolveSource()
+    }
+
+    /** Mirror the live download queue into [NovelDetailsState.Loaded.downloadStates]. Only the active
+     *  queue states (queued/downloading/error) live here; a finished download is read from the
+     *  chapter row's `isDownloaded` flag instead (see the chapter list's downloadStateProvider). */
+    private fun observeDownloadQueue() {
+        screenModelScope.launchIO {
+            downloadManager.queueState.collectLatest { queue ->
+                val map = queue.associate { it.chapterId to it.state.toDownloadState() }
+                mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(downloadStates = map) ?: it }
+            }
+        }
     }
 
     private fun resolveSource() {
         screenModelScope.launchIO {
-            try { installer.ensureLoaded() } catch (_: Throwable) {}
+            try {
+                installer.ensureLoaded()
+            } catch (_: Throwable) {}
             val resolved = sourceManager.get(sourceId)
             if (resolved == null) {
                 if (state.value !is NovelDetailsState.Loaded) {
@@ -161,6 +181,7 @@ class NovelDetailsScreenModel(
                 pageIndex = if (pages.isEmpty()) 0 else pageIndex.coerceIn(0, pages.lastIndex),
                 isPageLoading = loaded?.isPageLoading ?: false,
                 isRefreshing = loaded?.isRefreshing ?: false,
+                downloadStates = loaded?.downloadStates.orEmpty(),
                 dialog = loaded?.dialog,
                 selection = loaded?.selection.orEmpty().filterTo(HashSet()) { id -> chapters.any { it.id == id } },
                 resumeChapter = resume,
@@ -360,7 +381,14 @@ class NovelDetailsScreenModel(
 
     /** Apply Edit-info. A field differing from the stored value sets its lock bit (so it survives a
      *  refresh); a status of UNKNOWN clears the lock. Title needs no lock (refresh never touches it). */
-    fun updateNovelInfo(title: String, author: String, artist: String, description: String, genre: String, status: Long) {
+    fun updateNovelInfo(
+        title: String,
+        author: String,
+        artist: String,
+        description: String,
+        genre: String,
+        status: Long,
+    ) {
         screenModelScope.launchIO {
             val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
             var flags = n.editedFlags
@@ -368,7 +396,12 @@ class NovelDetailsScreenModel(
             flags = setEditedFlag(flags, NovelEditFlags.ARTIST, artist != n.artist.orEmpty())
             flags = setEditedFlag(flags, NovelEditFlags.DESCRIPTION, description != n.description.orEmpty())
             flags = setEditedFlag(flags, NovelEditFlags.GENRES, genre != n.genre?.joinToString(", ").orEmpty())
-            flags = setEditedFlag(flags, NovelEditFlags.STATUS, status != NovelStatusCode.UNKNOWN.toLong() && status != n.status)
+            flags =
+                setEditedFlag(
+                    flags,
+                    NovelEditFlags.STATUS,
+                    status != NovelStatusCode.UNKNOWN.toLong() && status != n.status,
+                )
             novelRepo.update(
                 n.copy(
                     title = title.ifBlank { n.title },
@@ -399,7 +432,12 @@ class NovelDetailsScreenModel(
 
     fun setSortOrder(sort: Long, descending: Boolean) = updateChapterFlags { flags ->
         var f = setNovelFlag(flags, sort, NovelChapterFlags.SORTING_MASK)
-        f = setNovelFlag(f, if (descending) NovelChapterFlags.SORT_DESC else NovelChapterFlags.SORT_ASC, NovelChapterFlags.SORT_DIR_MASK)
+        f =
+            setNovelFlag(
+                f,
+                if (descending) NovelChapterFlags.SORT_DESC else NovelChapterFlags.SORT_ASC,
+                NovelChapterFlags.SORT_DIR_MASK,
+            )
         setNovelFlag(f, NovelChapterFlags.SORT_LOCAL, NovelChapterFlags.SORT_LOCAL_MASK)
     }
 
@@ -437,7 +475,11 @@ class NovelDetailsScreenModel(
     }
 
     private fun clearLocalBits(flags: Long): Long =
-        setNovelFlag(setNovelFlag(flags, 0L, NovelChapterFlags.SORT_LOCAL_MASK), 0L, NovelChapterFlags.FILTER_LOCAL_MASK)
+        setNovelFlag(
+            setNovelFlag(flags, 0L, NovelChapterFlags.SORT_LOCAL_MASK),
+            0L,
+            NovelChapterFlags.FILTER_LOCAL_MASK,
+        )
 
     private inline fun updateChapterFlags(crossinline transform: (Long) -> Long) {
         screenModelScope.launchIO {
@@ -525,6 +567,30 @@ class NovelDetailsScreenModel(
         }
     }
 
+    // --- Downloads ---
+
+    fun onChapterDownloadAction(chapter: NovelChapter, action: ChapterDownloadAction) {
+        when (action) {
+            ChapterDownloadAction.START -> downloadManager.downloadChapters(listOf(chapter))
+            ChapterDownloadAction.START_NOW -> {
+                downloadManager.downloadChapters(listOf(chapter))
+                downloadManager.startDownloadNow(chapter.id)
+            }
+            ChapterDownloadAction.CANCEL -> downloadManager.cancelDownloads(listOf(chapter.id))
+            ChapterDownloadAction.DELETE -> downloadManager.deleteChapters(listOf(chapter))
+        }
+    }
+
+    fun downloadSelected() = withSelection { downloadManager.downloadChapters(it) }
+
+    fun deleteSelected() = withSelection { downloadManager.deleteChapters(it) }
+
+    private fun NovelDownload.State.toDownloadState(): Download.State = when (this) {
+        NovelDownload.State.QUEUE -> Download.State.QUEUE
+        NovelDownload.State.DOWNLOADING -> Download.State.DOWNLOADING
+        NovelDownload.State.ERROR -> Download.State.ERROR
+    }
+
     fun dismissDialog() = updateLoaded { it.copy(dialog = null) }
 
     private inline fun updateLoaded(crossinline transform: (NovelDetailsState.Loaded) -> NovelDetailsState.Loaded) {
@@ -550,6 +616,9 @@ sealed interface NovelDetailsState {
         /** A lazy page fetch is in flight. */
         val isPageLoading: Boolean = false,
         val isRefreshing: Boolean = false,
+        /** Live download-queue states by chapter id (queued/downloading/error only; a finished
+         *  download is signalled by the chapter row's `isDownloaded` flag). */
+        val downloadStates: Map<Long, Download.State> = emptyMap(),
         val dialog: NovelDetailsDialog? = null,
         val selection: Set<Long> = emptySet(),
         val resumeChapter: NovelChapter? = null,

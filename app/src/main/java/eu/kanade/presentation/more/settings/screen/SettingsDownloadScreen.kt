@@ -12,6 +12,7 @@ import androidx.compose.ui.util.fastMap
 import eu.kanade.presentation.category.visualName
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.widget.TriStateListDialog
+import reikai.domain.novel.NovelPreferences
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.download.service.DownloadPreferences
@@ -36,6 +37,8 @@ object SettingsDownloadScreen : SearchableSettings {
         val downloadPreferences = remember { Injekt.get<DownloadPreferences>() }
         val parallelSourceLimit by downloadPreferences.parallelSourceLimit.collectAsState()
         val parallelPageLimit by downloadPreferences.parallelPageLimit.collectAsState()
+        // RK: light-novel download options (P5 S5)
+        val novelPreferences = remember { Injekt.get<NovelPreferences>() }
         return listOf(
             Preference.PreferenceItem.SwitchPreference(
                 preference = downloadPreferences.downloadOnlyOverWifi,
@@ -65,6 +68,7 @@ object SettingsDownloadScreen : SearchableSettings {
             ),
             getDeleteChaptersGroup(
                 downloadPreferences = downloadPreferences,
+                novelPreferences = novelPreferences, // RK: novel delete-on-read sits in this group too
                 categories = allCategories,
             ),
             getAutoDownloadGroup(
@@ -78,6 +82,7 @@ object SettingsDownloadScreen : SearchableSettings {
     @Composable
     private fun getDeleteChaptersGroup(
         downloadPreferences: DownloadPreferences,
+        novelPreferences: NovelPreferences,
         categories: List<Category>,
     ): Preference.PreferenceGroup {
         return Preference.PreferenceGroup(
@@ -86,6 +91,13 @@ object SettingsDownloadScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = downloadPreferences.removeAfterMarkedAsRead,
                     title = stringResource(MR.strings.pref_remove_after_marked_as_read),
+                    subtitle = stringResource(MR.strings.content_type_manga),
+                ),
+                // RK: the light-novel twin of the option above (separate downloader + preference)
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.removeAfterMarkedAsRead(),
+                    title = stringResource(MR.strings.pref_remove_after_marked_as_read),
+                    subtitle = stringResource(MR.strings.content_type_novels),
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = downloadPreferences.removeAfterReadSlots,

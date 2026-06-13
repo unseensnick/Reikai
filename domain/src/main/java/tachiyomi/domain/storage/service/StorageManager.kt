@@ -40,6 +40,11 @@ class StorageManager(
                     parent.createDirectory(DOWNLOADS_PATH).also {
                         DiskUtil.createNoMediaFile(it, context)
                     }
+                    // RK --> light-novel chapter downloads (P5 S5), separate from manga downloads
+                    parent.createDirectory(NOVEL_DOWNLOADS_PATH).also {
+                        DiskUtil.createNoMediaFile(it, context)
+                    }
+                    // RK <--
                 }
                 _changes.send(Unit)
             }
@@ -63,8 +68,17 @@ class StorageManager(
     fun getLocalSourceDirectory(): UniFile? {
         return baseDir?.createDirectory(LOCAL_SOURCE_PATH)
     }
+
+    // RK --> light-novel chapter downloads (P5 S5)
+    fun getNovelDownloadsDirectory(): UniFile? {
+        return baseDir?.createDirectory(NOVEL_DOWNLOADS_PATH)
+    }
+    // RK <--
 }
 
 private const val AUTOMATIC_BACKUPS_PATH = "autobackup"
 private const val DOWNLOADS_PATH = "downloads"
 private const val LOCAL_SOURCE_PATH = "local"
+
+// RK: light-novel chapter downloads (P5 S5)
+private const val NOVEL_DOWNLOADS_PATH = "novel_downloads"

@@ -40,6 +40,10 @@ object Notifications {
     const val CHANNEL_DOWNLOADER_ERROR = "downloader_error_channel"
     const val ID_DOWNLOAD_CHAPTER_ERROR = -202
 
+    // RK: light-novel chapter downloader (P5 S5), grouped with the manga downloader
+    const val CHANNEL_NOVEL_DOWNLOADER = "novel_downloader_progress_channel"
+    const val ID_NOVEL_DOWNLOADER = -205
+
     /**
      * Notification channel and ids used by the library updater.
      */
@@ -149,6 +153,13 @@ object Notifications {
                     setGroup(GROUP_DOWNLOADER)
                     setShowBadge(false)
                 },
+                // RK --> light-novel chapter downloader (P5 S5)
+                buildNotificationChannel(CHANNEL_NOVEL_DOWNLOADER, IMPORTANCE_LOW) {
+                    setName(context.stringResource(MR.strings.channel_progress))
+                    setGroup(GROUP_DOWNLOADER)
+                    setShowBadge(false)
+                },
+                // RK <--
                 buildNotificationChannel(CHANNEL_BACKUP_RESTORE_PROGRESS, IMPORTANCE_LOW) {
                     setName(context.stringResource(MR.strings.channel_progress))
                     setGroup(GROUP_BACKUP_RESTORE)
