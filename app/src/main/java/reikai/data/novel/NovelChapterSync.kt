@@ -20,6 +20,11 @@ import tachiyomi.domain.chapter.service.ChapterRecognition
  * A re-added chapter (same recognized number as a just-deleted one) inherits its read/bookmark state
  * and original `dateFetch`, so it doesn't bubble up as "new".
  *
+ * [page] scopes the sync to one page of a paged source: reconciliation runs against only that page's
+ * stored rows (so syncing one page can't delete the others' chapters), and each synced chapter is
+ * tagged with [page] as its transport index. Null = whole-novel sync (the unpaged / parseNovel path),
+ * which keeps each chapter's own `ChapterItem.page` (volume label or empty).
+ *
  * @return (newly inserted chapters, deleted chapters), each excluding entries whose only change was a
  *   duplicate-read carry-over, so a caller's "new chapters" signal doesn't fire on reorders.
  */
@@ -29,13 +34,18 @@ suspend fun syncChaptersWithNovelSource(
     novelChapterRepository: NovelChapterRepository,
     novelRepository: NovelRepository,
     database: Database,
+    page: String? = null,
 ): Pair<List<NovelChapter>, List<NovelChapter>> {
     if (rawSourceChapters.isEmpty()) throw Exception("No chapters found")
 
     val novelId = novel.id
     require(novelId > 0L) { "syncChaptersWithNovelSource requires a persisted novel (id > 0)" }
 
-    val dbChapters = novelChapterRepository.getByNovelId(novelId)
+    val dbChapters = if (page != null) {
+        novelChapterRepository.getByNovelIdAndPage(novelId, page)
+    } else {
+        novelChapterRepository.getByNovelId(novelId)
+    }
 
     val sourceChapters = rawSourceChapters
         .distinctBy { it.path }
@@ -48,7 +58,8 @@ suspend fun syncChaptersWithNovelSource(
                 draft.name,
                 draft.chapterNumber.takeIf { it > 0.0 },
             )
-            draft.copy(chapterNumber = number)
+            // A paged sync stamps the transport index; otherwise keep the plugin's own page label.
+            draft.copy(chapterNumber = number, page = page ?: draft.page)
         }
 
     val toAdd = mutableListOf<NovelChapter>()

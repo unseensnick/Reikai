@@ -71,6 +71,16 @@ data class SourceNovel(
     val totalPages: Int = 1,
 )
 
+/**
+ * Result of lnreader's `Plugin.parsePage(novelPath, page)`: just the chapter list for one page of a
+ * paged source. Decoded separately from [SourceNovel] because the plugin returns only `{ chapters }`
+ * (no path/metadata).
+ */
+@Serializable
+data class SourcePage(
+    val chapters: List<ChapterItem>? = null,
+)
+
 @Serializable
 data class ChapterContent(
     @SerialName("chapterText") val chapterText: String,

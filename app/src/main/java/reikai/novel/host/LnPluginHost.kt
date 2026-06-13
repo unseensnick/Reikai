@@ -127,6 +127,17 @@ class LnPluginHost(
         return raw.jsonPrimitive.content
     }
 
+    /** Optional lnreader `parsePage`: one page of a paged source's chapter list. Null when the plugin
+     *  doesn't define it (single-page source) or it errors, mirroring [resolveUrl]. The plugin returns
+     *  only `{ chapters }`, so the path comes from the caller. */
+    suspend fun parsePage(pluginId: String, novelPath: String, page: String): SourceNovel? = try {
+        val raw = callMethod(pluginId, "parsePage", listOf(JsonPrimitive(novelPath), JsonPrimitive(page)))
+        val parsed = JSON.decodeFromJsonElement(SourcePage.serializer(), raw)
+        SourceNovel(path = novelPath, chapters = parsed.chapters)
+    } catch (e: Exception) {
+        null
+    }
+
     /** Optional lnreader `resolveUrl`; null when the plugin doesn't define it (most don't) or errors,
      *  so callers fall back to the source site. */
     suspend fun resolveUrl(pluginId: String, path: String, isNovel: Boolean): String? = try {

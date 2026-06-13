@@ -2,14 +2,25 @@ package reikai.presentation.novel.details
 
 import android.content.Intent
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -18,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -244,6 +256,12 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: No
             onSetAsDefault = screenModel::setChapterSettingsAsDefault,
             onReset = screenModel::resetChapterSettings,
         )
+        NovelDetailsDialog.PageSelector -> NovelPageSelectorSheet(
+            pages = state.pages,
+            selectedIndex = state.pageIndex,
+            onSelect = screenModel::selectPage,
+            onDismiss = screenModel::dismissDialog,
+        )
         null -> {}
     }
 }
@@ -286,11 +304,57 @@ private fun LazyListScope.novelHeaderItems(
     }
     // TODO(S8): merge source-switcher chips slot
     item(key = "chapter-header") {
-        ChapterHeader(
-            enabled = !state.selectionMode,
-            chapterCount = state.chapters.size,
-            missingChapterCount = 0,
-            onClick = screenModel::showChapterSettingsDialog,
+        Column {
+            ChapterHeader(
+                enabled = !state.selectionMode,
+                chapterCount = state.chapters.size,
+                missingChapterCount = 0,
+                onClick = screenModel::showChapterSettingsDialog,
+            )
+            if (state.isPaged) {
+                NovelPageBar(
+                    pageIndex = state.pageIndex,
+                    pageCount = state.pages.size,
+                    isLoading = state.isPageLoading,
+                    enabled = !state.selectionMode,
+                    onClick = screenModel::showPageSelectorDialog,
+                )
+            }
+        }
+    }
+}
+
+/** Compact "Page n / N" row under the chapter header, opening the page selector sheet. The chapter
+ *  count above it is the current page's count, so the scope is visible (sort/filter are page-scoped). */
+@Composable
+private fun NovelPageBar(
+    pageIndex: Int,
+    pageCount: Int,
+    isLoading: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = "Page ${pageIndex + 1} / $pageCount",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f),
+        )
+        if (isLoading) {
+            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+        }
+        Icon(
+            imageVector = Icons.Default.ArrowDropDown,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
         )
     }
 }

@@ -42,6 +42,9 @@ class LnPluginSource(
     override suspend fun parseNovel(novelPath: String): SourceNovel =
         host.parseNovel(info.id, novelPath)
 
+    override suspend fun parsePage(novelPath: String, page: String): SourceNovel? =
+        host.parsePage(info.id, novelPath, page)
+
     override suspend fun parseChapter(chapterPath: String): String =
         host.parseChapter(info.id, chapterPath)
 

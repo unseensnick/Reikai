@@ -44,6 +44,9 @@ fun mergeRefreshedNovel(existing: Novel, parsed: Novel): Novel {
             parsed.status.takeIf { it != NovelStatusCode.UNKNOWN.toLong() } ?: existing.status
         },
         thumbnailUrl = parsed.thumbnailUrl?.takeIf { it.isNotBlank() } ?: existing.thumbnailUrl,
+        // Source-owned (no edit lock): a refresh must update the page count so newly-opened pages
+        // get walked. A partial parse reporting 0 never shrinks a known count.
+        totalPages = parsed.totalPages.takeIf { it > 0L } ?: existing.totalPages,
         initialized = true,
     )
 }

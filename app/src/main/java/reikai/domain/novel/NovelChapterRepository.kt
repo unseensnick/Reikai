@@ -8,6 +8,15 @@ interface NovelChapterRepository {
 
     /** Reactive [getByNovelId]: re-emits on any write to this novel's chapters. */
     fun getByNovelIdAsFlow(novelId: Long): Flow<List<NovelChapter>>
+
+    /** Chapters on a single page (transport index "1".."N") or volume label of a paged source. */
+    suspend fun getByNovelIdAndPage(novelId: Long, page: String): List<NovelChapter>
+
+    /** Reactive [getByNovelIdAndPage]: drives the lazy per-page chapter list. */
+    fun getByNovelIdAndPageAsFlow(novelId: Long, page: String): Flow<List<NovelChapter>>
+
+    /** Distinct non-empty page labels, for the page selector of label-grouped sources. */
+    suspend fun getDistinctPages(novelId: Long): List<String>
     suspend fun getById(id: Long): NovelChapter?
     suspend fun getByUrlAndNovelId(url: String, novelId: Long): NovelChapter?
     suspend fun insert(chapter: NovelChapter): Long?

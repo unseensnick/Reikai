@@ -7,11 +7,13 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.data.coil.MangaCoverMetadata
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import reikai.data.novel.NovelStatusCode
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.data.novel.toNovel
+import reikai.data.novel.walkNovelPages
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -72,6 +74,12 @@ class NovelDetailsScreenModel(
     private var refreshJob: Job? = null
     private var seedExtracted = false
 
+    /** The page (index into [NovelDetailsState.Loaded.pages]) the chapter list is showing. */
+    private val pageIndex = MutableStateFlow(0)
+
+    /** Paged keys already lazily fetched, so an empty page doesn't re-fetch on every flow emission. */
+    private val triedPages = java.util.Collections.synchronizedSet(HashSet<String>())
+
     /** Range-select anchor into the displayed chapter order; -1 when no selection. */
     private val selectionAnchor = intArrayOf(-1, -1)
 
@@ -99,8 +107,9 @@ class NovelDetailsScreenModel(
         }
     }
 
-    // DB-first: the stored novel drives an inner chapter flow; every emission rebuilds Loaded from
-    // stored rows. A change to the novel's chapterFlags re-emits the outer flow, re-sorting the list.
+    // DB-first: the stored novel drives the current page's chapter flow; every emission rebuilds
+    // Loaded from stored rows. A change to the novel's chapterFlags re-emits the outer flow (re-sort);
+    // a page switch ([pageIndex]) re-subscribes to that page's rows, fetching it lazily if empty.
     private fun observeFromDb() {
         screenModelScope.launchIO {
             novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId).collectLatest { novel ->
@@ -108,15 +117,38 @@ class NovelDetailsScreenModel(
                     maybeFirstFetch(null)
                     return@collectLatest
                 }
-                chapterRepo.getByNovelIdAsFlow(novel.id).collectLatest { chapters ->
-                    rebuildLoaded(novel, chapters)
-                    if (chapters.isEmpty()) maybeFirstFetch(novel)
+                val pages = computePages(novel)
+                if (pages.isNotEmpty() && pageIndex.value >= pages.size) pageIndex.value = 0
+                pageIndex.collectLatest { idx ->
+                    // Null key = unpaged source: show the whole novel (the S3c behavior). Otherwise
+                    // scope to this page's transport index / volume label.
+                    val pageKey = pages.getOrNull(idx)
+                    val chapterFlow = if (pageKey == null) {
+                        chapterRepo.getByNovelIdAsFlow(novel.id)
+                    } else {
+                        chapterRepo.getByNovelIdAndPageAsFlow(novel.id, pageKey)
+                    }
+                    chapterFlow.collectLatest { chapters ->
+                        rebuildLoaded(novel, chapters, pages, idx)
+                        when {
+                            chapters.isNotEmpty() -> {}
+                            pageKey == null -> maybeFirstFetch(novel)
+                            else -> maybeFetchPage(novel, pageKey)
+                        }
+                    }
                 }
             }
         }
     }
 
-    private fun rebuildLoaded(novel: Novel, chapters: List<NovelChapter>) {
+    /** Page keys for the selector: "1".."N" for a `parsePage` source, distinct volume labels for a
+     *  label-grouped one, or empty (single unpaged list, no selector). */
+    private suspend fun computePages(novel: Novel): List<String> = when {
+        novel.totalPages > 1L -> (1..novel.totalPages).map { it.toString() }
+        else -> chapterRepo.getDistinctPages(novel.id).takeIf { it.size > 1 } ?: emptyList()
+    }
+
+    private fun rebuildLoaded(novel: Novel, chapters: List<NovelChapter>, pages: List<String>, pageIndex: Int) {
         val display = chapters.sortedAndFiltered(novel, novelPreferences)
         val resume = chapters.sortedBy { it.sourceOrder }.firstOrNull { !it.read }
         mutableState.update { prev ->
@@ -125,6 +157,9 @@ class NovelDetailsScreenModel(
                 novel = novel,
                 displayNovel = novel,
                 chapters = display,
+                pages = pages,
+                pageIndex = if (pages.isEmpty()) 0 else pageIndex.coerceIn(0, pages.lastIndex),
+                isPageLoading = loaded?.isPageLoading ?: false,
                 isRefreshing = loaded?.isRefreshing ?: false,
                 dialog = loaded?.dialog,
                 selection = loaded?.selection.orEmpty().filterTo(HashSet()) { id -> chapters.any { it.id == id } },
@@ -178,9 +213,10 @@ class NovelDetailsScreenModel(
         }
     }
 
-    /** parseNovel + persist metadata (edit-lock + blank safe) + sync chapters. The reactive flow then
-     *  re-emits the updated novel/chapter list. A novel opened from Browse is inserted non-favorite. */
-    private suspend fun fetchAndSync(src: NovelSource, existing: Novel?) {
+    /** parseNovel + persist metadata (edit-lock + blank safe) + sync the first page's chapters. The
+     *  reactive flow then re-emits the updated novel/chapter list. A novel opened from Browse is
+     *  inserted non-favorite. Returns the persisted novel (carries the refreshed `totalPages`). */
+    private suspend fun fetchAndSync(src: NovelSource, existing: Novel?): Novel? {
         val sourceNovel = src.parseNovel(existing?.url ?: novelUrl)
         val target = if (existing != null) {
             val parsed = sourceNovel.toNovel(sourceId = src.id, favorite = existing.favorite)
@@ -190,16 +226,54 @@ class NovelDetailsScreenModel(
         } else {
             // Non-favorite shadow row so a browse-opened novel is viewable without being silently
             // added; insertOrGet reuses a concurrently-created row instead of duplicating.
-            novelRepo.insertOrGet(sourceNovel.toNovel(sourceId = src.id, favorite = false)) ?: return
+            novelRepo.insertOrGet(sourceNovel.toNovel(sourceId = src.id, favorite = false)) ?: return null
         }
         val chapters = sourceNovel.chapters.orEmpty()
         if (chapters.isNotEmpty()) {
-            syncChaptersWithNovelSource(chapters, target, chapterRepo, novelRepo, database)
+            // A paged source's first page is page "1"; tag it so the page-"1" query finds these rows.
+            val pageTag = if (sourceNovel.totalPages > 1) "1" else null
+            syncChaptersWithNovelSource(chapters, target, chapterRepo, novelRepo, database, page = pageTag)
+        }
+        return target
+    }
+
+    /** Lazily fetch a paged source's page when it has no stored rows yet. Skipped while a filter is
+     *  active (0 rows may just mean the filter hid them, not that the page is unfetched) and once a
+     *  page has been tried (an empty page must not re-fetch on every emission). */
+    private fun maybeFetchPage(novel: Novel, pageKey: String) {
+        val src = source ?: return
+        val loaded = state.value as? NovelDetailsState.Loaded
+        if (loaded != null && (loaded.readFilter != 0L || loaded.bookmarkedFilter != 0L)) return
+        if (!triedPages.add(pageKey)) return
+        screenModelScope.launchIO {
+            mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(isPageLoading = true) ?: it }
+            try {
+                src.parsePage(novel.url, pageKey)?.chapters?.takeIf { it.isNotEmpty() }?.let {
+                    syncChaptersWithNovelSource(it, novel, chapterRepo, novelRepo, database, page = pageKey)
+                }
+            } catch (_: Throwable) {
+            } finally {
+                mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(isPageLoading = false) ?: it }
+            }
         }
     }
 
+    fun selectPage(index: Int) {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        if (index < 0 || index >= loaded.pages.size || index == loaded.pageIndex) return
+        clearSelection()
+        pageIndex.value = index
+        dismissDialog()
+    }
+
+    fun showPageSelectorDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.PageSelector) }
+
     /** Stale-then-fresh: the cached list stays under a spinner while the sync runs, then the flow
-     *  swaps in fresh rows. Read/bookmark are preserved by the sync. Deduped against concurrent runs. */
+     *  swaps in fresh rows. Read/bookmark are preserved by the sync. Deduped against concurrent runs.
+     *
+     *  For a paged source: parseNovel refreshes page 1 + the page count, [walkNovelPages] re-fetches
+     *  the previously-last page through any newly-opened ones, and the page the user is viewing is
+     *  re-fetched too if the walk didn't already cover it. Bounded, never a full fetch-all. */
     fun refresh() {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
         val src = source ?: return
@@ -207,7 +281,23 @@ class NovelDetailsScreenModel(
         refreshJob = screenModelScope.launchIO {
             mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(isRefreshing = true) ?: it }
             try {
-                runCatching { fetchAndSync(src, loaded.novel) }
+                val oldTotalPages = loaded.novel.totalPages
+                val updated = runCatching { fetchAndSync(src, loaded.novel) }.getOrNull() ?: loaded.novel
+                val newTotalPages = updated.totalPages
+                if (newTotalPages > 1L) {
+                    val walkFrom = maxOf(2L, oldTotalPages)
+                    walkNovelPages(updated, src, walkFrom, newTotalPages, chapterRepo, novelRepo, database)
+                    // Force-refresh the viewed page if the walk skipped it (a middle page).
+                    val curPage = loaded.pages.getOrNull(loaded.pageIndex)?.toLongOrNull()
+                    if (curPage != null && curPage > 1L && curPage !in walkFrom..newTotalPages) {
+                        val key = curPage.toString()
+                        runCatching {
+                            src.parsePage(updated.url, key)?.chapters?.takeIf { it.isNotEmpty() }?.let {
+                                syncChaptersWithNovelSource(it, updated, chapterRepo, novelRepo, database, page = key)
+                            }
+                        }
+                    }
+                }
             } finally {
                 mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(isRefreshing = false) ?: it }
             }
@@ -399,11 +489,12 @@ class NovelDetailsScreenModel(
         chapters.forEach { chapterRepo.setBookmark(it.id, bookmark) }
     }
 
-    /** Mark every chapter before the earliest selected one (in source order) read/unread. */
+    /** Mark every chapter before the earliest selected one (in source order) read/unread. Spans all
+     *  fetched pages (operates on stored rows), not just the page on screen. */
     fun markPreviousRead(read: Boolean) {
         screenModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
-            val ascending = loaded.chapters.sortedBy { it.sourceOrder }
+            val ascending = chapterRepo.getByNovelId(loaded.novel.id).sortedBy { it.sourceOrder }
             val earliest = ascending.indexOfFirst { it.id in loaded.selection }
             if (earliest > 0) chapterRepo.setReadBulk(ascending.subList(0, earliest).map { it.id }, read)
             clearSelection()
@@ -413,7 +504,7 @@ class NovelDetailsScreenModel(
     fun markAllRead(read: Boolean) {
         screenModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
-            chapterRepo.setReadBulk(loaded.chapters.map { it.id }, read)
+            chapterRepo.setReadBulk(chapterRepo.getByNovelId(loaded.novel.id).map { it.id }, read)
         }
     }
 
@@ -453,6 +544,11 @@ sealed interface NovelDetailsState {
          *  repoints it at the selected source. */
         val displayNovel: Novel,
         val chapters: List<NovelChapter>,
+        /** Page keys for the selector; empty when the source is single/unpaged (selector hidden). */
+        val pages: List<String> = emptyList(),
+        val pageIndex: Int = 0,
+        /** A lazy page fetch is in flight. */
+        val isPageLoading: Boolean = false,
         val isRefreshing: Boolean = false,
         val dialog: NovelDetailsDialog? = null,
         val selection: Set<Long> = emptySet(),
@@ -471,6 +567,9 @@ sealed interface NovelDetailsState {
         val hideChapterTitles: Boolean = false,
     ) : NovelDetailsState {
         val selectionMode: Boolean get() = selection.isNotEmpty()
+
+        /** More than one page/volume to choose between, so the page selector is shown. */
+        val isPaged: Boolean get() = pages.size > 1
     }
 }
 
@@ -490,4 +589,5 @@ sealed interface NovelDetailsDialog {
     ) : NovelDetailsDialog
 
     data object ChapterSettings : NovelDetailsDialog
+    data object PageSelector : NovelDetailsDialog
 }

@@ -34,6 +34,22 @@ FROM novel_chapters
 WHERE novel_id = :novelId
 ORDER BY source_order;
 
+-- Chapters for one page of a paged source (page = the transport index "1".."N"), or one volume
+-- label for label-grouped sources. Drives the lazy per-page chapter list on the details screen.
+getByNovelIdAndPage:
+SELECT *
+FROM novel_chapters
+WHERE novel_id = :novelId AND page = :page
+ORDER BY source_order;
+
+-- Distinct non-empty page labels, used to build the page selector for label-grouped sources
+-- (whose chapters arrive in one parseNovel call rather than via parsePage).
+getDistinctPages:
+SELECT DISTINCT page
+FROM novel_chapters
+WHERE novel_id = :novelId AND page != ''
+ORDER BY page;
+
 getById:
 SELECT *
 FROM novel_chapters
