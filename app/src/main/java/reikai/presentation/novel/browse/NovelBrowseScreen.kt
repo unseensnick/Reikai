@@ -54,6 +54,7 @@ import eu.kanade.presentation.library.components.CommonMangaItemDefaults
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import kotlinx.coroutines.flow.distinctUntilChanged
+import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -192,7 +193,7 @@ class NovelBrowseScreen(
                 contentPadding = contentPadding,
                 onRetry = screenModel::retry,
                 onWebViewClick = onWebViewClick,
-                onResultClick = { /* TODO(S3c): push NovelScreen(sourceId, item.path) */ },
+                onResultClick = { navigator.push(NovelScreen(sourceId, it.path)) },
                 onLoadMore = screenModel::loadMore,
             )
         }

@@ -50,6 +50,25 @@ class NovelPreferences(
     /** Last successful update-check timestamp (millis); gates the on-launch path to skip if recent. */
     fun lastLnPluginCheck() = preferenceStore.getLong("ln_plugin_last_check", 0L)
 
+    // Global chapter sort / filter / display defaults (S3c). A novel falls back to these unless its
+    // own `chapterFlags` local bit is set (see [reikai.domain.novel.model.NovelChapterFlags]). Stored
+    // as the same bitmask values the per-novel flags use, so "Set as default" is a straight copy.
+
+    /** Default chapter sort method (source order / number / upload date) as the SORTING_MASK bits. */
+    fun defaultChapterSortOrder() = preferenceStore.getLong("ln_default_chapter_sort", 0L)
+
+    /** Default chapter sort direction; true = newest/highest first (matches the manga default). */
+    fun defaultChapterSortDescending() = preferenceStore.getBoolean("ln_default_chapter_sort_desc", true)
+
+    /** Default unread filter as the READ_MASK bits (0 = show all). */
+    fun defaultChapterFilterUnread() = preferenceStore.getLong("ln_default_chapter_filter_unread", 0L)
+
+    /** Default bookmarked filter as the BOOKMARKED_MASK bits (0 = show all). */
+    fun defaultChapterFilterBookmarked() = preferenceStore.getLong("ln_default_chapter_filter_bookmarked", 0L)
+
+    /** Default display: true shows "Chapter N", false shows the source chapter title. */
+    fun defaultChapterHideTitles() = preferenceStore.getBoolean("ln_default_chapter_hide_titles", false)
+
     companion object {
         private val metadataMapSerializer =
             MapSerializer(String.serializer(), LnInstalledPluginMetadata.serializer())

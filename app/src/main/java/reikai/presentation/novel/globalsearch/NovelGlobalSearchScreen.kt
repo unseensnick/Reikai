@@ -31,6 +31,7 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import reikai.novel.host.NovelItem
 import reikai.presentation.novel.browse.NovelBrowseGridCell
+import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -76,7 +77,7 @@ class NovelGlobalSearchScreen(
                     SourceSection(
                         result = result,
                         favoritedKeys = state.favoritedKeys,
-                        onResultClick = { /* TODO(S3c): push NovelScreen(result.source.id, it.path) */ },
+                        onResultClick = { navigator.push(NovelScreen(result.source.id, it.path)) },
                     )
                 }
             }
