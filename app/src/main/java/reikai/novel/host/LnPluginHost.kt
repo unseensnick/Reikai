@@ -43,7 +43,13 @@ class LnPluginHost(
 ) {
 
     private val appContext = context.applicationContext
-    private val bridge = LnHostBridge(preferenceStore, client)
+
+    // RK: the device's real WebView User-Agent (real model + Android + Chrome version), like LNReader.
+    // Mihon's network client otherwise defaults to a stripped generic "Android 10; K" UA that some LN
+    // sources answer with a degraded page (e.g. Novel Bin serves 200x89 thumbnail covers to it).
+    private val deviceUserAgent: String =
+        runCatching { android.webkit.WebSettings.getDefaultUserAgent(appContext) }.getOrDefault("")
+    private val bridge = LnHostBridge(preferenceStore, client, deviceUserAgent)
 
     // QuickJS is not thread-safe: confine all native calls to one thread and serialize with the mutex.
     private val engineExecutor = Executors.newSingleThreadExecutor { r -> Thread(r, "LnPluginHost") }

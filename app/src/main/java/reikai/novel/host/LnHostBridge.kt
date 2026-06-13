@@ -29,6 +29,8 @@ import tachiyomi.core.common.util.system.logcat
 class LnHostBridge(
     private val preferenceStore: PreferenceStore,
     private val client: OkHttpClient,
+    // RK: the device's real WebView User-Agent (see [LnPluginHost]); empty when unavailable.
+    private val userAgent: String = "",
 ) {
 
     /** One OkHttp call, response shaped as the runtime's `makeResponse` expects. Blocking; callers
@@ -53,6 +55,13 @@ class LnHostBridge(
                 ?: ByteArray(0).toRequestBody().takeIf { method == "POST" || method == "PUT" || method == "PATCH" }
             builder.method(method, body)
             opts.headers?.forEach { (k, v) -> builder.header(k, v) }
+            // RK: default to the device's real WebView User-Agent (mirrors LNReader/Yokai) unless the
+            // plugin set one. The Mihon network client otherwise injects a generic "Android 10; K" UA
+            // that some sources (e.g. Novel Bin) answer with a degraded page / thumbnail-only covers.
+            val pluginSetUa = opts.headers?.keys?.any { it.equals("User-Agent", ignoreCase = true) } == true
+            if (userAgent.isNotBlank() && !pluginSetUa) {
+                builder.header("User-Agent", userAgent)
+            }
             val res = client.newCall(builder.build()).execute()
             // Final URL after redirects. lnreader's Response shim exposes this as `response.url`;
             // the Madara plugin family compares it to the request host to detect Cloudflare/captcha

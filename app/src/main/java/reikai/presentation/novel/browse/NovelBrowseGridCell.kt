@@ -8,13 +8,13 @@ import reikai.novel.host.NovelItem
 import tachiyomi.domain.manga.model.MangaCover
 
 /**
- * Browse-result cell, a retype of Mihon's `BrowseSourceComfortableGridItem` for [NovelItem] so the LN
- * browse grid is visually identical to the manga catalogue. A browse result is a lightweight
- * `name + cover url + path` with no persisted id, so the cover loads by URL through a synthetic
- * [MangaCover] (ids 0). [inLibrary] dims the cover and shows the in-library badge, matching manga.
+ * Browse-result cell, a clone of Mihon's `BrowseSourceComfortableGridItem` retyped for [NovelItem],
+ * so the LN browse grid matches the manga catalogue. The cover loads by URL via a synthetic
+ * [MangaCover]; [inLibrary] dims the cover and shows the badge.
  *
- * [MangaComfortableGridItem] sizes to its parent's width and takes no modifier; callers that need a
- * fixed width (the global-search horizontal row) wrap this in a width-constrained Box.
+ * NOTE: some LN sources hand the browse list a small/wide thumbnail URL (e.g. Novel Bin's
+ * `images.novelbin.com/novel_200_89/...`) rather than the full cover, so those covers look cropped.
+ * That is a cover-URL extraction issue in the plugin host (S2), not the cell's aspect ratio.
  */
 @Composable
 fun NovelBrowseGridCell(
