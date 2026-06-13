@@ -45,6 +45,7 @@ import tachiyomi.domain.source.model.Source
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.plus
+import tachiyomi.source.local.isLocal
 
 /**
  * Reikai wrapper for the Browse "Sources" tab (P5 S3a): the sticky content-type chip over Mihon's
@@ -159,7 +160,8 @@ private fun NovelSourcesList(
 
 /**
  * The unified "All" Sources list: Mihon's manga source rows (reused verbatim) under a Manga header,
- * then installed novel sources under a Novels header.
+ * then installed novel sources under a Novels header, and finally the local "Other" group at the
+ * bottom (Manga -> Novels -> Other), since the local source belongs to neither content type.
  */
 @Composable
 private fun CombinedSourcesContent(
@@ -170,33 +172,16 @@ private fun CombinedSourcesContent(
     onClickMangaItem: (Source, Listing) -> Unit,
     onClickNovelItem: () -> Unit,
 ) {
-    val context = LocalContext.current
+    val groups = parseSourceGroups(sourcesState.items)
+    val otherGroups = groups.filter { group -> group.sources.any { it.isLocal() } }
+    val mangaGroups = groups - otherGroups.toSet()
+
     ScrollbarLazyColumn(contentPadding = contentPadding + topSmallPaddingValues) {
-        if (sourcesState.items.isNotEmpty()) {
+        if (mangaGroups.isNotEmpty()) {
             item(key = "all-manga-header") {
                 BrowseSectionHeader(title = stringResource(MR.strings.content_type_manga))
             }
-            items(
-                items = sourcesState.items,
-                key = {
-                    when (it) {
-                        is SourceUiModel.Header -> "all-manga-header-${it.hashCode()}"
-                        is SourceUiModel.Item -> "all-manga-source-${it.source.key()}"
-                    }
-                },
-            ) { model ->
-                when (model) {
-                    is SourceUiModel.Header -> BrowseSectionHeader(
-                        title = LocaleHelper.getSourceDisplayName(model.language, context),
-                    )
-                    is SourceUiModel.Item -> SourceItem(
-                        source = model.source,
-                        onClickItem = onClickMangaItem,
-                        onLongClickItem = sourcesModel::showSourceDialog,
-                        onClickPin = sourcesModel::togglePin,
-                    )
-                }
-            }
+            mangaSourceGroups(mangaGroups, onClickMangaItem, sourcesModel::showSourceDialog, sourcesModel::togglePin)
         }
 
         if (novelState.items.isNotEmpty()) {
@@ -204,6 +189,53 @@ private fun CombinedSourcesContent(
                 BrowseSectionHeader(title = stringResource(MR.strings.content_type_novels))
             }
             novelSourceItems(models = novelState.items, onClickItem = onClickNovelItem)
+        }
+
+        // Other (local source) sinks to the bottom, after both content types.
+        mangaSourceGroups(otherGroups, onClickMangaItem, sourcesModel::showSourceDialog, sourcesModel::togglePin)
+    }
+}
+
+private data class SourceGroup(val language: String, val sources: List<Source>)
+
+/** Collapse the flat [SourceUiModel] header/item stream back into per-language groups. */
+private fun parseSourceGroups(items: List<SourceUiModel>): List<SourceGroup> {
+    val groups = mutableListOf<SourceGroup>()
+    var language: String? = null
+    val sources = mutableListOf<Source>()
+    items.forEach { model ->
+        when (model) {
+            is SourceUiModel.Header -> {
+                language?.let { groups.add(SourceGroup(it, sources.toList())) }
+                language = model.language
+                sources.clear()
+            }
+            is SourceUiModel.Item -> sources.add(model.source)
+        }
+    }
+    language?.let { groups.add(SourceGroup(it, sources.toList())) }
+    return groups
+}
+
+private fun LazyListScope.mangaSourceGroups(
+    groups: List<SourceGroup>,
+    onClickItem: (Source, Listing) -> Unit,
+    onLongClickItem: (Source) -> Unit,
+    onClickPin: (Source) -> Unit,
+) {
+    groups.forEach { group ->
+        item(key = "all-manga-header-${group.language}") {
+            BrowseSectionHeader(
+                title = LocaleHelper.getSourceDisplayName(group.language, LocalContext.current),
+            )
+        }
+        items(group.sources, key = { "all-manga-source-${it.key()}" }) { source ->
+            SourceItem(
+                source = source,
+                onClickItem = onClickItem,
+                onLongClickItem = onLongClickItem,
+                onClickPin = onClickPin,
+            )
         }
     }
 }
