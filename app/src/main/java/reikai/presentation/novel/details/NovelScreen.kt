@@ -44,6 +44,7 @@ import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import reikai.domain.novel.model.NovelChapter
+import reikai.presentation.novel.reader.NovelReaderScreen
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.presentation.core.components.TwoPanelBox
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -94,7 +95,9 @@ class NovelScreen(
                         )
                     }
                 }
-                val onChapterClick: (NovelChapter) -> Unit = { /* TODO(S4): open the novel reader */ }
+                val onChapterClick: (NovelChapter) -> Unit = { chapter ->
+                    navigator.push(NovelReaderScreen(s.novel.id, chapter.id))
+                }
 
                 if (isTabletUi()) {
                     NovelDetailsLargeImpl(s, screenModel, navigator::pop, onWebView, onShare, onChapterClick)

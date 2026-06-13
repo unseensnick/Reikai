@@ -69,6 +69,20 @@ class NovelPreferences(
     /** Default display: true shows "Chapter N", false shows the source chapter title. */
     fun defaultChapterHideTitles() = preferenceStore.getBoolean("ln_default_chapter_hide_titles", false)
 
+    // Reader display + theme (S4). Fed into the WebView reader's `--readerSettings-*` CSS vars and
+    // pushed live on change. Key strings preserved from the Yōkai-era fork for upgrade continuity.
+
+    fun readerFontSize() = preferenceStore.getInt("ln_reader_font_size_sp", 16)
+    fun readerLineSpacing() = preferenceStore.getFloat("ln_reader_line_spacing", 1.5f)
+    fun readerTextAlign() = preferenceStore.getString("ln_reader_text_align", "left")
+    fun readerFontFamily() = preferenceStore.getString("ln_reader_font_family", "")
+    fun readerPadding() = preferenceStore.getInt("ln_reader_padding", 16)
+
+    /** When true the reader follows the system light/dark mode; otherwise the chosen preset wins. */
+    fun readerFollowSystemTheme() = preferenceStore.getBoolean("ln_reader_follow_system_theme", true)
+    fun readerBackgroundColor() = preferenceStore.getString("ln_reader_bg_color", "#292832")
+    fun readerTextColor() = preferenceStore.getString("ln_reader_text_color", "#CCCCCC")
+
     companion object {
         private val metadataMapSerializer =
             MapSerializer(String.serializer(), LnInstalledPluginMetadata.serializer())
