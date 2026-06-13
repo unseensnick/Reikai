@@ -20,10 +20,12 @@ import tachiyomi.domain.chapter.service.ChapterRecognition
  * A re-added chapter (same recognized number as a just-deleted one) inherits its read/bookmark state
  * and original `dateFetch`, so it doesn't bubble up as "new".
  *
- * [page] scopes the sync to one page of a paged source: reconciliation runs against only that page's
- * stored rows (so syncing one page can't delete the others' chapters), and each synced chapter is
- * tagged with [page] as its transport index. Null = whole-novel sync (the unpaged / parseNovel path),
- * which keeps each chapter's own `ChapterItem.page` (volume label or empty).
+ * [page] scopes the sync to one page of a paged source: reconciliation runs against that page's stored
+ * rows plus any leftover unpaged ("") rows (so a novel that flipped from unpaged to paged re-tags
+ * those rows in place instead of duplicating them, e.g. a source whose pagination is a toggleable
+ * setting), and each synced chapter is tagged with [page] as its transport index. Other numbered
+ * pages are left untouched. Null = whole-novel sync (the unpaged / parseNovel path), which keeps each
+ * chapter's own `ChapterItem.page` (volume label or empty).
  *
  * @return (newly inserted chapters, deleted chapters), each excluding entries whose only change was a
  *   duplicate-read carry-over, so a caller's "new chapters" signal doesn't fire on reorders.
@@ -42,7 +44,10 @@ suspend fun syncChaptersWithNovelSource(
     require(novelId > 0L) { "syncChaptersWithNovelSource requires a persisted novel (id > 0)" }
 
     val dbChapters = if (page != null) {
-        novelChapterRepository.getByNovelIdAndPage(novelId, page)
+        // This page's rows + any unpaged remnants from a prior single-page state; the latter get
+        // re-tagged (toChange) or deduped here rather than left as cross-page duplicates.
+        novelChapterRepository.getByNovelIdAndPage(novelId, page) +
+            novelChapterRepository.getByNovelIdAndPage(novelId, "")
     } else {
         novelChapterRepository.getByNovelId(novelId)
     }
