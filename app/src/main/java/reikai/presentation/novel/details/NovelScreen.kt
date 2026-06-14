@@ -13,14 +13,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.animateFloatingActionButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -47,10 +51,13 @@ import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import reikai.domain.novel.model.NovelChapter
 import reikai.presentation.novel.reader.NovelReaderScreen
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.TwoPanelBox
 import tachiyomi.presentation.core.components.material.Scaffold
+import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
+import tachiyomi.presentation.core.util.shouldExpandFAB
 import java.text.DateFormat
 import java.util.Date
 
@@ -139,6 +146,7 @@ private fun NovelDetailsSmallImpl(
             )
         },
         bottomBar = { NovelSelectionBar(state, screenModel, Modifier.fillMaxWidth()) },
+        floatingActionButton = { NovelResumeFab(state, listState, onChapterClick) },
     ) { contentPadding ->
         // The list applies the full inset (incl. top), so the info box gets no extra app-bar padding.
         LazyColumn(state = listState, contentPadding = contentPadding) {
@@ -174,6 +182,7 @@ private fun NovelDetailsLargeImpl(
                 NovelSelectionBar(state, screenModel, Modifier.fillMaxWidth(0.5f))
             }
         },
+        floatingActionButton = { NovelResumeFab(state, chapterListState, onChapterClick) },
     ) { contentPadding ->
         TwoPanelBox(
             startContent = {
@@ -222,6 +231,28 @@ private fun NovelDetailsToolbar(
         onInvertSelection = screenModel::invertSelection,
         titleAlphaProvider = titleAlphaProvider,
         backgroundAlphaProvider = backgroundAlphaProvider,
+    )
+}
+
+/** Resume/Start reading FAB, the novel twin of `MangaScreen`'s: jumps to the first unread chapter,
+ *  collapses to an icon on scroll, and hides when everything is read or in selection mode. */
+@Composable
+private fun NovelResumeFab(
+    state: NovelDetailsState.Loaded,
+    listState: LazyListState,
+    onChapterClick: (NovelChapter) -> Unit,
+) {
+    SmallExtendedFloatingActionButton(
+        text = {
+            Text(stringResource(if (state.hasStarted) MR.strings.action_resume else MR.strings.action_start))
+        },
+        icon = { Icon(imageVector = Icons.Filled.PlayArrow, contentDescription = null) },
+        onClick = { state.resumeChapter?.let(onChapterClick) },
+        expanded = listState.shouldExpandFAB(),
+        modifier = Modifier.animateFloatingActionButton(
+            visible = state.resumeChapter != null && !state.selectionMode,
+            alignment = Alignment.BottomEnd,
+        ),
     )
 }
 
