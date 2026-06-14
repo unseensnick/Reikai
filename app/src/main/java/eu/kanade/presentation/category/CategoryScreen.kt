@@ -1,6 +1,7 @@
 package eu.kanade.presentation.category
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -39,6 +40,8 @@ fun CategoryScreen(
     onClickToggleHidden: (Category) -> Unit,
     onChangeOrder: (Category, Int) -> Unit,
     navigateUp: () -> Unit,
+    // RK: optional content-type chip (Manga/Novels) rendered above the list; null = manga path unchanged
+    header: (@Composable () -> Unit)? = null,
 ) {
     val lazyListState = rememberLazyListState()
     Scaffold(
@@ -56,6 +59,33 @@ fun CategoryScreen(
             )
         },
     ) { paddingValues ->
+        // RK --> with the chip header, consume the top inset into a Column so the chip sits below the
+        // toolbar and the list gets only the bottom inset (the manga path keeps the original layout).
+        if (header != null) {
+            Column(modifier = Modifier.padding(top = paddingValues.calculateTopPadding())) {
+                header()
+                val innerPadding = PaddingValues(bottom = paddingValues.calculateBottomPadding())
+                if (state.isEmpty) {
+                    EmptyScreen(
+                        stringRes = MR.strings.information_empty_category,
+                        modifier = Modifier.padding(innerPadding),
+                    )
+                } else {
+                    CategoryContent(
+                        categories = state.categories,
+                        lazyListState = lazyListState,
+                        paddingValues = innerPadding,
+                        onClickRename = onClickRename,
+                        onClickDelete = onClickDelete,
+                        onClickToggleHidden = onClickToggleHidden,
+                        onChangeOrder = onChangeOrder,
+                        reorderable = state.categorySortOrder == 0,
+                    )
+                }
+            }
+            return@Scaffold
+        }
+        // RK <--
         if (state.isEmpty) {
             EmptyScreen(
                 stringRes = MR.strings.information_empty_category,

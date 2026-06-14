@@ -1,5 +1,6 @@
 package reikai.domain.library
 
+import reikai.domain.novel.model.NovelLibrarySort
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.TriState
@@ -106,6 +107,29 @@ class ReikaiLibraryPreferences(
     /** Category ids (as strings) a manga must not belong to any of. */
     val filterCategoriesExclude: Preference<Set<String>> =
         preferenceStore.getStringSet("pref_filter_library_categories_exclude", emptySet())
+
+    // endregion
+
+    // region Novel library sort/filter (P5 S6 slice 4; novel-specific keys, never collide with manga)
+
+    /** Sort for the synthesized Default novel category (no DB row) + the seed for new categories.
+     *  Stored as a [NovelLibrarySort] flag; per-category sorts live in `NovelCategory.flags`. */
+    val novelLibraryDefaultSort: Preference<Long> =
+        preferenceStore.getLong("novel_library_default_sort", NovelLibrarySort.default.toFlag())
+
+    /** Stable seed for the novel library Random sort; regenerated when Random is (re)selected. */
+    val novelLibraryRandomSeed: Preference<Long> = preferenceStore.getLong("novel_library_random_seed", 0L)
+
+    val novelLibraryFilterDownloaded: Preference<TriState> =
+        preferenceStore.getEnum("novel_library_filter_downloaded", TriState.DISABLED)
+    val novelLibraryFilterUnread: Preference<TriState> =
+        preferenceStore.getEnum("novel_library_filter_unread", TriState.DISABLED)
+    val novelLibraryFilterStarted: Preference<TriState> =
+        preferenceStore.getEnum("novel_library_filter_started", TriState.DISABLED)
+    val novelLibraryFilterCompleted: Preference<TriState> =
+        preferenceStore.getEnum("novel_library_filter_completed", TriState.DISABLED)
+    val novelLibraryFilterBookmarked: Preference<TriState> =
+        preferenceStore.getEnum("novel_library_filter_bookmarked", TriState.DISABLED)
 
     // endregion
 

@@ -238,7 +238,8 @@ fun LibraryBottomActionMenu(
     onMarkAsUnreadClicked: () -> Unit,
     onDownloadClicked: ((DownloadAction) -> Unit)?,
     onDeleteClicked: () -> Unit,
-    onMigrateClicked: () -> Unit,
+    // RK: nullable so the novel action bar can hide Migrate (novel migration is deferred)
+    onMigrateClicked: (() -> Unit)? = null,
     // RK: merge the selected manga into one group (only when 2+ are selected)
     onMergeClicked: (() -> Unit)? = null,
     // RK: split the selected manga out of their merge groups (only when a merged one is selected)
@@ -336,13 +337,15 @@ fun LibraryBottomActionMenu(
                     }
                 }
                 if (!itemOverflow) {
-                    Button(
-                        title = stringResource(MR.strings.migrate),
-                        icon = Icons.Outlined.SwapCalls,
-                        toConfirm = confirm[4],
-                        onLongClick = { onLongClickItem(4) },
-                        onClick = onMigrateClicked,
-                    )
+                    if (onMigrateClicked != null) {
+                        Button(
+                            title = stringResource(MR.strings.migrate),
+                            icon = Icons.Outlined.SwapCalls,
+                            toConfirm = confirm[4],
+                            onLongClick = { onLongClickItem(4) },
+                            onClick = onMigrateClicked,
+                        )
+                    }
                     Button(
                         title = stringResource(MR.strings.action_delete),
                         icon = Icons.Outlined.Delete,
@@ -364,10 +367,12 @@ fun LibraryBottomActionMenu(
                             onDismissRequest = { overflowMenuOpen = false },
                             offset = BottomBarMenuDpOffset,
                         ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(MR.strings.migrate)) },
-                                onClick = onMigrateClicked,
-                            )
+                            if (onMigrateClicked != null) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(MR.strings.migrate)) },
+                                    onClick = onMigrateClicked,
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text(stringResource(MR.strings.action_delete)) },
                                 onClick = onDeleteClicked,

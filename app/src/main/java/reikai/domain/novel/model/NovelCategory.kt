@@ -1,5 +1,6 @@
 package reikai.domain.novel.model
 
+import tachiyomi.domain.category.model.Category
 import java.io.Serializable
 
 /**
@@ -23,3 +24,6 @@ data class NovelCategory(
         const val UNCATEGORIZED_ID = 0L
     }
 }
+
+/** Re-type a novel category as Mihon's [Category] so it flows through the shared category UI/views. */
+fun NovelCategory.toCategory(): Category = Category(id = id, name = name, order = order, flags = flags)

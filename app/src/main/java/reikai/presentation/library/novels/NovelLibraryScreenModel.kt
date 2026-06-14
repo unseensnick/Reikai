@@ -3,47 +3,67 @@ package reikai.presentation.library.novels
 import android.app.Application
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import reikai.data.novel.NovelStatusCode
+import reikai.domain.category.CATEGORY_HIDDEN_MASK
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.NovelCategoryRepository
+import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelCategories
+import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.NovelCategory
+import reikai.domain.novel.model.NovelCategoryUpdate
+import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.NovelLibrarySort
+import reikai.domain.novel.model.comparator
+import reikai.domain.novel.model.toCategory
+import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.core.common.preference.CheckboxState
+import tachiyomi.core.common.preference.Preference
+import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
+import kotlin.random.Random
 
 /**
- * Drives the novel half of the Library tab (P5 S6). Lean by design: it reads the favorited novels +
- * novel categories reactively, disguises each novel as the library's manga-shaped [LibraryItem]
- * (negative id), groups them under their novel categories, and exposes the same accessor surface
- * [eu.kanade.tachiyomi.ui.library.LibraryScreenModel.State] does, so `LibraryTab` can feed the
- * existing views from either model based on the content-type chip. Mihon's library core is untouched.
+ * Drives the novel half of the Library tab (P5 S6). It reads the favorited novels + novel categories
+ * reactively, disguises each novel as the library's manga-shaped [LibraryItem] (negative id), filters
+ * and per-category-sorts them, and exposes the same accessor surface
+ * [eu.kanade.tachiyomi.ui.library.LibraryScreenModel.State] does so `LibraryTab` can feed the existing
+ * views from either model based on the content-type chip. Mihon's library core is untouched.
  *
- * Dynamic grouping, merge, trackers, and novel-specific filters/sorts beyond the basics are deferred
- * (see the S6 plan); display settings (view mode, columns, hopper, badges) stay shared with manga.
+ * Selection is keyed by the negative synthetic id; [State.selectedNovelIds] maps back to real novel ids
+ * for the multi-select actions (download / delete / change-category / mark-read). Dynamic grouping,
+ * merge, and trackers stay deferred; display settings stay shared with manga.
  */
 class NovelLibraryScreenModel :
     StateScreenModel<NovelLibraryScreenModel.State>(State()) {
 
     private val context: Application by injectLazy()
     private val novelRepository: NovelRepository by injectLazy()
+    private val novelChapterRepository: NovelChapterRepository by injectLazy()
+    private val novelCategoryRepository: NovelCategoryRepository by injectLazy()
+    private val novelDownloadManager: NovelDownloadManager by injectLazy()
     private val getNovelCategories: GetNovelCategories by injectLazy()
-    private val novelPreferences: NovelPreferences by injectLazy()
+    private val setNovelCategories: SetNovelCategories by injectLazy()
     private val libraryPreferences: LibraryPreferences by injectLazy()
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
     private val sourceManager: NovelSourceManager by injectLazy()
@@ -59,6 +79,12 @@ class NovelLibraryScreenModel :
     // Keyed by category name (header key), matching the manga collapse convention. Session-scoped.
     private val collapsedCategories = MutableStateFlow<Set<String>>(emptySet())
 
+    // Anchor for range-select; not reactive (mirrors LibraryScreenModel.lastSelectionCategory).
+    private var lastSelectionCategory: Long? = null
+
+    private val mutableDialog = MutableStateFlow<Dialog?>(null)
+    val dialog: StateFlow<Dialog?> = mutableDialog.asStateFlow()
+
     init {
         screenModelScope.launchIO {
             combine(
@@ -66,9 +92,9 @@ class NovelLibraryScreenModel :
                 novelRepository.getLibraryNovelAsFlow(),
                 searchQuery,
                 selection,
-                badgePrefsFlow(),
-            ) { categories, library, query, sel, badges ->
-                buildState(categories, library, query, sel, badges)
+                settingsFlow(),
+            ) { categories, library, query, sel, settings ->
+                buildState(categories, library, query, sel, settings)
             }.collectLatest { built ->
                 mutableState.update { current ->
                     built.copy(collapsedCategories = collapsedCategories.value, activeCategoryIndex = current.activeCategoryIndex)
@@ -88,20 +114,44 @@ class NovelLibraryScreenModel :
         libraryPreferences.languageBadge.changes(),
     ) { download, unread, language -> BadgePrefs(download, unread, language) }
 
+    /** Folds the badge, sort, and filter prefs into one flow so the main combine stays at its 5-arg max. */
+    private fun settingsFlow(): Flow<LibrarySettings> {
+        val miscFlow = combine(
+            reikaiLibraryPreferences.novelLibraryDefaultSort.changes(),
+            reikaiLibraryPreferences.novelLibraryRandomSeed.changes(),
+            libraryPreferences.showContinueReadingButton.changes(),
+            reikaiLibraryPreferences.showHiddenCategories.changes(),
+        ) { sort, seed, cont, showHidden -> Misc(sort, seed, cont, showHidden) }
+        val filterFlow = combine(
+            reikaiLibraryPreferences.novelLibraryFilterDownloaded.changes(),
+            reikaiLibraryPreferences.novelLibraryFilterUnread.changes(),
+            reikaiLibraryPreferences.novelLibraryFilterStarted.changes(),
+            reikaiLibraryPreferences.novelLibraryFilterCompleted.changes(),
+            reikaiLibraryPreferences.novelLibraryFilterBookmarked.changes(),
+        ) { d, u, s, c, b -> NovelFilters(d, u, s, c, b) }
+        return combine(badgePrefsFlow(), miscFlow, filterFlow) { badges, misc, filters ->
+            LibrarySettings(badges, misc.defaultSort, misc.randomSeed, misc.showContinue, misc.showHidden, filters)
+        }
+    }
+
     private fun buildState(
         categories: List<NovelCategory>,
         library: List<LibraryNovel>,
         query: String?,
         sel: Set<Long>,
-        badges: BadgePrefs,
+        settings: LibrarySettings,
     ): State {
-        val items = library
-            .filter { query.isNullOrBlank() || it.matchesQuery(query) }
-            .map { novel ->
-                val lang = sourceManager.get(novel.novel.source)?.lang.orEmpty()
-                novel.toLibraryItem(badges.download, badges.unread, badges.language, lang)
-            }
+        val filtered = library.filter { novel ->
+            (query.isNullOrBlank() || novel.matchesQuery(query)) && settings.filters.matches(novel)
+        }
+        // Keyed by the negative synthetic id (== the LibraryItem id), for the per-category comparator.
+        val novelById = filtered.associateBy { -it.novel.id }
+        val items = filtered.map { novel ->
+            val lang = sourceManager.get(novel.novel.source)?.lang.orEmpty()
+            novel.toLibraryItem(settings.badges.download, settings.badges.unread, settings.badges.language, lang)
+        }
         val byId = items.associateBy { it.id }
+        val flagsByCat = categories.associate { it.id to it.flags }
 
         // Bucket item ids by category id; uncategorized (no real category) goes to Default (id 0).
         val byCategory = LinkedHashMap<Long, MutableList<Long>>()
@@ -115,16 +165,23 @@ class NovelLibraryScreenModel :
         }
 
         val defaultCategory = Category(NovelCategory.UNCATEGORIZED_ID, context.stringResource(MR.strings.label_default), 0L, 0L)
-        val allCategories = (listOf(defaultCategory) + categories.map { it.toCategory() }).sortedBy { it.order }
+        val visibleCategories = if (settings.showHidden) {
+            categories
+        } else {
+            categories.filterNot { (it.flags and CATEGORY_HIDDEN_MASK) == CATEGORY_HIDDEN_MASK }
+        }
+        val allCategories = (listOf(defaultCategory) + visibleCategories.map { it.toCategory() }).sortedBy { it.order }
+        val defaultSort = NovelLibrarySort.fromFlag(settings.defaultSort)
         val grouped = allCategories.mapNotNull { category ->
             val ids = byCategory[category.id] ?: return@mapNotNull null
-            // Alphabetical by title for now (richer sort lands in S6 slice 4).
-            category to ids.sortedBy { id -> byId[id]?.libraryManga?.manga?.title?.lowercase().orEmpty() }
+            val sort = sortFor(category.id, flagsByCat[category.id] ?: 0L, defaultSort)
+            val comparator = sort.comparator(settings.randomSeed)
+            val sorted = ids.sortedWith { a, b -> comparator.compare(novelById.getValue(a), novelById.getValue(b)) }
+            category to sorted
         }
 
-        // Item id (negative) -> (source, url) so LibraryTab can open the novel (the synthetic Manga
-        // drops the String source, so it can't be recovered from the item itself).
-        val routes = library.associate { -it.novel.id to NovelRoute(it.novel.source, it.novel.url) }
+        // Item id (negative) -> (source, url) so LibraryTab can open the novel.
+        val routes = filtered.associate { -it.novel.id to NovelRoute(it.novel.source, it.novel.url) }
 
         return State(
             isLoading = false,
@@ -133,17 +190,61 @@ class NovelLibraryScreenModel :
             groupedFavorites = grouped,
             favoritesById = byId,
             novelRoutes = routes,
+            categorySortFlags = flagsByCat,
+            defaultSortFlag = settings.defaultSort,
+            hasActiveFilters = settings.filters.hasActive,
+            showContinueButton = settings.showContinue,
         )
     }
+
+    private fun sortFor(categoryId: Long, flags: Long, default: NovelLibrarySort): NovelLibrarySort =
+        if (categoryId == NovelCategory.UNCATEGORIZED_ID) default else NovelLibrarySort.forCategory(flags, default)
 
     // --- search / selection / collapse mutators (read by LibraryTab) ---
 
     fun search(query: String?) { searchQuery.value = query }
 
-    fun clearSelection() { selection.value = emptySet() }
+    fun clearSelection() {
+        lastSelectionCategory = null
+        selection.value = emptySet()
+    }
 
-    fun toggleSelection(novelItemId: Long) {
-        selection.update { if (novelItemId in it) it - novelItemId else it + novelItemId }
+    fun toggleSelection(categoryId: Long, itemId: Long) {
+        selection.update { if (itemId in it) it - itemId else it + itemId }
+        lastSelectionCategory = categoryId.takeIf { selection.value.isNotEmpty() }
+    }
+
+    /** Selects every item between the last-selected and [itemId] within the same category. */
+    fun toggleRangeSelection(categoryId: Long, itemId: Long) {
+        val items = state.value.itemIdsForCategory(categoryId)
+        val last = selection.value.lastOrNull()
+        if (lastSelectionCategory != categoryId || last == null || last !in items || itemId !in items) {
+            selection.update { it + itemId }
+        } else {
+            val from = items.indexOf(last)
+            val to = items.indexOf(itemId)
+            val range = items.subList(minOf(from, to), maxOf(from, to) + 1)
+            selection.update { it + range }
+        }
+        lastSelectionCategory = categoryId
+    }
+
+    fun selectAll() {
+        lastSelectionCategory = null
+        val ids = state.value.itemIdsForCategory(state.value.activeCategory?.id)
+        selection.update { it + ids }
+    }
+
+    fun selectAllInCategory(categoryId: Long) {
+        lastSelectionCategory = null
+        val ids = state.value.itemIdsForCategory(categoryId)
+        selection.update { sel -> if (ids.isNotEmpty() && ids.all { it in sel }) sel - ids.toSet() else sel + ids }
+    }
+
+    fun invertSelection() {
+        lastSelectionCategory = null
+        val ids = state.value.itemIdsForCategory(state.value.activeCategory?.id)
+        selection.update { sel -> sel + ids.filterNot { it in sel } - ids.filter { it in sel }.toSet() }
     }
 
     fun toggleCategoryCollapse(headerKey: String) {
@@ -154,7 +255,177 @@ class NovelLibraryScreenModel :
         mutableState.update { it.copy(activeCategoryIndex = index) }
     }
 
+    // --- multi-select actions ---
+
+    fun markReadSelection(read: Boolean) {
+        val novelIds = state.value.selectedNovelIds
+        screenModelScope.launchIO {
+            val chapterIds = novelIds.flatMap { id -> novelChapterRepository.getByNovelId(id).map { it.id } }
+            if (chapterIds.isNotEmpty()) novelChapterRepository.setReadBulk(chapterIds, read)
+            clearSelection()
+        }
+    }
+
+    fun performDownloadAction(action: DownloadAction) {
+        val novelIds = state.value.selectedNovelIds
+        screenModelScope.launchIO {
+            novelIds.forEach { id ->
+                val chapters = novelChapterRepository.getByNovelId(id).sortedBy { it.sourceOrder }
+                val unread = chapters.filterNot { it.read }
+                val targets = when (action) {
+                    DownloadAction.NEXT_1_CHAPTER -> unread.take(1)
+                    DownloadAction.NEXT_5_CHAPTERS -> unread.take(5)
+                    DownloadAction.NEXT_10_CHAPTERS -> unread.take(10)
+                    DownloadAction.NEXT_25_CHAPTERS -> unread.take(25)
+                    DownloadAction.UNREAD_CHAPTERS -> unread
+                    DownloadAction.BOOKMARKED_CHAPTERS -> chapters.filter { it.bookmark }
+                }
+                if (targets.isNotEmpty()) novelDownloadManager.downloadChapters(targets)
+            }
+            clearSelection()
+        }
+    }
+
+    fun openChangeCategoryDialog() {
+        screenModelScope.launchIO {
+            val novelIds = state.value.selectedNovelIds
+            // All non-default categories, not just the ones currently shown (empty categories are
+            // hidden from the library grid but must still be assignable here).
+            val categories = getNovelCategories.await().filterNot { it.isSystemCategory }.map { it.toCategory() }
+            val perNovel = novelIds.map { getNovelCategories.awaitByNovelId(it).map { c -> c.id }.toSet() }
+            val common = perNovel.reduceOrNull { a, b -> a intersect b } ?: emptySet()
+            val mix = perNovel.flatten().toSet() - common
+            val preselected: List<CheckboxState<Category>> = categories.map { cat ->
+                when (cat.id) {
+                    in common -> CheckboxState.State.Checked(cat)
+                    in mix -> CheckboxState.TriState.Exclude(cat)
+                    else -> CheckboxState.State.None(cat)
+                }
+            }
+            mutableDialog.value = Dialog.ChangeCategory(novelIds, preselected)
+        }
+    }
+
+    fun setNovelCategories(novelIds: List<Long>, addCategories: List<Long>, removeCategories: List<Long>) {
+        screenModelScope.launchIO {
+            novelIds.forEach { novelId ->
+                val current = getNovelCategories.awaitByNovelId(novelId).map { it.id }
+                val new = (current - removeCategories.toSet() + addCategories).distinct()
+                setNovelCategories.await(novelId, new)
+            }
+            clearSelection()
+            dismissDialog()
+        }
+    }
+
+    fun openDeleteDialog() {
+        mutableDialog.value = Dialog.Delete(state.value.selectedNovelIds)
+    }
+
+    fun removeNovels(novelIds: List<Long>, deleteFromLibrary: Boolean, deleteDownloads: Boolean) {
+        screenModelScope.launchIO {
+            novelIds.forEach { novelId ->
+                if (deleteFromLibrary) {
+                    novelRepository.getById(novelId)?.let { novelRepository.update(it.copy(favorite = false)) }
+                }
+                if (deleteDownloads) {
+                    val downloaded = novelChapterRepository.getByNovelId(novelId).filter { it.isDownloaded }
+                    if (downloaded.isNotEmpty()) novelDownloadManager.deleteChapters(downloaded)
+                }
+            }
+            clearSelection()
+            dismissDialog()
+        }
+    }
+
+    suspend fun getNextUnreadChapter(novelId: Long): NovelChapter? =
+        novelChapterRepository.getByNovelId(novelId).filterNot { it.read }.minByOrNull { it.sourceOrder }
+
+    // --- settings dialog (sort / filter) ---
+
+    fun openSettingsDialog(categoryId: Long, initialTab: Int = 0) {
+        mutableDialog.value = Dialog.Settings(categoryId, initialTab)
+    }
+
+    fun dismissDialog() { mutableDialog.value = null }
+
+    /** Sets the sort for a category (or the library default for the synthesized Default category). */
+    fun setSort(categoryId: Long, type: NovelLibrarySort.Type, isAscending: Boolean) {
+        if (type == NovelLibrarySort.Type.Random) {
+            reikaiLibraryPreferences.novelLibraryRandomSeed.set(Random.nextLong())
+        }
+        val flag = NovelLibrarySort(type, isAscending).toFlag()
+        if (categoryId == NovelCategory.UNCATEGORIZED_ID) {
+            reikaiLibraryPreferences.novelLibraryDefaultSort.set(flag)
+        } else {
+            screenModelScope.launchIO {
+                // Preserve the category's other flag bits (e.g. hidden); only rewrite the sort bits.
+                val current = state.value.flagsForCategory(categoryId)
+                val newFlags = (current and NovelLibrarySort.FLAGS_MASK.inv()) or flag
+                novelCategoryRepository.update(NovelCategoryUpdate(id = categoryId, flags = newFlags))
+            }
+        }
+    }
+
+    // Filter prefs exposed for the settings dialog (read via collectAsState, cycled via toggleFilter).
+    val filterDownloaded: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterDownloaded
+    val filterUnread: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterUnread
+    val filterStarted: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterStarted
+    val filterCompleted: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterCompleted
+    val filterBookmarked: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterBookmarked
+
+    fun toggleFilter(pref: Preference<TriState>) {
+        pref.set(
+            when (pref.get()) {
+                TriState.DISABLED -> TriState.ENABLED_IS
+                TriState.ENABLED_IS -> TriState.ENABLED_NOT
+                TriState.ENABLED_NOT -> TriState.DISABLED
+            },
+        )
+    }
+
+    private fun TriState.matches(value: Boolean): Boolean = when (this) {
+        TriState.DISABLED -> true
+        TriState.ENABLED_IS -> value
+        TriState.ENABLED_NOT -> !value
+    }
+
     private data class BadgePrefs(val download: Boolean, val unread: Boolean, val language: Boolean)
+
+    private data class NovelFilters(
+        val downloaded: TriState,
+        val unread: TriState,
+        val started: TriState,
+        val completed: TriState,
+        val bookmarked: TriState,
+    )
+
+    private data class Misc(val defaultSort: Long, val randomSeed: Long, val showContinue: Boolean, val showHidden: Boolean)
+
+    private data class LibrarySettings(
+        val badges: BadgePrefs,
+        val defaultSort: Long,
+        val randomSeed: Long,
+        val showContinue: Boolean,
+        val showHidden: Boolean,
+        val filters: NovelFilters,
+    )
+
+    private fun NovelFilters.matches(n: LibraryNovel): Boolean =
+        downloaded.matches(n.downloadCount > 0) &&
+            unread.matches(n.unreadCount > 0) &&
+            started.matches(n.hasStarted) &&
+            completed.matches(n.novel.status == NovelStatusCode.COMPLETED.toLong()) &&
+            bookmarked.matches(n.bookmarkCount > 0)
+
+    private val NovelFilters.hasActive: Boolean
+        get() = listOf(downloaded, unread, started, completed, bookmarked).any { it != TriState.DISABLED }
+
+    sealed interface Dialog {
+        data class ChangeCategory(val novelIds: List<Long>, val preselected: List<CheckboxState<Category>>) : Dialog
+        data class Delete(val novelIds: List<Long>) : Dialog
+        data class Settings(val categoryId: Long, val initialTab: Int) : Dialog
+    }
 
     data class State(
         val isLoading: Boolean = true,
@@ -162,9 +433,13 @@ class NovelLibraryScreenModel :
         val selection: Set<Long> = emptySet(),
         val collapsedCategories: Set<String> = emptySet(),
         val activeCategoryIndex: Int = 0,
+        val hasActiveFilters: Boolean = false,
+        val showContinueButton: Boolean = false,
         private val groupedFavorites: List<Pair<Category, List<Long>>> = emptyList(),
         private val favoritesById: Map<Long, LibraryItem> = emptyMap(),
         private val novelRoutes: Map<Long, NovelRoute> = emptyMap(),
+        private val categorySortFlags: Map<Long, Long> = emptyMap(),
+        private val defaultSortFlag: Long = NovelLibrarySort.default.toFlag(),
     ) {
         val displayedCategories: List<Category> = groupedFavorites.map { it.first }
 
@@ -190,14 +465,29 @@ class NovelLibraryScreenModel :
 
         fun getItemCountForCategory(category: Category): Int? = groupedById[category.id]?.size
 
+        /** Ordered item ids (negative) for a category, for range/select-all; null id = active category. */
+        fun itemIdsForCategory(categoryId: Long?): List<Long> =
+            categoryId?.let { groupedById[it] }.orEmpty()
+
+        /** Raw `NovelCategory.flags` for a category (so a sort write can preserve the hidden bit). */
+        fun flagsForCategory(categoryId: Long): Long = categorySortFlags[categoryId] ?: 0L
+
+        /** Current sort for a category, for the settings dialog's Sort tab. */
+        fun sortFor(categoryId: Long): NovelLibrarySort {
+            val default = NovelLibrarySort.fromFlag(defaultSortFlag)
+            return if (categoryId == NovelCategory.UNCATEGORIZED_ID) {
+                default
+            } else {
+                NovelLibrarySort.forCategory(categorySortFlags[categoryId] ?: 0L, default)
+            }
+        }
+
         /** (source, url) for the disguised item id (negative), to open the novel details screen. */
         fun routeFor(itemId: Long): NovelRoute? = novelRoutes[itemId]
     }
 
     data class NovelRoute(val source: String, val url: String)
 }
-
-private fun NovelCategory.toCategory(): Category = Category(id = id, name = name, order = order, flags = flags)
 
 private fun LibraryNovel.matchesQuery(query: String): Boolean {
     val n = novel
