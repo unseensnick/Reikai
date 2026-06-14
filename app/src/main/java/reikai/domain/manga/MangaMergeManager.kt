@@ -2,6 +2,7 @@ package reikai.domain.manga
 
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import reikai.domain.MergeGroupAlgebra
 import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.track.interactor.GetTracks
@@ -12,8 +13,8 @@ import tachiyomi.domain.track.interactor.GetTracks
  *
  * Pref-based grouping only (`mangaManualMerges` / `mangaManualUnmerges` / `autoMergeSameTitle`), no
  * parent-child merged-source DB model. A merge entry is a comma-joined id group; an unmerge is a
- * normalized `min,max` pair. The set-algebra is in [Companion] as pure functions so it can be
- * unit-tested without the suspend dependencies.
+ * normalized `min,max` pair. The shared group-id math lives in [reikai.domain.MergeGroupAlgebra]; the
+ * tracker-based healing ([computeHealing]) stays here in the [Companion] as a pure, testable function.
  *
  * Removing a sibling from the library (unfavorite + cover/download/track cleanup) is intentionally
  * NOT here: that reuses Mihon's own removal flow at the call site. This class owns only the merge
@@ -50,7 +51,7 @@ class MangaMergeManager(
             emptySet()
         }
 
-        return RelatedIdsResult(computeGroupIds(targetId, merges, sameTitle, unmerges), cleanupCount)
+        return RelatedIdsResult(MergeGroupAlgebra.computeGroupIds(targetId, merges, sameTitle, unmerges), cleanupCount)
     }
 
     /**
@@ -59,8 +60,8 @@ class MangaMergeManager(
      * survivors so they stay explicitly grouped. Returns the surviving ids (unchanged input on no-op).
      */
     fun removeFromGroup(relatedMangaIds: LongArray, targetIds: List<Long>): LongArray {
-        val split = computeSplit(
-            relatedMangaIds = relatedMangaIds,
+        val split = MergeGroupAlgebra.computeSplit(
+            relatedIds = relatedMangaIds,
             targetIds = targetIds,
             merges = preferences.mangaManualMerges.get(),
             unmerges = preferences.mangaManualUnmerges.get(),
@@ -85,7 +86,7 @@ class MangaMergeManager(
         val survivesSplit = relatedMangaIds.any { it !in targetSet }
         if (survivesSplit) return removeFromGroup(relatedMangaIds, targetIds)
 
-        val result = computeDissolve(
+        val result = MergeGroupAlgebra.computeDissolve(
             relatedMangaIds,
             preferences.mangaManualMerges.get(),
             preferences.mangaManualUnmerges.get(),
@@ -192,9 +193,9 @@ class MangaMergeManager(
                 emptySet()
             }
 
-            val group = computeGroupIds(target, merges, sameTitle, unmerges)
+            val group = MergeGroupAlgebra.computeGroupIds(target, merges, sameTitle, unmerges)
             if (group.size <= 1) continue
-            val result = computeDissolve(group, merges, unmerges)
+            val result = MergeGroupAlgebra.computeDissolve(group, merges, unmerges)
             preferences.mangaManualMerges.set(result.newMerges)
             preferences.mangaManualUnmerges.set(result.newUnmerges)
         }
@@ -230,102 +231,13 @@ class MangaMergeManager(
         preferences.mangaManualUnmerges.set(preferences.mangaManualUnmerges.get() + newUnmerges)
     }
 
-    class SplitResult(
-        val survivors: LongArray,
-        val newMerges: Set<String>,
-        val newUnmerges: Set<String>,
-    )
-
     class HealResult(
         val newMerges: Set<String>,
         val newUnmerges: Set<String>,
         val dropped: Int,
     )
 
-    class DissolveResult(
-        val newMerges: Set<String>,
-        val newUnmerges: Set<String>,
-    )
-
     companion object {
-
-        /** Normalized "min,max" unmerge key for a pair of ids. */
-        fun unmergeKey(a: Long, b: Long): String = if (a < b) "$a,$b" else "$b,$a"
-
-        /**
-         * The group ids for [targetId]: the manual-merge members it belongs to, plus the
-         * [sameTitleIds], minus any id explicitly unmerged from it. Always includes [targetId].
-         */
-        fun computeGroupIds(
-            targetId: Long,
-            merges: Set<String>,
-            sameTitleIds: Set<Long>,
-            unmerges: Set<String>,
-        ): LongArray {
-            val merged = merges.flatMap { entry ->
-                val ids = entry.split(",").mapNotNull { it.trim().toLongOrNull() }
-                if (targetId in ids) ids else emptyList()
-            }
-
-            return (merged + sameTitleIds + targetId)
-                .filter { id -> id == targetId || unmergeKey(targetId, id) !in unmerges }
-                .distinct()
-                .sorted()
-                .toLongArray()
-        }
-
-        /**
-         * Compute the pref rewrites for splitting [targetIds] out of [relatedMangaIds]. Returns null
-         * when there is nothing to do (no targets, or no survivors to keep grouped).
-         */
-        fun computeSplit(
-            relatedMangaIds: LongArray,
-            targetIds: List<Long>,
-            merges: Set<String>,
-            unmerges: Set<String>,
-        ): SplitResult? {
-            if (targetIds.isEmpty()) return null
-            val targetSet = targetIds.toSet()
-            val others = relatedMangaIds.filter { it !in targetSet }
-            if (others.isEmpty()) return null
-
-            val newUnmerges = unmerges.toMutableSet()
-            for (target in targetIds) {
-                for (other in relatedMangaIds) {
-                    if (other != target) newUnmerges += unmergeKey(target, other)
-                }
-            }
-
-            val newMerges = merges.filterNotTo(mutableSetOf()) { entry ->
-                entry.split(",").any { it.trim().toLongOrNull() in targetSet }
-            }
-            if (others.size >= 2) newMerges += others.sorted().joinToString(",")
-
-            return SplitResult(others.toLongArray(), newMerges, newUnmerges)
-        }
-
-        /**
-         * Fully separate every member of [group]: drop all merge entries that reference any member,
-         * and record an unmerge pair for every member combination so nothing (manual or same-title)
-         * regroups them. [group] is the complete resolved group, so dropping its entries cannot strand
-         * an unrelated id.
-         */
-        fun computeDissolve(
-            group: LongArray,
-            merges: Set<String>,
-            unmerges: Set<String>,
-        ): DissolveResult {
-            val members = group.toHashSet()
-            val newMerges = merges.filterNotTo(mutableSetOf()) { entry ->
-                entry.split(",").any { it.trim().toLongOrNull() in members }
-            }
-            val sorted = group.sorted()
-            val newUnmerges = unmerges.toMutableSet()
-            for (i in sorted.indices) {
-                for (j in (i + 1) until sorted.size) newUnmerges += unmergeKey(sorted[i], sorted[j])
-            }
-            return DissolveResult(newMerges, newUnmerges)
-        }
 
         /**
          * Pure healing decision. For each merge entry containing [targetId], keep a sibling only if
@@ -363,7 +275,7 @@ class MangaMergeManager(
                     if (ok) verified += id else { suspect += id; dropped++ }
                 }
                 for (s in suspect) {
-                    for (v in verified) added += unmergeKey(s, v)
+                    for (v in verified) added += MergeGroupAlgebra.unmergeKey(s, v)
                 }
                 if (verified.size >= 2) cleaned += verified.sorted().joinToString(",")
             }

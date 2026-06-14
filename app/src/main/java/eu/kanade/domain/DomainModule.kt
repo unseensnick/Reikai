@@ -51,6 +51,7 @@ import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.PropagateTrackerLinks
 import reikai.domain.novel.NovelCategoryRepository
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.DeleteNovelCategories
 import reikai.domain.novel.interactor.GetNovelCategories
@@ -156,9 +157,10 @@ class DomainModule : InjektModule {
         addFactory { DeleteNovelCategories(get()) }
         addFactory { ReorderNovelCategories(get()) }
         // RK <--
-        // RK --> pref-based merge (P3)
+        // RK --> pref-based merge (P3 manga, P5 S8 novel)
         addSingletonFactory { MangaMergeManager(get(), get(), get()) }
         addSingletonFactory { PropagateTrackerLinks(get(), get(), get(), get(), get()) }
+        addSingletonFactory { NovelMergeManager(get(), get()) }
         // RK <--
         // RK --> recommendations (engine core)
         addSingletonFactory { RelatedMangaCache() }

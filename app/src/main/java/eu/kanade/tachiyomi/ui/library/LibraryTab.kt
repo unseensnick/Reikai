@@ -334,6 +334,9 @@ data object LibraryTab : Tab {
                         onDownloadClicked = novelModel::performDownloadAction,
                         onDeleteClicked = novelModel::openDeleteDialog,
                         onMigrateClicked = null,
+                        // RK: manual merge of the selected novels (needs at least two) + unmerge (P5 S8)
+                        onMergeClicked = novelModel::mergeSelection.takeIf { novelState.selection.size >= 2 },
+                        onUnmergeClicked = novelModel::unmergeSelection.takeIf { novelState.selectionContainsMerged },
                     )
                 } else {
                     LibraryBottomActionMenu(

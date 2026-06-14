@@ -153,5 +153,24 @@ class ReikaiLibraryPreferences(
     /** Mirror a tracker added to one source onto every favorited member of its merged group. */
     val syncTrackerLinksGrouped: Preference<Boolean> = preferenceStore.getBoolean("sync_tracker_links_grouped", true)
 
+    // Novel merge (P5 S8). Keys preserved from the Yokai era for upgrade continuity.
+
+    /** Manual novel merge groups: each entry is a comma-joined, sorted novel-id group (e.g. "1,5,9"). */
+    val novelManualMerges: Preference<Set<String>> = preferenceStore.getStringSet("novel_manual_merges", emptySet())
+
+    /** Explicit novel unmerges: normalized "min,max" id pairs that must never be grouped. */
+    val novelManualUnmerges: Preference<Set<String>> = preferenceStore.getStringSet("novel_manual_unmerges", emptySet())
+
+    /** Auto-group favorited novels that share a title across sources (see [novelAutoMergeRequireAuthor]). */
+    val novelAutoMergeSameTitle: Preference<Boolean> = preferenceStore.getBoolean("novel_auto_merge_same_title", true)
+
+    /** Guard for same-title auto-merge: also require a matching, non-blank author. Off = title-only (the
+     *  legacy behavior). Re-evaluated on every group resolution, so it doubles as metadata healing. */
+    val novelAutoMergeRequireAuthor: Preference<Boolean> =
+        preferenceStore.getBoolean("novel_auto_merge_require_author", true)
+
+    /** On a merged novel cover, show the grouped sources' icons instead of a numeric group count. */
+    val showNovelMergeSourceIcons: Preference<Boolean> = preferenceStore.getBoolean("novel_merge_source_icons", true)
+
     // endregion
 }

@@ -63,6 +63,7 @@ import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.logcat
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.novel.NovelMergeManager
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.ResetViewerFlags
 import tachiyomi.i18n.MR
@@ -91,6 +92,7 @@ object SettingsAdvancedScreen : SearchableSettings {
         val reikaiLibraryPreferences = remember { Injekt.get<ReikaiLibraryPreferences>() }
         // RK: pref-based merge maintenance
         val mergeManager = remember { Injekt.get<MangaMergeManager>() }
+        val novelMergeManager = remember { Injekt.get<NovelMergeManager>() }
 
         return listOf(
             Preference.PreferenceItem.TextPreference(
@@ -132,6 +134,25 @@ object SettingsAdvancedScreen : SearchableSettings {
                 onClick = {
                     scope.launch {
                         mergeManager.clearAllMergesIncludingAuto()
+                        context.toast(MR.strings.merges_cleared)
+                    }
+                },
+            ),
+            // Novel equivalents (P5 S8).
+            Preference.PreferenceItem.TextPreference(
+                title = stringResource(MR.strings.pref_clear_manual_merges_novels),
+                subtitle = stringResource(MR.strings.pref_clear_manual_merges_summary),
+                onClick = {
+                    novelMergeManager.clearManualMerges()
+                    context.toast(MR.strings.merges_cleared)
+                },
+            ),
+            Preference.PreferenceItem.TextPreference(
+                title = stringResource(MR.strings.pref_separate_auto_merges_novels),
+                subtitle = stringResource(MR.strings.pref_separate_auto_merges_summary),
+                onClick = {
+                    scope.launch {
+                        novelMergeManager.clearAllMergesIncludingAuto()
                         context.toast(MR.strings.merges_cleared)
                     }
                 },

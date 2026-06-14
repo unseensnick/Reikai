@@ -20,6 +20,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelCategoryRepository
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.SetNovelCategories
@@ -67,6 +68,7 @@ class NovelLibraryScreenModel :
     private val libraryPreferences: LibraryPreferences by injectLazy()
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
     private val sourceManager: NovelSourceManager by injectLazy()
+    private val mergeManager: NovelMergeManager by injectLazy()
 
     /** Sticky Manga/Novels chip for the Library tab (owned here so it's read outside a Composable). */
     val contentType: StateFlow<ContentType> = reikaiLibraryPreferences.libraryContentType.changes()
@@ -129,8 +131,14 @@ class NovelLibraryScreenModel :
             reikaiLibraryPreferences.novelLibraryFilterCompleted.changes(),
             reikaiLibraryPreferences.novelLibraryFilterBookmarked.changes(),
         ) { d, u, s, c, b -> NovelFilters(d, u, s, c, b) }
-        return combine(badgePrefsFlow(), miscFlow, filterFlow) { badges, misc, filters ->
-            LibrarySettings(badges, misc.defaultSort, misc.randomSeed, misc.showContinue, misc.showHidden, filters)
+        val mergeFlow = combine(
+            reikaiLibraryPreferences.novelManualMerges.changes(),
+            reikaiLibraryPreferences.novelManualUnmerges.changes(),
+            reikaiLibraryPreferences.novelAutoMergeSameTitle.changes(),
+            reikaiLibraryPreferences.novelAutoMergeRequireAuthor.changes(),
+        ) { merges, unmerges, auto, requireAuthor -> MergeSettings(merges, unmerges, auto, requireAuthor) }
+        return combine(badgePrefsFlow(), miscFlow, filterFlow, mergeFlow) { badges, misc, filters, merge ->
+            LibrarySettings(badges, misc.defaultSort, misc.randomSeed, misc.showContinue, misc.showHidden, filters, merge)
         }
     }
 
@@ -144,11 +152,32 @@ class NovelLibraryScreenModel :
         val filtered = library.filter { novel ->
             (query.isNullOrBlank() || novel.matchesQuery(query)) && settings.filters.matches(novel)
         }
-        // Keyed by the negative synthetic id (== the LibraryItem id), for the per-category comparator.
-        val novelById = filtered.associateBy { -it.novel.id }
-        val items = filtered.map { novel ->
-            val lang = sourceManager.get(novel.novel.source)?.lang.orEmpty()
-            novel.toLibraryItem(settings.badges.download, settings.badges.unread, settings.badges.language, lang)
+        // Collapse merged groups into one representative entry (the most-chapters novel).
+        val collapsed = NovelMergeCollapse.collapse(
+            filtered,
+            settings.merge.manualMerges,
+            settings.merge.manualUnmerges,
+            settings.merge.autoMergeSameTitle,
+            settings.merge.requireAuthor,
+        )
+        // Keyed by the representative's negative synthetic id (== the LibraryItem id), for the comparator.
+        val novelById = collapsed.associate { -it.representative.novel.id to it.representative }
+        val items = collapsed.map { group ->
+            val rep = group.representative
+            val lang = sourceManager.get(rep.novel.source)?.lang.orEmpty()
+            val item = rep.toLibraryItem(settings.badges.download, settings.badges.unread, settings.badges.language, lang)
+            if (group.memberIds.size > 1) {
+                // Stamp the merge badge (group member ids, negative) + summed downloads onto the rep.
+                item.copy(
+                    downloadCount = group.totalDownloadCount.toInt(),
+                    relatedMangaIds = group.memberIds.map { -it },
+                    badges = item.badges.copy(
+                        downloadCount = if (settings.badges.download) group.totalDownloadCount.toInt() else 0,
+                    ),
+                )
+            } else {
+                item
+            }
         }
         val byId = items.associateBy { it.id }
         val flagsByCat = categories.associate { it.id to it.flags }
@@ -180,8 +209,10 @@ class NovelLibraryScreenModel :
             category to sorted
         }
 
-        // Item id (negative) -> (source, url) so LibraryTab can open the novel.
-        val routes = filtered.associate { -it.novel.id to NovelRoute(it.novel.source, it.novel.url) }
+        // Item id (negative) -> (source, url) so LibraryTab can open the (representative) novel.
+        val routes = collapsed.associate {
+            -it.representative.novel.id to NovelRoute(it.representative.novel.source, it.representative.novel.url)
+        }
 
         return State(
             isLoading = false,
@@ -256,6 +287,26 @@ class NovelLibraryScreenModel :
     }
 
     // --- multi-select actions ---
+
+    /** Manually merge the selected novels into one group (covers both library views). */
+    fun mergeSelection() {
+        val ids = state.value.selectedNovelIds
+        if (ids.size < 2) return
+        screenModelScope.launchIO {
+            mergeManager.mergeNovels(ids)
+            clearSelection()
+        }
+    }
+
+    /** Split the selected novels out of their merge groups (no-op for non-merged selections). */
+    fun unmergeSelection() {
+        val ids = state.value.selectedNovelIds
+        if (ids.isEmpty()) return
+        screenModelScope.launchIO {
+            mergeManager.unmergeNovels(ids)
+            clearSelection()
+        }
+    }
 
     fun markReadSelection(read: Boolean) {
         val novelIds = state.value.selectedNovelIds
@@ -402,6 +453,13 @@ class NovelLibraryScreenModel :
 
     private data class Misc(val defaultSort: Long, val randomSeed: Long, val showContinue: Boolean, val showHidden: Boolean)
 
+    private data class MergeSettings(
+        val manualMerges: Set<String>,
+        val manualUnmerges: Set<String>,
+        val autoMergeSameTitle: Boolean,
+        val requireAuthor: Boolean,
+    )
+
     private data class LibrarySettings(
         val badges: BadgePrefs,
         val defaultSort: Long,
@@ -409,6 +467,7 @@ class NovelLibraryScreenModel :
         val showContinue: Boolean,
         val showHidden: Boolean,
         val filters: NovelFilters,
+        val merge: MergeSettings,
     )
 
     private fun NovelFilters.matches(n: LibraryNovel): Boolean =
@@ -459,6 +518,11 @@ class NovelLibraryScreenModel :
         val selectionMode = selection.isNotEmpty()
 
         val selectedNovelIds: List<Long> by lazy { selection.map { -it } }
+
+        /** Any selected entry is a merge group (drives the bulk Unmerge action). */
+        val selectionContainsMerged: Boolean by lazy {
+            selection.any { (favoritesById[it]?.relatedMangaIds?.size ?: 0) > 1 }
+        }
 
         fun getItemsForCategory(category: Category): List<LibraryItem> =
             groupedById[category.id].orEmpty().mapNotNull { favoritesById[it] }

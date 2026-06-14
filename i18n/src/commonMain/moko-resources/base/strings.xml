@@ -168,6 +168,10 @@
     <string name="merge_unified">Unified</string>
     <string name="action_merge_same_title">Merge same-title series across sources</string>
     <string name="action_merge_source_icons">Show source icons on merged covers</string>
+    <!-- RK: novel merge (P5 S8) -->
+    <string name="action_merge_require_author">Also require matching author</string>
+    <string name="pref_clear_manual_merges_novels">Clear manual novel merges</string>
+    <string name="pref_separate_auto_merges_novels">Separate all merged novels</string>
     <string name="pref_clear_manual_merges">Clear manual merges</string>
     <string name="pref_clear_manual_merges_summary">Undo every manual source merge. Same-title auto-merging stays on.</string>
     <string name="pref_separate_auto_merges">Separate all merged series</string>
