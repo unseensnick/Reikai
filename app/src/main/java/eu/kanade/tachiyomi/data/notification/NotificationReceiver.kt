@@ -22,6 +22,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import reikai.data.novel.update.NovelUpdateJob
 import reikai.novel.download.NovelDownloadJob
 import tachiyomi.core.common.Constants
 import tachiyomi.domain.chapter.interactor.GetChapter
@@ -81,6 +82,8 @@ class NotificationReceiver : BroadcastReceiver() {
             ACTION_CANCEL_LIBRARY_UPDATE -> cancelLibraryUpdate(context)
             // RK: cancel the novel chapter downloader
             ACTION_CANCEL_NOVEL_DOWNLOAD -> NovelDownloadJob.stop(context)
+            // RK: cancel the background novel library update
+            ACTION_CANCEL_NOVEL_LIBRARY_UPDATE -> NovelUpdateJob.stop(context)
             // Start downloading app update
             ACTION_START_APP_UPDATE -> startDownloadAppUpdate(context, intent)
             // Cancel downloading app update
@@ -266,6 +269,9 @@ class NotificationReceiver : BroadcastReceiver() {
 
         // RK: cancel the novel chapter downloader (P5 S5)
         private const val ACTION_CANCEL_NOVEL_DOWNLOAD = "$ID.$NAME.CANCEL_NOVEL_DOWNLOAD"
+
+        // RK: cancel the background novel library update (P5 S7)
+        private const val ACTION_CANCEL_NOVEL_LIBRARY_UPDATE = "$ID.$NAME.CANCEL_NOVEL_LIBRARY_UPDATE"
 
         private const val ACTION_START_APP_UPDATE = "$ID.$NAME.ACTION_START_APP_UPDATE"
         private const val ACTION_CANCEL_APP_UPDATE_DOWNLOAD = "$ID.$NAME.CANCEL_APP_UPDATE_DOWNLOAD"
@@ -554,6 +560,20 @@ class NotificationReceiver : BroadcastReceiver() {
         internal fun cancelNovelDownloadPendingBroadcast(context: Context): PendingIntent {
             val intent = Intent(context, NotificationReceiver::class.java).apply {
                 action = ACTION_CANCEL_NOVEL_DOWNLOAD
+            }
+            return PendingIntent.getBroadcast(
+                context,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }
+        // RK <--
+
+        // RK --> cancel the background novel library update (P5 S7)
+        internal fun cancelNovelLibraryUpdatePendingBroadcast(context: Context): PendingIntent {
+            val intent = Intent(context, NotificationReceiver::class.java).apply {
+                action = ACTION_CANCEL_NOVEL_LIBRARY_UPDATE
             }
             return PendingIntent.getBroadcast(
                 context,

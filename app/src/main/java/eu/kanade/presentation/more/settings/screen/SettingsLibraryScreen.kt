@@ -21,6 +21,8 @@ import eu.kanade.presentation.more.settings.widget.TriStateListDialog
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import kotlinx.coroutines.launch
+import reikai.data.novel.update.NovelUpdateJob
+import reikai.domain.novel.NovelPreferences
 import reikai.presentation.library.preferredsources.PreferredSourcesScreen
 import reikai.presentation.recommendation.SettingsRecommendationsScreen
 import tachiyomi.domain.category.interactor.GetCategories
@@ -53,16 +55,70 @@ object SettingsLibraryScreen : SearchableSettings {
     override fun getPreferences(): List<Preference> {
         val getCategories = remember { Injekt.get<GetCategories>() }
         val libraryPreferences = remember { Injekt.get<LibraryPreferences>() }
+        val novelPreferences = remember { Injekt.get<NovelPreferences>() }
         val allCategories by getCategories.subscribe().collectAsState(initial = emptyList())
 
         return listOf(
             getCategoriesGroup(LocalNavigator.currentOrThrow, allCategories, libraryPreferences),
             getGlobalUpdateGroup(allCategories, libraryPreferences),
+            // RK: background light-novel chapter updates
+            getNovelUpdateGroup(novelPreferences),
             getBehaviorGroup(libraryPreferences),
             // RK: merge-group preferred-source ranking
             getSourcesGroup(LocalNavigator.currentOrThrow),
         )
     }
+
+    // RK --> background light-novel chapter updates (P5 S7)
+    @Composable
+    private fun getNovelUpdateGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
+        val context = LocalContext.current
+        val intervalPref = novelPreferences.libraryUpdateInterval()
+        val interval by intervalPref.collectAsState()
+        return Preference.PreferenceGroup(
+            title = stringResource(MR.strings.novel_library_update),
+            preferenceItems = listOf(
+                Preference.PreferenceItem.ListPreference(
+                    preference = intervalPref,
+                    entries = mapOf(
+                        0 to stringResource(MR.strings.update_never),
+                        12 to stringResource(MR.strings.update_12hour),
+                        24 to stringResource(MR.strings.update_24hour),
+                        48 to stringResource(MR.strings.update_48hour),
+                        72 to stringResource(MR.strings.update_72hour),
+                        168 to stringResource(MR.strings.update_weekly),
+                    ),
+                    title = stringResource(MR.strings.pref_library_update_interval),
+                    onValueChanged = {
+                        NovelUpdateJob.setupTask(context, it)
+                        true
+                    },
+                ),
+                Preference.PreferenceItem.MultiSelectListPreference(
+                    preference = novelPreferences.libraryUpdateDeviceRestrictions(),
+                    entries = mapOf(
+                        DEVICE_ONLY_ON_WIFI to stringResource(MR.strings.connected_to_wifi),
+                        DEVICE_NETWORK_NOT_METERED to stringResource(MR.strings.network_not_metered),
+                        DEVICE_CHARGING to stringResource(MR.strings.charging),
+                    ),
+                    title = stringResource(MR.strings.pref_library_update_restriction),
+                    subtitle = stringResource(MR.strings.restrictions),
+                    enabled = interval > 0,
+                    onValueChanged = {
+                        // Post to the main looper so the preference write lands before rescheduling.
+                        ContextCompat.getMainExecutor(context).execute { NovelUpdateJob.setupTask(context) }
+                        true
+                    },
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.updateOnlyOngoing(),
+                    title = stringResource(MR.strings.novel_library_update_only_ongoing),
+                    enabled = interval > 0,
+                ),
+            ),
+        )
+    }
+    // RK <--
 
     // RK -->
     @Composable

@@ -73,6 +73,7 @@ object SettingsDownloadScreen : SearchableSettings {
             ),
             getAutoDownloadGroup(
                 downloadPreferences = downloadPreferences,
+                novelPreferences = novelPreferences, // RK: novel auto-download sits in this group too
                 allCategories = allCategories,
             ),
             getDownloadAheadGroup(downloadPreferences = downloadPreferences),
@@ -139,6 +140,7 @@ object SettingsDownloadScreen : SearchableSettings {
     @Composable
     private fun getAutoDownloadGroup(
         downloadPreferences: DownloadPreferences,
+        novelPreferences: NovelPreferences,
         allCategories: List<Category>,
     ): Preference.PreferenceGroup {
         val downloadNewChaptersPref = downloadPreferences.downloadNewChapters
@@ -174,6 +176,13 @@ object SettingsDownloadScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = downloadNewChaptersPref,
                     title = stringResource(MR.strings.pref_download_new),
+                    subtitle = stringResource(MR.strings.content_type_manga),
+                ),
+                // RK: the light-novel twin of the option above (separate downloader + preference)
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.downloadNewChapters(),
+                    title = stringResource(MR.strings.pref_download_new),
+                    subtitle = stringResource(MR.strings.content_type_novels),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = downloadNewUnreadChaptersOnlyPref,

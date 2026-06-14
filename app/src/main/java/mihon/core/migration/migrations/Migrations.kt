@@ -11,5 +11,6 @@ val migrations: List<Migration>
         InstallationIdMigration(),
         // RK -->
         SetupLnPluginUpdateMigration(),
+        SetupNovelUpdateMigration(),
         // RK <--
     )

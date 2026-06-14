@@ -4,6 +4,7 @@ import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import tachiyomi.core.common.preference.PreferenceStore
+import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
  * Net-new preferences for the light-novel vertical. Only the subset the plugin host / source /
@@ -91,6 +92,23 @@ class NovelPreferences(
     /** Auto-download newly fetched chapters when an update is detected. The pref + manager plumbing
      *  land in S5; the update-detection trigger that consumes it is wired in S7. */
     fun downloadNewChapters() = preferenceStore.getBoolean("novel_download_new_chapters", false)
+
+    // Background chapter updates (S7).
+
+    /** How often the background novel-update job runs, in hours. 0 = off (the default, matching the
+     *  manga library's off-by-default); 12/24/48/72/168 mirror the manga interval options. */
+    fun libraryUpdateInterval() = preferenceStore.getInt("novel_library_update_interval", 0)
+
+    /** Device conditions gating the background job, reusing the manga restriction keys
+     *  ([LibraryPreferences.DEVICE_ONLY_ON_WIFI] etc.) so the same Constraints builder applies. */
+    fun libraryUpdateDeviceRestrictions() =
+        preferenceStore.getStringSet(
+            "novel_library_update_restrictions",
+            setOf(LibraryPreferences.DEVICE_ONLY_ON_WIFI),
+        )
+
+    /** Skip novels whose source status is Completed (the novel analog of "only update ongoing"). */
+    fun updateOnlyOngoing() = preferenceStore.getBoolean("novel_library_update_only_ongoing", false)
 
     companion object {
         private val metadataMapSerializer =

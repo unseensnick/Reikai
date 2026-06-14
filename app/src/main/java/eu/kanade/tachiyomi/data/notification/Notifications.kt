@@ -31,6 +31,12 @@ object Notifications {
     const val CHANNEL_LIBRARY_ERROR = "library_errors_channel"
     const val ID_LIBRARY_ERROR = -102
 
+    // RK: light-novel chapter update job (P5 S7), grouped with the manga library updater
+    const val CHANNEL_NOVEL_LIBRARY_PROGRESS = "novel_library_progress_channel"
+    const val ID_NOVEL_LIBRARY_PROGRESS = -104
+    const val CHANNEL_NOVEL_LIBRARY_RESULT = "novel_library_result_channel"
+    const val ID_NOVEL_LIBRARY_RESULT = -105
+
     /**
      * Notification channel and ids used by the downloader.
      */
@@ -140,6 +146,17 @@ object Notifications {
                     setGroup(GROUP_LIBRARY)
                     setShowBadge(false)
                 },
+                // RK --> light-novel chapter update job (P5 S7)
+                buildNotificationChannel(CHANNEL_NOVEL_LIBRARY_PROGRESS, IMPORTANCE_LOW) {
+                    setName(context.stringResource(MR.strings.channel_progress))
+                    setGroup(GROUP_LIBRARY)
+                    setShowBadge(false)
+                },
+                buildNotificationChannel(CHANNEL_NOVEL_LIBRARY_RESULT, IMPORTANCE_DEFAULT) {
+                    setName(context.stringResource(MR.strings.channel_new_chapters))
+                    setGroup(GROUP_LIBRARY)
+                },
+                // RK <--
                 buildNotificationChannel(CHANNEL_NEW_CHAPTERS, IMPORTANCE_DEFAULT) {
                     setName(context.stringResource(MR.strings.channel_new_chapters))
                 },
