@@ -58,7 +58,9 @@ fun NovelLibrarySettingsDialog(
     )
     TabbedDialog(
         onDismissRequest = onDismissRequest,
-        pagerState = rememberPagerState(initialPage = initialTab) { tabTitles.size },
+        // The hopper's settings actions can request the manga "Group" tab (index 3); novels have no
+        // Group tab, so clamp to a valid page instead of an out-of-range initial page.
+        pagerState = rememberPagerState(initialPage = initialTab.coerceIn(0, tabTitles.lastIndex)) { tabTitles.size },
         tabTitles = tabTitles,
     ) { page ->
         Column(
