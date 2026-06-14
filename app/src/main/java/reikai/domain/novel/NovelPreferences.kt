@@ -93,6 +93,17 @@ class NovelPreferences(
      *  land in S5; the update-detection trigger that consumes it is wired in S7. */
     fun downloadNewChapters() = preferenceStore.getBoolean("novel_download_new_chapters", false)
 
+    /** When auto-downloading, skip a new chapter whose number matches one already read (avoids
+     *  re-downloading a source's duplicate listing of a chapter you've finished). */
+    fun downloadNewUnreadChaptersOnly() =
+        preferenceStore.getBoolean("novel_download_new_unread_chapters_only", false)
+
+    /** Restrict auto-download to novels in these categories (empty = all). Mirrors the manga keys. */
+    fun downloadNewChapterCategories() = preferenceStore.getStringSet("novel_download_new_categories", emptySet())
+
+    fun downloadNewChapterCategoriesExclude() =
+        preferenceStore.getStringSet("novel_download_new_categories_exclude", emptySet())
+
     // Background chapter updates (S7).
 
     /** How often the background novel-update job runs, in hours. 0 = off (the default, matching the

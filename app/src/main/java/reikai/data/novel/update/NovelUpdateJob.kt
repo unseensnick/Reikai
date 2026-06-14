@@ -30,6 +30,7 @@ import reikai.data.novel.walkNovelPages
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.mergeRefreshedNovel
@@ -66,6 +67,7 @@ class NovelUpdateJob(
     private val downloadManager: NovelDownloadManager = Injekt.get()
     private val sourceManager: NovelSourceManager = Injekt.get()
     private val installer: LnPluginInstaller = Injekt.get()
+    private val getNovelCategories: GetNovelCategories = Injekt.get()
     private val preferences: NovelPreferences = Injekt.get()
     private val notifier = NovelUpdateNotifier(context)
 
@@ -114,7 +116,10 @@ class NovelUpdateJob(
                 val newChapters = checkNovel(novel, source)
                 if (newChapters.isNotEmpty()) {
                     updatedCount++
-                    if (downloadNew) downloadManager.downloadChapters(newChapters)
+                    if (downloadNew) {
+                        val toDownload = filterChaptersForDownload(novel, newChapters)
+                        if (toDownload.isNotEmpty()) downloadManager.downloadChapters(toDownload)
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -146,6 +151,31 @@ class NovelUpdateJob(
 
         val after = chapterRepo.getByNovelId(novel.id)
         return after.filter { it.id !in before }
+    }
+
+    /** Mirror of the manga FilterChaptersForDownload: gate by the novel's categories, then (when
+     *  "skip duplicate read" is on) drop new chapters whose number matches an already-read one. */
+    private suspend fun filterChaptersForDownload(novel: Novel, newChapters: List<NovelChapter>): List<NovelChapter> {
+        if (!shouldDownloadFor(novel)) return emptyList()
+        if (!preferences.downloadNewUnreadChaptersOnly().get()) return newChapters
+        val readNumbers = chapterRepo.getByNovelId(novel.id)
+            .asSequence()
+            .filter { it.read && it.chapterNumber >= 0.0 }
+            .map { it.chapterNumber }
+            .toSet()
+        return newChapters.filterNot { it.chapterNumber in readNumbers }
+    }
+
+    private suspend fun shouldDownloadFor(novel: Novel): Boolean {
+        val categories = getNovelCategories.awaitByNovelId(novel.id).map { it.id }.ifEmpty { listOf(0L) }
+        val included = preferences.downloadNewChapterCategories().get().map { it.toLong() }
+        val excluded = preferences.downloadNewChapterCategoriesExclude().get().map { it.toLong() }
+        return when {
+            included.isEmpty() && excluded.isEmpty() -> true
+            categories.any { it in excluded } -> false
+            included.isEmpty() -> true
+            else -> categories.any { it in included }
+        }
     }
 
     companion object {

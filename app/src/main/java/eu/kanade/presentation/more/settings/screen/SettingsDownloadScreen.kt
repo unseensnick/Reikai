@@ -13,6 +13,8 @@ import eu.kanade.presentation.category.visualName
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.widget.TriStateListDialog
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.interactor.GetNovelCategories
+import reikai.domain.novel.model.toCategory
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.download.service.DownloadPreferences
@@ -39,6 +41,9 @@ object SettingsDownloadScreen : SearchableSettings {
         val parallelPageLimit by downloadPreferences.parallelPageLimit.collectAsState()
         // RK: light-novel download options (P5 S5)
         val novelPreferences = remember { Injekt.get<NovelPreferences>() }
+        val getNovelCategories = remember { Injekt.get<GetNovelCategories>() }
+        val novelCategories by getNovelCategories.subscribe()
+            .collectAsState(initial = emptyList())
         return listOf(
             Preference.PreferenceItem.SwitchPreference(
                 preference = downloadPreferences.downloadOnlyOverWifi,
@@ -75,6 +80,7 @@ object SettingsDownloadScreen : SearchableSettings {
                 downloadPreferences = downloadPreferences,
                 novelPreferences = novelPreferences, // RK: novel auto-download sits in this group too
                 allCategories = allCategories,
+                novelCategories = novelCategories.map { it.toCategory() }, // RK
             ),
             getDownloadAheadGroup(downloadPreferences = downloadPreferences),
         )
@@ -142,6 +148,7 @@ object SettingsDownloadScreen : SearchableSettings {
         downloadPreferences: DownloadPreferences,
         novelPreferences: NovelPreferences,
         allCategories: List<Category>,
+        novelCategories: List<Category>, // RK: novel auto-download category filter
     ): Preference.PreferenceGroup {
         val downloadNewChaptersPref = downloadPreferences.downloadNewChapters
         val downloadNewUnreadChaptersOnlyPref = downloadPreferences.downloadNewUnreadChaptersOnly
@@ -170,6 +177,32 @@ object SettingsDownloadScreen : SearchableSettings {
             )
         }
 
+        // RK --> light-novel auto-download (own toggle + skip-duplicate + category filter)
+        val novelDownloadNewPref = novelPreferences.downloadNewChapters()
+        val novelDownloadNew by novelDownloadNewPref.collectAsState()
+        val novelIncludedPref = novelPreferences.downloadNewChapterCategories()
+        val novelExcludedPref = novelPreferences.downloadNewChapterCategoriesExclude()
+        val novelIncluded by novelIncludedPref.collectAsState()
+        val novelExcluded by novelExcludedPref.collectAsState()
+        var showNovelDialog by rememberSaveable { mutableStateOf(false) }
+        if (showNovelDialog) {
+            TriStateListDialog(
+                title = stringResource(MR.strings.categories),
+                message = stringResource(MR.strings.pref_download_new_categories_details),
+                items = novelCategories,
+                initialChecked = novelIncluded.mapNotNull { id -> novelCategories.find { it.id.toString() == id } },
+                initialInversed = novelExcluded.mapNotNull { id -> novelCategories.find { it.id.toString() == id } },
+                itemLabel = { it.visualName },
+                onDismissRequest = { showNovelDialog = false },
+                onValueChanged = { newIncluded, newExcluded ->
+                    novelIncludedPref.set(newIncluded.fastMap { it.id.toString() }.toSet())
+                    novelExcludedPref.set(newExcluded.fastMap { it.id.toString() }.toSet())
+                    showNovelDialog = false
+                },
+            )
+        }
+        // RK <--
+
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_auto_download),
             preferenceItems = listOf(
@@ -177,12 +210,6 @@ object SettingsDownloadScreen : SearchableSettings {
                     preference = downloadNewChaptersPref,
                     title = stringResource(MR.strings.pref_download_new),
                     subtitle = stringResource(MR.strings.content_type_manga),
-                ),
-                // RK: the light-novel twin of the option above (separate downloader + preference)
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = novelPreferences.downloadNewChapters(),
-                    title = stringResource(MR.strings.pref_download_new),
-                    subtitle = stringResource(MR.strings.content_type_novels),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = downloadNewUnreadChaptersOnlyPref,
@@ -199,6 +226,28 @@ object SettingsDownloadScreen : SearchableSettings {
                     enabled = downloadNewChapters,
                     onClick = { showDialog = true },
                 ),
+                // RK --> the light-novel twin of the block above (separate downloader + preferences)
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelDownloadNewPref,
+                    title = stringResource(MR.strings.pref_download_new),
+                    subtitle = stringResource(MR.strings.content_type_novels),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.downloadNewUnreadChaptersOnly(),
+                    title = stringResource(MR.strings.pref_download_new_unread_chapters_only),
+                    enabled = novelDownloadNew,
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.categories),
+                    subtitle = getCategoriesLabel(
+                        allCategories = novelCategories,
+                        included = novelIncluded,
+                        excluded = novelExcluded,
+                    ),
+                    enabled = novelDownloadNew,
+                    onClick = { showNovelDialog = true },
+                ),
+                // RK <--
             ),
         )
     }
