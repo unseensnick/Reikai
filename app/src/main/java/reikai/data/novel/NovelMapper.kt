@@ -1,6 +1,7 @@
 package reikai.data.novel
 
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
+import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelChapter
@@ -55,6 +56,71 @@ fun mapNovel(
     totalPages = totalPages,
     lastReadAt = lastReadAt,
     editedFlags = editedFlags,
+)
+
+/**
+ * Maps a `novelLibraryView` row to [LibraryNovel]. The first 20 args are the `novels` columns (same
+ * order as [mapNovel]); the trailing 7 are the view's aggregates. `sum(...)` columns arrive as
+ * `Double` (SQLDelight bypasses the Boolean adapter for aggregates), so they are narrowed to `Long`.
+ */
+fun mapLibraryNovel(
+    id: Long,
+    source: String,
+    url: String,
+    title: String,
+    author: String?,
+    artist: String?,
+    description: String?,
+    genre: List<String>?,
+    status: Long,
+    thumbnailUrl: String?,
+    favorite: Boolean,
+    lastUpdate: Long?,
+    initialized: Boolean,
+    chapterFlags: Long,
+    dateAdded: Long?,
+    updateStrategy: UpdateStrategy,
+    coverLastModified: Long,
+    totalPages: Long,
+    lastReadAt: Long?,
+    editedFlags: Long,
+    totalCount: Long,
+    readCount: Double,
+    latestUpload: Long,
+    chapterFetchedAt: Long,
+    downloadCount: Double,
+    bookmarkCount: Double,
+    categories: String,
+): LibraryNovel = LibraryNovel(
+    novel = mapNovel(
+        id,
+        source,
+        url,
+        title,
+        author,
+        artist,
+        description,
+        genre,
+        status,
+        thumbnailUrl,
+        favorite,
+        lastUpdate,
+        initialized,
+        chapterFlags,
+        dateAdded,
+        updateStrategy,
+        coverLastModified,
+        totalPages,
+        lastReadAt,
+        editedFlags,
+    ),
+    categories = categories.split(",").map { it.toLong() },
+    totalChapters = totalCount,
+    readCount = readCount.toLong(),
+    bookmarkCount = bookmarkCount.toLong(),
+    downloadCount = downloadCount.toLong(),
+    latestUpload = latestUpload,
+    chapterFetchedAt = chapterFetchedAt,
 )
 
 fun mapNovelChapter(

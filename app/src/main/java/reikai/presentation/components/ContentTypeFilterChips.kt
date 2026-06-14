@@ -25,6 +25,8 @@ fun ContentTypeFilterChips(
     selected: ContentType,
     onSelect: (ContentType) -> Unit,
     modifier: Modifier = Modifier,
+    // The library passes [ContentType.MANGA, ContentType.NOVELS] (no All); Browse/Downloads use all.
+    types: List<ContentType> = ContentType.entries,
 ) {
     Row(
         modifier = modifier
@@ -33,7 +35,7 @@ fun ContentTypeFilterChips(
             .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        ContentType.entries.forEach { type ->
+        types.forEach { type ->
             FilterChip(
                 selected = selected == type,
                 onClick = { onSelect(type) },

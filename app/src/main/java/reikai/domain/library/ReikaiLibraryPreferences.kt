@@ -37,6 +37,16 @@ class ReikaiLibraryPreferences(
 
     // endregion
 
+    // region Content type
+
+    /** Sticky Manga/Novels switch on the Library tab (P5 S6). Its own key, distinct from the Browse
+     *  and download-queue content-type filters, so each surface remembers its last type. No ALL on
+     *  the library: manga and novels never share one list. */
+    val libraryContentType: Preference<ContentType> =
+        preferenceStore.getEnum("library_content_type", ContentType.MANGA)
+
+    // endregion
+
     // region Badges
 
     /** Show the source/extension icon on each cover. */

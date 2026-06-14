@@ -10,6 +10,7 @@ import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -65,13 +66,17 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import mihon.feature.migration.config.MigrationConfigScreen
 // RK -->
+import reikai.domain.library.ContentType
+import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.library.ReikaiCategoryHopper
 import reikai.presentation.library.ReikaiCategoryPickerSheet
 import reikai.presentation.library.ReikaiLibraryContent
+import reikai.presentation.library.novels.NovelLibraryScreenModel
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
 import reikai.presentation.library.reikaiCategoryHeaderIndices
 import reikai.presentation.library.reikaiIsCollapsed
 import reikai.presentation.library.reikaiSortCategories
+import reikai.presentation.novel.details.NovelScreen
 // RK <--
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
@@ -115,6 +120,29 @@ data object LibraryTab : Tab {
         val settingsScreenModel = rememberScreenModel { LibrarySettingsScreenModel() }
         val state by screenModel.state.collectAsState()
 
+        // RK --> novels in the library behind the Manga/Novels chip (P5 S6). The "active" locals fall
+        // through to the manga `state` when the chip is on Manga, so the manga path is unchanged; on
+        // Novels they read the novel screen model, feeding the same views a disguised item list.
+        val novelModel = rememberScreenModel { NovelLibraryScreenModel() }
+        val novelState by novelModel.state.collectAsState()
+        val libraryContentType by novelModel.contentType.collectAsState()
+        val isNovels = libraryContentType == ContentType.NOVELS
+        val activeCategories = if (isNovels) novelState.displayedCategories else state.displayedCategories
+        val activeSelection = if (isNovels) novelState.selection else state.selection
+        val activeSearchQuery = if (isNovels) novelState.searchQuery else state.searchQuery
+        val activeIsLibraryEmpty = if (isNovels) novelState.isLibraryEmpty else state.isLibraryEmpty
+        val activeIsLoading = if (isNovels) novelState.isLoading else state.isLoading
+        val activeCollapsedCategories =
+            if (isNovels) novelState.collapsedCategories else state.reikai.collapsedCategories
+        val activeCoercedActiveIndex =
+            if (isNovels) novelState.coercedActiveCategoryIndex else state.coercedActiveCategoryIndex
+        val activeGetItems: (Category) -> List<LibraryItem> =
+            if (isNovels) novelState::getItemsForCategory else state::getItemsForCategory
+        val activeGetItemCount: (Category) -> Int? =
+            if (isNovels) novelState::getItemCountForCategory else state::getItemCountForCategory
+        val onSearch: (String?) -> Unit = if (isNovels) novelModel::search else screenModel::search
+        // RK <--
+
         val snackbarHostState = remember { SnackbarHostState() }
 
         // RK --> hopper + jump-to-category picker drive both views through a single `hopperTarget`.
@@ -122,20 +150,20 @@ data object LibraryTab : Tab {
         // across them stutters) and stay snappy under rapid taps; the picker animates a smooth slide;
         // the tabbed pager animates its page transition.
         val singleListGridState = rememberLazyGridState()
-        val pagerState = rememberPagerState(initialPage = state.coercedActiveCategoryIndex) {
-            state.displayedCategories.size
+        val pagerState = rememberPagerState(initialPage = activeCoercedActiveIndex) {
+            activeCategories.size
         }
         var pickerOpen by remember { mutableStateOf(false) }
         var hopperTarget by remember { mutableStateOf<Int?>(null) }
         var instantHopperScroll by remember { mutableStateOf(false) }
         var hopperDragAccum by remember { mutableFloatStateOf(0f) }
         fun reikaiHeaderIndices(): List<Int> = reikaiCategoryHeaderIndices(
-            categories = state.displayedCategories,
-            hasSearchItem = !state.searchQuery.isNullOrEmpty(),
+            categories = activeCategories,
+            hasSearchItem = !activeSearchQuery.isNullOrEmpty(),
             isCollapsed = {
-                reikaiIsCollapsed(it, state.reikai.collapsedCategories, state.reikai.collapsedDynamicCategories)
+                reikaiIsCollapsed(it, activeCollapsedCategories, state.reikai.collapsedDynamicCategories)
             },
-            itemCount = { state.getItemsForCategory(it).size },
+            itemCount = { activeGetItems(it).size },
         )
         fun currentCategoryIndex(): Int = if (state.reikai.showAllCategories) {
             reikaiHeaderIndices().indexOfLast { it <= singleListGridState.firstVisibleItemIndex }.coerceAtLeast(0)
@@ -194,8 +222,12 @@ data object LibraryTab : Tab {
                         state.coercedActiveCategoryIndex
                     },
                 )
+                // RK: stack the content-type chip under the toolbar so the Scaffold sizes
+                // contentPadding to include it and both library views render below it untouched.
+                Column {
                 LibraryToolbar(
-                    hasActiveFilters = state.hasActiveFilters,
+                    // RK: novels have no filters yet (S6); manga keeps its filter indicator
+                    hasActiveFilters = !isNovels && state.hasActiveFilters,
                     selectedCount = state.selection.size,
                     title = title,
                     onClickUnselectAll = screenModel::clearSelection,
@@ -222,11 +254,17 @@ data object LibraryTab : Tab {
                     } else {
                         null
                     },
-                    searchQuery = state.searchQuery,
-                    onSearchQueryChange = screenModel::search,
+                    searchQuery = activeSearchQuery,
+                    onSearchQueryChange = onSearch,
                     // For scroll overlay when no tab
                     scrollBehavior = scrollBehavior.takeIf { !state.showCategoryTabs },
                 )
+                ContentTypeFilterChips(
+                    selected = libraryContentType,
+                    onSelect = novelModel::setContentType,
+                    types = listOf(ContentType.MANGA, ContentType.NOVELS),
+                )
+                }
             },
             bottomBar = {
                 LibraryBottomActionMenu(
@@ -251,10 +289,10 @@ data object LibraryTab : Tab {
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         ) { contentPadding ->
             when {
-                state.isLoading -> {
+                activeIsLoading -> {
                     LoadingScreen(Modifier.padding(contentPadding))
                 }
-                state.searchQuery.isNullOrEmpty() && !state.hasActiveFilters && state.isLibraryEmpty -> {
+                activeSearchQuery.isNullOrEmpty() && !isNovels && !state.hasActiveFilters && activeIsLibraryEmpty -> {
                     val handler = LocalUriHandler.current
                     EmptyScreen(
                         stringRes = MR.strings.information_empty_library,
@@ -268,6 +306,12 @@ data object LibraryTab : Tab {
                         ),
                     )
                 }
+                isNovels && activeSearchQuery.isNullOrEmpty() && activeIsLibraryEmpty -> {
+                    EmptyScreen(
+                        stringRes = MR.strings.information_empty_library,
+                        modifier = Modifier.padding(contentPadding),
+                    )
+                }
                 else -> {
                     // RK --> both library views (pager + single-list) with hopper + picker overlaid
                     Box(modifier = Modifier.fillMaxSize()) {
@@ -277,19 +321,21 @@ data object LibraryTab : Tab {
                             val columns by screenModel.getColumnsForOrientation(isLandscape)
                             val displayMode by screenModel.getDisplayMode()
                             ReikaiLibraryContent(
-                                categories = state.displayedCategories,
-                                getItemsForCategory = { state.getItemsForCategory(it) },
-                                collapsedCategories = state.reikai.collapsedCategories,
-                                collapsedDynamicCategories = state.reikai.collapsedDynamicCategories,
+                                categories = activeCategories,
+                                getItemsForCategory = activeGetItems,
+                                collapsedCategories = activeCollapsedCategories,
+                                collapsedDynamicCategories = if (isNovels) emptySet() else state.reikai.collapsedDynamicCategories,
                                 showItemCounts = state.showMangaCount,
                                 displayMode = displayMode,
                                 columns = columns,
-                                selection = state.selection,
-                                searchQuery = state.searchQuery,
+                                selection = activeSelection,
+                                searchQuery = activeSearchQuery,
                                 gridState = singleListGridState,
                                 contentPadding = contentPadding,
                                 onClickManga = { category, manga ->
-                                    if (state.selectionMode) {
+                                    if (isNovels) {
+                                        novelState.routeFor(manga.id)?.let { navigator.push(NovelScreen(it.source, it.url)) }
+                                    } else if (state.selectionMode) {
                                         screenModel.toggleSelection(category, manga)
                                     } else {
                                         navigator.push(MangaScreen(manga.id))
@@ -297,14 +343,17 @@ data object LibraryTab : Tab {
                                 },
                                 onLongClickManga = { category, manga ->
                                     // RK: range-select (incl. the in-between) like the tabbed view,
-                                    // instead of toggling only the long-pressed manga
-                                    screenModel.toggleRangeSelection(category, manga)
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    // instead of toggling only the long-pressed manga. Novel
+                                    // selection + actions land in S6 slice 4.
+                                    if (!isNovels) {
+                                        screenModel.toggleRangeSelection(category, manga)
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    }
                                 },
-                                onToggleDefaultCollapse = screenModel::toggleDefaultCategoryCollapse,
+                                onToggleDefaultCollapse = if (isNovels) novelModel::toggleCategoryCollapse else screenModel::toggleDefaultCategoryCollapse,
                                 onToggleDynamicCollapse = screenModel::toggleDynamicCategoryCollapse,
                                 onGlobalSearchClicked = {
-                                    navigator.push(GlobalSearchScreen(screenModel.state.value.searchQuery ?: ""))
+                                    navigator.push(GlobalSearchScreen(activeSearchQuery ?: ""))
                                 },
                                 // RK 4.6: per-category header sort (Sort tab scoped to it), refresh, select-all
                                 onClickCategorySort = { category ->
@@ -315,15 +364,21 @@ data object LibraryTab : Tab {
                             )
                         } else {
                             LibraryContent(
-                                categories = state.displayedCategories,
-                                searchQuery = state.searchQuery,
-                                selection = state.selection,
+                                categories = activeCategories,
+                                searchQuery = activeSearchQuery,
+                                selection = activeSelection,
                                 contentPadding = contentPadding,
                                 pagerState = pagerState,
-                                hasActiveFilters = state.hasActiveFilters,
-                                showPageTabs = state.showCategoryTabs || !state.searchQuery.isNullOrEmpty(),
-                                onChangeCurrentPage = screenModel::updateActiveCategoryIndex,
-                                onClickManga = { navigator.push(MangaScreen(it)) },
+                                hasActiveFilters = !isNovels && state.hasActiveFilters,
+                                showPageTabs = state.showCategoryTabs || !activeSearchQuery.isNullOrEmpty(),
+                                onChangeCurrentPage = if (isNovels) novelModel::updateActiveCategoryIndex else screenModel::updateActiveCategoryIndex,
+                                onClickManga = {
+                                    if (isNovels) {
+                                        novelState.routeFor(it)?.let { r -> navigator.push(NovelScreen(r.source, r.url)) }
+                                    } else {
+                                        navigator.push(MangaScreen(it))
+                                    }
+                                },
                                 onContinueReadingClicked = { it: LibraryManga ->
                                     scope.launchIO {
                                         val chapter = screenModel.getNextUnreadChapter(it.manga)
@@ -336,24 +391,26 @@ data object LibraryTab : Tab {
                                         }
                                     }
                                     Unit
-                                }.takeIf { state.showMangaContinueButton },
-                                onToggleSelection = screenModel::toggleSelection,
+                                }.takeIf { !isNovels && state.showMangaContinueButton },
+                                onToggleSelection = { category, manga -> if (!isNovels) screenModel.toggleSelection(category, manga) },
                                 onToggleRangeSelection = { category, manga ->
-                                    screenModel.toggleRangeSelection(category, manga)
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    if (!isNovels) {
+                                        screenModel.toggleRangeSelection(category, manga)
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    }
                                 },
                                 onRefresh = { onClickRefresh(state.activeCategory) },
                                 onGlobalSearchClicked = {
-                                    navigator.push(GlobalSearchScreen(screenModel.state.value.searchQuery ?: ""))
+                                    navigator.push(GlobalSearchScreen(activeSearchQuery ?: ""))
                                 },
-                                getItemCountForCategory = { state.getItemCountForCategory(it) },
+                                getItemCountForCategory = activeGetItemCount,
                                 getDisplayMode = { screenModel.getDisplayMode() },
                                 getColumnsForOrientation = { screenModel.getColumnsForOrientation(it) },
-                                getItemsForCategory = { state.getItemsForCategory(it) },
+                                getItemsForCategory = activeGetItems,
                             )
                         }
 
-                        if (!state.reikai.hideHopper && state.displayedCategories.isNotEmpty()) {
+                        if (!state.reikai.hideHopper && activeCategories.isNotEmpty()) {
                             val hopperAlignment = when (state.reikai.hopperGravity) {
                                 0 -> Alignment.BottomStart
                                 2 -> Alignment.BottomEnd
@@ -394,7 +451,7 @@ data object LibraryTab : Tab {
                                         }
                                     },
                                 onUpClick = {
-                                    val last = state.displayedCategories.lastIndex.coerceAtLeast(0)
+                                    val last = activeCategories.lastIndex.coerceAtLeast(0)
                                     instantHopperScroll = true
                                     hopperTarget = ((hopperTarget ?: currentCategoryIndex()) - 1).coerceIn(0, last)
                                 },
@@ -416,7 +473,7 @@ data object LibraryTab : Tab {
                                     }
                                 },
                                 onDownClick = {
-                                    val last = state.displayedCategories.lastIndex.coerceAtLeast(0)
+                                    val last = activeCategories.lastIndex.coerceAtLeast(0)
                                     instantHopperScroll = true
                                     hopperTarget = ((hopperTarget ?: currentCategoryIndex()) + 1).coerceIn(0, last)
                                 },
@@ -427,13 +484,13 @@ data object LibraryTab : Tab {
 
                     if (pickerOpen) {
                         ReikaiCategoryPickerSheet(
-                            categories = state.displayedCategories,
-                            getItemCount = { state.getItemCountForCategory(it) },
+                            categories = activeCategories,
+                            getItemCount = activeGetItemCount,
                             showItemCounts = state.showMangaCount,
-                            activeCategoryId = state.displayedCategories.getOrNull(currentCategoryIndex())?.id,
+                            activeCategoryId = activeCategories.getOrNull(currentCategoryIndex())?.id,
                             onSelect = { category ->
                                 instantHopperScroll = false
-                                hopperTarget = state.displayedCategories.indexOf(category)
+                                hopperTarget = activeCategories.indexOf(category)
                                 pickerOpen = false
                             },
                             onDismiss = { pickerOpen = false },
@@ -491,10 +548,10 @@ data object LibraryTab : Tab {
             null -> {}
         }
 
-        BackHandler(enabled = state.selectionMode || state.searchQuery != null) {
+        BackHandler(enabled = state.selectionMode || activeSearchQuery != null) {
             when {
                 state.selectionMode -> screenModel.clearSelection()
-                state.searchQuery != null -> screenModel.search(null)
+                activeSearchQuery != null -> onSearch(null)
             }
         }
 

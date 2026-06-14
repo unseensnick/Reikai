@@ -1,6 +1,7 @@
 package reikai.domain.novel
 
 import kotlinx.coroutines.flow.Flow
+import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
 
 /**
@@ -13,6 +14,9 @@ interface NovelRepository {
     suspend fun getById(id: Long): Novel?
     suspend fun getByUrlAndSource(url: String, source: String): Novel?
     suspend fun getFavorites(): List<Novel>
+
+    /** Reactive library read: favorited novels with chapter/unread/download counts + categories. */
+    fun getLibraryNovelAsFlow(): Flow<List<LibraryNovel>>
     fun getAllAsFlow(): Flow<List<Novel>>
     fun getByUrlAndSourceAsFlow(url: String, source: String): Flow<Novel?>
     suspend fun insert(novel: Novel): Long?

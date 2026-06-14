@@ -6,6 +6,7 @@ import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import kotlinx.coroutines.flow.Flow
 import logcat.LogPriority
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
@@ -27,6 +28,9 @@ class NovelRepositoryImpl(
 
     override suspend fun getFavorites(): List<Novel> =
         database.novelsQueries.findFavorites(::mapNovel).awaitAsList()
+
+    override fun getLibraryNovelAsFlow(): Flow<List<LibraryNovel>> =
+        database.novelLibraryViewQueries.novelLibrary(::mapLibraryNovel).subscribeToList()
 
     override fun getAllAsFlow(): Flow<List<Novel>> =
         database.novelsQueries.findAll(::mapNovel).subscribeToList()
