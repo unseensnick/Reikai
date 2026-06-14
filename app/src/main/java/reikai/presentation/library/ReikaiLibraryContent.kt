@@ -131,6 +131,8 @@ fun ReikaiLibraryContent(
     onClickCategorySort: (Category) -> Unit,
     onRefreshCategory: (Category) -> Unit,
     onSelectAllInCategory: (Category) -> Unit,
+    // RK: continue-reading button on covers, single-list parity with the pager; null = hidden
+    onClickContinueReading: ((LibraryManga) -> Unit)? = null,
 ) {
     val isList = displayMode is LibraryDisplayMode.List
     // Mode-qualified so Compose doesn't recycle a list-row slot as a grid cell when the mode flips.
@@ -230,6 +232,12 @@ fun ReikaiLibraryContent(
                         )
                         val onClick = { onClickManga(category, libraryItem.libraryManga) }
                         val onLongClick = { onLongClickManga(category, libraryItem.libraryManga) }
+                        // Show the play button only when there's something unread (matches the pager).
+                        val onContinueReading = if (onClickContinueReading != null && libraryItem.unreadCount > 0) {
+                            { onClickContinueReading(libraryItem.libraryManga) }
+                        } else {
+                            null
+                        }
 
                         when (displayMode) {
                             LibraryDisplayMode.List -> MangaListItem(
@@ -237,6 +245,7 @@ fun ReikaiLibraryContent(
                                 title = manga.title,
                                 onClick = onClick,
                                 onLongClick = onLongClick,
+                                onClickContinueReading = onContinueReading,
                                 badge = {
                                     DownloadsBadge(count = libraryItem.badges.downloadCount)
                                     UnreadBadge(count = libraryItem.badges.unreadCount)
@@ -257,6 +266,7 @@ fun ReikaiLibraryContent(
                                 title = manga.title,
                                 onClick = onClick,
                                 onLongClick = onLongClick,
+                                onClickContinueReading = onContinueReading,
                                 isSelected = isSelected,
                                 coverBadgeStart = {
                                     DownloadsBadge(count = libraryItem.badges.downloadCount)
@@ -280,6 +290,7 @@ fun ReikaiLibraryContent(
                                 title = manga.title,
                                 onClick = onClick,
                                 onLongClick = onLongClick,
+                                onClickContinueReading = onContinueReading,
                                 isSelected = isSelected,
                                 coverBadgeStart = {
                                     DownloadsBadge(count = libraryItem.badges.downloadCount)
@@ -303,6 +314,7 @@ fun ReikaiLibraryContent(
                                 title = manga.title.takeIf { displayMode is LibraryDisplayMode.CompactGrid },
                                 onClick = onClick,
                                 onLongClick = onLongClick,
+                                onClickContinueReading = onContinueReading,
                                 isSelected = isSelected,
                                 coverBadgeStart = {
                                     DownloadsBadge(count = libraryItem.badges.downloadCount)

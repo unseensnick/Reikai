@@ -214,6 +214,18 @@ data object LibraryTab : Tab {
             started
         }
 
+        // RK: shared manga continue-reading handler, used by both the pager and the single-list view.
+        val onMangaContinueReading: (LibraryManga) -> Unit = { item ->
+            scope.launchIO {
+                val chapter = screenModel.getNextUnreadChapter(item.manga)
+                if (chapter != null) {
+                    context.startActivity(ReaderActivity.newIntent(context, chapter.mangaId, chapter.id))
+                } else {
+                    snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))
+                }
+            }
+        }
+
         Scaffold(
             topBar = { scrollBehavior ->
                 val title = state.getToolbarTitle(
@@ -378,6 +390,8 @@ data object LibraryTab : Tab {
                                 },
                                 onRefreshCategory = { category -> onClickRefresh(category) },
                                 onSelectAllInCategory = screenModel::selectAllInCategory,
+                                onClickContinueReading = onMangaContinueReading
+                                    .takeIf { !isNovels && state.showMangaContinueButton },
                             )
                         } else {
                             LibraryContent(
@@ -396,19 +410,8 @@ data object LibraryTab : Tab {
                                         navigator.push(MangaScreen(it))
                                     }
                                 },
-                                onContinueReadingClicked = { it: LibraryManga ->
-                                    scope.launchIO {
-                                        val chapter = screenModel.getNextUnreadChapter(it.manga)
-                                        if (chapter != null) {
-                                            context.startActivity(
-                                                ReaderActivity.newIntent(context, chapter.mangaId, chapter.id),
-                                            )
-                                        } else {
-                                            snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))
-                                        }
-                                    }
-                                    Unit
-                                }.takeIf { !isNovels && state.showMangaContinueButton },
+                                onContinueReadingClicked = onMangaContinueReading
+                                    .takeIf { !isNovels && state.showMangaContinueButton },
                                 onToggleSelection = { category, manga -> if (!isNovels) screenModel.toggleSelection(category, manga) },
                                 onToggleRangeSelection = { category, manga ->
                                     if (!isNovels) {
