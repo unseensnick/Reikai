@@ -8,18 +8,24 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -29,6 +35,7 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -39,6 +46,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -48,13 +57,19 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.AppBarTitle
+import eu.kanade.presentation.components.DropdownMenu
+import eu.kanade.presentation.components.RadioMenuItem
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.browse.components.BrowseSourceLoadingItem
 import eu.kanade.presentation.library.components.CommonMangaItemDefaults
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import kotlinx.coroutines.flow.distinctUntilChanged
+import reikai.novel.host.NovelItem
+import reikai.presentation.novel.details.NovelCategoryDialog
+import reikai.presentation.novel.details.NovelDetailsDialog
 import reikai.presentation.novel.details.NovelScreen
+import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -83,6 +98,7 @@ class NovelBrowseScreen(
         val snackbarHostState = remember { SnackbarHostState() }
 
         var searchQuery by rememberSaveable { mutableStateOf<String?>(null) }
+        var selectingDisplayMode by remember { mutableStateOf(false) }
         // After "Open in WebView" (to clear Cloudflare), auto-retry the failed listing on return so the
         // user doesn't have to. Survives the activity stop the WebView causes.
         var pendingWebViewRetry by rememberSaveable { mutableStateOf(false) }
@@ -128,6 +144,17 @@ class NovelBrowseScreen(
                             AppBarActions(
                                 actions = buildList {
                                     add(
+                                        AppBar.Action(
+                                            title = stringResource(MR.strings.action_display_mode),
+                                            icon = if (screenModel.displayMode == LibraryDisplayMode.List) {
+                                                Icons.AutoMirrored.Filled.ViewList
+                                            } else {
+                                                Icons.Filled.ViewModule
+                                            },
+                                            onClick = { selectingDisplayMode = true },
+                                        ),
+                                    )
+                                    add(
                                         AppBar.OverflowAction(
                                             title = stringResource(MR.strings.action_open_in_web_view),
                                             onClick = onWebViewClick,
@@ -143,6 +170,33 @@ class NovelBrowseScreen(
                                     }
                                 },
                             )
+
+                            DropdownMenu(
+                                expanded = selectingDisplayMode,
+                                onDismissRequest = { selectingDisplayMode = false },
+                            ) {
+                                RadioMenuItem(
+                                    text = { Text(stringResource(MR.strings.action_display_comfortable_grid)) },
+                                    isChecked = screenModel.displayMode == LibraryDisplayMode.ComfortableGrid,
+                                ) {
+                                    selectingDisplayMode = false
+                                    screenModel.displayMode = LibraryDisplayMode.ComfortableGrid
+                                }
+                                RadioMenuItem(
+                                    text = { Text(stringResource(MR.strings.action_display_grid)) },
+                                    isChecked = screenModel.displayMode == LibraryDisplayMode.CompactGrid,
+                                ) {
+                                    selectingDisplayMode = false
+                                    screenModel.displayMode = LibraryDisplayMode.CompactGrid
+                                }
+                                RadioMenuItem(
+                                    text = { Text(stringResource(MR.strings.action_display_list)) },
+                                    isChecked = screenModel.displayMode == LibraryDisplayMode.List,
+                                ) {
+                                    selectingDisplayMode = false
+                                    screenModel.displayMode = LibraryDisplayMode.List
+                                }
+                            }
                         },
                         scrollBehavior = scrollBehavior,
                     )
@@ -190,12 +244,35 @@ class NovelBrowseScreen(
             NovelBrowseBody(
                 state = state,
                 sourceId = sourceId,
+                displayMode = screenModel.displayMode,
                 contentPadding = contentPadding,
                 onRetry = screenModel::retry,
                 onWebViewClick = onWebViewClick,
                 onResultClick = { navigator.push(NovelScreen(sourceId, it.path)) },
+                onLongClickItem = screenModel::onLongClickItem,
                 onLoadMore = screenModel::loadMore,
             )
+        }
+
+        when (val dialog = state.dialog) {
+            is NovelBrowseDialog.AddDuplicate -> DuplicateNovelDialog(
+                duplicates = dialog.duplicates,
+                sourceNames = dialog.sourceNames,
+                onDismissRequest = screenModel::dismissDialog,
+                onConfirm = { screenModel.addFromDuplicate(dialog.item) },
+                onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
+            )
+            is NovelBrowseDialog.ChangeCategory -> NovelCategoryDialog(
+                dialog = NovelDetailsDialog.ChangeCategory(dialog.allCategories, dialog.currentCategoryIds),
+                onDismiss = screenModel::dismissDialog,
+                onConfirm = { screenModel.applyCategories(dialog.novelId, it) },
+            )
+            is NovelBrowseDialog.RemoveNovel -> RemoveNovelDialog(
+                title = dialog.item.name,
+                onDismiss = screenModel::dismissDialog,
+                onConfirm = { screenModel.confirmRemove(dialog.item) },
+            )
+            null -> {}
         }
 
         val source = state.source
@@ -236,10 +313,12 @@ private fun ListingChip(
 private fun NovelBrowseBody(
     state: NovelBrowseState,
     sourceId: String,
+    displayMode: LibraryDisplayMode,
     contentPadding: PaddingValues,
     onRetry: () -> Unit,
     onWebViewClick: () -> Unit,
-    onResultClick: (reikai.novel.host.NovelItem) -> Unit,
+    onResultClick: (NovelItem) -> Unit,
+    onLongClickItem: (NovelItem) -> Unit,
     onLoadMore: () -> Unit,
 ) {
     when {
@@ -259,7 +338,41 @@ private fun NovelBrowseBody(
                 EmptyScreenAction(MR.strings.action_open_in_web_view, Icons.Outlined.Public, onWebViewClick),
             ),
         )
+        displayMode == LibraryDisplayMode.List -> {
+            val haptic = LocalHapticFeedback.current
+            val listState = rememberLazyListState()
+            LazyColumn(
+                state = listState,
+                contentPadding = contentPadding + PaddingValues(vertical = 8.dp),
+            ) {
+                items(items = state.novels, key = { it.path }) { item ->
+                    NovelBrowseListCell(
+                        item = item,
+                        inLibrary = (sourceId to item.path) in state.favoritedKeys,
+                        onClick = { onResultClick(item) },
+                        onLongClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onLongClickItem(item)
+                        },
+                    )
+                }
+                if (state.loadingMore) {
+                    item { BrowseSourceLoadingItem() }
+                }
+            }
+            LoadMoreOnScrollEnd(
+                totalItems = { listState.layoutInfo.totalItemsCount },
+                lastVisible = { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 },
+                key = state.novels,
+                onLoadMore = onLoadMore,
+            )
+        }
         else -> {
+            val haptic = LocalHapticFeedback.current
+            // CompactGrid + CoverOnlyGrid use the compact cell; Comfortable(+Panorama) the comfortable one
+            // (browse offers no panorama/cover-only toggle, but a restored pref could still carry them).
+            val compact = displayMode == LibraryDisplayMode.CompactGrid ||
+                displayMode == LibraryDisplayMode.CoverOnlyGrid
             val gridState = rememberLazyGridState()
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(128.dp),
@@ -269,12 +382,17 @@ private fun NovelBrowseBody(
                 horizontalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridHorizontalSpacer),
             ) {
                 items(items = state.novels, key = { it.path }) { item ->
-                    NovelBrowseGridCell(
-                        item = item,
-                        inLibrary = (sourceId to item.path) in state.favoritedKeys,
-                        onClick = { onResultClick(item) },
-                        onLongClick = { onResultClick(item) },
-                    )
+                    val inLibrary = (sourceId to item.path) in state.favoritedKeys
+                    val onClick = { onResultClick(item) }
+                    val onLongClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onLongClickItem(item)
+                    }
+                    if (compact) {
+                        NovelBrowseCompactGridCell(item, inLibrary, onClick, onLongClick)
+                    } else {
+                        NovelBrowseGridCell(item, inLibrary, onClick, onLongClick)
+                    }
                 }
                 if (state.loadingMore) {
                     item(span = { GridItemSpan(maxLineSpan) }) { BrowseSourceLoadingItem() }
@@ -288,6 +406,25 @@ private fun NovelBrowseBody(
             )
         }
     }
+}
+
+/** Confirm removing a favorited result from the library, the novel twin of `RemoveMangaDialog`. */
+@Composable
+private fun RemoveNovelDialog(title: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(MR.strings.are_you_sure)) },
+        text = { Text(stringResource(MR.strings.remove_manga, title)) },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onConfirm()
+                    onDismiss()
+                },
+            ) { Text(stringResource(MR.strings.action_remove)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.action_cancel)) } },
+    )
 }
 
 /**

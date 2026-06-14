@@ -3,6 +3,7 @@ package reikai.domain.novel
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.NovelWithChapterCount
 
 /**
  * Parallel of [tachiyomi.domain.manga.repository.MangaRepository] holding novels in a separate
@@ -14,6 +15,13 @@ interface NovelRepository {
     suspend fun getById(id: Long): Novel?
     suspend fun getByUrlAndSource(url: String, source: String): Novel?
     suspend fun getFavorites(): List<Novel>
+
+    /**
+     * Favorited novels whose title contains [title] (case-insensitive), excluding novel [id], each
+     * with its chapter count. Backs the browse "possible duplicates" dialog. Runs DB-side over the
+     * favorite partial index (mirrors the manga duplicate check) so it scales to large libraries.
+     */
+    suspend fun getDuplicateLibraryNovel(id: Long, title: String): List<NovelWithChapterCount>
 
     /** Reactive library read: favorited novels with chapter/unread/download counts + categories. */
     fun getLibraryNovelAsFlow(): Flow<List<LibraryNovel>>

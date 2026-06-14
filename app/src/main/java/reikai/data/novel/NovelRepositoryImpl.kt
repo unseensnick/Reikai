@@ -8,6 +8,7 @@ import logcat.LogPriority
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.NovelWithChapterCount
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
 import tachiyomi.data.subscribeToList
@@ -28,6 +29,9 @@ class NovelRepositoryImpl(
 
     override suspend fun getFavorites(): List<Novel> =
         database.novelsQueries.findFavorites(::mapNovel).awaitAsList()
+
+    override suspend fun getDuplicateLibraryNovel(id: Long, title: String): List<NovelWithChapterCount> =
+        database.novelsQueries.getDuplicateLibraryNovel(id, title, ::mapNovelWithChapterCount).awaitAsList()
 
     override fun getLibraryNovelAsFlow(): Flow<List<LibraryNovel>> =
         database.novelLibraryViewQueries.novelLibrary(::mapLibraryNovel).subscribeToList()

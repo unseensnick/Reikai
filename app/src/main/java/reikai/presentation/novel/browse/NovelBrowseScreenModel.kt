@@ -1,7 +1,10 @@
 package reikai.presentation.novel.browse
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import eu.kanade.core.preference.asState
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.JsonElement
@@ -9,6 +12,12 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.GetNovelCategories
+import reikai.domain.novel.interactor.SetNovelCategories
+import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.NovelCategory
+import reikai.domain.novel.model.NovelWithChapterCount
+import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.host.NovelItem
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
@@ -30,6 +39,12 @@ class NovelBrowseScreenModel(
     private val installer: LnPluginInstaller by injectLazy()
     private val manager: NovelSourceManager by injectLazy()
     private val novelRepository: NovelRepository by injectLazy()
+    private val getNovelCategories: GetNovelCategories by injectLazy()
+    private val setNovelCategories: SetNovelCategories by injectLazy()
+    private val reikaiSourcePreferences: ReikaiSourcePreferences by injectLazy()
+
+    /** Compose-observable display mode (comfortable / compact / list), persisted via [ReikaiSourcePreferences]. */
+    var displayMode by reikaiSourcePreferences.novelBrowseDisplayMode.asState(screenModelScope)
 
     init {
         // In-library marking: keep a set of favorited (source, url) keys so results already saved are
@@ -103,6 +118,78 @@ class NovelBrowseScreenModel(
     fun closeFilterSheet() = mutableState.update { it.copy(filterSheetOpen = false) }
     fun openSettingsSheet() = mutableState.update { it.copy(settingsSheetOpen = true) }
     fun closeSettingsSheet() = mutableState.update { it.copy(settingsSheetOpen = false) }
+
+    // --- Favorite from browse (long-press) ---
+
+    /** Long-press a result: if it's already in the library offer to remove it; otherwise check for
+     *  similarly-named library novels (the manga "possible duplicates" flow) before adding. */
+    fun onLongClickItem(item: NovelItem) {
+        screenModelScope.launchIO {
+            if ((sourceId to item.path) in state.value.favoritedKeys) {
+                mutableState.update { it.copy(dialog = NovelBrowseDialog.RemoveNovel(item)) }
+                return@launchIO
+            }
+            // -1: the item isn't favorited yet, so there's no library row to exclude (a non-favorite
+            // shadow row is excluded by the query's favorite=1 filter anyway).
+            val duplicates = novelRepository.getDuplicateLibraryNovel(-1L, item.name)
+            if (duplicates.isNotEmpty()) {
+                // Resolve display names here (sources are loaded by browse init) so the dialog stays DI-free.
+                val sourceNames = duplicates.associate { dup ->
+                    dup.novel.source to (manager.get(dup.novel.source)?.name ?: dup.novel.source)
+                }
+                mutableState.update { it.copy(dialog = NovelBrowseDialog.AddDuplicate(item, duplicates, sourceNames)) }
+            } else {
+                addToLibrary(item)
+            }
+        }
+    }
+
+    /** "Add anyway" from the duplicates dialog: add despite the similarly-named entries. */
+    fun addFromDuplicate(item: NovelItem) {
+        screenModelScope.launchIO { addToLibrary(item) }
+    }
+
+    /** Favorite the browse item (persisting a minimal row, full metadata fills on first details
+     *  open) and, if the user has categories, open the picker. insertOrGet may return a non-favorite
+     *  shadow row from a prior details open, so favorite is applied as a follow-up update. */
+    private suspend fun addToLibrary(item: NovelItem) {
+        val base = Novel.create().copy(
+            source = sourceId,
+            url = item.path,
+            title = item.name,
+            thumbnailUrl = item.cover,
+        )
+        val stored = novelRepository.insertOrGet(base) ?: return
+        if (!stored.favorite) {
+            novelRepository.update(stored.copy(favorite = true, dateAdded = System.currentTimeMillis()))
+        }
+        val categories = getNovelCategories.await().filter { it.id > 0L }
+        if (categories.isNotEmpty()) {
+            val current = getNovelCategories.awaitByNovelId(stored.id).map { it.id }.toSet()
+            mutableState.update { it.copy(dialog = NovelBrowseDialog.ChangeCategory(stored.id, categories, current)) }
+        } else {
+            mutableState.update { it.copy(dialog = null) }
+        }
+    }
+
+    fun applyCategories(novelId: Long, categoryIds: List<Long>) {
+        screenModelScope.launchIO {
+            setNovelCategories.await(novelId, categoryIds)
+            mutableState.update { it.copy(dialog = null) }
+        }
+    }
+
+    /** Remove a favorited result from the library (keeps the row + read state, like the manga side). */
+    fun confirmRemove(item: NovelItem) {
+        screenModelScope.launchIO {
+            novelRepository.getByUrlAndSource(item.path, sourceId)?.let {
+                novelRepository.update(it.copy(favorite = false))
+            }
+            mutableState.update { it.copy(dialog = null) }
+        }
+    }
+
+    fun dismissDialog() = mutableState.update { it.copy(dialog = null) }
 
     /** Re-run the current listing (popular/latest) or search after an error. */
     fun retry() {
@@ -200,10 +287,28 @@ data class NovelBrowseState(
     val favoritedKeys: Set<Pair<String, String>> = emptySet(),
     val filterSheetOpen: Boolean = false,
     val settingsSheetOpen: Boolean = false,
+    /** Active long-press dialog (add-duplicate / category picker / remove), or null. */
+    val dialog: NovelBrowseDialog? = null,
 ) {
     val showLatest: Boolean get() = listing == Listing.Latest
 
     enum class Listing { Popular, Latest }
+}
+
+/** Long-press dialogs for the novel browse grid, the novel twin of `BrowseSourceScreenModel.Dialog`. */
+sealed interface NovelBrowseDialog {
+    data class AddDuplicate(
+        val item: NovelItem,
+        val duplicates: List<NovelWithChapterCount>,
+        /** Source id -> display name for each duplicate's source (resolved in the model, dialog is DI-free). */
+        val sourceNames: Map<String, String>,
+    ) : NovelBrowseDialog
+    data class ChangeCategory(
+        val novelId: Long,
+        val allCategories: List<NovelCategory>,
+        val currentCategoryIds: Set<Long>,
+    ) : NovelBrowseDialog
+    data class RemoveNovel(val item: NovelItem) : NovelBrowseDialog
 }
 
 /**

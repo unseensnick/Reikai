@@ -60,6 +60,33 @@ FROM novels
 WHERE favorite = 1
 ORDER BY title;
 
+-- Novel twin of mangas.sq getDuplicateLibraryManga, minus the tracker CTE (novels are untracked):
+-- a title-substring match over favorited novels with each candidate's chapter count. DB-side and
+-- bounded by the favorite partial index, so it scales to large libraries instead of an in-memory scan.
+getDuplicateLibraryNovel:
+WITH duplicates AS (
+    SELECT N.*
+    FROM novels N
+    WHERE favorite = 1
+    AND _id != :id
+    AND lower(title) LIKE '%' || lower(:title) || '%'
+),
+chapter_counts AS (
+    SELECT
+        N._id AS novel_id,
+        count(*) AS chapter_count
+    FROM duplicates N
+    JOIN novel_chapters C
+    ON N._id = C.novel_id
+    GROUP BY N._id
+)
+SELECT
+    N.*,
+    coalesce(CC.chapter_count, 0) AS chapter_count
+FROM duplicates N
+LEFT JOIN chapter_counts CC
+ON N._id = CC.novel_id;
+
 insert:
 INSERT INTO novels (source, url, title, author, artist, description, genre, status, thumbnail_url, favorite, last_update, initialized, chapter_flags, date_added, update_strategy, cover_last_modified, total_pages, last_read_at, edited_flags)
 VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :favorite, :lastUpdate, :initialized, :chapterFlags, :dateAdded, :updateStrategy, :coverLastModified, :totalPages, :lastReadAt, :editedFlags);

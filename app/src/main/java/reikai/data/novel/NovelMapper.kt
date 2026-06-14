@@ -5,6 +5,7 @@ import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.NovelWithChapterCount
 
 /**
  * Mappers from the generated SQLDelight row types to the domain models. SQLDelight invokes these
@@ -121,6 +122,58 @@ fun mapLibraryNovel(
     downloadCount = downloadCount.toLong(),
     latestUpload = latestUpload,
     chapterFetchedAt = chapterFetchedAt,
+)
+
+/**
+ * Maps a `getDuplicateLibraryNovel` row to [NovelWithChapterCount]. The first 20 args are the
+ * `novels` columns (same order as [mapNovel]); the trailing arg is the joined chapter count.
+ */
+fun mapNovelWithChapterCount(
+    id: Long,
+    source: String,
+    url: String,
+    title: String,
+    author: String?,
+    artist: String?,
+    description: String?,
+    genre: List<String>?,
+    status: Long,
+    thumbnailUrl: String?,
+    favorite: Boolean,
+    lastUpdate: Long?,
+    initialized: Boolean,
+    chapterFlags: Long,
+    dateAdded: Long?,
+    updateStrategy: UpdateStrategy,
+    coverLastModified: Long,
+    totalPages: Long,
+    lastReadAt: Long?,
+    editedFlags: Long,
+    chapterCount: Long,
+): NovelWithChapterCount = NovelWithChapterCount(
+    novel = mapNovel(
+        id,
+        source,
+        url,
+        title,
+        author,
+        artist,
+        description,
+        genre,
+        status,
+        thumbnailUrl,
+        favorite,
+        lastUpdate,
+        initialized,
+        chapterFlags,
+        dateAdded,
+        updateStrategy,
+        coverLastModified,
+        totalPages,
+        lastReadAt,
+        editedFlags,
+    ),
+    chapterCount = chapterCount,
 )
 
 fun mapNovelChapter(

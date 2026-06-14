@@ -4,6 +4,7 @@ import reikai.domain.library.ContentType
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.getEnum
+import tachiyomi.domain.library.model.LibraryDisplayMode
 
 /**
  * Reikai's net-new Browse-scoped preferences. Kept separate from Mihon's
@@ -24,4 +25,16 @@ class ReikaiSourcePreferences(
     /** Sticky content-type filter on the unified download queue (manga + novels), its own key. */
     val downloadContentType: Preference<ContentType> =
         preferenceStore.getEnum("download_content_type", ContentType.ALL)
+
+    /**
+     * Display mode (comfortable / compact / list) for the per-source novel browse grid. Its own key,
+     * separate from Mihon's manga catalogue mode (`pref_display_mode_catalogue`), so the two surfaces
+     * remember independently. Stored via the [LibraryDisplayMode] serializer, mirroring the manga side.
+     */
+    val novelBrowseDisplayMode: Preference<LibraryDisplayMode> = preferenceStore.getObjectFromString(
+        "reikai_novel_browse_display_mode",
+        LibraryDisplayMode.default,
+        LibraryDisplayMode.Serializer::serialize,
+        LibraryDisplayMode.Serializer::deserialize,
+    )
 }
