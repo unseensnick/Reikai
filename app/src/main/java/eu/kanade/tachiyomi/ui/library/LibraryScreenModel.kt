@@ -524,7 +524,9 @@ class LibraryScreenModel(
     private fun List<LibraryItem>.applyGrouping(
         categories: List<Category>,
         showSystemCategory: Boolean,
+        // RK --> reveal hidden categories (a flags bit) when the user opts in
         showHiddenCategories: Boolean,
+        // RK <--
     ): Map<Category, List</* LibraryItem */ Long>> {
         val groupCache = mutableMapOf</* Category */ Long, MutableList</* LibraryItem */ Long>>()
         forEach { item ->
@@ -1155,11 +1157,14 @@ class LibraryScreenModel(
         private val groupedFavorites: List<Pair<Category, List</* LibraryItem */ Long>>> = emptyList(),
         // RK <--
     ) {
+        // RK --> derived from the ordered groupedFavorites list above (not a Map): keep an
+        // id-keyed lookup so getItemsForCategory/getItemCountForCategory stay O(1) after the switch.
         val displayedCategories: List<Category> = groupedFavorites.map { it.first }
 
         private val groupedFavoritesById: Map<Long, List<Long>> by lazy {
             groupedFavorites.associate { it.first.id to it.second }
         }
+        // RK <--
 
         val coercedActiveCategoryIndex = activeCategoryIndex.coerceIn(
             minimumValue = 0,
@@ -1186,10 +1191,12 @@ class LibraryScreenModel(
         }
 
         fun getItemsForCategory(category: Category): List<LibraryItem> {
+            // RK: look up by id (groupedFavorites is an ordered List, not a Map keyed by Category)
             return groupedFavoritesById[category.id].orEmpty().mapNotNull { libraryData.favoritesById[it] }
         }
 
         fun getItemCountForCategory(category: Category): Int? {
+            // RK: id-keyed lookup, see getItemsForCategory
             return if (showMangaCount || !searchQuery.isNullOrEmpty()) groupedFavoritesById[category.id]?.size else null
         }
 
