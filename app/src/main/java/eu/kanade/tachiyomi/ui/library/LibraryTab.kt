@@ -2,10 +2,12 @@ package eu.kanade.tachiyomi.ui.library
 
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
@@ -17,8 +19,10 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -224,6 +228,18 @@ data object LibraryTab : Tab {
                 )
                 // RK: stack the content-type chip under the toolbar so the Scaffold sizes
                 // contentPadding to include it and both library views render below it untouched.
+                // RK: match the toolbar's container color so the chip strip reads as part of it.
+                // Rest = surfaceColorAtElevation(0/3dp) (3dp in selection, mirroring AppBar's
+                // isActionMode); on scroll the toolbar tints to its scrolledContainerColor
+                // (M3 default surfaceContainer), only when it actually collapses (no category tabs).
+                val chipBackground by animateColorAsState(
+                    targetValue = if (!state.showCategoryTabs && scrollBehavior.state.overlappedFraction > 0.01f) {
+                        MaterialTheme.colorScheme.surfaceContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceColorAtElevation(if (state.selectionMode) 3.dp else 0.dp)
+                    },
+                    label = "libraryChipBackground",
+                )
                 Column {
                 LibraryToolbar(
                     // RK: novels have no filters yet (S6); manga keeps its filter indicator
@@ -263,6 +279,7 @@ data object LibraryTab : Tab {
                     selected = libraryContentType,
                     onSelect = novelModel::setContentType,
                     types = listOf(ContentType.MANGA, ContentType.NOVELS),
+                    modifier = Modifier.background(chipBackground),
                 )
                 }
             },
