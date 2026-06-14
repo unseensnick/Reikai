@@ -192,6 +192,12 @@ class MangaCoverFetcher(
             val sourceHeaders = sourceLazy.value?.headers
             if (sourceHeaders != null) {
                 headers(sourceHeaders)
+            } else {
+                // RK: no resolvable source (the light-novel cover disguise, or a stub source) means the
+                // fallback client sends the generic Mihon UA, which some image hosts stall on (e.g.
+                // novelbin only serves full covers to a real browser UA). Send the device WebView UA,
+                // mirroring what the LN plugin host does for its own fetches.
+                deviceUserAgent(options.context)?.let { header("User-Agent", it) }
             }
         }
 
@@ -358,3 +364,16 @@ class MangaCoverFetcher(
         private const val HTTP_NOT_MODIFIED = 304
     }
 }
+
+// RK --> device WebView User-Agent for source-less covers (the LN cover disguise / stub sources). Cached
+// per process; null on failure or blank so the caller just keeps the generic-UA fallback.
+@Volatile
+private var cachedDeviceUserAgent: String? = null
+
+private fun deviceUserAgent(context: android.content.Context): String? {
+    cachedDeviceUserAgent?.let { return it.ifBlank { null } }
+    val ua = runCatching { android.webkit.WebSettings.getDefaultUserAgent(context) }.getOrDefault("")
+    cachedDeviceUserAgent = ua
+    return ua.ifBlank { null }
+}
+// RK <--

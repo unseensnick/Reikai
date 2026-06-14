@@ -14,9 +14,9 @@ import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoresScreen
 import eu.kanade.tachiyomi.util.system.AuthenticatorUtil.authenticate
 import mihon.domain.extension.interactor.GetExtensionStoreCountAsFlow
+import reikai.domain.novel.NovelPreferences
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -34,8 +34,12 @@ object SettingsBrowseScreen : SearchableSettings {
 
         val sourcePreferences = remember { Injekt.get<SourcePreferences>() }
         val getExtensionStoreCountAsFlow = remember { Injekt.get<GetExtensionStoreCountAsFlow>() }
+        // RK: the Repos screen is unified (manga + light novel), so count both.
+        val novelPreferences = remember { Injekt.get<NovelPreferences>() }
 
         val reposCount by getExtensionStoreCountAsFlow().collectAsState(0)
+        val novelRepoUrls by novelPreferences.addedRepoUrls().changes()
+            .collectAsState(novelPreferences.addedRepoUrls().get())
 
         return listOf(
             Preference.PreferenceGroup(
@@ -47,7 +51,12 @@ object SettingsBrowseScreen : SearchableSettings {
                     ),
                     Preference.PreferenceItem.TextPreference(
                         title = stringResource(MR.strings.extensionStores),
-                        subtitle = pluralStringResource(MR.plurals.num_repos, reposCount.toInt(), reposCount),
+                        // RK: show manga + light-novel repo counts (the Repos screen holds both).
+                        subtitle = stringResource(
+                            MR.strings.extension_repos_subtitle,
+                            reposCount.toInt(),
+                            novelRepoUrls.size,
+                        ),
                         onClick = {
                             navigator.push(ExtensionStoresScreen())
                         },

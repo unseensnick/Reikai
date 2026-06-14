@@ -81,6 +81,7 @@ import reikai.presentation.library.updateerror.UpdateErrorsScreen
 import reikai.presentation.library.reikaiCategoryHeaderIndices
 import reikai.presentation.library.reikaiIsCollapsed
 import reikai.presentation.library.reikaiSortCategories
+import reikai.domain.novel.model.NovelCategory
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
 // RK <--
@@ -541,19 +542,48 @@ data object LibraryTab : Tab {
                                     hopperTarget = ((hopperTarget ?: currentCategoryIndex()) - 1).coerceIn(0, last)
                                 },
                                 onCenterClick = { pickerOpen = true },
+                                // RK: every hopper long-press action is content-aware (novel vs manga).
                                 onCenterLongClick = {
                                     when (state.reikai.hopperLongPressAction) {
-                                        0 -> screenModel.search("")
-                                        1 -> screenModel.toggleAllCategoriesCollapsed(state.displayedCategories)
-                                        2 -> screenModel.showSettingsDialog(initialTab = 2)
-                                        3 -> screenModel.showSettingsDialog(initialTab = 3)
+                                        0 -> if (isNovels) novelModel.search("") else screenModel.search("")
+                                        1 -> if (isNovels) {
+                                            novelModel.toggleAllCategoriesCollapsed(novelState.displayedCategories)
+                                        } else {
+                                            screenModel.toggleAllCategoriesCollapsed(state.displayedCategories)
+                                        }
+                                        2 -> if (isNovels) {
+                                            novelModel.openSettingsDialog(
+                                                novelState.activeCategory?.id ?: NovelCategory.UNCATEGORIZED_ID,
+                                                2,
+                                            )
+                                        } else {
+                                            screenModel.showSettingsDialog(initialTab = 2)
+                                        }
+                                        3 -> if (isNovels) {
+                                            novelModel.openSettingsDialog(
+                                                novelState.activeCategory?.id ?: NovelCategory.UNCATEGORIZED_ID,
+                                                3,
+                                            )
+                                        } else {
+                                            screenModel.showSettingsDialog(initialTab = 3)
+                                        }
                                         4 -> scope.launch {
-                                            val item = screenModel.getRandomLibraryItemForCurrentCategory()
-                                            if (item != null) navigator.push(MangaScreen(item.libraryManga.manga.id))
+                                            if (isNovels) {
+                                                novelState.randomRouteInCategory(novelState.activeCategory?.id)
+                                                    ?.let { navigator.push(NovelScreen(it.source, it.url)) }
+                                            } else {
+                                                screenModel.getRandomLibraryItemForCurrentCategory()
+                                                    ?.let { navigator.push(MangaScreen(it.libraryManga.manga.id)) }
+                                            }
                                         }
                                         5 -> scope.launch {
-                                            val item = screenModel.getRandomLibraryItem()
-                                            if (item != null) navigator.push(MangaScreen(item.libraryManga.manga.id))
+                                            if (isNovels) {
+                                                novelState.randomRoute()
+                                                    ?.let { navigator.push(NovelScreen(it.source, it.url)) }
+                                            } else {
+                                                screenModel.getRandomLibraryItem()
+                                                    ?.let { navigator.push(MangaScreen(it.libraryManga.manga.id)) }
+                                            }
                                         }
                                     }
                                 },

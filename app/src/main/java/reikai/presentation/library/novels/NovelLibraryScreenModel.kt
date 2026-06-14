@@ -32,6 +32,7 @@ import reikai.domain.novel.model.NovelLibrarySort
 import reikai.domain.novel.model.comparator
 import reikai.domain.novel.model.toCategory
 import reikai.novel.download.NovelDownloadManager
+import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
@@ -42,6 +43,7 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
+import java.util.Locale
 import kotlin.random.Random
 
 /**
@@ -69,6 +71,7 @@ class NovelLibraryScreenModel :
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
     private val sourceManager: NovelSourceManager by injectLazy()
     private val mergeManager: NovelMergeManager by injectLazy()
+    private val installer: LnPluginInstaller by injectLazy()
 
     /** Sticky Manga/Novels chip for the Library tab (owned here so it's read outside a Composable). */
     val contentType: StateFlow<ContentType> = reikaiLibraryPreferences.libraryContentType.changes()
@@ -88,10 +91,14 @@ class NovelLibraryScreenModel :
     val dialog: StateFlow<Dialog?> = mutableDialog.asStateFlow()
 
     init {
+        // Load the plugin host so the library can resolve each novel's source (lang + source-icon
+        // badges); the source flow below re-emits buildState once the sources register.
+        screenModelScope.launchIO { runCatching { installer.ensureLoaded() } }
         screenModelScope.launchIO {
             combine(
                 getNovelCategories.subscribe(),
-                novelRepository.getLibraryNovelAsFlow(),
+                // Re-emit when sources (un)register so `sourceManager.get(...)` resolves once loaded.
+                novelRepository.getLibraryNovelAsFlow().combine(sourceManager.sources) { library, _ -> library },
                 searchQuery,
                 selection,
                 settingsFlow(),
@@ -164,7 +171,9 @@ class NovelLibraryScreenModel :
         val novelById = collapsed.associate { -it.representative.novel.id to it.representative }
         val items = collapsed.map { group ->
             val rep = group.representative
-            val lang = sourceManager.get(rep.novel.source)?.lang.orEmpty()
+            // lnreader plugins mostly declare lang as a full English name ("English"); the badge wants a
+            // 2-char code like the manga side, so reduce it (codes pass through unchanged).
+            val lang = languageCodeOf(sourceManager.get(rep.novel.source)?.lang.orEmpty())
             val item = rep.toLibraryItem(settings.badges.download, settings.badges.unread, settings.badges.language, lang)
             if (group.memberIds.size > 1) {
                 // Stamp the merge badge (group member ids, negative) + summed downloads onto the rep.
@@ -193,7 +202,11 @@ class NovelLibraryScreenModel :
             }
         }
 
-        val defaultCategory = Category(NovelCategory.UNCATEGORIZED_ID, context.stringResource(MR.strings.label_default), 0L, 0L)
+        // Encode the resolved default sort into the synthesized Default category's flags so its header
+        // label reflects the actual sort (it's stored in a global pref, not a DB row). NovelLibrarySort
+        // mirrors LibrarySort's bit layout, so the shared header's `category.sort` decodes it correctly.
+        val defaultCategory =
+            Category(NovelCategory.UNCATEGORIZED_ID, context.stringResource(MR.strings.label_default), 0L, settings.defaultSort)
         val visibleCategories = if (settings.showHidden) {
             categories
         } else {
@@ -280,6 +293,12 @@ class NovelLibraryScreenModel :
 
     fun toggleCategoryCollapse(headerKey: String) {
         collapsedCategories.update { if (headerKey in it) it - headerKey else it + headerKey }
+    }
+
+    /** Collapse all categories if any is expanded, else expand all (the hopper "toggle collapse"). */
+    fun toggleAllCategoriesCollapsed(categories: List<Category>) {
+        val keys = categories.map { it.id.toString() }.toSet()
+        collapsedCategories.update { current -> if (current.containsAll(keys)) current - keys else current + keys }
     }
 
     fun updateActiveCategoryIndex(index: Int) {
@@ -548,6 +567,13 @@ class NovelLibraryScreenModel :
 
         /** (source, url) for the disguised item id (negative), to open the novel details screen. */
         fun routeFor(itemId: Long): NovelRoute? = novelRoutes[itemId]
+
+        /** A random favorited novel's route (the hopper "random, global" action). */
+        fun randomRoute(): NovelRoute? = novelRoutes.values.randomOrNull()
+
+        /** A random novel route within [categoryId] (the hopper "random, in category" action). */
+        fun randomRouteInCategory(categoryId: Long?): NovelRoute? =
+            itemIdsForCategory(categoryId).randomOrNull()?.let { routeFor(it) }
     }
 
     data class NovelRoute(val source: String, val url: String)
@@ -559,4 +585,17 @@ private fun LibraryNovel.matchesQuery(query: String): Boolean {
         (n.author?.contains(query, true) ?: false) ||
         (n.artist?.contains(query, true) ?: false) ||
         (n.genre?.any { it.contains(query, true) } ?: false)
+}
+
+/**
+ * Reduce an lnreader language value to a 2-char ISO 639-1 code for the library badge. Plugins mostly
+ * declare a full English name ("English", "Turkish"); reverse-map it. Values already short (a code) pass
+ * through; an unmatched name falls back to its first two chars.
+ */
+private fun languageCodeOf(value: String): String {
+    if (value.isBlank() || value.length <= 3) return value
+    val match = Locale.getISOLanguages().firstOrNull {
+        Locale.forLanguageTag(it).getDisplayLanguage(Locale.ENGLISH).equals(value, ignoreCase = true)
+    }
+    return match ?: value.take(2)
 }
