@@ -16,6 +16,8 @@ Android manga + light-novel reader. Personal fork built on [Mihon](https://githu
 
 **Offload long or hard tasks to subagents.** When a task requires deep codebase exploration, multi-file research, or extended multi-step work, spawn a subagent (`Agent` tool). This keeps the main context window clean.
 
+**Explain in plain English, without dumbing down.** Default to clear everyday language: spell out what something does and why it matters before naming the construct, define jargon the first time, and prefer a concrete analogy over a term of art (the user is newer to Kotlin/Android). Plain English does NOT mean less substance: keep the real technical detail, the tradeoffs, the failure modes, and the `file:line` citations. The goal is that someone can follow the reasoning without already knowing the codebase, not that the content is thinner. When presenting findings or a plan, lead with the plain-English picture; the precise function/file names are support, not the headline.
+
 ## Architecture in brief
 
 Mihon is **Compose + Voyager throughout**: there is no Conductor `*Controller` / RxJava `*Presenter` legacy layer to migrate from. Screens are Voyager `Screen` / `Tab` classes backed by a `ScreenModel`. DI is **Injekt**. Domain models are immutable (`tachiyomi.domain.*.model`). Preferences go through `PreferenceStore` and typed `*Preferences` classes. Persistence is SQLDelight. Full detail: [.claude/rules/architecture.md](.claude/rules/architecture.md).
