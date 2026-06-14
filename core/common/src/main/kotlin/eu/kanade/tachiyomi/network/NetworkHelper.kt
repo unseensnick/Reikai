@@ -69,8 +69,6 @@ class NetworkHelper(
         }
     }
 
-    val nonCloudflareClient = clientBuilder.build()
-
     val client = clientBuilder
         .addInterceptor(
             // RK --> pass preferences + the FlareSolverr client for the FS bypass path

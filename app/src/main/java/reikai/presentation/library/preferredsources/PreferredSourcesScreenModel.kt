@@ -32,8 +32,8 @@ class PreferredSourcesScreenModel(
 
     init {
         screenModelScope.launchIO {
-            combine(sourceManager.catalogueSources, pref.changes()) { sources, ordered ->
-                buildState(sources, ordered)
+            combine(sourceManager.sources, pref.changes()) { sources, ordered ->
+                buildState(sources.filterIsInstance<CatalogueSource>(), ordered)
             }.collectLatest { success -> mutableState.update { success } }
         }
     }
