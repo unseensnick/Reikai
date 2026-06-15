@@ -66,6 +66,20 @@ class NovelReaderScreenModel(
     /** Chapter ids in reading order, loaded once on first [load]. */
     private var orderedIds: List<Long> = emptyList()
 
+    private val skipDupePref = novelPreferences.readerSkipDuplicateChapters()
+
+    /** Reading-order number of the current chapter; the skip-duplicate walk compares against it. */
+    @Volatile
+    private var currentNumber: Double = -1.0
+
+    /** The chapters [next] / [prev] jump to, re-resolved (skip-duplicate aware) whenever the chapter or
+     *  the skip-duplicate pref changes, so the buttons stay instant. */
+    @Volatile
+    private var resolvedPrev: Long? = null
+
+    @Volatile
+    private var resolvedNext: Long? = null
+
     /** Sources resolved lazily per novelId. A merged reading session walks chapters from several
      *  novels, each with its own source, so cache per novelId rather than once. */
     private val sourcesByNovel: MutableMap<Long, NovelSource> =
@@ -131,18 +145,34 @@ class NovelReaderScreenModel(
 
     fun retry() = load()
 
-    fun next() = neighbor(+1)?.let { goTo(it) } ?: Unit
-    fun prev() = neighbor(-1)?.let { goTo(it) } ?: Unit
+    fun next() = resolvedNext?.let { goTo(it) } ?: Unit
+    fun prev() = resolvedPrev?.let { goTo(it) } ?: Unit
 
     private fun goTo(id: Long) {
         currentId = id
         load()
     }
 
-    private fun neighbor(delta: Int): Long? {
-        val index = orderedIds.indexOf(currentId)
+    /** The id [delta] steps from [currentId] in reading order. With skip-duplicate on, keeps walking
+     *  past chapters whose number matches the current one (the same-number dupes a merge produces). */
+    private suspend fun resolveNeighbor(delta: Int): Long? {
+        var index = orderedIds.indexOf(currentId)
         if (index < 0) return null
-        return orderedIds.getOrNull(index + delta)
+        val skip = skipDupePref.get()
+        while (true) {
+            index += delta
+            val id = orderedIds.getOrNull(index) ?: return null
+            if (!skip || currentNumber <= 0.0) return id
+            val number = chapterRepo.getById(id)?.chapterNumber
+            if (number == null || number <= 0.0 || number != currentNumber) return id
+        }
+    }
+
+    /** Re-resolve both neighbors (skip-duplicate aware) and warm the next chapter. */
+    private suspend fun resolveBothNeighbors() {
+        resolvedPrev = resolveNeighbor(-1)
+        resolvedNext = resolveNeighbor(+1)
+        prefetchNext()
     }
 
     fun setFontSize(value: Int) = novelPreferences.readerFontSize().set(value)
@@ -178,32 +208,34 @@ class NovelReaderScreenModel(
 
     private fun load() {
         mutableState.value = NovelReaderState.Loading
-        screenModelScope.launchIO {
-            mutableState.value = try {
-                if (orderedIds.isEmpty()) {
-                    orderedIds = if (orderedChapterIds.isNotEmpty()) {
-                        orderedChapterIds.toList()
-                    } else {
-                        chapterRepo.getByNovelId(novelId).map { it.id }
-                    }
+        screenModelScope.launchIO { loadCurrent() }
+    }
+
+    private suspend fun loadCurrent() {
+        mutableState.value = try {
+            if (orderedIds.isEmpty()) {
+                orderedIds = if (orderedChapterIds.isNotEmpty()) {
+                    orderedChapterIds.toList()
+                } else {
+                    chapterRepo.getByNovelId(novelId).map { it.id }
                 }
-                val id = currentId
-                val chapter = chapterRepo.getById(id) ?: error("Chapter not found")
-                val (html, baseUrl) = htmlCache[id] ?: loadChapterHtml(chapter).also { htmlCache[id] = it }
-                val index = orderedIds.indexOf(id)
-                prefetchNext(index)
-                NovelReaderState.Loaded(
-                    chapterTitle = chapter.name,
-                    html = html,
-                    baseUrl = baseUrl,
-                    // Stored as 0..10000 (hundredths of a percent); the web layer wants 0..100.
-                    initialProgressPercent = (chapter.lastTextProgress / 100).coerceIn(0L, 100L).toInt(),
-                    hasPrev = index > 0,
-                    hasNext = index in 0 until orderedIds.lastIndex,
-                )
-            } catch (e: Throwable) {
-                NovelReaderState.Failed(e.message ?: "Failed to load chapter")
             }
+            val id = currentId
+            val chapter = chapterRepo.getById(id) ?: error("Chapter not found")
+            currentNumber = chapter.chapterNumber
+            val (html, baseUrl) = htmlCache[id] ?: loadChapterHtml(chapter).also { htmlCache[id] = it }
+            resolveBothNeighbors()
+            NovelReaderState.Loaded(
+                chapterTitle = chapter.name,
+                html = html,
+                baseUrl = baseUrl,
+                // Stored as 0..10000 (hundredths of a percent); the web layer wants 0..100.
+                initialProgressPercent = (chapter.lastTextProgress / 100).coerceIn(0L, 100L).toInt(),
+                hasPrev = resolvedPrev != null,
+                hasNext = resolvedNext != null,
+            )
+        } catch (e: Throwable) {
+            NovelReaderState.Failed(e.message ?: "Failed to load chapter")
         }
     }
 
@@ -229,10 +261,10 @@ class NovelReaderScreenModel(
         return resolved
     }
 
-    /** Warm the next chapter into the cache off-thread (skipped if already cached). One speculative
-     *  request per chapter open, so it stays gentle on the source. */
-    private fun prefetchNext(currentIndex: Int) {
-        val nextId = orderedIds.getOrNull(currentIndex + 1) ?: return
+    /** Warm the resolved next chapter into the cache off-thread (skipped if already cached). One
+     *  speculative request per chapter open, so it stays gentle on the source. */
+    private fun prefetchNext() {
+        val nextId = resolvedNext ?: return
         if (htmlCache.containsKey(nextId)) return
         screenModelScope.launchIO {
             runCatching {

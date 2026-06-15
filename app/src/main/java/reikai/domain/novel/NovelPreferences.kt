@@ -91,6 +91,10 @@ class NovelPreferences(
     fun readerBackgroundColor() = preferenceStore.getString("ln_reader_bg_color", "#292832")
     fun readerTextColor() = preferenceStore.getString("ln_reader_text_color", "#CCCCCC")
 
+    /** When on, the reader's next/previous skip a chapter whose number matches the one just read (the
+     *  same-number duplicates a cross-source merge produces). Reading-navigation only, non-destructive. */
+    fun readerSkipDuplicateChapters() = preferenceStore.getBoolean("ln_reader_skip_duplicate_chapters", false)
+
     // Downloads (S5). Key strings preserved from the Yōkai-era fork for upgrade continuity.
 
     /** Delete a downloaded chapter's offline copy once it's marked read. */

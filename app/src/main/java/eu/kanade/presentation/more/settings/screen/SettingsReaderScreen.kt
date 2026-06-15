@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
+import reikai.domain.novel.NovelPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
@@ -28,6 +29,8 @@ object SettingsReaderScreen : SearchableSettings {
     @Composable
     override fun getPreferences(): List<Preference> {
         val readerPref = remember { Injekt.get<ReaderPreferences>() }
+        // RK: novel reader prefs, for the light-novel twin of the skip-duplicate toggle
+        val novelPref = remember { Injekt.get<NovelPreferences>() }
 
         return listOf(
             Preference.PreferenceItem.ListPreference(
@@ -61,7 +64,7 @@ object SettingsReaderScreen : SearchableSettings {
             ),
             getDisplayGroup(readerPreferences = readerPref),
             getEInkGroup(readerPreferences = readerPref),
-            getReadingGroup(readerPreferences = readerPref),
+            getReadingGroup(readerPreferences = readerPref, novelPreferences = novelPref),
             getPagedGroup(readerPreferences = readerPref),
             getWebtoonGroup(readerPreferences = readerPref),
             getNavigationGroup(readerPreferences = readerPref),
@@ -174,7 +177,10 @@ object SettingsReaderScreen : SearchableSettings {
     }
 
     @Composable
-    private fun getReadingGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
+    private fun getReadingGroup(
+        readerPreferences: ReaderPreferences,
+        novelPreferences: NovelPreferences, // RK: for the light-novel skip-duplicate twin
+    ): Preference.PreferenceGroup {
         // RK: collected for the preload slider (Y-feature)
         val preloadSizePref = readerPreferences.preloadSize
         val preloadSize by preloadSizePref.collectAsState()
@@ -192,8 +198,17 @@ object SettingsReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.skipDupe,
                     title = stringResource(MR.strings.pref_skip_dupe_chapters),
+                    // RK: subtitle differentiates the manga toggle from the light-novel twin below
+                    subtitle = stringResource(MR.strings.content_type_manga),
                 ),
                 // RK -->
+                // Light-novel twin: skips a chapter whose number repeats the one just read when paging
+                // a merged novel's cross-source list.
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerSkipDuplicateChapters(),
+                    title = stringResource(MR.strings.pref_skip_dupe_chapters),
+                    subtitle = stringResource(MR.strings.content_type_novels),
+                ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.markReadOnSkip,
                     title = stringResource(MR.strings.pref_mark_read_on_skip),
