@@ -42,6 +42,7 @@ class NovelCoverFetcher(
     private val isLibraryNovel: Boolean,
     private val options: Options,
     private val coverFileLazy: Lazy<File?>,
+    private val customCoverFileLazy: Lazy<File>,
     private val diskCacheKeyLazy: Lazy<String>,
     private val callFactoryLazy: Lazy<Call.Factory>,
     private val imageLoader: ImageLoader,
@@ -50,6 +51,11 @@ class NovelCoverFetcher(
     private val diskCacheKey: String get() = diskCacheKeyLazy.value
 
     override suspend fun fetch(): FetchResult {
+        // A user-set custom cover takes precedence over the source cover (matches MangaCoverFetcher).
+        // Browse passes novelId 0, whose custom-file path never exists, so the stat is a cheap no-op.
+        if (customCoverFileLazy.value.exists()) {
+            return fileLoader(customCoverFileLazy.value)
+        }
         if (url.isNullOrEmpty()) error("No cover specified")
         return httpLoader()
     }
@@ -209,6 +215,8 @@ class NovelCoverFetcher(
                 isLibraryNovel = data.isNovelFavorite,
                 options = options,
                 coverFileLazy = lazy { coverCache.getCoverFile(data.url) },
+                // Custom cover cached under the negated novel id (avoids manga-id collision).
+                customCoverFileLazy = lazy { coverCache.getCustomCoverFile(-data.novelId) },
                 diskCacheKeyLazy = lazy { imageLoader.components.key(data, options)!! },
                 callFactoryLazy = callFactoryLazy,
                 imageLoader = imageLoader,

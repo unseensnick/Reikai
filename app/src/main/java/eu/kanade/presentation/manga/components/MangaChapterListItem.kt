@@ -64,6 +64,9 @@ fun MangaChapterListItem(
     onDownloadClick: ((ChapterDownloadAction) -> Unit)?,
     onChapterSwipe: (LibraryPreferences.ChapterSwipeAction) -> Unit,
     modifier: Modifier = Modifier,
+    // RK: novels center single-line rows (no date/source subtitle) so the title and download icon
+    // line up; manga keeps the default top alignment (its rows usually carry a date subtitle).
+    verticalAlignment: Alignment.Vertical = Alignment.Top,
 ) {
     val start = getSwipeAction(
         action = chapterSwipeStartAction,
@@ -97,6 +100,7 @@ fun MangaChapterListItem(
                     onLongClick = onLongClick,
                 )
                 .padding(start = 16.dp, top = 12.dp, end = 8.dp, bottom = 12.dp),
+            verticalAlignment = verticalAlignment, // RK
         ) {
             Column(
                 modifier = Modifier.weight(1f),

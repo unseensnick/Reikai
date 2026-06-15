@@ -4,6 +4,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.FlipToBack
 import androidx.compose.material.icons.outlined.SelectAll
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.surfaceColorAtElevation
@@ -84,11 +86,12 @@ fun NovelToolbar(
                             ),
                         )
                         // Unhide only when every selected row is already hidden (reachable via the
-                        // "Show hidden chapters" view); otherwise the action hides them.
+                        // "Show hidden chapters" view); otherwise the action hides them. Uses the same
+                        // eye / eye-off icons as the category list (CategoryListItem).
                         if (allHiddenSelected) {
-                            add(AppBar.OverflowAction(title = "Unhide", onClick = onUnhide))
+                            add(AppBar.Action(title = "Unhide", icon = Icons.Outlined.Visibility, onClick = onUnhide))
                         } else {
-                            add(AppBar.OverflowAction(title = "Hide", onClick = onHide))
+                            add(AppBar.Action(title = "Hide", icon = Icons.Outlined.VisibilityOff, onClick = onHide))
                         }
                         return@buildList
                     }

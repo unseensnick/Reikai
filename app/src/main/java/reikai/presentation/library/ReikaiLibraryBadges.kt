@@ -140,6 +140,8 @@ fun libraryCoverModel(item: LibraryItem): Any {
             site = item.badges.coverSite,
             isNovelFavorite = manga.favorite,
             lastModified = manga.coverLastModified,
+            // The library disguises a novel as a negative-id Manga; recover the real novel id.
+            novelId = -manga.id,
         )
     } else {
         MangaCover(

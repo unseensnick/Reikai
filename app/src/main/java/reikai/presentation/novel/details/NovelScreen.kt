@@ -1,6 +1,8 @@
 package reikai.presentation.novel.details
 
 import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -41,6 +43,8 @@ import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
+import eu.kanade.presentation.components.relativeDateText
+import eu.kanade.presentation.manga.EditCoverAction
 import eu.kanade.presentation.manga.components.ChapterHeader
 import eu.kanade.presentation.manga.components.ExpandableMangaDescription
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
@@ -50,9 +54,11 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
+import eu.kanade.tachiyomi.util.system.copyToClipboard
+import reikai.data.coil.NovelCover
 import reikai.domain.novel.model.NovelChapter
+import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
-import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.TwoPanelBox
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -60,8 +66,6 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.shouldExpandFAB
-import java.text.DateFormat
-import java.util.Date
 
 /**
  * Light-novel details screen, the novel twin of `MangaScreen` (single-source for now). Mirrors the
@@ -105,6 +109,8 @@ class NovelScreen(
                         )
                     }
                 }
+                val onSearch: (String) -> Unit = { query -> navigator.push(NovelGlobalSearchScreen(query)) }
+                val onCopy: (String) -> Unit = { text -> context.copyToClipboard(text, text) }
                 val onChapterClick: (NovelChapter) -> Unit = { chapter ->
                     // Route to the chapter's own source (a unified-list row keeps its owning novelId)
                     // and hand the reader the chapters in READING order (ascending sourceOrder, the
@@ -120,12 +126,13 @@ class NovelScreen(
                 }
 
                 if (isTabletUi()) {
-                    NovelDetailsLargeImpl(s, screenModel, navigator::pop, onWebView, onShare, onChapterClick)
+                    NovelDetailsLargeImpl(s, screenModel, navigator::pop, onWebView, onShare, onSearch, onCopy, onChapterClick)
                 } else {
-                    NovelDetailsSmallImpl(s, screenModel, navigator::pop, onWebView, onShare, onChapterClick)
+                    NovelDetailsSmallImpl(s, screenModel, navigator::pop, onWebView, onShare, onSearch, onCopy, onChapterClick)
                 }
 
                 NovelDetailsDialogs(s, screenModel)
+                NovelCoverDialogHost(s, screenModel::dismissDialog)
             }
         }
     }
@@ -138,6 +145,8 @@ private fun NovelDetailsSmallImpl(
     onBack: () -> Unit,
     onWebView: () -> Unit,
     onShare: () -> Unit,
+    onSearch: (String) -> Unit,
+    onCopy: (String) -> Unit,
     onChapterClick: (NovelChapter) -> Unit,
 ) {
     val listState = rememberLazyListState()
@@ -163,7 +172,7 @@ private fun NovelDetailsSmallImpl(
     ) { contentPadding ->
         // The list applies the full inset (incl. top), so the info box gets no extra app-bar padding.
         LazyColumn(state = listState, contentPadding = contentPadding) {
-            novelInfoItems(state, screenModel, onWebView, onShare, isTabletUi = false, appBarPadding = 0.dp)
+            novelInfoItems(state, screenModel, onWebView, onShare, onSearch, onCopy, isTabletUi = false, appBarPadding = 0.dp)
             novelChapterHeaderItems(state, screenModel)
             novelChapterItems(state, screenModel, onChapterClick)
         }
@@ -177,6 +186,8 @@ private fun NovelDetailsLargeImpl(
     onBack: () -> Unit,
     onWebView: () -> Unit,
     onShare: () -> Unit,
+    onSearch: (String) -> Unit,
+    onCopy: (String) -> Unit,
     onChapterClick: (NovelChapter) -> Unit,
 ) {
     val chapterListState = rememberLazyListState()
@@ -208,6 +219,8 @@ private fun NovelDetailsLargeImpl(
                         screenModel,
                         onWebView,
                         onShare,
+                        onSearch,
+                        onCopy,
                         isTabletUi = true,
                         appBarPadding = contentPadding.calculateTopPadding(),
                     )
@@ -340,7 +353,45 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: No
             onRemoveFromLibrary = screenModel::removeSourcesFromLibrary,
             onRemoveAll = screenModel::removeAllSourcesFromLibrary,
         )
+        // Rendered by NovelCoverDialogHost: rememberScreenModel needs the Screen receiver, absent here.
+        NovelDetailsDialog.FullCover -> Unit
         null -> {}
+    }
+}
+
+/** Full-cover dialog host. A `Screen` extension so `rememberScreenModel` resolves (it needs a Screen
+ *  receiver); the manga side renders its FullCover dialog inside its Voyager screen for the same reason. */
+@Composable
+private fun Screen.NovelCoverDialogHost(state: NovelDetailsState.Loaded, onDismiss: () -> Unit) {
+    if (state.dialog !is NovelDetailsDialog.FullCover) return
+    val context = LocalContext.current
+    val display = state.displayNovel
+    val coverScreenModel = rememberScreenModel { NovelCoverScreenModel(display.url, display.source, state.sourceUrl) }
+    val novel by coverScreenModel.state.collectAsState()
+    novel?.let { n ->
+        val getContent = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null) coverScreenModel.editCover(context, uri)
+        }
+        NovelCoverDialog(
+            cover = NovelCover(
+                url = n.thumbnailUrl,
+                site = state.sourceUrl,
+                isNovelFavorite = n.favorite,
+                lastModified = n.coverLastModified,
+                novelId = n.id,
+            ),
+            isCustomCover = remember(n) { coverScreenModel.hasCustomCover() },
+            snackbarHostState = coverScreenModel.snackbarHostState,
+            onShareClick = { coverScreenModel.shareCover(context) },
+            onSaveClick = { coverScreenModel.saveCover(context) },
+            onEditClick = {
+                when (it) {
+                    EditCoverAction.EDIT -> getContent.launch("image/*")
+                    EditCoverAction.DELETE -> coverScreenModel.deleteCustomCover(context)
+                }
+            },
+            onDismissRequest = onDismiss,
+        )
     }
 }
 
@@ -352,6 +403,8 @@ private fun LazyListScope.novelInfoItems(
     screenModel: NovelDetailsScreenModel,
     onWebView: () -> Unit,
     onShare: () -> Unit,
+    onSearch: (String) -> Unit,
+    onCopy: (String) -> Unit,
     isTabletUi: Boolean,
     appBarPadding: Dp,
 ) {
@@ -363,7 +416,9 @@ private fun LazyListScope.novelInfoItems(
             novel = display,
             sourceName = state.sourceName,
             sourceSite = state.sourceUrl,
-            onCoverClick = {},
+            onCoverClick = screenModel::showCoverDialog,
+            onSearch = onSearch,
+            onCopy = onCopy,
         )
     }
     item(key = "actions") {
@@ -380,8 +435,8 @@ private fun LazyListScope.novelInfoItems(
             description = display.description,
             tagsProvider = { display.genre },
             notes = "",
-            onTagSearch = {},
-            onCopyTagToClipboard = {},
+            onTagSearch = onSearch,
+            onCopyTagToClipboard = { onCopy(it) },
             onEditNotes = {},
         )
     }
@@ -467,14 +522,16 @@ private fun LazyListScope.novelChapterItems(
     screenModel: NovelDetailsScreenModel,
     onChapterClick: (NovelChapter) -> Unit,
 ) {
+    // In the unified merged view, label each pooled chapter with its origin source (the scanlator
+    // slot). Single-source / per-source-chip views show nothing (the label would be redundant).
+    val showSource = state.mergeSources.size > 1 && state.selectedSourceNovelId == null
+    val sourceNames = if (showSource) state.mergeSources.associate { it.novelId to it.sourceName } else emptyMap()
     items(items = state.chapters, key = { "chapter-${it.id}" }) { chapter ->
         MangaChapterListItem(
             title = chapterTitle(chapter, state.hideChapterTitles),
-            date = chapter.dateUpload.takeIf {
-                it > 0L
-            }?.let { DateFormat.getDateInstance(DateFormat.SHORT).format(Date(it)) },
+            date = chapter.dateUpload.takeIf { it > 0L }?.let { relativeDateText(it) },
             readProgress = (chapter.lastTextProgress / 100L).toInt().takeIf { !chapter.read && it > 0 }?.let { "$it%" },
-            scanlator = null,
+            scanlator = sourceNames[chapter.novelId],
             read = chapter.read,
             bookmark = chapter.bookmark,
             selected = chapter.id in state.selection,
@@ -484,8 +541,8 @@ private fun LazyListScope.novelChapterItems(
                     ?: if (chapter.isDownloaded) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED
             },
             downloadProgressProvider = { 0 },
-            chapterSwipeStartAction = LibraryPreferences.ChapterSwipeAction.Disabled,
-            chapterSwipeEndAction = LibraryPreferences.ChapterSwipeAction.Disabled,
+            chapterSwipeStartAction = state.chapterSwipeStartAction,
+            chapterSwipeEndAction = state.chapterSwipeEndAction,
             onLongClick = { screenModel.toggleSelection(chapter.id, fromLongPress = true) },
             onClick = {
                 if (state.selectionMode) {
@@ -498,9 +555,12 @@ private fun LazyListScope.novelChapterItems(
                 }
             },
             onDownloadClick = { screenModel.onChapterDownloadAction(chapter, it) },
-            onChapterSwipe = {},
+            onChapterSwipe = { screenModel.chapterSwipe(chapter, it) },
             // Hidden chapters only appear while "Show hidden" is on; dim them to mark the state.
             modifier = Modifier.alpha(if (chapter.id in state.hiddenChapterIds) HIDDEN_CHAPTER_ALPHA else 1f),
+            // Without a source label these rows are usually a single line; center so the title and
+            // download icon line up. The unified merged view (source label shown) keeps top alignment.
+            verticalAlignment = if (showSource) Alignment.Top else Alignment.CenterVertically,
         )
     }
 }

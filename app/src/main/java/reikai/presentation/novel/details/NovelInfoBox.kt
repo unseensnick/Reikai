@@ -1,6 +1,7 @@
 package reikai.presentation.novel.details
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,6 +60,8 @@ fun NovelInfoBox(
     sourceName: String,
     sourceSite: String?,
     onCoverClick: () -> Unit,
+    onSearch: (String) -> Unit,
+    onCopy: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val coverData = remember(novel.thumbnailUrl, novel.coverLastModified, novel.favorite, sourceSite) {
@@ -67,6 +70,7 @@ fun NovelInfoBox(
             site = sourceSite,
             isNovelFavorite = novel.favorite,
             lastModified = novel.coverLastModified,
+            novelId = novel.id,
         )
     }
     Box(modifier = modifier) {
@@ -98,7 +102,7 @@ fun NovelInfoBox(
                     onClick = onCoverClick,
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    NovelContentInfo(novel = novel, sourceName = sourceName)
+                    NovelContentInfo(novel = novel, sourceName = sourceName, onSearch = onSearch, onCopy = onCopy)
                 }
             }
         } else {
@@ -114,26 +118,46 @@ fun NovelInfoBox(
                     onClick = onCoverClick,
                 )
                 Spacer(Modifier.height(16.dp))
-                NovelContentInfo(novel = novel, sourceName = sourceName)
+                NovelContentInfo(novel = novel, sourceName = sourceName, onSearch = onSearch, onCopy = onCopy)
             }
         }
     }
 }
 
 @Composable
-private fun ColumnScope.NovelContentInfo(novel: Novel, sourceName: String) {
+private fun ColumnScope.NovelContentInfo(
+    novel: Novel,
+    sourceName: String,
+    onSearch: (String) -> Unit,
+    onCopy: (String) -> Unit,
+) {
+    // Tap a metadata value to search it, long-press to copy it (mirrors MangaInfoBox).
+    val title = novel.title.ifBlank { null }
     Text(
-        text = novel.title.ifBlank { stringResource(MR.strings.unknown_title) },
+        text = title ?: stringResource(MR.strings.unknown_title),
         style = MaterialTheme.typography.titleLarge,
+        modifier = if (title != null) {
+            Modifier.combinedClickable(onClick = { onSearch(title) }, onLongClick = { onCopy(title) })
+        } else {
+            Modifier
+        },
     )
     Spacer(Modifier.height(2.dp))
+    val author = novel.author?.takeIf { it.isNotBlank() }
     InfoRow(icon = Icons.Filled.PersonOutline) {
         Text(
-            text = novel.author?.takeIf { it.isNotBlank() } ?: stringResource(MR.strings.unknown_author),
+            text = author ?: stringResource(MR.strings.unknown_author),
             style = MaterialTheme.typography.titleSmall,
+            modifier = if (author != null) {
+                Modifier.combinedClickable(onClick = { onSearch(author) }, onLongClick = { onCopy(author) })
+            } else {
+                Modifier
+            },
         )
     }
-    InfoRow {
+    InfoRow(
+        modifier = Modifier.combinedClickable(onClick = { onSearch(sourceName) }, onLongClick = { onCopy(sourceName) }),
+    ) {
         Text(
             text = "${novelStatusText(novel.status)} • $sourceName",
             style = MaterialTheme.typography.bodyMedium,
@@ -143,8 +167,13 @@ private fun ColumnScope.NovelContentInfo(novel: Novel, sourceName: String) {
 }
 
 @Composable
-private fun InfoRow(icon: ImageVector? = null, content: @Composable RowScope.() -> Unit) {
+private fun InfoRow(
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    content: @Composable RowScope.() -> Unit,
+) {
     Row(
+        modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

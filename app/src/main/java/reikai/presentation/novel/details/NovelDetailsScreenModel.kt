@@ -55,6 +55,7 @@ import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.data.Database
 import tachiyomi.i18n.MR
+import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.MangaCover
 import uy.kohesive.injekt.injectLazy
 
@@ -84,6 +85,7 @@ class NovelDetailsScreenModel(
     private val uiPreferences: UiPreferences by injectLazy()
     private val mergeManager: NovelMergeManager by injectLazy()
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
+    private val libraryPreferences: LibraryPreferences by injectLazy()
     private val context: Application by injectLazy()
 
     /** Hosts the merge split/remove Undo snackbars; wired into the details Scaffold. */
@@ -354,6 +356,8 @@ class NovelDetailsScreenModel(
                 hideChapterTitles = anchor.effectiveHideChapterTitles(novelPreferences),
                 mergeSources = mergeChips.value,
                 selectedSourceNovelId = selectedSourceNovelId.value,
+                chapterSwipeStartAction = libraryPreferences.swipeToStartAction.get(),
+                chapterSwipeEndAction = libraryPreferences.swipeToEndAction.get(),
             )
         }
         updateSeedColor(viewNovel)
@@ -760,6 +764,8 @@ class NovelDetailsScreenModel(
 
     fun showChapterSettingsDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.ChapterSettings) }
 
+    fun showCoverDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.FullCover) }
+
     // --- Selection + read / bookmark ---
 
     fun toggleSelection(chapterId: Long, fromLongPress: Boolean) {
@@ -845,6 +851,26 @@ class NovelDetailsScreenModel(
 
     fun markChapterRead(chapter: NovelChapter, read: Boolean) {
         screenModelScope.launchIO { chapterRepo.setReadBulk(listOf(chapter.id), read) }
+    }
+
+    /** Row swipe, dispatched by the configured [LibraryPreferences.ChapterSwipeAction] (mirrors the
+     *  manga path's `executeChapterSwipeAction`, with the same download-state to action mapping). */
+    fun chapterSwipe(chapter: NovelChapter, action: LibraryPreferences.ChapterSwipeAction) {
+        when (action) {
+            LibraryPreferences.ChapterSwipeAction.ToggleRead -> markChapterRead(chapter, !chapter.read)
+            LibraryPreferences.ChapterSwipeAction.ToggleBookmark -> toggleChapterBookmark(chapter)
+            LibraryPreferences.ChapterSwipeAction.Download -> {
+                val downloadState = (state.value as? NovelDetailsState.Loaded)?.downloadStates?.get(chapter.id)
+                    ?: if (chapter.isDownloaded) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED
+                val downloadAction = when (downloadState) {
+                    Download.State.NOT_DOWNLOADED, Download.State.ERROR -> ChapterDownloadAction.START_NOW
+                    Download.State.QUEUE, Download.State.DOWNLOADING -> ChapterDownloadAction.CANCEL
+                    Download.State.DOWNLOADED -> ChapterDownloadAction.DELETE
+                }
+                onChapterDownloadAction(chapter, downloadAction)
+            }
+            LibraryPreferences.ChapterSwipeAction.Disabled -> {}
+        }
     }
 
     private inline fun withSelection(crossinline block: suspend (List<NovelChapter>) -> Unit) {
@@ -934,6 +960,9 @@ sealed interface NovelDetailsState {
         val mergeSources: List<NovelMergeSourceInfo> = emptyList(),
         /** The selected source chip's novelId; null = the unified ("All") view. */
         val selectedSourceNovelId: Long? = null,
+        /** Chapter swipe actions, read from the shared (manga) library prefs so novels match manga. */
+        val chapterSwipeStartAction: LibraryPreferences.ChapterSwipeAction = LibraryPreferences.ChapterSwipeAction.Disabled,
+        val chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction = LibraryPreferences.ChapterSwipeAction.Disabled,
     ) : NovelDetailsState {
         val selectionMode: Boolean get() = selection.isNotEmpty()
 
@@ -969,5 +998,6 @@ sealed interface NovelDetailsDialog {
 
     data object ChapterSettings : NovelDetailsDialog
     data object PageSelector : NovelDetailsDialog
+    data object FullCover : NovelDetailsDialog
     data class ManageSources(val sources: List<NovelMergeSourceInfo>) : NovelDetailsDialog
 }

@@ -175,6 +175,7 @@ private fun DuplicateNovelCard(
                     site = sourceSite,
                     isNovelFavorite = true,
                     lastModified = novel.coverLastModified,
+                    novelId = novel.id,
                 ),
                 modifier = Modifier.fillMaxWidth(),
             )
