@@ -70,6 +70,13 @@ class NovelPreferences(
     /** Default display: true shows "Chapter N", false shows the source chapter title. */
     fun defaultChapterHideTitles() = preferenceStore.getBoolean("ln_default_chapter_hide_titles", false)
 
+    /**
+     * Chapters the user manually hid (e.g. a source's own duplicate listings). Each entry is the
+     * restore-stable key `"<source>|<chapterUrl>"` (no local novel id, so it survives a backup
+     * restore where novels are re-inserted with new ids). Backed up automatically as a normal pref.
+     */
+    fun hiddenChapters() = preferenceStore.getStringSet("novel_hidden_chapters", emptySet())
+
     // Reader display + theme (S4). Fed into the WebView reader's `--readerSettings-*` CSS vars and
     // pushed live on change. Key strings preserved from the Yōkai-era fork for upgrade continuity.
 

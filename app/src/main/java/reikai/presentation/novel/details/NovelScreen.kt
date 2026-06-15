@@ -33,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -241,6 +242,13 @@ private fun NovelDetailsToolbar(
         onCancelActionMode = screenModel::clearSelection,
         onSelectAll = screenModel::selectAll,
         onInvertSelection = screenModel::invertSelection,
+        showHidden = state.showHidden,
+        hasHiddenChapters = state.hasHiddenChapters,
+        allHiddenSelected = state.showHidden && state.selection.isNotEmpty() &&
+            state.selection.all { it in state.hiddenChapterIds },
+        onHide = screenModel::hideSelected,
+        onUnhide = screenModel::unhideSelected,
+        onToggleShowHidden = screenModel::toggleShowHidden,
         titleAlphaProvider = titleAlphaProvider,
         backgroundAlphaProvider = backgroundAlphaProvider,
     )
@@ -446,6 +454,9 @@ private fun NovelPageBar(
     }
 }
 
+/** Dim level for a hidden chapter row shown via "Show hidden chapters". */
+private const val HIDDEN_CHAPTER_ALPHA = 0.4f
+
 private fun LazyListScope.novelChapterItems(
     state: NovelDetailsState.Loaded,
     screenModel: NovelDetailsScreenModel,
@@ -483,6 +494,8 @@ private fun LazyListScope.novelChapterItems(
             },
             onDownloadClick = { screenModel.onChapterDownloadAction(chapter, it) },
             onChapterSwipe = {},
+            // Hidden chapters only appear while "Show hidden" is on; dim them to mark the state.
+            modifier = Modifier.alpha(if (chapter.id in state.hiddenChapterIds) HIDDEN_CHAPTER_ALPHA else 1f),
         )
     }
 }

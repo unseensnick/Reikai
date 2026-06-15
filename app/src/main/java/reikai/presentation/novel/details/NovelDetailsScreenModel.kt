@@ -118,6 +118,13 @@ class NovelDetailsScreenModel(
      *  rebuild always reads them regardless of which collector resolves first. Empty when not merged. */
     private val mergeChips = MutableStateFlow<List<NovelMergeSourceInfo>>(emptyList())
 
+    /** User-hidden chapters, keyed `"<source>|<chapterUrl>"` (restore-stable). Filtered out of the
+     *  list unless [showHiddenFlow] is on (then shown dimmed). */
+    private val hiddenChaptersPref = novelPreferences.hiddenChapters()
+
+    /** Whether hidden chapters are temporarily shown (dimmed) so they can be unhidden. */
+    private val showHiddenFlow = MutableStateFlow(false)
+
     /** Paged keys already lazily fetched, so an empty page doesn't re-fetch on every flow emission. */
     private val triedPages = java.util.Collections.synchronizedSet(HashSet<String>())
 
@@ -179,13 +186,18 @@ class NovelDetailsScreenModel(
     private fun observeChapters() {
         screenModelScope.launchIO {
             combine(
-                novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId),
-                relatedNovelIds,
-                selectedSourceNovelId,
-                pageIndex,
-                // In the combine only to re-emit (re-running rebuildLoaded with the chips) once they resolve.
-                mergeChips,
-            ) { anchor, related, selected, idx, _ -> ChapterInputs(anchor, related, selected, idx) }
+                combine(
+                    novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId),
+                    relatedNovelIds,
+                    selectedSourceNovelId,
+                    pageIndex,
+                    // In the combine only to re-emit (re-running rebuildLoaded with the chips) once they resolve.
+                    mergeChips,
+                ) { anchor, related, selected, idx, _ -> ChapterInputs(anchor, related, selected, idx) },
+                // Re-emit so a hide/unhide or the show-hidden toggle rebuilds the chapter list.
+                hiddenChaptersPref.changes(),
+                showHiddenFlow,
+            ) { inputs, _, _ -> inputs }
                 .collectLatest { (anchor, related, selected, idx) ->
                     if (anchor == null) {
                         maybeFirstFetch(null)
@@ -303,8 +315,16 @@ class NovelDetailsScreenModel(
         pages: List<String>,
         pageIndex: Int,
     ) {
-        val display = chapters.sortedAndFiltered(anchor, novelPreferences)
-        val resume = chapters.sortedBy { it.sourceOrder }.firstOrNull { !it.read }
+        val hidden = hiddenChaptersPref.get()
+        val showHidden = showHiddenFlow.value
+        val hasHiddenChapters = hidden.isNotEmpty() && chapters.any { hiddenKey(it) in hidden }
+        // Drop hidden chapters from the list (and the resume target / reader order, which feed off it)
+        // unless the user is temporarily showing them.
+        val visible = if (showHidden || hidden.isEmpty()) chapters else chapters.filterNot { hiddenKey(it) in hidden }
+        val display = visible.sortedAndFiltered(anchor, novelPreferences)
+        val resume = visible.sortedBy { it.sourceOrder }.firstOrNull { !it.read }
+        // When showing hidden, mark which displayed rows are hidden (dimmed + drives Hide/Unhide).
+        val hiddenChapterIds = if (showHidden) display.filter { hiddenKey(it) in hidden }.mapTo(HashSet()) { it.id } else emptySet()
         val viewSource = siblingSources.value[viewNovel.id]
         mutableState.update { prev ->
             val loaded = prev as? NovelDetailsState.Loaded
@@ -312,6 +332,9 @@ class NovelDetailsScreenModel(
                 novel = anchor,
                 displayNovel = viewNovel,
                 chapters = display,
+                showHidden = showHidden,
+                hiddenChapterIds = hiddenChapterIds,
+                hasHiddenChapters = hasHiddenChapters,
                 pages = pages,
                 pageIndex = if (pages.isEmpty()) 0 else pageIndex.coerceIn(0, pages.lastIndex),
                 isPageLoading = loaded?.isPageLoading ?: false,
@@ -770,6 +793,25 @@ class NovelDetailsScreenModel(
         updateLoaded { it.copy(selection = emptySet()) }
     }
 
+    /** Restore-stable hidden-chapter key: source + chapter url, no local novel id (so it survives a
+     *  backup restore). Source resolved per the chapter's own novelId for a merged group, else the
+     *  anchor's source. */
+    private fun hiddenKey(chapter: NovelChapter): String =
+        "${siblingSources.value[chapter.novelId]?.id ?: sourceId}|${chapter.url}"
+
+    fun hideSelected() = withSelection { chapters ->
+        hiddenChaptersPref.set(hiddenChaptersPref.get() + chapters.map { hiddenKey(it) })
+    }
+
+    fun unhideSelected() = withSelection { chapters ->
+        val keys = chapters.mapTo(HashSet()) { hiddenKey(it) }
+        hiddenChaptersPref.set(hiddenChaptersPref.get().filterNotTo(HashSet()) { it in keys })
+    }
+
+    fun toggleShowHidden() {
+        showHiddenFlow.value = !showHiddenFlow.value
+    }
+
     fun markSelectedRead(read: Boolean) = withSelection { chapters ->
         chapterRepo.setReadBulk(chapters.map { it.id }, read)
     }
@@ -857,6 +899,13 @@ sealed interface NovelDetailsState {
          *  repoints it at the selected source. */
         val displayNovel: Novel,
         val chapters: List<NovelChapter>,
+        /** True while hidden chapters are temporarily shown (dimmed). */
+        val showHidden: Boolean = false,
+        /** Ids of the displayed rows that are hidden (only non-empty when [showHidden]); drives dimming
+         *  and whether the selection offers Hide vs Unhide. */
+        val hiddenChapterIds: Set<Long> = emptySet(),
+        /** Any chapter in this novel is hidden; gates the "Show hidden chapters" toolbar toggle. */
+        val hasHiddenChapters: Boolean = false,
         /** Page keys for the selector; empty when the source is single/unpaged (selector hidden). */
         val pages: List<String> = emptyList(),
         val pageIndex: Int = 0,

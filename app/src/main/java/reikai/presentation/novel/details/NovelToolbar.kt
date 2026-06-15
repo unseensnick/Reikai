@@ -21,8 +21,9 @@ import tachiyomi.presentation.core.theme.active
 /**
  * Novel details toolbar, the novel twin of `MangaToolbar`: a Filter action (tinted when a filter is
  * active) opening the chapter-settings dialog, an overflow with Refresh / Edit categories / Edit info /
- * Manage sources (merged only) / Share, and the action-mode select-all / invert. Title + background
- * fade with scroll via the alpha providers, matching the manga side.
+ * Manage sources (merged only) / Share / Show hidden chapters (when any are hidden), and the action-mode
+ * select-all / invert / Hide-or-Unhide. Title + background fade with scroll via the alpha providers,
+ * matching the manga side.
  */
 @Composable
 fun NovelToolbar(
@@ -39,6 +40,12 @@ fun NovelToolbar(
     onCancelActionMode: () -> Unit,
     onSelectAll: () -> Unit,
     onInvertSelection: () -> Unit,
+    showHidden: Boolean,
+    hasHiddenChapters: Boolean,
+    allHiddenSelected: Boolean,
+    onHide: () -> Unit,
+    onUnhide: () -> Unit,
+    onToggleShowHidden: () -> Unit,
     titleAlphaProvider: () -> Float,
     backgroundAlphaProvider: () -> Float,
     modifier: Modifier = Modifier,
@@ -76,6 +83,13 @@ fun NovelToolbar(
                                 onClick = onInvertSelection,
                             ),
                         )
+                        // Unhide only when every selected row is already hidden (reachable via the
+                        // "Show hidden chapters" view); otherwise the action hides them.
+                        if (allHiddenSelected) {
+                            add(AppBar.OverflowAction(title = "Unhide", onClick = onUnhide))
+                        } else {
+                            add(AppBar.OverflowAction(title = "Hide", onClick = onHide))
+                        }
                         return@buildList
                     }
                     add(
@@ -94,6 +108,14 @@ fun NovelToolbar(
                     }
                     if (onClickShare != null) {
                         add(AppBar.OverflowAction(title = stringResource(MR.strings.action_share), onClick = onClickShare))
+                    }
+                    if (hasHiddenChapters || showHidden) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = if (showHidden) "Hide hidden chapters" else "Show hidden chapters",
+                                onClick = onToggleShowHidden,
+                            ),
+                        )
                     }
                 },
             )
