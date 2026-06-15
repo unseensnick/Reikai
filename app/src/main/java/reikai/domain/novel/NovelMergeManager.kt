@@ -12,8 +12,7 @@ import reikai.domain.novel.model.Novel
  * every resolution, so a metadata refresh that diverges an author drops the member (metadata healing).
  * Manual merges are never author-filtered. No tracker healing (novel tracking is deferred).
  *
- * Holds no per-screen state; callers keep their own group ids and pass them in. `removeFromGroup` /
- * `availableSources` (the details Manage-Sources path) land with the details UI in S8b.
+ * Holds no per-screen state; callers keep their own group ids and pass them in.
  */
 class NovelMergeManager(
     private val preferences: ReikaiLibraryPreferences,
@@ -88,6 +87,44 @@ class NovelMergeManager(
             preferences.novelManualMerges.set(result.newMerges)
             preferences.novelManualUnmerges.set(result.newUnmerges)
         }
+    }
+
+    /**
+     * Manage-sources subset split: split [targetIds] out of [relatedNovelIds] while keeping the
+     * survivors grouped. Returns the surviving ids (the original group when there's nothing to split).
+     */
+    fun removeFromGroup(relatedNovelIds: LongArray, targetIds: List<Long>): LongArray {
+        val split = MergeGroupAlgebra.computeSplit(
+            relatedIds = relatedNovelIds,
+            targetIds = targetIds,
+            merges = preferences.novelManualMerges.get(),
+            unmerges = preferences.novelManualUnmerges.get(),
+        ) ?: return relatedNovelIds
+        preferences.novelManualUnmerges.set(split.newUnmerges)
+        preferences.novelManualMerges.set(split.newMerges)
+        return split.survivors
+    }
+
+    /**
+     * Manage-sources split: subset-split when survivors remain, else fully dissolve the whole group
+     * (the "remove all"/"split all" case that would otherwise be a silent no-op). [relatedNovelIds]
+     * is the already-resolved group, so dissolving it directly is complete. Returns the surviving ids
+     * (empty on a full dissolve).
+     */
+    fun splitOrDissolve(relatedNovelIds: LongArray, targetIds: List<Long>): LongArray {
+        if (targetIds.isEmpty()) return relatedNovelIds
+        val targetSet = targetIds.toSet()
+        val survivesSplit = relatedNovelIds.any { it !in targetSet }
+        if (survivesSplit) return removeFromGroup(relatedNovelIds, targetIds)
+
+        val result = MergeGroupAlgebra.computeDissolve(
+            relatedNovelIds,
+            preferences.novelManualMerges.get(),
+            preferences.novelManualUnmerges.get(),
+        )
+        preferences.novelManualMerges.set(result.newMerges)
+        preferences.novelManualUnmerges.set(result.newUnmerges)
+        return longArrayOf()
     }
 
     /** Clear every manual merge entry. Same-title auto-grouping (when on) is left untouched. */
