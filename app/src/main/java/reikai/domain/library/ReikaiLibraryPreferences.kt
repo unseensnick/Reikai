@@ -150,6 +150,15 @@ class ReikaiLibraryPreferences(
     /** Source ids ranked highest-priority-first; the trunk source when stitching a merged chapter list. */
     val preferredMangaSources: Preference<List<Long>> = preferenceStore.getLongArray("preferred_manga_sources", emptyList())
 
+    /** Novel-source ids ranked highest-priority-first; the trunk source for a merged novel chapter list.
+     *  Novel source ids are Strings (plugin slugs), so this is a newline-joined ordered list. */
+    val preferredNovelSources: Preference<List<String>> = preferenceStore.getObjectFromString(
+        key = "preferred_novel_sources",
+        defaultValue = emptyList(),
+        serializer = { it.joinToString("\n") },
+        deserializer = { it.split("\n").filter(String::isNotBlank) },
+    )
+
     /** Mirror a tracker added to one source onto every favorited member of its merged group. */
     val syncTrackerLinksGrouped: Preference<Boolean> = preferenceStore.getBoolean("sync_tracker_links_grouped", true)
 

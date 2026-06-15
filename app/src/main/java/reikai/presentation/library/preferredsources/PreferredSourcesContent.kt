@@ -20,12 +20,21 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
+
+/**
+ * A source row in the preferred-source ranking. [key] is the source's stable id as a String, so the
+ * same neutral list renders both manga (Long ids, stringified at the model edge) and novels (String
+ * plugin ids).
+ */
+@Immutable
+data class PreferredSourceItem(val key: String, val name: String, val lang: String)
 
 /**
  * Ranked-list UI for the preferred-source ordering: a guide blurb, the ordered ranking (up/down/
@@ -36,10 +45,10 @@ fun PreferredSourcesContent(
     preferred: List<PreferredSourceItem>,
     available: List<PreferredSourceItem>,
     contentPadding: PaddingValues,
-    onMoveUp: (Long) -> Unit,
-    onMoveDown: (Long) -> Unit,
-    onRemove: (Long) -> Unit,
-    onAdd: (Long) -> Unit,
+    onMoveUp: (String) -> Unit,
+    onMoveDown: (String) -> Unit,
+    onRemove: (String) -> Unit,
+    onAdd: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(modifier = modifier.fillMaxWidth(), contentPadding = contentPadding) {
@@ -61,15 +70,15 @@ fun PreferredSourcesContent(
                 )
             }
         } else {
-            itemsIndexed(preferred, key = { _, item -> item.id }) { index, item ->
+            itemsIndexed(preferred, key = { _, item -> item.key }) { index, item ->
                 SourceRow(item) {
-                    IconButton(onClick = { onMoveUp(item.id) }, enabled = index > 0) {
+                    IconButton(onClick = { onMoveUp(item.key) }, enabled = index > 0) {
                         Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = null)
                     }
-                    IconButton(onClick = { onMoveDown(item.id) }, enabled = index < preferred.lastIndex) {
+                    IconButton(onClick = { onMoveDown(item.key) }, enabled = index < preferred.lastIndex) {
                         Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = null)
                     }
-                    IconButton(onClick = { onRemove(item.id) }) {
+                    IconButton(onClick = { onRemove(item.key) }) {
                         Icon(Icons.Outlined.Close, contentDescription = stringResource(MR.strings.action_remove))
                     }
                 }
@@ -86,9 +95,9 @@ fun PreferredSourcesContent(
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
                 )
             }
-            items(available, key = { it.id }) { item ->
-                SourceRow(item, modifier = Modifier.clickable { onAdd(item.id) }) {
-                    IconButton(onClick = { onAdd(item.id) }) {
+            items(available, key = { it.key }) { item ->
+                SourceRow(item, modifier = Modifier.clickable { onAdd(item.key) }) {
+                    IconButton(onClick = { onAdd(item.key) }) {
                         Icon(Icons.Outlined.Add, contentDescription = stringResource(MR.strings.action_add))
                     }
                 }
