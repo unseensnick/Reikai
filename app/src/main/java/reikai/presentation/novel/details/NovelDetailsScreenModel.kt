@@ -438,30 +438,53 @@ class NovelDetailsScreenModel(
      *  re-fetched too if the walk didn't already cover it. Bounded, never a full fetch-all. */
     fun refresh() {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
-        val src = source ?: return
+        val anchorSrc = source ?: return
         if (refreshJob?.isActive == true) return
         refreshJob = screenModelScope.launchIO {
             mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(isRefreshing = true) ?: it }
             try {
-                val oldTotalPages = loaded.novel.totalPages
-                val updated = runCatching { fetchAndSync(src, loaded.novel) }.getOrNull() ?: loaded.novel
-                val newTotalPages = updated.totalPages
-                if (newTotalPages > 1L) {
-                    val walkFrom = maxOf(2L, oldTotalPages)
-                    walkNovelPages(updated, src, walkFrom, newTotalPages, chapterRepo, novelRepo, database)
-                    // Force-refresh the viewed page if the walk skipped it (a middle page).
-                    val curPage = loaded.pages.getOrNull(loaded.pageIndex)?.toLongOrNull()
-                    if (curPage != null && curPage > 1L && curPage !in walkFrom..newTotalPages) {
-                        val key = curPage.toString()
-                        runCatching {
-                            src.parsePage(updated.url, key)?.chapters?.takeIf { it.isNotEmpty() }?.let {
-                                syncChaptersWithNovelSource(it, updated, chapterRepo, novelRepo, database, page = key)
-                            }
-                        }
-                    }
+                // Refresh the anchor first (its refreshed novel drives the viewed-page fix below), then
+                // every other grouped source so the unified list picks up new chapters everywhere.
+                val anchorUpdated = refreshNovel(anchorSrc, loaded.novel)
+                for (id in relatedNovelIds.value) {
+                    if (id == loaded.novel.id) continue
+                    val novel = novelRepo.getById(id) ?: continue
+                    val src = siblingSources.value[id] ?: continue
+                    refreshNovel(src, novel)
+                }
+                // Force-refresh the viewed page when viewing the anchor's own (paged) list and the walk
+                // skipped it (a middle page); the unified view has no pages so this is a no-op there.
+                if (loaded.selectedSourceNovelId == null || loaded.selectedSourceNovelId == loaded.novel.id) {
+                    forceRefreshViewedPage(loaded, anchorUpdated, anchorSrc)
                 }
             } finally {
                 mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(isRefreshing = false) ?: it }
+            }
+        }
+    }
+
+    /** parseNovel + sync page 1, then walk the previously-last page through any newly-opened ones.
+     *  Bounded, never a full fetch-all. Returns the refreshed novel (carries the new totalPages). */
+    private suspend fun refreshNovel(src: NovelSource, novel: Novel): Novel {
+        val oldTotalPages = novel.totalPages
+        val updated = runCatching { fetchAndSync(src, novel) }.getOrNull() ?: novel
+        if (updated.totalPages > 1L) {
+            walkNovelPages(updated, src, maxOf(2L, oldTotalPages), updated.totalPages, chapterRepo, novelRepo, database)
+        }
+        return updated
+    }
+
+    private suspend fun forceRefreshViewedPage(loaded: NovelDetailsState.Loaded, updated: Novel, src: NovelSource) {
+        val newTotalPages = updated.totalPages
+        if (newTotalPages <= 1L) return
+        val walkFrom = maxOf(2L, loaded.novel.totalPages)
+        val curPage = loaded.pages.getOrNull(loaded.pageIndex)?.toLongOrNull() ?: return
+        if (curPage > 1L && curPage !in walkFrom..newTotalPages) {
+            val key = curPage.toString()
+            runCatching {
+                src.parsePage(updated.url, key)?.chapters?.takeIf { it.isNotEmpty() }?.let {
+                    syncChaptersWithNovelSource(it, updated, chapterRepo, novelRepo, database, page = key)
+                }
             }
         }
     }
