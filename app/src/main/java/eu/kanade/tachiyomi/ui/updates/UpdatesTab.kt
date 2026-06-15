@@ -95,22 +95,6 @@ data object UpdatesTab : Tab {
                 chip = chip,
             )
 
-            val onDismissDialog = { screenModel.setDialog(null) }
-            when (val dialog = state.dialog) {
-                is UpdatesScreenModel.Dialog.DeleteConfirmation -> {
-                    UpdatesDeleteConfirmationDialog(
-                        onDismissRequest = onDismissDialog,
-                        onConfirm = { screenModel.deleteChapters(dialog.toDelete) },
-                    )
-                }
-                is UpdatesScreenModel.Dialog.FilterSheet -> {
-                    UpdatesFilterDialog(
-                        onDismissRequest = onDismissDialog,
-                        screenModel = settingsScreenModel,
-                    )
-                }
-                null -> {}
-            }
         } else {
             ReikaiUpdatesScreen(
                 contentType = contentType,
@@ -119,6 +103,9 @@ data object UpdatesTab : Tab {
                 snackbarHostState = screenModel.snackbarHostState,
                 chip = chip,
                 onRefresh = { NovelUpdateJob.startNow(context) },
+                onFilterClicked = screenModel::showFilterDialog,
+                hasActiveFilters = state.hasActiveFilters,
+                onCalendarClicked = { navigator.push(UpcomingScreen()) },
                 onOpenMangaChapter = {
                     context.startActivity(ReaderActivity.newIntent(context, it.update.mangaId, it.update.chapterId))
                 },
@@ -126,6 +113,24 @@ data object UpdatesTab : Tab {
                 onMangaDownload = screenModel::downloadChapters,
                 onOpenNovelChapter = { navigator.push(NovelReaderScreen(it.update.novelId, it.update.chapterId)) },
             )
+        }
+
+        // Filter / delete dialogs render regardless of chip (the filter is reachable from both screens).
+        val onDismissDialog = { screenModel.setDialog(null) }
+        when (val dialog = state.dialog) {
+            is UpdatesScreenModel.Dialog.DeleteConfirmation -> {
+                UpdatesDeleteConfirmationDialog(
+                    onDismissRequest = onDismissDialog,
+                    onConfirm = { screenModel.deleteChapters(dialog.toDelete) },
+                )
+            }
+            is UpdatesScreenModel.Dialog.FilterSheet -> {
+                UpdatesFilterDialog(
+                    onDismissRequest = onDismissDialog,
+                    screenModel = settingsScreenModel,
+                )
+            }
+            null -> {}
         }
         // RK <--
 

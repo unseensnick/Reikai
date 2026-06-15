@@ -10,9 +10,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.FlipToBack
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SelectAll
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -40,6 +44,7 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
+import tachiyomi.presentation.core.theme.active
 import java.time.LocalDate
 
 /**
@@ -56,6 +61,9 @@ fun ReikaiUpdatesScreen(
     snackbarHostState: SnackbarHostState,
     chip: @Composable () -> Unit,
     onRefresh: () -> Unit,
+    onFilterClicked: () -> Unit,
+    hasActiveFilters: Boolean,
+    onCalendarClicked: () -> Unit,
     onOpenMangaChapter: (UpdatesItem) -> Unit,
     onClickMangaCover: (UpdatesItem) -> Unit,
     onMangaDownload: (List<UpdatesItem>, ChapterDownloadAction) -> Unit,
@@ -71,14 +79,37 @@ fun ReikaiUpdatesScreen(
             AppBar(
                 title = stringResource(MR.strings.label_recent_updates),
                 actions = {
+                    // Filter + calendar act on manga updates, so they appear on the All view (which
+                    // contains manga rows); the filter live-tints the manga portion. Novels-only omits
+                    // them until novel-side filtering lands. Manga-only keeps Mihon's own app bar.
+                    val filterTint = if (hasActiveFilters) MaterialTheme.colorScheme.active else LocalContentColor.current
                     AppBarActions(
-                        listOf(
-                            AppBar.Action(
-                                title = stringResource(MR.strings.action_update_library),
-                                icon = Icons.Outlined.Refresh,
-                                onClick = onRefresh,
-                            ),
-                        ),
+                        actions = buildList {
+                            if (contentType == ContentType.ALL) {
+                                add(
+                                    AppBar.Action(
+                                        title = stringResource(MR.strings.action_filter),
+                                        icon = Icons.Outlined.FilterList,
+                                        iconTint = filterTint,
+                                        onClick = onFilterClicked,
+                                    ),
+                                )
+                                add(
+                                    AppBar.Action(
+                                        title = stringResource(MR.strings.action_view_upcoming),
+                                        icon = Icons.Outlined.CalendarMonth,
+                                        onClick = onCalendarClicked,
+                                    ),
+                                )
+                            }
+                            add(
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.action_update_library),
+                                    icon = Icons.Outlined.Refresh,
+                                    onClick = onRefresh,
+                                ),
+                            )
+                        },
                     )
                 },
                 actionModeCounter = novelState.selected.size,
