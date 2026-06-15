@@ -98,20 +98,21 @@ fun ReikaiUpdatesScreen(
             AppBar(
                 title = stringResource(MR.strings.label_recent_updates),
                 actions = {
-                    // Filter + calendar act on manga updates, so they show wherever manga rows appear
-                    // (Manga + All). The filter live-tints when active. Novel-side filtering arrives later.
+                    // The filter applies to both manga and novel rows (shared prefs), so it shows on
+                    // every chip and live-tints when active. The calendar is the manga upcoming-releases
+                    // view, so it only appears where manga rows are shown (Manga + All).
                     val filterTint = if (hasActiveFilters) MaterialTheme.colorScheme.active else LocalContentColor.current
                     AppBarActions(
                         actions = buildList {
+                            add(
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.action_filter),
+                                    icon = Icons.Outlined.FilterList,
+                                    iconTint = filterTint,
+                                    onClick = onFilterClicked,
+                                ),
+                            )
                             if (showsManga) {
-                                add(
-                                    AppBar.Action(
-                                        title = stringResource(MR.strings.action_filter),
-                                        icon = Icons.Outlined.FilterList,
-                                        iconTint = filterTint,
-                                        onClick = onFilterClicked,
-                                    ),
-                                )
                                 add(
                                     AppBar.Action(
                                         title = stringResource(MR.strings.action_view_upcoming),

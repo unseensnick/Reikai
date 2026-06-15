@@ -18,7 +18,10 @@ import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadManager
+import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.domain.manga.model.applyFilter
+import tachiyomi.domain.updates.service.UpdatesPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.time.ZonedDateTime
@@ -36,6 +39,7 @@ class NovelUpdatesScreenModel(
     private val chapterRepo: NovelChapterRepository = Injekt.get(),
     private val downloadManager: NovelDownloadManager = Injekt.get(),
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
+    private val updatesPreferences: UpdatesPreferences = Injekt.get(),
 ) : StateScreenModel<NovelUpdatesScreenModel.State>(State()) {
 
     /** Sticky All / Manga / Novels chip state for the Updates tab (drives which screen the tab shows). */
@@ -49,24 +53,49 @@ class NovelUpdatesScreenModel(
     init {
         screenModelScope.launchIO {
             val after = ZonedDateTime.now().minusMonths(RECENT_MONTHS).toInstant().toEpochMilli()
+            // Reuse Mihon's shared updates filter prefs so one toggle filters both manga and novels.
+            val filterFlow = combine(
+                updatesPreferences.filterUnread.changes(),
+                updatesPreferences.filterDownloaded.changes(),
+                updatesPreferences.filterStarted.changes(),
+                updatesPreferences.filterBookmarked.changes(),
+            ) { unread, downloaded, started, bookmarked -> Filters(unread, downloaded, started, bookmarked) }
+
             combine(
                 novelRepo.getRecentNovelUpdatesAsFlow(after, LIMIT),
                 downloadManager.queueState,
-            ) { updates, queue ->
+                filterFlow,
+            ) { updates, queue, filters ->
                 val queueById = queue.associate { it.chapterId to it.state.toDownloadState() }
-                updates.map { update ->
-                    NovelUpdatesItem(
-                        update = update,
-                        downloadState = queueById[update.chapterId]
-                            ?: if (update.isDownloaded) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED,
-                        selected = update.chapterId in selectedChapterIds,
-                    )
-                }
+                updates
+                    .map { update ->
+                        NovelUpdatesItem(
+                            update = update,
+                            downloadState = queueById[update.chapterId]
+                                ?: if (update.isDownloaded) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED,
+                            selected = update.chapterId in selectedChapterIds,
+                        )
+                    }
+                    .filter { it.matchesFilters(filters) }
             }.collectLatest { items ->
                 mutableState.update { it.copy(isLoading = false, items = items) }
             }
         }
     }
+
+    /** The 4 shared filters; scanlator-exclusion is manga-only so it has no novel equivalent. */
+    private data class Filters(
+        val unread: TriState,
+        val downloaded: TriState,
+        val started: TriState,
+        val bookmarked: TriState,
+    )
+
+    private fun NovelUpdatesItem.matchesFilters(f: Filters): Boolean =
+        applyFilter(f.unread) { !update.read } &&
+            applyFilter(f.downloaded) { downloadState == Download.State.DOWNLOADED } &&
+            applyFilter(f.started) { update.lastTextProgress > 0L && !update.read } &&
+            applyFilter(f.bookmarked) { update.bookmark }
 
     fun toggleSelection(chapterId: Long, selected: Boolean) {
         if (selected) selectedChapterIds.add(chapterId) else selectedChapterIds.remove(chapterId)
