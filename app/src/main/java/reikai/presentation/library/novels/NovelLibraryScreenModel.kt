@@ -146,7 +146,10 @@ class NovelLibraryScreenModel :
             reikaiLibraryPreferences.novelManualUnmerges.changes(),
             reikaiLibraryPreferences.novelAutoMergeSameTitle.changes(),
             reikaiLibraryPreferences.novelAutoMergeRequireAuthor.changes(),
-        ) { merges, unmerges, auto, requireAuthor -> MergeSettings(merges, unmerges, auto, requireAuthor) }
+            reikaiLibraryPreferences.showNovelMergeSourceIcons.changes(),
+        ) { merges, unmerges, auto, requireAuthor, showIcons ->
+            MergeSettings(merges, unmerges, auto, requireAuthor, showIcons)
+        }
         return combine(badgePrefsFlow(), miscFlow, filterFlow, mergeFlow) { badges, misc, filters, merge ->
             LibrarySettings(
                 badges, misc.defaultSort, misc.randomSeed, misc.showContinue, misc.showHidden,
@@ -175,6 +178,8 @@ class NovelLibraryScreenModel :
         )
         // Keyed by the representative's negative synthetic id (== the LibraryItem id), for the comparator.
         val novelById = collapsed.associate { -it.representative.novel.id to it.representative }
+        // novelId -> source id, to resolve each grouped source's icon for the merge badge.
+        val sourceByNovelId = library.associate { it.novel.id to it.novel.source }
         val items = collapsed.map { group ->
             val rep = group.representative
             // lnreader plugins mostly declare lang as a full English name ("English"); the badge wants a
@@ -192,11 +197,20 @@ class NovelLibraryScreenModel :
             )
             if (group.memberIds.size > 1) {
                 // Stamp the merge badge (group member ids, negative) + summed downloads onto the rep.
+                // When the merge-icon setting is on, also resolve each grouped source's icon URL.
+                val iconUrls = if (settings.merge.showSourceIcons) {
+                    group.memberIds
+                        .mapNotNull { id -> sourceByNovelId[id]?.let { sourceManager.get(it)?.iconUrl } }
+                        .distinct()
+                } else {
+                    emptyList()
+                }
                 item.copy(
                     downloadCount = group.totalDownloadCount.toInt(),
                     relatedMangaIds = group.memberIds.map { -it },
                     badges = item.badges.copy(
                         downloadCount = if (settings.badges.download) group.totalDownloadCount.toInt() else 0,
+                        mergedSourceIconUrls = iconUrls,
                     ),
                 )
             } else {
@@ -508,6 +522,7 @@ class NovelLibraryScreenModel :
         val manualUnmerges: Set<String>,
         val autoMergeSameTitle: Boolean,
         val requireAuthor: Boolean,
+        val showSourceIcons: Boolean,
     )
 
     private data class LibrarySettings(

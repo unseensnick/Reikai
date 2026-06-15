@@ -83,6 +83,9 @@ data class LibraryItem(
         // source badge, since a disguised novel has no real Mihon Source. Null for manga rows.
         val coverSite: String? = null,
         val sourceIconUrl: String? = null,
+        // The grouped sources' icon URLs for a merged NOVEL's badge (coil-loaded; novels have no
+        // Mihon Source bitmap). Empty when not merged or the merge-icon setting is off.
+        val mergedSourceIconUrls: List<String> = emptyList(),
         // RK <--
     )
 }

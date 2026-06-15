@@ -23,6 +23,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallExtendedFloatingActionButton
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
 import androidx.compose.material3.animateFloatingActionButton
 import androidx.compose.runtime.Composable
@@ -147,11 +148,13 @@ private fun NovelDetailsSmallImpl(
             )
         },
         bottomBar = { NovelSelectionBar(state, screenModel, Modifier.fillMaxWidth()) },
+        snackbarHost = { SnackbarHost(screenModel.snackbarHostState) },
         floatingActionButton = { NovelResumeFab(state, listState, onChapterClick) },
     ) { contentPadding ->
         // The list applies the full inset (incl. top), so the info box gets no extra app-bar padding.
         LazyColumn(state = listState, contentPadding = contentPadding) {
-            novelHeaderItems(state, screenModel, onWebView, onShare, isTabletUi = false, appBarPadding = 0.dp)
+            novelInfoItems(state, screenModel, onWebView, onShare, isTabletUi = false, appBarPadding = 0.dp)
+            novelChapterHeaderItems(state, screenModel)
             novelChapterItems(state, screenModel, onChapterClick)
         }
     }
@@ -183,13 +186,14 @@ private fun NovelDetailsLargeImpl(
                 NovelSelectionBar(state, screenModel, Modifier.fillMaxWidth(0.5f))
             }
         },
+        snackbarHost = { SnackbarHost(screenModel.snackbarHostState) },
         floatingActionButton = { NovelResumeFab(state, chapterListState, onChapterClick) },
     ) { contentPadding ->
         TwoPanelBox(
             startContent = {
                 LazyColumn(contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding())) {
                     // The start pane only pads the bottom, so the info box clears the app bar itself.
-                    novelHeaderItems(
+                    novelInfoItems(
                         state,
                         screenModel,
                         onWebView,
@@ -200,7 +204,9 @@ private fun NovelDetailsLargeImpl(
                 }
             },
             endContent = {
+                // Chips + chapter header sit atop the chapter pane (mirrors MangaScreen's tablet layout).
                 LazyColumn(state = chapterListState, contentPadding = contentPadding) {
+                    novelChapterHeaderItems(state, screenModel)
                     novelChapterItems(state, screenModel, onChapterClick)
                 }
             },
@@ -226,6 +232,7 @@ private fun NovelDetailsToolbar(
         onClickEditCategory = screenModel::showChangeCategoryDialog,
         onClickEditInfo = screenModel::showEditNovelInfoDialog,
         onClickShare = state.sourceUrl?.let { { onShare() } },
+        onClickManageSources = if (state.mergeSources.size > 1) screenModel::showManageSourcesDialog else null,
         actionModeCounter = state.selection.size,
         onCancelActionMode = screenModel::clearSelection,
         onSelectAll = screenModel::selectAll,
@@ -309,11 +316,21 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: No
             onSelect = screenModel::selectPage,
             onDismiss = screenModel::dismissDialog,
         )
+        is NovelDetailsDialog.ManageSources -> NovelManageSourcesDialog(
+            sources = dialog.sources,
+            onDismissRequest = screenModel::dismissDialog,
+            onSplit = screenModel::splitSources,
+            onRemoveFromLibrary = screenModel::removeSourcesFromLibrary,
+            onRemoveAll = screenModel::removeAllSourcesFromLibrary,
+        )
         null -> {}
     }
 }
 
-private fun LazyListScope.novelHeaderItems(
+/** Info pane items: cover/title/source, the action row, and the description. On tablet these are the
+ *  start pane; on phone they lead the single column. Metadata follows the viewed source (the selected
+ *  chip, else the anchor); favorite + library actions stay on the anchor novel. */
+private fun LazyListScope.novelInfoItems(
     state: NovelDetailsState.Loaded,
     screenModel: NovelDetailsScreenModel,
     onWebView: () -> Unit,
@@ -321,8 +338,6 @@ private fun LazyListScope.novelHeaderItems(
     isTabletUi: Boolean,
     appBarPadding: Dp,
 ) {
-    // Header metadata follows the viewed source (the selected chip, else the anchor); favorite + the
-    // library actions stay on the anchor novel.
     val display = state.displayNovel
     item(key = "info") {
         NovelInfoBox(
@@ -353,6 +368,14 @@ private fun LazyListScope.novelHeaderItems(
             onEditNotes = {},
         )
     }
+}
+
+/** Source-switcher chips (merged only) + the chapter header + page bar. Sits atop the chapter pane on
+ *  tablet and between the info and chapters on phone, mirroring MangaScreen's chip placement. */
+private fun LazyListScope.novelChapterHeaderItems(
+    state: NovelDetailsState.Loaded,
+    screenModel: NovelDetailsScreenModel,
+) {
     if (state.mergeSources.size > 1) {
         item(key = "source-chips") {
             NovelMergeSourceChips(

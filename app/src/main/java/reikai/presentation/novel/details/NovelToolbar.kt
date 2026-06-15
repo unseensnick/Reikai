@@ -20,10 +20,9 @@ import tachiyomi.presentation.core.theme.active
 
 /**
  * Novel details toolbar, the novel twin of `MangaToolbar`: a Filter action (tinted when a filter is
- * active) opening the chapter-settings dialog, an overflow with Refresh / Edit categories / Edit info
- * / Share, and the action-mode select-all / invert. Title + background fade with scroll via the alpha
- * providers, matching the manga side. Download (S5), migrate (later), and manage-sources (S8) are
- * intentionally absent.
+ * active) opening the chapter-settings dialog, an overflow with Refresh / Edit categories / Edit info /
+ * Manage sources (merged only) / Share, and the action-mode select-all / invert. Title + background
+ * fade with scroll via the alpha providers, matching the manga side.
  */
 @Composable
 fun NovelToolbar(
@@ -35,6 +34,7 @@ fun NovelToolbar(
     onClickEditCategory: () -> Unit,
     onClickEditInfo: () -> Unit,
     onClickShare: (() -> Unit)?,
+    onClickManageSources: (() -> Unit)?,
     actionModeCounter: Int,
     onCancelActionMode: () -> Unit,
     onSelectAll: () -> Unit,
@@ -89,6 +89,9 @@ fun NovelToolbar(
                     add(AppBar.OverflowAction(title = stringResource(MR.strings.action_webview_refresh), onClick = onClickRefresh))
                     add(AppBar.OverflowAction(title = stringResource(MR.strings.action_edit_categories), onClick = onClickEditCategory))
                     add(AppBar.OverflowAction(title = stringResource(MR.strings.action_edit), onClick = onClickEditInfo))
+                    if (onClickManageSources != null) {
+                        add(AppBar.OverflowAction(title = stringResource(MR.strings.action_manage_sources), onClick = onClickManageSources))
+                    }
                     if (onClickShare != null) {
                         add(AppBar.OverflowAction(title = stringResource(MR.strings.action_share), onClick = onClickShare))
                     }

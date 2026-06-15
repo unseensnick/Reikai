@@ -1,5 +1,9 @@
 package reikai.presentation.novel.details
 
+import android.app.Application
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import cafe.adriel.voyager.core.model.StateScreenModel
@@ -45,8 +49,12 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.lang.launchNonCancellable
+import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.data.Database
+import tachiyomi.i18n.MR
 import tachiyomi.domain.manga.model.MangaCover
 import uy.kohesive.injekt.injectLazy
 
@@ -76,6 +84,10 @@ class NovelDetailsScreenModel(
     private val uiPreferences: UiPreferences by injectLazy()
     private val mergeManager: NovelMergeManager by injectLazy()
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
+    private val context: Application by injectLazy()
+
+    /** Hosts the merge split/remove Undo snackbars; wired into the details Scaffold. */
+    val snackbarHostState = SnackbarHostState()
 
     /** Resolved once the plugin host loads it; source-dependent ops defer until set. */
     @Volatile
@@ -101,6 +113,10 @@ class NovelDetailsScreenModel(
 
     /** novelId -> resolved source for every grouped sibling (unified rank, chips, reader routing). */
     private val siblingSources = MutableStateFlow<Map<Long, NovelSource>>(emptyMap())
+
+    /** Source-switcher chips for the current group; held here (not only in state) so the chapter
+     *  rebuild always reads them regardless of which collector resolves first. Empty when not merged. */
+    private val mergeChips = MutableStateFlow<List<NovelMergeSourceInfo>>(emptyList())
 
     /** Paged keys already lazily fetched, so an empty page doesn't re-fetch on every flow emission. */
     private val triedPages = java.util.Collections.synchronizedSet(HashSet<String>())
@@ -154,7 +170,6 @@ class NovelDetailsScreenModel(
         val related: LongArray,
         val selected: Long?,
         val pageIndex: Int,
-        val sources: Map<Long, NovelSource>,
     )
 
     // DB-first: the stored anchor novel + the resolved merge group drive the chapter list. The unified
@@ -168,15 +183,16 @@ class NovelDetailsScreenModel(
                 relatedNovelIds,
                 selectedSourceNovelId,
                 pageIndex,
-                siblingSources,
-            ) { anchor, related, selected, idx, sources -> ChapterInputs(anchor, related, selected, idx, sources) }
-                .collectLatest { (anchor, related, selected, idx, sources) ->
+                // In the combine only to re-emit (re-running rebuildLoaded with the chips) once they resolve.
+                mergeChips,
+            ) { anchor, related, selected, idx, _ -> ChapterInputs(anchor, related, selected, idx) }
+                .collectLatest { (anchor, related, selected, idx) ->
                     if (anchor == null) {
                         maybeFirstFetch(null)
                         return@collectLatest
                     }
                     if (related.size > 1 && selected == null) {
-                        observeUnifiedChapters(anchor, related, sources)
+                        observeUnifiedChapters(anchor, related)
                     } else {
                         observeSingleChapters(anchor, selected, idx)
                     }
@@ -209,7 +225,7 @@ class NovelDetailsScreenModel(
             relatedNovelIds.collectLatest { ids ->
                 if (ids.size <= 1) {
                     siblingSources.value = emptyMap()
-                    mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(mergeSources = emptyList()) ?: it }
+                    mergeChips.value = emptyList()
                     return@collectLatest
                 }
                 runCatching { installer.ensureLoaded() }
@@ -221,17 +237,20 @@ class NovelDetailsScreenModel(
                     if (src != null) resolved[id] = src
                     chips += NovelMergeSourceInfo(id, src?.name ?: novel.source, id == anchorNovelId)
                 }
+                // Sources first, then chips: the chips change re-emits the chapter combine, which reads
+                // the now-populated siblingSources for the unified ranking.
                 siblingSources.value = resolved
-                mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(mergeSources = chips) ?: it }
+                mergeChips.value = chips
             }
         }
     }
 
     /** Unified ("All") view: pool every grouped source's chapters into one aggregated, reading-ordered
      *  list (no pagination, pages don't align across sources). Each chapter keeps its own novelId. */
-    private suspend fun observeUnifiedChapters(anchor: Novel, related: LongArray, sources: Map<Long, NovelSource>) {
+    private suspend fun observeUnifiedChapters(anchor: Novel, related: LongArray) {
         val flows = related.map { id -> chapterRepo.getByNovelIdAsFlow(id).map { id to it } }
         combine(flows) { pairs -> pairs.toMap() }.collectLatest { byNovel ->
+            val sources = siblingSources.value
             val sourceIdByNovel = byNovel.keys.associateWith { id -> sources[id]?.id.orEmpty() }
             val aggregated = NovelChapterAggregation.aggregate(
                 byNovel,
@@ -310,7 +329,7 @@ class NovelDetailsScreenModel(
                 readFilter = anchor.effectiveReadFilter(novelPreferences),
                 bookmarkedFilter = anchor.effectiveBookmarkedFilter(novelPreferences),
                 hideChapterTitles = anchor.effectiveHideChapterTitles(novelPreferences),
-                mergeSources = loaded?.mergeSources.orEmpty(),
+                mergeSources = mergeChips.value,
                 selectedSourceNovelId = selectedSourceNovelId.value,
             )
         }
@@ -417,12 +436,76 @@ class NovelDetailsScreenModel(
         selectedSourceNovelId.value = novelId
     }
 
-    /** Split the given grouped sources out (subset split; full dissolve if they cover the group). The
-     *  pref write re-resolves the group; the value is also set directly for instant feedback. */
+    fun showManageSourcesDialog() {
+        screenModelScope.launchIO {
+            val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
+            if (loaded.mergeSources.size <= 1) return@launchIO
+            // Per-source chapter counts (the coverage hint), resolved on open so the user can see which
+            // source is most complete before splitting.
+            val withCounts = loaded.mergeSources.map { it.copy(chapterCount = chapterRepo.getByNovelId(it.novelId).size) }
+            updateLoaded { it.copy(dialog = NovelDetailsDialog.ManageSources(withCounts)) }
+        }
+    }
+
+    /** Split the given grouped sources out (subset split; full dissolve if they cover the group), with
+     *  an Undo that restores the prior merge prefs + group. */
     fun splitSources(targetIds: List<Long>) {
         if (targetIds.isEmpty()) return
+        val prevMerges = reikaiLibraryPreferences.novelManualMerges.get()
+        val prevUnmerges = reikaiLibraryPreferences.novelManualUnmerges.get()
+        val prevRelated = relatedNovelIds.value
+        val newIds = mergeManager.splitOrDissolve(prevRelated, targetIds)
+        relatedNovelIds.value = if (newIds.isEmpty()) longArrayOf(anchorNovelId) else newIds
         selectedSourceNovelId.value = null
-        relatedNovelIds.value = mergeManager.splitOrDissolve(relatedNovelIds.value, targetIds)
+        dismissDialog()
+        screenModelScope.launchUI {
+            val result = snackbarHostState.showSnackbar(
+                message = context.stringResource(MR.strings.merge_sources_split),
+                actionLabel = context.stringResource(MR.strings.action_undo),
+                duration = SnackbarDuration.Short,
+                withDismissAction = true,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                reikaiLibraryPreferences.novelManualMerges.set(prevMerges)
+                reikaiLibraryPreferences.novelManualUnmerges.set(prevUnmerges)
+                relatedNovelIds.value = prevRelated
+            }
+        }
+    }
+
+    /** Split [targetIds] out and unfavorite them, with an Undo that re-favorites + re-groups. */
+    fun removeSourcesFromLibrary(targetIds: List<Long>) {
+        if (targetIds.isEmpty()) return
+        val prevMerges = reikaiLibraryPreferences.novelManualMerges.get()
+        val prevUnmerges = reikaiLibraryPreferences.novelManualUnmerges.get()
+        val prevRelated = relatedNovelIds.value
+        relatedNovelIds.value = mergeManager.removeFromGroup(prevRelated, targetIds)
+        selectedSourceNovelId.value = null
+        dismissDialog()
+        screenModelScope.launchNonCancellable { setFavorites(targetIds, false) }
+        screenModelScope.launchUI {
+            val result = snackbarHostState.showSnackbar(
+                message = context.stringResource(MR.strings.merge_sources_removed),
+                actionLabel = context.stringResource(MR.strings.action_undo),
+                duration = SnackbarDuration.Short,
+                withDismissAction = true,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                reikaiLibraryPreferences.novelManualMerges.set(prevMerges)
+                reikaiLibraryPreferences.novelManualUnmerges.set(prevUnmerges)
+                relatedNovelIds.value = prevRelated
+                screenModelScope.launchNonCancellable { setFavorites(targetIds, true) }
+            }
+        }
+    }
+
+    /** Remove the whole merge group from the library at once (Manage Sources "Remove all"). */
+    fun removeAllSourcesFromLibrary() {
+        removeSourcesFromLibrary(relatedNovelIds.value.toList())
+    }
+
+    private suspend fun setFavorites(ids: List<Long>, favorite: Boolean) {
+        ids.forEach { id -> novelRepo.getById(id)?.let { novelRepo.update(it.copy(favorite = favorite)) } }
     }
 
     /** Renumber sourceOrder over the unified list (ascending by chapter number = reading order) so a
@@ -810,9 +893,15 @@ sealed interface NovelDetailsState {
     }
 }
 
-/** One source chip in a merged novel's source switcher. [isCurrent] marks the opened (anchor) source. */
+/** One grouped source of a merged novel. [isCurrent] marks the opened (anchor) source; [chapterCount]
+ *  is the coverage hint shown in the Manage-sources dialog (0 in the lighter chip list). */
 @Immutable
-data class NovelMergeSourceInfo(val novelId: Long, val sourceName: String, val isCurrent: Boolean)
+data class NovelMergeSourceInfo(
+    val novelId: Long,
+    val sourceName: String,
+    val isCurrent: Boolean,
+    val chapterCount: Int = 0,
+)
 
 sealed interface NovelDetailsDialog {
     data class ChangeCategory(
@@ -831,4 +920,5 @@ sealed interface NovelDetailsDialog {
 
     data object ChapterSettings : NovelDetailsDialog
     data object PageSelector : NovelDetailsDialog
+    data class ManageSources(val sources: List<NovelMergeSourceInfo>) : NovelDetailsDialog
 }

@@ -56,6 +56,25 @@ fun MergeBadge(relatedMangaIds: List<Long>, sources: List<Source>) {
     if (extra > 0) Badge(text = "+$extra")
 }
 
+/**
+ * Merge badge for a collapsed NOVEL group, the coil-loaded twin of [MergeBadge]. When [iconUrls] is
+ * populated (the "show source icons on merged covers" novel setting is on) it shows up to three source
+ * icons plus a "+N" overflow; otherwise it falls back to the numeric group count.
+ */
+@Composable
+fun NovelMergeBadge(relatedMangaIds: List<Long>, iconUrls: List<String>) {
+    val count = relatedMangaIds.size
+    if (count <= 1) return
+    if (iconUrls.isEmpty()) {
+        Badge(text = count.toString())
+        return
+    }
+    val shown = iconUrls.take(MAX_MERGE_ICONS)
+    shown.forEach { NovelSourceIconBadge(it) }
+    val extra = iconUrls.size - shown.size
+    if (extra > 0) Badge(text = "+$extra")
+}
+
 @Composable
 fun SourceIconBadge(source: Source?) {
     if (source == null) return
@@ -139,6 +158,9 @@ fun libraryCoverModel(item: LibraryItem): Any {
 @Composable
 fun LibraryCoverEndBadge(item: LibraryItem) {
     when {
+        // A merged novel (negative id) renders coil-loaded source icons; a merged manga the bitmap ones.
+        item.relatedMangaIds.size > 1 && item.libraryManga.manga.id < 0L ->
+            NovelMergeBadge(item.relatedMangaIds, item.badges.mergedSourceIconUrls)
         item.relatedMangaIds.size > 1 -> MergeBadge(item.relatedMangaIds, item.badges.mergedSources)
         item.libraryManga.manga.id < 0L -> NovelSourceIconBadge(item.badges.sourceIconUrl)
         else -> SourceIconBadge(item.badges.source)

@@ -199,7 +199,7 @@ private fun ColumnScope.NovelDisplayPage(screenModel: LibrarySettingsScreenModel
         label = stringResource(MR.strings.action_display_source_badge),
         pref = screenModel.reikaiLibraryPreferences.sourceBadge,
     )
-    // RK --> novel merge toggles (P5 S8). Source-icons toggle + rendering land in S8b.
+    // RK --> novel merge toggles (P5 S8)
     CheckboxItem(
         label = stringResource(MR.strings.action_merge_same_title),
         pref = screenModel.reikaiLibraryPreferences.novelAutoMergeSameTitle,
@@ -211,6 +211,10 @@ private fun ColumnScope.NovelDisplayPage(screenModel: LibrarySettingsScreenModel
             pref = screenModel.reikaiLibraryPreferences.novelAutoMergeRequireAuthor,
         )
     }
+    CheckboxItem(
+        label = stringResource(MR.strings.action_merge_source_icons),
+        pref = screenModel.reikaiLibraryPreferences.showNovelMergeSourceIcons,
+    )
     // RK <--
     CheckboxItem(
         label = stringResource(MR.strings.action_display_show_continue_reading_button),
