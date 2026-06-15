@@ -39,7 +39,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import mihon.core.common.utils.mutate
 // RK -->
+import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.isHidden
+import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.domain.source.model.Source as DomainSource
 import tachiyomi.domain.source.model.StubSource
@@ -216,10 +218,11 @@ class LibraryScreenModel(
             )
                 .any { it != TriState.DISABLED } ||
                 // RK --> include/exclude category filter is a Boolean dim, not a TriState
-                (
-                    prefs.filterCategories &&
-                        (prefs.filterCategoriesInclude.isNotEmpty() || prefs.filterCategoriesExclude.isNotEmpty())
-                    )
+                categoryFilterActive(
+                    prefs.filterCategories,
+                    prefs.filterCategoriesInclude,
+                    prefs.filterCategoriesExclude,
+                )
             // RK <--
         }
             .distinctUntilChanged()
@@ -486,10 +489,10 @@ class LibraryScreenModel(
 
         // RK --> net-new Reikai filter dims (lewd + include/exclude category)
         val filterLewd = preferences.filterLewd
-        val filterCategoriesActive = preferences.filterCategories &&
-            (preferences.filterCategoriesInclude.isNotEmpty() || preferences.filterCategoriesExclude.isNotEmpty())
         val includeCategories = preferences.filterCategoriesInclude
         val excludeCategories = preferences.filterCategoriesExclude
+        val filterCategoriesActive =
+            categoryFilterActive(preferences.filterCategories, includeCategories, excludeCategories)
 
         val filterFnLewd: (LibraryItem) -> Boolean = {
             applyFilter(filterLewd) {
@@ -499,10 +502,7 @@ class LibraryScreenModel(
 
         val filterFnCategories: (LibraryItem) -> Boolean = catFilter@{ item ->
             if (!filterCategoriesActive) return@catFilter true
-            val mangaCategories = item.libraryManga.categories
-            val isIncluded = includeCategories.isEmpty() || mangaCategories.fastAny { it in includeCategories }
-            val isExcluded = excludeCategories.isNotEmpty() && mangaCategories.fastAny { it in excludeCategories }
-            isIncluded && !isExcluded
+            matchesCategoryFilter(item.libraryManga.categories, includeCategories, excludeCategories)
         }
         // RK <--
 

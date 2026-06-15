@@ -81,6 +81,9 @@ fun ReikaiUpdatesScreen(
 ) {
     val mangaState by mangaModel.state.collectAsState()
     val novelState by novelModel.state.collectAsState()
+    // Manga's hasActiveFilters covers the shared filters + the manga category filter; a novel-only
+    // category selection isn't visible there, so the shell folds it in for the filter-icon tint.
+    val novelCategoryFilterActive by novelModel.hasActiveCategoryFilter.collectAsState()
     val mangaSelected = mangaState.selected
     val novelSelected = novelState.selected
     val selectionMode = mangaState.selectionMode || novelState.selectionMode
@@ -101,7 +104,11 @@ fun ReikaiUpdatesScreen(
                     // The filter applies to both manga and novel rows (shared prefs), so it shows on
                     // every chip and live-tints when active. The calendar is the manga upcoming-releases
                     // view, so it only appears where manga rows are shown (Manga + All).
-                    val filterTint = if (hasActiveFilters) MaterialTheme.colorScheme.active else LocalContentColor.current
+                    val filterTint = if (hasActiveFilters || novelCategoryFilterActive) {
+                        MaterialTheme.colorScheme.active
+                    } else {
+                        LocalContentColor.current
+                    }
                     AppBarActions(
                         actions = buildList {
                             add(

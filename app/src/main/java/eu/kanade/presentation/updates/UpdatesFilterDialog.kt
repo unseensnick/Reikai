@@ -33,6 +33,9 @@ import tachiyomi.presentation.core.util.collectAsState
 fun UpdatesFilterDialog(
     onDismissRequest: () -> Unit,
     screenModel: UpdatesSettingsScreenModel,
+    // RK -->
+    reikaiCategorySection: @Composable ColumnScope.() -> Unit = {},
+    // RK <--
 ) {
     TabbedDialog(
         onDismissRequest = onDismissRequest,
@@ -45,7 +48,8 @@ fun UpdatesFilterDialog(
                 .padding(vertical = TabbedDialogPaddings.Vertical)
                 .verticalScroll(rememberScrollState()),
         ) {
-            FilterSheet(screenModel = screenModel)
+            // RK: pass the category-filter section through to the sheet
+            FilterSheet(screenModel = screenModel, reikaiCategorySection = reikaiCategorySection)
         }
     }
 }
@@ -53,6 +57,9 @@ fun UpdatesFilterDialog(
 @Composable
 private fun ColumnScope.FilterSheet(
     screenModel: UpdatesSettingsScreenModel,
+    // RK -->
+    reikaiCategorySection: @Composable ColumnScope.() -> Unit = {},
+    // RK <--
 ) {
     val filterDownloaded by screenModel.updatesPreferences.filterDownloaded.collectAsState()
     TriStateItem(
@@ -107,4 +114,7 @@ private fun ColumnScope.FilterSheet(
             onCheckedChange = { toggleScanlatorFilter() },
         )
     }
+
+    // RK: include/exclude category filter (renders only when there are categories to pick)
+    reikaiCategorySection()
 }

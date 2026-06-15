@@ -5,15 +5,20 @@ import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import reikai.domain.category.categoryFilterActive
+import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownload
@@ -40,6 +45,7 @@ class NovelUpdatesScreenModel(
     private val downloadManager: NovelDownloadManager = Injekt.get(),
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
     private val updatesPreferences: UpdatesPreferences = Injekt.get(),
+    private val getNovelCategories: GetNovelCategories = Injekt.get(),
 ) : StateScreenModel<NovelUpdatesScreenModel.State>(State()) {
 
     /** Sticky All / Manga / Novels chip state for the Updates tab (drives which screen the tab shows). */
@@ -47,6 +53,12 @@ class NovelUpdatesScreenModel(
         .stateIn(screenModelScope, SharingStarted.Eagerly, sourcePreferences.updatesContentType.get())
 
     fun setContentType(type: ContentType) = sourcePreferences.updatesContentType.set(type)
+
+    /** Whether the novel category filter is constraining the feed; drives the shell's filter-icon tint
+     *  on chips where manga's own active-filter flag wouldn't reflect a novel-only selection. */
+    val hasActiveCategoryFilter: StateFlow<Boolean> = categoryFilterFlow()
+        .map { categoryFilterActive(it.enabled, it.include, it.exclude) }
+        .stateIn(screenModelScope, SharingStarted.Eagerly, false)
 
     private val selectedChapterIds = HashSet<Long>()
 
@@ -65,7 +77,8 @@ class NovelUpdatesScreenModel(
                 novelRepo.getRecentNovelUpdatesAsFlow(after, LIMIT),
                 downloadManager.queueState,
                 filterFlow,
-            ) { updates, queue, filters ->
+                categoryFilterFlow(),
+            ) { updates, queue, filters, categoryFilter ->
                 val queueById = queue.associate { it.chapterId to it.state.toDownloadState() }
                 updates
                     .map { update ->
@@ -77,6 +90,7 @@ class NovelUpdatesScreenModel(
                         )
                     }
                     .filter { it.matchesFilters(filters) }
+                    .applyCategoryFilter(categoryFilter)
             }.collectLatest { items ->
                 mutableState.update { it.copy(isLoading = false, items = items) }
             }
@@ -96,6 +110,39 @@ class NovelUpdatesScreenModel(
             applyFilter(f.downloaded) { downloadState == Download.State.DOWNLOADED } &&
             applyFilter(f.started) { update.lastTextProgress > 0L && !update.read } &&
             applyFilter(f.bookmarked) { update.bookmark }
+
+    private val novelCategoryCache = mutableMapOf<Long, Set<Long>>()
+
+    private data class CategoryFilter(
+        val enabled: Boolean,
+        val include: Set<Long>,
+        val exclude: Set<Long>,
+    )
+
+    /** Novel side of the shared include/exclude category filter; reads its own (novel) selections. */
+    private fun categoryFilterFlow(): Flow<CategoryFilter> = combine(
+        sourcePreferences.updatesFilterCategories.changes(),
+        sourcePreferences.updatesFilterNovelCategoriesInclude.changes(),
+        sourcePreferences.updatesFilterNovelCategoriesExclude.changes(),
+    ) { enabled, include, exclude ->
+        CategoryFilter(
+            enabled = enabled,
+            include = include.mapNotNull(String::toLongOrNull).toSet(),
+            exclude = exclude.mapNotNull(String::toLongOrNull).toSet(),
+        )
+    }
+
+    // Membership cached for the screen's lifetime; only paid when the filter is active. Empty =
+    // uncategorized, mapped to id 0 so the synthetic Default shelf can be filtered (as NovelUpdateJob does).
+    private suspend fun List<NovelUpdatesItem>.applyCategoryFilter(selection: CategoryFilter): List<NovelUpdatesItem> {
+        if (!categoryFilterActive(selection.enabled, selection.include, selection.exclude)) return this
+        return filter { item ->
+            val categories = novelCategoryCache.getOrPut(item.update.novelId) {
+                getNovelCategories.awaitByNovelId(item.update.novelId).map { it.id }.toSet().ifEmpty { setOf(0L) }
+            }
+            matchesCategoryFilter(categories, selection.include, selection.exclude)
+        }
+    }
 
     fun toggleSelection(chapterId: Long, selected: Boolean) {
         if (selected) selectedChapterIds.add(chapterId) else selectedChapterIds.remove(chapterId)

@@ -41,4 +41,27 @@ class ReikaiSourcePreferences(
         LibraryDisplayMode.Serializer::serialize,
         LibraryDisplayMode.Serializer::deserialize,
     )
+
+    // region Updates category filter
+
+    /**
+     * Include/exclude category filter for the Updates tab. Mirrors the library's
+     * [reikai.domain.library.ReikaiLibraryPreferences.filterCategories] dim, but manga and novels
+     * have separate category systems (separate id spaces), so each type carries its own selections;
+     * the picker applies them per content-type chip. Empty sets = no constraint for that type.
+     */
+    val updatesFilterCategories: Preference<Boolean> =
+        preferenceStore.getBoolean("updates_filter_categories", false)
+
+    val updatesFilterMangaCategoriesInclude: Preference<Set<String>> =
+        preferenceStore.getStringSet("updates_filter_manga_categories_include", emptySet())
+    val updatesFilterMangaCategoriesExclude: Preference<Set<String>> =
+        preferenceStore.getStringSet("updates_filter_manga_categories_exclude", emptySet())
+
+    val updatesFilterNovelCategoriesInclude: Preference<Set<String>> =
+        preferenceStore.getStringSet("updates_filter_novel_categories_include", emptySet())
+    val updatesFilterNovelCategoriesExclude: Preference<Set<String>> =
+        preferenceStore.getStringSet("updates_filter_novel_categories_exclude", emptySet())
+
+    // endregion
 }

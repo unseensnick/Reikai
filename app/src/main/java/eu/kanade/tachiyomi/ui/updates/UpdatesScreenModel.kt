@@ -33,10 +33,16 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+// RK -->
+import reikai.domain.category.categoryFilterActive
+import reikai.domain.category.matchesCategoryFilter
+import reikai.domain.source.ReikaiSourcePreferences
+// RK <--
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.chapter.interactor.GetChapter
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
@@ -62,6 +68,10 @@ class UpdatesScreenModel(
     private val getChapter: GetChapter = Injekt.get(),
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
     private val updatesPreferences: UpdatesPreferences = Injekt.get(),
+    // RK -->
+    private val reikaiSourcePreferences: ReikaiSourcePreferences = Injekt.get(),
+    private val getCategories: GetCategories = Injekt.get(),
+    // RK <--
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : StateScreenModel<UpdatesScreenModel.State>(State()) {
 
@@ -98,10 +108,14 @@ class UpdatesScreenModel(
                 getUpdatesItemPreferenceFlow().distinctUntilChanged { old, new ->
                     old.filterDownloaded == new.filterDownloaded
                 },
-            ) { updates, _, _, itemPreferences ->
+                // RK: needed for the include/exclude category filter
+                reikaiCategoryFilterFlow(),
+            ) { updates, _, _, itemPreferences, categoryFilter ->
                 updates
                     .toUpdateItems()
                     .applyFilters(itemPreferences)
+                    // RK: trim to the selected categories (a no-op when the filter is off)
+                    .applyReikaiCategoryFilter(categoryFilter)
             }
                 .collectLatest { updateItems ->
                     mutableState.update {
@@ -119,16 +133,21 @@ class UpdatesScreenModel(
                 .collect(this@UpdatesScreenModel::updateDownloadState)
         }
 
-        getUpdatesItemPreferenceFlow()
-            .map { prefs ->
-                listOf(
-                    prefs.filterUnread,
-                    prefs.filterDownloaded,
-                    prefs.filterStarted,
-                    prefs.filterBookmarked,
-                )
-                    .any { it != TriState.DISABLED }
-            }
+        // RK --> also reflect the include/exclude category filter in the active-filter tint
+        combine(
+            getUpdatesItemPreferenceFlow()
+                .map { prefs ->
+                    listOf(
+                        prefs.filterUnread,
+                        prefs.filterDownloaded,
+                        prefs.filterStarted,
+                        prefs.filterBookmarked,
+                    )
+                        .any { it != TriState.DISABLED }
+                },
+            reikaiCategoryFilterFlow()
+                .map { categoryFilterActive(it.enabled, it.include, it.exclude) },
+        ) { baseFilters, categoryActive -> baseFilters || categoryActive }
             .distinctUntilChanged()
             .onEach {
                 mutableState.update { state ->
@@ -136,6 +155,7 @@ class UpdatesScreenModel(
                 }
             }
             .launchIn(screenModelScope)
+        // RK <--
     }
 
     private fun List<UpdatesItem>.applyFilters(
@@ -153,6 +173,41 @@ class UpdatesScreenModel(
             filterFnDownloaded(it)
         }
     }
+
+    // RK --> include/exclude category filter for manga updates (mirrors the library's filter dim).
+    // Membership is resolved per manga id and cached for the screen's lifetime; only paid when the
+    // filter is active. Re-categorizing a series while this screen is open won't reflect until reopen.
+    private val mangaCategoryCache = mutableMapOf<Long, Set<Long>>()
+
+    private data class CategoryFilter(
+        val enabled: Boolean,
+        val include: Set<Long>,
+        val exclude: Set<Long>,
+    )
+
+    private fun reikaiCategoryFilterFlow(): Flow<CategoryFilter> = combine(
+        reikaiSourcePreferences.updatesFilterCategories.changes(),
+        reikaiSourcePreferences.updatesFilterMangaCategoriesInclude.changes(),
+        reikaiSourcePreferences.updatesFilterMangaCategoriesExclude.changes(),
+    ) { enabled, include, exclude ->
+        CategoryFilter(
+            enabled = enabled,
+            include = include.mapNotNull(String::toLongOrNull).toSet(),
+            exclude = exclude.mapNotNull(String::toLongOrNull).toSet(),
+        )
+    }
+
+    private suspend fun List<UpdatesItem>.applyReikaiCategoryFilter(selection: CategoryFilter): List<UpdatesItem> {
+        if (!categoryFilterActive(selection.enabled, selection.include, selection.exclude)) return this
+        return filter { item ->
+            val categories = mangaCategoryCache.getOrPut(item.update.mangaId) {
+                // Empty = uncategorized; map to id 0 so the synthetic Default shelf can be filtered.
+                getCategories.await(item.update.mangaId).map { it.id }.toSet().ifEmpty { setOf(0L) }
+            }
+            matchesCategoryFilter(categories, selection.include, selection.exclude)
+        }
+    }
+    // RK <--
 
     private fun List<UpdatesWithRelations>.toUpdateItems(): List<UpdatesItem> {
         return this
