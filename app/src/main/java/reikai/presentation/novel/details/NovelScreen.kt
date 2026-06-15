@@ -107,10 +107,15 @@ class NovelScreen(
                 }
                 val onChapterClick: (NovelChapter) -> Unit = { chapter ->
                     // Route to the chapter's own source (a unified-list row keeps its owning novelId)
-                    // and hand the reader the displayed order so prev/next walks it (cross-source in
-                    // the merged "All" view, single-source for a per-source chip or a non-merged novel).
+                    // and hand the reader the chapters in READING order (ascending sourceOrder, the
+                    // restamped cross-source order for a merged group), independent of the details
+                    // display sort, so Next advances forward like the manga reader + library resume.
                     navigator.push(
-                        NovelReaderScreen(chapter.novelId, chapter.id, s.chapters.map { it.id }.toLongArray()),
+                        NovelReaderScreen(
+                            chapter.novelId,
+                            chapter.id,
+                            s.chapters.sortedBy { it.sourceOrder }.map { it.id }.toLongArray(),
+                        ),
                     )
                 }
 
