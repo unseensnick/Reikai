@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
@@ -22,6 +23,10 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.util.fastAll
@@ -32,31 +37,37 @@ import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.updates.UpdatesUiItem
+import eu.kanade.presentation.updates.updatesLastUpdatedItem
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
 import eu.kanade.tachiyomi.ui.updates.UpdatesScreenModel
 import eu.kanade.tachiyomi.util.lang.toLocalDate
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import reikai.domain.library.ContentType
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.ListGroupHeader
+import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.theme.active
 import java.time.LocalDate
+import kotlin.time.Duration.Companion.seconds
 
 /**
- * The Novels / All side of the Updates tab (the Manga side stays Mihon's `UpdateScreen`). Builds a
- * single date-grouped feed: NOVELS shows only novel rows; ALL interleaves manga + novel rows by fetch
- * date. Selection + the bottom action bar act on novel rows only (manga multi-select stays on the
- * Manga chip); manga rows here are tap-to-open + per-row download.
+ * The single Updates screen for all three content-type chips. Manga is driven entirely by Mihon's
+ * untouched [UpdatesScreenModel] (state + actions); novels by [NovelUpdatesScreenModel]. This is the
+ * consolidation that lets cross-cutting features (filters, by-category, group-by-series) apply to every
+ * chip from one place, while Mihon's logic stays portable. The Manga chip renders identically to
+ * Mihon's own `UpdateScreen` because it reuses the same row composable + the same model.
  */
 @Composable
 fun ReikaiUpdatesScreen(
     contentType: ContentType,
-    mangaState: UpdatesScreenModel.State,
+    mangaModel: UpdatesScreenModel,
     novelModel: NovelUpdatesScreenModel,
     snackbarHostState: SnackbarHostState,
     chip: @Composable () -> Unit,
@@ -66,26 +77,33 @@ fun ReikaiUpdatesScreen(
     onCalendarClicked: () -> Unit,
     onOpenMangaChapter: (UpdatesItem) -> Unit,
     onClickMangaCover: (UpdatesItem) -> Unit,
-    onMangaDownload: (List<UpdatesItem>, ChapterDownloadAction) -> Unit,
     onOpenNovelChapter: (NovelUpdatesItem) -> Unit,
 ) {
+    val mangaState by mangaModel.state.collectAsState()
     val novelState by novelModel.state.collectAsState()
-    val selectionMode = novelState.selectionMode
+    val mangaSelected = mangaState.selected
+    val novelSelected = novelState.selected
+    val selectionMode = mangaState.selectionMode || novelState.selectionMode
+    val showsManga = contentType != ContentType.NOVELS
 
-    BackHandler(enabled = selectionMode) { novelModel.selectAll(false) }
+    fun clearSelection() {
+        mangaModel.toggleAllSelection(false)
+        novelModel.selectAll(false)
+    }
+
+    BackHandler(enabled = selectionMode) { clearSelection() }
 
     Scaffold(
         topBar = { scrollBehavior ->
             AppBar(
                 title = stringResource(MR.strings.label_recent_updates),
                 actions = {
-                    // Filter + calendar act on manga updates, so they appear on the All view (which
-                    // contains manga rows); the filter live-tints the manga portion. Novels-only omits
-                    // them until novel-side filtering lands. Manga-only keeps Mihon's own app bar.
+                    // Filter + calendar act on manga updates, so they show wherever manga rows appear
+                    // (Manga + All). The filter live-tints when active. Novel-side filtering arrives later.
                     val filterTint = if (hasActiveFilters) MaterialTheme.colorScheme.active else LocalContentColor.current
                     AppBarActions(
                         actions = buildList {
-                            if (contentType == ContentType.ALL) {
+                            if (showsManga) {
                                 add(
                                     AppBar.Action(
                                         title = stringResource(MR.strings.action_filter),
@@ -112,20 +130,26 @@ fun ReikaiUpdatesScreen(
                         },
                     )
                 },
-                actionModeCounter = novelState.selected.size,
-                onCancelActionMode = { novelModel.selectAll(false) },
+                actionModeCounter = mangaSelected.size + novelSelected.size,
+                onCancelActionMode = { clearSelection() },
                 actionModeActions = {
                     AppBarActions(
                         listOf(
                             AppBar.Action(
                                 title = stringResource(MR.strings.action_select_all),
                                 icon = Icons.Outlined.SelectAll,
-                                onClick = { novelModel.selectAll(true) },
+                                onClick = {
+                                    if (contentType != ContentType.NOVELS) mangaModel.toggleAllSelection(true)
+                                    if (contentType != ContentType.MANGA) novelModel.selectAll(true)
+                                },
                             ),
                             AppBar.Action(
                                 title = stringResource(MR.strings.action_select_inverse),
                                 icon = Icons.Outlined.FlipToBack,
-                                onClick = novelModel::invertSelection,
+                                onClick = {
+                                    if (contentType != ContentType.NOVELS) mangaModel.invertSelection()
+                                    if (contentType != ContentType.MANGA) novelModel.invertSelection()
+                                },
                             ),
                         ),
                     )
@@ -134,22 +158,44 @@ fun ReikaiUpdatesScreen(
             )
         },
         bottomBar = {
-            val selected = novelState.selected
+            // One action bar over the combined selection; each action dispatches to whichever model
+            // owns the selected rows (a selection is usually single-type, but mixed is handled).
             MangaBottomActionMenu(
                 visible = selectionMode,
                 modifier = Modifier.fillMaxWidth(),
-                onBookmarkClicked = { novelModel.bookmark(selected, true) }
-                    .takeIf { selected.fastAny { !it.update.bookmark } },
-                onRemoveBookmarkClicked = { novelModel.bookmark(selected, false) }
-                    .takeIf { selected.fastAll { it.update.bookmark } },
-                onMarkAsReadClicked = { novelModel.markRead(selected, true) }
-                    .takeIf { selected.fastAny { !it.update.read } },
-                onMarkAsUnreadClicked = { novelModel.markRead(selected, false) }
-                    .takeIf { selected.fastAny { it.update.read || it.update.lastTextProgress > 0L } },
-                onDownloadClicked = { novelModel.downloadChapters(selected) }
-                    .takeIf { selected.fastAny { it.downloadState != Download.State.DOWNLOADED } },
-                onDeleteClicked = { novelModel.deleteChapters(selected) }
-                    .takeIf { selected.fastAny { it.downloadState == Download.State.DOWNLOADED } },
+                onBookmarkClicked = {
+                    if (mangaSelected.isNotEmpty()) mangaModel.bookmarkUpdates(mangaSelected, true)
+                    if (novelSelected.isNotEmpty()) novelModel.bookmark(novelSelected, true)
+                }.takeIf { mangaSelected.fastAny { !it.update.bookmark } || novelSelected.fastAny { !it.update.bookmark } },
+                onRemoveBookmarkClicked = {
+                    if (mangaSelected.isNotEmpty()) mangaModel.bookmarkUpdates(mangaSelected, false)
+                    if (novelSelected.isNotEmpty()) novelModel.bookmark(novelSelected, false)
+                }.takeIf { mangaSelected.fastAll { it.update.bookmark } && novelSelected.fastAll { it.update.bookmark } },
+                onMarkAsReadClicked = {
+                    if (mangaSelected.isNotEmpty()) mangaModel.markUpdatesRead(mangaSelected, true)
+                    if (novelSelected.isNotEmpty()) novelModel.markRead(novelSelected, true)
+                }.takeIf { mangaSelected.fastAny { !it.update.read } || novelSelected.fastAny { !it.update.read } },
+                onMarkAsUnreadClicked = {
+                    if (mangaSelected.isNotEmpty()) mangaModel.markUpdatesRead(mangaSelected, false)
+                    if (novelSelected.isNotEmpty()) novelModel.markRead(novelSelected, false)
+                }.takeIf {
+                    mangaSelected.fastAny { it.update.read || it.update.lastPageRead > 0L } ||
+                        novelSelected.fastAny { it.update.read || it.update.lastTextProgress > 0L }
+                },
+                onDownloadClicked = {
+                    if (mangaSelected.isNotEmpty()) mangaModel.downloadChapters(mangaSelected, ChapterDownloadAction.START)
+                    if (novelSelected.isNotEmpty()) novelModel.downloadChapters(novelSelected)
+                }.takeIf {
+                    mangaSelected.fastAny { it.downloadStateProvider() != Download.State.DOWNLOADED } ||
+                        novelSelected.fastAny { it.downloadState != Download.State.DOWNLOADED }
+                },
+                onDeleteClicked = {
+                    if (mangaSelected.isNotEmpty()) mangaModel.showConfirmDeleteChapters(mangaSelected)
+                    if (novelSelected.isNotEmpty()) novelModel.deleteChapters(novelSelected)
+                }.takeIf {
+                    mangaSelected.fastAny { it.downloadStateProvider() == Download.State.DOWNLOADED } ||
+                        novelSelected.fastAny { it.downloadState == Download.State.DOWNLOADED }
+                },
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
@@ -162,8 +208,8 @@ fun ReikaiUpdatesScreen(
                 end = contentPadding.calculateEndPadding(layoutDirection),
                 bottom = contentPadding.calculateBottomPadding(),
             )
-            val isLoading = novelState.isLoading || (contentType == ContentType.ALL && mangaState.isLoading)
-            val rows = rememberUpdateRows(contentType, mangaState.items, novelState.items)
+            val isLoading = novelState.isLoading || (showsManga && mangaState.isLoading)
+            val rows = buildUpdateRows(contentType, mangaState.items, novelState.items)
             Box(modifier = Modifier.weight(1f)) {
                 when {
                     isLoading -> LoadingScreen(Modifier.padding(bodyPadding))
@@ -171,67 +217,114 @@ fun ReikaiUpdatesScreen(
                         stringRes = MR.strings.information_no_recent,
                         modifier = Modifier.padding(bodyPadding),
                     )
-                    else -> FastScrollLazyColumn(contentPadding = bodyPadding) {
-                        items(
-                            items = rows,
-                            contentType = {
-                                when (it) {
-                                    is UpdateRow.Header -> "header"
-                                    is UpdateRow.Manga -> "manga"
-                                    is UpdateRow.Novel -> "novel"
+                    else -> {
+                        val scope = rememberCoroutineScope()
+                        var isRefreshing by remember { mutableStateOf(false) }
+                        PullRefresh(
+                            refreshing = isRefreshing,
+                            onRefresh = {
+                                onRefresh()
+                                scope.launch {
+                                    isRefreshing = true
+                                    delay(1.seconds)
+                                    isRefreshing = false
                                 }
                             },
-                            key = {
-                                when (it) {
-                                    is UpdateRow.Header -> "header-${it.date}"
-                                    is UpdateRow.Manga -> "manga-${it.item.update.mangaId}-${it.item.update.chapterId}"
-                                    is UpdateRow.Novel -> "novel-${it.item.update.novelId}-${it.item.update.chapterId}"
-                                }
-                            },
-                        ) { row ->
-                            when (row) {
-                                is UpdateRow.Header -> ListGroupHeader(text = relativeDateText(row.date))
-                                is UpdateRow.Manga -> {
-                                    val item = row.item
-                                    UpdatesUiItem(
-                                        update = item.update,
-                                        selected = false,
-                                        readProgress = item.update.lastPageRead
-                                            .takeIf { !item.update.read && it > 0L }
-                                            ?.let { stringResource(MR.strings.chapter_progress, it + 1) },
-                                        onClick = { onOpenMangaChapter(item) },
-                                        onLongClick = { onOpenMangaChapter(item) },
-                                        onClickCover = { onClickMangaCover(item) },
-                                        onDownloadChapter = { action -> onMangaDownload(listOf(item), action) },
-                                        downloadStateProvider = item.downloadStateProvider,
-                                        downloadProgressProvider = item.downloadProgressProvider,
-                                    )
-                                }
-                                is UpdateRow.Novel -> {
-                                    val item = row.item
-                                    NovelUpdatesUiItem(
-                                        item = item,
-                                        onClick = {
-                                            if (selectionMode) {
-                                                novelModel.toggleSelection(item.update.chapterId, !item.selected)
-                                            } else {
-                                                onOpenNovelChapter(item)
-                                            }
-                                        },
-                                        onLongClick = {
-                                            novelModel.toggleSelection(item.update.chapterId, !item.selected)
-                                        },
-                                        onDownloadClick = if (selectionMode) {
-                                            null
-                                        } else {
-                                            { action -> novelModel.onDownloadAction(item, action) }
-                                        },
-                                    )
-                                }
+                            enabled = !selectionMode,
+                            indicatorPadding = bodyPadding,
+                        ) {
+                            FastScrollLazyColumn(contentPadding = bodyPadding) {
+                                if (showsManga) updatesLastUpdatedItem(mangaModel.lastUpdated)
+                                updateRows(
+                                    rows = rows,
+                                    selectionMode = selectionMode,
+                                    mangaModel = mangaModel,
+                                    novelModel = novelModel,
+                                    onOpenMangaChapter = onOpenMangaChapter,
+                                    onClickMangaCover = onClickMangaCover,
+                                    onOpenNovelChapter = onOpenNovelChapter,
+                                )
                             }
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+private fun LazyListScope.updateRows(
+    rows: List<UpdateRow>,
+    selectionMode: Boolean,
+    mangaModel: UpdatesScreenModel,
+    novelModel: NovelUpdatesScreenModel,
+    onOpenMangaChapter: (UpdatesItem) -> Unit,
+    onClickMangaCover: (UpdatesItem) -> Unit,
+    onOpenNovelChapter: (NovelUpdatesItem) -> Unit,
+) {
+    items(
+        items = rows,
+        contentType = {
+            when (it) {
+                is UpdateRow.Header -> "header"
+                is UpdateRow.Manga -> "manga"
+                is UpdateRow.Novel -> "novel"
+            }
+        },
+        key = {
+            when (it) {
+                is UpdateRow.Header -> "header-${it.date}"
+                is UpdateRow.Manga -> "manga-${it.item.update.mangaId}-${it.item.update.chapterId}"
+                is UpdateRow.Novel -> "novel-${it.item.update.novelId}-${it.item.update.chapterId}"
+            }
+        },
+    ) { row ->
+        when (row) {
+            is UpdateRow.Header -> ListGroupHeader(text = relativeDateText(row.date))
+            is UpdateRow.Manga -> {
+                val item = row.item
+                UpdatesUiItem(
+                    update = item.update,
+                    selected = item.selected,
+                    readProgress = item.update.lastPageRead
+                        .takeIf { !item.update.read && it > 0L }
+                        ?.let { stringResource(MR.strings.chapter_progress, it + 1) },
+                    onClick = {
+                        if (selectionMode) {
+                            mangaModel.toggleSelection(item, !item.selected, false)
+                        } else {
+                            onOpenMangaChapter(item)
+                        }
+                    },
+                    onLongClick = { mangaModel.toggleSelection(item, !item.selected, true) },
+                    onClickCover = if (selectionMode) null else ({ onClickMangaCover(item) }),
+                    onDownloadChapter = if (selectionMode) {
+                        null
+                    } else {
+                        { action -> mangaModel.downloadChapters(listOf(item), action) }
+                    },
+                    downloadStateProvider = item.downloadStateProvider,
+                    downloadProgressProvider = item.downloadProgressProvider,
+                )
+            }
+            is UpdateRow.Novel -> {
+                val item = row.item
+                NovelUpdatesUiItem(
+                    item = item,
+                    onClick = {
+                        if (selectionMode) {
+                            novelModel.toggleSelection(item.update.chapterId, !item.selected)
+                        } else {
+                            onOpenNovelChapter(item)
+                        }
+                    },
+                    onLongClick = { novelModel.toggleSelection(item.update.chapterId, !item.selected) },
+                    onDownloadClick = if (selectionMode) {
+                        null
+                    } else {
+                        { action -> novelModel.onDownloadAction(item, action) }
+                    },
+                )
             }
         }
     }
@@ -245,10 +338,9 @@ private sealed interface UpdateRow {
 
 /**
  * Merge the manga + novel feeds into one date-grouped list, newest first. NOVELS contributes only
- * novel rows; ALL interleaves both by fetch date. A pure derivation, cheap to recompute on state change.
+ * novel rows; ALL interleaves both by fetch date; MANGA only manga rows.
  */
-@Composable
-private fun rememberUpdateRows(
+private fun buildUpdateRows(
     contentType: ContentType,
     mangaItems: List<UpdatesItem>,
     novelItems: List<NovelUpdatesItem>,

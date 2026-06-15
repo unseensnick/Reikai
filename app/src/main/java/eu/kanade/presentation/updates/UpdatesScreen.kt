@@ -1,11 +1,6 @@
 package eu.kanade.presentation.updates
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -26,7 +21,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.util.fastAll
 import androidx.compose.ui.util.fastAny
 import eu.kanade.presentation.components.AppBar
@@ -67,8 +61,6 @@ fun UpdateScreen(
     onOpenChapter: (UpdatesItem) -> Unit,
     onFilterClicked: () -> Unit,
     hasActiveFilters: Boolean,
-    // RK: content-type chip pinned below the app bar (so it stays reachable in the empty/loading states).
-    chip: @Composable () -> Unit = {},
 ) {
     BackHandler(enabled = state.selectionMode) {
         onSelectAll(false)
@@ -99,57 +91,44 @@ fun UpdateScreen(
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
     ) { contentPadding ->
-        // RK: pin the content-type chip below the app bar; the chip consumes the top inset and the
-        // body keeps the side + bottom insets (mirrors the unified Downloads queue).
-        val layoutDirection = LocalLayoutDirection.current
-        Column(modifier = Modifier.padding(top = contentPadding.calculateTopPadding())) {
-            chip()
-            val bodyPadding = PaddingValues(
-                start = contentPadding.calculateStartPadding(layoutDirection),
-                end = contentPadding.calculateEndPadding(layoutDirection),
-                bottom = contentPadding.calculateBottomPadding(),
+        when {
+            state.isLoading -> LoadingScreen(Modifier.padding(contentPadding))
+            state.items.isEmpty() -> EmptyScreen(
+                stringRes = MR.strings.information_no_recent,
+                modifier = Modifier.padding(contentPadding),
             )
-            Box(modifier = Modifier.weight(1f)) {
-                when {
-                    state.isLoading -> LoadingScreen(Modifier.padding(bodyPadding))
-                    state.items.isEmpty() -> EmptyScreen(
-                        stringRes = MR.strings.information_no_recent,
-                        modifier = Modifier.padding(bodyPadding),
-                    )
-                    else -> {
-                        val scope = rememberCoroutineScope()
-                        var isRefreshing by remember { mutableStateOf(false) }
+            else -> {
+                val scope = rememberCoroutineScope()
+                var isRefreshing by remember { mutableStateOf(false) }
 
-                        PullRefresh(
-                            refreshing = isRefreshing,
-                            onRefresh = {
-                                val started = onUpdateLibrary()
-                                if (!started) return@PullRefresh
-                                scope.launch {
-                                    // Fake refresh status but hide it after a second as it's a long running task
-                                    isRefreshing = true
-                                    delay(1.seconds)
-                                    isRefreshing = false
-                                }
-                            },
-                            enabled = !state.selectionMode,
-                            indicatorPadding = bodyPadding,
-                        ) {
-                            FastScrollLazyColumn(
-                                contentPadding = bodyPadding,
-                            ) {
-                                updatesLastUpdatedItem(lastUpdated)
-
-                                updatesUiItems(
-                                    uiModels = state.getUiModel(),
-                                    selectionMode = state.selectionMode,
-                                    onUpdateSelected = onUpdateSelected,
-                                    onClickCover = onClickCover,
-                                    onClickUpdate = onOpenChapter,
-                                    onDownloadChapter = onDownloadChapter,
-                                )
-                            }
+                PullRefresh(
+                    refreshing = isRefreshing,
+                    onRefresh = {
+                        val started = onUpdateLibrary()
+                        if (!started) return@PullRefresh
+                        scope.launch {
+                            // Fake refresh status but hide it after a second as it's a long running task
+                            isRefreshing = true
+                            delay(1.seconds)
+                            isRefreshing = false
                         }
+                    },
+                    enabled = !state.selectionMode,
+                    indicatorPadding = contentPadding,
+                ) {
+                    FastScrollLazyColumn(
+                        contentPadding = contentPadding,
+                    ) {
+                        updatesLastUpdatedItem(lastUpdated)
+
+                        updatesUiItems(
+                            uiModels = state.getUiModel(),
+                            selectionMode = state.selectionMode,
+                            onUpdateSelected = onUpdateSelected,
+                            onClickCover = onClickCover,
+                            onClickUpdate = onOpenChapter,
+                            onDownloadChapter = onDownloadChapter,
+                        )
                     }
                 }
             }

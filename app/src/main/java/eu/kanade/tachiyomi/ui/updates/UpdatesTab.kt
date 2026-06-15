@@ -15,7 +15,6 @@ import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
-import eu.kanade.presentation.updates.UpdateScreen
 import eu.kanade.presentation.updates.UpdatesDeleteConfirmationDialog
 import eu.kanade.presentation.updates.UpdatesFilterDialog
 import eu.kanade.presentation.util.Tab
@@ -71,49 +70,27 @@ data object UpdatesTab : Tab {
             ContentTypeFilterChips(selected = contentType, onSelect = novelScreenModel::setContentType)
         }
 
-        if (contentType == ContentType.MANGA) {
-            UpdateScreen(
-                state = state,
-                snackbarHostState = screenModel.snackbarHostState,
-                lastUpdated = screenModel.lastUpdated,
-                onClickCover = { item -> navigator.push(MangaScreen(item.update.mangaId)) },
-                onSelectAll = screenModel::toggleAllSelection,
-                onInvertSelection = screenModel::invertSelection,
-                onUpdateLibrary = screenModel::updateLibrary,
-                onDownloadChapter = screenModel::downloadChapters,
-                onMultiBookmarkClicked = screenModel::bookmarkUpdates,
-                onMultiMarkAsReadClicked = screenModel::markUpdatesRead,
-                onMultiDeleteClicked = screenModel::showConfirmDeleteChapters,
-                onUpdateSelected = screenModel::toggleSelection,
-                onOpenChapter = {
-                    val intent = ReaderActivity.newIntent(context, it.update.mangaId, it.update.chapterId)
-                    context.startActivity(intent)
-                },
-                onCalendarClicked = { navigator.push(UpcomingScreen()) },
-                onFilterClicked = screenModel::showFilterDialog,
-                hasActiveFilters = state.hasActiveFilters,
-                chip = chip,
-            )
-
-        } else {
-            ReikaiUpdatesScreen(
-                contentType = contentType,
-                mangaState = state,
-                novelModel = novelScreenModel,
-                snackbarHostState = screenModel.snackbarHostState,
-                chip = chip,
-                onRefresh = { NovelUpdateJob.startNow(context) },
-                onFilterClicked = screenModel::showFilterDialog,
-                hasActiveFilters = state.hasActiveFilters,
-                onCalendarClicked = { navigator.push(UpcomingScreen()) },
-                onOpenMangaChapter = {
-                    context.startActivity(ReaderActivity.newIntent(context, it.update.mangaId, it.update.chapterId))
-                },
-                onClickMangaCover = { navigator.push(MangaScreen(it.update.mangaId)) },
-                onMangaDownload = screenModel::downloadChapters,
-                onOpenNovelChapter = { navigator.push(NovelReaderScreen(it.update.novelId, it.update.chapterId)) },
-            )
-        }
+        // All three chips render through one consolidated Reikai screen. Manga is driven by Mihon's
+        // untouched UpdatesScreenModel (passed in), so its behavior is unchanged.
+        ReikaiUpdatesScreen(
+            contentType = contentType,
+            mangaModel = screenModel,
+            novelModel = novelScreenModel,
+            snackbarHostState = screenModel.snackbarHostState,
+            chip = chip,
+            onRefresh = {
+                if (contentType != ContentType.NOVELS) screenModel.updateLibrary()
+                if (contentType != ContentType.MANGA) NovelUpdateJob.startNow(context)
+            },
+            onFilterClicked = screenModel::showFilterDialog,
+            hasActiveFilters = state.hasActiveFilters,
+            onCalendarClicked = { navigator.push(UpcomingScreen()) },
+            onOpenMangaChapter = {
+                context.startActivity(ReaderActivity.newIntent(context, it.update.mangaId, it.update.chapterId))
+            },
+            onClickMangaCover = { navigator.push(MangaScreen(it.update.mangaId)) },
+            onOpenNovelChapter = { navigator.push(NovelReaderScreen(it.update.novelId, it.update.chapterId)) },
+        )
 
         // Filter / delete dialogs render regardless of chip (the filter is reachable from both screens).
         val onDismissDialog = { screenModel.setDialog(null) }
