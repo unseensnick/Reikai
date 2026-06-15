@@ -25,7 +25,6 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.model.sort
-import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.presentation.core.util.plus
 
 /** Whether a category section is collapsed (real categories keyed by id, dynamic ones by header key). */
@@ -223,13 +222,7 @@ fun ReikaiLibraryContent(
                     ) { libraryItem ->
                         val manga = libraryItem.libraryManga.manga
                         val isSelected = manga.id in selection
-                        val coverData = MangaCover(
-                            mangaId = manga.id,
-                            sourceId = manga.source,
-                            isMangaFavorite = manga.favorite,
-                            url = manga.thumbnailUrl,
-                            lastModified = manga.coverLastModified,
-                        )
+                        val coverData = libraryCoverModel(libraryItem) // RK: NovelCover for novels, else MangaCover
                         val onClick = { onClickManga(category, libraryItem.libraryManga) }
                         val onLongClick = { onLongClickManga(category, libraryItem.libraryManga) }
                         // Show the play button only when there's something unread (matches the pager).
@@ -253,11 +246,7 @@ fun ReikaiLibraryContent(
                                         isLocal = libraryItem.badges.isLocal,
                                         sourceLanguage = libraryItem.badges.sourceLanguage,
                                     )
-                                    if (libraryItem.relatedMangaIds.size > 1) {
-                                        MergeBadge(libraryItem.relatedMangaIds, libraryItem.badges.mergedSources)
-                                    } else {
-                                        SourceIconBadge(source = libraryItem.badges.source)
-                                    }
+                                    LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
                                 },
                                 isSelected = isSelected,
                             )
@@ -277,11 +266,7 @@ fun ReikaiLibraryContent(
                                         isLocal = libraryItem.badges.isLocal,
                                         sourceLanguage = libraryItem.badges.sourceLanguage,
                                     )
-                                    if (libraryItem.relatedMangaIds.size > 1) {
-                                        MergeBadge(libraryItem.relatedMangaIds, libraryItem.badges.mergedSources)
-                                    } else {
-                                        SourceIconBadge(source = libraryItem.badges.source)
-                                    }
+                                    LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
                                 },
                             )
                             // Panorama: same uniform Book-height cell, wide covers shown whole (letterboxed).
@@ -301,11 +286,7 @@ fun ReikaiLibraryContent(
                                         isLocal = libraryItem.badges.isLocal,
                                         sourceLanguage = libraryItem.badges.sourceLanguage,
                                     )
-                                    if (libraryItem.relatedMangaIds.size > 1) {
-                                        MergeBadge(libraryItem.relatedMangaIds, libraryItem.badges.mergedSources)
-                                    } else {
-                                        SourceIconBadge(source = libraryItem.badges.source)
-                                    }
+                                    LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
                                 },
                             )
                             // Compact grid (with title) and cover-only grid (title null) share a cell.
@@ -325,11 +306,7 @@ fun ReikaiLibraryContent(
                                         isLocal = libraryItem.badges.isLocal,
                                         sourceLanguage = libraryItem.badges.sourceLanguage,
                                     )
-                                    if (libraryItem.relatedMangaIds.size > 1) {
-                                        MergeBadge(libraryItem.relatedMangaIds, libraryItem.badges.mergedSources)
-                                    } else {
-                                        SourceIconBadge(source = libraryItem.badges.source)
-                                    }
+                                    LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
                                 },
                             )
                         }

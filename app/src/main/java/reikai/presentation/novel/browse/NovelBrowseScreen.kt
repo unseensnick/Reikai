@@ -258,6 +258,7 @@ class NovelBrowseScreen(
             is NovelBrowseDialog.AddDuplicate -> DuplicateNovelDialog(
                 duplicates = dialog.duplicates,
                 sourceNames = dialog.sourceNames,
+                sourceSites = dialog.sourceSites,
                 onDismissRequest = screenModel::dismissDialog,
                 onConfirm = { screenModel.addFromDuplicate(dialog.item) },
                 onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
@@ -349,6 +350,7 @@ private fun NovelBrowseBody(
                     NovelBrowseListCell(
                         item = item,
                         inLibrary = (sourceId to item.path) in state.favoritedKeys,
+                        site = state.source?.site,
                         onClick = { onResultClick(item) },
                         onLongClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -388,10 +390,11 @@ private fun NovelBrowseBody(
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onLongClickItem(item)
                     }
+                    val site = state.source?.site
                     if (compact) {
-                        NovelBrowseCompactGridCell(item, inLibrary, onClick, onLongClick)
+                        NovelBrowseCompactGridCell(item, inLibrary, site, onClick, onLongClick)
                     } else {
-                        NovelBrowseGridCell(item, inLibrary, onClick, onLongClick)
+                        NovelBrowseGridCell(item, inLibrary, site, onClick, onLongClick)
                     }
                 }
                 if (state.loadingMore) {

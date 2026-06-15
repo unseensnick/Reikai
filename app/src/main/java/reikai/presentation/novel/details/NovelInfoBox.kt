@@ -40,9 +40,9 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import eu.kanade.presentation.manga.components.MangaCover
+import reikai.data.coil.NovelCover
 import reikai.data.novel.NovelStatusCode
 import reikai.domain.novel.model.Novel
-import tachiyomi.domain.manga.model.MangaCover as MangaCoverData
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -57,15 +57,15 @@ fun NovelInfoBox(
     appBarPadding: Dp,
     novel: Novel,
     sourceName: String,
+    sourceSite: String?,
     onCoverClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val coverData = remember(novel.id, novel.thumbnailUrl, novel.coverLastModified) {
-        MangaCoverData(
-            mangaId = 0L,
-            sourceId = 0L,
-            isMangaFavorite = false,
-            url = novel.thumbnailUrl.orEmpty(),
+    val coverData = remember(novel.thumbnailUrl, novel.coverLastModified, novel.favorite, sourceSite) {
+        NovelCover(
+            url = novel.thumbnailUrl,
+            site = sourceSite,
+            isNovelFavorite = novel.favorite,
             lastModified = novel.coverLastModified,
         )
     }

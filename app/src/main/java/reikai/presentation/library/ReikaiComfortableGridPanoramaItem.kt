@@ -22,7 +22,6 @@ import eu.kanade.presentation.library.components.GridItemSelectable
 import eu.kanade.presentation.library.components.GridItemTitle
 import eu.kanade.presentation.library.components.MangaGridCover
 import eu.kanade.presentation.manga.components.MangaCover
-import tachiyomi.domain.manga.model.MangaCover as MangaCoverModel
 
 /**
  * Comfortable grid cell for the panorama display mode. Identical to Mihon's
@@ -33,7 +32,7 @@ import tachiyomi.domain.manga.model.MangaCover as MangaCoverModel
  */
 @Composable
 fun ReikaiComfortableGridPanoramaItem(
-    coverData: MangaCoverModel,
+    coverData: Any, // RK: Any (not MangaCover) so reikai.data.coil.NovelCover renders here too
     title: String,
     onClick: () -> Unit,
     onLongClick: () -> Unit,

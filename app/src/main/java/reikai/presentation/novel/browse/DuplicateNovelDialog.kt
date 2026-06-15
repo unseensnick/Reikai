@@ -46,10 +46,10 @@ import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.more.settings.LocalPreferenceMinHeight
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
+import reikai.data.coil.NovelCover
 import reikai.data.novel.NovelStatusCode
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelWithChapterCount
-import tachiyomi.domain.manga.model.MangaCover as MangaCoverData
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.Badge
 import tachiyomi.presentation.core.components.BadgeGroup
@@ -67,6 +67,7 @@ import tachiyomi.presentation.core.util.secondaryItemAlpha
 fun DuplicateNovelDialog(
     duplicates: List<NovelWithChapterCount>,
     sourceNames: Map<String, String>,
+    sourceSites: Map<String, String?>,
     onDismissRequest: () -> Unit,
     onConfirm: () -> Unit,
     onOpenNovel: (Novel) -> Unit,
@@ -109,6 +110,7 @@ fun DuplicateNovelDialog(
                     DuplicateNovelCard(
                         duplicate = duplicate,
                         sourceName = sourceNames[duplicate.novel.source] ?: duplicate.novel.source,
+                        sourceSite = sourceSites[duplicate.novel.source],
                         onClick = {
                             onDismissRequest()
                             onOpenNovel(duplicate.novel)
@@ -154,6 +156,7 @@ fun DuplicateNovelDialog(
 private fun DuplicateNovelCard(
     duplicate: NovelWithChapterCount,
     sourceName: String,
+    sourceSite: String?,
     onClick: () -> Unit,
 ) {
     val novel = duplicate.novel
@@ -167,12 +170,11 @@ private fun DuplicateNovelCard(
     ) {
         Box {
             MangaCover.Book(
-                data = MangaCoverData(
-                    mangaId = 0L,
-                    sourceId = 0L,
-                    isMangaFavorite = true,
-                    url = novel.thumbnailUrl.orEmpty(),
-                    lastModified = 0L,
+                data = NovelCover(
+                    url = novel.thumbnailUrl,
+                    site = sourceSite,
+                    isNovelFavorite = true,
+                    lastModified = novel.coverLastModified,
                 ),
                 modifier = Modifier.fillMaxWidth(),
             )

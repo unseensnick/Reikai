@@ -18,6 +18,9 @@ fun LibraryNovel.toLibraryItem(
     unreadBadge: Boolean,
     languageBadge: Boolean,
     sourceLanguage: String,
+    sourceBadge: Boolean,
+    sourceSite: String?,
+    sourceIconUrl: String?,
 ): LibraryItem {
     val n = novel
     val synthetic = Manga.create().copy(
@@ -58,6 +61,10 @@ fun LibraryNovel.toLibraryItem(
             unreadCount = if (unreadBadge) unreadCount else 0,
             isLocal = false,
             sourceLanguage = if (languageBadge) sourceLanguage else "",
+            // The cover Referer is always carried (it isn't a visible badge); the source icon honors
+            // the source-badge display toggle, mirroring how the manga side gates `source`.
+            coverSite = sourceSite,
+            sourceIconUrl = if (sourceBadge) sourceIconUrl else null,
         ),
     )
 }

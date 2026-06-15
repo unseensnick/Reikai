@@ -125,6 +125,7 @@ private fun SourceSection(
                             NovelBrowseGridCell(
                                 item = item,
                                 inLibrary = (result.source.id to item.path) in favoritedKeys,
+                                site = result.source.site,
                                 onClick = { onResultClick(item) },
                                 onLongClick = { onResultClick(item) },
                             )

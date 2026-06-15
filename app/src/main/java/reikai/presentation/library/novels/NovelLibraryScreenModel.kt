@@ -121,7 +121,8 @@ class NovelLibraryScreenModel :
         libraryPreferences.downloadBadge.changes(),
         libraryPreferences.unreadBadge.changes(),
         libraryPreferences.languageBadge.changes(),
-    ) { download, unread, language -> BadgePrefs(download, unread, language) }
+        reikaiLibraryPreferences.sourceBadge.changes(),
+    ) { download, unread, language, source -> BadgePrefs(download, unread, language, source) }
 
     /** Folds the badge, sort, and filter prefs into one flow so the main combine stays at its 5-arg max. */
     private fun settingsFlow(): Flow<LibrarySettings> {
@@ -173,8 +174,17 @@ class NovelLibraryScreenModel :
             val rep = group.representative
             // lnreader plugins mostly declare lang as a full English name ("English"); the badge wants a
             // 2-char code like the manga side, so reduce it (codes pass through unchanged).
-            val lang = languageCodeOf(sourceManager.get(rep.novel.source)?.lang.orEmpty())
-            val item = rep.toLibraryItem(settings.badges.download, settings.badges.unread, settings.badges.language, lang)
+            val source = sourceManager.get(rep.novel.source)
+            val lang = languageCodeOf(source?.lang.orEmpty())
+            val item = rep.toLibraryItem(
+                settings.badges.download,
+                settings.badges.unread,
+                settings.badges.language,
+                lang,
+                sourceBadge = settings.badges.source,
+                sourceSite = source?.site,
+                sourceIconUrl = source?.iconUrl,
+            )
             if (group.memberIds.size > 1) {
                 // Stamp the merge badge (group member ids, negative) + summed downloads onto the rep.
                 item.copy(
@@ -460,7 +470,12 @@ class NovelLibraryScreenModel :
         TriState.ENABLED_NOT -> !value
     }
 
-    private data class BadgePrefs(val download: Boolean, val unread: Boolean, val language: Boolean)
+    private data class BadgePrefs(
+        val download: Boolean,
+        val unread: Boolean,
+        val language: Boolean,
+        val source: Boolean,
+    )
 
     private data class NovelFilters(
         val downloaded: TriState,

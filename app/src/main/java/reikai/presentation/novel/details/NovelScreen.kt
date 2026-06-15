@@ -327,6 +327,7 @@ private fun LazyListScope.novelHeaderItems(
             appBarPadding = appBarPadding,
             novel = novel,
             sourceName = state.sourceName,
+            sourceSite = state.sourceUrl,
             onCoverClick = {},
         )
     }

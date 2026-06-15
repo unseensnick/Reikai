@@ -6,28 +6,25 @@ import eu.kanade.presentation.library.components.CommonMangaItemDefaults
 import eu.kanade.presentation.library.components.MangaComfortableGridItem
 import eu.kanade.presentation.library.components.MangaCompactGridItem
 import eu.kanade.presentation.library.components.MangaListItem
+import reikai.data.coil.NovelCover
 import reikai.novel.host.NovelItem
-import tachiyomi.domain.manga.model.MangaCover
 
 /**
  * Browse-result cell, a clone of Mihon's `BrowseSourceComfortableGridItem` retyped for [NovelItem],
- * so the LN browse grid matches the manga catalogue. The cover loads by URL via a synthetic
- * [MangaCover]; [inLibrary] dims the cover and shows the badge.
- *
- * NOTE: some LN sources hand the browse list a small/wide thumbnail URL (e.g. Novel Bin's
- * `images.novelbin.com/novel_200_89/...`) rather than the full cover, so those covers look cropped.
- * That is a cover-URL extraction issue in the plugin host (S2), not the cell's aspect ratio.
+ * so the LN browse grid matches the manga catalogue. The cover loads through the novel cover pipeline
+ * ([NovelCover]), which sends the source [site] as a Referer; [inLibrary] dims the cover + shows the badge.
  */
 @Composable
 fun NovelBrowseGridCell(
     item: NovelItem,
     inLibrary: Boolean,
+    site: String?,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
     MangaComfortableGridItem(
         title = item.name,
-        coverData = novelCover(item, inLibrary),
+        coverData = novelCover(item, inLibrary, site),
         coverAlpha = if (inLibrary) CommonMangaItemDefaults.BrowseFavoriteCoverAlpha else 1f,
         coverBadgeStart = { InLibraryBadge(enabled = inLibrary) },
         onClick = onClick,
@@ -40,12 +37,13 @@ fun NovelBrowseGridCell(
 fun NovelBrowseCompactGridCell(
     item: NovelItem,
     inLibrary: Boolean,
+    site: String?,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
     MangaCompactGridItem(
         title = item.name,
-        coverData = novelCover(item, inLibrary),
+        coverData = novelCover(item, inLibrary, site),
         coverAlpha = if (inLibrary) CommonMangaItemDefaults.BrowseFavoriteCoverAlpha else 1f,
         coverBadgeStart = { InLibraryBadge(enabled = inLibrary) },
         onClick = onClick,
@@ -58,12 +56,13 @@ fun NovelBrowseCompactGridCell(
 fun NovelBrowseListCell(
     item: NovelItem,
     inLibrary: Boolean,
+    site: String?,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
     MangaListItem(
         title = item.name,
-        coverData = novelCover(item, inLibrary),
+        coverData = novelCover(item, inLibrary, site),
         coverAlpha = if (inLibrary) CommonMangaItemDefaults.BrowseFavoriteCoverAlpha else 1f,
         badge = { InLibraryBadge(enabled = inLibrary) },
         onClick = onClick,
@@ -71,11 +70,9 @@ fun NovelBrowseListCell(
     )
 }
 
-/** Synthetic source-less cover (sourceId 0); see [NovelBrowseGridCell] for why covers load by URL. */
-private fun novelCover(item: NovelItem, inLibrary: Boolean) = MangaCover(
-    mangaId = 0L,
-    sourceId = 0L,
-    isMangaFavorite = inLibrary,
-    url = item.cover.orEmpty(),
+private fun novelCover(item: NovelItem, inLibrary: Boolean, site: String?) = NovelCover(
+    url = item.cover,
+    site = site,
+    isNovelFavorite = inLibrary,
     lastModified = 0L,
 )

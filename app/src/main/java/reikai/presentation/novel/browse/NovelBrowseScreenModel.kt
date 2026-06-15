@@ -133,11 +133,13 @@ class NovelBrowseScreenModel(
             // shadow row is excluded by the query's favorite=1 filter anyway).
             val duplicates = novelRepository.getDuplicateLibraryNovel(-1L, item.name)
             if (duplicates.isNotEmpty()) {
-                // Resolve display names here (sources are loaded by browse init) so the dialog stays DI-free.
-                val sourceNames = duplicates.associate { dup ->
-                    dup.novel.source to (manager.get(dup.novel.source)?.name ?: dup.novel.source)
+                // Resolve names + sites here (sources are loaded by browse init) so the dialog stays DI-free.
+                val resolved = duplicates.associate { it.novel.source to manager.get(it.novel.source) }
+                val sourceNames = resolved.mapValues { (id, src) -> src?.name ?: id }
+                val sourceSites = resolved.mapValues { (_, src) -> src?.site }
+                mutableState.update {
+                    it.copy(dialog = NovelBrowseDialog.AddDuplicate(item, duplicates, sourceNames, sourceSites))
                 }
-                mutableState.update { it.copy(dialog = NovelBrowseDialog.AddDuplicate(item, duplicates, sourceNames)) }
             } else {
                 addToLibrary(item)
             }
@@ -302,6 +304,8 @@ sealed interface NovelBrowseDialog {
         val duplicates: List<NovelWithChapterCount>,
         /** Source id -> display name for each duplicate's source (resolved in the model, dialog is DI-free). */
         val sourceNames: Map<String, String>,
+        /** Source id -> site, for the cover's Referer; null when the source didn't resolve. */
+        val sourceSites: Map<String, String?>,
     ) : NovelBrowseDialog
     data class ChangeCategory(
         val novelId: Long,

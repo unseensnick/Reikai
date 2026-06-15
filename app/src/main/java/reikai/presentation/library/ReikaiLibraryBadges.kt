@@ -1,6 +1,8 @@
 package reikai.presentation.library
 
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Folder
@@ -8,9 +10,14 @@ import androidx.compose.material.icons.outlined.LocalLibrary
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import eu.kanade.domain.source.model.icon
+import eu.kanade.tachiyomi.ui.library.LibraryItem
+import reikai.data.coil.NovelCover
+import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.source.model.Source
 import tachiyomi.presentation.core.components.Badge
 import tachiyomi.source.local.LocalSource
@@ -73,5 +80,56 @@ fun SourceIconBadge(source: Source?) {
             color = MaterialTheme.colorScheme.tertiary,
             iconColor = MaterialTheme.colorScheme.onTertiary,
         )
+    }
+}
+
+/** Source-icon badge for a disguised novel: the source's icon is a CDN URL (novels carry no Mihon
+ *  [Source] bitmap), so it's coil-loaded. Renders nothing when the URL is absent. */
+@Composable
+fun NovelSourceIconBadge(iconUrl: String?) {
+    if (iconUrl.isNullOrEmpty()) return
+    AsyncImage(
+        model = iconUrl,
+        contentDescription = null,
+        modifier = Modifier
+            .size(20.dp)
+            .clip(RoundedCornerShape(3.dp)),
+    )
+}
+
+/**
+ * Cover data for a library row: a [NovelCover] (carries the source site as a Referer, loaded through
+ * the novel cover pipeline) for a disguised novel (negative id), else the manga [MangaCover]. Returns
+ * [Any] because the shared grid cells accept either model as coil data.
+ */
+fun libraryCoverModel(item: LibraryItem): Any {
+    val manga = item.libraryManga.manga
+    return if (manga.id < 0L) {
+        NovelCover(
+            url = manga.thumbnailUrl,
+            site = item.badges.coverSite,
+            isNovelFavorite = manga.favorite,
+            lastModified = manga.coverLastModified,
+        )
+    } else {
+        MangaCover(
+            mangaId = manga.id,
+            sourceId = manga.source,
+            isMangaFavorite = manga.favorite,
+            url = manga.thumbnailUrl,
+            lastModified = manga.coverLastModified,
+        )
+    }
+}
+
+/** The end-of-cover badge: the merge badge for a grouped cover, otherwise the source icon (coil-loaded
+ *  from a URL for a novel, the source bitmap for manga). Centralizes the merge/novel/manga branch so
+ *  every library cell renders it identically. */
+@Composable
+fun LibraryCoverEndBadge(item: LibraryItem) {
+    when {
+        item.relatedMangaIds.size > 1 -> MergeBadge(item.relatedMangaIds, item.badges.mergedSources)
+        item.libraryManga.manga.id < 0L -> NovelSourceIconBadge(item.badges.sourceIconUrl)
+        else -> SourceIconBadge(item.badges.source)
     }
 }

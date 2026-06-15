@@ -8,10 +8,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.ui.library.LibraryItem
-import reikai.presentation.library.MergeBadge // RK
-import reikai.presentation.library.SourceIconBadge // RK
+import reikai.presentation.library.LibraryCoverEndBadge // RK
+import reikai.presentation.library.libraryCoverModel // RK
 import tachiyomi.domain.library.model.LibraryManga
-import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.util.plus
 
@@ -48,13 +47,7 @@ internal fun LibraryList(
             MangaListItem(
                 isSelected = manga.id in selection,
                 title = manga.title,
-                coverData = MangaCover(
-                    mangaId = manga.id,
-                    sourceId = manga.source,
-                    isMangaFavorite = manga.favorite,
-                    url = manga.thumbnailUrl,
-                    lastModified = manga.coverLastModified,
-                ),
+                coverData = libraryCoverModel(libraryItem), // RK: NovelCover for novels, else MangaCover
                 badge = {
                     DownloadsBadge(count = libraryItem.badges.downloadCount)
                     UnreadBadge(count = libraryItem.badges.unreadCount)
@@ -62,12 +55,7 @@ internal fun LibraryList(
                         isLocal = libraryItem.badges.isLocal,
                         sourceLanguage = libraryItem.badges.sourceLanguage,
                     )
-                    // RK: merge badge for a grouped cover, else the single source icon
-                    if (libraryItem.relatedMangaIds.size > 1) {
-                        MergeBadge(libraryItem.relatedMangaIds, libraryItem.badges.mergedSources)
-                    } else {
-                        SourceIconBadge(source = libraryItem.badges.source)
-                    }
+                    LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
                 },
                 onLongClick = { onLongClick(libraryItem.libraryManga) },
                 onClick = { onClick(libraryItem.libraryManga) },

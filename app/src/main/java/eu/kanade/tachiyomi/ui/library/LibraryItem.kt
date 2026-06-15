@@ -79,5 +79,10 @@ data class LibraryItem(
         val source: Source? = null,
         // RK: the grouped sources for a merge entry (empty when not merged), for the merge badge.
         val mergedSources: List<Source> = emptyList(),
+        // RK --> novel-cover pipeline: the source site (cover Referer) + the source icon URL for the
+        // source badge, since a disguised novel has no real Mihon Source. Null for manga rows.
+        val coverSite: String? = null,
+        val sourceIconUrl: String? = null,
+        // RK <--
     )
 }

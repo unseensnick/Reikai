@@ -12,7 +12,6 @@ import eu.kanade.presentation.library.components.UnreadBadge
 import eu.kanade.presentation.library.components.globalSearchItem
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import tachiyomi.domain.library.model.LibraryManga
-import tachiyomi.domain.manga.model.MangaCover
 
 /**
  * Pager grid for the panorama display mode. Mirrors Mihon's `LibraryComfortableGrid` (reusing its
@@ -46,13 +45,7 @@ fun ReikaiLibraryComfortableGridPanorama(
             ReikaiComfortableGridPanoramaItem(
                 isSelected = manga.id in selection,
                 title = manga.title,
-                coverData = MangaCover(
-                    mangaId = manga.id,
-                    sourceId = manga.source,
-                    isMangaFavorite = manga.favorite,
-                    url = manga.thumbnailUrl,
-                    lastModified = manga.coverLastModified,
-                ),
+                coverData = libraryCoverModel(libraryItem), // RK: NovelCover for novels, else MangaCover
                 coverBadgeStart = {
                     DownloadsBadge(count = libraryItem.badges.downloadCount)
                     UnreadBadge(count = libraryItem.badges.unreadCount)
@@ -62,7 +55,7 @@ fun ReikaiLibraryComfortableGridPanorama(
                         isLocal = libraryItem.badges.isLocal,
                         sourceLanguage = libraryItem.badges.sourceLanguage,
                     )
-                    SourceIconBadge(source = libraryItem.badges.source)
+                    LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
                 },
                 onLongClick = { onLongClick(libraryItem.libraryManga) },
                 onClick = { onClick(libraryItem.libraryManga) },

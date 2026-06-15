@@ -58,6 +58,8 @@ import mihon.core.migration.Migrator
 import mihon.core.migration.migrations.migrations
 import mihon.telemetry.TelemetryConfig
 import org.conscrypt.Conscrypt
+import reikai.data.coil.NovelCoverFetcher
+import reikai.data.coil.NovelCoverKeyer
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
@@ -202,9 +204,13 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
                 add(BufferedSourceFetcher.Factory())
                 add(MangaCoverFetcher.MangaCoverFactory(callFactoryLazy))
                 add(MangaCoverFetcher.MangaFactory(callFactoryLazy))
+                // RK: light-novel cover pipeline (carries the source site as Referer; shares the
+                // network client, so it inherits Cloudflare + FlareSolverr)
+                add(NovelCoverFetcher.Factory(callFactoryLazy))
                 // Keyer
                 add(MangaCoverKeyer())
                 add(MangaKeyer())
+                add(NovelCoverKeyer()) // RK
             }
 
             memoryCache(

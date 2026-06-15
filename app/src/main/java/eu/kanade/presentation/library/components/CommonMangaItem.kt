@@ -43,7 +43,6 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.BadgeGroup
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.selectedBackground
-import tachiyomi.domain.manga.model.MangaCover as MangaCoverModel
 
 object CommonMangaItemDefaults {
     val GridHorizontalSpacer = 4.dp
@@ -71,7 +70,7 @@ internal const val GRID_SELECTED_COVER_ALPHA = 0.76f
  */
 @Composable
 fun MangaCompactGridItem(
-    coverData: MangaCoverModel,
+    coverData: Any, // RK: Any (not MangaCover) so reikai.data.coil.NovelCover renders through these cells too
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     isSelected: Boolean = false,
@@ -176,7 +175,7 @@ private fun BoxScope.CoverTextOverlay(
  */
 @Composable
 fun MangaComfortableGridItem(
-    coverData: MangaCoverModel,
+    coverData: Any, // RK: Any (not MangaCover) so reikai.data.coil.NovelCover renders through these cells too
     title: String,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
@@ -334,7 +333,7 @@ private fun Modifier.selectedOutline(
  */
 @Composable
 fun MangaListItem(
-    coverData: MangaCoverModel,
+    coverData: Any, // RK: Any (not MangaCover) so reikai.data.coil.NovelCover renders through these cells too
     title: String,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
