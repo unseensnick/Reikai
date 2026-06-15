@@ -1,0 +1,32 @@
+-- RK: novel twin of updatesView (P5 unified-Updates slice). Favorited novels' chapters that were
+-- fetched after the novel was added to the library (date_fetch > date_added), i.e. the recent-updates
+-- feed. Filters/sorts on date_fetch (not date_upload): many LN sources leave date_upload at 0, so the
+-- manga side's dateUpload cutoff would hide them. No scanlator joins (novels have none); date_added is
+-- nullable on novels so it is coalesced to 0.
+CREATE VIEW novelUpdatesView AS
+SELECT
+    novels._id AS novelId,
+    novels.title AS novelTitle,
+    novel_chapters._id AS chapterId,
+    novel_chapters.name AS chapterName,
+    novel_chapters.url AS chapterUrl,
+    novel_chapters.read,
+    novel_chapters.bookmark,
+    novel_chapters.last_text_progress AS lastTextProgress,
+    novels.source,
+    novels.favorite,
+    novels.thumbnail_url AS thumbnailUrl,
+    novels.cover_last_modified AS coverLastModified,
+    novel_chapters.date_fetch AS dateFetch,
+    novel_chapters.is_downloaded AS isDownloaded
+FROM novels JOIN novel_chapters
+ON novels._id = novel_chapters.novel_id
+WHERE novels.favorite = 1
+AND novel_chapters.date_fetch > coalesce(novels.date_added, 0)
+ORDER BY novel_chapters.date_fetch DESC;
+
+getRecentNovelUpdates:
+SELECT *
+FROM novelUpdatesView
+WHERE dateFetch > :after
+LIMIT :limit;

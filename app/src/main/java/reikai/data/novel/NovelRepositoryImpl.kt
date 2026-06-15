@@ -8,6 +8,7 @@ import logcat.LogPriority
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.novel.model.NovelWithChapterCount
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
@@ -35,6 +36,9 @@ class NovelRepositoryImpl(
 
     override fun getLibraryNovelAsFlow(): Flow<List<LibraryNovel>> =
         database.novelLibraryViewQueries.novelLibrary(::mapLibraryNovel).subscribeToList()
+
+    override fun getRecentNovelUpdatesAsFlow(after: Long, limit: Long): Flow<List<NovelUpdateWithRelations>> =
+        database.novelUpdatesViewQueries.getRecentNovelUpdates(after, limit, ::mapNovelUpdate).subscribeToList()
 
     override fun getAllAsFlow(): Flow<List<Novel>> =
         database.novelsQueries.findAll(::mapNovel).subscribeToList()

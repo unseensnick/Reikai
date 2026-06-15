@@ -38,6 +38,7 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
@@ -69,6 +70,7 @@ class NovelUpdateJob(
     private val installer: LnPluginInstaller = Injekt.get()
     private val getNovelCategories: GetNovelCategories = Injekt.get()
     private val preferences: NovelPreferences = Injekt.get()
+    private val libraryPreferences: LibraryPreferences = Injekt.get()
     private val notifier = NovelUpdateNotifier(context)
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
@@ -111,6 +113,7 @@ class NovelUpdateJob(
 
         val downloadNew = preferences.downloadNewChapters().get()
         var updatedCount = 0
+        var newChapterTotal = 0
         favorites.forEachIndexed { index, novel ->
             currentCoroutineContext().ensureActive()
             notifier.showProgress(novel.title, index, favorites.size)
@@ -119,6 +122,7 @@ class NovelUpdateJob(
                 val newChapters = checkNovel(novel, source)
                 if (newChapters.isNotEmpty()) {
                     updatedCount++
+                    newChapterTotal += newChapters.size
                     if (downloadNew) {
                         val toDownload = filterChaptersForDownload(novel, newChapters)
                         if (toDownload.isNotEmpty()) downloadManager.downloadChapters(toDownload)
@@ -129,6 +133,10 @@ class NovelUpdateJob(
             } catch (e: Throwable) {
                 logcat(LogPriority.ERROR, e) { "Novel update failed: ${novel.title}" }
             }
+        }
+        // Feed the shared Updates-icon badge (manga + novel share one total; reset on Updates open).
+        if (newChapterTotal > 0) {
+            libraryPreferences.newUpdatesCount.getAndSet { it + newChapterTotal }
         }
         notifier.showResult(updatedCount)
     }

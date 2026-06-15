@@ -1,10 +1,12 @@
 package reikai.data.novel
 
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
+import reikai.data.coil.NovelCover
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.novel.model.NovelWithChapterCount
 
 /**
@@ -174,6 +176,47 @@ fun mapNovelWithChapterCount(
         editedFlags,
     ),
     chapterCount = chapterCount,
+)
+
+/**
+ * Maps a `novelUpdatesView` row to [NovelUpdateWithRelations]. Param order matches the view's SELECT.
+ * The feed sorts/groups/filters on `dateFetch` (date_upload is unreliable for LN sources). The cover
+ * carries no source site (favorites load from the library cover cache).
+ */
+fun mapNovelUpdate(
+    novelId: Long,
+    novelTitle: String,
+    chapterId: Long,
+    chapterName: String,
+    chapterUrl: String,
+    read: Boolean,
+    bookmark: Boolean,
+    lastTextProgress: Long,
+    source: String,
+    favorite: Boolean,
+    thumbnailUrl: String?,
+    coverLastModified: Long,
+    dateFetch: Long,
+    isDownloaded: Boolean,
+): NovelUpdateWithRelations = NovelUpdateWithRelations(
+    novelId = novelId,
+    novelTitle = novelTitle,
+    chapterId = chapterId,
+    chapterName = chapterName,
+    chapterUrl = chapterUrl,
+    read = read,
+    bookmark = bookmark,
+    lastTextProgress = lastTextProgress,
+    source = source,
+    dateFetch = dateFetch,
+    isDownloaded = isDownloaded,
+    coverData = NovelCover(
+        url = thumbnailUrl,
+        site = null,
+        isNovelFavorite = favorite,
+        lastModified = coverLastModified,
+        novelId = novelId,
+    ),
 )
 
 fun mapNovelChapter(

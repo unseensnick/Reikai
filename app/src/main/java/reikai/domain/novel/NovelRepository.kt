@@ -3,6 +3,7 @@ package reikai.domain.novel
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.novel.model.NovelWithChapterCount
 
 /**
@@ -25,6 +26,13 @@ interface NovelRepository {
 
     /** Reactive library read: favorited novels with chapter/unread/download counts + categories. */
     fun getLibraryNovelAsFlow(): Flow<List<LibraryNovel>>
+
+    /**
+     * Reactive recent-updates feed: chapters of favorited novels fetched after the novel was added
+     * ([date_fetch] > [date_added]), newest first. [after] is a lower bound on the chapter upload
+     * date (the feed cutoff); [limit] caps the row count. Backs the novel side of the Updates tab.
+     */
+    fun getRecentNovelUpdatesAsFlow(after: Long, limit: Long): Flow<List<NovelUpdateWithRelations>>
     fun getAllAsFlow(): Flow<List<Novel>>
     fun getByUrlAndSourceAsFlow(url: String, source: String): Flow<Novel?>
     suspend fun insert(novel: Novel): Long?
