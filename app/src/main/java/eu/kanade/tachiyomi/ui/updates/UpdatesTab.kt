@@ -33,6 +33,7 @@ import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.novel.reader.NovelReaderScreen
 import reikai.presentation.updates.NovelUpdatesScreenModel
 import reikai.presentation.updates.ReikaiUpdatesCategoryFilter
+import reikai.presentation.updates.ReikaiUpdatesGroupToggle
 import reikai.presentation.updates.ReikaiUpdatesScreen
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -108,6 +109,7 @@ data object UpdatesTab : Tab {
                     screenModel = settingsScreenModel,
                     reikaiCategorySection = {
                         ReikaiUpdatesCategoryFilter(screenModel = settingsScreenModel, contentType = contentType)
+                        ReikaiUpdatesGroupToggle(screenModel = settingsScreenModel)
                     },
                 )
             }

@@ -63,5 +63,9 @@ class ReikaiSourcePreferences(
     val updatesFilterNovelCategoriesExclude: Preference<Set<String>> =
         preferenceStore.getStringSet("updates_filter_novel_categories_exclude", emptySet())
 
+    /** Collapse a series' multiple same-date new chapters into one expandable row on the Updates tab. */
+    val updatesGroupBySeries: Preference<Boolean> =
+        preferenceStore.getBoolean("updates_group_by_series", false)
+
     // endregion
 }

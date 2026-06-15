@@ -60,6 +60,10 @@ class NovelUpdatesScreenModel(
         .map { categoryFilterActive(it.enabled, it.include, it.exclude) }
         .stateIn(screenModelScope, SharingStarted.Eagerly, false)
 
+    /** Collapse a series' same-date chapters into one expandable row (display option, both types). */
+    val groupBySeries: StateFlow<Boolean> = sourcePreferences.updatesGroupBySeries.changes()
+        .stateIn(screenModelScope, SharingStarted.Eagerly, sourcePreferences.updatesGroupBySeries.get())
+
     private val selectedChapterIds = HashSet<Long>()
 
     init {

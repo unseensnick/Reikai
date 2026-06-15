@@ -238,6 +238,9 @@
     <string name="content_type_all">All</string>
     <string name="content_type_manga">Manga</string>
     <string name="content_type_novels">Novels</string>
+    <!-- RK: Updates group-by-series -->
+    <string name="updates_group_by_series">Group by series</string>
+    <string name="updates_group_chapter_count">%1$d new chapters</string>
     <!-- RK: light-novel browse (P5 S3a) -->
     <string name="repos">Repos</string>
     <string name="ln_available">Available</string>

@@ -14,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -31,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.ui.updates.UpdatesSettingsScreenModel
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.preference.TriState
+import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.HeadingItem
@@ -99,6 +101,30 @@ fun ColumnScope.ReikaiUpdatesCategoryFilter(
         TextButton(onClick = { showDialog = true }) {
             Text(stringResource(MR.strings.action_edit))
         }
+    }
+}
+
+/** "Group by series" switch for the Updates filter dialog (a // RK addition, like the category row). */
+@Composable
+fun ColumnScope.ReikaiUpdatesGroupToggle(screenModel: UpdatesSettingsScreenModel) {
+    val grouped by screenModel.reikaiSourcePreferences.updatesGroupBySeries.collectAsPrefState()
+    fun toggle() {
+        screenModel.reikaiSourcePreferences.updatesGroupBySeries.getAndSet { !it }
+    }
+    Row(
+        modifier = Modifier
+            .clickable { toggle() }
+            .fillMaxWidth()
+            .padding(horizontal = SettingsItemsPaddings.Horizontal),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = stringResource(MR.strings.updates_group_by_series),
+            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Switch(checked = grouped, onCheckedChange = { toggle() })
     }
 }
 
