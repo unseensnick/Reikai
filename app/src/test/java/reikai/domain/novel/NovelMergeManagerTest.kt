@@ -1,6 +1,7 @@
 package reikai.domain.novel
 
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -75,5 +76,28 @@ class NovelMergeManagerTest {
     fun `an explicit unmerge keeps an auto-grouped novel apart`() = runTest {
         val manager = manager(listOf(novel(1, "A", "X"), novel(2, "A", "X")), unmerges = setOf("1,2"))
         manager.computeRelatedNovelIds(1L, "A", "X").toList() shouldContainExactly listOf(1L)
+    }
+
+    // seriesGroupKeys backs the Updates merge-aware grouping: same group => same key.
+
+    @Test
+    fun `seriesGroupKeys gives a merged same-title pair one shared key`() {
+        val favs = listOf(novel(1, "A", "X"), novel(3, "A", "X"))
+        val keys = manager(favs).seriesGroupKeys(favs)
+        keys[1L] shouldBe keys[3L]
+    }
+
+    @Test
+    fun `seriesGroupKeys keeps an unmerged same-title pair in distinct keys`() {
+        val favs = listOf(novel(1, "A", "X"), novel(3, "A", "X"))
+        val keys = manager(favs, unmerges = setOf("1,3")).seriesGroupKeys(favs)
+        (keys[1L] == keys[3L]) shouldBe false
+    }
+
+    @Test
+    fun `seriesGroupKeys gives unrelated novels distinct keys`() {
+        val favs = listOf(novel(1, "A", "X"), novel(2, "B", "Y"))
+        val keys = manager(favs).seriesGroupKeys(favs)
+        (keys[1L] == keys[2L]) shouldBe false
     }
 }

@@ -5,6 +5,7 @@ import kotlinx.coroutines.coroutineScope
 import reikai.domain.MergeGroupAlgebra
 import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.domain.manga.interactor.GetFavorites
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.track.interactor.GetTracks
 
 /**
@@ -198,6 +199,27 @@ class MangaMergeManager(
             val result = MergeGroupAlgebra.computeDissolve(group, merges, unmerges)
             preferences.mangaManualMerges.set(result.newMerges)
             preferences.mangaManualUnmerges.set(result.newUnmerges)
+        }
+    }
+
+    /**
+     * Group key per favorite for display grouping (the Updates group-by-series feature): each merged
+     * series' members share one key (their sorted, comma-joined ids), so all sources of a merged manga
+     * collapse together. Favorites are passed in so the whole map resolves from one DB read. Pure
+     * pref-based grouping: no tracker healing and no pref writes (unlike [computeRelatedMangaIds]).
+     */
+    fun seriesGroupKeys(favorites: List<Manga>): Map<Long, String> {
+        val merges = preferences.mangaManualMerges.get()
+        val unmerges = preferences.mangaManualUnmerges.get()
+        val autoMerge = preferences.autoMergeSameTitle.get()
+        val byTitle = if (autoMerge) favorites.groupBy { it.title.trim().lowercase() } else emptyMap()
+        return favorites.associate { manga ->
+            val sameTitle = if (autoMerge && manga.title.isNotBlank()) {
+                byTitle[manga.title.trim().lowercase()]?.mapTo(HashSet()) { it.id }.orEmpty()
+            } else {
+                emptySet()
+            }
+            manga.id to MergeGroupAlgebra.computeGroupIds(manga.id, merges, sameTitle, unmerges).joinToString(",")
         }
     }
 

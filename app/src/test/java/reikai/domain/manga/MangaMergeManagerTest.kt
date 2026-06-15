@@ -10,8 +10,45 @@ import io.mockk.verify
 import org.junit.jupiter.api.Test
 import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.core.common.preference.Preference
+import tachiyomi.domain.manga.model.Manga
 
 class MangaMergeManagerTest {
+
+    private fun manga(id: Long, title: String) = Manga.create().copy(id = id, title = title, favorite = true)
+
+    private fun groupKeyManager(
+        merges: Set<String> = emptySet(),
+        unmerges: Set<String> = emptySet(),
+        autoMerge: Boolean = true,
+    ): MangaMergeManager {
+        val preferences = mockk<ReikaiLibraryPreferences> {
+            every { mangaManualMerges } returns mockk(relaxed = true) { every { get() } returns merges }
+            every { mangaManualUnmerges } returns mockk(relaxed = true) { every { get() } returns unmerges }
+            every { autoMergeSameTitle } returns mockk(relaxed = true) { every { get() } returns autoMerge }
+        }
+        return MangaMergeManager(preferences, mockk(), mockk())
+    }
+
+    @Test
+    fun `seriesGroupKeys gives same-title manga one shared key`() {
+        val favs = listOf(manga(1, "A"), manga(2, "A"))
+        val keys = groupKeyManager().seriesGroupKeys(favs)
+        keys[1L] shouldBe keys[2L]
+    }
+
+    @Test
+    fun `seriesGroupKeys keeps an unmerged same-title pair in distinct keys`() {
+        val favs = listOf(manga(1, "A"), manga(2, "A"))
+        val keys = groupKeyManager(unmerges = setOf("1,2")).seriesGroupKeys(favs)
+        (keys[1L] == keys[2L]) shouldBe false
+    }
+
+    @Test
+    fun `seriesGroupKeys gives unrelated manga distinct keys`() {
+        val favs = listOf(manga(1, "A"), manga(2, "B"))
+        val keys = groupKeyManager().seriesGroupKeys(favs)
+        (keys[1L] == keys[2L]) shouldBe false
+    }
 
     private fun managerWith(merges: Set<String>, unmerges: Set<String>): Triple<MangaMergeManager, Preference<Set<String>>, Preference<Set<String>>> {
         val mergesPref = mockk<Preference<Set<String>>>(relaxed = true)

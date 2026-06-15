@@ -161,6 +161,21 @@ class NovelMergeManager(
         preferences.novelManualUnmerges.set(preferences.novelManualUnmerges.get() + newUnmerges)
     }
 
+    /**
+     * Group key per favorite for display grouping (the Updates group-by-series feature): each merged
+     * series' members share one key (their sorted, comma-joined ids), so all sources of a merged novel
+     * collapse together. Favorites are passed in so the whole map resolves from one DB read; no pref
+     * writes. Reuses the same manual-merge + author-guarded same-title + unmerge math as resolution.
+     */
+    fun seriesGroupKeys(favorites: List<Novel>): Map<Long, String> {
+        val merges = preferences.novelManualMerges.get()
+        val unmerges = preferences.novelManualUnmerges.get()
+        return favorites.associate { novel ->
+            val sameTitle = sameTitleIds(favorites, novel.title.trim().lowercase(), novel.author)
+            novel.id to MergeGroupAlgebra.computeGroupIds(novel.id, merges, sameTitle, unmerges).joinToString(",")
+        }
+    }
+
     /** Favorited novel ids sharing [title] (already lowercased/trimmed), filtered by the author guard. */
     private fun sameTitleIds(favorites: List<Novel>, title: String, author: String?): Set<Long> {
         if (title.isEmpty() || !preferences.novelAutoMergeSameTitle.get()) return emptySet()

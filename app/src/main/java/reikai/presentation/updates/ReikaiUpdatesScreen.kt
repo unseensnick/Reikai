@@ -106,6 +106,9 @@ fun ReikaiUpdatesScreen(
     // category selection isn't visible there, so the shell folds it in for the filter-icon tint.
     val novelCategoryFilterActive by novelModel.hasActiveCategoryFilter.collectAsState()
     val groupBySeries by novelModel.groupBySeries.collectAsState()
+    // Merge-aware grouping keys (per-series id -> merge-group key); empty unless grouping is on.
+    val mangaSeriesKeys by novelModel.mangaSeriesKeys.collectAsState()
+    val novelSeriesKeys by novelModel.novelSeriesKeys.collectAsState()
     // Which series groups are expanded (keyed by series+date); ephemeral UI state.
     val expandedGroups = remember { mutableStateMapOf<String, Boolean>() }
     val mangaSelected = mangaState.selected
@@ -242,7 +245,15 @@ fun ReikaiUpdatesScreen(
             )
             val isLoading = novelState.isLoading || (showsManga && mangaState.isLoading)
             val expandedKeys = expandedGroups.filterValues { it }.keys
-            val rows = buildUpdateRows(contentType, mangaState.items, novelState.items, groupBySeries, expandedKeys)
+            val rows = buildUpdateRows(
+                contentType,
+                mangaState.items,
+                novelState.items,
+                groupBySeries,
+                expandedKeys,
+                mangaSeriesKeys,
+                novelSeriesKeys,
+            )
             Box(modifier = Modifier.weight(1f)) {
                 when {
                     isLoading -> LoadingScreen(Modifier.padding(bodyPadding))
@@ -599,9 +610,10 @@ private sealed interface UpdateRow {
     data class Child(val member: UpdateRow) : UpdateRow
 }
 
-private fun UpdateRow.seriesKey(): String = when (this) {
-    is UpdateRow.Manga -> "manga-${item.update.mangaId}"
-    is UpdateRow.Novel -> "novel-${item.update.novelId}"
+private fun UpdateRow.seriesKey(mangaKeys: Map<Long, String>, novelKeys: Map<Long, String>): String = when (this) {
+    // Use the merge-group key when known (sources of a merged series share it); else the per-source id.
+    is UpdateRow.Manga -> "manga-${mangaKeys[item.update.mangaId] ?: item.update.mangaId}"
+    is UpdateRow.Novel -> "novel-${novelKeys[item.update.novelId] ?: item.update.novelId}"
     else -> ""
 }
 
@@ -660,6 +672,8 @@ private fun buildUpdateRows(
     novelItems: List<NovelUpdatesItem>,
     groupBySeries: Boolean,
     expandedKeys: Set<String>,
+    mangaSeriesKeys: Map<Long, String>,
+    novelSeriesKeys: Map<Long, String>,
 ): List<UpdateRow> {
     data class Entry(val dateFetch: Long, val row: UpdateRow)
 
@@ -691,7 +705,7 @@ private fun buildUpdateRows(
     byDate.forEach { (date, dayRows) ->
         result.add(UpdateRow.Header(date))
         val bySeries = LinkedHashMap<String, MutableList<UpdateRow>>()
-        dayRows.forEach { bySeries.getOrPut(it.seriesKey()) { mutableListOf() }.add(it) }
+        dayRows.forEach { bySeries.getOrPut(it.seriesKey(mangaSeriesKeys, novelSeriesKeys)) { mutableListOf() }.add(it) }
         bySeries.forEach { (seriesKey, members) ->
             if (members.size >= 2) {
                 val key = "$seriesKey@$date"

@@ -16,7 +16,10 @@ import kotlinx.coroutines.flow.update
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ContentType
+import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.manga.MangaMergeManager
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.model.NovelUpdateWithRelations
@@ -25,6 +28,7 @@ import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadManager
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.model.applyFilter
 import tachiyomi.domain.updates.service.UpdatesPreferences
 import uy.kohesive.injekt.Injekt
@@ -46,6 +50,10 @@ class NovelUpdatesScreenModel(
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
     private val updatesPreferences: UpdatesPreferences = Injekt.get(),
     private val getNovelCategories: GetNovelCategories = Injekt.get(),
+    private val libraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
+    private val mangaMergeManager: MangaMergeManager = Injekt.get(),
+    private val novelMergeManager: NovelMergeManager = Injekt.get(),
+    private val getFavorites: GetFavorites = Injekt.get(),
 ) : StateScreenModel<NovelUpdatesScreenModel.State>(State()) {
 
     /** Sticky All / Manga / Novels chip state for the Updates tab (drives which screen the tab shows). */
@@ -63,6 +71,29 @@ class NovelUpdatesScreenModel(
     /** Collapse a series' same-date chapters into one expandable row (display option, both types). */
     val groupBySeries: StateFlow<Boolean> = sourcePreferences.updatesGroupBySeries.changes()
         .stateIn(screenModelScope, SharingStarted.Eagerly, sourcePreferences.updatesGroupBySeries.get())
+
+    // Merge-aware grouping: each favorite's merge-group key (sources of one merged series share a key),
+    // so group-by-series collapses a cross-source merged series into one group instead of one per source.
+    // Resolved only while grouping is on; re-resolves when the merge prefs change (favorite-add staleness
+    // until reopen is acceptable, like the category cache). Empty map => fall back to the per-source id.
+    val mangaSeriesKeys: StateFlow<Map<Long, String>> = combine(
+        sourcePreferences.updatesGroupBySeries.changes(),
+        libraryPreferences.mangaManualMerges.changes(),
+        libraryPreferences.mangaManualUnmerges.changes(),
+        libraryPreferences.autoMergeSameTitle.changes(),
+    ) { on, _, _, _ ->
+        if (on) mangaMergeManager.seriesGroupKeys(getFavorites.await()) else emptyMap()
+    }.stateIn(screenModelScope, SharingStarted.Eagerly, emptyMap())
+
+    val novelSeriesKeys: StateFlow<Map<Long, String>> = combine(
+        sourcePreferences.updatesGroupBySeries.changes(),
+        libraryPreferences.novelManualMerges.changes(),
+        libraryPreferences.novelManualUnmerges.changes(),
+        libraryPreferences.novelAutoMergeSameTitle.changes(),
+        libraryPreferences.novelAutoMergeRequireAuthor.changes(),
+    ) { on, _, _, _, _ ->
+        if (on) novelMergeManager.seriesGroupKeys(novelRepo.getFavorites()) else emptyMap()
+    }.stateIn(screenModelScope, SharingStarted.Eagerly, emptyMap())
 
     private val selectedChapterIds = HashSet<Long>()
 
