@@ -34,6 +34,7 @@ import reikai.domain.novel.model.toCategory
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.library.reikaiSortCategories
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.Preference
@@ -131,7 +132,8 @@ class NovelLibraryScreenModel :
             reikaiLibraryPreferences.novelLibraryRandomSeed.changes(),
             libraryPreferences.showContinueReadingButton.changes(),
             reikaiLibraryPreferences.showHiddenCategories.changes(),
-        ) { sort, seed, cont, showHidden -> Misc(sort, seed, cont, showHidden) }
+            reikaiLibraryPreferences.categorySortOrder.changes(),
+        ) { sort, seed, cont, showHidden, catSort -> Misc(sort, seed, cont, showHidden, catSort) }
         val filterFlow = combine(
             reikaiLibraryPreferences.novelLibraryFilterDownloaded.changes(),
             reikaiLibraryPreferences.novelLibraryFilterUnread.changes(),
@@ -146,7 +148,10 @@ class NovelLibraryScreenModel :
             reikaiLibraryPreferences.novelAutoMergeRequireAuthor.changes(),
         ) { merges, unmerges, auto, requireAuthor -> MergeSettings(merges, unmerges, auto, requireAuthor) }
         return combine(badgePrefsFlow(), miscFlow, filterFlow, mergeFlow) { badges, misc, filters, merge ->
-            LibrarySettings(badges, misc.defaultSort, misc.randomSeed, misc.showContinue, misc.showHidden, filters, merge)
+            LibrarySettings(
+                badges, misc.defaultSort, misc.randomSeed, misc.showContinue, misc.showHidden,
+                filters, merge, misc.categorySortOrder,
+            )
         }
     }
 
@@ -222,7 +227,12 @@ class NovelLibraryScreenModel :
         } else {
             categories.filterNot { (it.flags and CATEGORY_HIDDEN_MASK) == CATEGORY_HIDDEN_MASK }
         }
-        val allCategories = (listOf(defaultCategory) + visibleCategories.map { it.toCategory() }).sortedBy { it.order }
+        // Manual DB order first, then the Reikai category-sort-order pref (Off/A->Z/Z->A), matching the
+        // manga library so the shared Display setting reorders novel categories too (system pinned top).
+        val allCategories = reikaiSortCategories(
+            (listOf(defaultCategory) + visibleCategories.map { it.toCategory() }).sortedBy { it.order },
+            settings.categorySortOrder,
+        )
         val defaultSort = NovelLibrarySort.fromFlag(settings.defaultSort)
         val grouped = allCategories.mapNotNull { category ->
             val ids = byCategory[category.id] ?: return@mapNotNull null
@@ -485,7 +495,13 @@ class NovelLibraryScreenModel :
         val bookmarked: TriState,
     )
 
-    private data class Misc(val defaultSort: Long, val randomSeed: Long, val showContinue: Boolean, val showHidden: Boolean)
+    private data class Misc(
+        val defaultSort: Long,
+        val randomSeed: Long,
+        val showContinue: Boolean,
+        val showHidden: Boolean,
+        val categorySortOrder: Int,
+    )
 
     private data class MergeSettings(
         val manualMerges: Set<String>,
@@ -502,6 +518,7 @@ class NovelLibraryScreenModel :
         val showHidden: Boolean,
         val filters: NovelFilters,
         val merge: MergeSettings,
+        val categorySortOrder: Int,
     )
 
     private fun NovelFilters.matches(n: LibraryNovel): Boolean =
