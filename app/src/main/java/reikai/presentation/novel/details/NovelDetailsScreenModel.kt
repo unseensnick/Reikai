@@ -11,12 +11,17 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import reikai.data.novel.NovelStatusCode
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.data.novel.toNovel
 import reikai.data.novel.walkNovelPages
+import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelCategories
@@ -69,6 +74,8 @@ class NovelDetailsScreenModel(
     private val setNovelCategories: SetNovelCategories by injectLazy()
     private val novelPreferences: NovelPreferences by injectLazy()
     private val uiPreferences: UiPreferences by injectLazy()
+    private val mergeManager: NovelMergeManager by injectLazy()
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
 
     /** Resolved once the plugin host loads it; source-dependent ops defer until set. */
     @Volatile
@@ -79,8 +86,21 @@ class NovelDetailsScreenModel(
     private var refreshJob: Job? = null
     private var seedExtracted = false
 
+    /** The opened novel's id (the merge "current" source); set once the anchor resolves. */
+    @Volatile
+    private var anchorNovelId = -1L
+
     /** The page (index into [NovelDetailsState.Loaded.pages]) the chapter list is showing. */
     private val pageIndex = MutableStateFlow(0)
+
+    /** Merge-group novel ids (this novel + grouped siblings); 0/1 element when not merged. */
+    private val relatedNovelIds = MutableStateFlow(longArrayOf())
+
+    /** The grouped source chip the user is viewing; null = the unified ("All") list. */
+    private val selectedSourceNovelId = MutableStateFlow<Long?>(null)
+
+    /** novelId -> resolved source for every grouped sibling (unified rank, chips, reader routing). */
+    private val siblingSources = MutableStateFlow<Map<Long, NovelSource>>(emptyMap())
 
     /** Paged keys already lazily fetched, so an empty page doesn't re-fetch on every flow emission. */
     private val triedPages = java.util.Collections.synchronizedSet(HashSet<String>())
@@ -89,7 +109,9 @@ class NovelDetailsScreenModel(
     private val selectionAnchor = intArrayOf(-1, -1)
 
     init {
-        observeFromDb()
+        observeMergeGroup()
+        observeMergeSourceChips()
+        observeChapters()
         observeDownloadQueue()
         resolveSource()
     }
@@ -127,36 +149,120 @@ class NovelDetailsScreenModel(
         }
     }
 
-    // DB-first: the stored novel drives the current page's chapter flow; every emission rebuilds
-    // Loaded from stored rows. A change to the novel's chapterFlags re-emits the outer flow (re-sort);
-    // a page switch ([pageIndex]) re-subscribes to that page's rows, fetching it lazily if empty.
-    private fun observeFromDb() {
+    private data class ChapterInputs(
+        val anchor: Novel?,
+        val related: LongArray,
+        val selected: Long?,
+        val pageIndex: Int,
+        val sources: Map<Long, NovelSource>,
+    )
+
+    // DB-first: the stored anchor novel + the resolved merge group drive the chapter list. The unified
+    // ("All") view pools every grouped source's chapters into one list (no page bar); a selected source
+    // chip (or a non-merged novel) keeps its own per-page lazy list (the S3c/S3d behavior). A change to
+    // chapterFlags / page / group / selection re-runs this via the combine.
+    private fun observeChapters() {
         screenModelScope.launchIO {
-            novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId).collectLatest { novel ->
-                if (novel == null) {
-                    maybeFirstFetch(null)
+            combine(
+                novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId),
+                relatedNovelIds,
+                selectedSourceNovelId,
+                pageIndex,
+                siblingSources,
+            ) { anchor, related, selected, idx, sources -> ChapterInputs(anchor, related, selected, idx, sources) }
+                .collectLatest { (anchor, related, selected, idx, sources) ->
+                    if (anchor == null) {
+                        maybeFirstFetch(null)
+                        return@collectLatest
+                    }
+                    if (related.size > 1 && selected == null) {
+                        observeUnifiedChapters(anchor, related, sources)
+                    } else {
+                        observeSingleChapters(anchor, selected, idx)
+                    }
+                }
+        }
+    }
+
+    /** Resolve the merge group whenever the anchor or the merge prefs change (the author guard is
+     *  re-applied each time = metadata healing). Drives [relatedNovelIds]; chips + chapters react. */
+    private fun observeMergeGroup() {
+        screenModelScope.launchIO {
+            combine(
+                novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId),
+                reikaiLibraryPreferences.novelManualMerges.changes(),
+                reikaiLibraryPreferences.novelManualUnmerges.changes(),
+                reikaiLibraryPreferences.novelAutoMergeSameTitle.changes(),
+                reikaiLibraryPreferences.novelAutoMergeRequireAuthor.changes(),
+            ) { anchor, _, _, _, _ -> anchor }
+                .collectLatest { anchor ->
+                    if (anchor == null) return@collectLatest
+                    anchorNovelId = anchor.id
+                    relatedNovelIds.value = mergeManager.computeRelatedNovelIds(anchor.id, anchor.title, anchor.author)
+                }
+        }
+    }
+
+    /** Resolve each grouped source + build the switcher chips whenever the group changes. */
+    private fun observeMergeSourceChips() {
+        screenModelScope.launchIO {
+            relatedNovelIds.collectLatest { ids ->
+                if (ids.size <= 1) {
+                    siblingSources.value = emptyMap()
+                    mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(mergeSources = emptyList()) ?: it }
                     return@collectLatest
                 }
-                val pages = computePages(novel)
-                if (pages.isNotEmpty() && pageIndex.value >= pages.size) pageIndex.value = 0
-                pageIndex.collectLatest { idx ->
-                    // Null key = unpaged source: show the whole novel (the S3c behavior). Otherwise
-                    // scope to this page's transport index / volume label.
-                    val pageKey = pages.getOrNull(idx)
-                    val chapterFlow = if (pageKey == null) {
-                        chapterRepo.getByNovelIdAsFlow(novel.id)
-                    } else {
-                        chapterRepo.getByNovelIdAndPageAsFlow(novel.id, pageKey)
-                    }
-                    chapterFlow.collectLatest { chapters ->
-                        rebuildLoaded(novel, chapters, pages, idx)
-                        when {
-                            chapters.isNotEmpty() -> {}
-                            pageKey == null -> maybeFirstFetch(novel)
-                            else -> maybeFetchPage(novel, pageKey)
-                        }
-                    }
+                runCatching { installer.ensureLoaded() }
+                val resolved = HashMap<Long, NovelSource>()
+                val chips = mutableListOf<NovelMergeSourceInfo>()
+                for (id in ids) {
+                    val novel = novelRepo.getById(id) ?: continue
+                    val src = sourceManager.get(novel.source)
+                    if (src != null) resolved[id] = src
+                    chips += NovelMergeSourceInfo(id, src?.name ?: novel.source, id == anchorNovelId)
                 }
+                siblingSources.value = resolved
+                mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(mergeSources = chips) ?: it }
+            }
+        }
+    }
+
+    /** Unified ("All") view: pool every grouped source's chapters into one aggregated, reading-ordered
+     *  list (no pagination, pages don't align across sources). Each chapter keeps its own novelId. */
+    private suspend fun observeUnifiedChapters(anchor: Novel, related: LongArray, sources: Map<Long, NovelSource>) {
+        val flows = related.map { id -> chapterRepo.getByNovelIdAsFlow(id).map { id to it } }
+        combine(flows) { pairs -> pairs.toMap() }.collectLatest { byNovel ->
+            val sourceIdByNovel = byNovel.keys.associateWith { id -> sources[id]?.id.orEmpty() }
+            val aggregated = NovelChapterAggregation.aggregate(
+                byNovel,
+                sourceIdByNovel,
+                reikaiLibraryPreferences.preferredNovelSources.get(),
+            )
+            rebuildLoaded(anchor, anchor, restampReadingOrder(aggregated), emptyList(), 0)
+        }
+    }
+
+    /** Single-source view: the anchor (non-merged or its own chip) or a selected sibling, with that
+     *  novel's own per-page lazy list. Auto-fetch only runs for the anchor (its [source] is resolved);
+     *  a selected sibling shows what's stored until a refresh-all (slice D) fills it. */
+    private suspend fun observeSingleChapters(anchor: Novel, selected: Long?, idx: Int) {
+        val isAnchorView = selected == null || selected == anchor.id
+        val viewNovel = if (isAnchorView) anchor else (novelRepo.getById(selected!!) ?: anchor)
+        val pages = computePages(viewNovel)
+        if (pages.isNotEmpty() && idx >= pages.size) {
+            pageIndex.value = 0
+            return
+        }
+        val pageKey = pages.getOrNull(idx)
+        val chapterFlow = if (pageKey == null) {
+            chapterRepo.getByNovelIdAsFlow(viewNovel.id)
+        } else {
+            chapterRepo.getByNovelIdAndPageAsFlow(viewNovel.id, pageKey)
+        }
+        chapterFlow.collectLatest { chapters ->
+            rebuildLoaded(anchor, viewNovel, chapters, pages, idx)
+            if (chapters.isEmpty() && isAnchorView) {
+                if (pageKey == null) maybeFirstFetch(viewNovel) else maybeFetchPage(viewNovel, pageKey)
             }
         }
     }
@@ -168,14 +274,24 @@ class NovelDetailsScreenModel(
         else -> chapterRepo.getDistinctPages(novel.id).takeIf { it.size > 1 } ?: emptyList()
     }
 
-    private fun rebuildLoaded(novel: Novel, chapters: List<NovelChapter>, pages: List<String>, pageIndex: Int) {
-        val display = chapters.sortedAndFiltered(novel, novelPreferences)
+    /** Build [NovelDetailsState.Loaded] from the [anchor] (identity, favorite, chapter-view flags) and
+     *  the [viewNovel] whose metadata + source the header shows (== anchor for the unified view, the
+     *  selected sibling otherwise). Sort/filter always follow the anchor's flags. */
+    private fun rebuildLoaded(
+        anchor: Novel,
+        viewNovel: Novel,
+        chapters: List<NovelChapter>,
+        pages: List<String>,
+        pageIndex: Int,
+    ) {
+        val display = chapters.sortedAndFiltered(anchor, novelPreferences)
         val resume = chapters.sortedBy { it.sourceOrder }.firstOrNull { !it.read }
+        val viewSource = siblingSources.value[viewNovel.id]
         mutableState.update { prev ->
             val loaded = prev as? NovelDetailsState.Loaded
             NovelDetailsState.Loaded(
-                novel = novel,
-                displayNovel = novel,
+                novel = anchor,
+                displayNovel = viewNovel,
                 chapters = display,
                 pages = pages,
                 pageIndex = if (pages.isEmpty()) 0 else pageIndex.coerceIn(0, pages.lastIndex),
@@ -187,16 +303,18 @@ class NovelDetailsScreenModel(
                 resumeChapter = resume,
                 hasStarted = chapters.any { it.read },
                 seedColor = loaded?.seedColor,
-                sourceName = source?.name ?: loaded?.sourceName ?: sourceId,
-                sourceUrl = source?.site ?: loaded?.sourceUrl,
-                sorting = novel.effectiveSorting(novelPreferences),
-                sortDescending = novel.effectiveSortDescending(novelPreferences),
-                readFilter = novel.effectiveReadFilter(novelPreferences),
-                bookmarkedFilter = novel.effectiveBookmarkedFilter(novelPreferences),
-                hideChapterTitles = novel.effectiveHideChapterTitles(novelPreferences),
+                sourceName = viewSource?.name ?: source?.name ?: loaded?.sourceName ?: sourceId,
+                sourceUrl = viewSource?.site ?: source?.site ?: loaded?.sourceUrl,
+                sorting = anchor.effectiveSorting(novelPreferences),
+                sortDescending = anchor.effectiveSortDescending(novelPreferences),
+                readFilter = anchor.effectiveReadFilter(novelPreferences),
+                bookmarkedFilter = anchor.effectiveBookmarkedFilter(novelPreferences),
+                hideChapterTitles = anchor.effectiveHideChapterTitles(novelPreferences),
+                mergeSources = loaded?.mergeSources.orEmpty(),
+                selectedSourceNovelId = selectedSourceNovelId.value,
             )
         }
-        updateSeedColor(novel)
+        updateSeedColor(viewNovel)
     }
 
     /** Extract the cover's vibrant color once and seed the header tint. Keyed by `-novel.id` so the
@@ -288,6 +406,29 @@ class NovelDetailsScreenModel(
     }
 
     fun showPageSelectorDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.PageSelector) }
+
+    // --- Merge: source switcher + split ---
+
+    /** Switch the chapter view between the unified list (null) and a single grouped source's list. */
+    fun selectSource(novelId: Long?) {
+        if (selectedSourceNovelId.value == novelId) return
+        clearSelection()
+        pageIndex.value = 0
+        selectedSourceNovelId.value = novelId
+    }
+
+    /** Split the given grouped sources out (subset split; full dissolve if they cover the group). The
+     *  pref write re-resolves the group; the value is also set directly for instant feedback. */
+    fun splitSources(targetIds: List<Long>) {
+        if (targetIds.isEmpty()) return
+        selectedSourceNovelId.value = null
+        relatedNovelIds.value = mergeManager.splitOrDissolve(relatedNovelIds.value, targetIds)
+    }
+
+    /** Renumber sourceOrder over the unified list (ascending by chapter number = reading order) so a
+     *  "by source order" sort doesn't interleave sources. Copies; each source's own order is untouched. */
+    private fun restampReadingOrder(chapters: List<NovelChapter>): List<NovelChapter> =
+        chapters.sortedBy { it.chapterNumber }.mapIndexed { index, chapter -> chapter.copy(sourceOrder = index.toLong()) }
 
     /** Stale-then-fresh: the cached list stays under a spinner while the sync runs, then the flow
      *  swaps in fresh rows. Read/bookmark are preserved by the sync. Deduped against concurrent runs.
@@ -634,6 +775,10 @@ sealed interface NovelDetailsState {
         val readFilter: Long = 0L,
         val bookmarkedFilter: Long = 0L,
         val hideChapterTitles: Boolean = false,
+        /** Source-switcher chips for a merged group (empty/single = not merged, chips hidden). */
+        val mergeSources: List<NovelMergeSourceInfo> = emptyList(),
+        /** The selected source chip's novelId; null = the unified ("All") view. */
+        val selectedSourceNovelId: Long? = null,
     ) : NovelDetailsState {
         val selectionMode: Boolean get() = selection.isNotEmpty()
 
@@ -641,6 +786,10 @@ sealed interface NovelDetailsState {
         val isPaged: Boolean get() = pages.size > 1
     }
 }
+
+/** One source chip in a merged novel's source switcher. [isCurrent] marks the opened (anchor) source. */
+@Immutable
+data class NovelMergeSourceInfo(val novelId: Long, val sourceName: String, val isCurrent: Boolean)
 
 sealed interface NovelDetailsDialog {
     data class ChangeCategory(

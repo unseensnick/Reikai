@@ -104,7 +104,8 @@ class NovelScreen(
                     }
                 }
                 val onChapterClick: (NovelChapter) -> Unit = { chapter ->
-                    navigator.push(NovelReaderScreen(s.novel.id, chapter.id))
+                    // Route to the chapter's own source (a unified-list row keeps its owning novelId).
+                    navigator.push(NovelReaderScreen(chapter.novelId, chapter.id))
                 }
 
                 if (isTabletUi()) {
@@ -320,12 +321,14 @@ private fun LazyListScope.novelHeaderItems(
     isTabletUi: Boolean,
     appBarPadding: Dp,
 ) {
-    val novel = state.novel
+    // Header metadata follows the viewed source (the selected chip, else the anchor); favorite + the
+    // library actions stay on the anchor novel.
+    val display = state.displayNovel
     item(key = "info") {
         NovelInfoBox(
             isTabletUi = isTabletUi,
             appBarPadding = appBarPadding,
-            novel = novel,
+            novel = display,
             sourceName = state.sourceName,
             sourceSite = state.sourceUrl,
             onCoverClick = {},
@@ -333,7 +336,7 @@ private fun LazyListScope.novelHeaderItems(
     }
     item(key = "actions") {
         NovelActionRow(
-            favorite = novel.favorite,
+            favorite = state.novel.favorite,
             onAddToLibraryClicked = screenModel::toggleFavorite,
             onWebViewClicked = state.sourceUrl?.let { { onWebView() } },
             onShareClicked = state.sourceUrl?.let { { onShare() } },
@@ -342,15 +345,24 @@ private fun LazyListScope.novelHeaderItems(
     item(key = "description") {
         ExpandableMangaDescription(
             defaultExpandState = false,
-            description = novel.description,
-            tagsProvider = { novel.genre },
+            description = display.description,
+            tagsProvider = { display.genre },
             notes = "",
             onTagSearch = {},
             onCopyTagToClipboard = {},
             onEditNotes = {},
         )
     }
-    // TODO(S8): merge source-switcher chips slot
+    if (state.mergeSources.size > 1) {
+        item(key = "source-chips") {
+            NovelMergeSourceChips(
+                sources = state.mergeSources,
+                selectedSourceNovelId = state.selectedSourceNovelId,
+                onSelect = screenModel::selectSource,
+                onSplitSource = { screenModel.splitSources(listOf(it)) },
+            )
+        }
+    }
     item(key = "chapter-header") {
         Column {
             ChapterHeader(
