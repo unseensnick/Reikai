@@ -105,8 +105,12 @@ class NovelScreen(
                     }
                 }
                 val onChapterClick: (NovelChapter) -> Unit = { chapter ->
-                    // Route to the chapter's own source (a unified-list row keeps its owning novelId).
-                    navigator.push(NovelReaderScreen(chapter.novelId, chapter.id))
+                    // Route to the chapter's own source (a unified-list row keeps its owning novelId)
+                    // and hand the reader the displayed order so prev/next walks it (cross-source in
+                    // the merged "All" view, single-source for a per-source chip or a non-merged novel).
+                    navigator.push(
+                        NovelReaderScreen(chapter.novelId, chapter.id, s.chapters.map { it.id }.toLongArray()),
+                    )
                 }
 
                 if (isTabletUi()) {

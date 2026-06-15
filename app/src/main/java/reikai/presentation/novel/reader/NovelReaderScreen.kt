@@ -51,6 +51,7 @@ import eu.kanade.presentation.util.Screen
 class NovelReaderScreen(
     private val novelId: Long,
     private val initialChapterId: Long,
+    private val orderedChapterIds: LongArray = longArrayOf(),
 ) : Screen() {
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -58,7 +59,7 @@ class NovelReaderScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val screenModel = rememberScreenModel { NovelReaderScreenModel(novelId, initialChapterId) }
+        val screenModel = rememberScreenModel { NovelReaderScreenModel(novelId, initialChapterId, orderedChapterIds) }
         val state by screenModel.state.collectAsState()
         val rawSettings by screenModel.settings.collectAsState()
 

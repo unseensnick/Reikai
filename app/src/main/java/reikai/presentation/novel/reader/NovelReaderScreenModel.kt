@@ -41,14 +41,17 @@ sealed interface NovelReaderState {
 private const val MAX_CACHED_CHAPTERS = 5
 
 /**
- * Loads novel chapters for the WebView reader. [novelId] resolves the chapter list (source order =
- * reading order) and the single source; [initialChapterId] is the entry point. Prev/next walk the
- * list within this novel/source (cross-source merged reading is S8). Chapters load live via
- * `parseChapter` (offline downloads are S5). Reading at >=97% auto-marks the chapter read.
+ * Loads novel chapters for the WebView reader. [orderedChapterIds] is the reading order prev/next
+ * walks (the details screen's displayed list: a merged novel's unified cross-source order, or a
+ * single source's order); when empty, [novelId] resolves the order from its own chapters. Each
+ * chapter loads through its own source (resolved per `chapter.novelId`), so a merged session walks
+ * across sources. [initialChapterId] is the entry point. Chapters load live via `parseChapter`
+ * (offline downloads read from disk). Reading at >=97% auto-marks the chapter read.
  */
 class NovelReaderScreenModel(
     private val novelId: Long,
     initialChapterId: Long,
+    private val orderedChapterIds: LongArray = longArrayOf(),
 ) : StateScreenModel<NovelReaderState>(NovelReaderState.Loading) {
 
     private val chapterRepo: NovelChapterRepository by injectLazy()
@@ -63,9 +66,14 @@ class NovelReaderScreenModel(
     /** Chapter ids in reading order, loaded once on first [load]. */
     private var orderedIds: List<Long> = emptyList()
 
-    /** Resolved once; source-dependent ops defer until set. */
+    /** Sources resolved lazily per novelId. A merged reading session walks chapters from several
+     *  novels, each with its own source, so cache per novelId rather than once. */
+    private val sourcesByNovel: MutableMap<Long, NovelSource> =
+        java.util.Collections.synchronizedMap(HashMap())
+
+    /** [LnPluginInstaller.ensureLoaded] needs to run once before the first source resolve. */
     @Volatile
-    private var source: NovelSource? = null
+    private var pluginsLoaded = false
 
     /** Session-scoped LRU of raw chapter HTML + base URL keyed by chapter id (RAM-only, dies with the
      *  screen); a prefetched next chapter opens instantly. Synchronized: the prefetch coroutine and
@@ -172,7 +180,13 @@ class NovelReaderScreenModel(
         mutableState.value = NovelReaderState.Loading
         screenModelScope.launchIO {
             mutableState.value = try {
-                if (orderedIds.isEmpty()) orderedIds = chapterRepo.getByNovelId(novelId).map { it.id }
+                if (orderedIds.isEmpty()) {
+                    orderedIds = if (orderedChapterIds.isNotEmpty()) {
+                        orderedChapterIds.toList()
+                    } else {
+                        chapterRepo.getByNovelId(novelId).map { it.id }
+                    }
+                }
                 val id = currentId
                 val chapter = chapterRepo.getById(id) ?: error("Chapter not found")
                 val (html, baseUrl) = htmlCache[id] ?: loadChapterHtml(chapter).also { htmlCache[id] = it }
@@ -198,18 +212,20 @@ class NovelReaderScreenModel(
      *  as the base URL so relative image URLs resolve. */
     private suspend fun loadChapterHtml(chapter: NovelChapter): Pair<String, String?> {
         downloadManager.getChapterText(chapter)?.let { return it to null }
-        val src = resolveSource()
+        val src = resolveSourceFor(chapter.novelId)
         return src.parseChapter(chapter.url) to src.site.ifBlank { null }
     }
 
-    private suspend fun resolveSource(): NovelSource {
-        source?.let { return it }
-        try {
-            installer.ensureLoaded()
-        } catch (_: Throwable) {}
-        val sourceId = novelRepo.getById(novelId)?.source ?: error("Novel not found")
+    /** Resolve (and cache) the source owning [forNovelId]. Each chapter in a merged session resolves
+     *  by its own `novelId`, so prev/next can cross source boundaries. */
+    private suspend fun resolveSourceFor(forNovelId: Long): NovelSource {
+        sourcesByNovel[forNovelId]?.let { return it }
+        if (!pluginsLoaded) {
+            runCatching { installer.ensureLoaded() }.onSuccess { pluginsLoaded = true }
+        }
+        val sourceId = novelRepo.getById(forNovelId)?.source ?: error("Novel not found")
         val resolved = sourceManager.get(sourceId) ?: error("Source not installed: $sourceId")
-        source = resolved
+        sourcesByNovel[forNovelId] = resolved
         return resolved
     }
 
