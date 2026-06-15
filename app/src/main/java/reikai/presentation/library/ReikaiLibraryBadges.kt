@@ -1,17 +1,19 @@
 package reikai.presentation.library
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.LocalLibrary
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import eu.kanade.domain.source.model.icon
@@ -84,17 +86,26 @@ fun SourceIconBadge(source: Source?) {
 }
 
 /** Source-icon badge for a disguised novel: the source's icon is a CDN URL (novels carry no Mihon
- *  [Source] bitmap), so it's coil-loaded. Renders nothing when the URL is absent. */
+ *  [Source] bitmap), so it's coil-loaded. Mirrors [SourceIconBadge]'s bitmap path exactly (same
+ *  [Badge] geometry: a secondary-backed rectangle with the icon scaled to fill an 18dp square) so a
+ *  novel cover's badge is visually identical to a manga's. Renders nothing when the URL is absent. */
 @Composable
 fun NovelSourceIconBadge(iconUrl: String?) {
     if (iconUrl.isNullOrEmpty()) return
-    AsyncImage(
-        model = iconUrl,
-        contentDescription = null,
+    Box(
+        contentAlignment = Alignment.Center,
         modifier = Modifier
-            .size(20.dp)
-            .clip(RoundedCornerShape(3.dp)),
-    )
+            .clip(RectangleShape)
+            .background(MaterialTheme.colorScheme.secondary),
+    ) {
+        AsyncImage(
+            model = iconUrl,
+            contentDescription = null,
+            modifier = Modifier
+                .scale(1.3f)
+                .height(18.dp),
+        )
+    }
 }
 
 /**
