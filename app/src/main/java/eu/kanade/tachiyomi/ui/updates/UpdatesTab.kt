@@ -28,6 +28,12 @@ import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.updates.UpdatesScreenModel.Event
 import kotlinx.coroutines.flow.collectLatest
 import mihon.feature.upcoming.UpcomingScreen
+import reikai.data.novel.update.NovelUpdateJob
+import reikai.domain.library.ContentType
+import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.novel.reader.NovelReaderScreen
+import reikai.presentation.updates.NovelUpdatesScreenModel
+import reikai.presentation.updates.ReikaiUpdatesScreen
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -57,45 +63,71 @@ data object UpdatesTab : Tab {
         val screenModel = rememberScreenModel { UpdatesScreenModel() }
         val settingsScreenModel = rememberScreenModel { UpdatesSettingsScreenModel() }
         val state by screenModel.state.collectAsState()
-
-        UpdateScreen(
-            state = state,
-            snackbarHostState = screenModel.snackbarHostState,
-            lastUpdated = screenModel.lastUpdated,
-            onClickCover = { item -> navigator.push(MangaScreen(item.update.mangaId)) },
-            onSelectAll = screenModel::toggleAllSelection,
-            onInvertSelection = screenModel::invertSelection,
-            onUpdateLibrary = screenModel::updateLibrary,
-            onDownloadChapter = screenModel::downloadChapters,
-            onMultiBookmarkClicked = screenModel::bookmarkUpdates,
-            onMultiMarkAsReadClicked = screenModel::markUpdatesRead,
-            onMultiDeleteClicked = screenModel::showConfirmDeleteChapters,
-            onUpdateSelected = screenModel::toggleSelection,
-            onOpenChapter = {
-                val intent = ReaderActivity.newIntent(context, it.update.mangaId, it.update.chapterId)
-                context.startActivity(intent)
-            },
-            onCalendarClicked = { navigator.push(UpcomingScreen()) },
-            onFilterClicked = screenModel::showFilterDialog,
-            hasActiveFilters = state.hasActiveFilters,
-        )
-
-        val onDismissDialog = { screenModel.setDialog(null) }
-        when (val dialog = state.dialog) {
-            is UpdatesScreenModel.Dialog.DeleteConfirmation -> {
-                UpdatesDeleteConfirmationDialog(
-                    onDismissRequest = onDismissDialog,
-                    onConfirm = { screenModel.deleteChapters(dialog.toDelete) },
-                )
-            }
-            is UpdatesScreenModel.Dialog.FilterSheet -> {
-                UpdatesFilterDialog(
-                    onDismissRequest = onDismissDialog,
-                    screenModel = settingsScreenModel,
-                )
-            }
-            null -> {}
+        // RK -->
+        val novelScreenModel = rememberScreenModel { NovelUpdatesScreenModel() }
+        val novelState by novelScreenModel.state.collectAsState()
+        val contentType by novelScreenModel.contentType.collectAsState()
+        val chip: @Composable () -> Unit = {
+            ContentTypeFilterChips(selected = contentType, onSelect = novelScreenModel::setContentType)
         }
+
+        if (contentType == ContentType.MANGA) {
+            UpdateScreen(
+                state = state,
+                snackbarHostState = screenModel.snackbarHostState,
+                lastUpdated = screenModel.lastUpdated,
+                onClickCover = { item -> navigator.push(MangaScreen(item.update.mangaId)) },
+                onSelectAll = screenModel::toggleAllSelection,
+                onInvertSelection = screenModel::invertSelection,
+                onUpdateLibrary = screenModel::updateLibrary,
+                onDownloadChapter = screenModel::downloadChapters,
+                onMultiBookmarkClicked = screenModel::bookmarkUpdates,
+                onMultiMarkAsReadClicked = screenModel::markUpdatesRead,
+                onMultiDeleteClicked = screenModel::showConfirmDeleteChapters,
+                onUpdateSelected = screenModel::toggleSelection,
+                onOpenChapter = {
+                    val intent = ReaderActivity.newIntent(context, it.update.mangaId, it.update.chapterId)
+                    context.startActivity(intent)
+                },
+                onCalendarClicked = { navigator.push(UpcomingScreen()) },
+                onFilterClicked = screenModel::showFilterDialog,
+                hasActiveFilters = state.hasActiveFilters,
+                chip = chip,
+            )
+
+            val onDismissDialog = { screenModel.setDialog(null) }
+            when (val dialog = state.dialog) {
+                is UpdatesScreenModel.Dialog.DeleteConfirmation -> {
+                    UpdatesDeleteConfirmationDialog(
+                        onDismissRequest = onDismissDialog,
+                        onConfirm = { screenModel.deleteChapters(dialog.toDelete) },
+                    )
+                }
+                is UpdatesScreenModel.Dialog.FilterSheet -> {
+                    UpdatesFilterDialog(
+                        onDismissRequest = onDismissDialog,
+                        screenModel = settingsScreenModel,
+                    )
+                }
+                null -> {}
+            }
+        } else {
+            ReikaiUpdatesScreen(
+                contentType = contentType,
+                mangaState = state,
+                novelModel = novelScreenModel,
+                snackbarHostState = screenModel.snackbarHostState,
+                chip = chip,
+                onRefresh = { NovelUpdateJob.startNow(context) },
+                onOpenMangaChapter = {
+                    context.startActivity(ReaderActivity.newIntent(context, it.update.mangaId, it.update.chapterId))
+                },
+                onClickMangaCover = { navigator.push(MangaScreen(it.update.mangaId)) },
+                onMangaDownload = screenModel::downloadChapters,
+                onOpenNovelChapter = { navigator.push(NovelReaderScreen(it.update.novelId, it.update.chapterId)) },
+            )
+        }
+        // RK <--
 
         LaunchedEffect(Unit) {
             screenModel.events.collectLatest { event ->
@@ -115,8 +147,9 @@ data object UpdatesTab : Tab {
             }
         }
 
-        LaunchedEffect(state.selectionMode) {
-            HomeScreen.showBottomNav(!state.selectionMode)
+        LaunchedEffect(state.selectionMode, novelState.selectionMode) {
+            // RK: also hide the bottom nav during novel selection so its action bar has room.
+            HomeScreen.showBottomNav(!state.selectionMode && !novelState.selectionMode)
         }
 
         LaunchedEffect(state.isLoading) {
