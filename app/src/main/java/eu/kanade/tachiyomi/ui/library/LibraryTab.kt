@@ -232,13 +232,17 @@ data object LibraryTab : Tab {
             }
         }
         // RK: novel continue-reading (both views). The disguised item carries a negative id, so the
-        // real novel id is -manga.id; open the next unread chapter in the novel reader.
+        // real novel id is -manga.id. For a merged novel the resume spans the whole group (the unified
+        // reading order): open the unread chapter from its OWN source + hand the reader the merged list.
         val onNovelContinueReading: (LibraryManga) -> Unit = { item ->
             scope.launchIO {
-                val novelId = -item.manga.id
-                val chapter = novelModel.getNextUnreadChapter(novelId)
-                if (chapter != null) {
-                    withUIContext { navigator.push(NovelReaderScreen(novelId, chapter.id)) }
+                val resume = novelModel.getResume(-item.manga.id)
+                if (resume != null) {
+                    withUIContext {
+                        navigator.push(
+                            NovelReaderScreen(resume.chapter.novelId, resume.chapter.id, resume.chapterIds.toLongArray()),
+                        )
+                    }
                 } else {
                     snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))
                 }
