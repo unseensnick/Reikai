@@ -129,8 +129,23 @@ class NovelPreferences(
             setOf(LibraryPreferences.DEVICE_ONLY_ON_WIFI),
         )
 
-    /** Skip novels whose source status is Completed (the novel analog of "only update ongoing"). */
-    fun updateOnlyOngoing() = preferenceStore.getBoolean("novel_library_update_only_ongoing", false)
+    /** Smart-update restrictions, reusing the manga restriction keys ([LibraryPreferences.MANGA_HAS_UNREAD]
+     *  etc.) for parallel semantics: skip completed / skip with unread / skip unstarted. Defaults to the
+     *  same set the manga `autoUpdateMangaRestrictions` defaults to (minus release-period prediction,
+     *  which novels lack) so the two sides start identical. */
+    fun novelUpdateRestrictions() = preferenceStore.getStringSet(
+        "novel_library_smart_update",
+        setOf(
+            LibraryPreferences.MANGA_HAS_UNREAD,
+            LibraryPreferences.MANGA_NON_COMPLETED,
+            LibraryPreferences.MANGA_NON_READ,
+        ),
+    )
+
+    /** Categories to include / exclude from the background update (mirrors the manga update categories). */
+    fun novelUpdateCategories() = preferenceStore.getStringSet("novel_library_update_categories", emptySet())
+    fun novelUpdateCategoriesExclude() =
+        preferenceStore.getStringSet("novel_library_update_categories_exclude", emptySet())
 
     companion object {
         private val metadataMapSerializer =

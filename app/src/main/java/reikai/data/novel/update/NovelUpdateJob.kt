@@ -100,9 +100,12 @@ class NovelUpdateJob(
         // One load brings every installed plugin into the host; per-novel resolution is then cheap.
         runCatching { installer.ensureLoaded() }
 
-        var favorites = novelRepo.getFavorites()
-        if (preferences.updateOnlyOngoing().get()) {
-            favorites = favorites.filter { it.status != NovelStatusCode.COMPLETED.toLong() }
+        // Category scope + smart-update restrictions both need suspend per-novel lookups, so filter in
+        // a loop rather than a plain .filter.
+        val favorites = buildList {
+            for (novel in novelRepo.getFavorites()) {
+                if (shouldUpdate(novel) && passesSmartUpdate(novel)) add(novel)
+            }
         }
         if (favorites.isEmpty()) return
 
@@ -176,6 +179,37 @@ class NovelUpdateJob(
             included.isEmpty() -> true
             else -> categories.any { it in included }
         }
+    }
+
+    /** Category scope for the update itself (mirrors the manga global-update Categories filter). */
+    private suspend fun shouldUpdate(novel: Novel): Boolean {
+        val included = preferences.novelUpdateCategories().get().map { it.toLong() }
+        val excluded = preferences.novelUpdateCategoriesExclude().get().map { it.toLong() }
+        if (included.isEmpty() && excluded.isEmpty()) return true
+        val categories = getNovelCategories.awaitByNovelId(novel.id).map { it.id }.ifEmpty { listOf(0L) }
+        return when {
+            categories.any { it in excluded } -> false
+            included.isEmpty() -> true
+            else -> categories.any { it in included }
+        }
+    }
+
+    /** Smart-update restrictions (the novel twin of the manga Smart update): skip completed / skip with
+     *  unread / skip unstarted, per [NovelPreferences.novelUpdateRestrictions]. Empty = update all. */
+    private suspend fun passesSmartUpdate(novel: Novel): Boolean {
+        val restrictions = preferences.novelUpdateRestrictions().get()
+        if (restrictions.isEmpty()) return true
+        if (LibraryPreferences.MANGA_NON_COMPLETED in restrictions &&
+            novel.status == NovelStatusCode.COMPLETED.toLong()
+        ) {
+            return false
+        }
+        if (LibraryPreferences.MANGA_HAS_UNREAD in restrictions || LibraryPreferences.MANGA_NON_READ in restrictions) {
+            val chapters = chapterRepo.getByNovelId(novel.id)
+            if (LibraryPreferences.MANGA_HAS_UNREAD in restrictions && chapters.any { !it.read }) return false
+            if (LibraryPreferences.MANGA_NON_READ in restrictions && chapters.none { it.read }) return false
+        }
+        return true
     }
 
     companion object {
