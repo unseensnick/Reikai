@@ -107,8 +107,10 @@ data object UpdatesTab : Tab {
                 UpdatesFilterDialog(
                     onDismissRequest = onDismissDialog,
                     screenModel = settingsScreenModel,
-                    reikaiCategorySection = {
+                    reikaiCategoryRow = {
                         ReikaiUpdatesCategoryFilter(screenModel = settingsScreenModel, contentType = contentType)
+                    },
+                    reikaiAfterFilters = {
                         ReikaiUpdatesGroupToggle(screenModel = settingsScreenModel)
                     },
                 )

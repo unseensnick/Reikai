@@ -34,7 +34,8 @@ fun UpdatesFilterDialog(
     onDismissRequest: () -> Unit,
     screenModel: UpdatesSettingsScreenModel,
     // RK -->
-    reikaiCategorySection: @Composable ColumnScope.() -> Unit = {},
+    reikaiCategoryRow: @Composable ColumnScope.() -> Unit = {},
+    reikaiAfterFilters: @Composable ColumnScope.() -> Unit = {},
     // RK <--
 ) {
     TabbedDialog(
@@ -48,8 +49,12 @@ fun UpdatesFilterDialog(
                 .padding(vertical = TabbedDialogPaddings.Vertical)
                 .verticalScroll(rememberScrollState()),
         ) {
-            // RK: pass the category-filter section through to the sheet
-            FilterSheet(screenModel = screenModel, reikaiCategorySection = reikaiCategorySection)
+            // RK: thread the category row (above the divider) + the post-filter section into the sheet
+            FilterSheet(
+                screenModel = screenModel,
+                reikaiCategoryRow = reikaiCategoryRow,
+                reikaiAfterFilters = reikaiAfterFilters,
+            )
         }
     }
 }
@@ -58,7 +63,8 @@ fun UpdatesFilterDialog(
 private fun ColumnScope.FilterSheet(
     screenModel: UpdatesSettingsScreenModel,
     // RK -->
-    reikaiCategorySection: @Composable ColumnScope.() -> Unit = {},
+    reikaiCategoryRow: @Composable ColumnScope.() -> Unit = {},
+    reikaiAfterFilters: @Composable ColumnScope.() -> Unit = {},
     // RK <--
 ) {
     val filterDownloaded by screenModel.updatesPreferences.filterDownloaded.collectAsState()
@@ -89,6 +95,9 @@ private fun ColumnScope.FilterSheet(
         onClick = { screenModel.toggleFilter(UpdatesPreferences::filterBookmarked) },
     )
 
+    // RK: include/exclude category filter sits with the other content filters, above the divider
+    reikaiCategoryRow()
+
     HorizontalDivider(modifier = Modifier.padding(MaterialTheme.padding.small))
 
     val filterExcludedScanlators by screenModel.updatesPreferences.filterExcludedScanlators.collectAsState()
@@ -115,6 +124,6 @@ private fun ColumnScope.FilterSheet(
         )
     }
 
-    // RK: include/exclude category filter (renders only when there are categories to pick)
-    reikaiCategorySection()
+    // RK: display/grouping options (e.g. group by series) after the filters
+    reikaiAfterFilters()
 }
