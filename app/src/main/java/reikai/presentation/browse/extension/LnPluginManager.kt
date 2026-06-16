@@ -47,10 +47,11 @@ fun LnPluginManager(
     onUninstall: (NovelSource) -> Unit,
     onUpdateAll: () -> Unit,
     onAddRepo: () -> Unit,
+    isSearching: Boolean = false,
 ) {
     if (state.isEmpty) {
         EmptyScreen(
-            stringRes = MR.strings.ln_no_repos,
+            stringRes = if (isSearching) MR.strings.no_results_found else MR.strings.ln_no_repos,
             modifier = Modifier.padding(contentPadding),
             actions = listOf(
                 EmptyScreenAction(

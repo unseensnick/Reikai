@@ -66,6 +66,10 @@ fun Screen.reikaiExtensionsTab(
             ),
         ),
         content = { contentPadding, snackbarHostState ->
+            // The shared Browse search bar drives extensionsScreenModel (manga only); apply the same
+            // query to the novel plugin list so searching filters both sides, not just manga.
+            val query = extState.searchQuery
+            val filteredLnState = lnState.filteredBy(query)
             Column {
                 ContentTypeFilterChips(
                     selected = contentType,
@@ -74,8 +78,9 @@ fun Screen.reikaiExtensionsTab(
                 when (contentType) {
                     ContentType.MANGA -> mihonTab.content(contentPadding, snackbarHostState)
                     ContentType.NOVELS -> LnPluginManager(
-                        state = lnState,
+                        state = filteredLnState,
                         contentPadding = contentPadding,
+                        isSearching = !query.isNullOrBlank(),
                         onInstall = lnModel::install,
                         onUpdate = lnModel::update,
                         onUninstall = lnModel::uninstall,
@@ -84,7 +89,7 @@ fun Screen.reikaiExtensionsTab(
                     )
                     ContentType.ALL -> CombinedExtensionsContent(
                         extState = extState,
-                        lnState = lnState,
+                        lnState = filteredLnState,
                         extensionsScreenModel = extensionsScreenModel,
                         lnModel = lnModel,
                         contentPadding = contentPadding,
@@ -171,4 +176,15 @@ private fun CombinedExtensionsContent(
             )
         }
     }
+}
+
+/** Filter the novel plugin sections by the Browse search query, matching the manga side's behavior. */
+private fun LnPluginManagerScreenModel.State.filteredBy(query: String?): LnPluginManagerScreenModel.State {
+    val q = query?.trim().orEmpty()
+    if (q.isEmpty()) return this
+    return copy(
+        updates = updates.filter { it.entry.name.contains(q, ignoreCase = true) },
+        installed = installed.filter { it.name.contains(q, ignoreCase = true) },
+        available = available.filter { it.name.contains(q, ignoreCase = true) },
+    )
 }
