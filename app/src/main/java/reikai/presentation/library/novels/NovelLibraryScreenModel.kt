@@ -38,6 +38,7 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.DynItem
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
+import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.reikaiSortCategories
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
@@ -95,6 +96,9 @@ class NovelLibraryScreenModel :
     private val mutableDialog = MutableStateFlow<Dialog?>(null)
     val dialog: StateFlow<Dialog?> = mutableDialog.asStateFlow()
 
+    /** Reactive grouping inputs folded into the main combine so a collapse toggle re-sinks groups. */
+    private data class GroupingInputs(val settings: LibrarySettings, val collapsed: Set<String>, val atBottom: Boolean)
+
     init {
         // Load the plugin host so the library can resolve each novel's source (lang + source-icon
         // badges); the source flow below re-emits buildState once the sources register.
@@ -106,18 +110,17 @@ class NovelLibraryScreenModel :
                 novelRepository.getLibraryNovelAsFlow().combine(sourceManager.sources) { library, _ -> library },
                 searchQuery,
                 selection,
-                settingsFlow(),
-            ) { categories, library, query, sel, settings ->
-                buildState(categories, library, query, sel, settings)
+                // Collapse set + at-bottom pref ride with settings so a collapse toggle rebuilds the
+                // grouping and re-sinks collapsed dynamic groups (the manga reactivity pattern).
+                combine(
+                    settingsFlow(),
+                    collapsedCategories,
+                    reikaiLibraryPreferences.collapsedDynamicAtBottom.changes(),
+                ) { settings, collapsed, atBottom -> GroupingInputs(settings, collapsed, atBottom) },
+            ) { categories, library, query, sel, grouping ->
+                buildState(categories, library, query, sel, grouping.settings, grouping.collapsed, grouping.atBottom)
             }.collectLatest { built ->
-                mutableState.update { current ->
-                    built.copy(collapsedCategories = collapsedCategories.value, activeCategoryIndex = current.activeCategoryIndex)
-                }
-            }
-        }
-        screenModelScope.launchIO {
-            collapsedCategories.collectLatest { collapsed ->
-                mutableState.update { it.copy(collapsedCategories = collapsed) }
+                mutableState.update { current -> built.copy(activeCategoryIndex = current.activeCategoryIndex) }
             }
         }
     }
@@ -174,6 +177,8 @@ class NovelLibraryScreenModel :
         query: String?,
         sel: Set<Long>,
         settings: LibrarySettings,
+        collapsedKeys: Set<String>,
+        atBottom: Boolean,
     ): State {
         val filtered = library.filter { novel ->
             (query.isNullOrBlank() || novel.matchesQuery(query)) && settings.filters.matches(novel)
@@ -267,7 +272,7 @@ class NovelLibraryScreenModel :
             }
         } else {
             // Y3: dynamic grouping (by source / tag / author / language / status) replaces categories.
-            buildNovelDynamicGrouping(items, novelById, settings, defaultSort)
+            buildNovelDynamicGrouping(items, novelById, settings, defaultSort, collapsedKeys, atBottom)
         }
 
         // Item id (negative) -> (source, url) so LibraryTab can open the (representative) novel.
@@ -286,6 +291,7 @@ class NovelLibraryScreenModel :
             defaultSortFlag = settings.defaultSort,
             hasActiveFilters = settings.filters.hasActive,
             showContinueButton = settings.showContinue,
+            collapsedCategories = collapsedKeys,
         )
     }
 
@@ -303,6 +309,8 @@ class NovelLibraryScreenModel :
         novelById: Map<Long, LibraryNovel>,
         settings: LibrarySettings,
         defaultSort: NovelLibrarySort,
+        collapsedKeys: Set<String>,
+        atBottom: Boolean,
     ): List<Pair<Category, List<Long>>> {
         val groupType = settings.groupBy
         val dynItems = items.mapNotNull { item ->
@@ -344,8 +352,8 @@ class NovelLibraryScreenModel :
             items = dynItems,
             groupType = groupType,
             inheritedSortFlag = settings.defaultSort,
-            collapsedDynamicCategories = emptySet(),
-            collapsedDynamicAtBottom = false,
+            collapsedDynamicCategories = collapsedKeys,
+            collapsedDynamicAtBottom = atBottom,
             unknownLabel = context.stringResource(MR.strings.unknown),
             notTrackedLabel = context.stringResource(MR.strings.not_tracked),
             ungroupedLabel = context.stringResource(MR.strings.group_ungrouped),
@@ -413,9 +421,12 @@ class NovelLibraryScreenModel :
         collapsedCategories.update { if (headerKey in it) it - headerKey else it + headerKey }
     }
 
-    /** Collapse all categories if any is expanded, else expand all (the hopper "toggle collapse"). */
+    /** Collapse all categories if any is expanded, else expand all (the hopper "toggle collapse").
+     *  Dynamic groups key by their encoded header key (matching the collapse + sink), real ones by id. */
     fun toggleAllCategoriesCollapsed(categories: List<Category>) {
-        val keys = categories.map { it.id.toString() }.toSet()
+        val keys = categories.map {
+            if (ReikaiDynamicCategory.isDynamic(it)) ReikaiDynamicCategory.headerKey(it) else it.id.toString()
+        }.toSet()
         collapsedCategories.update { current -> if (current.containsAll(keys)) current - keys else current + keys }
     }
 
