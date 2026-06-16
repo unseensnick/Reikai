@@ -19,9 +19,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import reikai.data.novel.NovelStatusCode
+import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.data.novel.toNovel
-import reikai.data.novel.walkNovelPages
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelChapterRepository
@@ -543,7 +543,7 @@ class NovelDetailsScreenModel(
     /** Stale-then-fresh: the cached list stays under a spinner while the sync runs, then the flow
      *  swaps in fresh rows. Read/bookmark are preserved by the sync. Deduped against concurrent runs.
      *
-     *  For a paged source: parseNovel refreshes page 1 + the page count, [walkNovelPages] re-fetches
+     *  For a paged source: [refreshNovelFromSource] refreshes page 1 + the page count and re-fetches
      *  the previously-last page through any newly-opened ones, and the page the user is viewing is
      *  re-fetched too if the walk didn't already cover it. Bounded, never a full fetch-all. */
     fun refresh() {
@@ -573,16 +573,10 @@ class NovelDetailsScreenModel(
         }
     }
 
-    /** parseNovel + sync page 1, then walk the previously-last page through any newly-opened ones.
-     *  Bounded, never a full fetch-all. Returns the refreshed novel (carries the new totalPages). */
-    private suspend fun refreshNovel(src: NovelSource, novel: Novel): Novel {
-        val oldTotalPages = novel.totalPages
-        val updated = runCatching { fetchAndSync(src, novel) }.getOrNull() ?: novel
-        if (updated.totalPages > 1L) {
-            walkNovelPages(updated, src, maxOf(2L, oldTotalPages), updated.totalPages, chapterRepo, novelRepo, database)
-        }
-        return updated
-    }
+    /** Shared favorite-refresh: parseNovel + merge + sync page 1 + walk newly-opened pages. Bounded,
+     *  never a full fetch-all. Keeps the current novel on failure; returns the refreshed novel. */
+    private suspend fun refreshNovel(src: NovelSource, novel: Novel): Novel =
+        runCatching { refreshNovelFromSource(novel, src, chapterRepo, novelRepo, database) }.getOrNull() ?: novel
 
     private suspend fun forceRefreshViewedPage(loaded: NovelDetailsState.Loaded, updated: Novel, src: NovelSource) {
         val newTotalPages = updated.totalPages

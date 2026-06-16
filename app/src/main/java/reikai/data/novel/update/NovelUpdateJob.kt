@@ -24,16 +24,13 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import logcat.LogPriority
 import reikai.data.novel.NovelStatusCode
-import reikai.data.novel.syncChaptersWithNovelSource
-import reikai.data.novel.toNovel
-import reikai.data.novel.walkNovelPages
+import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
-import reikai.domain.novel.model.mergeRefreshedNovel
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
@@ -53,9 +50,8 @@ import java.util.concurrent.TimeUnit
  * (interval + device restrictions live in [NovelPreferences]) that re-parses each favorite, syncs its
  * chapter list, optionally auto-downloads the new chapters, and posts progress + result notifications.
  *
- * Per-novel logic mirrors [reikai.presentation.novel.details.NovelDetailsScreenModel]'s refresh
- * (parseNovel + sync page 1 + [walkNovelPages] for paged sources); new chapters are captured by a
- * before/after chapter-id diff so the shared sync/walk helpers stay untouched.
+ * Per-novel logic is the shared [refreshNovelFromSource] (parse + sync page 1 + page walk), the same
+ * helper the details refresh uses; new chapters are captured by a before/after chapter-id diff around it.
  */
 class NovelUpdateJob(
     private val context: Context,
@@ -145,21 +141,7 @@ class NovelUpdateJob(
      *  pages. Returns the chapters that did not exist before (the before/after id diff). */
     private suspend fun checkNovel(novel: Novel, source: NovelSource): List<NovelChapter> {
         val before = chapterRepo.getByNovelId(novel.id).map { it.id }.toSet()
-
-        val sourceNovel = source.parseNovel(novel.url)
-        val parsed = sourceNovel.toNovel(sourceId = source.id, favorite = novel.favorite)
-        val merged = mergeRefreshedNovel(novel, parsed)
-        if (merged != novel) novelRepo.update(merged)
-
-        val firstChapters = sourceNovel.chapters.orEmpty()
-        if (firstChapters.isNotEmpty()) {
-            val pageTag = if (sourceNovel.totalPages > 1) "1" else null
-            syncChaptersWithNovelSource(firstChapters, merged, chapterRepo, novelRepo, database, page = pageTag)
-        }
-        if (merged.totalPages > 1L) {
-            walkNovelPages(merged, source, maxOf(2L, novel.totalPages), merged.totalPages, chapterRepo, novelRepo, database)
-        }
-
+        refreshNovelFromSource(novel, source, chapterRepo, novelRepo, database)
         val after = chapterRepo.getByNovelId(novel.id)
         return after.filter { it.id !in before }
     }
