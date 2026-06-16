@@ -47,14 +47,10 @@ class NovelBrowseScreenModel(
     var displayMode by reikaiSourcePreferences.novelBrowseDisplayMode.asState(screenModelScope)
 
     init {
-        // In-library marking: keep a set of favorited (source, url) keys so results already saved are
-        // dimmed + badged like the manga catalogue. Read-only; nothing written back. The S6 library
-        // view isn't built yet, so derive from the full novel list instead of a library query.
+        // In-library marking: favorited (source, url) keys so results already saved are dimmed +
+        // badged like the manga catalogue. Read-only; nothing written back.
         screenModelScope.launchIO {
-            novelRepository.getAllAsFlow().collectLatest { novels ->
-                val keys = novels.asSequence()
-                    .filter { it.favorite }
-                    .mapTo(HashSet()) { it.source to it.url }
+            novelRepository.getFavoritedKeysAsFlow().collectLatest { keys ->
                 mutableState.update { it.copy(favoritedKeys = keys) }
             }
         }

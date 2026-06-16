@@ -210,7 +210,7 @@ private fun DuplicateNovelCard(
         }
 
         NovelDetailRow(
-            text = stringResource(novel.status.statusStringRes()),
+            text = stringResource(NovelStatusCode.toStringRes(novel.status)),
             iconImageVector = novel.status.statusIcon(),
         )
 
@@ -242,16 +242,6 @@ private fun NovelDetailRow(text: String, iconImageVector: ImageVector, maxLines:
             maxLines = maxLines,
         )
     }
-}
-
-private fun Long.statusStringRes() = when (toInt()) {
-    NovelStatusCode.ONGOING -> MR.strings.ongoing
-    NovelStatusCode.COMPLETED -> MR.strings.completed
-    NovelStatusCode.LICENSED -> MR.strings.licensed
-    NovelStatusCode.PUBLISHING_FINISHED -> MR.strings.publishing_finished
-    NovelStatusCode.CANCELLED -> MR.strings.cancelled
-    NovelStatusCode.ON_HIATUS -> MR.strings.on_hiatus
-    else -> MR.strings.unknown
 }
 
 private fun Long.statusIcon() = when (toInt()) {

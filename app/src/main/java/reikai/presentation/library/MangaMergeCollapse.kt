@@ -1,6 +1,7 @@
 package reikai.presentation.library
 
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import reikai.domain.MergeGroupAlgebra
 import tachiyomi.domain.source.model.Source
 
 /**
@@ -28,8 +29,8 @@ object MangaMergeCollapse {
         resolveSource: (Long) -> Source,
     ): List<LibraryItem> {
         if (items.size <= 1) return items
-        val mergeKey = parseMergeKeys(manualMerges)
-        val unmergedPairs = parseUnmergedPairs(manualUnmerges)
+        val mergeKey = MergeGroupAlgebra.parseMergeKeys(manualMerges)
+        val unmergedPairs = MergeGroupAlgebra.parseUnmergedPairs(manualUnmerges)
 
         val buckets = LinkedHashMap<String, MutableList<LibraryItem>>()
         for (item in items) {
@@ -45,7 +46,7 @@ object MangaMergeCollapse {
                 result.add(bucket.first())
                 continue
             }
-            for (subGroup in splitByUnmergedPairs(bucket, unmergedPairs)) {
+            for (subGroup in MergeGroupAlgebra.splitByUnmergedPairs(bucket, unmergedPairs) { it.libraryManga.manga.id }) {
                 if (subGroup.size == 1) {
                     result.add(subGroup.first())
                 } else {
@@ -83,47 +84,4 @@ object MangaMergeCollapse {
         )
     }
 
-    private fun parseMergeKeys(manualMerges: Set<String>): Map<Long, String> {
-        if (manualMerges.isEmpty()) return emptyMap()
-        val mergeKey = mutableMapOf<Long, String>()
-        for (entry in manualMerges) {
-            val ids = entry.split(",").mapNotNull { it.trim().toLongOrNull() }.sorted()
-            if (ids.size < 2) continue
-            val key = ids.joinToString(",")
-            ids.forEach { mergeKey[it] = key }
-        }
-        return mergeKey
-    }
-
-    private fun parseUnmergedPairs(manualUnmerges: Set<String>): Set<Pair<Long, Long>> {
-        if (manualUnmerges.isEmpty()) return emptySet()
-        return manualUnmerges.mapNotNullTo(HashSet()) { entry ->
-            val parts = entry.split(",")
-            if (parts.size != 2) return@mapNotNullTo null
-            val a = parts[0].trim().toLongOrNull() ?: return@mapNotNullTo null
-            val b = parts[1].trim().toLongOrNull() ?: return@mapNotNullTo null
-            if (a < b) a to b else b to a
-        }
-    }
-
-    private fun splitByUnmergedPairs(
-        bucket: List<LibraryItem>,
-        unmergedPairs: Set<Pair<Long, Long>>,
-    ): List<MutableList<LibraryItem>> {
-        if (unmergedPairs.isEmpty()) return listOf(bucket.toMutableList())
-
-        val subGroups = mutableListOf<MutableList<LibraryItem>>()
-        for (item in bucket) {
-            val id = item.libraryManga.manga.id
-            val placed = subGroups.firstOrNull { subGroup ->
-                subGroup.all { existing ->
-                    val existingId = existing.libraryManga.manga.id
-                    val pair = if (id < existingId) id to existingId else existingId to id
-                    pair !in unmergedPairs
-                }
-            }
-            if (placed != null) placed.add(item) else subGroups.add(mutableListOf(item))
-        }
-        return subGroups
-    }
 }

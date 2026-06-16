@@ -160,9 +160,6 @@ class TasteCandidateFetcher(
     }
 }
 
-/** Normalize a genre/tag to the lowercased+trimmed form used as [TasteProfile.tagScores] keys. */
-private fun String.toTagKey(): String = lowercase().trim()
-
 /**
  * The current manga's own genres that the user scores positively, highest affinity first, capped at
  * [n]. Empty when the manga has no genres in the profile (so tag search stays relevant rather than

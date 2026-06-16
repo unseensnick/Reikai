@@ -1,6 +1,7 @@
 package reikai.domain.novel
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelUpdateWithRelations
@@ -34,6 +35,18 @@ interface NovelRepository {
      */
     fun getRecentNovelUpdatesAsFlow(after: Long, limit: Long): Flow<List<NovelUpdateWithRelations>>
     fun getAllAsFlow(): Flow<List<Novel>>
+
+    /**
+     * Reactive set of favorited (source, url) keys, for dimming/badging already-saved entries in the
+     * browse and global-search grids. Derived from [getAllAsFlow]; read-only, nothing is written back.
+     */
+    fun getFavoritedKeysAsFlow(): Flow<Set<Pair<String, String>>> =
+        getAllAsFlow().map { novels ->
+            novels.asSequence()
+                .filter { it.favorite }
+                .mapTo(HashSet()) { it.source to it.url }
+        }
+
     fun getByUrlAndSourceAsFlow(url: String, source: String): Flow<Novel?>
     suspend fun insert(novel: Novel): Long?
 

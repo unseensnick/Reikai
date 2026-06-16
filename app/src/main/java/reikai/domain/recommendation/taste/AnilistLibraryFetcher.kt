@@ -30,7 +30,7 @@ class AnilistLibraryFetcher(
         trackerId = trackerId,
         remoteId = media.id,
         title = media.title.userPreferred,
-        score = normalizeScore(scoreRaw),
+        score = normalizeTrackerScore(scoreRaw, 100),
         status = mapStatus(status),
         tags = collectTags(),
         // Cross-tracker dedup keys: malId via AniList's Media.idMal (often null for manhwa/manhua);
@@ -41,12 +41,9 @@ class AnilistLibraryFetcher(
 
     private fun ALLibraryEntry.collectTags(): List<String> =
         (media.genres + media.tags.map { it.name })
-            .map { it.lowercase().trim() }
+            .map { it.toTagKey() }
             .filter { it.isNotEmpty() }
             .distinct()
-
-    private fun normalizeScore(scoreRaw: Int): Double =
-        if (scoreRaw <= 0) -1.0 else (scoreRaw / 100.0).coerceIn(0.0, 1.0)
 
     private fun mapStatus(raw: String?): TrackStatus = when (raw) {
         "CURRENT", "REPEATING" -> TrackStatus.READING

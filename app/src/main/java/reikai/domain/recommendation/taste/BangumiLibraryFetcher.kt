@@ -29,17 +29,14 @@ class BangumiLibraryFetcher(
         trackerId = trackerId,
         remoteId = subjectId,
         title = subject?.nameCn?.ifBlank { subject.name } ?: subject?.name.orEmpty(),
-        score = normalizeScore(rate),
+        score = normalizeTrackerScore(rate, 10),
         status = mapStatus(type),
         tags = subject?.tags
-            ?.map { it.name.lowercase().trim() }
+            ?.map { it.name.toTagKey() }
             ?.filter { it.isNotEmpty() }
             ?.distinct()
             .orEmpty(),
     )
-
-    private fun normalizeScore(rate: Int): Double =
-        if (rate <= 0) -1.0 else (rate / 10.0).coerceIn(0.0, 1.0)
 
     private fun mapStatus(type: Int): TrackStatus = when (type) {
         1 -> TrackStatus.PLAN_TO_READ

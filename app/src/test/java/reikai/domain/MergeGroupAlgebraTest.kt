@@ -130,4 +130,46 @@ class MergeGroupAlgebraTest {
         result.newMerges shouldContainExactly emptySet()
         result.newUnmerges shouldContainExactlyInAnyOrder setOf("1,2", "1,5", "2,5")
     }
+
+    @Test
+    fun `computeMerge returns null for fewer than two distinct ids`() {
+        MergeGroupAlgebra.computeMerge(listOf(1L), emptySet(), emptySet()).shouldBeNull()
+        MergeGroupAlgebra.computeMerge(listOf(1L, 1L), emptySet(), emptySet()).shouldBeNull()
+    }
+
+    @Test
+    fun `computeMerge groups two ids and drops only their unmerge pair`() {
+        val result = MergeGroupAlgebra.computeMerge(
+            ids = listOf(5L, 2L),
+            merges = emptySet(),
+            unmerges = setOf("2,5", "8,9"),
+        )
+        result.shouldNotBeNull()
+        result.newMerges shouldContainExactly setOf("2,5")
+        result.newUnmerges shouldContainExactly setOf("8,9")
+    }
+
+    // Re-merging an id already in a group absorbs that whole entry into one clean group, leaving others alone.
+    @Test
+    fun `computeMerge absorbs an overlapping entry into one clean group`() {
+        val result = MergeGroupAlgebra.computeMerge(
+            ids = listOf(3L, 5L),
+            merges = setOf("1,5", "7,8"),
+            unmerges = emptySet(),
+        )
+        result.shouldNotBeNull()
+        result.newMerges shouldContainExactlyInAnyOrder setOf("1,3,5", "7,8")
+    }
+
+    @Test
+    fun `computeMerge drops every pairwise unmerge among the merged group`() {
+        val result = MergeGroupAlgebra.computeMerge(
+            ids = listOf(1L, 2L, 3L),
+            merges = emptySet(),
+            unmerges = setOf("1,2", "1,3", "2,3", "4,5"),
+        )
+        result.shouldNotBeNull()
+        result.newMerges shouldContainExactly setOf("1,2,3")
+        result.newUnmerges shouldContainExactly setOf("4,5")
+    }
 }

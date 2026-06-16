@@ -334,7 +334,7 @@ class NovelLibraryScreenModel :
         val statusNames = if (groupType == LibraryGroup.BY_STATUS) {
             items.mapNotNull { item ->
                 val novel = novelById[item.id]?.novel ?: return@mapNotNull null
-                item.id to context.stringResource(mapNovelStatus(novel.status))
+                item.id to context.stringResource(NovelStatusCode.toStringRes(novel.status))
             }.toMap()
         } else {
             emptyMap()
@@ -360,16 +360,6 @@ class NovelLibraryScreenModel :
         return groups.map { (category, ids) ->
             category to ids.sortedWith { a, b -> comparator.compare(novelById.getValue(a), novelById.getValue(b)) }
         }
-    }
-
-    private fun mapNovelStatus(status: Long) = when (status.toInt()) {
-        NovelStatusCode.ONGOING -> MR.strings.ongoing
-        NovelStatusCode.COMPLETED -> MR.strings.completed
-        NovelStatusCode.LICENSED -> MR.strings.licensed
-        NovelStatusCode.PUBLISHING_FINISHED -> MR.strings.publishing_finished
-        NovelStatusCode.CANCELLED -> MR.strings.cancelled
-        NovelStatusCode.ON_HIATUS -> MR.strings.on_hiatus
-        else -> MR.strings.unknown
     }
 
     // --- search / selection / collapse mutators (read by LibraryTab) ---

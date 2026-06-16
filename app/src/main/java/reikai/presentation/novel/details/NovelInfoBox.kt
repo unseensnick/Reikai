@@ -183,15 +183,7 @@ private fun InfoRow(
 }
 
 @Composable
-private fun novelStatusText(status: Long): String = when (status.toInt()) {
-    NovelStatusCode.ONGOING -> stringResource(MR.strings.ongoing)
-    NovelStatusCode.COMPLETED -> stringResource(MR.strings.completed)
-    NovelStatusCode.LICENSED -> stringResource(MR.strings.licensed)
-    NovelStatusCode.PUBLISHING_FINISHED -> stringResource(MR.strings.publishing_finished)
-    NovelStatusCode.CANCELLED -> stringResource(MR.strings.cancelled)
-    NovelStatusCode.ON_HIATUS -> stringResource(MR.strings.on_hiatus)
-    else -> stringResource(MR.strings.unknown)
-}
+private fun novelStatusText(status: Long): String = stringResource(NovelStatusCode.toStringRes(status))
 
 /**
  * Add-to-library / WebView / Share row. The novel twin of `MangaActionRow`, dropping the

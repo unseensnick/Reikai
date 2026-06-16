@@ -42,10 +42,7 @@ class NovelGlobalSearchScreenModel(
         }
         // In-library marking, same read-only (source, url) key set as browse.
         screenModelScope.launchIO {
-            novelRepository.getAllAsFlow().collectLatest { novels ->
-                val keys = novels.asSequence()
-                    .filter { it.favorite }
-                    .mapTo(HashSet()) { it.source to it.url }
+            novelRepository.getFavoritedKeysAsFlow().collectLatest { keys ->
                 mutableState.update { it.copy(favoritedKeys = keys) }
             }
         }

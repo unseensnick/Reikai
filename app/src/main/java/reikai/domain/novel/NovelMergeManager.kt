@@ -41,24 +41,13 @@ class NovelMergeManager(
      * they collapse together (even with different titles or auto-merge off). No-op for < 2 ids.
      */
     fun mergeNovels(ids: List<Long>) {
-        val base = ids.distinct()
-        if (base.size < 2) return
-        val merges = preferences.novelManualMerges.get()
-        // Absorb any overlapping entry (transitive merge) so a re-merge yields one clean entry.
-        val overlapping = merges.filter { entry ->
-            entry.split(",").mapNotNull { it.trim().toLongOrNull() }.any { it in base }
-        }
-        val groupIds = (base + overlapping.flatMap { it.split(",").mapNotNull { s -> s.trim().toLongOrNull() } })
-            .distinct()
-            .sorted()
-        preferences.novelManualMerges.set((merges - overlapping.toSet()) + groupIds.joinToString(","))
-
-        val pairs = buildSet {
-            for (i in groupIds.indices) {
-                for (j in (i + 1) until groupIds.size) add("${groupIds[i]},${groupIds[j]}")
-            }
-        }
-        preferences.novelManualUnmerges.set(preferences.novelManualUnmerges.get() - pairs)
+        val result = MergeGroupAlgebra.computeMerge(
+            ids,
+            preferences.novelManualMerges.get(),
+            preferences.novelManualUnmerges.get(),
+        ) ?: return
+        preferences.novelManualMerges.set(result.newMerges)
+        preferences.novelManualUnmerges.set(result.newUnmerges)
     }
 
     /**

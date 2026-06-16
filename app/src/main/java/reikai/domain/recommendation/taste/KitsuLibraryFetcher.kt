@@ -29,15 +29,12 @@ class KitsuLibraryFetcher(
         trackerId = trackerId,
         remoteId = mangaId,
         title = title,
-        score = normalizeScore(ratingTwenty),
+        score = normalizeTrackerScore(ratingTwenty, 20),
         status = mapStatus(status),
-        tags = tags.map { it.lowercase().trim() }.filter { it.isNotEmpty() }.distinct(),
+        tags = tags.map { it.toTagKey() }.filter { it.isNotEmpty() }.distinct(),
         malId = malId,
         anilistId = anilistId,
     )
-
-    private fun normalizeScore(ratingTwenty: Int?): Double =
-        if (ratingTwenty == null || ratingTwenty <= 0) -1.0 else (ratingTwenty / 20.0).coerceIn(0.0, 1.0)
 
     private fun mapStatus(raw: String): TrackStatus = when (raw) {
         "current" -> TrackStatus.READING

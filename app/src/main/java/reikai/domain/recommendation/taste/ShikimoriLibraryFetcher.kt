@@ -32,14 +32,11 @@ class ShikimoriLibraryFetcher(
             trackerId = trackerId,
             remoteId = remoteId,
             title = manga.name,
-            score = normalizeScore(score),
+            score = normalizeTrackerScore(score, 10),
             status = mapStatus(status),
-            tags = manga.genres.map { it.name.lowercase().trim() }.filter { it.isNotEmpty() }.distinct(),
+            tags = manga.genres.map { it.name.toTagKey() }.filter { it.isNotEmpty() }.distinct(),
         )
     }
-
-    private fun normalizeScore(score: Int): Double =
-        if (score <= 0) -1.0 else (score / 10.0).coerceIn(0.0, 1.0)
 
     private fun mapStatus(raw: String?): TrackStatus = when (raw) {
         "watching", "rewatching" -> TrackStatus.READING

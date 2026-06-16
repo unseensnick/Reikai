@@ -141,25 +141,13 @@ class MangaMergeManager(
      * so they collapse together (even with different titles or auto-merge off). No-op for < 2 ids.
      */
     fun mergeManga(ids: List<Long>) {
-        val base = ids.distinct()
-        if (base.size < 2) return
-        val merges = preferences.mangaManualMerges.get()
-        // Absorb any existing entry that overlaps these ids (transitive merge) and drop it, so a
-        // re-merge produces one clean entry instead of leaving stale, conflicting ones behind.
-        val overlapping = merges.filter { entry ->
-            entry.split(",").mapNotNull { it.trim().toLongOrNull() }.any { it in base }
-        }
-        val groupIds = (base + overlapping.flatMap { it.split(",").mapNotNull { s -> s.trim().toLongOrNull() } })
-            .distinct()
-            .sorted()
-        preferences.mangaManualMerges.set((merges - overlapping.toSet()) + groupIds.joinToString(","))
-
-        val pairs = buildSet {
-            for (i in groupIds.indices) {
-                for (j in (i + 1) until groupIds.size) add("${groupIds[i]},${groupIds[j]}")
-            }
-        }
-        preferences.mangaManualUnmerges.set(preferences.mangaManualUnmerges.get() - pairs)
+        val result = MergeGroupAlgebra.computeMerge(
+            ids,
+            preferences.mangaManualMerges.get(),
+            preferences.mangaManualUnmerges.get(),
+        ) ?: return
+        preferences.mangaManualMerges.set(result.newMerges)
+        preferences.mangaManualUnmerges.set(result.newUnmerges)
     }
 
     /**
