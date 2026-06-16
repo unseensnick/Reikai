@@ -20,32 +20,19 @@ The rebase from Yōkai onto Mihon is nearly complete. The light-novel vertical (
 
 Recently shipped on top of the above: the **unified Updates tab** (manga + novel interleaved, filters, by-category filter, group-by-series), **novel library dynamic grouping**, and the **Mihon TachiyomiX 1.6 upstream sync** (the `memo` field + 1.6 extension loading).
 
-## Tier 0: duplication cleanup (prerequisite)  `[S]`/`[M]`
+## Tier 0: duplication cleanup ✅ done (2026-06-16)
 
-Do this consolidation pass BEFORE the active sequence below. A 2026-06-16 deep-dup audit (4 subagents + inline code-read verification of every copy) found a tight cluster of genuine intra-Reikai copy-paste that the upcoming slices would otherwise extend. Everything classed as an intentional Mihon-clone or already-shared was deliberately excluded. Pure consolidation, no behavior change; net ~110-130 lines removed, mostly pure/testable logic, and it closes drift that has already begun (the merge-algebra and status-label copies).
+Completed and pushed: Tier 1 (`6c27c5923`), Tier 2 (`85ff3326d`), Tier 3 (`f783979b5`). A 3-tier consolidation of genuine intra-Reikai copy-paste (found by a deep-dup audit), no behavior change, gated by unit tests + on-device. What landed:
 
-**Tier 1 (low risk, pure logic, do first):**
-- **Merge "absorb overlapping groups" math:** `MangaMergeManager.mergeManga` (`MangaMergeManager.kt:143`) and `NovelMergeManager.mergeNovels` (`NovelMergeManager.kt:43`) are byte-identical except the pref read. Add `MergeGroupAlgebra.computeMerge` (the object already owns split/dissolve in this exact get -> compute -> set shape) + `MergeGroupAlgebraTest` cases.
-- **Merge collapse parsers:** `parseMergeKeys`/`parseUnmergedPairs` (identical) + `splitByUnmergedPairs` (only the id accessor differs) in `MangaMergeCollapse.kt:86` and `NovelMergeCollapse.kt:74`. Move to `MergeGroupAlgebra`; the split takes an `id: (T) -> Long`.
-- **Novel status -> label:** the same 6-branch `when` is written 4x (`NovelInfoBox.kt:186`, `NovelLibraryScreenModel.kt:365`, `DuplicateNovelDialog`, `NovelDetailsDialogs`). Add `NovelStatusCode.toStringRes` (`NovelMapping.kt:14`, which already has the inverse `fromString`). Already drifting on the unknown-status fallback.
-- **Per-tracker score normalize:** the 5 taste fetchers' `normalizeScore` are one expression differing only by divisor (`AnilistLibraryFetcher.kt:48` /100, `KitsuLibraryFetcher.kt:39` /20, etc.). One `normalizeTrackerScore(raw, max)`; pins the "-1.0 = unrated" invariant.
-- **Tag-key normalize:** share the per-string `lowercase().trim()` key used by both the write path (fetchers) and read path (ranker) so they provably agree; leave each site's distinct/null handling local. Correctness, not just tidiness.
-- **Novel favorited-keys flow:** verbatim `(source, url)` derivation in `NovelBrowseScreenModel.kt:54` and `NovelGlobalSearchScreenModel.kt:45`. Extract `NovelRepository.getFavoritedKeysAsFlow()`.
-
-**Tier 2 (small, fold in opportunistically):**
-- **Category tri-state helpers:** promote `rememberCategoryStates`/`CategoryTriStateRows`/`idsWith` (already named in `ReikaiUpdatesCategoryFilter.kt:196`) so the library settings dialog (`ReikaiLibrarySettings.kt:200`) stops re-implementing them inline. Do NOT merge the two dialog bodies (the manga+novel section split differs).
-- **`NovelUpdateJob` category gate:** `shouldDownloadFor`/`shouldUpdate` (`NovelUpdateJob.kt:180`) share one include/exclude predicate. A tiny `categoryGate()`; marginal, bundle with Tier 3 or skip.
-
-**Tier 3 (real win, higher blast radius, do last + test hard):**
-- **Shared `refreshNovelFromSource(...)`** (parse -> merge -> update -> sync page 1 -> walk pages) for `NovelUpdateJob.checkNovel` (`NovelUpdateJob.kt:146`) and `NovelDetailsScreenModel.refreshNovel` (`NovelDetailsScreenModel.kt:578`); a top-level helper beside `syncChaptersWithNovelSource`/`walkNovelPages`. The browse-open `fetchAndSync` insertOrGet path stays (genuinely different). Touches the on-device-verified background-update + details-refresh paths, so re-test on device (favorite a novel, refresh details, run a library update), not just compile.
+- **Tier 1:** `MergeGroupAlgebra.computeMerge` + the collapse parsers (`parseMergeKeys`/`parseUnmergedPairs`/generic `splitByUnmergedPairs`); `NovelStatusCode.toStringRes` (the 3 novel display sites; the `StatusDropdown` picker keeps its distinct `unknown_status` label); `normalizeTrackerScore(raw, max)` + `String.toTagKey()` (the 5 taste fetchers + the ranker); `NovelRepository.getFavoritedKeysAsFlow()`.
+- **Tier 2:** shared category tri-state helpers in `reikai.presentation.category` (consumed by the library + Updates filter dialogs); `NovelUpdateJob.categoryGate()`.
+- **Tier 3:** `refreshNovelFromSource` in `reikai.data.novel`, shared by `NovelUpdateJob.checkNovel` and `NovelDetailsScreenModel.refreshNovel`; the browse-open `fetchAndSync` insertOrGet path stays separate. (One micro error-path normalization: a failed manual refresh no longer re-walks the old last page, matching the background job.)
 
 **Leave alone (intentional Mihon-clones / already shared, audited and confirmed):** novel browse cells, source/merge badges, merge-source chips, manage-sources dialogs, `NovelCategoryScreenModel`, the two notifiers, the 5 tracker-fetcher shells + their `mapStatus` tables, the 4 recs providers' HTTP shape, recs grid items, the foreground-service idiom, SQLDelight-mandated mapper param lists, the flag-bit layouts (`NovelLibrarySort`/`NovelChapterFlags`), negative-id encoding, and the already-shared `MergeGroupAlgebra`/`LibraryDynamicGrouping`/`ContentTypeFilterChips`/`reikaiSortCategories`/`matchesCategoryFilter`.
 
-**Done when:** Tier 1 + Tier 2 landed (compile + `:app:testDebugUnitTest` green, incl. new `computeMerge` cases); Tier 3 landed + on-device re-test of details refresh and a background library update; no behavior change anywhere.
-
 ## Active sequence (do in this order)
 
-Two ordering rules: **the backup proto goes last** (it must serialize everything the earlier items add: history rows, tracker links, categories, merges, grouping), and the quick polish leads for momentum. **Do the Tier 0 cleanup above first** (prerequisite): the slices below would otherwise extend the copy-paste it removes.
+Two ordering rules: **the backup proto goes last** (it must serialize everything the earlier items add: history rows, tracker links, categories, merges, grouping), and the quick polish leads for momentum. The Tier 0 cleanup above is done, so these slices build on the shared helpers rather than extending copy-paste.
 
 ### 1. Novel grouping: collapse-at-bottom  `[S]`
 Finish the dynamic-grouping feature shipped this cycle. Today the novel grouping passes `collapsedDynamicCategories = emptySet()` / `collapsedDynamicAtBottom = false` to the kernel, so collapsed groups don't sink.
