@@ -45,6 +45,7 @@ import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.domain.source.model.Source as DomainSource
 import tachiyomi.domain.source.model.StubSource
+import reikai.presentation.library.DynItem
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
 import reikai.domain.manga.MangaMergeManager
@@ -361,7 +362,7 @@ class LibraryScreenModel(
         val sourceMeta = if (groupType == LibraryGroup.BY_SOURCE) {
             library.associate { lm ->
                 val source = sourceManager.getOrStub(lm.manga.source)
-                lm.manga.id to (source.name to source.id)
+                lm.manga.id to (source.name to source.id.toString())
             }
         } else {
             emptyMap()
@@ -397,9 +398,9 @@ class LibraryScreenModel(
         }
 
         return LibraryDynamicGrouping.build(
-            library = library,
+            items = library.map { DynItem(it.manga.id, it.manga.genre, it.manga.author, it.manga.artist) },
             groupType = groupType,
-            inheritedSort = libraryPreferences.sortingMode.get(),
+            inheritedSortFlag = libraryPreferences.sortingMode.get().flag,
             collapsedDynamicCategories = grouping.collapsedDynamicCategories,
             collapsedDynamicAtBottom = grouping.collapsedDynamicAtBottom,
             unknownLabel = context.stringResource(MR.strings.unknown),

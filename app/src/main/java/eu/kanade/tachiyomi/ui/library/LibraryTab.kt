@@ -171,7 +171,11 @@ data object LibraryTab : Tab {
             categories = activeCategories,
             hasSearchItem = !activeSearchQuery.isNullOrEmpty(),
             isCollapsed = {
-                reikaiIsCollapsed(it, activeCollapsedCategories, state.reikai.collapsedDynamicCategories)
+                reikaiIsCollapsed(
+                    it,
+                    activeCollapsedCategories,
+                    if (isNovels) activeCollapsedCategories else state.reikai.collapsedDynamicCategories,
+                )
             },
             itemCount = { activeGetItems(it).size },
         )
@@ -402,7 +406,7 @@ data object LibraryTab : Tab {
                                 categories = activeCategories,
                                 getItemsForCategory = activeGetItems,
                                 collapsedCategories = activeCollapsedCategories,
-                                collapsedDynamicCategories = if (isNovels) emptySet() else state.reikai.collapsedDynamicCategories,
+                                collapsedDynamicCategories = if (isNovels) activeCollapsedCategories else state.reikai.collapsedDynamicCategories,
                                 showItemCounts = state.showMangaCount,
                                 displayMode = displayMode,
                                 columns = columns,
@@ -434,7 +438,7 @@ data object LibraryTab : Tab {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 },
                                 onToggleDefaultCollapse = if (isNovels) novelModel::toggleCategoryCollapse else screenModel::toggleDefaultCategoryCollapse,
-                                onToggleDynamicCollapse = screenModel::toggleDynamicCategoryCollapse,
+                                onToggleDynamicCollapse = if (isNovels) novelModel::toggleCategoryCollapse else screenModel::toggleDynamicCategoryCollapse,
                                 onGlobalSearchClicked = {
                                     navigator.push(GlobalSearchScreen(activeSearchQuery ?: ""))
                                 },

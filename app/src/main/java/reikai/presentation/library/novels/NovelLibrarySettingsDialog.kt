@@ -1,8 +1,12 @@
 package reikai.presentation.library.novels
 
 import android.content.res.Configuration
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -11,18 +15,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.library.LibrarySettingsScreenModel
 import reikai.domain.novel.model.NovelLibrarySort
+import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.ReikaiCategoriesPage
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.library.model.LibraryDisplayMode
@@ -31,6 +39,7 @@ import tachiyomi.presentation.core.components.BaseSortItem
 import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.HeadingItem
 import tachiyomi.presentation.core.components.SettingsChipRow
+import tachiyomi.presentation.core.components.SettingsItemsPaddings
 import tachiyomi.presentation.core.components.SliderItem
 import tachiyomi.presentation.core.components.SortItem
 import tachiyomi.presentation.core.components.TriStateItem
@@ -55,11 +64,11 @@ fun NovelLibrarySettingsDialog(
         stringResource(MR.strings.action_filter),
         stringResource(MR.strings.action_sort),
         stringResource(MR.strings.action_display),
+        stringResource(MR.strings.group),
     )
     TabbedDialog(
         onDismissRequest = onDismissRequest,
-        // The hopper's settings actions can request the manga "Group" tab (index 3); novels have no
-        // Group tab, so clamp to a valid page instead of an out-of-range initial page.
+        // The hopper's settings actions can request the Group tab (index 3) directly.
         pagerState = rememberPagerState(initialPage = initialTab.coerceIn(0, tabTitles.lastIndex)) { tabTitles.size },
         tabTitles = tabTitles,
     ) { page ->
@@ -72,7 +81,41 @@ fun NovelLibrarySettingsDialog(
                 0 -> FilterPage(screenModel)
                 1 -> SortPage(screenModel, categoryId)
                 2 -> NovelDisplayPage(settingsScreenModel)
+                3 -> NovelGroupPage(screenModel)
             }
+        }
+    }
+}
+
+// BY_TRACK_STATUS is omitted: novel trackers are deferred, so a "by tracking status" group would be
+// a single "Not tracked" bucket.
+private val novelGroupModes = listOf(
+    LibraryGroup.BY_DEFAULT to MR.strings.group_by_default,
+    LibraryGroup.BY_TAG to MR.strings.group_by_tag,
+    LibraryGroup.BY_SOURCE to MR.strings.group_by_source,
+    LibraryGroup.BY_STATUS to MR.strings.group_by_status,
+    LibraryGroup.BY_AUTHOR to MR.strings.group_by_author,
+    LibraryGroup.BY_LANGUAGE to MR.strings.group_by_language,
+    LibraryGroup.UNGROUPED to MR.strings.group_ungrouped,
+)
+
+@Composable
+private fun ColumnScope.NovelGroupPage(screenModel: NovelLibraryScreenModel) {
+    val groupBy by screenModel.groupLibraryBy.collectAsState()
+    novelGroupModes.forEach { (mode, labelRes) ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { screenModel.setGrouping(mode) }
+                .padding(
+                    horizontal = SettingsItemsPaddings.Horizontal,
+                    vertical = SettingsItemsPaddings.Vertical,
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+            RadioButton(selected = groupBy == mode, onClick = null)
+            Text(text = stringResource(labelRes), style = MaterialTheme.typography.bodyMedium)
         }
     }
 }

@@ -23,6 +23,10 @@ class ReikaiLibraryPreferences(
     /** Dynamic grouping mode (eu.kanade.tachiyomi.ui.library.LibraryGroup; 0 = BY_DEFAULT). */
     val groupLibraryBy: Preference<Int> = preferenceStore.getInt("group_library_by", 0)
 
+    /** Dynamic grouping mode for the novel library; separate key because novel ids/categories are
+     *  a separate space from manga. */
+    val groupNovelLibraryBy: Preference<Int> = preferenceStore.getInt("group_novel_library_by", 0)
+
     /** Header keys of collapsed user categories (BY_DEFAULT grouping). */
     val collapsedCategories: Preference<Set<String>> = preferenceStore.getStringSet("collapsed_categories", emptySet())
 

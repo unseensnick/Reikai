@@ -3,23 +3,35 @@ package reikai.presentation.library
 import reikai.presentation.library.ReikaiDynamicCategory.LANG_SPLITTER
 import reikai.presentation.library.ReikaiDynamicCategory.SOURCE_SPLITTER
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.library.model.LibraryManga
-import tachiyomi.domain.library.model.LibrarySort
 
 /**
- * Buckets library manga into synthetic categories for dynamic grouping (Y3): group by source,
+ * Minimal per-item view the dynamic grouping needs, decoupled from the manga / novel domain types
+ * so one kernel serves both libraries. The caller maps its favorites (LibraryManga or LibraryNovel)
+ * into these; [id] is whatever id space the caller buckets by (manga id for manga, the negative
+ * synthetic representative id for the merge-collapsed novel library).
+ */
+data class DynItem(
+    val id: Long,
+    val genre: List<String>?,
+    val author: String?,
+    val artist: String?,
+)
+
+/**
+ * Buckets library items into synthetic categories for dynamic grouping (Y3): group by source,
  * language, tag, author, status, or tracking status. Re-typed onto Mihon's immutable models from
- * the Yōkai-era `MangaLibraryDynamicGrouping`.
+ * the Yōkai-era `MangaLibraryDynamicGrouping`, and generalized over [DynItem] so the manga and novel
+ * libraries share one kernel.
  *
- * Pure function: all per-manga metadata that needs a SourceManager / tracker / status lookup is
- * pre-resolved by the caller and passed in as maps keyed by manga id, so this stays unit-testable.
+ * Pure function: all per-item metadata that needs a SourceManager / tracker / status lookup is
+ * pre-resolved by the caller and passed in as maps keyed by item id, so this stays unit-testable.
  *
  * Synthetic categories get **negative ids** (so they never collide with real DB categories) and
- * inherit the library-wide sort via [Category.flags] (so Mihon's `applySort` orders their items).
+ * carry [inheritedSortFlag] in [Category.flags] (so the caller's sort orders their items).
  * Metadata is encoded into [Category.name]; decode with [ReikaiDynamicCategory].
  *
- * BY_DEFAULT (and any non-dynamic type) returns empty; the caller routes those through Mihon's
- * own `applyGrouping`.
+ * BY_DEFAULT (and any non-dynamic type) returns empty; the caller routes those through its own
+ * category bucketing.
  */
 object LibraryDynamicGrouping {
 
@@ -34,41 +46,41 @@ object LibraryDynamicGrouping {
 
     @Suppress("LongParameterList")
     fun build(
-        library: List<LibraryManga>,
+        items: List<DynItem>,
         groupType: Int,
-        inheritedSort: LibrarySort,
+        inheritedSortFlag: Long,
         collapsedDynamicCategories: Set<String>,
         collapsedDynamicAtBottom: Boolean,
         unknownLabel: String,
         notTrackedLabel: String,
         ungroupedLabel: String = "",
         categorySortOrder: Int = 0,
-        sourceMeta: Map<Long, Pair<String, Long>> = emptyMap(),
+        sourceMeta: Map<Long, Pair<String, String>> = emptyMap(),
         trackStatuses: Map<Long, String> = emptyMap(),
         languageCodes: Map<Long, String> = emptyMap(),
         statusNames: Map<Long, String> = emptyMap(),
         languageDisplay: (langCode: String) -> String = { it },
         trackingStatusOrder: (statusName: String) -> String = { it },
     ): Map<Category, List<Long>> {
-        if (library.isEmpty()) return emptyMap()
+        if (items.isEmpty()) return emptyMap()
 
-        // UNGROUPED: one flat synthetic bucket holding every manga, no per-manga metadata lookups.
+        // UNGROUPED: one flat synthetic bucket holding every item, no per-item metadata lookups.
         if (groupType == LibraryGroup.UNGROUPED) {
-            val allIds = library.distinctBy { it.manga.id }.map { it.manga.id }
-            val category = Category(id = -1L, name = ungroupedLabel, order = 0L, flags = inheritedSort.flag)
+            val allIds = items.distinctBy { it.id }.map { it.id }
+            val category = Category(id = -1L, name = ungroupedLabel, order = 0L, flags = inheritedSortFlag)
             return mapOf(category to allIds)
         }
 
         if (groupType !in DYNAMIC_GROUP_TYPES) return emptyMap()
 
-        val deduplicated = library.distinctBy { it.manga.id }
+        val deduplicated = items.distinctBy { it.id }
 
-        // Step 1: per-manga, the encoded bucket name(s) it belongs to. A manga can land in several
+        // Step 1: per-item, the encoded bucket name(s) it belongs to. An item can land in several
         // buckets (multiple tags / authors); distinct() guards against the same bucket twice.
         val bucketsByName = LinkedHashMap<String, MutableList<Long>>()
-        for (lm in deduplicated) {
+        for (item in deduplicated) {
             val names = categoryNamesFor(
-                lm = lm,
+                item = item,
                 groupType = groupType,
                 unknownLabel = unknownLabel,
                 notTrackedLabel = notTrackedLabel,
@@ -79,7 +91,7 @@ object LibraryDynamicGrouping {
                 languageDisplay = languageDisplay,
             )
             for (name in names.distinct()) {
-                bucketsByName.getOrPut(name) { mutableListOf() }.add(lm.manga.id)
+                bucketsByName.getOrPut(name) { mutableListOf() }.add(item.id)
             }
         }
 
@@ -89,7 +101,7 @@ object LibraryDynamicGrouping {
                 id = -(idx + 1).toLong(),
                 name = encodedName,
                 order = idx.toLong(),
-                flags = inheritedSort.flag,
+                flags = inheritedSortFlag,
             )
         }
 
@@ -123,29 +135,28 @@ object LibraryDynamicGrouping {
     }
 
     private fun categoryNamesFor(
-        lm: LibraryManga,
+        item: DynItem,
         groupType: Int,
         unknownLabel: String,
         notTrackedLabel: String,
-        sourceMeta: Map<Long, Pair<String, Long>>,
+        sourceMeta: Map<Long, Pair<String, String>>,
         trackStatuses: Map<Long, String>,
         languageCodes: Map<Long, String>,
         statusNames: Map<Long, String>,
         languageDisplay: (langCode: String) -> String,
     ): List<String> {
-        val manga = lm.manga
-        val mangaId = manga.id
+        val itemId = item.id
         return when (groupType) {
             LibraryGroup.BY_TAG -> {
-                val tags = manga.genre.orEmpty().mapNotNull { it.trim().capitalizeWords().ifBlank { null } }
+                val tags = item.genre.orEmpty().mapNotNull { it.trim().capitalizeWords().ifBlank { null } }
                 tags.ifEmpty { listOf(unknownLabel) }
             }
             LibraryGroup.BY_SOURCE -> {
-                val meta = sourceMeta[mangaId] ?: return listOf("$unknownLabel${SOURCE_SPLITTER}0")
+                val meta = sourceMeta[itemId] ?: return listOf("$unknownLabel${SOURCE_SPLITTER}0")
                 listOf("${meta.first}$SOURCE_SPLITTER${meta.second}")
             }
             LibraryGroup.BY_LANGUAGE -> {
-                val code = languageCodes[mangaId]
+                val code = languageCodes[itemId]
                 if (code.isNullOrBlank()) {
                     listOf(unknownLabel)
                 } else {
@@ -153,8 +164,8 @@ object LibraryDynamicGrouping {
                 }
             }
             LibraryGroup.BY_AUTHOR -> {
-                val author = manga.author?.takeUnless { it.isBlank() }
-                val artist = manga.artist?.takeUnless { it.isBlank() }
+                val author = item.author?.takeUnless { it.isBlank() }
+                val artist = item.artist?.takeUnless { it.isBlank() }
                 if (author == null && artist == null) {
                     listOf(unknownLabel)
                 } else {
@@ -167,8 +178,8 @@ object LibraryDynamicGrouping {
                         .ifEmpty { listOf(unknownLabel) }
                 }
             }
-            LibraryGroup.BY_TRACK_STATUS -> listOf(trackStatuses[mangaId] ?: notTrackedLabel)
-            LibraryGroup.BY_STATUS -> listOf(statusNames[mangaId] ?: unknownLabel)
+            LibraryGroup.BY_TRACK_STATUS -> listOf(trackStatuses[itemId] ?: notTrackedLabel)
+            LibraryGroup.BY_STATUS -> listOf(statusNames[itemId] ?: unknownLabel)
             else -> emptyList()
         }
     }

@@ -35,6 +35,9 @@ import reikai.domain.novel.model.toCategory
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.library.DynItem
+import reikai.presentation.library.LibraryDynamicGrouping
+import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.reikaiSortCategories
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
@@ -151,10 +154,16 @@ class NovelLibraryScreenModel :
         ) { merges, unmerges, auto, requireAuthor, showIcons ->
             MergeSettings(merges, unmerges, auto, requireAuthor, showIcons)
         }
-        return combine(badgePrefsFlow(), miscFlow, filterFlow, mergeFlow) { badges, misc, filters, merge ->
+        return combine(
+            badgePrefsFlow(),
+            miscFlow,
+            filterFlow,
+            mergeFlow,
+            reikaiLibraryPreferences.groupNovelLibraryBy.changes(),
+        ) { badges, misc, filters, merge, groupBy ->
             LibrarySettings(
                 badges, misc.defaultSort, misc.randomSeed, misc.showContinue, misc.showHidden,
-                filters, merge, misc.categorySortOrder,
+                filters, merge, misc.categorySortOrder, groupBy,
             )
         }
     }
@@ -220,41 +229,45 @@ class NovelLibraryScreenModel :
         }
         val byId = items.associateBy { it.id }
         val flagsByCat = categories.associate { it.id to it.flags }
-
-        // Bucket item ids by category id; uncategorized (no real category) goes to Default (id 0).
-        val byCategory = LinkedHashMap<Long, MutableList<Long>>()
-        items.forEach { item ->
-            val cats = item.libraryManga.categories.filter { it != NovelCategory.UNCATEGORIZED_ID }
-            if (cats.isEmpty()) {
-                byCategory.getOrPut(NovelCategory.UNCATEGORIZED_ID) { mutableListOf() }.add(item.id)
-            } else {
-                cats.forEach { c -> byCategory.getOrPut(c) { mutableListOf() }.add(item.id) }
-            }
-        }
-
-        // Encode the resolved default sort into the synthesized Default category's flags so its header
-        // label reflects the actual sort (it's stored in a global pref, not a DB row). NovelLibrarySort
-        // mirrors LibrarySort's bit layout, so the shared header's `category.sort` decodes it correctly.
-        val defaultCategory =
-            Category(NovelCategory.UNCATEGORIZED_ID, context.stringResource(MR.strings.label_default), 0L, settings.defaultSort)
-        val visibleCategories = if (settings.showHidden) {
-            categories
-        } else {
-            categories.filterNot { (it.flags and CATEGORY_HIDDEN_MASK) == CATEGORY_HIDDEN_MASK }
-        }
-        // Manual DB order first, then the Reikai category-sort-order pref (Off/A->Z/Z->A), matching the
-        // manga library so the shared Display setting reorders novel categories too (system pinned top).
-        val allCategories = reikaiSortCategories(
-            (listOf(defaultCategory) + visibleCategories.map { it.toCategory() }).sortedBy { it.order },
-            settings.categorySortOrder,
-        )
         val defaultSort = NovelLibrarySort.fromFlag(settings.defaultSort)
-        val grouped = allCategories.mapNotNull { category ->
-            val ids = byCategory[category.id] ?: return@mapNotNull null
-            val sort = sortFor(category.id, flagsByCat[category.id] ?: 0L, defaultSort)
-            val comparator = sort.comparator(settings.randomSeed)
-            val sorted = ids.sortedWith { a, b -> comparator.compare(novelById.getValue(a), novelById.getValue(b)) }
-            category to sorted
+
+        val grouped: List<Pair<Category, List<Long>>> = if (settings.groupBy == LibraryGroup.BY_DEFAULT) {
+            // Bucket item ids by category id; uncategorized (no real category) goes to Default (id 0).
+            val byCategory = LinkedHashMap<Long, MutableList<Long>>()
+            items.forEach { item ->
+                val cats = item.libraryManga.categories.filter { it != NovelCategory.UNCATEGORIZED_ID }
+                if (cats.isEmpty()) {
+                    byCategory.getOrPut(NovelCategory.UNCATEGORIZED_ID) { mutableListOf() }.add(item.id)
+                } else {
+                    cats.forEach { c -> byCategory.getOrPut(c) { mutableListOf() }.add(item.id) }
+                }
+            }
+
+            // Encode the resolved default sort into the synthesized Default category's flags so its header
+            // label reflects the actual sort (it's stored in a global pref, not a DB row). NovelLibrarySort
+            // mirrors LibrarySort's bit layout, so the shared header's `category.sort` decodes it correctly.
+            val defaultCategory =
+                Category(NovelCategory.UNCATEGORIZED_ID, context.stringResource(MR.strings.label_default), 0L, settings.defaultSort)
+            val visibleCategories = if (settings.showHidden) {
+                categories
+            } else {
+                categories.filterNot { (it.flags and CATEGORY_HIDDEN_MASK) == CATEGORY_HIDDEN_MASK }
+            }
+            // Manual DB order first, then the Reikai category-sort-order pref (Off/A->Z/Z->A), matching the
+            // manga library so the shared Display setting reorders novel categories too (system pinned top).
+            val allCategories = reikaiSortCategories(
+                (listOf(defaultCategory) + visibleCategories.map { it.toCategory() }).sortedBy { it.order },
+                settings.categorySortOrder,
+            )
+            allCategories.mapNotNull { category ->
+                val ids = byCategory[category.id] ?: return@mapNotNull null
+                val sort = sortFor(category.id, flagsByCat[category.id] ?: 0L, defaultSort)
+                val comparator = sort.comparator(settings.randomSeed)
+                category to ids.sortedWith { a, b -> comparator.compare(novelById.getValue(a), novelById.getValue(b)) }
+            }
+        } else {
+            // Y3: dynamic grouping (by source / tag / author / language / status) replaces categories.
+            buildNovelDynamicGrouping(items, novelById, settings, defaultSort)
         }
 
         // Item id (negative) -> (source, url) so LibraryTab can open the (representative) novel.
@@ -278,6 +291,86 @@ class NovelLibraryScreenModel :
 
     private fun sortFor(categoryId: Long, flags: Long, default: NovelLibrarySort): NovelLibrarySort =
         if (categoryId == NovelCategory.UNCATEGORIZED_ID) default else NovelLibrarySort.forCategory(flags, default)
+
+    /**
+     * Y3: bucket the novel library into synthetic dynamic categories via the shared kernel, resolving
+     * per-novel metadata (source / language / status) into id-keyed maps. Operates on the
+     * merge-collapsed representatives, keyed by the negative synthetic item id so the result lines up
+     * with [State.favoritesById]. Track-status grouping is not offered (novel trackers are deferred).
+     */
+    private fun buildNovelDynamicGrouping(
+        items: List<LibraryItem>,
+        novelById: Map<Long, LibraryNovel>,
+        settings: LibrarySettings,
+        defaultSort: NovelLibrarySort,
+    ): List<Pair<Category, List<Long>>> {
+        val groupType = settings.groupBy
+        val dynItems = items.mapNotNull { item ->
+            val novel = novelById[item.id]?.novel ?: return@mapNotNull null
+            DynItem(item.id, novel.genre, novel.author, novel.artist)
+        }
+
+        val sourceMeta = if (groupType == LibraryGroup.BY_SOURCE) {
+            items.mapNotNull { item ->
+                val novel = novelById[item.id]?.novel ?: return@mapNotNull null
+                // The slug is the encoded disambiguator (sourceId() is never read); the name is the label.
+                item.id to ((sourceManager.get(novel.source)?.name ?: novel.source) to novel.source)
+            }.toMap()
+        } else {
+            emptyMap()
+        }
+
+        val languageCodes = if (groupType == LibraryGroup.BY_LANGUAGE) {
+            items.mapNotNull { item ->
+                val novel = novelById[item.id]?.novel ?: return@mapNotNull null
+                val lang = languageCodeOf(sourceManager.get(novel.source)?.lang.orEmpty()).takeUnless { it.isBlank() }
+                    ?: return@mapNotNull null
+                item.id to lang
+            }.toMap()
+        } else {
+            emptyMap()
+        }
+
+        val statusNames = if (groupType == LibraryGroup.BY_STATUS) {
+            items.mapNotNull { item ->
+                val novel = novelById[item.id]?.novel ?: return@mapNotNull null
+                item.id to context.stringResource(mapNovelStatus(novel.status))
+            }.toMap()
+        } else {
+            emptyMap()
+        }
+
+        val groups = LibraryDynamicGrouping.build(
+            items = dynItems,
+            groupType = groupType,
+            inheritedSortFlag = settings.defaultSort,
+            collapsedDynamicCategories = emptySet(),
+            collapsedDynamicAtBottom = false,
+            unknownLabel = context.stringResource(MR.strings.unknown),
+            notTrackedLabel = context.stringResource(MR.strings.not_tracked),
+            ungroupedLabel = context.stringResource(MR.strings.group_ungrouped),
+            categorySortOrder = settings.categorySortOrder,
+            sourceMeta = sourceMeta,
+            languageCodes = languageCodes,
+            statusNames = statusNames,
+        )
+
+        // Dynamic groups have no per-category sort, so they all use the library default sort.
+        val comparator = defaultSort.comparator(settings.randomSeed)
+        return groups.map { (category, ids) ->
+            category to ids.sortedWith { a, b -> comparator.compare(novelById.getValue(a), novelById.getValue(b)) }
+        }
+    }
+
+    private fun mapNovelStatus(status: Long) = when (status.toInt()) {
+        NovelStatusCode.ONGOING -> MR.strings.ongoing
+        NovelStatusCode.COMPLETED -> MR.strings.completed
+        NovelStatusCode.LICENSED -> MR.strings.licensed
+        NovelStatusCode.PUBLISHING_FINISHED -> MR.strings.publishing_finished
+        NovelStatusCode.CANCELLED -> MR.strings.cancelled
+        NovelStatusCode.ON_HIATUS -> MR.strings.on_hiatus
+        else -> MR.strings.unknown
+    }
 
     // --- search / selection / collapse mutators (read by LibraryTab) ---
 
@@ -491,6 +584,10 @@ class NovelLibraryScreenModel :
         }
     }
 
+    // Dynamic grouping mode exposed for the settings dialog's Group tab.
+    val groupLibraryBy: Preference<Int> get() = reikaiLibraryPreferences.groupNovelLibraryBy
+    fun setGrouping(value: Int) = reikaiLibraryPreferences.groupNovelLibraryBy.set(value)
+
     // Filter prefs exposed for the settings dialog (read via collectAsState, cycled via toggleFilter).
     val filterDownloaded: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterDownloaded
     val filterUnread: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterUnread
@@ -554,6 +651,7 @@ class NovelLibraryScreenModel :
         val filters: NovelFilters,
         val merge: MergeSettings,
         val categorySortOrder: Int,
+        val groupBy: Int,
     )
 
     private fun NovelFilters.matches(n: LibraryNovel): Boolean =
