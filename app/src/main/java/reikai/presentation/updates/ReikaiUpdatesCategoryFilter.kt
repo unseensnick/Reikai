@@ -20,24 +20,24 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.ui.updates.UpdatesSettingsScreenModel
 import reikai.domain.library.ContentType
+import reikai.presentation.category.CategoryTriStateRows
+import reikai.presentation.category.idsWith
+import reikai.presentation.category.rememberCategoryStates
+import reikai.presentation.category.toLongIdSet
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.HeadingItem
 import tachiyomi.presentation.core.components.SettingsItemsPaddings
-import tachiyomi.presentation.core.components.TriStateItem
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState as collectAsPrefState
 
@@ -191,41 +191,3 @@ private fun UpdatesCategoryFilterDialog(
         },
     )
 }
-
-@Composable
-private fun rememberCategoryStates(
-    categories: List<Category>,
-    included: Set<Long>,
-    excluded: Set<Long>,
-): SnapshotStateMap<Long, TriState> = remember(categories, included, excluded) {
-    // Per-category tri-state: checked = include, inverted = exclude, blank = ignore.
-    mutableStateMapOf<Long, TriState>().apply {
-        categories.forEach { category ->
-            this[category.id] = when (category.id) {
-                in included -> TriState.ENABLED_IS
-                in excluded -> TriState.ENABLED_NOT
-                else -> TriState.DISABLED
-            }
-        }
-    }
-}
-
-@Composable
-private fun CategoryTriStateRows(
-    categories: List<Category>,
-    states: SnapshotStateMap<Long, TriState>,
-    defaultLabel: String,
-) {
-    categories.forEach { category ->
-        TriStateItem(
-            label = category.name.ifBlank { defaultLabel },
-            state = states[category.id] ?: TriState.DISABLED,
-            onClick = { next -> states[category.id] = next },
-        )
-    }
-}
-
-private fun SnapshotStateMap<Long, TriState>.idsWith(state: TriState): Set<Long> =
-    filterValues { it == state }.keys.toSet()
-
-private fun Set<String>.toLongIdSet(): Set<Long> = mapNotNull(String::toLongOrNull).toSet()

@@ -178,15 +178,11 @@ class NovelUpdateJob(
     }
 
     private suspend fun shouldDownloadFor(novel: Novel): Boolean {
-        val categories = getNovelCategories.awaitByNovelId(novel.id).map { it.id }.ifEmpty { listOf(0L) }
         val included = preferences.downloadNewChapterCategories().get().map { it.toLong() }
         val excluded = preferences.downloadNewChapterCategoriesExclude().get().map { it.toLong() }
-        return when {
-            included.isEmpty() && excluded.isEmpty() -> true
-            categories.any { it in excluded } -> false
-            included.isEmpty() -> true
-            else -> categories.any { it in included }
-        }
+        if (included.isEmpty() && excluded.isEmpty()) return true
+        val categories = getNovelCategories.awaitByNovelId(novel.id).map { it.id }.ifEmpty { listOf(0L) }
+        return categoryGate(categories, included, excluded)
     }
 
     /** Category scope for the update itself (mirrors the manga global-update Categories filter). */
@@ -195,11 +191,15 @@ class NovelUpdateJob(
         val excluded = preferences.novelUpdateCategoriesExclude().get().map { it.toLong() }
         if (included.isEmpty() && excluded.isEmpty()) return true
         val categories = getNovelCategories.awaitByNovelId(novel.id).map { it.id }.ifEmpty { listOf(0L) }
-        return when {
-            categories.any { it in excluded } -> false
-            included.isEmpty() -> true
-            else -> categories.any { it in included }
-        }
+        return categoryGate(categories, included, excluded)
+    }
+
+    /** Include/exclude category predicate shared by the download + update gates: exclude wins; an empty
+     *  include set means "all not excluded". Callers short-circuit the no-filter case before the DB read. */
+    private fun categoryGate(categories: List<Long>, included: List<Long>, excluded: List<Long>): Boolean = when {
+        categories.any { it in excluded } -> false
+        included.isEmpty() -> true
+        else -> categories.any { it in included }
     }
 
     /** Smart-update restrictions (the novel twin of the manga Smart update): skip completed / skip with

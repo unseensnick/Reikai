@@ -20,15 +20,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.ui.library.LibrarySettingsScreenModel
+import reikai.presentation.category.CategoryTriStateRows
+import reikai.presentation.category.idsWith
+import reikai.presentation.category.rememberCategoryStates
+import reikai.presentation.category.toLongIdSet
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
@@ -36,7 +38,6 @@ import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.HeadingItem
 import tachiyomi.presentation.core.components.SettingsChipRow
 import tachiyomi.presentation.core.components.SettingsItemsPaddings
-import tachiyomi.presentation.core.components.TriStateItem
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 
@@ -166,8 +167,8 @@ fun ColumnScope.ReikaiCategoriesFilter(
     if (showDialog) {
         ReikaiCategoryFilterDialog(
             categories = categories,
-            included = included.mapNotNull { it.toLongOrNull() }.toSet(),
-            excluded = excluded.mapNotNull { it.toLongOrNull() }.toSet(),
+            included = included.toLongIdSet(),
+            excluded = excluded.toLongIdSet(),
             onConfirm = { include, exclude ->
                 screenModel.setCategoryFilterSelections(include, exclude)
                 showDialog = false
@@ -207,31 +208,14 @@ private fun ReikaiCategoryFilterDialog(
     onDismiss: () -> Unit,
 ) {
     val defaultLabel = stringResource(MR.strings.label_default)
-    // Per-category tri-state: checked = include, inverted = exclude, blank = ignore.
-    val states = remember(categories, included, excluded) {
-        mutableStateMapOf<Long, TriState>().apply {
-            categories.forEach { category ->
-                this[category.id] = when (category.id) {
-                    in included -> TriState.ENABLED_IS
-                    in excluded -> TriState.ENABLED_NOT
-                    else -> TriState.DISABLED
-                }
-            }
-        }
-    }
+    val states = rememberCategoryStates(categories, included, excluded)
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(MR.strings.categories)) },
         text = {
             Column(modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
-                categories.forEach { category ->
-                    TriStateItem(
-                        label = category.name.ifBlank { defaultLabel },
-                        state = states[category.id] ?: TriState.DISABLED,
-                        onClick = { next -> states[category.id] = next },
-                    )
-                }
+                CategoryTriStateRows(categories, states, defaultLabel)
             }
         },
         // "Edit categories" sits on the left of the action row, opposite Cancel / OK.
@@ -246,9 +230,7 @@ private fun ReikaiCategoryFilterDialog(
                 }
                 TextButton(
                     onClick = {
-                        val include = states.filterValues { it == TriState.ENABLED_IS }.keys.toSet()
-                        val exclude = states.filterValues { it == TriState.ENABLED_NOT }.keys.toSet()
-                        onConfirm(include, exclude)
+                        onConfirm(states.idsWith(TriState.ENABLED_IS), states.idsWith(TriState.ENABLED_NOT))
                     },
                 ) {
                     Text(stringResource(MR.strings.action_ok))
