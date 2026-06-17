@@ -18,7 +18,7 @@ The rebase from Yōkai onto Mihon is nearly complete. The light-novel vertical (
 | P8 | Settings / shell carry | ❌ dropped (Mihon already covers it) |
 | P9 | Category bulk-delete + unified Recents | 🔶 folded into Active sequence |
 
-Recently shipped on top of the above: the **unified Updates tab** (manga + novel interleaved, filters, by-category filter, group-by-series), **novel library dynamic grouping** (now with the collapsed-group sink + collapse-all parity, Active #1 below), the **Tier 0 duplication cleanup** (below), and the **Mihon upstream syncs** (TachiyomiX 1.6 `memo` + 1.6 extension loading, then the memo-transform / chapter-order follow-ups). Fix: Browse → Extensions novel-plugin search now filters on the Novels chip.
+Recently shipped on top of the above: the **unified Updates tab** (manga + novel interleaved, filters, by-category filter, group-by-series), **novel library dynamic grouping** (collapsed-group sink + collapse-all parity, Active #1 below), the **Tier 0 duplication cleanup** (below), the **signed release pipeline** (AGP signing + `release.yml`/`preview.yml` + in-app updater, see its section below; built + CI-validated, Java 21), a **user-facing changelog rewrite** (grouped, skim-readable; convention in `.claude/rules/workflow.md`), and the ongoing **Mihon upstream syncs** (now caught up to `refs/mihon` `ee6a9876e`: TachiyomiX 1.6, the dependency-catalog bumps, and the release-signing-gate fix; full ledger in the `upstream-sync` memory). Fix: Browse → Extensions novel-plugin search now filters on the Novels chip.
 
 ## Tier 0: duplication cleanup ✅ done (2026-06-16)
 
