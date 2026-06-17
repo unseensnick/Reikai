@@ -40,13 +40,15 @@ class AppUpdateChecker {
     }
 }
 
+// RK --> Reikai release repos: preview builds check the -preview release bucket, stable checks the main repo.
 val GITHUB_REPO: String by lazy {
     if (isPreviewBuildType) {
-        "mihonapp/mihon-preview"
+        "unseensnick/Reikai-preview"
     } else {
-        "mihonapp/mihon"
+        "unseensnick/Reikai"
     }
 }
+// RK <--
 
 val RELEASE_TAG: String by lazy {
     if (isPreviewBuildType) {
