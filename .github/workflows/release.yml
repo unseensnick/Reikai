@@ -1,0 +1,128 @@
+name: Build & publish release
+
+# Stable channel. Signs with the repo keystore secrets (AGP-native, see app/build.gradle.kts),
+# publishes to this repo as a DRAFT for review; the in-app updater sees it once you publish.
+# Preview/nightly builds are handled separately by preview.yml.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version, no leading v (e.g. 1.9.8.0.0)'
+        required: true
+      message:
+        description: 'Optional note shown at the top of the release body'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build signed release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@ad2b38190b15e4d6bdf0c97fb4fca8412226d287 # v5.3.0
+        with:
+          java-version-file: .github/.java-version
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+
+      - name: Setup Android SDK
+        run: ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager "build-tools;35.0.0"
+
+      - name: Copy CI gradle.properties
+        run: |
+          mkdir -p ~/.gradle
+          cp .github/runner-files/ci-gradle.properties ~/.gradle/gradle.properties
+
+      - name: Resolve version tag
+        run: |
+          set -e
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION_TAG=v${{ github.event.inputs.version }}" >> $GITHUB_ENV
+          else
+            echo "VERSION_TAG=${{ github.ref_name }}" >> $GITHUB_ENV
+          fi
+
+      - name: Build signed release APKs
+        run: ./gradlew assembleRelease -Penable-updater
+        env:
+          storeFileBase64: ${{ secrets.SIGNING_KEY }}
+          storePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyAlias: ${{ secrets.ALIAS }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Install parse-changelog
+        uses: taiki-e/install-action@parse-changelog
+
+      - name: Prepare release body
+        env:
+          MESSAGE: ${{ github.event.inputs.message }}
+        run: |
+          set -e
+          version="${VERSION_TAG#v}"
+          changelog="$(parse-changelog CHANGELOG.md "$version" 2>/dev/null || parse-changelog CHANGELOG.md Unreleased 2>/dev/null || true)"
+          {
+            echo "RELEASE_BODY<<__EOF__"
+            if [ -n "$MESSAGE" ]; then
+              echo "$MESSAGE"
+              echo ""
+            fi
+            if [ -n "$changelog" ]; then
+              echo "$changelog"
+              echo ""
+            fi
+            echo "__EOF__"
+          } >> "$GITHUB_ENV"
+
+      - name: Rename APKs and checksum
+        run: |
+          set -e
+          d=app/build/outputs/apk/release
+          declare -A abis=( [universal]="" [arm64-v8a]="-arm64-v8a" [armeabi-v7a]="-armeabi-v7a" [x86]="-x86" [x86_64]="-x86_64" )
+          checksums="### Checksums"$'\n\n'"| Variant | SHA-256 |"$'\n'"| ------- | ------- |"
+          for key in universal arm64-v8a armeabi-v7a x86 x86_64; do
+            src="$d/app-${key}-release.apk"
+            out="reikai${abis[$key]}-${VERSION_TAG}.apk"
+            mv "$src" "$out"
+            sum=$(sha256sum "$out" | awk '{ print $1 }')
+            checksums+=$'\n'"| \`$out\` | \`$sum\` |"
+          done
+          {
+            echo "CHECKSUMS<<__EOF__"
+            echo "$checksums"
+            echo "__EOF__"
+          } >> "$GITHUB_ENV"
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        with:
+          tag_name: ${{ env.VERSION_TAG }}
+          name: Reikai ${{ env.VERSION_TAG }}
+          body: |
+            ${{ env.RELEASE_BODY }}
+            ${{ env.CHECKSUMS }}
+
+            > If you are unsure which to download, use `reikai-${{ env.VERSION_TAG }}.apk` (universal).
+          files: |
+            reikai-${{ env.VERSION_TAG }}.apk
+            reikai-arm64-v8a-${{ env.VERSION_TAG }}.apk
+            reikai-armeabi-v7a-${{ env.VERSION_TAG }}.apk
+            reikai-x86-${{ env.VERSION_TAG }}.apk
+            reikai-x86_64-${{ env.VERSION_TAG }}.apk
+          draft: true
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

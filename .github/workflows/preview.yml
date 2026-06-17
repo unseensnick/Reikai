@@ -1,0 +1,140 @@
+name: Build & publish preview
+
+# Preview/nightly channel. Builds on every code push to the working branch (and on demand), signs with
+# the repo keystore secrets (AGP-native), and publishes a non-prerelease to the unseensnick/Reikai-preview
+# bucket so the in-app updater (preview builds check that repo) finds it. Cross-repo publish needs a PAT
+# with Contents: write on Reikai-preview, stored as the PREVIEW_REPO_TOKEN secret on this repo.
+
+on:
+  push:
+    branches:
+      - design/mihon-rebase
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Create a draft (test) preview release instead of publishing'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  # A burst of pushes collapses to one build (the latest wins).
+  group: preview
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PREVIEW_REPO: unseensnick/Reikai-preview
+
+jobs:
+  preview:
+    name: Build signed preview
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@ad2b38190b15e4d6bdf0c97fb4fca8412226d287 # v5.3.0
+        with:
+          java-version-file: .github/.java-version
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+
+      - name: Setup Android SDK
+        run: ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager "build-tools;35.0.0"
+
+      - name: Copy CI gradle.properties
+        run: |
+          mkdir -p ~/.gradle
+          cp .github/runner-files/ci-gradle.properties ~/.gradle/gradle.properties
+
+      - name: Build signed preview APKs
+        run: ./gradlew assemblePreview -Penable-updater
+        env:
+          storeFileBase64: ${{ secrets.SIGNING_KEY }}
+          storePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyAlias: ${{ secrets.ALIAS }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Prepare changelog
+        env:
+          GH_TOKEN: ${{ secrets.PREVIEW_REPO_TOKEN }}
+        run: |
+          set -e
+          commit_count=$(git rev-list --count HEAD)
+          echo "COMMIT_COUNT=$commit_count" >> "$GITHUB_ENV"
+          current_sha=$(git rev-parse --short HEAD)
+          echo "CURRENT_SHA=$current_sha" >> "$GITHUB_ENV"
+
+          prev_tag=$(gh release list --repo "$PREVIEW_REPO" --exclude-drafts --exclude-pre-releases --json tagName --limit 1 --jq 'select(length > 0) | .[0].tagName' || true)
+
+          {
+            echo "COMMIT_LOGS<<__EOF__"
+            if [ -n "$prev_tag" ]; then
+              prev_count=$(echo "$prev_tag" | sed -e 's/^r//')
+              diff=$(expr "$commit_count" - "$prev_count" || echo 0)
+              if [ "$diff" -gt 0 ]; then
+                prev_sha=$(git rev-parse --short "HEAD~$diff")
+                echo "https://github.com/${{ github.repository }}/compare/$prev_sha...$current_sha"
+                echo ""
+                git log --pretty=format:'- %s' "$prev_sha..$current_sha"
+              fi
+            else
+              echo "First preview build."
+            fi
+            echo ""
+            echo "__EOF__"
+          } >> "$GITHUB_ENV"
+
+      - name: Rename APKs
+        run: |
+          set -e
+          d=app/build/outputs/apk/preview
+          mv "$d/app-universal-preview.apk"    "reikai-r${COMMIT_COUNT}.apk"
+          mv "$d/app-arm64-v8a-preview.apk"    "reikai-arm64-v8a-r${COMMIT_COUNT}.apk"
+          mv "$d/app-armeabi-v7a-preview.apk"  "reikai-armeabi-v7a-r${COMMIT_COUNT}.apk"
+          mv "$d/app-x86-preview.apk"          "reikai-x86-r${COMMIT_COUNT}.apk"
+          mv "$d/app-x86_64-preview.apk"       "reikai-x86_64-r${COMMIT_COUNT}.apk"
+
+      - name: Publish preview release
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        with:
+          repository: ${{ env.PREVIEW_REPO }}
+          token: ${{ secrets.PREVIEW_REPO_TOKEN }}
+          tag_name: r${{ env.COMMIT_COUNT }}
+          name: Reikai Preview r${{ env.COMMIT_COUNT }}
+          body: |
+            ### Commits
+
+            ${{ env.COMMIT_LOGS }}
+
+            > If you are unsure which to download, use `reikai-r${{ env.COMMIT_COUNT }}.apk` (universal).
+          files: |
+            reikai-r${{ env.COMMIT_COUNT }}.apk
+            reikai-arm64-v8a-r${{ env.COMMIT_COUNT }}.apk
+            reikai-armeabi-v7a-r${{ env.COMMIT_COUNT }}.apk
+            reikai-x86-r${{ env.COMMIT_COUNT }}.apk
+            reikai-x86_64-r${{ env.COMMIT_COUNT }}.apk
+          draft: ${{ github.event.inputs.dry-run == 'true' }}
+          prerelease: false
+
+      - name: Prune old previews (keep newest 28)
+        if: ${{ github.event.inputs.dry-run != 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.PREVIEW_REPO_TOKEN }}
+        run: |
+          set -e
+          gh release list --repo "$PREVIEW_REPO" --json tagName,createdAt --limit 100 \
+            | jq -r 'sort_by(.createdAt) | reverse | .[28:] | .[].tagName' \
+            | while read -r tag; do
+                [ -n "$tag" ] && gh release delete "$tag" --repo "$PREVIEW_REPO" --cleanup-tag --yes
+              done
