@@ -3,6 +3,9 @@ import mihon.gradle.getBuildTime
 import mihon.gradle.getLatestCommitCount
 import mihon.gradle.getLatestCommitSha
 import mihon.gradle.tasks.ReplaceShortcutsPlaceholderTask
+import java.io.FileInputStream
+import java.util.Properties
+import kotlin.io.encoding.Base64
 
 plugins {
     alias(mihonx.plugins.android.application)
@@ -19,6 +22,12 @@ if (Config.includeTelemetry) {
         apply(libs.plugins.firebase.crashlytics.get().pluginId)
     }
 }
+
+// RK --> AGP-native release signing (adapted from Mihon "Sign APK with AGP", upstream 6552ffe31).
+// The release build is signed with the real key when it's available (CI secrets under unseensnick/*,
+// or a local keystore.properties); see the signingConfigs block in android {}.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+// RK <--
 
 android {
     namespace = "eu.kanade.tachiyomi"
@@ -41,6 +50,35 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // RK --> sign release with the real key when available, reconfiguring the "debug" signing config
+    // that the release buildType references. In CI under unseensnick/* the keystore comes from the repo
+    // secrets (base64); locally it comes from keystore.properties. With neither, "debug" stays the
+    // default debug keystore, so plain dev builds keep working unsigned-by-real-key (debug-signed).
+    if (System.getenv("GITHUB_ACTIONS").toBoolean() && System.getenv("GITHUB_REPOSITORY_OWNER") == "unseensnick") {
+        val tempStoreFile = file(System.getenv("RUNNER_TEMP")).resolve("reikai.keystore")
+        val storeFileBytes = System.getenv("storeFileBase64").let(Base64::decode)
+        tempStoreFile.outputStream().use { it.write(storeFileBytes) }
+        signingConfigs {
+            named("debug") {
+                storeFile = tempStoreFile
+                storePassword = System.getenv("storePassword")
+                keyAlias = System.getenv("keyAlias")
+                keyPassword = System.getenv("keyPassword")
+            }
+        }
+    } else if (keystorePropertiesFile.exists()) {
+        val keystoreProperties = FileInputStream(keystorePropertiesFile).use { Properties().apply { load(it) } }
+        signingConfigs {
+            named("debug") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+    // RK <--
+
     buildTypes {
         val debug by getting {
             applicationIdSuffix = ".debugY2k" // RK: match existing Reikai debug package
@@ -51,7 +89,8 @@ android {
             isMinifyEnabled = Config.enableCodeShrink
             isShrinkResources = Config.enableCodeShrink
 
-            // RK --> existing Reikai release package + personal-fork debug-signed release
+            // RK --> existing Reikai release package; signed with the real key when CI secrets or a
+            // local keystore.properties are present (see the signingConfigs block above), else debug-signed.
             applicationIdSuffix = ".y2k"
             signingConfig = signingConfigs.getByName("debug")
             // RK <--

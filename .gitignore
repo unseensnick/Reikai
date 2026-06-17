@@ -12,9 +12,10 @@ build
 # Configuration files
 local.properties
 
-# Secrets (RK: never commit Firebase config)
+# Secrets (RK: never commit Firebase config or the release keystore)
 google-services.json
 app/google-services.json
+keystore.properties
 
 # macOS specific files
 .DS_Store
