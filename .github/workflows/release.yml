@@ -73,17 +73,19 @@ jobs:
         run: |
           set -e
           version="${VERSION_TAG#v}"
-          changelog="$(parse-changelog CHANGELOG.md "$version" 2>/dev/null || parse-changelog CHANGELOG.md Unreleased 2>/dev/null || true)"
+          # Stable notes come ONLY from the matching [version] section (cut by renaming [Unreleased] to
+          # [version]). No [Unreleased] fallback, or preview-only changes would leak into a stable release.
+          if ! changelog="$(parse-changelog CHANGELOG.md "$version" 2>/dev/null)"; then
+            echo "::error::CHANGELOG.md has no [$version] section. Rename [Unreleased] to [$version] (and add a fresh empty [Unreleased]) before cutting v$version."
+            exit 1
+          fi
           {
             echo "RELEASE_BODY<<__EOF__"
             if [ -n "$MESSAGE" ]; then
               echo "$MESSAGE"
               echo ""
             fi
-            if [ -n "$changelog" ]; then
-              echo "$changelog"
-              echo ""
-            fi
+            echo "$changelog"
             echo "__EOF__"
           } >> "$GITHUB_ENV"
 
