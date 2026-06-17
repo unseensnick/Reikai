@@ -18,7 +18,7 @@ The rebase from Yōkai onto Mihon is nearly complete. The light-novel vertical (
 | P8 | Settings / shell carry | ❌ dropped (Mihon already covers it) |
 | P9 | Category bulk-delete + unified Recents | 🔶 folded into Active sequence |
 
-Recently shipped on top of the above: the **unified Updates tab** (manga + novel interleaved, filters, by-category filter, group-by-series), **novel library dynamic grouping**, and the **Mihon TachiyomiX 1.6 upstream sync** (the `memo` field + 1.6 extension loading).
+Recently shipped on top of the above: the **unified Updates tab** (manga + novel interleaved, filters, by-category filter, group-by-series), **novel library dynamic grouping** (now with the collapsed-group sink + collapse-all parity, Active #1 below), the **Tier 0 duplication cleanup** (below), and the **Mihon upstream syncs** (TachiyomiX 1.6 `memo` + 1.6 extension loading, then the memo-transform / chapter-order follow-ups). Fix: Browse → Extensions novel-plugin search now filters on the Novels chip.
 
 ## Tier 0: duplication cleanup ✅ done (2026-06-16)
 
@@ -34,10 +34,8 @@ Completed and pushed: Tier 1 (`6c27c5923`), Tier 2 (`85ff3326d`), Tier 3 (`f7839
 
 Two ordering rules: **the backup proto goes last** (it must serialize everything the earlier items add: history rows, tracker links, categories, merges, grouping), and the quick polish leads for momentum. The Tier 0 cleanup above is done, so these slices build on the shared helpers rather than extending copy-paste.
 
-### 1. Novel grouping: collapse-at-bottom  `[S]`
-Finish the dynamic-grouping feature shipped this cycle. Today the novel grouping passes `collapsedDynamicCategories = emptySet()` / `collapsedDynamicAtBottom = false` to the kernel, so collapsed groups don't sink.
-- **Scope:** thread the novel session-collapse set + the existing `collapsedDynamicAtBottom` display pref into `NovelLibraryScreenModel.buildNovelDynamicGrouping`.
-- **Done when:** with "move dynamic groups to bottom" on, a collapsed novel group sinks below the expanded ones, in both the tabbed and single-list views (on-device).
+### 1. Novel grouping: collapse-at-bottom  ✅ done (`e5c0ecee6`)
+Threaded the novel session-collapse set + the `collapsedDynamicAtBottom` pref through `buildState` into `buildNovelDynamicGrouping` (a 3-way inner combine on the main flow, so a collapse toggle rebuilds and re-sinks live); dropped the redundant post-build collapse stamp/collector. Also fixed `toggleAllCategoriesCollapsed` to key dynamic groups by `headerKey` (real categories by id), mirroring `LibraryScreenModel`, so the hopper "collapse all" collapses + sinks dynamic groups too. Verified on-device (Z Fold) in both the single-list and tabbed views.
 
 ### 2. Novel library: include/exclude category filter  `[S]`
 The novel library filter sheet only has downloaded/unread/started/completed/bookmarked. Manga also has an include/exclude **category** filter, and the shared `CategoryFilter` math is already wired into the novel Updates feed (`reikai/domain/category/CategoryFilter.kt`), just not the novel library.
