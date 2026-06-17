@@ -59,6 +59,7 @@ jobs:
       - name: Build signed release APKs
         run: ./gradlew assembleRelease -Penable-updater
         env:
+          REIKAI_GITHUB_RELEASE: "true"
           storeFileBase64: ${{ secrets.SIGNING_KEY }}
           storePassword: ${{ secrets.KEY_STORE_PASSWORD }}
           keyAlias: ${{ secrets.ALIAS }}

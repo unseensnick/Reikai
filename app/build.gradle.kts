@@ -51,10 +51,11 @@ android {
     }
 
     // RK --> sign release with the real key when available, reconfiguring the "debug" signing config
-    // that the release buildType references. In CI under unseensnick/* the keystore comes from the repo
-    // secrets (base64); locally it comes from keystore.properties. With neither, "debug" stays the
-    // default debug keystore, so plain dev builds keep working unsigned-by-real-key (debug-signed).
-    if (System.getenv("GITHUB_ACTIONS").toBoolean() && System.getenv("GITHUB_REPOSITORY_OWNER") == "unseensnick") {
+    // that the release buildType references. Gated on REIKAI_GITHUB_RELEASE (set only by release.yml /
+    // preview.yml, which also pass the keystore secrets), so the unsigned PR build (build_check.yml)
+    // never reads a keystore that isn't there. Adapted from Mihon's MIHON_GITHUB_RELEASE gate (upstream
+    // 50d0e8ae0). Locally a keystore.properties signs; with neither, "debug" stays the default debug key.
+    if (System.getenv("REIKAI_GITHUB_RELEASE").toBoolean()) {
         val tempStoreFile = file(System.getenv("RUNNER_TEMP")).resolve("reikai.keystore")
         val storeFileBytes = System.getenv("storeFileBase64").let(Base64::decode)
         tempStoreFile.outputStream().use { it.write(storeFileBytes) }
