@@ -14,138 +14,235 @@
 // fetch is deliberately never exposed to plugins.
 
 (function () {
-  'use strict';
+  "use strict";
 
   // QuickJS has no browser globals; plugins (and the cheerio/dayjs bundles) expect a handful.
   globalThis.window = globalThis;
   globalThis.self = globalThis;
 
-  if (typeof globalThis.console === 'undefined') {
+  if (typeof globalThis.console === "undefined") {
     var mkLog = function (level) {
-      return function () { __lnLog(level, Array.prototype.map.call(arguments, String).join(' ')); };
+      return function () {
+        __lnLog(level, Array.prototype.map.call(arguments, String).join(" "));
+      };
     };
     globalThis.console = {
-      log: mkLog('info'), info: mkLog('info'), warn: mkLog('warn'),
-      error: mkLog('error'), debug: mkLog('debug'),
+      log: mkLog("info"),
+      info: mkLog("info"),
+      warn: mkLog("warn"),
+      error: mkLog("error"),
+      debug: mkLog("debug"),
     };
   }
 
   function log(level, message) {
-    try { __lnLog(level, String(message)); } catch (_) { /* ignore */ }
+    try {
+      __lnLog(level, String(message));
+    } catch (_) {
+      /* ignore */
+    }
   }
 
-  if (typeof globalThis.URLSearchParams === 'undefined') {
+  if (typeof globalThis.URLSearchParams === "undefined") {
     // QuickJS has no URLSearchParams; the WebView host used the browser's native one. Plugins
     // construct it from a record (`new URLSearchParams({novelId: id})`) or pairs, not just a
     // string, so a string-only shim silently drops every param (novelbin's chapter URL 400s,
     // search 404s). Mirror the WHATWG init types and the method surface plugins use.
     var USP = function (init) {
       this._p = [];
-      if (typeof init === 'string') {
+      if (typeof init === "string") {
         var self = this;
-        init.replace(/^\?/, '').split('&').forEach(function (kv) {
-          if (!kv) return;
-          var i = kv.indexOf('=');
-          var k = i < 0 ? kv : kv.slice(0, i);
-          var v = i < 0 ? '' : kv.slice(i + 1);
-          self._p.push([decodeURIComponent(k.replace(/\+/g, ' ')), decodeURIComponent(v.replace(/\+/g, ' '))]);
-        });
+        init
+          .replace(/^\?/, "")
+          .split("&")
+          .forEach(function (kv) {
+            if (!kv) return;
+            var i = kv.indexOf("=");
+            var k = i < 0 ? kv : kv.slice(0, i);
+            var v = i < 0 ? "" : kv.slice(i + 1);
+            self._p.push([
+              decodeURIComponent(k.replace(/\+/g, " ")),
+              decodeURIComponent(v.replace(/\+/g, " ")),
+            ]);
+          });
       } else if (Array.isArray(init)) {
-        for (var j = 0; j < init.length; j++) this._p.push([String(init[j][0]), String(init[j][1])]);
-      } else if (init && typeof init === 'object') {
+        for (var j = 0; j < init.length; j++)
+          this._p.push([String(init[j][0]), String(init[j][1])]);
+      } else if (init && typeof init === "object") {
         for (var key in init) {
-          if (Object.prototype.hasOwnProperty.call(init, key)) this._p.push([key, String(init[key])]);
+          if (Object.prototype.hasOwnProperty.call(init, key))
+            this._p.push([key, String(init[key])]);
         }
       }
     };
-    USP.prototype.append = function (k, v) { this._p.push([String(k), String(v)]); };
+    USP.prototype.append = function (k, v) {
+      this._p.push([String(k), String(v)]);
+    };
     USP.prototype.set = function (k, v) {
-      k = String(k); v = String(v);
-      var found = false; var out = [];
+      k = String(k);
+      v = String(v);
+      var found = false;
+      var out = [];
       for (var i = 0; i < this._p.length; i++) {
-        if (this._p[i][0] === k) { if (!found) { out.push([k, v]); found = true; } } else out.push(this._p[i]);
+        if (this._p[i][0] === k) {
+          if (!found) {
+            out.push([k, v]);
+            found = true;
+          }
+        } else out.push(this._p[i]);
       }
       if (!found) out.push([k, v]);
       this._p = out;
     };
-    USP.prototype['delete'] = function (k) { k = String(k); this._p = this._p.filter(function (e) { return e[0] !== k; }); };
+    USP.prototype["delete"] = function (k) {
+      k = String(k);
+      this._p = this._p.filter(function (e) {
+        return e[0] !== k;
+      });
+    };
     USP.prototype.get = function (k) {
       k = String(k);
-      for (var i = 0; i < this._p.length; i++) if (this._p[i][0] === k) return this._p[i][1];
+      for (var i = 0; i < this._p.length; i++)
+        if (this._p[i][0] === k) return this._p[i][1];
       return null;
     };
-    USP.prototype.getAll = function (k) { k = String(k); return this._p.filter(function (e) { return e[0] === k; }).map(function (e) { return e[1]; }); };
-    USP.prototype.has = function (k) { k = String(k); return this._p.some(function (e) { return e[0] === k; }); };
-    USP.prototype.forEach = function (fn, thisArg) { this._p.forEach(function (e) { fn.call(thisArg, e[1], e[0], this); }, this); };
-    USP.prototype.keys = function () { return this._p.map(function (e) { return e[0]; }); };
-    USP.prototype.values = function () { return this._p.map(function (e) { return e[1]; }); };
-    USP.prototype.entries = function () { return this._p.slice(); };
-    USP.prototype[Symbol.iterator] = function () { return this._p.slice()[Symbol.iterator](); };
+    USP.prototype.getAll = function (k) {
+      k = String(k);
+      return this._p
+        .filter(function (e) {
+          return e[0] === k;
+        })
+        .map(function (e) {
+          return e[1];
+        });
+    };
+    USP.prototype.has = function (k) {
+      k = String(k);
+      return this._p.some(function (e) {
+        return e[0] === k;
+      });
+    };
+    USP.prototype.forEach = function (fn, thisArg) {
+      this._p.forEach(function (e) {
+        fn.call(thisArg, e[1], e[0], this);
+      }, this);
+    };
+    USP.prototype.keys = function () {
+      return this._p.map(function (e) {
+        return e[0];
+      });
+    };
+    USP.prototype.values = function () {
+      return this._p.map(function (e) {
+        return e[1];
+      });
+    };
+    USP.prototype.entries = function () {
+      return this._p.slice();
+    };
+    USP.prototype[Symbol.iterator] = function () {
+      return this._p.slice()[Symbol.iterator]();
+    };
     USP.prototype.toString = function () {
-      return this._p.map(function (e) { return encodeURIComponent(e[0]) + '=' + encodeURIComponent(e[1]); }).join('&');
+      return this._p
+        .map(function (e) {
+          return encodeURIComponent(e[0]) + "=" + encodeURIComponent(e[1]);
+        })
+        .join("&");
     };
     globalThis.URLSearchParams = USP;
   }
 
-  if (typeof globalThis.URL === 'undefined') {
+  if (typeof globalThis.URL === "undefined") {
     // Minimal WHATWG URL. lnreader's RN runtime ships react-native-url-polyfill; QuickJS has
     // nothing, and the ReadNovelFull/Madara families do `new URL(href, site)` to resolve relative
     // links (crash: "URL is not defined"). Covers the read surface plugins use plus base
     // resolution. Not spec-complete: no IDNA, userinfo, or port normalization.
     var URLP = function (url, base) {
-      var resolved = URLP._resolve(String(url), base != null ? String(base) : null);
-      var m = /^([^:/?#]+):\/\/([^/?#]*)([^?#]*)(\?[^#]*)?(#.*)?$/.exec(resolved);
-      if (!m) throw new TypeError('Invalid URL: ' + url);
-      this.protocol = m[1].toLowerCase() + ':';
+      var resolved = URLP._resolve(
+        String(url),
+        base != null ? String(base) : null,
+      );
+      var m = /^([^:/?#]+):\/\/([^/?#]*)([^?#]*)(\?[^#]*)?(#.*)?$/.exec(
+        resolved,
+      );
+      if (!m) throw new TypeError("Invalid URL: " + url);
+      this.protocol = m[1].toLowerCase() + ":";
       var hostport = m[2];
-      var colon = hostport.lastIndexOf(':');
+      var colon = hostport.lastIndexOf(":");
       this.hostname = colon < 0 ? hostport : hostport.slice(0, colon);
-      this.port = colon < 0 ? '' : hostport.slice(colon + 1);
+      this.port = colon < 0 ? "" : hostport.slice(colon + 1);
       this.host = hostport;
-      this.origin = this.protocol + '//' + this.host;
-      this.pathname = m[3] || '/';
-      this.search = m[4] || '';
-      this.hash = m[5] || '';
+      this.origin = this.protocol + "//" + this.host;
+      this.pathname = m[3] || "/";
+      this.search = m[4] || "";
+      this.hash = m[5] || "";
       this.searchParams = new URLSearchParams(this.search);
     };
     URLP.prototype.toString = function () {
       var s = this.searchParams.toString();
-      return this.protocol + '//' + this.host + this.pathname + (s ? '?' + s : '') + this.hash;
+      return (
+        this.protocol +
+        "//" +
+        this.host +
+        this.pathname +
+        (s ? "?" + s : "") +
+        this.hash
+      );
     };
-    Object.defineProperty(URLP.prototype, 'href', {
-      get: function () { return this.toString(); }, enumerable: true,
+    Object.defineProperty(URLP.prototype, "href", {
+      get: function () {
+        return this.toString();
+      },
+      enumerable: true,
     });
     // RFC 3986 reference resolution: absolute as-is, else resolve against base.
     URLP._resolve = function (url, base) {
       if (/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) return url;
-      if (!base) throw new TypeError('Invalid base URL for: ' + url);
-      var b = /^([a-z][a-z0-9+.-]*):\/\/([^/?#]*)([^?#]*)(\?[^#]*)?(#.*)?$/i.exec(base);
-      if (!b) throw new TypeError('Invalid base URL: ' + base);
-      var scheme = b[1], authority = b[2], basePath = b[3] || '/';
-      if (url.indexOf('//') === 0) return scheme + ':' + url;
-      if (url.charAt(0) === '/') return scheme + '://' + authority + url;
-      if (url.charAt(0) === '?') return scheme + '://' + authority + basePath + url;
-      if (url.charAt(0) === '#') return scheme + '://' + authority + basePath + (b[4] || '') + url;
-      var dir = basePath.slice(0, basePath.lastIndexOf('/') + 1);
+      if (!base) throw new TypeError("Invalid base URL for: " + url);
+      var b =
+        /^([a-z][a-z0-9+.-]*):\/\/([^/?#]*)([^?#]*)(\?[^#]*)?(#.*)?$/i.exec(
+          base,
+        );
+      if (!b) throw new TypeError("Invalid base URL: " + base);
+      var scheme = b[1],
+        authority = b[2],
+        basePath = b[3] || "/";
+      if (url.indexOf("//") === 0) return scheme + ":" + url;
+      if (url.charAt(0) === "/") return scheme + "://" + authority + url;
+      if (url.charAt(0) === "?")
+        return scheme + "://" + authority + basePath + url;
+      if (url.charAt(0) === "#")
+        return scheme + "://" + authority + basePath + (b[4] || "") + url;
+      var dir = basePath.slice(0, basePath.lastIndexOf("/") + 1);
       var out = [];
-      (dir + url).split('/').forEach(function (seg) {
-        if (seg === '.') return;
-        if (seg === '..') { if (out.length > 1) out.pop(); return; }
+      (dir + url).split("/").forEach(function (seg) {
+        if (seg === ".") return;
+        if (seg === "..") {
+          if (out.length > 1) out.pop();
+          return;
+        }
         out.push(seg);
       });
-      return scheme + '://' + authority + out.join('/');
+      return scheme + "://" + authority + out.join("/");
     };
     globalThis.URL = URLP;
   }
 
-  if (typeof globalThis.FormData === 'undefined') {
-    var FD = function () { this._p = []; };
-    FD.prototype.append = function (k, v) { this._p.push([String(k), typeof v === 'string' ? v : String(v)]); };
-    FD.prototype.entries = function () { return this._p.slice(); };
+  if (typeof globalThis.FormData === "undefined") {
+    var FD = function () {
+      this._p = [];
+    };
+    FD.prototype.append = function (k, v) {
+      this._p.push([String(k), typeof v === "string" ? v : String(v)]);
+    };
+    FD.prototype.entries = function () {
+      return this._p.slice();
+    };
     globalThis.FormData = FD;
   }
 
-  if (typeof globalThis.TextEncoder === 'undefined') {
+  if (typeof globalThis.TextEncoder === "undefined") {
     var TE = function () {};
     TE.prototype.encode = function (s) {
       var u = unescape(encodeURIComponent(String(s)));
@@ -156,7 +253,8 @@
     globalThis.TextEncoder = TE;
     var TD = function () {};
     TD.prototype.decode = function (b) {
-      var a = new Uint8Array(b); var s = '';
+      var a = new Uint8Array(b);
+      var s = "";
       for (var i = 0; i < a.length; i++) s += String.fromCharCode(a[i]);
       return decodeURIComponent(escape(s));
     };
@@ -166,11 +264,12 @@
   // QuickJS has no btoa/atob (the WebView host inherited them from the browser). A few plugins
   // (wtrlab, komga, fictioneer custom transforms) base64 binary strings directly. Latin1 in/out,
   // matching the browser contract.
-  if (typeof globalThis.btoa === 'undefined') {
-    var B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  if (typeof globalThis.btoa === "undefined") {
+    var B64_CHARS =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     globalThis.btoa = function (input) {
       var str = String(input);
-      var output = '';
+      var output = "";
       for (var i = 0; i < str.length; i += 3) {
         var hasB1 = i + 1 < str.length;
         var hasB2 = i + 2 < str.length;
@@ -179,14 +278,16 @@
         var b2 = hasB2 ? str.charCodeAt(i + 2) & 0xff : 0;
         output += B64_CHARS.charAt(b0 >> 2);
         output += B64_CHARS.charAt(((b0 & 0x03) << 4) | (b1 >> 4));
-        output += hasB1 ? B64_CHARS.charAt(((b1 & 0x0f) << 2) | (b2 >> 6)) : '=';
-        output += hasB2 ? B64_CHARS.charAt(b2 & 0x3f) : '=';
+        output += hasB1
+          ? B64_CHARS.charAt(((b1 & 0x0f) << 2) | (b2 >> 6))
+          : "=";
+        output += hasB2 ? B64_CHARS.charAt(b2 & 0x3f) : "=";
       }
       return output;
     };
     globalThis.atob = function (input) {
-      var str = String(input).replace(/[^A-Za-z0-9+/]/g, '');
-      var output = '';
+      var str = String(input).replace(/[^A-Za-z0-9+/]/g, "");
+      var output = "";
       for (var i = 0; i < str.length; i += 4) {
         var e0 = B64_CHARS.indexOf(str.charAt(i));
         var e1 = B64_CHARS.indexOf(str.charAt(i + 1));
@@ -204,6 +305,141 @@
     };
   }
 
+  // QuickJS has no Headers. Plugins (mtlnovel family, readfrom, novelyra) build request headers with
+  // `new Headers({...})` and pass it as init.headers; without this they crash "'Headers' is not
+  // defined". WHATWG-ish: case-insensitive names, append concatenates, the method surface plugins use.
+  if (typeof globalThis.Headers === "undefined") {
+    var H = function (init) {
+      this._h = {};
+      if (init) {
+        var self = this;
+        if (init instanceof H) {
+          init.forEach(function (v, k) {
+            self.append(k, v);
+          });
+        } else if (Array.isArray(init)) {
+          for (var i = 0; i < init.length; i++)
+            this.append(init[i][0], init[i][1]);
+        } else if (typeof init === "object") {
+          for (var k in init) {
+            if (Object.prototype.hasOwnProperty.call(init, k))
+              this.append(k, init[k]);
+          }
+        }
+      }
+    };
+    H.prototype.append = function (k, v) {
+      k = String(k).toLowerCase();
+      this._h[k] =
+        this._h[k] != null ? this._h[k] + ", " + String(v) : String(v);
+    };
+    H.prototype.set = function (k, v) {
+      this._h[String(k).toLowerCase()] = String(v);
+    };
+    H.prototype.get = function (k) {
+      k = String(k).toLowerCase();
+      return this._h[k] != null ? this._h[k] : null;
+    };
+    H.prototype.has = function (k) {
+      return Object.prototype.hasOwnProperty.call(
+        this._h,
+        String(k).toLowerCase(),
+      );
+    };
+    H.prototype["delete"] = function (k) {
+      delete this._h[String(k).toLowerCase()];
+    };
+    H.prototype.forEach = function (fn, thisArg) {
+      var self = this;
+      Object.keys(this._h).forEach(function (k) {
+        fn.call(thisArg, self._h[k], k, self);
+      });
+    };
+    H.prototype.keys = function () {
+      return Object.keys(this._h);
+    };
+    H.prototype.values = function () {
+      var self = this;
+      return Object.keys(this._h).map(function (k) {
+        return self._h[k];
+      });
+    };
+    H.prototype.entries = function () {
+      var self = this;
+      return Object.keys(this._h).map(function (k) {
+        return [k, self._h[k]];
+      });
+    };
+    globalThis.Headers = H;
+  }
+
+  // QuickJS has no timers and dokar wires only the microtask queue. Plugins (inoveltranslation, ReN)
+  // use setTimeout for politeness delays; run the callback on the next microtask (delay ignored, which
+  // is fine for scraping) so `await new Promise(r => setTimeout(r, n))` resolves instead of crashing.
+  if (typeof globalThis.setTimeout === "undefined") {
+    var _timers = {};
+    var _tid = 1;
+    globalThis.setTimeout = function (fn, _ms) {
+      var id = _tid++;
+      _timers[id] = true;
+      Promise.resolve().then(function () {
+        if (_timers[id]) {
+          delete _timers[id];
+          try {
+            fn();
+          } catch (e) {
+            log("error", "setTimeout cb: " + ((e && e.message) || e));
+          }
+        }
+      });
+      return id;
+    };
+    globalThis.clearTimeout = function (id) {
+      delete _timers[id];
+    };
+    globalThis.setInterval = function () {
+      return 0;
+    }; // no repeat loop headlessly
+    globalThis.clearInterval = function () {};
+  }
+
+  // QuickJS (dokar build) ships no Intl. RLIB references it at load time and crashes "'Intl' is not
+  // defined". Minimal stub: enough for plugins that format dates/numbers for display. Not locale-aware
+  // (returns the default string form), so verify any plugin that depends on localized output.
+  if (typeof globalThis.Intl === "undefined") {
+    globalThis.Intl = {
+      DateTimeFormat: function (_l, opts) {
+        return {
+          format: function (d) {
+            return new Date(d).toString();
+          },
+          resolvedOptions: function () {
+            return opts || {};
+          },
+        };
+      },
+      NumberFormat: function (_l, opts) {
+        return {
+          format: function (n) {
+            return String(n);
+          },
+          resolvedOptions: function () {
+            return opts || {};
+          },
+        };
+      },
+      Collator: function () {
+        return {
+          compare: function (a, b) {
+            a = String(a);
+            b = String(b);
+            return a < b ? -1 : a > b ? 1 : 0;
+          },
+        };
+      },
+    };
+  }
+
   // -- @libs/fetch shim -------------------------------------------------------
   // Plugins expect a Response-like object. We synthesize the methods plugins actually use.
   // No .blob(): QuickJS has no Blob and novel sources are text-only; a plugin calling .blob()
@@ -214,17 +450,32 @@
     return {
       // Final URL after redirects. The Madara plugin family reads response.url to detect
       // Cloudflare/captcha redirects; without it they crash on undefined.split('/').
-      url: payload.url || '',
+      url: payload.url || "",
       status: payload.status,
-      statusText: payload.statusText || '',
+      statusText: payload.statusText || "",
       ok: payload.status >= 200 && payload.status < 300,
       headers: {
-        get: function (name) { return headersObj[name.toLowerCase()] || null; },
-        has: function (name) { return Object.prototype.hasOwnProperty.call(headersObj, name.toLowerCase()); },
-        forEach: function (fn) { Object.keys(headersObj).forEach(function (k) { fn(headersObj[k], k); }); },
+        get: function (name) {
+          return headersObj[name.toLowerCase()] || null;
+        },
+        has: function (name) {
+          return Object.prototype.hasOwnProperty.call(
+            headersObj,
+            name.toLowerCase(),
+          );
+        },
+        forEach: function (fn) {
+          Object.keys(headersObj).forEach(function (k) {
+            fn(headersObj[k], k);
+          });
+        },
       },
-      text: function () { return Promise.resolve(payload.body); },
-      json: function () { return Promise.resolve(JSON.parse(payload.body)); },
+      text: function () {
+        return Promise.resolve(payload.body);
+      },
+      json: function () {
+        return Promise.resolve(JSON.parse(payload.body));
+      },
     };
   }
 
@@ -233,8 +484,11 @@
   // non-browser request, which is why sources that work in the lnreader app failed here. User-Agent
   // is supplied by the app's UserAgentInterceptor; Accept-Encoding is left to OkHttp (transparent gzip).
   var DEFAULT_HEADERS = {
-    'Accept': '*/*', 'Accept-Language': '*', 'Sec-Fetch-Mode': 'cors',
-    'Cache-Control': 'max-age=0', 'Connection': 'keep-alive',
+    Accept: "*/*",
+    "Accept-Language": "*",
+    "Sec-Fetch-Mode": "cors",
+    "Cache-Control": "max-age=0",
+    Connection: "keep-alive",
   };
 
   async function fetchApi(url, init) {
@@ -242,8 +496,18 @@
     // Merge the defaults under the plugin's headers (plugin wins, case-insensitively).
     var merged = Object.assign({}, DEFAULT_HEADERS);
     var provided = normalized.headers || {};
+    // A plugin may pass a Headers instance; flatten it to a plain object (its data lives in _h).
+    if (provided instanceof globalThis.Headers) {
+      var po = {};
+      provided.forEach(function (v, k) {
+        po[k] = v;
+      });
+      provided = po;
+    }
     Object.keys(provided).forEach(function (k) {
-      Object.keys(merged).forEach(function (d) { if (d.toLowerCase() === k.toLowerCase()) delete merged[d]; });
+      Object.keys(merged).forEach(function (d) {
+        if (d.toLowerCase() === k.toLowerCase()) delete merged[d];
+      });
       merged[k] = provided[k];
     });
     normalized.headers = merged;
@@ -252,15 +516,21 @@
     // answer multipart and reply "0" otherwise. The Kotlin bridge builds the multipart body from the
     // field pairs. URLSearchParams stays urlencoded (that's its own content type).
     if (normalized.body instanceof FormData) {
-      normalized.multipart = Array.from(normalized.body.entries()).map(function (e) {
-        return [e[0], typeof e[1] === 'string' ? e[1] : String(e[1])];
-      });
+      normalized.multipart = Array.from(normalized.body.entries()).map(
+        function (e) {
+          return [e[0], typeof e[1] === "string" ? e[1] : String(e[1])];
+        },
+      );
       delete normalized.body;
     } else if (normalized.body instanceof URLSearchParams) {
       normalized.body = normalized.body.toString();
       normalized.headers = Object.assign({}, normalized.headers || {});
-      var hasCT = Object.keys(normalized.headers).some(function (h) { return h.toLowerCase() === 'content-type'; });
-      if (!hasCT) normalized.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      var hasCT = Object.keys(normalized.headers).some(function (h) {
+        return h.toLowerCase() === "content-type";
+      });
+      if (!hasCT)
+        normalized.headers["Content-Type"] =
+          "application/x-www-form-urlencoded";
     }
     var raw = JSON.parse(await __lnFetch(url, JSON.stringify(normalized)));
     if (raw && raw.error) throw new Error(raw.error);
@@ -269,44 +539,56 @@
 
   async function fetchText(url, init) {
     var res = await fetchApi(url, init);
-    if (!res.ok) return '';
+    if (!res.ok) return "";
     return await res.text();
   }
+
+  // Some plugins (ixdzs8, rainofsnow) call the global fetch() directly instead of @libs/fetch. Route
+  // it through the same Kotlin OkHttp bridge, NOT native fetch (which would bypass the Cloudflare /
+  // Flaresolverr interceptors), matching the "fetch is never exposed natively" rule above.
+  globalThis.fetch = fetchApi;
 
   // gRPC-web client. protobufjs (vendored) parses the plugin's .proto string and encodes/decodes
   // messages; we add the 5-byte gRPC-web frame and round-trip the binary through the Kotlin bridge
   // as base64 (QuickJS has no Blob/FileReader, so we can't use lnreader's transport). WuxiaWorld.
   async function fetchProto(protoInit, url, init) {
     var pb = globalThis.protobuf;
-    if (!pb) throw new Error('protobufjs not loaded');
+    if (!pb) throw new Error("protobufjs not loaded");
     var b64 = pb.util.base64;
     var root = pb.parse(protoInit.proto).root;
     var ReqT = root.lookupType(protoInit.requestType);
     var verr = ReqT.verify(protoInit.requestData || {});
-    if (verr) throw new Error('Invalid Proto: ' + verr);
+    if (verr) throw new Error("Invalid Proto: " + verr);
     var msg = ReqT.encode(protoInit.requestData || {}).finish();
     // gRPC-web frame: 1 flag byte (uncompressed) + 4-byte big-endian length, then the message.
     var framed = new Uint8Array(5 + msg.length);
-    framed[1] = (msg.length >>> 24) & 0xff; framed[2] = (msg.length >>> 16) & 0xff;
-    framed[3] = (msg.length >>> 8) & 0xff; framed[4] = msg.length & 0xff;
+    framed[1] = (msg.length >>> 24) & 0xff;
+    framed[2] = (msg.length >>> 16) & 0xff;
+    framed[3] = (msg.length >>> 8) & 0xff;
+    framed[4] = msg.length & 0xff;
     framed.set(msg, 5);
 
     var normalized = init ? Object.assign({}, init) : {};
-    normalized.method = 'POST';
+    normalized.method = "POST";
     normalized.binary = true;
     normalized.bodyBase64 = b64.encode(framed, 0, framed.length);
     delete normalized.body;
 
     var raw = JSON.parse(await __lnFetch(url, JSON.stringify(normalized)));
     if (raw && raw.error) throw new Error(raw.error);
-    var enc = raw.bodyBase64 || '';
+    var enc = raw.bodyBase64 || "";
     var resp = new Uint8Array(b64.length(enc));
     b64.decode(enc, resp, 0);
-    if (resp.length < 5) throw new Error('Empty gRPC-web response');
+    if (resp.length < 5) throw new Error("Empty gRPC-web response");
     var rlen = (resp[1] << 24) | (resp[2] << 16) | (resp[3] << 8) | resp[4];
     var RespT = root.lookupType(protoInit.responseType);
     return RespT.toObject(RespT.decode(resp.subarray(5, 5 + rlen)), {
-      longs: String, enums: String, bytes: String, defaults: true, arrays: true, objects: true,
+      longs: String,
+      enums: String,
+      bytes: String,
+      defaults: true,
+      arrays: true,
+      objects: true,
     });
   }
 
@@ -317,13 +599,13 @@
   // with their type (refs/lnreader-main/src/plugins/helpers/storage.ts) instead of stringifying.
 
   function makeStorage(pluginId, kind) {
-    var prefix = kind + ':';
+    var prefix = kind + ":";
     return {
       set: function (key, value, expires) {
         var item = {
           created: new Date(),
           value: value,
-          expires: (expires instanceof Date) ? expires.getTime() : expires,
+          expires: expires instanceof Date ? expires.getTime() : expires,
         };
         __lnSetStorage(pluginId, prefix + key, JSON.stringify(item));
       },
@@ -331,8 +613,12 @@
         var stored = __lnGetStorage(pluginId, prefix + key);
         if (stored === null || stored === undefined) return undefined;
         var item;
-        try { item = JSON.parse(stored); } catch (e) { return stored; } // legacy plain value
-        if (item && typeof item === 'object' && 'value' in item) {
+        try {
+          item = JSON.parse(stored);
+        } catch (e) {
+          return stored;
+        } // legacy plain value
+        if (item && typeof item === "object" && "value" in item) {
           if (item.expires && Date.now() > item.expires) {
             __lnSetStorage(pluginId, prefix + key, null);
             return undefined;
@@ -341,69 +627,113 @@
         }
         return item;
       },
-      delete: function (key) { __lnSetStorage(pluginId, prefix + key, null); },
+      delete: function (key) {
+        __lnSetStorage(pluginId, prefix + key, null);
+      },
     };
   }
 
   // -- @libs/* data constants -------------------------------------------------
 
   var NovelStatus = Object.freeze({
-    Unknown: 'Unknown', Ongoing: 'Ongoing', Completed: 'Completed', Licensed: 'Licensed',
-    PublishingFinished: 'Publishing Finished', Cancelled: 'Cancelled', OnHiatus: 'On Hiatus',
+    Unknown: "Unknown",
+    Ongoing: "Ongoing",
+    Completed: "Completed",
+    Licensed: "Licensed",
+    PublishingFinished: "Publishing Finished",
+    Cancelled: "Cancelled",
+    OnHiatus: "On Hiatus",
   });
   var FilterTypes = Object.freeze({
-    TextInput: 'TextInput', Picker: 'Picker', Checkbox: 'Checkbox', Switch: 'Switch',
-    XCheckbox: 'XCheckbox', ExcludableCheckboxGroup: 'ExcludableCheckboxGroup',
+    TextInput: "TextInput",
+    Picker: "Picker",
+    Checkbox: "Checkbox",
+    Switch: "Switch",
+    XCheckbox: "XCheckbox",
+    ExcludableCheckboxGroup: "ExcludableCheckboxGroup",
   });
-  var defaultCover = 'https://github.com/LNReader/lnreader-sources/blob/main/icons/no-cover.jpg?raw=true';
-  function isUrlAbsolute(url) { return /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(url); }
-  function utf8ToBytes(s) { return Array.from(new TextEncoder().encode(s)); }
-  function bytesToUtf8(b) { return new TextDecoder().decode(new Uint8Array(b)); }
+  var defaultCover =
+    "https://github.com/LNReader/lnreader-sources/blob/main/icons/no-cover.jpg?raw=true";
+  function isUrlAbsolute(url) {
+    return /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(url);
+  }
+  function utf8ToBytes(s) {
+    return Array.from(new TextEncoder().encode(s));
+  }
+  function bytesToUtf8(b) {
+    return new TextDecoder().decode(new Uint8Array(b));
+  }
   var urlencode = {
-    encode: function (s) { return encodeURIComponent(String(s)); },
-    decode: function (s) { return decodeURIComponent(String(s)); },
+    encode: function (s) {
+      return encodeURIComponent(String(s));
+    },
+    decode: function (s) {
+      return decodeURIComponent(String(s));
+    },
   };
   // @libs/aes is backed by the @noble/ciphers vendor bundle (globalThis.nobleCiphers). The stub is
   // a fallback that throws a clear error if the bundle somehow didn't load.
-  var aesStub = new Proxy({}, {
-    get: function (_t, prop) { return function () { throw new Error('@libs/aes not available (' + String(prop) + ')'); }; },
-  });
-  var aesLib = (typeof globalThis.nobleCiphers !== 'undefined' && globalThis.nobleCiphers.gcm)
-    ? { gcm: globalThis.nobleCiphers.gcm }
-    : aesStub;
+  var aesStub = new Proxy(
+    {},
+    {
+      get: function (_t, prop) {
+        return function () {
+          throw new Error("@libs/aes not available (" + String(prop) + ")");
+        };
+      },
+    },
+  );
+  var aesLib =
+    typeof globalThis.nobleCiphers !== "undefined" &&
+    globalThis.nobleCiphers.gcm
+      ? { gcm: globalThis.nobleCiphers.gcm }
+      : aesStub;
 
   // -- the require() resolver -------------------------------------------------
 
   function makeRequire(pluginId) {
     var packages = {
-      'cheerio': globalThis.cheerio,
-      'htmlparser2': globalThis.htmlparser2,
-      'dayjs': globalThis.dayjs,
-      'protobufjs': globalThis.protobuf,
-      'urlencode': urlencode,
-      '@libs/novelStatus': { NovelStatus: NovelStatus },
-      '@libs/fetch': { fetchApi: fetchApi, fetchText: fetchText, fetchProto: fetchProto },
-      '@libs/isAbsoluteUrl': { isUrlAbsolute: isUrlAbsolute },
-      '@libs/filterInputs': { FilterTypes: FilterTypes },
-      '@libs/defaultCover': { defaultCover: defaultCover },
+      cheerio: globalThis.cheerio,
+      htmlparser2: globalThis.htmlparser2,
+      dayjs: globalThis.dayjs,
+      protobufjs: globalThis.protobuf,
+      urlencode: urlencode,
+      "@libs/novelStatus": { NovelStatus: NovelStatus },
+      "@libs/fetch": {
+        fetchApi: fetchApi,
+        fetchText: fetchText,
+        fetchProto: fetchProto,
+      },
+      "@libs/isAbsoluteUrl": { isUrlAbsolute: isUrlAbsolute },
+      "@libs/filterInputs": { FilterTypes: FilterTypes },
+      "@libs/defaultCover": { defaultCover: defaultCover },
       // Runtime constants module (NovelStatus + defaultCover values); some plugins (novelfire)
       // import from here rather than the @libs aliases. @/types/plugin is types-only (erased at
       // compile) so it never reaches require.
-      '@/types/constants': { NovelStatus: NovelStatus, defaultCover: defaultCover },
-      '@libs/aes': aesLib,
-      '@libs/utils': { utf8ToBytes: utf8ToBytes, bytesToUtf8: bytesToUtf8 },
+      "@/types/constants": {
+        NovelStatus: NovelStatus,
+        defaultCover: defaultCover,
+      },
+      "@libs/aes": aesLib,
+      "@libs/utils": { utf8ToBytes: utf8ToBytes, bytesToUtf8: bytesToUtf8 },
     };
     return function _require(name) {
-      if (name === '@libs/storage') {
+      if (name === "@libs/storage") {
         return {
-          storage: makeStorage(pluginId, 'storage'),
-          localStorage: makeStorage(pluginId, 'local'),
-          sessionStorage: makeStorage(pluginId, 'session'),
+          storage: makeStorage(pluginId, "storage"),
+          localStorage: makeStorage(pluginId, "local"),
+          sessionStorage: makeStorage(pluginId, "session"),
         };
       }
       var pkg = packages[name];
       if (pkg === undefined) {
-        log('warn', 'require: unknown module "' + name + '" requested by plugin ' + pluginId);
+        log(
+          "warn",
+          'require: unknown module "' +
+            name +
+            '" requested by plugin ' +
+            pluginId,
+        );
         return undefined;
       }
       return pkg;
@@ -416,8 +746,18 @@
 
   // No-op storage trio for the discovery pass: doesn't touch Kotlin so no SharedPreferences file is
   // allocated for a scope we'd abandon.
-  var NOOP = { get: function () { return null; }, set: function () {}, delete: function () {} };
-  var NOOP_STORAGE = { storage: NOOP, localStorage: NOOP, sessionStorage: NOOP };
+  var NOOP = {
+    get: function () {
+      return null;
+    },
+    set: function () {},
+    delete: function () {},
+  };
+  var NOOP_STORAGE = {
+    storage: NOOP,
+    localStorage: NOOP,
+    sessionStorage: NOOP,
+  };
 
   function loadPlugin(pluginId, rawCode, iconUrl, lang) {
     try {
@@ -426,23 +766,45 @@
       var canonicalId = pluginId;
       try {
         var baseReq = makeRequire(pluginId);
-        var discoverReq = function (name) { return name === '@libs/storage' ? NOOP_STORAGE : baseReq(name); };
+        var discoverReq = function (name) {
+          return name === "@libs/storage" ? NOOP_STORAGE : baseReq(name);
+        };
         var dm = { exports: {} };
-        var df = new Function('require', 'module', 'exports', rawCode + '\nreturn module.exports.default || module.exports;');
+        var df = new Function(
+          "require",
+          "module",
+          "exports",
+          rawCode + "\nreturn module.exports.default || module.exports;",
+        );
         var discovered = df(discoverReq, dm, dm.exports);
         if (discovered && discovered.id) canonicalId = discovered.id;
       } catch (e) {
-        log('warn', 'plugin id discovery failed for ' + pluginId + ': ' + (e && e.message || e));
+        log(
+          "warn",
+          "plugin id discovery failed for " +
+            pluginId +
+            ": " +
+            ((e && e.message) || e),
+        );
       }
 
       // Pass 2: real load. Storage scope is canonicalId; registry key is always plugin.id.
       var req = makeRequire(canonicalId);
       var m = { exports: {} };
-      var fn = new Function('require', 'module', 'exports', rawCode + '\nreturn module.exports.default || module.exports;');
+      var fn = new Function(
+        "require",
+        "module",
+        "exports",
+        rawCode + "\nreturn module.exports.default || module.exports;",
+      );
       var plugin = fn(req, m, m.exports);
-      if (!plugin || !plugin.id) throw new Error('plugin did not export a default with .id');
+      if (!plugin || !plugin.id)
+        throw new Error("plugin did not export a default with .id");
       plugins.set(plugin.id, plugin);
-      log('info', 'loaded plugin ' + plugin.id + ' v' + (plugin.version || '?'));
+      log(
+        "info",
+        "loaded plugin " + plugin.id + " v" + (plugin.version || "?"),
+      );
       return {
         id: plugin.id,
         name: plugin.name,
@@ -458,7 +820,7 @@
         pluginSettings: plugin.pluginSettings || null,
       };
     } catch (e) {
-      log('error', 'loadPlugin failed: ' + (e && e.stack ? e.stack : e));
+      log("error", "loadPlugin failed: " + (e && e.stack ? e.stack : e));
       throw e;
     }
   }
@@ -469,14 +831,26 @@
   async function callMethod(pluginId, method, argsJson) {
     try {
       var plugin = plugins.get(pluginId);
-      if (!plugin) throw new Error('plugin not loaded: ' + pluginId);
-      if (typeof plugin[method] !== 'function') throw new Error('method ' + method + ' missing on ' + pluginId);
-      var args = JSON.parse(argsJson || '[]');
+      if (!plugin) throw new Error("plugin not loaded: " + pluginId);
+      if (typeof plugin[method] !== "function")
+        throw new Error("method " + method + " missing on " + pluginId);
+      var args = JSON.parse(argsJson || "[]");
       var result = await plugin[method].apply(plugin, args);
-      return JSON.stringify({ ok: true, value: result === undefined ? null : result });
+      return JSON.stringify({
+        ok: true,
+        value: result === undefined ? null : result,
+      });
     } catch (e) {
-      var msg = (e && e.message) ? e.message : String(e);
-      log('error', 'callMethod ' + method + ' on ' + pluginId + ' failed: ' + (e && e.stack ? e.stack : msg));
+      var msg = e && e.message ? e.message : String(e);
+      log(
+        "error",
+        "callMethod " +
+          method +
+          " on " +
+          pluginId +
+          " failed: " +
+          (e && e.stack ? e.stack : msg),
+      );
       return JSON.stringify({ ok: false, error: msg });
     }
   }
@@ -485,7 +859,15 @@
 
   globalThis.__lnLoadPlugin = loadPlugin;
   globalThis.__lnCallMethod = callMethod;
-  log('info', 'lnhost headless runtime ready; vendor present: cheerio=' + !!globalThis.cheerio
-    + ' htmlparser2=' + !!globalThis.htmlparser2 + ' dayjs=' + !!globalThis.dayjs
-    + ' protobuf=' + (typeof globalThis.protobuf !== 'undefined'));
+  log(
+    "info",
+    "lnhost headless runtime ready; vendor present: cheerio=" +
+      !!globalThis.cheerio +
+      " htmlparser2=" +
+      !!globalThis.htmlparser2 +
+      " dayjs=" +
+      !!globalThis.dayjs +
+      " protobuf=" +
+      (typeof globalThis.protobuf !== "undefined"),
+  );
 })();
