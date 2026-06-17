@@ -75,6 +75,18 @@ Mirror LNReader's tracker set, reusing Mihon's existing tracker infrastructure (
 - **Scope:** `BackupNovel` / `BackupNovelChapter` / `BackupNovelCategory` (plus history + track fields once #5 / #8 land) + a novel list on the Backup root proto; backup creator + restorer; novel merge/grouping prefs. Fence Mihon backup-file edits with `// RK`. Note `BackupManga`/`BackupChapter` already carry `memo` at proto 112/13 (from the TachiyomiX sync) — novel additions use new classes/numbers.
 - **Done when:** a backup includes the novel library (favorites + chapters + categories + history + tracks + merges), and restoring on a fresh install reproduces it; on-device round-trip + an older pre-novel backup still restores.
 
+## Signed release pipeline (Mihon AGP signing)  `[M]`
+
+Independent of the LN sequence above (infra, do whenever). The rebase carried over only `build_check.yml` (PR build) and dropped Yōkai's `build_push.yml` release workflow, so release builds are currently a stopgap: debug-signed via the `// RK` island in `app/build.gradle.kts` (`signingConfig = signingConfigs.getByName("debug")`), which ties in-place upgrades to whatever machine built them. Reikai already has its own keystore plus the four signing secrets (`SIGNING_KEY` / `ALIAS` / `KEY_STORE_PASSWORD` / `KEY_PASSWORD`) on the `unseensnick/Reikai` repo from the Yōkai era.
+
+**Decision:** adopt Mihon's AGP-native signing (upstream `6552ffe31` "Sign APK with AGP", deferred from the 2026-06-17 dep sync) rather than restoring Yōkai's post-build `null2264/actions/android-signer` step, since Mihon now maintains the AGP path and it sheds the external action.
+
+- **Scope (two pieces):**
+  - (a) Signing config in `app/build.gradle.kts`, `// RK`-fenced: adapt Mihon's block, swap the `GITHUB_REPOSITORY_OWNER == "mihonapp"` CI gate to `unseensnick` (reading the four secrets from env), and keep the owner-agnostic local `keystore.properties` branch so a signed release can also be built locally with the same key; add `keystore.properties` to `.gitignore`. The existing release line then picks up the real key automatically.
+  - (b) A release workflow, successor to `main`'s `build_push.yml`, adapted to the Mihon base (no product flavors; signed `assembleRelease` outputs are now `app-<abi>-release.apk`): `workflow_dispatch` build, then publish per-ABI `reikai-*.apk` (+ sha256) to the Releases tab.
+- **Scout first:** the Mihon release surface (APK output paths, ABI-split naming, the `-Pinclude-telemetry` / `-Penable-updater` flags) before writing the workflow.
+- **Done when:** a `workflow_dispatch` release builds a signed APK with the keystore and publishes per-ABI `reikai-*.apk` to the Releases tab; it installs over an existing `.y2k` install (signature matches); and a local `assembleRelease` with `keystore.properties` present is also signed. Reference: the upstream-sync memory records the decision and the secret-name mapping.
+
 ## Parity backlog (later)
 
 Lower-priority manga↔novel parity gaps, recorded so they aren't lost. Pull into the active sequence as momentum allows; none block the items above.
