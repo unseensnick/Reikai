@@ -75,17 +75,20 @@ Mirror LNReader's tracker set, reusing Mihon's existing tracker infrastructure (
 - **Scope:** `BackupNovel` / `BackupNovelChapter` / `BackupNovelCategory` (plus history + track fields once #5 / #8 land) + a novel list on the Backup root proto; backup creator + restorer; novel merge/grouping prefs. Fence Mihon backup-file edits with `// RK`. Note `BackupManga`/`BackupChapter` already carry `memo` at proto 112/13 (from the TachiyomiX sync) — novel additions use new classes/numbers.
 - **Done when:** a backup includes the novel library (favorites + chapters + categories + history + tracks + merges), and restoring on a fresh install reproduces it; on-device round-trip + an older pre-novel backup still restores.
 
-## Signed release pipeline (Mihon AGP signing)  `[M]`
+## Signed release pipeline (Mihon AGP signing)  ✅ built 2026-06-17 (pending repo PAT + first-run verify)
 
-Independent of the LN sequence above (infra, do whenever). The rebase carried over only `build_check.yml` (PR build) and dropped Yōkai's `build_push.yml` release workflow, so release builds are currently a stopgap: debug-signed via the `// RK` island in `app/build.gradle.kts` (`signingConfig = signingConfigs.getByName("debug")`), which ties in-place upgrades to whatever machine built them. Reikai already has its own keystore plus the four signing secrets (`SIGNING_KEY` / `ALIAS` / `KEY_STORE_PASSWORD` / `KEY_PASSWORD`) on the `unseensnick/Reikai` repo from the Yōkai era.
+Replaced the rebase stopgap (debug-signed release via the `// RK` island) with AGP-native signing plus two GitHub Actions workflows, and re-pointed the in-app updater at Reikai's own release repos. Shipped in commits `88ce9e674`, `dc695cefb`, `21bf270de`, `049645a41`:
 
-**Decision:** adopt Mihon's AGP-native signing (upstream `6552ffe31` "Sign APK with AGP", deferred from the 2026-06-17 dep sync) rather than restoring Yōkai's post-build `null2264/actions/android-signer` step, since Mihon now maintains the AGP path and it sheds the external action.
+- **Signing** (`app/build.gradle.kts`, `// RK`): AGP-native, adapted from Mihon `6552ffe31`. Reconfigures the `debug` signing config the release buildType references: in CI under `unseensnick/*` it decodes the keystore from the repo secrets, locally it reads `keystore.properties` (gitignored); with neither, dev builds stay debug-signed.
+- **In-app updater** (`AppUpdateChecker.kt`, `// RK`): `GITHUB_REPO` → `unseensnick/Reikai` (release) / `unseensnick/Reikai-preview` (preview); both channels build with `-Penable-updater`.
+- **`release.yml`** (stable): a `v*` tag or `workflow_dispatch` (version/message) builds signed `assembleRelease`, publishes a **draft** release to `unseensnick/Reikai` (review gate; the updater sees it once published), `reikai-*.apk` + sha256, notes from CHANGELOG.
+- **`preview.yml`** (preview/nightly): build-on-push to `design/mihon-rebase` (+ manual) builds signed `assemblePreview`, publishes a non-prerelease to `unseensnick/Reikai-preview` via the `PREVIEW_REPO_TOKEN` PAT, tag `r{commitCount}`, commit-log notes, prunes to 28. `paths-ignore **.md` + `cancel-in-progress` keep it quiet.
+- **`build_check.yml`** migrated off the `null2264` composite to official `setup-java` (Java 21) + `setup-gradle`. Java 21 verified to build Reikai clean.
+- Decisions baked in: telemetry and foss skipped; the existing `preview` buildType is reused as the nightly channel (no new buildType); build-on-push requires the cross-repo PAT (the build runs in `Reikai`, so the signing secrets stay only here and `Reikai-preview` is a pure release bucket).
 
-- **Scope (two pieces):**
-  - (a) Signing config in `app/build.gradle.kts`, `// RK`-fenced: adapt Mihon's block, swap the `GITHUB_REPOSITORY_OWNER == "mihonapp"` CI gate to `unseensnick` (reading the four secrets from env), and keep the owner-agnostic local `keystore.properties` branch so a signed release can also be built locally with the same key; add `keystore.properties` to `.gitignore`. The existing release line then picks up the real key automatically.
-  - (b) A release workflow, successor to `main`'s `build_push.yml`, adapted to the Mihon base (no product flavors; signed `assembleRelease` outputs are now `app-<abi>-release.apk`): `workflow_dispatch` build, then publish per-ABI `reikai-*.apk` (+ sha256) to the Releases tab.
-- **Scout first:** the Mihon release surface (APK output paths, ABI-split naming, the `-Pinclude-telemetry` / `-Penable-updater` flags) before writing the workflow.
-- **Done when:** a `workflow_dispatch` release builds a signed APK with the keystore and publishes per-ABI `reikai-*.apk` to the Releases tab; it installs over an existing `.y2k` install (signature matches); and a local `assembleRelease` with `keystore.properties` present is also signed. Reference: the upstream-sync memory records the decision and the secret-name mapping.
+**Remaining (user):** create a fine-grained PAT with **Contents: write** on `unseensnick/Reikai-preview`, stored as the `PREVIEW_REPO_TOKEN` secret on `unseensnick/Reikai`. The `unseensnick/Reikai-preview` repo is already created.
+
+**Verify (first run):** a push to `design/mihon-rebase` publishes a preview to `Reikai-preview`; a tag/`workflow_dispatch` release draft-publishes to `Reikai`; on-device, About → Check for updates finds the published release and prompts, on both a release and a preview install.
 
 ## Parity backlog (later)
 
