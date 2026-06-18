@@ -4,7 +4,6 @@ import android.graphics.BitmapFactory
 import androidx.palette.graphics.Palette
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.data.cache.CoverCache
-import kotlinx.coroutines.CoroutineScope
 import okio.BufferedSource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.manga.model.MangaCover
@@ -20,7 +19,6 @@ import java.io.File
 object MangaCoverMetadata {
     private val uiPreferences: UiPreferences by injectLazy()
     private val coverCache: CoverCache by injectLazy()
-    private val scope: CoroutineScope by injectLazy()
 
     /** Restore the persisted cover colors at app startup. */
     fun load() {
@@ -46,7 +44,7 @@ object MangaCoverMetadata {
     /** Extract the vibrant color in the background, skipping work when the feature is off or already known. */
     fun setVibrantColorAsync(mangaCover: MangaCover, bufferedSource: BufferedSource? = null, ogFile: File? = null) {
         if (!uiPreferences.themeCoverBased.get() || mangaCover.vibrantCoverColor != null) return
-        scope.launchIO { setVibrantColor(mangaCover, bufferedSource, ogFile) }
+        launchIO { setVibrantColor(mangaCover, bufferedSource, ogFile) }
     }
 
     fun setVibrantColor(mangaCover: MangaCover, bufferedSource: BufferedSource? = null, ogFile: File? = null) {
