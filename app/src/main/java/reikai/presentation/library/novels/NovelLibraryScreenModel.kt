@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import reikai.data.novel.NovelStatusCode
 import reikai.domain.category.CATEGORY_HIDDEN_MASK
+import reikai.domain.category.categoryFilterActive
+import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelCategoryRepository
@@ -35,6 +37,7 @@ import reikai.domain.novel.model.toCategory
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.category.toLongIdSet
 import reikai.presentation.library.DynItem
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
@@ -141,13 +144,26 @@ class NovelLibraryScreenModel :
             reikaiLibraryPreferences.showHiddenCategories.changes(),
             reikaiLibraryPreferences.categorySortOrder.changes(),
         ) { sort, seed, cont, showHidden, catSort -> Misc(sort, seed, cont, showHidden, catSort) }
-        val filterFlow = combine(
+        val triStateFilterFlow = combine(
             reikaiLibraryPreferences.novelLibraryFilterDownloaded.changes(),
             reikaiLibraryPreferences.novelLibraryFilterUnread.changes(),
             reikaiLibraryPreferences.novelLibraryFilterStarted.changes(),
             reikaiLibraryPreferences.novelLibraryFilterCompleted.changes(),
             reikaiLibraryPreferences.novelLibraryFilterBookmarked.changes(),
         ) { d, u, s, c, b -> NovelFilters(d, u, s, c, b) }
+        // Category include/exclude rides in its own sub-flow so the tri-state combine stays at its 5-arg max.
+        val categoryFilterFlow = combine(
+            reikaiLibraryPreferences.novelLibraryFilterCategories.changes(),
+            reikaiLibraryPreferences.novelLibraryFilterCategoriesInclude.changes(),
+            reikaiLibraryPreferences.novelLibraryFilterCategoriesExclude.changes(),
+        ) { enabled, include, exclude ->
+            val inc = include.toLongIdSet()
+            val exc = exclude.toLongIdSet()
+            Triple(categoryFilterActive(enabled, inc, exc), inc, exc)
+        }
+        val filterFlow = combine(triStateFilterFlow, categoryFilterFlow) { base, (active, inc, exc) ->
+            base.copy(categoriesActive = active, categoriesInclude = inc, categoriesExclude = exc)
+        }
         val mergeFlow = combine(
             reikaiLibraryPreferences.novelManualMerges.changes(),
             reikaiLibraryPreferences.novelManualUnmerges.changes(),
@@ -596,6 +612,33 @@ class NovelLibraryScreenModel :
     val filterCompleted: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterCompleted
     val filterBookmarked: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterBookmarked
 
+    // Include/exclude category filter (novel-specific keys); the shared CategoryFilterRow reads these.
+    val filterCategoriesEnabled: Preference<Boolean> get() = reikaiLibraryPreferences.novelLibraryFilterCategories
+    val filterCategoriesInclude: Preference<Set<String>>
+        get() = reikaiLibraryPreferences.novelLibraryFilterCategoriesInclude
+    val filterCategoriesExclude: Preference<Set<String>>
+        get() = reikaiLibraryPreferences.novelLibraryFilterCategoriesExclude
+
+    fun setFilterCategories(enabled: Boolean) {
+        reikaiLibraryPreferences.novelLibraryFilterCategories.set(enabled)
+    }
+
+    fun setCategoryFilterSelections(include: Set<Long>, exclude: Set<Long>) {
+        reikaiLibraryPreferences.novelLibraryFilterCategoriesInclude.set(include.map { it.toString() }.toSet())
+        reikaiLibraryPreferences.novelLibraryFilterCategoriesExclude.set(exclude.map { it.toString() }.toSet())
+    }
+
+    /** Full novel category list (synthesized Default + user categories, sorted) for the filter picker.
+     *  Not [State.displayedCategories]: that drops empty categories and is replaced by dynamic groups
+     *  when grouping is on, neither of which suits a category filter. */
+    val filterPickerCategories: StateFlow<List<Category>> = combine(
+        getNovelCategories.subscribe(),
+        reikaiLibraryPreferences.categorySortOrder.changes(),
+    ) { categories, sortOrder ->
+        val default = Category(NovelCategory.UNCATEGORIZED_ID, context.stringResource(MR.strings.label_default), 0L, 0L)
+        reikaiSortCategories((listOf(default) + categories.map { it.toCategory() }).sortedBy { it.order }, sortOrder)
+    }.stateIn(screenModelScope, SharingStarted.WhileSubscribed(), emptyList())
+
     fun toggleFilter(pref: Preference<TriState>) {
         pref.set(
             when (pref.get()) {
@@ -625,6 +668,9 @@ class NovelLibraryScreenModel :
         val started: TriState,
         val completed: TriState,
         val bookmarked: TriState,
+        val categoriesActive: Boolean = false,
+        val categoriesInclude: Set<Long> = emptySet(),
+        val categoriesExclude: Set<Long> = emptySet(),
     )
 
     private data class Misc(
@@ -660,10 +706,12 @@ class NovelLibraryScreenModel :
             unread.matches(n.unreadCount > 0) &&
             started.matches(n.hasStarted) &&
             completed.matches(n.novel.status == NovelStatusCode.COMPLETED.toLong()) &&
-            bookmarked.matches(n.bookmarkCount > 0)
+            bookmarked.matches(n.bookmarkCount > 0) &&
+            (!categoriesActive || matchesCategoryFilter(n.categories, categoriesInclude, categoriesExclude))
 
     private val NovelFilters.hasActive: Boolean
-        get() = listOf(downloaded, unread, started, completed, bookmarked).any { it != TriState.DISABLED }
+        get() = categoriesActive ||
+            listOf(downloaded, unread, started, completed, bookmarked).any { it != TriState.DISABLED }
 
     sealed interface Dialog {
         data class ChangeCategory(val novelIds: List<Long>, val preselected: List<CheckboxState<Category>>) : Dialog

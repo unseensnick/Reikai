@@ -135,6 +135,18 @@ class ReikaiLibraryPreferences(
     val novelLibraryFilterBookmarked: Preference<TriState> =
         preferenceStore.getEnum("novel_library_filter_bookmarked", TriState.DISABLED)
 
+    /** Master switch for the novel include/exclude category filter. */
+    val novelLibraryFilterCategories: Preference<Boolean> =
+        preferenceStore.getBoolean("novel_library_filter_categories", false)
+
+    /** Category ids (as strings) a novel must belong to at least one of. Empty = no include constraint. */
+    val novelLibraryFilterCategoriesInclude: Preference<Set<String>> =
+        preferenceStore.getStringSet("novel_library_filter_categories_include", emptySet())
+
+    /** Category ids (as strings) a novel must not belong to any of. */
+    val novelLibraryFilterCategoriesExclude: Preference<Set<String>> =
+        preferenceStore.getStringSet("novel_library_filter_categories_exclude", emptySet())
+
     // endregion
 
     // region Merging (pref-based; no DB join table)

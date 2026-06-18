@@ -2,36 +2,23 @@ package reikai.presentation.library
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.ui.library.LibrarySettingsScreenModel
-import reikai.presentation.category.CategoryTriStateRows
-import reikai.presentation.category.idsWith
-import reikai.presentation.category.rememberCategoryStates
+import reikai.presentation.category.CategoryFilterRow
+import reikai.presentation.category.CategoryFilterSection
 import reikai.presentation.category.toLongIdSet
-import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
@@ -162,80 +149,19 @@ fun ColumnScope.ReikaiCategoriesFilter(
     val filterCategories by screenModel.reikaiLibraryPreferences.filterCategories.collectAsState()
     val included by screenModel.reikaiLibraryPreferences.filterCategoriesInclude.collectAsState()
     val excluded by screenModel.reikaiLibraryPreferences.filterCategoriesExclude.collectAsState()
-    var showDialog by rememberSaveable { mutableStateOf(false) }
 
-    if (showDialog) {
-        ReikaiCategoryFilterDialog(
-            categories = categories,
-            included = included.toLongIdSet(),
-            excluded = excluded.toLongIdSet(),
-            onConfirm = { include, exclude ->
-                screenModel.setCategoryFilterSelections(include, exclude)
-                showDialog = false
-            },
-            onManageCategories = {
-                showDialog = false
-                onManageCategories()
-            },
-            onDismiss = { showDialog = false },
-        )
-    }
-
-    Row(
-        modifier = Modifier
-            .clickable { screenModel.setFilterCategories(!filterCategories) }
-            .fillMaxWidth()
-            .padding(horizontal = SettingsItemsPaddings.Horizontal),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(24.dp),
-    ) {
-        Checkbox(checked = filterCategories, onCheckedChange = null)
-        Text(text = stringResource(MR.strings.categories), style = MaterialTheme.typography.bodyMedium)
-        Spacer(modifier = Modifier.weight(1f))
-        TextButton(onClick = { showDialog = true }) {
-            Text(stringResource(MR.strings.action_edit))
-        }
-    }
-}
-
-@Composable
-private fun ReikaiCategoryFilterDialog(
-    categories: List<Category>,
-    included: Set<Long>,
-    excluded: Set<Long>,
-    onConfirm: (include: Set<Long>, exclude: Set<Long>) -> Unit,
-    onManageCategories: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val defaultLabel = stringResource(MR.strings.label_default)
-    val states = rememberCategoryStates(categories, included, excluded)
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(MR.strings.categories)) },
-        text = {
-            Column(modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
-                CategoryTriStateRows(categories, states, defaultLabel)
-            }
-        },
-        // "Edit categories" sits on the left of the action row, opposite Cancel / OK.
-        confirmButton = {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onManageCategories) {
-                    Text(stringResource(MR.strings.action_edit_categories))
-                }
-                Spacer(modifier = Modifier.weight(1f))
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(MR.strings.action_cancel))
-                }
-                TextButton(
-                    onClick = {
-                        onConfirm(states.idsWith(TriState.ENABLED_IS), states.idsWith(TriState.ENABLED_NOT))
-                    },
-                ) {
-                    Text(stringResource(MR.strings.action_ok))
-                }
-            }
-        },
+    CategoryFilterRow(
+        enabled = filterCategories,
+        onToggleEnabled = screenModel::setFilterCategories,
+        sections = listOf(
+            CategoryFilterSection(
+                headingRes = null,
+                categories = categories,
+                included = included.toLongIdSet(),
+                excluded = excluded.toLongIdSet(),
+                onConfirm = screenModel::setCategoryFilterSelections,
+            ),
+        ),
+        onManageCategories = onManageCategories,
     )
 }
