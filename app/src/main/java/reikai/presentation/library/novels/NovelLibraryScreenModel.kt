@@ -43,6 +43,7 @@ import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.reikaiSortCategories
+import reikai.presentation.novel.selectChaptersForDownloadAction
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.Preference
@@ -485,16 +486,7 @@ class NovelLibraryScreenModel :
         val novelIds = state.value.selectedNovelIds
         screenModelScope.launchIO {
             novelIds.forEach { id ->
-                val chapters = novelChapterRepository.getByNovelId(id).sortedBy { it.sourceOrder }
-                val unread = chapters.filterNot { it.read }
-                val targets = when (action) {
-                    DownloadAction.NEXT_1_CHAPTER -> unread.take(1)
-                    DownloadAction.NEXT_5_CHAPTERS -> unread.take(5)
-                    DownloadAction.NEXT_10_CHAPTERS -> unread.take(10)
-                    DownloadAction.NEXT_25_CHAPTERS -> unread.take(25)
-                    DownloadAction.UNREAD_CHAPTERS -> unread
-                    DownloadAction.BOOKMARKED_CHAPTERS -> chapters.filter { it.bookmark }
-                }
+                val targets = selectChaptersForDownloadAction(novelChapterRepository.getByNovelId(id), action)
                 if (targets.isNotEmpty()) novelDownloadManager.downloadChapters(targets)
             }
             clearSelection()

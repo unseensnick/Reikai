@@ -256,6 +256,7 @@ private fun NovelDetailsToolbar(
         onClickEditInfo = screenModel::showEditNovelInfoDialog,
         onClickShare = state.sourceUrl?.let { { onShare() } },
         onClickManageSources = if (state.mergeSources.size > 1) screenModel::showManageSourcesDialog else null,
+        onClickDownload = screenModel::runDownloadAction,
         actionModeCounter = state.selection.size,
         onCancelActionMode = screenModel::clearSelection,
         onSelectAll = screenModel::selectAll,
