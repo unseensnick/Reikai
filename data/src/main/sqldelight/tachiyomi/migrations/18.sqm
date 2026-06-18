@@ -1,0 +1,42 @@
+-- Novel reading history (P5 / Active #5): the novel twin of `history` + `historyView` for the unified
+-- History tab. New table + view, so already-installed DBs need this migration (a CREATE in a .sq/.sqv
+-- only reaches fresh installs via Schema.create()). Matches data/novel_history.sq and
+-- view/novelHistoryView.sq. `last_read` is plain epoch-millis (no Date adapter), like novels.last_read_at.
+CREATE TABLE novel_history(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    chapter_id INTEGER NOT NULL UNIQUE,
+    last_read INTEGER,
+    time_read INTEGER NOT NULL,
+    FOREIGN KEY(chapter_id) REFERENCES novel_chapters (_id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX novel_history_chapter_id_index ON novel_history(chapter_id);
+CREATE INDEX idx_novel_history_last_read ON novel_history(last_read);
+
+CREATE VIEW novelHistoryView AS
+SELECT
+    novel_history._id AS id,
+    novels._id AS novelId,
+    novel_chapters._id AS chapterId,
+    novels.title,
+    novels.thumbnail_url AS thumbnailUrl,
+    novels.favorite,
+    novels.cover_last_modified,
+    novel_chapters.chapter_number AS chapterNumber,
+    novel_history.last_read AS readAt,
+    novel_history.time_read AS readDuration,
+    max_last_read.last_read AS maxReadAt,
+    max_last_read.chapter_id AS maxReadAtChapterId
+FROM novels
+JOIN novel_chapters
+ON novels._id = novel_chapters.novel_id
+JOIN novel_history
+ON novel_chapters._id = novel_history.chapter_id
+JOIN (
+    SELECT novel_chapters.novel_id, novel_chapters._id AS chapter_id, MAX(novel_history.last_read) AS last_read
+    FROM novel_chapters JOIN novel_history
+    ON novel_chapters._id = novel_history.chapter_id
+    GROUP BY novel_chapters.novel_id
+) AS max_last_read
+ON novel_chapters.novel_id = max_last_read.novel_id;
