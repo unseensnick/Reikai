@@ -26,6 +26,14 @@ class ReikaiSourcePreferences(
     val downloadContentType: Preference<ContentType> =
         preferenceStore.getEnum("download_content_type", ContentType.ALL)
 
+    /**
+     * Pinned light-novel source ids. Novel twin of
+     * [eu.kanade.domain.source.service.SourcePreferences.pinnedSources]: pinned sources rise to a
+     * "Pinned" section on the Sources list and back the global-search Pinned filter.
+     */
+    val pinnedNovelSources: Preference<Set<String>> =
+        preferenceStore.getStringSet("ln_pinned_sources", emptySet())
+
     /** Sticky content-type filter on the Updates tab (manga + novels), its own key. */
     val updatesContentType: Preference<ContentType> =
         preferenceStore.getEnum("updates_content_type", ContentType.ALL)

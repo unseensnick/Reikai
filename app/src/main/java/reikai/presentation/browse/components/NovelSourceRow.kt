@@ -9,7 +9,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,7 +25,10 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import eu.kanade.presentation.browse.components.BaseBrowseItem
 import eu.kanade.tachiyomi.util.system.LocaleHelper
+import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.components.material.SECONDARY_ALPHA
 import tachiyomi.presentation.core.components.material.padding
+import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.theme.header
 import tachiyomi.presentation.core.util.secondaryItemAlpha
 
@@ -74,6 +80,24 @@ fun NovelSourceRow(
             }
         },
     )
+}
+
+/**
+ * Pin / unpin toggle for a light-novel source row, the novel twin of the manga sources list's pin
+ * button. Filled pin (primary tint) when pinned, outlined (dim) when not.
+ */
+@Composable
+fun NovelSourcePinButton(isPinned: Boolean, onClick: () -> Unit) {
+    val icon = if (isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin
+    val tint = if (isPinned) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onBackground.copy(alpha = SECONDARY_ALPHA)
+    }
+    val description = if (isPinned) MR.strings.action_unpin else MR.strings.action_pin
+    IconButton(onClick = onClick) {
+        Icon(imageVector = icon, tint = tint, contentDescription = stringResource(description))
+    }
 }
 
 /**
