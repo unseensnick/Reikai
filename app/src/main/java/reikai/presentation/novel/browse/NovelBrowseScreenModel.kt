@@ -34,6 +34,7 @@ import uy.kohesive.injekt.injectLazy
  */
 class NovelBrowseScreenModel(
     private val sourceId: String,
+    private val initialQuery: String = "",
 ) : StateScreenModel<NovelBrowseState>(NovelBrowseState()) {
 
     private val installer: LnPluginInstaller by injectLazy()
@@ -64,7 +65,8 @@ class NovelBrowseScreenModel(
             mutableState.update {
                 it.copy(source = source, filterValues = defaultFilterValues(source.filters))
             }
-            fetchFirstPage(source)
+            // Opened from global search with a query: jump straight to those results; else the listing.
+            if (initialQuery.isNotBlank()) search(initialQuery) else fetchFirstPage(source)
         }
     }
 
