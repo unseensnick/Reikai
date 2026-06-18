@@ -88,16 +88,17 @@ import tachiyomi.presentation.core.util.plus
  */
 class NovelBrowseScreen(
     private val sourceId: String,
+    private val initialQuery: String = "",
 ) : Screen() {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel { NovelBrowseScreenModel(sourceId) }
+        val screenModel = rememberScreenModel { NovelBrowseScreenModel(sourceId, initialQuery) }
         val state by screenModel.state.collectAsState()
         val snackbarHostState = remember { SnackbarHostState() }
 
-        var searchQuery by rememberSaveable { mutableStateOf<String?>(null) }
+        var searchQuery by rememberSaveable { mutableStateOf<String?>(initialQuery.ifBlank { null }) }
         var selectingDisplayMode by remember { mutableStateOf(false) }
         // After "Open in WebView" (to clear Cloudflare), auto-retry the failed listing on return so the
         // user doesn't have to. Survives the activity stop the WebView causes.
