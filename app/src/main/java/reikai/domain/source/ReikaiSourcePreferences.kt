@@ -30,6 +30,10 @@ class ReikaiSourcePreferences(
     val updatesContentType: Preference<ContentType> =
         preferenceStore.getEnum("updates_content_type", ContentType.ALL)
 
+    /** Sticky content-type filter on the History tab (manga + novels), its own key. */
+    val historyContentType: Preference<ContentType> =
+        preferenceStore.getEnum("history_content_type", ContentType.ALL)
+
     /**
      * Display mode (comfortable / compact / list) for the per-source novel browse grid. Its own key,
      * separate from Mihon's manga catalogue mode (`pref_display_mode_catalogue`), so the two surfaces
