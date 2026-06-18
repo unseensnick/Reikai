@@ -6,6 +6,7 @@ import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.novel.model.NovelWithChapterCount
 
@@ -210,6 +211,39 @@ fun mapNovelUpdate(
     source = source,
     dateFetch = dateFetch,
     isDownloaded = isDownloaded,
+    coverData = NovelCover(
+        url = thumbnailUrl,
+        site = null,
+        isNovelFavorite = favorite,
+        lastModified = coverLastModified,
+        novelId = novelId,
+    ),
+)
+
+/**
+ * Maps a `novelHistoryView` row to [NovelHistoryWithRelations]. Param order matches the `novelHistory`
+ * / `getLatestNovelHistory` SELECT. The cover carries no source site (favorites load from the library
+ * cover cache), mirroring [mapNovelUpdate].
+ */
+fun mapNovelHistoryWithRelations(
+    id: Long,
+    novelId: Long,
+    chapterId: Long,
+    title: String,
+    thumbnailUrl: String?,
+    favorite: Boolean,
+    coverLastModified: Long,
+    chapterNumber: Double,
+    readAt: Long?,
+    readDuration: Long,
+): NovelHistoryWithRelations = NovelHistoryWithRelations(
+    id = id,
+    chapterId = chapterId,
+    novelId = novelId,
+    title = title,
+    chapterNumber = chapterNumber,
+    readAt = readAt,
+    readDuration = readDuration,
     coverData = NovelCover(
         url = thumbnailUrl,
         site = null,

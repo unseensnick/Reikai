@@ -45,19 +45,25 @@ import reikai.domain.library.updateerror.LibraryUpdateErrorRepository
 import reikai.domain.library.updateerror.UpsertLibraryUpdateError
 import reikai.data.novel.NovelCategoryRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
+import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.recommendation.taste.TasteLibraryRepositoryImpl
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.PropagateTrackerLinks
 import reikai.domain.novel.NovelCategoryRepository
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.DeleteNovelCategories
+import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.GetNovelCategories
+import reikai.domain.novel.interactor.GetNovelHistory
 import reikai.domain.novel.interactor.InsertNovelCategories
+import reikai.domain.novel.interactor.RemoveNovelHistory
 import reikai.domain.novel.interactor.ReorderNovelCategories
 import reikai.domain.novel.interactor.SetNovelCategories
+import reikai.domain.novel.interactor.UpsertNovelHistory
 import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.RecommendationsFetcher
 import reikai.domain.recommendation.RelatedMangaCache
@@ -156,6 +162,13 @@ class DomainModule : InjektModule {
         addFactory { InsertNovelCategories(get()) }
         addFactory { DeleteNovelCategories(get()) }
         addFactory { ReorderNovelCategories(get()) }
+        // RK <--
+        // RK --> novel reading history (P5 / Active #5)
+        addSingletonFactory<NovelHistoryRepository> { NovelHistoryRepositoryImpl(get()) }
+        addFactory { GetNovelHistory(get()) }
+        addFactory { UpsertNovelHistory(get()) }
+        addFactory { RemoveNovelHistory(get()) }
+        addFactory { GetNextNovelChapter(get()) }
         // RK <--
         // RK --> pref-based merge (P3 manga, P5 S8 novel)
         addSingletonFactory { MangaMergeManager(get(), get(), get()) }
