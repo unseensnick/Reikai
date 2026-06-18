@@ -9,7 +9,9 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.UpsertNovelHistory
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.NovelHistoryUpdate
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
@@ -60,6 +62,7 @@ class NovelReaderScreenModel(
     private val installer: LnPluginInstaller by injectLazy()
     private val novelPreferences: NovelPreferences by injectLazy()
     private val downloadManager: NovelDownloadManager by injectLazy()
+    private val upsertNovelHistory: UpsertNovelHistory by injectLazy()
 
     private var currentId: Long = initialChapterId
 
@@ -76,6 +79,11 @@ class NovelReaderScreenModel(
      *  a merged session re-points it per chapter so the last-read stamp lands on the source read. */
     @Volatile
     private var currentNovelId: Long = novelId
+
+    /** When the current chapter began being read, for the novel-history session duration (the analog of
+     *  ReaderViewModel.chapterReadStartTime). Reset whenever a chapter loads. */
+    @Volatile
+    private var chapterReadStartTime: Long? = null
 
     /** The chapters [next] / [prev] jump to, re-resolved (skip-duplicate aware) whenever the chapter or
      *  the skip-duplicate pref changes, so the buttons stay instant. */
@@ -154,8 +162,23 @@ class NovelReaderScreenModel(
     fun prev() = resolvedPrev?.let { goTo(it) } ?: Unit
 
     private fun goTo(id: Long) {
-        currentId = id
-        load()
+        // Record the outgoing chapter before switching (the analog of Mihon's loadNewChapter ->
+        // updateHistory + restartReadTimer), then load the new one (loadCurrent resets the timer).
+        mutableState.value = NovelReaderState.Loading
+        screenModelScope.launchIO {
+            updateHistory()
+            currentId = id
+            loadCurrent()
+        }
+    }
+
+    /** Stamp the current chapter into novel history and accumulate this session's read time. Called on
+     *  chapter switch and on leaving the reader (the novel twin of ReaderViewModel.updateHistory). */
+    suspend fun updateHistory() {
+        val now = System.currentTimeMillis()
+        val duration = chapterReadStartTime?.let { now - it } ?: 0L
+        upsertNovelHistory.await(NovelHistoryUpdate(currentId, now, duration))
+        chapterReadStartTime = null
     }
 
     /** The id [delta] steps from [currentId] in reading order. With skip-duplicate on, keeps walking
@@ -231,6 +254,7 @@ class NovelReaderScreenModel(
             val chapter = chapterRepo.getById(id) ?: error("Chapter not found")
             currentNumber = chapter.chapterNumber
             currentNovelId = chapter.novelId
+            chapterReadStartTime = System.currentTimeMillis()
             val (html, baseUrl) = htmlCache[id] ?: loadChapterHtml(chapter).also { htmlCache[id] = it }
             resolveBothNeighbors()
             NovelReaderState.Loaded(

@@ -1,6 +1,7 @@
 package reikai.presentation.novel.reader
 
 import android.app.Activity
+import androidx.activity.ComponentActivity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -37,10 +38,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.util.Screen
+import tachiyomi.core.common.util.lang.launchNonCancellable
 
 /**
  * Light-novel reader: a WebView text canvas with Compose chrome. A single tap hides/shows the top +
@@ -96,6 +101,24 @@ class NovelReaderScreen(
                 (context as? Activity)?.window?.let {
                     WindowInsetsControllerCompat(it, it.decorView).show(WindowInsetsCompat.Type.systemBars())
                 }
+            }
+        }
+
+        // Record reading history when the reader is backgrounded (ON_PAUSE) or left (screen pop): the
+        // novel twin of ReaderActivity.onPause -> updateHistory. The host Activity's lifecycleScope is
+        // used (not this screen's, which is cancelled on pop) and the write is non-cancellable so it
+        // survives teardown. Chapter switches are already recorded in the ScreenModel's goTo.
+        val activity = context as? ComponentActivity
+        DisposableEffect(activity) {
+            val observer = object : DefaultLifecycleObserver {
+                override fun onPause(owner: LifecycleOwner) {
+                    activity?.lifecycleScope?.launchNonCancellable { screenModel.updateHistory() }
+                }
+            }
+            activity?.lifecycle?.addObserver(observer)
+            onDispose {
+                activity?.lifecycle?.removeObserver(observer)
+                activity?.lifecycleScope?.launchNonCancellable { screenModel.updateHistory() }
             }
         }
 
