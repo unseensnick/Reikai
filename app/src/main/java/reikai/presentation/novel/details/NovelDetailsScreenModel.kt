@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Color
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.domain.ui.UiPreferences
+import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.coil.MangaCoverMetadata
 import eu.kanade.tachiyomi.data.download.model.Download
@@ -49,6 +50,7 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.novel.selectChaptersForDownloadAction
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -891,6 +893,16 @@ class NovelDetailsScreenModel(
     }
 
     fun downloadSelected() = withSelection { downloadManager.downloadChapters(it) }
+
+    /** Toolbar download dropdown. Operates on the full stored chapter list (all fetched pages), not the
+     *  page on screen, the same way [markAllRead] does. Selection logic is shared with the library. */
+    fun runDownloadAction(action: DownloadAction) {
+        screenModelScope.launchIO {
+            val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
+            val targets = selectChaptersForDownloadAction(chapterRepo.getByNovelId(loaded.novel.id), action)
+            if (targets.isNotEmpty()) downloadManager.downloadChapters(targets)
+        }
+    }
 
     fun deleteSelected() = withSelection { downloadManager.deleteChapters(it) }
 
