@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import reikai.domain.novel.NovelRepository
+import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.host.NovelItem
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
@@ -32,10 +33,12 @@ class NovelGlobalSearchScreenModel(
     private val manager: NovelSourceManager by injectLazy()
     private val installer: LnPluginInstaller by injectLazy()
     private val novelRepository: NovelRepository by injectLazy()
+    private val sourcePreferences: ReikaiSourcePreferences by injectLazy()
 
     private var searchJob: Job? = null
 
     init {
+        mutableState.update { it.copy(onlyShowHasResults = sourcePreferences.novelGlobalSearchHasResults.get()) }
         screenModelScope.launchIO {
             try { installer.ensureLoaded() } catch (_: Throwable) {}
             if (initialQuery.isNotBlank()) search(initialQuery)
@@ -48,9 +51,27 @@ class NovelGlobalSearchScreenModel(
         }
     }
 
+    /** Switch Pinned-only vs All sources, then re-run the current query over the new source set. */
+    fun setSourceFilter(filter: SourceFilter) {
+        if (state.value.sourceFilter == filter) return
+        mutableState.update { it.copy(sourceFilter = filter) }
+        search(state.value.query)
+    }
+
+    /** Toggle the persisted "has results" display filter (hides sources that returned nothing). */
+    fun toggleHasResults() {
+        val newValue = !state.value.onlyShowHasResults
+        sourcePreferences.novelGlobalSearchHasResults.set(newValue)
+        mutableState.update { it.copy(onlyShowHasResults = newValue) }
+    }
+
     fun search(query: String) {
         searchJob?.cancel()
+        val pinned = sourcePreferences.pinnedNovelSources.get()
+        // PinnedOnly searches only pinned sources; both filters order pinned-first, then by name.
         val sources = manager.getAll()
+            .filter { state.value.sourceFilter == SourceFilter.All || it.id in pinned }
+            .sortedWith(compareBy({ it.id !in pinned }, { it.name.lowercase() }))
         mutableState.update {
             it.copy(
                 query = query,
@@ -80,6 +101,9 @@ class NovelGlobalSearchScreenModel(
             }.awaitAll()
         }
     }
+
+    /** Which sources the global search covers: only pinned, or all installed. Mirrors Mihon's filter. */
+    enum class SourceFilter { All, PinnedOnly }
 }
 
 data class NovelGlobalSearchState(
@@ -87,6 +111,11 @@ data class NovelGlobalSearchState(
     val results: List<SourceSearchResult> = emptyList(),
     /** (source, url) pairs in the library, for in-library marking of results. */
     val favoritedKeys: Set<Pair<String, String>> = emptySet(),
+    /** Defaults to PinnedOnly, matching the manga global search (empty until a source is pinned). */
+    val sourceFilter: NovelGlobalSearchScreenModel.SourceFilter =
+        NovelGlobalSearchScreenModel.SourceFilter.PinnedOnly,
+    /** Hide sources that returned no results (persisted). */
+    val onlyShowHasResults: Boolean = false,
 )
 
 /** One source's slice of a global search: the source plus its independent load state. */
