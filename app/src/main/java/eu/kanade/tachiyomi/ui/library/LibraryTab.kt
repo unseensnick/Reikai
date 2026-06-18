@@ -702,6 +702,10 @@ data object LibraryTab : Tab {
                     settingsScreenModel = settingsScreenModel,
                     categoryId = novelDialog.categoryId,
                     initialTab = novelDialog.initialTab,
+                    onManageCategories = {
+                        novelModel.dismissDialog()
+                        navigator.push(CategoryScreen(novels = true))
+                    },
                 )
             }
             null -> {}

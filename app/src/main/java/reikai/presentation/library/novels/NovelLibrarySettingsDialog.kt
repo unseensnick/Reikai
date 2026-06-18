@@ -59,6 +59,7 @@ fun NovelLibrarySettingsDialog(
     settingsScreenModel: LibrarySettingsScreenModel,
     categoryId: Long,
     initialTab: Int,
+    onManageCategories: () -> Unit,
 ) {
     val tabTitles = listOf(
         stringResource(MR.strings.action_filter),
@@ -78,7 +79,7 @@ fun NovelLibrarySettingsDialog(
                 .verticalScroll(rememberScrollState()),
         ) {
             when (page) {
-                0 -> FilterPage(screenModel)
+                0 -> FilterPage(screenModel, onManageCategories)
                 1 -> SortPage(screenModel, categoryId)
                 2 -> NovelDisplayPage(settingsScreenModel)
                 3 -> NovelGroupPage(screenModel)
@@ -121,7 +122,10 @@ private fun ColumnScope.NovelGroupPage(screenModel: NovelLibraryScreenModel) {
 }
 
 @Composable
-private fun ColumnScope.FilterPage(screenModel: NovelLibraryScreenModel) {
+private fun ColumnScope.FilterPage(
+    screenModel: NovelLibraryScreenModel,
+    onManageCategories: () -> Unit,
+) {
     val filters = listOf(
         MR.strings.label_downloaded to screenModel.filterDownloaded,
         MR.strings.action_filter_unread to screenModel.filterUnread,
@@ -137,6 +141,7 @@ private fun ColumnScope.FilterPage(screenModel: NovelLibraryScreenModel) {
             onClick = { screenModel.toggleFilter(pref) },
         )
     }
+    NovelCategoriesFilter(screenModel = screenModel, onManageCategories = onManageCategories)
 }
 
 private val sortModes: List<Pair<StringResource, NovelLibrarySort.Type>> = listOf(

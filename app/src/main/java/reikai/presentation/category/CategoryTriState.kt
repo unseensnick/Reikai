@@ -2,7 +2,6 @@ package reikai.presentation.category
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.category.model.Category
@@ -10,14 +9,14 @@ import tachiyomi.presentation.core.components.TriStateItem
 
 /**
  * Per-category include/exclude tri-state map (checked = include, inverted = exclude, blank = ignore),
- * keyed by category id. Shared by the library and Updates filter dialogs.
+ * keyed by category id. Built once per (categories, included, excluded) by the shared
+ * [CategoryFilterRow]; the caller wraps it in `remember`.
  */
-@Composable
-fun rememberCategoryStates(
+fun categoryStatesOf(
     categories: List<Category>,
     included: Set<Long>,
     excluded: Set<Long>,
-): SnapshotStateMap<Long, TriState> = remember(categories, included, excluded) {
+): SnapshotStateMap<Long, TriState> =
     mutableStateMapOf<Long, TriState>().apply {
         categories.forEach { category ->
             this[category.id] = when (category.id) {
@@ -27,7 +26,6 @@ fun rememberCategoryStates(
             }
         }
     }
-}
 
 /** One [TriStateItem] per category bound to [states]; a blank category name falls back to [defaultLabel]. */
 @Composable
