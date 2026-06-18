@@ -47,6 +47,8 @@ Don't bump per-push; ship alpha cycles by branch/tag. At release-cut, bump both 
 
 Mihon upstream changes are **ported manually** from the local `refs/mihon/` clone. Never `git merge` Mihon into `design/mihon-rebase` (it would clobber Reikai patches and identity). When porting an upstream change that touches a file Reikai has patched, re-apply inside the `// RK` island.
 
+**Commit-message reference convention (required):** in a Mihon-sync commit, reference an upstream pull request as **`Mihon PR #<num>`** and an upstream issue as **`Mihon Issue #<num>`** — never a bare `#<num>`, which GitHub auto-links to a *Reikai* issue/PR, nor a bare `<num>`. Also cite the upstream short-SHA (e.g. `mihon 80541831b`). The full commit-message template, the porting method (verbatim copy for marker-free files, hand-merge inside `// RK` islands for patched ones), and the running synced-base ledger live in the **`upstream-sync` memory**.
+
 ## Porting remaining Reikai features
 
 Reikai's own features are ported from the **`design/library-compose`** branch (the old Yōkai-based fork) per the rebase plan, re-typed onto Mihon's models. `refs/yokai/` is historical reference only.

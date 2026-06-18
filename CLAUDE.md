@@ -72,7 +72,7 @@ Build in Android Studio. Mihon's Gradle: JDK 17, formatting via Spotless (`./gra
 
 - [.claude/rules/architecture.md](.claude/rules/architecture.md) — Compose + Voyager, Injekt DI, PreferenceStore, coroutines, domain models, module layout, `// RK` markers.
 - [.claude/rules/compose-port.md](.claude/rules/compose-port.md) — Reikai screen conventions on Mihon, with rationale and a reference screen.
-- [.claude/rules/workflow.md](.claude/rules/workflow.md) — CHANGELOG rule, commits/PRs, release-cut, Mihon-upstream + Reikai-feature porting.
+- [.claude/rules/workflow.md](.claude/rules/workflow.md) — CHANGELOG rule, commits/PRs, release-cut, Mihon-upstream + Reikai-feature porting. **Mihon-sync standards** (the commit-message convention with `Mihon PR #N` / `Mihon Issue #N` references, the verbatim-cp + `// RK` hand-merge method, and the running synced-base ledger) live in its "Syncing with Mihon" section and, in full, the `upstream-sync` memory.
 - [.claude/rules/code-quality.md](.claude/rules/code-quality.md) — DRY/YAGNI/KISS, naming, code markers, file organization.
 - [.claude/rules/testing.md](.claude/rules/testing.md) — behavior over implementation, mock at boundaries, coroutine test patterns.
 - [.claude/rules/database.md](.claude/rules/database.md) — SQLDelight migrations.
