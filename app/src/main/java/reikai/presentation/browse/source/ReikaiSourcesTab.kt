@@ -35,6 +35,7 @@ import kotlinx.coroutines.launch
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.ReikaiBrowseScreenModel
 import reikai.presentation.browse.components.BrowseSectionHeader
+import reikai.presentation.browse.components.NovelSourcePinButton
 import reikai.presentation.browse.components.NovelSourceRow
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.novel.browse.NovelBrowseScreen
@@ -110,6 +111,7 @@ fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabCont
                         state = novelState,
                         contentPadding = contentPadding,
                         onClickItem = openNovelSource,
+                        onClickPin = novelModel::togglePin,
                     )
                     ContentType.ALL -> CombinedSourcesContent(
                         sourcesState = sourcesState,
@@ -120,6 +122,7 @@ fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabCont
                             navigator.push(BrowseSourceScreen(source.id, listing.query))
                         },
                         onClickNovelItem = openNovelSource,
+                        onClickNovelPin = novelModel::togglePin,
                     )
                 }
             }
@@ -158,6 +161,7 @@ private fun NovelSourcesList(
     state: NovelSourcesScreenModel.State,
     contentPadding: PaddingValues,
     onClickItem: (String) -> Unit,
+    onClickPin: (String) -> Unit,
 ) {
     when {
         state.isLoading -> LoadingScreen(Modifier.padding(contentPadding))
@@ -166,7 +170,7 @@ private fun NovelSourcesList(
             modifier = Modifier.padding(contentPadding),
         )
         else -> ScrollbarLazyColumn(contentPadding = contentPadding + topSmallPaddingValues) {
-            novelSourceItems(models = state.items, onClickItem = onClickItem)
+            novelSourceItems(models = state.items, onClickItem = onClickItem, onClickPin = onClickPin)
         }
     }
 }
@@ -184,6 +188,7 @@ private fun CombinedSourcesContent(
     contentPadding: PaddingValues,
     onClickMangaItem: (Source, Listing) -> Unit,
     onClickNovelItem: (String) -> Unit,
+    onClickNovelPin: (String) -> Unit,
 ) {
     val groups = parseSourceGroups(sourcesState.items)
     val otherGroups = groups.filter { group -> group.sources.any { it.isLocal() } }
@@ -201,7 +206,7 @@ private fun CombinedSourcesContent(
             item(key = "all-novels-header") {
                 BrowseSectionHeader(title = stringResource(MR.strings.content_type_novels))
             }
-            novelSourceItems(models = novelState.items, onClickItem = onClickNovelItem)
+            novelSourceItems(models = novelState.items, onClickItem = onClickNovelItem, onClickPin = onClickNovelPin)
         }
 
         // Other (local source) sinks to the bottom, after both content types.
@@ -256,6 +261,7 @@ private fun LazyListScope.mangaSourceGroups(
 private fun LazyListScope.novelSourceItems(
     models: List<NovelSourceUiModel>,
     onClickItem: (String) -> Unit,
+    onClickPin: (String) -> Unit,
 ) {
     items(
         items = models,
@@ -273,6 +279,12 @@ private fun LazyListScope.novelSourceItems(
                 lang = "",
                 iconUrl = model.source.iconUrl,
                 onClickItem = { onClickItem(model.source.id) },
+                action = {
+                    NovelSourcePinButton(
+                        isPinned = model.isPinned,
+                        onClick = { onClickPin(model.source.id) },
+                    )
+                },
             )
         }
     }
