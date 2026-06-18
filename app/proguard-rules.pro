@@ -3,6 +3,11 @@
 -keep,allowoptimization class eu.kanade.**
 -keep,allowoptimization class tachiyomi.**
 -keep,allowoptimization class mihon.**
+# RK: net-new light-novel package. Without this, R8 strips the generic signatures Injekt's
+# FullTypeReference needs, so any Injekt.get<reikai.*>() crashes in minified builds (preview/release)
+# with "TypeReference constructed without actual type information" (hit on startup by the novel-update
+# migration: SetupNovelUpdateMigration -> NovelUpdateJob.setupTask -> Injekt.get<NovelPreferences>()).
+-keep,allowoptimization class reikai.**
 
 # Keep common dependencies used in extensions
 -keep,allowoptimization class androidx.preference.** { public protected *; }
