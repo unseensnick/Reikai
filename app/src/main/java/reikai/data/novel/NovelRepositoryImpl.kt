@@ -111,6 +111,14 @@ class NovelRepositoryImpl(
         false
     }
 
+    override suspend fun setLastReadAt(id: Long, at: Long): Boolean = try {
+        database.novelsQueries.setLastReadAt(at, id)
+        true
+    } catch (e: Exception) {
+        logcat(LogPriority.ERROR, e) { "Failed to set last_read_at on novel id=$id" }
+        false
+    }
+
     override suspend fun setCategories(novelId: Long, categoryIds: List<Long>) {
         database.transaction {
             database.novels_categoriesQueries.delete(novelId)

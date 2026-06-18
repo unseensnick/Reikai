@@ -15,8 +15,11 @@ class NovelMergeCollapseTest {
         chapters: Long = 1,
         downloads: Long = 0,
         dateAdded: Long = 0,
+        lastReadAt: Long? = null,
     ) = LibraryNovel(
-        novel = Novel.create().copy(id = id, title = title, author = author, favorite = true, dateAdded = dateAdded),
+        novel = Novel.create().copy(
+            id = id, title = title, author = author, favorite = true, dateAdded = dateAdded, lastReadAt = lastReadAt,
+        ),
         categories = emptyList(),
         totalChapters = chapters,
         readCount = 0,
@@ -86,6 +89,23 @@ class NovelMergeCollapseTest {
     fun `a blank author keeps same-title novels apart with the guard on`() {
         val result = collapse(listOf(libNovel(1, "A", null), libNovel(2, "A", null)))
         result.size shouldBe 2
+    }
+
+    @Test
+    fun `the representative reports the most recent read across the whole group`() {
+        // Novel 2 is the representative (more chapters), but novel 1's read is more recent: the
+        // merged entry must sort by the group max so reading any source bubbles it up.
+        val result = collapse(
+            listOf(
+                libNovel(1, "A", chapters = 3, lastReadAt = 500),
+                libNovel(2, "B", chapters = 5, lastReadAt = 100),
+            ),
+            merges = setOf("1,2"),
+        )
+        result.size shouldBe 1
+        val group = result.first()
+        group.representative.novel.id shouldBe 2L
+        group.representative.lastRead shouldBe 500L
     }
 
     @Test

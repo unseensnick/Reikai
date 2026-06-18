@@ -72,6 +72,9 @@ object MangaMergeCollapse {
             // this is far closer to the real deduped unread than a sum. Downloads stay summed (each is
             // a real per-source file).
             downloadCount = subGroup.sumOf { it.downloadCount },
+            // LastRead sorts by the most recent read across all members, not just the primary's own, so
+            // reading any source bubbles the merged entry up.
+            libraryManga = primary.libraryManga.copy(lastRead = subGroup.maxOf { it.libraryManga.lastRead }),
             relatedMangaIds = subGroup.map { it.libraryManga.manga.id },
             badges = primary.badges.copy(
                 downloadCount = subGroup.sumOf { it.badges.downloadCount },

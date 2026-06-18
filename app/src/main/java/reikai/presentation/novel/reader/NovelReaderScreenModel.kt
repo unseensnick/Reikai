@@ -72,6 +72,11 @@ class NovelReaderScreenModel(
     @Volatile
     private var currentNumber: Double = -1.0
 
+    /** Owning novel of the current chapter. Defaults to the host (== owner for a standalone novel);
+     *  a merged session re-points it per chapter so the last-read stamp lands on the source read. */
+    @Volatile
+    private var currentNovelId: Long = novelId
+
     /** The chapters [next] / [prev] jump to, re-resolved (skip-duplicate aware) whenever the chapter or
      *  the skip-duplicate pref changes, so the buttons stay instant. */
     @Volatile
@@ -196,6 +201,8 @@ class NovelReaderScreenModel(
         val clamped = percent.coerceIn(0, 100)
         screenModelScope.launchIO {
             chapterRepo.setLastTextProgress(id, clamped * 100L)
+            // Stamp the owning novel's last-read time so the LastRead library sort reflects this read.
+            novelRepo.setLastReadAt(currentNovelId, System.currentTimeMillis())
             if (clamped >= 97) {
                 chapterRepo.setReadBulk(listOf(id), true)
                 // The in-RAM htmlCache keeps the current view alive, so deleting the file is safe here.
@@ -223,6 +230,7 @@ class NovelReaderScreenModel(
             val id = currentId
             val chapter = chapterRepo.getById(id) ?: error("Chapter not found")
             currentNumber = chapter.chapterNumber
+            currentNovelId = chapter.novelId
             val (html, baseUrl) = htmlCache[id] ?: loadChapterHtml(chapter).also { htmlCache[id] = it }
             resolveBothNeighbors()
             NovelReaderState.Loaded(

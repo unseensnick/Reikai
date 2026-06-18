@@ -21,6 +21,7 @@ class MangaMergeCollapseTest {
         totalChapters: Long = 0,
         dateAdded: Long = 0,
         unread: Long = 0,
+        lastRead: Long = 0,
     ): LibraryItem {
         val manga = Manga.create().copy(id = id, source = source, title = title, dateAdded = dateAdded)
         return LibraryItem(
@@ -32,7 +33,7 @@ class MangaMergeCollapseTest {
                 bookmarkCount = 0,
                 latestUpload = 0,
                 chapterFetchedAt = 0,
-                lastRead = 0,
+                lastRead = lastRead,
             ),
             downloadCount = 0,
             unreadCount = unread,
@@ -97,6 +98,22 @@ class MangaMergeCollapseTest {
             unmerges = setOf("1,2"),
         )
         result.map { it.id } shouldContainExactlyInAnyOrder listOf(1L, 2L)
+    }
+
+    @Test
+    fun `the merged entry reports the most recent read across the whole group`() {
+        // Manga 1 is the primary (more chapters), but manga 2's read is more recent: the merged entry
+        // must sort by the group max so reading any source bubbles it up.
+        val result = collapse(
+            listOf(
+                item(1, title = "Saga", totalChapters = 10, lastRead = 100),
+                item(2, title = "Saga", totalChapters = 5, lastRead = 500),
+            ),
+        )
+        result.size shouldBe 1
+        val merged = result.single()
+        merged.id shouldBe 1L
+        merged.libraryManga.lastRead shouldBe 500L
     }
 
     @Test
