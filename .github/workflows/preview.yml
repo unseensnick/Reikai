@@ -77,30 +77,48 @@ jobs:
           commit_count=$(git rev-list --count HEAD)
           echo "COMMIT_COUNT=$commit_count" >> "$GITHUB_ENV"
 
-          # Preview notes come from CHANGELOG.md's [Unreleased] section, but only the entries added
-          # since the previous preview (the running list would otherwise repeat every build). Diff the
-          # current [Unreleased] against the same section as it stood at the last preview's commit
-          # (preview tags are r<commitCount>, so HEAD~(count - prevCount) is that commit).
-          parse-changelog CHANGELOG.md Unreleased > /tmp/cur.txt 2>/dev/null || true
-          : > /tmp/prev.txt
+          # Resolve the previous preview's commit: preview tags are r<commitCount>, so the commit it was
+          # cut from is HEAD~(count - prevCount).
+          prev_ref=""
           prev_tag=$(gh release list --repo "$PREVIEW_REPO" --json tagName --limit 1 --jq 'select(length > 0) | .[0].tagName' || true)
           if [ -n "$prev_tag" ]; then
             back=$((commit_count - ${prev_tag#r}))
             if [ "$back" -ge 0 ] && git rev-parse -q --verify "HEAD~$back" >/dev/null 2>&1; then
-              git show "HEAD~$back:CHANGELOG.md" > /tmp/prevchg.md 2>/dev/null \
-                && parse-changelog /tmp/prevchg.md Unreleased > /tmp/prev.txt 2>/dev/null || true
+              prev_ref="HEAD~$back"
             fi
           fi
 
+          # Preview notes are the entries ADDED to CHANGELOG.md's [Unreleased] since the previous preview
+          # (the running list would otherwise repeat every build). Diff the current [Unreleased] against
+          # the same section as it stood at the previous preview's commit. When the changelog was NOT
+          # touched since then, fall back to the commit subjects in that range so the notes still say
+          # what changed.
+          parse-changelog CHANGELOG.md Unreleased > /tmp/cur.txt 2>/dev/null || true
+          : > /tmp/prev.txt
+          if [ -n "$prev_ref" ]; then
+            git show "$prev_ref:CHANGELOG.md" > /tmp/prevchg.md 2>/dev/null \
+              && parse-changelog /tmp/prevchg.md Unreleased > /tmp/prev.txt 2>/dev/null || true
+          fi
+
+          new_lines=$(grep -vxF -f /tmp/prev.txt /tmp/cur.txt 2>/dev/null | sed '/^[[:space:]]*$/d' || true)
           {
             echo "RELEASE_BODY<<__EOF__"
-            new_lines=$(grep -vxF -f /tmp/prev.txt /tmp/cur.txt 2>/dev/null | sed '/^[[:space:]]*$/d' || true)
             if [ -n "$new_lines" ]; then
               echo "### New since the last preview"
               echo ""
               echo "$new_lines"
             else
-              echo "No new changelog entries since the last preview."
+              commits=""
+              if [ -n "$prev_ref" ]; then
+                commits=$(git log --no-merges --format='- %s' "$prev_ref..HEAD" || true)
+              fi
+              if [ -n "$commits" ]; then
+                echo "### Changes since the last preview"
+                echo ""
+                echo "$commits"
+              else
+                echo "No changelog or commit changes since the last preview."
+              fi
             fi
             echo "__EOF__"
           } >> "$GITHUB_ENV"
