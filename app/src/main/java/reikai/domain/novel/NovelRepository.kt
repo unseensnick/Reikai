@@ -58,5 +58,8 @@ interface NovelRepository {
      */
     suspend fun insertOrGet(novel: Novel): Novel?
     suspend fun update(novel: Novel): Boolean
+
+    /** Stamp the novel's last-read time (denormalized for the LastRead library sort). */
+    suspend fun setLastReadAt(id: Long, at: Long): Boolean
     suspend fun setCategories(novelId: Long, categoryIds: List<Long>)
 }

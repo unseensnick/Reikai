@@ -117,5 +117,10 @@ UPDATE novels SET
     edited_flags = :editedFlags
 WHERE _id = :novelId;
 
+-- Focused single-column stamp written from the reader on every progress save, so it avoids the
+-- full-row read-modify-write the LastRead library sort would otherwise pay on each scroll.
+setLastReadAt:
+UPDATE novels SET last_read_at = :lastReadAt WHERE _id = :novelId;
+
 selectLastInsertedRowId:
 SELECT last_insert_rowid();

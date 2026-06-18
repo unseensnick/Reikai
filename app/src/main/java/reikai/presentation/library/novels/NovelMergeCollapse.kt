@@ -49,9 +49,16 @@ object NovelMergeCollapse {
                 val rep = subGroup.maxWith(
                     compareBy<LibraryNovel> { it.totalChapters }.thenBy { it.novel.dateAdded },
                 )
+                // The merged entry sorts (LastRead) by the most recent read across all members, not just
+                // the representative's own, so reading any source bubbles the whole group up.
+                val representative = if (subGroup.size > 1) {
+                    rep.copy(novel = rep.novel.copy(lastReadAt = subGroup.maxOf { it.novel.lastReadAt ?: 0L }))
+                } else {
+                    rep
+                }
                 result.add(
                     CollapsedNovel(
-                        representative = rep,
+                        representative = representative,
                         memberIds = subGroup.map { it.novel.id },
                         totalDownloadCount = subGroup.sumOf { it.downloadCount },
                     ),
