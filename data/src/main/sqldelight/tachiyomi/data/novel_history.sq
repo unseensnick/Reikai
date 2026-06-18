@@ -1,0 +1,51 @@
+-- Novel twin of history.sq: per-chapter read records backing the History tab's novel feed. Written
+-- from the reader on chapter switch / exit (mirrors Mihon's ReaderViewModel.updateHistory). Two
+-- divergences from the manga table, both deliberate:
+-- 1. `last_read` is a plain epoch-millis INTEGER (not Mihon's `AS Date`), matching novels.last_read_at
+--    so no column adapter is needed.
+-- 2. No scanlator / read-duration consumers exist on the novel side yet, so only the queries the
+--    History feature calls are defined (no getReadDuration; add it with a novel Stats screen).
+-- resetById / resetByNovelId soft-delete (last_read = 0, hidden by the feed's readAt > 0 filter, so a
+-- re-read re-surfaces the row); removeAll hard-clears, mirroring Mihon.
+CREATE TABLE novel_history(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    chapter_id INTEGER NOT NULL UNIQUE,
+    last_read INTEGER,
+    time_read INTEGER NOT NULL,
+    FOREIGN KEY(chapter_id) REFERENCES novel_chapters (_id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX novel_history_chapter_id_index ON novel_history(chapter_id);
+CREATE INDEX idx_novel_history_last_read ON novel_history(last_read);
+
+resetById:
+UPDATE novel_history
+SET last_read = 0
+WHERE _id = :historyId;
+
+resetByNovelId:
+UPDATE novel_history
+SET last_read = 0
+WHERE _id IN (
+    SELECT H._id
+    FROM novels N
+    INNER JOIN novel_chapters C
+    ON N._id = C.novel_id
+    INNER JOIN novel_history H
+    ON C._id = H.chapter_id
+    WHERE N._id = :novelId
+);
+
+removeAll:
+DELETE FROM novel_history;
+
+upsert:
+INSERT INTO novel_history(chapter_id, last_read, time_read)
+VALUES (:chapterId, :readAt, :timeRead)
+ON CONFLICT(chapter_id)
+DO UPDATE
+SET
+    last_read = :readAt,
+    time_read = time_read + :timeRead
+WHERE chapter_id = :chapterId;
