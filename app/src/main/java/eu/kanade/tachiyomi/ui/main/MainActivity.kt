@@ -259,7 +259,7 @@ class MainActivity : BaseActivity() {
 
                 CheckForUpdates()
                 ShowOnboarding()
-                ShowDonationCampaign()
+                // RK: Reikai does not run Mihon's donation campaign.
             }
         }
 
