@@ -99,10 +99,7 @@ class NovelGlobalSearchScreen(
                     onToggleHasResults = screenModel::toggleHasResults,
                 )
                 // The has-results filter hides sources still loading / errored / empty.
-                val visibleResults = state.results.filter { result ->
-                    !state.onlyShowHasResults ||
-                        (result.state is SearchState.Success && result.state.novels.isNotEmpty())
-                }
+                val visibleResults = state.results.filter { it.isVisible(state.onlyShowHasResults) }
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(

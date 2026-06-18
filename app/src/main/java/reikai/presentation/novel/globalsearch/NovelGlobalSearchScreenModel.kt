@@ -68,10 +68,7 @@ class NovelGlobalSearchScreenModel(
     fun search(query: String) {
         searchJob?.cancel()
         val pinned = sourcePreferences.pinnedNovelSources.get()
-        // PinnedOnly searches only pinned sources; both filters order pinned-first, then by name.
-        val sources = manager.getAll()
-            .filter { state.value.sourceFilter == SourceFilter.All || it.id in pinned }
-            .sortedWith(compareBy({ it.id !in pinned }, { it.name.lowercase() }))
+        val sources = selectGlobalSearchSources(manager.getAll(), pinned, state.value.sourceFilter)
         mutableState.update {
             it.copy(
                 query = query,
@@ -131,4 +128,24 @@ sealed interface SearchState {
     data class Success(val novels: List<NovelItem>) : SearchState
 
     data class Error(val message: String) : SearchState
+}
+
+/**
+ * Pure source selection for the global search: keep all sources or pinned-only per [filter], ordered
+ * pinned-first then by name. Extracted from the search loop so it's unit-testable without DI.
+ */
+internal fun selectGlobalSearchSources(
+    all: List<NovelSource>,
+    pinned: Set<String>,
+    filter: NovelGlobalSearchScreenModel.SourceFilter,
+): List<NovelSource> =
+    all.filter { filter == NovelGlobalSearchScreenModel.SourceFilter.All || it.id in pinned }
+        .sortedWith(compareBy({ it.id !in pinned }, { it.name.lowercase() }))
+
+/** Whether a source row shows under the "has results" filter: always when off; only a non-empty
+ *  Success when on (Loading / Error / empty sources are hidden). */
+internal fun SourceSearchResult.isVisible(onlyShowHasResults: Boolean): Boolean {
+    if (!onlyShowHasResults) return true
+    val s = state
+    return s is SearchState.Success && s.novels.isNotEmpty()
 }
