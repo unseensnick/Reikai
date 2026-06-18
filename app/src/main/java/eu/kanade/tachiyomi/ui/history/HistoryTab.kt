@@ -17,7 +17,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
-import eu.kanade.presentation.history.HistoryScreen
+import eu.kanade.presentation.history.HistoryUiModel
 import eu.kanade.presentation.history.components.HistoryDeleteAllDialog
 import eu.kanade.presentation.history.components.HistoryDeleteDialog
 import eu.kanade.presentation.manga.DuplicateMangaDialog
@@ -31,6 +31,11 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import mihon.feature.migration.dialog.MigrateMangaDialog
+import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.history.NovelHistoryScreenModel
+import reikai.presentation.history.ReikaiHistoryScreen
+import reikai.presentation.novel.details.NovelScreen
+import reikai.presentation.novel.reader.NovelReaderScreen
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.i18n.MR
@@ -64,16 +69,29 @@ data object HistoryTab : Tab {
         val context = LocalContext.current
         val screenModel = rememberScreenModel { HistoryScreenModel() }
         val state by screenModel.state.collectAsState()
+        // RK -->
+        val novelScreenModel = rememberScreenModel { NovelHistoryScreenModel() }
+        val novelState by novelScreenModel.state.collectAsState()
+        val contentType by novelScreenModel.contentType.collectAsState()
+        val chip: @Composable () -> Unit = {
+            ContentTypeFilterChips(selected = contentType, onSelect = novelScreenModel::setContentType)
+        }
 
-        HistoryScreen(
-            state = state,
+        // All three chips render through one consolidated Reikai screen; manga stays Mihon's untouched
+        // HistoryScreenModel (passed in), so its behavior is unchanged.
+        ReikaiHistoryScreen(
+            contentType = contentType,
+            mangaModel = screenModel,
+            novelModel = novelScreenModel,
             snackbarHostState = snackbarHostState,
-            onSearchQueryChange = screenModel::updateSearchQuery,
-            onClickCover = { navigator.push(MangaScreen(it)) },
-            onClickResume = screenModel::getNextChapterForManga,
-            onDialogChange = screenModel::setDialog,
-            onClickFavorite = screenModel::addFavorite,
+            chip = chip,
+            onClickMangaCover = { navigator.push(MangaScreen(it)) },
+            onClickMangaResume = screenModel::getNextChapterForManga,
+            onClickMangaFavorite = screenModel::addFavorite,
+            onClickNovelCover = novelScreenModel::openDetails,
+            onClickNovelResume = novelScreenModel::resume,
         )
+        // RK <--
 
         val onDismissRequest = { screenModel.setDialog(null) }
         when (val dialog = state.dialog) {
@@ -126,6 +144,31 @@ data object HistoryTab : Tab {
             null -> {}
         }
 
+        // RK --> novel history dialogs (delete one / delete all from novel / clear all)
+        val onDismissNovelDialog = { novelScreenModel.setDialog(null) }
+        when (val dialog = novelState.dialog) {
+            is NovelHistoryScreenModel.Dialog.Delete -> {
+                HistoryDeleteDialog(
+                    onDismissRequest = onDismissNovelDialog,
+                    onDelete = { all ->
+                        if (all) {
+                            novelScreenModel.removeAllFromHistory(dialog.history.novelId)
+                        } else {
+                            novelScreenModel.removeFromHistory(dialog.history)
+                        }
+                    },
+                )
+            }
+            is NovelHistoryScreenModel.Dialog.DeleteAll -> {
+                HistoryDeleteAllDialog(
+                    onDismissRequest = onDismissNovelDialog,
+                    onDelete = novelScreenModel::removeAllHistory,
+                )
+            }
+            null -> {}
+        }
+        // RK <--
+
         LaunchedEffect(state.list) {
             if (state.list != null) {
                 (context as? MainActivity)?.ready = true
@@ -144,9 +187,40 @@ data object HistoryTab : Tab {
             }
         }
 
+        // RK --> novel history events
+        LaunchedEffect(Unit) {
+            novelScreenModel.events.collectLatest { e ->
+                when (e) {
+                    NovelHistoryScreenModel.Event.InternalError ->
+                        snackbarHostState.showSnackbar(context.stringResource(MR.strings.internal_error))
+                    NovelHistoryScreenModel.Event.HistoryCleared ->
+                        snackbarHostState.showSnackbar(context.stringResource(MR.strings.clear_history_completed))
+                    is NovelHistoryScreenModel.Event.OpenNovel ->
+                        navigator.push(NovelScreen(e.source, e.url))
+                    is NovelHistoryScreenModel.Event.OpenChapter ->
+                        if (e.chapterId != null) {
+                            navigator.push(NovelReaderScreen(e.novelId, e.chapterId))
+                        } else {
+                            snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))
+                        }
+                }
+            }
+        }
+        // RK <--
+
         LaunchedEffect(Unit) {
             resumeLastChapterReadEvent.receiveAsFlow().collectLatest {
-                openChapter(context, screenModel.getNextChapter())
+                // RK: resume the globally-latest read across manga + novel (both feeds are readAt-desc,
+                // so each list's first item is its latest). Whichever is newer wins.
+                val mangaLatest = state.list?.firstNotNullOfOrNull { (it as? HistoryUiModel.Item)?.item }
+                val novelLatest = novelScreenModel.getLast()
+                val mangaAt = mangaLatest?.readAt?.time ?: Long.MIN_VALUE
+                val novelAt = novelLatest?.readAt ?: Long.MIN_VALUE
+                when {
+                    novelLatest != null && novelAt >= mangaAt -> novelScreenModel.resume(novelLatest)
+                    mangaLatest != null -> screenModel.getNextChapterForManga(mangaLatest.mangaId, mangaLatest.chapterId)
+                    else -> openChapter(context, null)
+                }
             }
         }
     }
