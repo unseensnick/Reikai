@@ -1,6 +1,7 @@
 # Driving the Reikai debug app on-device (adb) + LN-plugin debugging
 
-A practical recipe for a Claude Code session to install, drive, screenshot, and read logs from the
+A practical recipe for a Claude Code session to install, drive, screenshot (or drive entirely by text
+when screenshots are blocked, §3.5), and read logs from the
 Reikai **debug** app on a physical device, with a focus on debugging light-novel (LN) plugins after
 updating them. Everything here is run through the **PowerShell tool** (NOT the Bash tool: Bash hits a
 loopback failure for Gradle and mangles `/sdcard`-style paths via MSYS).
@@ -31,6 +32,13 @@ $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
 `screencap` to a file on the device is unreliable here, and PowerShell's `>` corrupts binary. Capture
 to a local file via `Start-Process -RedirectStandardOutput`, then strip any bytes before the PNG magic
 (`\x89PNG`): on a multi-display foldable, `screencap` prepends a `[Warning] Multiple displays…` line.
+
+> **If capture fails with `EPERM … uv_spawn`, go text-only (§3.5).** In a sandboxed Claude Code
+> session the PowerShell tool blocks local file writes and child-process spawns, so `Start-Process`,
+> `cmd /c … > file`, and `adb pull <remote> <local>` all fail (the spawn is what's blocked, not adb).
+> Plain `& $adb …` calls still work. When this happens, skip screenshots entirely: read the screen with
+> `uiautomator dump` + `cat` and verify with `run-as cat` of prefs/DB (all text over stdout, no local
+> write). The whole driving + verification loop this section + §3 describe works without a single image.
 
 ```powershell
 $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
@@ -106,6 +114,48 @@ Rules that kill the miss-taps:
 The regex assumes `text`/`content-desc` precedes `bounds` in a node (uiautomator emits `bounds` last,
 so it holds). Compose can merge or omit semantics on some nodes; if a target isn't found, read the
 dumped XML to find the real text/desc/bounds, or fall back to the §2 fraction method.
+
+### 3.5 Text-only driving + verification (no screenshots)
+
+When screenshots are blocked (§2 note) or you just want a faster, image-free loop, the `uiautomator`
+dump is both your **read** channel and your assertion source: parse the node `text` / `content-desc`
+(what's on screen) and `bounds` (where, and roughly how it's laid out). Tap with §3, then re-dump and
+assert on the XML instead of eyeballing a picture. This drove + verified an entire feature this session
+(novel category filter, novel download dropdown) with zero images.
+
+What to assert from the dump:
+
+- **Presence / absence of a label** = the feature's effect. A category filter that narrows a list shows
+  up as the filtered-out items' titles (or whole category headers) disappearing from the dump; a new
+  toolbar action shows up as a new `content-desc`. Snapshot the visible labels before and after.
+- **Bounds = layout correctness.** A dropdown anchored correctly under a top-right icon has its option
+  rows at high `x` and low `y`; a misplaced one sits elsewhere. This is how the download-dropdown
+  position bug was caught and confirmed-fixed without a screenshot.
+
+Ground-truth via app state (text over stdout, sandbox-safe, no local write):
+
+```powershell
+$adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+$pkg = "eu.kanade.tachiyomi.debugY2k"
+# a pref actually persisted (e.g. a filter toggle / include-exclude set):
+& $adb shell run-as $pkg cat /data/data/$pkg/shared_prefs/${pkg}_preferences.xml | Select-String 'pref_filter_library_categories'
+# a download actually enqueued (the queue store gains entries; it drains as the job runs):
+& $adb shell run-as $pkg cat /data/data/$pkg/shared_prefs/active_novel_downloads.xml
+```
+
+Reading the backing pref/DB is often a *stronger* signal than a screenshot: it confirms the write-path
+ran (a toggle saved, a selection persisted, chapters were queued), not just that the UI looked right.
+`run-as cat` works for any file under the debug app's data dir; `shared_prefs/<pkg>_preferences.xml` is
+the main store, and feature-specific stores sit beside it (e.g. `active_novel_downloads.xml`).
+
+Text-only gotchas seen this session:
+
+- **`KEYCODE_BACK` to dismiss a bottom sheet can exit the app** if the sheet is already closed. Prefer
+  tapping the scrim (a point above the sheet) to close it; reserve BACK for when a sheet is definitely open.
+- The **content-type chip** (`Manga` / `Novels`) appears as `text` in some states and `content-desc` in
+  others; match both.
+- A live, draining queue means **store snapshots show what's pending, not a cumulative count** — verify
+  *that* chapters enqueued and which (ids/novelId), not an exact count (cover counts with a unit test).
 
 ## 4. logcat — the main tool for LN-plugin debugging
 
@@ -193,6 +243,9 @@ flow and the pagination `page`-column gotcha.
 ## 7. Quick gotchas
 
 - PowerShell tool for all adb (not Bash), except the binary DB `cat` pull (Bash).
+- **Screenshots may be sandbox-blocked (`EPERM … uv_spawn`)** when the session can't write local files
+  or spawn processes. Plain `& $adb …` still works, so drive + verify text-only: `uiautomator dump` to
+  read the screen, `run-as cat` of prefs/DB for ground truth (§2 note + §3.5).
 - Wake the foldable before any screencap/input.
 - **Tap by exact bounds from `uiautomator dump` (§3), not by eyeballing screenshot fractions** — this is the single biggest miss-tap fix. Re-dump after each navigation; confirm each tap landed before the next.
 - Map tap coords against the real `wm size` only as a fallback for unlabeled elements.
