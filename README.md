@@ -15,7 +15,7 @@ A free and open source manga reader
 [![CI](https://github.com/unseensnick/Reikai/actions/workflows/build_check.yml/badge.svg?labelColor=27303D)](https://github.com/unseensnick/Reikai/actions/workflows/build_check.yml)
 [![License: Apache-2.0](https://img.shields.io/github/license/unseensnick/Reikai?labelColor=27303D&color=0877d2)](/LICENSE)
 
-<img src="./.github/readme-images/screens.gif" alt="screenshots" />
+<img src="./.github/readme-images/screens.webp" alt="screenshots" />
 
 ## Download
 
@@ -101,7 +101,7 @@ The goal is to ride Mihon's actively maintained Compose base while layering on t
 * New Recents page: quick access to newly added manga, new chapters, and where you left off.
 * New Themes.
 * Dynamic Shortcuts: open the latest chapter of what you were last reading right from your homescreen.
-* [New material snackbar](.github/readme-images/material%20snackbar.png): removing manga auto-deletes chapters with an undo button.
+* New material snackbar: removing manga auto-deletes chapters with an undo button.
 * Batch Auto-Source Migration (taken from [TachiyomiEH](https://github.com/NerdNumber9/TachiyomiEH)).
 * View all chapters right in the reader.
 * Material Design You additions throughout.
