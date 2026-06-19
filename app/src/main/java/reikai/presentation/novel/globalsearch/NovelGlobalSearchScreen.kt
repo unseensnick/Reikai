@@ -48,6 +48,7 @@ import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import reikai.novel.host.NovelItem
+import reikai.novel.source.NovelSource
 import reikai.presentation.novel.browse.NovelBrowseGridCell
 import reikai.presentation.novel.browse.NovelBrowseScreen
 import reikai.presentation.novel.details.NovelScreen
@@ -76,7 +77,6 @@ class NovelGlobalSearchScreen(
         val screenModel = rememberScreenModel { NovelGlobalSearchScreenModel(initialQuery) }
         val state by screenModel.state.collectAsState()
         var searchQuery by rememberSaveable { mutableStateOf(initialQuery) }
-        val layoutDirection = LocalLayoutDirection.current
 
         Scaffold(
             topBar = { scrollBehavior ->
@@ -91,32 +91,59 @@ class NovelGlobalSearchScreen(
                 )
             },
         ) { contentPadding ->
-            Column(modifier = Modifier.padding(top = contentPadding.calculateTopPadding())) {
-                SourceFilterChips(
-                    sourceFilter = state.sourceFilter,
-                    onlyShowHasResults = state.onlyShowHasResults,
-                    onSetSourceFilter = screenModel::setSourceFilter,
-                    onToggleHasResults = screenModel::toggleHasResults,
+            NovelGlobalSearchResults(
+                state = state,
+                contentPadding = contentPadding,
+                onSetSourceFilter = screenModel::setSourceFilter,
+                onToggleHasResults = screenModel::toggleHasResults,
+                onResultClick = { source, item -> navigator.push(NovelScreen(source.id, item.path)) },
+                onClickSource = { source -> navigator.push(NovelBrowseScreen(source.id, state.query)) },
+            )
+        }
+    }
+}
+
+/**
+ * The shared cross-source results body: the Pinned / All / Has-results chips and one row per source.
+ * Reused by the migrate target picker ([reikai.presentation.novel.migrate.NovelMigrateSearchScreen]),
+ * which passes a different [onResultClick] (open the migrate dialog) and a [sourceFilter] that hides
+ * the novel's current source. [onClickSource] is null in migrate mode (no source-browse dead-end).
+ */
+@Composable
+internal fun NovelGlobalSearchResults(
+    state: NovelGlobalSearchState,
+    contentPadding: PaddingValues,
+    onSetSourceFilter: (SourceFilter) -> Unit,
+    onToggleHasResults: () -> Unit,
+    onResultClick: (NovelSource, NovelItem) -> Unit,
+    onClickSource: ((NovelSource) -> Unit)?,
+    sourceFilter: (SourceSearchResult) -> Boolean = { true },
+) {
+    val layoutDirection = LocalLayoutDirection.current
+    Column(modifier = Modifier.padding(top = contentPadding.calculateTopPadding())) {
+        SourceFilterChips(
+            sourceFilter = state.sourceFilter,
+            onlyShowHasResults = state.onlyShowHasResults,
+            onSetSourceFilter = onSetSourceFilter,
+            onToggleHasResults = onToggleHasResults,
+        )
+        // The has-results filter hides sources still loading / errored / empty.
+        val visibleResults = state.results.filter { sourceFilter(it) && it.isVisible(state.onlyShowHasResults) }
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(
+                start = contentPadding.calculateStartPadding(layoutDirection),
+                end = contentPadding.calculateEndPadding(layoutDirection),
+                bottom = contentPadding.calculateBottomPadding(),
+            ),
+        ) {
+            items(items = visibleResults, key = { it.source.id }) { result ->
+                SourceSection(
+                    result = result,
+                    favoritedKeys = state.favoritedKeys,
+                    onResultClick = { onResultClick(result.source, it) },
+                    onClickSource = onClickSource?.let { handler -> { handler(result.source) } },
                 )
-                // The has-results filter hides sources still loading / errored / empty.
-                val visibleResults = state.results.filter { it.isVisible(state.onlyShowHasResults) }
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(
-                        start = contentPadding.calculateStartPadding(layoutDirection),
-                        end = contentPadding.calculateEndPadding(layoutDirection),
-                        bottom = contentPadding.calculateBottomPadding(),
-                    ),
-                ) {
-                    items(items = visibleResults, key = { it.source.id }) { result ->
-                        SourceSection(
-                            result = result,
-                            favoritedKeys = state.favoritedKeys,
-                            onResultClick = { navigator.push(NovelScreen(result.source.id, it.path)) },
-                            onClickSource = { navigator.push(NovelBrowseScreen(result.source.id, state.query)) },
-                        )
-                    }
-                }
             }
         }
     }
@@ -124,7 +151,7 @@ class NovelGlobalSearchScreen(
 
 /** Pinned / All / Has results chip row, mirroring the manga global search's GlobalSearchToolbar. */
 @Composable
-private fun SourceFilterChips(
+internal fun SourceFilterChips(
     sourceFilter: SourceFilter,
     onlyShowHasResults: Boolean,
     onSetSourceFilter: (SourceFilter) -> Unit,
@@ -165,21 +192,22 @@ private fun SourceFilterChips(
 }
 
 @Composable
-private fun SourceSection(
+internal fun SourceSection(
     result: SourceSearchResult,
     favoritedKeys: Set<Pair<String, String>>,
     onResultClick: (NovelItem) -> Unit,
-    onClickSource: () -> Unit,
+    // RK: null in migrate mode, where opening the source's browse would be a dead-end.
+    onClickSource: (() -> Unit)?,
 ) {
     val context = LocalContext.current
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         val lang = result.source.lang.takeIf { it.isNotBlank() }
             ?.let { " · ${LocaleHelper.getSourceDisplayName(it, context)}" }.orEmpty()
-        // Tap the header to open this source's full browse pre-filled with the query.
+        // Tap the header to open this source's full browse pre-filled with the query (when enabled).
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClickSource)
+                .then(if (onClickSource != null) Modifier.clickable(onClick = onClickSource) else Modifier)
                 .padding(horizontal = 12.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -188,11 +216,13 @@ private fun SourceSection(
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.weight(1f),
             )
-            Icon(
-                imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-            )
+            if (onClickSource != null) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
         }
         when (val s = result.state) {
             is SearchState.Loading -> Box(

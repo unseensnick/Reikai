@@ -58,6 +58,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.DeleteNovelCategories
 import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.GetNovelCategories
+import reikai.domain.novel.interactor.MigrateNovelUseCase
 import reikai.domain.novel.interactor.GetNovelHistory
 import reikai.domain.novel.interactor.InsertNovelCategories
 import reikai.domain.novel.interactor.RemoveNovelHistory
@@ -174,6 +175,9 @@ class DomainModule : InjektModule {
         addSingletonFactory { MangaMergeManager(get(), get(), get()) }
         addSingletonFactory { PropagateTrackerLinks(get(), get(), get(), get(), get()) }
         addSingletonFactory { NovelMergeManager(get(), get()) }
+        // RK <--
+        // RK --> novel source migration (#7)
+        addFactory { MigrateNovelUseCase(get(), get(), get(), get(), get()) }
         // RK <--
         // RK --> recommendations (engine core)
         addSingletonFactory { RelatedMangaCache() }

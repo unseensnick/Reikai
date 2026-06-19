@@ -3,6 +3,7 @@ package reikai.domain.novel
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
+import reikai.domain.novel.model.NovelMigrationFlag
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.domain.library.service.LibraryPreferences
 
@@ -146,6 +147,11 @@ class NovelPreferences(
     fun novelUpdateCategories() = preferenceStore.getStringSet("novel_library_update_categories", emptySet())
     fun novelUpdateCategoriesExclude() =
         preferenceStore.getStringSet("novel_library_update_categories_exclude", emptySet())
+
+    // Source migration (#7).
+
+    /** Last selection in the migrate dialog, as a [NovelMigrationFlag] bitmask. Defaults to all on. */
+    fun novelMigrationFlags() = preferenceStore.getInt("novel_migration_flags", NovelMigrationFlag.DEFAULT_BITS)
 
     companion object {
         private val metadataMapSerializer =
