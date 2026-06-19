@@ -137,7 +137,9 @@ android {
     }
 
     sourceSets {
-        getByName("preview").res.directories.add("src/debug/res")
+        // RK: preview has its own launcher icon in src/preview/res (the nightly variant); benchmark
+        // (unpublished) still borrows the debug icon. Adding src/debug/res to preview too would
+        // duplicate every ic_launcher* resource and fail mergePreviewResources.
         getByName("benchmark").res.directories.add("src/debug/res")
     }
 
