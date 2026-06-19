@@ -2,4 +2,4 @@
 
 This module houses the string resources and translations.
 
-Original English strings are managed in `src/commonMain/moko-resources/base/`. Translations are done externally via Weblate. See [our website](https://mihon.app/docs/contribute#translation) for more details. 
+Original English strings are managed in `src/commonMain/moko-resources/base/`. Reikai does not run a translation platform; the inherited translations come from the Mihon/Tachiyomi base, and new Reikai strings are added to the base file directly.
