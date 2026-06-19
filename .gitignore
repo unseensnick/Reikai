@@ -28,3 +28,8 @@ skills-lock.json
 
 # Session handoff (local, transient)
 Handoff.md
+
+# README showcase: local scratch + regenerated intermediates (the reproducible kit lives in
+# .github/readme-images/showcase/ ; see docs/dev/readme-showcase.md)
+.github/readme-images/_capture/
+.github/readme-images/showcase/framed/

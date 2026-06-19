@@ -78,6 +78,7 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 - [.claude/rules/database.md](.claude/rules/database.md) — SQLDelight migrations.
 - [.claude/rules/security.md](.claude/rules/security.md) — secrets, input validation.
 - [docs/dev/development.md](docs/dev/development.md) — architecture and module overview. NOTE: still describes the Yōkai base; being updated for Mihon.
+- [docs/dev/readme-showcase.md](docs/dev/readme-showcase.md) — how the README showcase animation (`screens.webp`) is captured and built; the reproduction kit (stills + frame + scripts) lives in `.github/readme-images/showcase/`.
 
 ## Skills for common flows
 
