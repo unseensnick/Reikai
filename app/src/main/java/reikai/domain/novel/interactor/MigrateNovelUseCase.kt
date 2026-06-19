@@ -7,6 +7,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelMigrationFlag
+import reikai.novel.download.NovelDownloadManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -25,6 +26,7 @@ class MigrateNovelUseCase(
     private val getNovelCategories: GetNovelCategories = Injekt.get(),
     private val setNovelCategories: SetNovelCategories = Injekt.get(),
     private val novelMergeManager: NovelMergeManager = Injekt.get(),
+    private val novelDownloadManager: NovelDownloadManager = Injekt.get(),
 ) {
 
     suspend operator fun invoke(
@@ -41,6 +43,12 @@ class MigrateNovelUseCase(
                 computeChapterMigration(currentChapters, targetChapters).forEach {
                     novelChapterRepository.update(it)
                 }
+                // Re-queue downloads for the target chapters that were offline on the old source (the
+                // file isn't copied, it's re-fetched, like LNReader). downloadChapters skips ones the
+                // target already has.
+                chaptersToRedownload(currentChapters, targetChapters)
+                    .takeIf { it.isNotEmpty() }
+                    ?.let { novelDownloadManager.downloadChapters(it) }
             }
 
             if (NovelMigrationFlag.CATEGORY in flags) {
@@ -95,4 +103,20 @@ internal fun computeChapterMigration(
             target.copy(read = read, bookmark = bookmark, lastTextProgress = progress)
         }
     }
+}
+
+/**
+ * The target chapters to re-queue for download: those whose chapter number matches a chapter that was
+ * downloaded on the old source. Unrecognized numbers (< 0) are skipped. The download manager itself
+ * skips any the target already has, so this is safe to call with the full matched set.
+ */
+internal fun chaptersToRedownload(
+    currentChapters: List<NovelChapter>,
+    targetChapters: List<NovelChapter>,
+): List<NovelChapter> {
+    val downloadedNumbers = currentChapters
+        .filter { it.isDownloaded && it.chapterNumber >= 0.0 }
+        .mapTo(HashSet()) { it.chapterNumber }
+    if (downloadedNumbers.isEmpty()) return emptyList()
+    return targetChapters.filter { it.chapterNumber >= 0.0 && it.chapterNumber in downloadedNumbers }
 }

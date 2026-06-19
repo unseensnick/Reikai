@@ -13,6 +13,7 @@ class MigrateNovelUseCaseTest {
         read: Boolean = false,
         bookmark: Boolean = false,
         progress: Long = 0,
+        downloaded: Boolean = false,
     ) = NovelChapter(
         id = id,
         novelId = 1L,
@@ -26,7 +27,7 @@ class MigrateNovelUseCaseTest {
         dateFetch = 0,
         dateUpload = 0,
         page = "",
-        isDownloaded = false,
+        isDownloaded = downloaded,
     )
 
     @Test
@@ -84,5 +85,25 @@ class MigrateNovelUseCaseTest {
 
         // Only the matched chapter changes (gains the bookmark); chapter 2 stays untouched.
         result.single().id shouldBe 10L
+    }
+
+    @Test
+    fun `re-download covers the target chapters matching downloaded source chapters`() {
+        val current = listOf(
+            chapter(1, 1.0, downloaded = true),
+            chapter(2, 2.0, downloaded = false),
+            chapter(3, 3.0, downloaded = true),
+        )
+        val target = listOf(chapter(10, 1.0), chapter(11, 2.0), chapter(12, 3.0))
+
+        chaptersToRedownload(current, target).map { it.id } shouldContainExactlyInAnyOrder listOf(10L, 12L)
+    }
+
+    @Test
+    fun `re-download is empty when the source had no downloads`() {
+        val current = listOf(chapter(1, 1.0, read = true))
+        val target = listOf(chapter(10, 1.0))
+
+        chaptersToRedownload(current, target).shouldContainExactlyInAnyOrder(emptyList())
     }
 }
