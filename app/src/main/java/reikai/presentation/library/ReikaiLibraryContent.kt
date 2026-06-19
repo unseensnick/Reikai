@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import eu.kanade.presentation.category.visualName
 import eu.kanade.presentation.library.components.DownloadsBadge
 import eu.kanade.presentation.library.components.GlobalSearchItem
 import eu.kanade.presentation.library.components.LanguageBadge
@@ -196,7 +197,7 @@ fun ReikaiLibraryContent(
                     contentType = "reikai_header",
                 ) {
                     ReikaiLibraryCategoryHeader(
-                        name = if (dynamic) ReikaiDynamicCategory.displayName(category) else category.name,
+                        name = if (dynamic) ReikaiDynamicCategory.displayName(category) else category.visualName,
                         itemCount = items.size,
                         showItemCount = showItemCounts,
                         isCollapsed = collapsed,

@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.os.Handler
 import android.os.Looper
 import android.webkit.WebView
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -14,9 +16,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.viewinterop.AndroidView
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
+import kotlin.math.roundToInt
 import logcat.logcat
 
 /**
@@ -44,6 +48,12 @@ fun NovelReaderWebView(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    // Top padding so the first line clears the display cutout (the punch-hole otherwise overlaps text
+    // in immersive mode). The WebView viewport is initial-scale=1, so its CSS px == dp: convert the
+    // cutout inset from device px to dp. It's constant across the chrome show/hide toggle, so it
+    // won't trigger a WebView reload.
+    val density = LocalDensity.current
+    val topInsetDp = with(density) { WindowInsets.displayCutout.getTop(density).toDp() }.value.roundToInt()
     val colorScheme = MaterialTheme.colorScheme
     val themeColors = remember(colorScheme) {
         ReaderThemeColors(
@@ -66,7 +76,7 @@ fun NovelReaderWebView(
     // Keyed on chapter + app theme only (NOT settings): settings changes push live instead of
     // reloading. The initial document bakes in the settings present at build time.
     val currentSettings = rememberUpdatedState(settings)
-    val document = remember(html, themeColors, chapterTitle, initialProgressPercent, hasPrev, hasNext) {
+    val document = remember(html, themeColors, chapterTitle, initialProgressPercent, hasPrev, hasNext, topInsetDp) {
         buildReaderHtml(
             chapterHtml = html,
             chapterName = chapterTitle,
@@ -75,7 +85,7 @@ fun NovelReaderWebView(
             hasNext = hasNext,
             settings = currentSettings.value,
             colors = themeColors,
-            statusBarHeightPx = 0,
+            statusBarHeightPx = topInsetDp,
             debug = BuildConfig.DEBUG,
         )
     }

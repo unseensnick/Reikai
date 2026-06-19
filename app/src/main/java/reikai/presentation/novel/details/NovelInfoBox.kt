@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -78,6 +79,7 @@ fun NovelInfoBox(
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current).data(coverData).crossfade(true).build(),
             contentDescription = null,
+            contentScale = ContentScale.Crop,
             modifier = Modifier
                 .matchParentSize()
                 .drawWithContent {
