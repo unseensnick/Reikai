@@ -20,6 +20,17 @@
         <item quantity="other">%d categories</item>
     </plurals>
 
+    <!-- RK: category multi-select bulk delete -->
+    <plurals name="delete_categories_confirmation">
+        <item quantity="one">Delete this category?</item>
+        <item quantity="other">Delete these %d categories?</item>
+    </plurals>
+
+    <plurals name="categories_deleted">
+        <item quantity="one">Deleted %d category</item>
+        <item quantity="other">Deleted %d categories</item>
+    </plurals>
+
     <plurals name="next_unread_chapters">
         <item quantity="one">Next unread chapter</item>
         <item quantity="other">Next %d unread chapters</item>

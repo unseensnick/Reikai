@@ -9,7 +9,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.FlipToFront
+import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -18,6 +24,7 @@ import androidx.compose.ui.Modifier
 import eu.kanade.presentation.category.components.CategoryFloatingActionButton
 import eu.kanade.presentation.category.components.CategoryListItem
 import eu.kanade.presentation.components.AppBar
+import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.tachiyomi.ui.category.CategoryScreenState
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -40,23 +47,63 @@ fun CategoryScreen(
     onClickToggleHidden: (Category) -> Unit,
     onChangeOrder: (Category, Int) -> Unit,
     navigateUp: () -> Unit,
+    // RK --> multi-select: the action-mode toolbar + the undo snackbar live here
+    snackbarHostState: SnackbarHostState,
+    onToggleSelection: (Category) -> Unit,
+    onSelectAll: () -> Unit,
+    onInvertSelection: () -> Unit,
+    onClearSelection: () -> Unit,
+    onDeleteSelected: () -> Unit,
+    // RK <--
     // RK: optional content-type chip (Manga/Novels) rendered above the list; null = manga path unchanged
     header: (@Composable () -> Unit)? = null,
 ) {
     val lazyListState = rememberLazyListState()
+    // RK: in selection mode the drag handle is hidden (selection-tap shouldn't fight a drag-grab)
+    val reorderable = state.categorySortOrder == 0 && !state.selectionMode
     Scaffold(
         topBar = { scrollBehavior ->
             AppBar(
                 title = stringResource(MR.strings.action_edit_categories),
                 navigateUp = navigateUp,
+                // RK --> switch to Mihon's built-in action mode when categories are selected
+                actionModeCounter = state.selection.size,
+                onCancelActionMode = onClearSelection,
+                actionModeActions = {
+                    AppBarActions(
+                        listOf(
+                            AppBar.Action(
+                                title = stringResource(MR.strings.action_select_all),
+                                icon = Icons.Outlined.SelectAll,
+                                onClick = onSelectAll,
+                            ),
+                            AppBar.Action(
+                                title = stringResource(MR.strings.action_select_inverse),
+                                icon = Icons.Outlined.FlipToFront,
+                                onClick = onInvertSelection,
+                            ),
+                            AppBar.Action(
+                                title = stringResource(MR.strings.action_delete),
+                                icon = Icons.Outlined.Delete,
+                                onClick = onDeleteSelected,
+                            ),
+                        ),
+                    )
+                },
+                // RK <--
                 scrollBehavior = scrollBehavior,
             )
         },
+        // RK: host the bulk-delete undo snackbar
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         floatingActionButton = {
-            CategoryFloatingActionButton(
-                lazyListState = lazyListState,
-                onCreate = onClickCreate,
-            )
+            // RK: hide the create FAB while selecting (the action-mode toolbar owns the bar)
+            if (!state.selectionMode) {
+                CategoryFloatingActionButton(
+                    lazyListState = lazyListState,
+                    onCreate = onClickCreate,
+                )
+            }
         },
     ) { paddingValues ->
         // RK --> with the chip header, consume the top inset into a Column so the chip sits below the
@@ -79,7 +126,10 @@ fun CategoryScreen(
                         onClickDelete = onClickDelete,
                         onClickToggleHidden = onClickToggleHidden,
                         onChangeOrder = onChangeOrder,
-                        reorderable = state.categorySortOrder == 0,
+                        reorderable = reorderable,
+                        selection = state.selection,
+                        selectionMode = state.selectionMode,
+                        onToggleSelection = onToggleSelection,
                     )
                 }
             }
@@ -102,8 +152,11 @@ fun CategoryScreen(
             onClickDelete = onClickDelete,
             onClickToggleHidden = onClickToggleHidden,
             onChangeOrder = onChangeOrder,
-            // RK: drag-reorder only in Manual (off) mode; A->Z / Z->A show the sorted list, no drag
-            reorderable = state.categorySortOrder == 0,
+            // RK: drag-reorder only in Manual (off) mode and outside selection; sorted/selecting = no drag
+            reorderable = reorderable,
+            selection = state.selection,
+            selectionMode = state.selectionMode,
+            onToggleSelection = onToggleSelection,
         )
     }
 }
@@ -119,6 +172,11 @@ private fun CategoryContent(
     onChangeOrder: (Category, Int) -> Unit,
     // RK: false hides the drag handle so the (sorted) list can't be manually reordered
     reorderable: Boolean = true,
+    // RK --> multi-select
+    selection: Set<Long> = emptySet(),
+    selectionMode: Boolean = false,
+    onToggleSelection: (Category) -> Unit = {},
+    // RK <--
 ) {
     val categoriesState = remember { categories.toMutableStateList() }
     val reorderableState = rememberReorderableLazyListState(lazyListState, paddingValues) { from, to ->
@@ -150,10 +208,18 @@ private fun CategoryContent(
                 CategoryListItem(
                     modifier = Modifier.animateItem(),
                     category = category,
+                    // RK --> in selection mode a tap toggles; a long-press always enters/toggles selection
+                    selected = category.id in selection,
+                    selectionMode = selectionMode,
+                    onClick = {
+                        if (selectionMode) onToggleSelection(category) else onClickRename(category)
+                    },
+                    onLongClick = { onToggleSelection(category) },
+                    // RK <--
                     onRename = { onClickRename(category) },
                     onDelete = { onClickDelete(category) },
                     onToggleHidden = { onClickToggleHidden(category) },
-                    // RK: hide the drag handle (and thus disable drag) when auto-sorted
+                    // RK: hide the drag handle (and thus disable drag) when auto-sorted or selecting
                     showDragHandle = reorderable,
                 )
             }
