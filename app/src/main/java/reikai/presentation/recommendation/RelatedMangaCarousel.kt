@@ -48,10 +48,14 @@ fun RelatedMangaCarousel(
     onClick: (RelatedMangaCandidate) -> Unit,
     onSeeAll: () -> Unit,
     modifier: Modifier = Modifier,
+    topDivider: Boolean = false,
 ) {
     if (items.isEmpty() && !loading) return
 
     Column(modifier = modifier.fillMaxWidth()) {
+        // Phone layout sets this to fence the carousel off from the tags above it (the bottom
+        // divider already fences it from the chapter list).
+        if (topDivider) HorizontalDivider()
         Row(
             modifier = Modifier.padding(
                 horizontal = MaterialTheme.padding.medium,

@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -37,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
@@ -170,9 +173,22 @@ private fun NovelDetailsSmallImpl(
         snackbarHost = { SnackbarHost(screenModel.snackbarHostState) },
         floatingActionButton = { NovelResumeFab(state, listState, onChapterClick) },
     ) { contentPadding ->
-        // The list applies the full inset (incl. top), so the info box gets no extra app-bar padding.
-        LazyColumn(state = listState, contentPadding = contentPadding) {
-            novelInfoItems(state, screenModel, onWebView, onShare, onSearch, onCopy, isTabletUi = false, appBarPadding = 0.dp)
+        val layoutDirection = LocalLayoutDirection.current
+        // Drop the top inset so the info-box backdrop bleeds edge-to-edge behind the toolbar (matches
+        // the manga detail). The info box itself offsets its content by the app-bar padding instead.
+        LazyColumn(
+            state = listState,
+            contentPadding = PaddingValues(
+                start = contentPadding.calculateStartPadding(layoutDirection),
+                end = contentPadding.calculateEndPadding(layoutDirection),
+                bottom = contentPadding.calculateBottomPadding(),
+            ),
+        ) {
+            novelInfoItems(
+                state, screenModel, onWebView, onShare, onSearch, onCopy,
+                isTabletUi = false,
+                appBarPadding = contentPadding.calculateTopPadding(),
+            )
             novelChapterHeaderItems(state, screenModel)
             novelChapterItems(state, screenModel, onChapterClick)
         }
@@ -415,7 +431,13 @@ private fun LazyListScope.novelInfoItems(
             isTabletUi = isTabletUi,
             appBarPadding = appBarPadding,
             novel = display,
-            sourceName = state.sourceName,
+            // RK: a merged group viewed via the "All" chip shows the unified label, mirroring the
+            // manga header. A specific source chip keeps that source's resolved name.
+            sourceName = if (state.mergeSources.size > 1 && state.selectedSourceNovelId == null) {
+                stringResource(MR.strings.merge_unified)
+            } else {
+                state.sourceName
+            },
             sourceSite = state.sourceUrl,
             onCoverClick = screenModel::showCoverDialog,
             onSearch = onSearch,

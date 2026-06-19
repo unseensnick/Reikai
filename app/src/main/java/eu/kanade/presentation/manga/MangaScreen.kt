@@ -473,6 +473,7 @@ private fun MangaScreenSmallImpl(
                             totalCount = state.relatedTotalCount,
                             onClick = onRelatedClick,
                             onSeeAll = onRelatedSeeAll,
+                            topDivider = true,
                         )
                     }
 
