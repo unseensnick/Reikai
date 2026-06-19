@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.ui.category.CategoryDialog
 import eu.kanade.tachiyomi.ui.category.CategoryEvent
 import eu.kanade.tachiyomi.ui.category.CategoryScreenState
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -22,7 +23,9 @@ import reikai.domain.novel.interactor.ReorderNovelCategories
 import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelCategoryUpdate
 import reikai.domain.novel.model.toCategory
+import reikai.presentation.category.CategorySelection
 import reikai.presentation.library.reikaiSortCategories
+import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.domain.category.model.Category
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -45,19 +48,31 @@ class NovelCategoryScreenModel(
     private val _events: Channel<CategoryEvent> = Channel()
     val events = _events.receiveAsFlow()
 
+    // Multi-select + deferred-delete, mirroring the manga CategoryScreenModel: see its doc for the
+    // selectedIds / pendingDeleteIds split and why both fold into the live category flow.
+    private val selectedIds = MutableStateFlow<Set<Long>>(emptySet())
+    private val pendingDeleteIds = MutableStateFlow<Set<Long>>(emptySet())
+
     init {
         screenModelScope.launch {
             combine(
                 getNovelCategories.subscribe(),
                 reikaiLibraryPreferences.categorySortOrder.changes(),
-            ) { categories, sortOrder ->
-                categories.filterNot { it.isSystemCategory }.map { it.toCategory() } to sortOrder
-            }.collectLatest { (categories, sortOrder) ->
-                mutableState.update {
-                    CategoryScreenState.Success(
-                        categories = reikaiSortCategories(categories, sortOrder),
-                        categorySortOrder = sortOrder,
-                    )
+                selectedIds,
+                pendingDeleteIds,
+            ) { categories, sortOrder, selected, pending ->
+                val visible = categories
+                    .filterNot { it.isSystemCategory }
+                    .map { it.toCategory() }
+                    .filterNot { it.id in pending }
+                CategoryScreenState.Success(
+                    categories = reikaiSortCategories(visible, sortOrder),
+                    categorySortOrder = sortOrder,
+                    selection = selected.intersect(visible.mapTo(HashSet()) { it.id }),
+                )
+            }.collectLatest { newState ->
+                mutableState.update { current ->
+                    newState.copy(dialog = (current as? CategoryScreenState.Success)?.dialog)
                 }
             }
         }
@@ -72,8 +87,55 @@ class NovelCategoryScreenModel(
         }
     }
 
+    // A single row delete defers like the bulk path so it's undoable too; commit is shared.
     fun deleteCategory(categoryId: Long) {
-        screenModelScope.launch { deleteNovelCategories.awaitOne(categoryId) }
+        pendingDeleteIds.update { it + categoryId }
+        screenModelScope.launch { _events.send(CategoryEvent.ShowUndoSnackbar(1)) }
+    }
+
+    fun toggleSelection(categoryId: Long) {
+        selectedIds.update { CategorySelection.toggle(it, categoryId) }
+    }
+
+    fun selectAll() {
+        val ids = (state.value as? CategoryScreenState.Success)?.categories?.map { it.id } ?: return
+        selectedIds.update { CategorySelection.selectAll(it, ids) }
+    }
+
+    fun invertSelection() {
+        val ids = (state.value as? CategoryScreenState.Success)?.categories?.map { it.id } ?: return
+        selectedIds.update { CategorySelection.invert(it, ids) }
+    }
+
+    fun clearSelection() {
+        selectedIds.value = emptySet()
+    }
+
+    /** Hide the selected categories and arm the undo snackbar; the DB delete waits for [commitPendingDelete]. */
+    fun deleteSelected() {
+        val ids = selectedIds.value
+        if (ids.isEmpty()) return
+        pendingDeleteIds.update { it + ids }
+        selectedIds.value = emptySet()
+        screenModelScope.launch { _events.send(CategoryEvent.ShowUndoSnackbar(ids.size)) }
+    }
+
+    /** Undo a pending bulk delete: the rows return and the DB was never touched. */
+    fun undoPendingDelete() {
+        pendingDeleteIds.value = emptySet()
+    }
+
+    /** Commit a pending bulk delete to the DB. */
+    fun commitPendingDelete() {
+        val ids = pendingDeleteIds.value
+        if (ids.isEmpty()) return
+        screenModelScope.launch {
+            // Non-cancellable so leaving the screen (tab switch / back) still finishes the delete.
+            withNonCancellableContext {
+                deleteNovelCategories.awaitAll(ids.toList())
+                pendingDeleteIds.value = emptySet()
+            }
+        }
     }
 
     fun renameCategory(category: Category, name: String) {

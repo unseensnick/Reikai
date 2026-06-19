@@ -32,6 +32,7 @@ import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
+import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import kotlin.time.Duration.Companion.seconds
 
@@ -187,6 +188,37 @@ fun CategoryDeleteDialog(
         },
         text = {
             Text(text = stringResource(MR.strings.delete_category_confirmation, category))
+        },
+    )
+}
+
+// RK: bulk-delete confirmation for multi-select; the deferred delete + undo snackbar follow on confirm.
+@Composable
+fun CategoryDeleteSelectedDialog(
+    count: Int,
+    onDismissRequest: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        confirmButton = {
+            TextButton(onClick = {
+                onDelete()
+                onDismissRequest()
+            }) {
+                Text(text = stringResource(MR.strings.action_ok))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text(text = stringResource(MR.strings.action_cancel))
+            }
+        },
+        title = {
+            Text(text = stringResource(MR.strings.delete_category))
+        },
+        text = {
+            Text(text = pluralStringResource(MR.plurals.delete_categories_confirmation, count, count))
         },
     )
 }
