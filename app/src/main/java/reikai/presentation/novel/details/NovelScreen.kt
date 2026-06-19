@@ -61,6 +61,7 @@ import eu.kanade.tachiyomi.util.system.copyToClipboard
 import reikai.data.coil.NovelCover
 import reikai.domain.novel.model.NovelChapter
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
+import reikai.presentation.novel.migrate.NovelMigrateSearchScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.TwoPanelBox
@@ -113,6 +114,12 @@ class NovelScreen(
                     }
                 }
                 val onSearch: (String) -> Unit = { query -> navigator.push(NovelGlobalSearchScreen(query)) }
+                // RK: migration only re-homes a library novel, so the action shows only when favorited.
+                val onMigrate: (() -> Unit)? = if (s.novel.favorite) {
+                    { navigator.push(NovelMigrateSearchScreen(s.novel.id, s.novel.title, sourceId)) }
+                } else {
+                    null
+                }
                 val onCopy: (String) -> Unit = { text -> context.copyToClipboard(text, text) }
                 val onChapterClick: (NovelChapter) -> Unit = { chapter ->
                     // Route to the chapter's own source (a unified-list row keeps its owning novelId)
@@ -129,9 +136,9 @@ class NovelScreen(
                 }
 
                 if (isTabletUi()) {
-                    NovelDetailsLargeImpl(s, screenModel, navigator::pop, onWebView, onShare, onSearch, onCopy, onChapterClick)
+                    NovelDetailsLargeImpl(s, screenModel, navigator::pop, onWebView, onShare, onMigrate, onSearch, onCopy, onChapterClick)
                 } else {
-                    NovelDetailsSmallImpl(s, screenModel, navigator::pop, onWebView, onShare, onSearch, onCopy, onChapterClick)
+                    NovelDetailsSmallImpl(s, screenModel, navigator::pop, onWebView, onShare, onMigrate, onSearch, onCopy, onChapterClick)
                 }
 
                 NovelDetailsDialogs(s, screenModel)
@@ -148,6 +155,7 @@ private fun NovelDetailsSmallImpl(
     onBack: () -> Unit,
     onWebView: () -> Unit,
     onShare: () -> Unit,
+    onMigrate: (() -> Unit)?,
     onSearch: (String) -> Unit,
     onCopy: (String) -> Unit,
     onChapterClick: (NovelChapter) -> Unit,
@@ -165,6 +173,7 @@ private fun NovelDetailsSmallImpl(
                 screenModel = screenModel,
                 onBack = onBack,
                 onShare = onShare,
+                onMigrate = onMigrate,
                 titleAlphaProvider = { titleAlpha },
                 backgroundAlphaProvider = { backgroundAlpha },
             )
@@ -202,6 +211,7 @@ private fun NovelDetailsLargeImpl(
     onBack: () -> Unit,
     onWebView: () -> Unit,
     onShare: () -> Unit,
+    onMigrate: (() -> Unit)?,
     onSearch: (String) -> Unit,
     onCopy: (String) -> Unit,
     onChapterClick: (NovelChapter) -> Unit,
@@ -214,6 +224,7 @@ private fun NovelDetailsLargeImpl(
                 screenModel = screenModel,
                 onBack = onBack,
                 onShare = onShare,
+                onMigrate = onMigrate,
                 titleAlphaProvider = { 1f },
                 backgroundAlphaProvider = { 1f },
             )
@@ -259,6 +270,7 @@ private fun NovelDetailsToolbar(
     screenModel: NovelDetailsScreenModel,
     onBack: () -> Unit,
     onShare: () -> Unit,
+    onMigrate: (() -> Unit)?,
     titleAlphaProvider: () -> Float,
     backgroundAlphaProvider: () -> Float,
 ) {
@@ -272,6 +284,7 @@ private fun NovelDetailsToolbar(
         onClickEditInfo = screenModel::showEditNovelInfoDialog,
         onClickShare = state.sourceUrl?.let { { onShare() } },
         onClickManageSources = if (state.mergeSources.size > 1) screenModel::showManageSourcesDialog else null,
+        onClickMigrate = onMigrate,
         onClickDownload = screenModel::runDownloadAction,
         actionModeCounter = state.selection.size,
         onCancelActionMode = screenModel::clearSelection,

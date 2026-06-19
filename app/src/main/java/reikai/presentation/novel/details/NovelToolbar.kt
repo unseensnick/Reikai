@@ -45,6 +45,8 @@ fun NovelToolbar(
     onClickEditInfo: () -> Unit,
     onClickShare: (() -> Unit)?,
     onClickManageSources: (() -> Unit)?,
+    // RK: null unless the novel is favorited (migration only re-homes a library novel).
+    onClickMigrate: (() -> Unit)?,
     onClickDownload: ((DownloadAction) -> Unit)?,
     actionModeCounter: Int,
     onCancelActionMode: () -> Unit,
@@ -135,6 +137,9 @@ fun NovelToolbar(
                     add(AppBar.OverflowAction(title = stringResource(MR.strings.action_edit), onClick = onClickEditInfo))
                     if (onClickManageSources != null) {
                         add(AppBar.OverflowAction(title = stringResource(MR.strings.action_manage_sources), onClick = onClickManageSources))
+                    }
+                    if (onClickMigrate != null) {
+                        add(AppBar.OverflowAction(title = stringResource(MR.strings.migrate), onClick = onClickMigrate))
                     }
                     if (onClickShare != null) {
                         add(AppBar.OverflowAction(title = stringResource(MR.strings.action_share), onClick = onClickShare))
