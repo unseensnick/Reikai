@@ -22,7 +22,7 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - **Background updates in the Updates tab.** Favorited novels re-check on a schedule (interval, device restrictions, category include / exclude, Smart update) and optionally auto-download; new chapters join a unified All / Manga / Novels Updates feed.
 - **Novels in the History tab.** Reading a novel records it in History; the tab interleaves recently read manga and novels (All / Manga / Novels chip), newest first, with search, tap to resume, and delete or clear.
 - **Cross-source merge.** Combine the same novel from several sources into one cover and one deduplicated chapter list with a source switcher and shared read state, by hand or automatically by title.
-- **Migrate a novel to another source.** From a novel's overflow menu, search its title across your sources and move it over, carrying read / bookmark / scroll-progress (matched by chapter number) and categories. Choose Copy (keep the original too) or Migrate (replace it).
+- **Migrate a novel to another source.** From a novel's overflow menu, search its title across your sources and move it over, carrying read / bookmark / scroll-progress (matched by chapter number) and categories, and re-downloading any chapters you had saved offline. Choose Copy (keep the original too) or Migrate (replace it).
 - **Plugins stay current.** The Browse badge counts pending plugin updates, checked in the background, with one-tap reinstall and real plugin icons.
 
 **Library**

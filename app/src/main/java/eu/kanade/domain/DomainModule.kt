@@ -177,7 +177,7 @@ class DomainModule : InjektModule {
         addSingletonFactory { NovelMergeManager(get(), get()) }
         // RK <--
         // RK --> novel source migration (#7)
-        addFactory { MigrateNovelUseCase(get(), get(), get(), get(), get()) }
+        addFactory { MigrateNovelUseCase(get(), get(), get(), get(), get(), get()) }
         // RK <--
         // RK --> recommendations (engine core)
         addSingletonFactory { RelatedMangaCache() }
