@@ -1,5 +1,5 @@
 name: 🐞 Issue report
-description: Report an issue in Mihon
+description: Report an issue in Reikai
 labels: [bug]
 body:
   - type: textarea
@@ -47,10 +47,10 @@ body:
         You can upload the crash log file as an attachment, or paste the crash logs in plain text if needed.
 
   - type: input
-    id: mihon-version
+    id: reikai-version
     attributes:
-      label: Mihon version
-      description: You can find your Mihon version in **More → About**.
+      label: Reikai version
+      description: You can find your Reikai version in **More → About**.
       placeholder: |
         Example: "0.19.9"
     validations:
@@ -95,9 +95,9 @@ body:
           required: true
         - label: I have gone through the [FAQ](https://mihon.app/docs/faq/general) and [troubleshooting guide](https://mihon.app/docs/guides/troubleshooting/).
           required: true
-        - label: I have updated the app to version **[0.19.9](https://github.com/mihonapp/mihon/releases/latest)**.
+        - label: I have updated the app to the [latest release](https://github.com/unseensnick/Reikai/releases/latest).
           required: true
         - label: I have filled out all of the requested information in this form, including specific version numbers.
           required: true
-        - label: I understand that **Mihon does not have or fix any extensions**, and I **will not receive help** for any issues related to sources or extensions.
+        - label: I understand that **Reikai does not have or fix any extensions**, and I **will not receive help** for any issues related to sources or extensions.
           required: true

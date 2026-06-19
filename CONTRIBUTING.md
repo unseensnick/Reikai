@@ -1,49 +1,28 @@
-Looking to report an issue/bug or make a feature request? Please refer to the [README file](https://github.com/mihonapp/mihon#issues-feature-requests-and-contributing).
+# Contributing to Reikai
 
----
+Reikai is a **personal fork** of [Mihon](https://github.com/mihonapp/mihon) (Tachiyomi lineage), built mainly for my own use, so development is sporadic and not every issue or pull request will be picked up. That said, bug reports are genuinely useful and welcome.
 
-Thanks for your interest in contributing to Mihon!
+## Reporting bugs and requesting features
 
+Open an issue using the templates:
 
-# Code contributions
+- [Bug report](https://github.com/unseensnick/Reikai/issues/new?template=2_report_issue.yml)
+- [Feature request](https://github.com/unseensnick/Reikai/issues/new?template=1_request_feature.yml)
 
-Pull requests are welcome!
+Please search existing issues first, and include your Reikai version (More → About), Android version, and device.
 
-If you're interested in taking on [an open issue](https://github.com/mihonapp/mihon/issues), please comment on it so others are aware.
-You do not need to ask for permission nor an assignment.
+Note: Reikai does **not** maintain or fix extensions/sources. Problems with a specific source or extension are out of scope.
 
-## Prerequisites
+## Code contributions
 
-Before you start, please note that the ability to use following technologies is **required** and that existing contributors will not actively teach them to you.
+Pull requests are welcome, but reviews may take a while (this is a personal-time project). Working knowledge of [Android development](https://developer.android.com/) and [Kotlin](https://kotlinlang.org/) is assumed; existing contributors won't actively teach them.
 
-- Basic [Android development](https://developer.android.com/)
-- [Kotlin](https://kotlinlang.org/)
+Tooling: [Android Studio](https://developer.android.com/studio) (JDK 21), and an emulator or device for testing. Build and format per the conventions in the repo (`CLAUDE.md` and `.claude/rules/`).
 
-### Tools
+## Upstream
 
-- [Android Studio](https://developer.android.com/studio)
-- Emulator or phone with developer options enabled to test changes.
+Reikai tracks Mihon as its base, but Mihon is not a git remote of this repo, so upstream changes are ported **by hand**: clone Mihon locally, diff, and apply the relevant changes, with edits to Mihon's own files fenced by `// RK` markers. Reikai's own pre-rebase features come from the `design/library-compose` branch. See [`docs/dev/development.md`](docs/dev/development.md) for the architecture.
 
-## Getting help
+## License
 
-- Join [the Discord server](https://discord.gg/mihon) for online help and to ask questions while developing.
-
-# Translations
-
-Translations are done externally via Weblate. See [our website](https://mihon.app/docs/contribute#translation) for more details.
-
-
-# Forks
-
-Forks are allowed so long as they abide by [the project's LICENSE](https://github.com/mihonapp/mihon/blob/main/LICENSE).
-
-When creating a fork, remember to:
-
-- To avoid confusion with the main app:
-    - Change the app name
-    - Change the app icon
-    - Change or disable the [app update checker](https://github.com/mihonapp/mihon/blob/main/app/src/main/java/eu/kanade/tachiyomi/data/updater/AppUpdateChecker.kt)
-- To avoid installation conflicts:
-    - Change the `applicationId` in [`build.gradle.kts`](https://github.com/mihonapp/mihon/blob/main/app/build.gradle.kts)
-- To avoid having your data polluting the main app's analytics and crash report services:
-    - If you want to use Firebase analytics, replace [`google-services.json`](https://github.com/mihonapp/mihon/blob/main/app/src/standard/google-services.json) with your own
+Contributions are under [the project's LICENSE](LICENSE) (Apache-2.0).

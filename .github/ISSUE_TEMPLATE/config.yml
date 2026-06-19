@@ -3,6 +3,7 @@ contact_links:
   - name: ❌ Help with Extensions
     url: https://mihon.app/docs/faq/browse/extensions
     about: For extension-related questions/issues
-  - name: 🖥️ Mihon website
+  - name: 📖 Documentation (Mihon)
     url: https://mihon.app/
-    about: Guides, troubleshooting, and answers to common questions
+    about: Reikai is built on Mihon, so its guides, troubleshooting, and FAQ mostly apply
+

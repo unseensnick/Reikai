@@ -61,7 +61,7 @@ Every Reikai screen ported onto or added to Mihon follows Mihon's existing Voyag
 
 ## Build
 
-Build in Android Studio. Mihon's Gradle: JDK 17, formatting via Spotless (`./gradlew spotlessApply`), version catalogs `libs` and `mihonx`, build-logic via `gradle/build-logic` (`includeBuild`). Domain tests: `./gradlew :domain:test`. (CLI Gradle is intermittent on this machine; build/test on-device in Android Studio when CLI fails.)
+Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java-version`), formatting via Spotless (`./gradlew spotlessApply`), version catalogs `libs` and `mihonx`, build-logic via `gradle/build-logic` (`includeBuild`). Domain tests: `./gradlew :domain:test`. (CLI Gradle is intermittent on this machine; build/test on-device in Android Studio when CLI fails.)
 
 ## Design context
 
