@@ -56,6 +56,7 @@ Long-press multi-select on the shared category manager with Mihon's action-mode 
 ### 7. Novel source migration  `[M]`
 - **Scope:** move a favorited novel from one source to another, carrying read/bookmark/progress state (and tracks, once #8 lands).
 - **Done when:** a migrate action on novel details/library re-homes the novel to a chosen source with progress preserved; on-device verified.
+- **Follow-up:** download re-queue is a clean follow-up like LNReader's (re-queue a download task per previously-downloaded chapter onto the migrated novel; LNReader does not copy the files).
 
 ### 8. Novel trackers  `[M]`  — AniList / MyAnimeList / MangaUpdates / Kitsu
 Mirror LNReader's tracker set, reusing Mihon's existing tracker infrastructure (OAuth/token flows). No new tracker service.
