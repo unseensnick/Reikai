@@ -23,14 +23,67 @@ When the user asks to cut a release:
 1. Rename `## [Unreleased]` to the version.
 2. Add a new empty `## [Unreleased]` section above it for the next cycle.
 
+### Deferred history cleanup (do at the release-cut that ships `design/mihon-rebase` as `main`)
+
+The goal: **the whole `design/mihon-rebase` history reads in the commit message standard below before it becomes `main`.** Many commits already on the branch predate the standard, and the Mihon-sync ones use broken reference forms (`Mihon PR #<digit>`, bare `#<digit>`) that GitHub auto-links to the wrong (Reikai) repo. They are pushed, so this is a history rewrite + force-push, only worth doing at the natural rewrite point: the cut that turns this branch into `main` (it replaces the old Yōkai-based `main`, so this is cleaning the branch's own history, not a squash-merge). The branch is single-owner, so the force-push is acceptable with the user's explicit OK.
+
+**Recommended method (condense to one clean commit per feature, not a single squash):**
+
+1. **Tag a backup** first (e.g. `pre-cleanup-<date>`).
+2. **Scripted reference fix across all commits** (`git filter-repo --message-callback`, or `git filter-branch --msg-filter`): `Mihon PR #<n>` / `Mihon Issue #<n>` / a bare upstream `#<n>` -> `mihonapp/mihon#<n>`; ROADMAP `(#8)` -> `Roadmap N`.
+3. **`git rebase -i`** to bring **every** commit to the standard: `fixup` the incremental WIP and the `docs: mark #X done` churn into their feature commit so each meaningful feature is one commit, then `reword` every surviving commit to comply, leaving none in the old style. Non-trivial commits get the lead + bullets body; for a trivial commit a clean conventional subject is itself full compliance (the standard omits the body there). Result: a fully standard-compliant, ~one-commit-per-feature history (navigable + bisectable), not one giant squash (which loses bisect).
+4. **Update the `upstream-sync` memory's ledger SHAs** afterward (the rewrite changes every SHA from the edit point forward), then `--force-with-lease` and point `main` at it.
+
 ## Commits & PRs
 
-After code changes, create a git commit (do not push unless asked). Conventional commits with optional scope:
+After code changes, create a git commit (do not push unless asked).
 
-- `feat:` / `feat(scope):` — new feature
-- `fix:` — bug fix
-- `docs:` — documentation only
-- `chore:` — build / tooling
+### Commit message standard
+
+Write commits a user could skim and a contributor could read on. Scale the structure to the change: a typo is one line; a feature gets a body.
+
+**Subject (always):** `type(scope): summary`
+
+- Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`. Scope optional (`novel`, `library`, `reader`, `track`, `icon`, ...).
+- Imperative mood, lower-case, no trailing period, aim for <=72 chars.
+- **ROADMAP references: write `Roadmap N` (no `#`), never `#N`.** GitHub auto-links any `#N` token in a commit to a Reikai issue/PR, and `Roadmap #8` still triggers it (the word before `#` doesn't matter). Put the ref in a footer line (`Roadmap item 8.`) or a short subject parenthetical (`(Roadmap 8)`) if it fits.
+
+**Body (omit only for trivial commits; wrap ~72 cols):**
+
+1. **Lead** with 1-2 plain-language sentences: what changed and why it matters, readable by a non-developer. Never open with implementation detail.
+2. **Bullets** for the notable changes, benefit-first and scannable. For a large commit, group them under short headers (a user-facing one first, e.g. the feature area, then `Under the hood:` for internals) so a reader can stop early.
+3. **Footer (optional):** tests, deferred items / tradeoffs, upstream refs (`mihonapp/mihon#N`, which links to the Mihon repo; a bare `#N` would auto-link to a Reikai issue).
+
+**Rules:** blank line after the subject; no em dashes (see [code-quality.md](code-quality.md)); no AI watermarks (no `Co-Authored-By`, no generated-by footer). Lead with the user-facing effect; keep deep internals in a labeled section.
+
+Example (a large feature):
+
+```
+feat(novel): track novels on AniList, MyAnimeList, MangaUpdates & Kitsu
+
+Bind a novel to a tracker from its details screen and keep reading
+progress in sync, the same way manga tracking works.
+
+Tracking:
+- Bind to any tracker you're signed into; set status, chapters read,
+  score and dates from the details Tracking sheet.
+- Progress syncs automatically as you read and when marking chapters read.
+- Works across a merged novel's sources; each source keeps its tracker
+  if you later unmerge.
+
+Under the hood:
+- Persists to the existing novel_tracks table (model, repo, interactors);
+  bind/update port AddTracks.bind / BaseTracker onto it.
+- Reuses Mihon's tracker services; only search needed a // RK searchNovel
+  path, since Mihon's manga search excludes light novels.
+- Auto-sync from the reader and details mark-read, with an offline queue.
+
+Roadmap item 8. Tests: conversions, updater transitions, propagation.
+```
+
+A small commit needs no headers, just the subject plus a sentence or two (see the `fix(icon)` / `feat(novel)` re-queue commits in the log).
+
+**Conventional types:** `feat:` new feature, `fix:` bug fix, `docs:` documentation only, `chore:` build / tooling, `refactor:` / `test:` / `perf:` as named.
 
 During the Mihon rebase, all work lands on the **`design/mihon-rebase`** branch (it becomes the new `main` when the rebase ships). PRs target `design/mihon-rebase`, not `main`. Patches to Mihon's own files are fenced with `// RK -->` / `// RK <--`.
 
@@ -47,7 +100,7 @@ Don't bump per-push; ship alpha cycles by branch/tag. At release-cut, bump both 
 
 Mihon upstream changes are **ported manually** from the local `refs/mihon/` clone. Never `git merge` Mihon into `design/mihon-rebase` (it would clobber Reikai patches and identity). When porting an upstream change that touches a file Reikai has patched, re-apply inside the `// RK` island.
 
-**Commit-message reference convention (required):** in a Mihon-sync commit, reference an upstream pull request as **`Mihon PR #<num>`** and an upstream issue as **`Mihon Issue #<num>`** — never a bare `#<num>`, which GitHub auto-links to a *Reikai* issue/PR, nor a bare `<num>`. Also cite the upstream short-SHA (e.g. `mihon 80541831b`). The full commit-message template, the porting method (verbatim copy for marker-free files, hand-merge inside `// RK` islands for patched ones), and the running synced-base ledger live in the **`upstream-sync` memory**.
+**Commit-message reference convention (required):** in a Mihon-sync commit, reference an upstream pull request or issue as **`mihonapp/mihon#<num>`** (GitHub renders this as a link to the Mihon repo). Never a bare `#<num>` (it auto-links to a *Reikai* issue/PR) nor a bare `<num>`. Also cite the upstream short-SHA (e.g. `mihon 80541831b`). The full commit-message template, the porting method (verbatim copy for marker-free files, hand-merge inside `// RK` islands for patched ones), and the running synced-base ledger live in the **`upstream-sync` memory**.
 
 ## Porting remaining Reikai features
 
