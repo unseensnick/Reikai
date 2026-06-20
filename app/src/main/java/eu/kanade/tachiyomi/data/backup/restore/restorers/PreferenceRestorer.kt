@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.source.sourcePreferences
+import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.core.common.preference.AndroidPreferenceStore
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.plusAssign
@@ -60,6 +61,13 @@ class PreferenceRestorer(
         val backupCategoriesById = backupCategories?.associateBy { it.id.toString() }.orEmpty()
         val prefs = preferenceStore.getAll()
         toRestore.forEach { (key, value) ->
+            // RK: the novel merge prefs store novel IDs, which change on restore. NovelRestorer rebuilds
+            // them from the backup's {url, source} refs, so skip the raw values here to avoid stale IDs.
+            if (key == ReikaiLibraryPreferences.NOVEL_MANUAL_MERGES_KEY ||
+                key == ReikaiLibraryPreferences.NOVEL_MANUAL_UNMERGES_KEY
+            ) {
+                return@forEach
+            }
             try {
                 when (value) {
                     is IntPreferenceValue -> {

@@ -4,14 +4,17 @@ import android.content.Context
 import android.net.Uri
 import eu.kanade.tachiyomi.data.backup.BackupDecoder
 import eu.kanade.tachiyomi.data.backup.BackupNotifier
+import eu.kanade.tachiyomi.data.backup.models.Backup
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
-import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
 import eu.kanade.tachiyomi.data.backup.restore.restorers.CategoriesRestorer
+import eu.kanade.tachiyomi.data.backup.restore.restorers.ExtensionRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.ExtensionStoreRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
+import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelPluginRestorer
+import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.PreferenceRestorer
 import eu.kanade.tachiyomi.util.system.createFileInCacheDir
 import kotlinx.coroutines.CoroutineScope
@@ -34,6 +37,11 @@ class BackupRestorer(
     private val preferenceRestorer: PreferenceRestorer = PreferenceRestorer(context),
     private val extensionStoreRestorer: ExtensionStoreRestorer = ExtensionStoreRestorer(),
     private val mangaRestorer: MangaRestorer = MangaRestorer(),
+    // RK -->
+    private val novelRestorer: NovelRestorer = NovelRestorer(),
+    private val extensionRestorer: ExtensionRestorer = ExtensionRestorer(),
+    private val novelPluginRestorer: NovelPluginRestorer = NovelPluginRestorer(),
+    // RK <--
 ) {
 
     private var restoreAmount = 0
@@ -85,6 +93,10 @@ class BackupRestorer(
         if (options.sourceSettings) {
             restoreAmount += 1
         }
+        // RK: count restored novels toward progress.
+        if (options.libraryEntries) {
+            restoreAmount += backup.backupNovels.size
+        }
 
         coroutineScope {
             if (options.categories) {
@@ -100,10 +112,37 @@ class BackupRestorer(
                 restoreManga(backup.backupManga, if (options.categories) backup.backupCategories else emptyList())
             }
             if (options.extensionStores) {
-                restoreExtensionStores(backup.backupExtensionStores)
+                restoreExtensionStores(backup)
             }
+            // RK -->
+            restoreNovels(backup, options)
+            restoreNovelPlugins(backup, options)
+            // RK <--
 
             // TODO: optionally trigger online library + tracker update
+        }
+    }
+
+    // RK: restore the light-novel library. Self-contained and sequential (categories first, then each
+    // novel, then the merge prefs) so it doesn't race the parallel manga/preference restore jobs.
+    private fun CoroutineScope.restoreNovels(backup: Backup, options: RestoreOptions) = launch {
+        if (options.categories) {
+            ensureActive()
+            novelRestorer.restoreCategories(backup.backupNovelCategories)
+        }
+        if (options.libraryEntries) {
+            backup.backupNovels.forEach { backupNovel ->
+                ensureActive()
+                try {
+                    novelRestorer.restore(backupNovel, backup.backupNovelCategories)
+                } catch (e: Exception) {
+                    errors.add(Date() to "${backupNovel.title} [${backupNovel.source}]: ${e.message}")
+                }
+
+                restoreProgress += 1
+                notifier.showRestoreProgress(backupNovel.title, restoreProgress, restoreAmount, isSync)
+            }
+            novelRestorer.restoreMerges(backup.backupNovelMerges, backup.backupNovelUnmerges)
         }
     }
 
@@ -173,9 +212,9 @@ class BackupRestorer(
     }
 
     private fun CoroutineScope.restoreExtensionStores(
-        backupExtensionStores: List<BackupExtensionStore>,
+        backup: Backup,
     ) = launch {
-        backupExtensionStores
+        backup.backupExtensionStores
             .forEach {
                 ensureActive()
 
@@ -193,6 +232,31 @@ class BackupRestorer(
                     isSync,
                 )
             }
+
+        // RK: with the repos restored, reinstall the recorded manga extensions. Those whose repo is
+        // missing can't be matched; log them so the user knows what to reinstall by hand.
+        ensureActive()
+        try {
+            extensionRestorer.restore(backup.backupExtensions).forEach { name ->
+                errors.add(Date() to "Extension not reinstalled (repo missing): $name")
+            }
+        } catch (e: Exception) {
+            errors.add(Date() to "Error reinstalling extensions: ${e.message}")
+        }
+    }
+
+    // RK: re-download the recorded light-novel plugins (their .js files aren't in the backup; their
+    // install state rides the preference backup). Gated by app settings, where that state lives.
+    private fun CoroutineScope.restoreNovelPlugins(backup: Backup, options: RestoreOptions) = launch {
+        if (!options.appSettings) return@launch
+        ensureActive()
+        try {
+            novelPluginRestorer.restore(backup.backupPreferences).forEach { url ->
+                errors.add(Date() to "Novel plugin not reinstalled: $url")
+            }
+        } catch (e: Exception) {
+            errors.add(Date() to "Error reinstalling novel plugins: ${e.message}")
+        }
     }
 
     private fun writeErrorLog(): File {

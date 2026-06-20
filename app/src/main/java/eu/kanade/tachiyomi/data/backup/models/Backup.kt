@@ -12,4 +12,14 @@ data class Backup(
     @ProtoNumber(104) var backupPreferences: List<BackupPreference> = emptyList(),
     @ProtoNumber(105) var backupSourcePreferences: List<BackupSourcePreferences> = emptyList(),
     @ProtoNumber(106) var backupExtensionStores: List<BackupExtensionStore> = emptyList(),
+    // RK: light-novel library (ROADMAP #9). Proto numbers in the 700 range stay clear of Mihon's
+    // (1-106) and Komikku's fork additions (600/610). Merge/unmerge groups carry stable {url,source}
+    // refs (see BackupNovelMerge) since the live merge prefs store IDs that change on restore.
+    @ProtoNumber(700) var backupNovels: List<BackupNovel> = emptyList(),
+    @ProtoNumber(701) var backupNovelCategories: List<BackupNovelCategory> = emptyList(),
+    @ProtoNumber(702) var backupNovelMerges: List<BackupNovelMergeGroup> = emptyList(),
+    @ProtoNumber(703) var backupNovelUnmerges: List<BackupNovelMergeGroup> = emptyList(),
+    // RK: installed manga extensions (Mihon backs up only their repos). Novel plugins need no field
+    // here: their install state already rides the preference backup (ln_installed_plugin_urls).
+    @ProtoNumber(710) var backupExtensions: List<BackupExtension> = emptyList(),
 )

@@ -49,6 +49,10 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 **Networking**
 - **FlareSolverr support for bypassing Cloudflare.** Route a blocked source through a [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) proxy instead of the in-app WebView (Settings → Advanced → Networking); the WebView solver stays the default and the fallback.
 
+**Backup & restore**
+- **Your novel library is now backed up.** A backup captures your favorited novels with their chapters, read state, categories, history, tracker links, and cross-source merges; restoring on a fresh install brings the whole novel library back. Older backups made before this still restore fine.
+- **Installed sources come back on restore.** A backup now records which manga extensions and novel plugins you had installed, so a restore reinstalls them automatically; anything whose repo is missing is listed in the restore log so you know what to add back by hand.
+
 ### Changes
 - **Renamed the fork to Reikai.** Installs upgrade in place (same package ID), and the launcher shows the new R-monogram icon and "Reikai" label.
 - **The library Display options sheet is now tab-aware,** so a filter or category change made on the Novels tab no longer reaches into the manga library.
