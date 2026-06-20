@@ -61,7 +61,7 @@ Every Reikai screen ported onto or added to Mihon follows Mihon's existing Voyag
 
 ## Build
 
-Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java-version`), formatting via Spotless (`./gradlew spotlessApply`), version catalogs `libs` and `mihonx`, build-logic via `gradle/build-logic` (`includeBuild`). Domain tests: `./gradlew :domain:test`. (CLI Gradle is intermittent on this machine; build/test on-device in Android Studio when CLI fails.)
+Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java-version`), formatting via Spotless (`./gradlew spotlessApply`), version catalogs `libs` and `mihonx`, build-logic via `gradle/build-logic` (`includeBuild`). Domain tests: `./gradlew :domain:test`. No `lintKotlin` / `formatKotlin` tasks exist (Kotlinter only installs a pre-push hook); use `spotlessApply` to format and `compileDebugKotlin` to check. (CLI Gradle is intermittent on this machine; build/test on-device in Android Studio when CLI fails.)
 
 ## Design context
 
@@ -79,6 +79,7 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 - [.claude/rules/security.md](.claude/rules/security.md) — secrets, input validation.
 - [docs/dev/development.md](docs/dev/development.md) — architecture and module overview. NOTE: still describes the Yōkai base; being updated for Mihon.
 - [docs/dev/readme-showcase.md](docs/dev/readme-showcase.md) — how the README showcase animation (`screens.webp`) is captured and built; the reproduction kit (stills + frame + scripts) lives in `.github/readme-images/showcase/`.
+- Read-only reference clones live in `refs/` (declared in `.claude/settings.json`), mostly self-evident from their names. Non-obvious: `refs/tachiyomi-extension/` is the **Suwayomi** extension repo (`Suwayomi/tachiyomi-extension`, for connecting Reikai to a self-hosted Suwayomi server as an in-app source), NOT the archived `tachiyomiorg/tachiyomi-extensions`.
 
 ## Skills for common flows
 
