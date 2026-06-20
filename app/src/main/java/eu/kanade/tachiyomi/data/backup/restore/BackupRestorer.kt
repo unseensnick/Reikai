@@ -13,7 +13,6 @@ import eu.kanade.tachiyomi.data.backup.restore.restorers.CategoriesRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.ExtensionRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.ExtensionStoreRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
-import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelPluginRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.PreferenceRestorer
 import eu.kanade.tachiyomi.util.system.createFileInCacheDir
@@ -40,7 +39,6 @@ class BackupRestorer(
     // RK -->
     private val novelRestorer: NovelRestorer = NovelRestorer(),
     private val extensionRestorer: ExtensionRestorer = ExtensionRestorer(),
-    private val novelPluginRestorer: NovelPluginRestorer = NovelPluginRestorer(),
     // RK <--
 ) {
 
@@ -116,7 +114,10 @@ class BackupRestorer(
             }
             // RK -->
             restoreNovels(backup, options)
-            restoreNovelPlugins(backup, options)
+            // RK: novel plugins are NOT reinstalled here. Their install state (URLs + metadata) rides
+            // the preference backup, so the normal lazy loader re-downloads them on the next novel-
+            // screen open. A restore-time reinstall just duplicated that work and stalled on any
+            // unreachable repo.
             // RK <--
 
             // TODO: optionally trigger online library + tracker update
@@ -242,20 +243,6 @@ class BackupRestorer(
             }
         } catch (e: Exception) {
             errors.add(Date() to "Error reinstalling extensions: ${e.message}")
-        }
-    }
-
-    // RK: re-download the recorded light-novel plugins (their .js files aren't in the backup; their
-    // install state rides the preference backup). Gated by app settings, where that state lives.
-    private fun CoroutineScope.restoreNovelPlugins(backup: Backup, options: RestoreOptions) = launch {
-        if (!options.appSettings) return@launch
-        ensureActive()
-        try {
-            novelPluginRestorer.restore(backup.backupPreferences).forEach { url ->
-                errors.add(Date() to "Novel plugin not reinstalled: $url")
-            }
-        } catch (e: Exception) {
-            errors.add(Date() to "Error reinstalling novel plugins: ${e.message}")
         }
     }
 

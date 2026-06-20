@@ -3,6 +3,9 @@ package reikai.presentation.browse.extension
 import androidx.compose.runtime.Immutable
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import reikai.domain.novel.LnInstalledPluginMetadata
@@ -40,20 +43,33 @@ class LnPluginManagerScreenModel(
                 mutableState.update { it.copy(installed = sources, idToUrl = idToUrl) }
             }
         }
+        // Re-fetch when the added-repos set changes (e.g. a backup restore or adding a repo on another
+        // screen), so the tab reflects a restored repo without needing to be reopened. The pref's
+        // changes() doesn't replay the current value, so do an explicit first refresh below.
+        screenModelScope.launchIO {
+            prefs.addedRepoUrls().changes().collectLatest { refresh() }
+        }
         refresh()
     }
 
     fun refresh() {
         screenModelScope.launchIO {
-            mutableState.update { it.copy(isRefreshing = true) }
             val repos = prefs.addedRepoUrls().get()
+            mutableState.update { it.copy(isRefreshing = true, hasRepos = repos.isNotEmpty()) }
             val installedUrls = prefs.installedPluginUrls().get()
             val metadata = prefs.installedPluginMetadata().get()
 
-            // First-write-wins on URL collisions across repos, matching the install/check surfaces.
+            // Fetch every repo registry in parallel (network-bound), then merge in repo order so the
+            // first-write-wins on URL collisions still matches the install/check surfaces. awaitAll
+            // preserves the input order, so the merge order equals the repo order.
+            val fetched = coroutineScope {
+                repos.map { repo ->
+                    async { runCatching { installer.fetchRepo(repo) }.getOrElse { emptyList() } }
+                }.awaitAll()
+            }
             val byUrl = LinkedHashMap<String, LnRegistryEntry>()
-            for (repo in repos) {
-                runCatching { installer.fetchRepo(repo) }.getOrElse { emptyList() }.forEach { entry ->
+            fetched.forEach { entries ->
+                entries.forEach { entry ->
                     val key = canonicalizePluginUrl(entry.url)
                     if (key !in byUrl) byUrl[key] = entry
                 }
@@ -119,6 +135,9 @@ class LnPluginManagerScreenModel(
     data class State(
         val isRefreshing: Boolean = false,
         val hasLoaded: Boolean = false,
+        /** Whether any light-novel repo is added; lets the empty state tell "no repos" from "a repo is
+         *  added but returned nothing" (e.g. unreachable). */
+        val hasRepos: Boolean = false,
         val installed: List<NovelSource> = emptyList(),
         val available: List<LnRegistryEntry> = emptyList(),
         val updates: List<LnPluginUpdate> = emptyList(),

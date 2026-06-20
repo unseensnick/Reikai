@@ -7,10 +7,13 @@ package eu.kanade.tachiyomi.data.backup.restore.restorers
 
 import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.extension.ExtensionManager
+import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.model.InstallStep
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -23,7 +26,14 @@ class ExtensionRestorer(
         if (backupExtensions.isEmpty()) return emptyList()
 
         extensionManager.findAvailableExtensions()
-        val availableByPkg = extensionManager.availableExtensionsFlow.value.associateBy { it.pkgName }
+        // availableExtensionsFlow is a stateIn(Lazily) flow, so its .value lags behind the fetch we just
+        // triggered; reading it synchronously here returned an empty list and reported every extension
+        // as "repo missing". Await the populated emission instead, bounded so a genuinely empty result
+        // (no repos / fetch failed) still falls through to the unmatched log.
+        val available: List<Extension.Available> = withTimeoutOrNull(AVAILABLE_WAIT_MS) {
+            extensionManager.availableExtensionsFlow.first { it.isNotEmpty() }
+        }.orEmpty()
+        val availableByPkg = available.associateBy { it.pkgName }
         val installedPkgs = extensionManager.installedExtensionsFlow.value.mapTo(HashSet()) { it.pkgName }
 
         val unmatched = mutableListOf<String>()
@@ -43,5 +53,9 @@ class ExtensionRestorer(
             }
         }
         return unmatched
+    }
+
+    companion object {
+        private const val AVAILABLE_WAIT_MS = 20_000L
     }
 }
