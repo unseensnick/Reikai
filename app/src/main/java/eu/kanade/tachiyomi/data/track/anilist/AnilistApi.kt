@@ -135,12 +135,15 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
         }
     }
 
-    suspend fun search(search: String): List<TrackSearch> {
+    suspend fun search(search: String, novel: Boolean = false): List<TrackSearch> {
         return withIOContext {
+            // RK --> light novels are type: MANGA with format: NOVEL, which manga search excludes (Active #8)
+            val formatFilter = if (novel) "format: NOVEL" else "format_not_in: [NOVEL]"
+            // RK <--
             val query = $$"""
             |query Search($query: String) {
                 |Page (perPage: 50) {
-                    |media(search: $query, type: MANGA, format_not_in: [NOVEL]) {
+                    |media(search: $query, type: MANGA, $${formatFilter}) {
                         |id
                         |staff {
                             |edges {

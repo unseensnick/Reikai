@@ -24,6 +24,7 @@ import reikai.domain.novel.NovelCategoryRepository
 import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
+import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.SetNovelCategories
@@ -81,6 +82,7 @@ class NovelLibraryScreenModel :
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
     private val sourceManager: NovelSourceManager by injectLazy()
     private val mergeManager: NovelMergeManager by injectLazy()
+    private val propagateNovelTrackerLinks: PropagateNovelTrackerLinks by injectLazy()
     private val installer: LnPluginInstaller by injectLazy()
 
     /** Sticky Manga/Novels chip for the Library tab (owned here so it's read outside a Composable). */
@@ -468,6 +470,8 @@ class NovelLibraryScreenModel :
         val ids = state.value.selectedNovelIds
         if (ids.isEmpty()) return
         screenModelScope.launchIO {
+            // RK: copy each group's trackers onto its members before splitting, so each keeps them (Active #8).
+            ids.forEach { propagateNovelTrackerLinks.fromSeed(it) }
             mergeManager.unmergeNovels(ids)
             clearSelection()
         }

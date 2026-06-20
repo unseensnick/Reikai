@@ -73,7 +73,7 @@ class MyAnimeListApi(
         }
     }
 
-    suspend fun search(query: String): List<TrackSearch> {
+    suspend fun search(query: String, novel: Boolean = false): List<TrackSearch> {
         return withIOContext {
             val url = "$BASE_API_URL/manga".toUri().buildUpon()
                 // MAL API throws a 400 when the query is over 64 characters...
@@ -86,7 +86,9 @@ class MyAnimeListApi(
                     .awaitSuccess()
                     .parseAs<MALSearchResult>()
                     .data
-                    .filter { !(it.node.mediaType.contains("novel")) }
+                    // RK --> light novels share the /manga endpoint with media_type containing "novel" (Active #8)
+                    .filter { it.node.mediaType.contains("novel") == novel }
+                    // RK <--
                     .map { parseSearchItem(it.node) }
             }
         }

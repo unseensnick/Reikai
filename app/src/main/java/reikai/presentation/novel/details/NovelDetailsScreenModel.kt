@@ -8,15 +8,23 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import eu.kanade.domain.track.model.AutoTrackState
+import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.coil.MangaCoverMetadata
 import eu.kanade.tachiyomi.data.download.model.Download
+import eu.kanade.tachiyomi.data.track.TrackerManager
+import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import reikai.data.novel.NovelStatusCode
@@ -30,7 +38,11 @@ import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelCategories
+import reikai.domain.novel.interactor.GetNovelTracks
+import reikai.domain.novel.interactor.RefreshNovelTracks
 import reikai.domain.novel.interactor.SetNovelCategories
+import reikai.domain.novel.track.PropagateNovelTrackerLinks
+import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelChapter
@@ -55,6 +67,7 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.launchUI
+import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.data.Database
 import tachiyomi.i18n.MR
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -89,6 +102,15 @@ class NovelDetailsScreenModel(
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
     private val libraryPreferences: LibraryPreferences by injectLazy()
     private val context: Application by injectLazy()
+
+    // RK --> novel trackers (Active #8)
+    private val getNovelTracks: GetNovelTracks by injectLazy()
+    private val refreshNovelTracks: RefreshNovelTracks by injectLazy()
+    private val trackNovelChapter: TrackNovelChapter by injectLazy()
+    private val trackerManager: TrackerManager by injectLazy()
+    private val trackPreferences: TrackPreferences by injectLazy()
+    private val propagateNovelTrackerLinks: PropagateNovelTrackerLinks by injectLazy()
+    // RK <--
 
     /** Hosts the merge split/remove Undo snackbars; wired into the details Scaffold. */
     val snackbarHostState = SnackbarHostState()
@@ -135,12 +157,47 @@ class NovelDetailsScreenModel(
     /** Range-select anchor into the displayed chapter order; -1 when no selection. */
     private val selectionAnchor = intArrayOf(-1, -1)
 
+    /** Latest observed bound-tracker count, held outside state so the first [NovelDetailsState.Loaded]
+     *  built picks it up even when the observer emitted while the screen was still loading. */
+    @Volatile
+    private var currentTrackingCount = 0
+
     init {
         observeMergeGroup()
         observeMergeSourceChips()
         observeChapters()
         observeDownloadQueue()
+        observeTrackingCount()
         resolveSource()
+    }
+
+    /** Mirror the bound-tracker count (on logged-in services) into [NovelDetailsState.Loaded.trackingCount],
+     *  so the action-row Tracking button shows the count + flips its icon, like the manga header. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun observeTrackingCount() {
+        screenModelScope.launchIO {
+            novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId)
+                .map { it?.id }
+                .distinctUntilChanged()
+                .flatMapLatest { novelId ->
+                    if (novelId == null) {
+                        flowOf(0)
+                    } else {
+                        // subscribeGroup spans the merge group, so a track bound on a sibling source counts.
+                        combine(
+                            getNovelTracks.subscribeGroup(novelId),
+                            trackerManager.loggedInTrackersFlow(),
+                        ) { tracks, loggedIn ->
+                            val loggedInIds = loggedIn.mapTo(HashSet()) { it.id }
+                            tracks.count { it.trackerId in loggedInIds }
+                        }
+                    }
+                }
+                .collectLatest { count ->
+                    currentTrackingCount = count
+                    mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(trackingCount = count) ?: it }
+                }
+        }
     }
 
     /** Mirror the live download queue into [NovelDetailsState.Loaded.downloadStates]. Only the active
@@ -344,6 +401,7 @@ class NovelDetailsScreenModel(
                 isPageLoading = loaded?.isPageLoading ?: false,
                 isRefreshing = loaded?.isRefreshing ?: false,
                 downloadStates = loaded?.downloadStates.orEmpty(),
+                trackingCount = currentTrackingCount,
                 dialog = loaded?.dialog,
                 selection = loaded?.selection.orEmpty().filterTo(HashSet()) { id -> chapters.any { it.id == id } },
                 resumeChapter = resume,
@@ -483,6 +541,9 @@ class NovelDetailsScreenModel(
         val prevMerges = reikaiLibraryPreferences.novelManualMerges.get()
         val prevUnmerges = reikaiLibraryPreferences.novelManualUnmerges.get()
         val prevRelated = relatedNovelIds.value
+        // RK: copy the group's trackers onto each member so a split source keeps them (Active #8).
+        // Explicit ids (not a re-resolve), so it's race-free against the synchronous split below.
+        screenModelScope.launchIO { propagateNovelTrackerLinks.distribute(prevRelated.toList()) }
         val newIds = mergeManager.splitOrDissolve(prevRelated, targetIds)
         relatedNovelIds.value = if (newIds.isEmpty()) longArrayOf(anchorNovelId) else newIds
         selectedSourceNovelId.value = null
@@ -816,6 +877,7 @@ class NovelDetailsScreenModel(
 
     fun markSelectedRead(read: Boolean) = withSelection { chapters ->
         chapterRepo.setReadBulk(chapters.map { it.id }, read)
+        if (read) autoTrackOnMarkRead(chapters)
     }
 
     fun bookmarkSelected(bookmark: Boolean) = withSelection { chapters ->
@@ -829,7 +891,11 @@ class NovelDetailsScreenModel(
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
             val ascending = chapterRepo.getByNovelId(loaded.novel.id).sortedBy { it.sourceOrder }
             val earliest = ascending.indexOfFirst { it.id in loaded.selection }
-            if (earliest > 0) chapterRepo.setReadBulk(ascending.subList(0, earliest).map { it.id }, read)
+            if (earliest > 0) {
+                val previous = ascending.subList(0, earliest)
+                chapterRepo.setReadBulk(previous.map { it.id }, read)
+                if (read) autoTrackOnMarkRead(previous)
+            }
             clearSelection()
         }
     }
@@ -837,7 +903,9 @@ class NovelDetailsScreenModel(
     fun markAllRead(read: Boolean) {
         screenModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
-            chapterRepo.setReadBulk(chapterRepo.getByNovelId(loaded.novel.id).map { it.id }, read)
+            val all = chapterRepo.getByNovelId(loaded.novel.id)
+            chapterRepo.setReadBulk(all.map { it.id }, read)
+            if (read) autoTrackOnMarkRead(all)
         }
     }
 
@@ -846,8 +914,51 @@ class NovelDetailsScreenModel(
     }
 
     fun markChapterRead(chapter: NovelChapter, read: Boolean) {
-        screenModelScope.launchIO { chapterRepo.setReadBulk(listOf(chapter.id), read) }
+        screenModelScope.launchIO {
+            chapterRepo.setReadBulk(listOf(chapter.id), read)
+            if (read) autoTrackOnMarkRead(listOf(chapter))
+        }
     }
+
+    // RK --> novel trackers (Active #8)
+    /** True if any tracker is logged in; gates the toolbar action (sheet vs Settings > Tracking). */
+    fun hasLoggedInTrackers(): Boolean = trackerManager.loggedInTrackers().isNotEmpty()
+
+    fun showTrackDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.TrackSheet) }
+
+    /**
+     * Hook 2: after chapters are marked read from the details list, push progress to bound trackers,
+     * honouring the AutoTrackState pref (never / always / ask), mirroring [MangaScreenModel.markChaptersRead].
+     */
+    private fun autoTrackOnMarkRead(chapters: List<NovelChapter>) {
+        if (chapters.isEmpty() || trackerManager.loggedInTrackers().isEmpty()) return
+        val autoTrackState = trackPreferences.autoUpdateTrackOnMarkRead.get()
+        if (autoTrackState == AutoTrackState.NEVER) return
+        val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return
+        val maxChapterNumber = chapters.maxOf { it.chapterNumber }
+        screenModelScope.launchIO {
+            refreshNovelTracks.await(novel.id)
+            val tracks = getNovelTracks.await(novel.id)
+            if (tracks.none { maxChapterNumber > it.lastChapterRead }) return@launchIO
+            if (autoTrackState == AutoTrackState.ALWAYS) {
+                trackNovelChapter.await(context, novel.id, maxChapterNumber)
+                withUIContext {
+                    context.toast(context.stringResource(MR.strings.trackers_updated_summary, maxChapterNumber.toInt()))
+                }
+                return@launchIO
+            }
+            val result = snackbarHostState.showSnackbar(
+                message = context.stringResource(MR.strings.confirm_tracker_update, maxChapterNumber.toInt()),
+                actionLabel = context.stringResource(MR.strings.action_ok),
+                duration = SnackbarDuration.Short,
+                withDismissAction = true,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                trackNovelChapter.await(context, novel.id, maxChapterNumber)
+            }
+        }
+    }
+    // RK <--
 
     /** Row swipe, dispatched by the configured [LibraryPreferences.ChapterSwipeAction] (mirrors the
      *  manga path's `executeChapterSwipeAction`, with the same download-state to action mapping). */
@@ -947,6 +1058,8 @@ sealed interface NovelDetailsState {
         /** Live download-queue states by chapter id (queued/downloading/error only; a finished
          *  download is signalled by the chapter row's `isDownloaded` flag). */
         val downloadStates: Map<Long, Download.State> = emptyMap(),
+        /** Bound trackers on a logged-in service; drives the details action-row Tracking button (Active #8). */
+        val trackingCount: Int = 0,
         val dialog: NovelDetailsDialog? = null,
         val selection: Set<Long> = emptySet(),
         val resumeChapter: NovelChapter? = null,
@@ -1006,4 +1119,7 @@ sealed interface NovelDetailsDialog {
     data object PageSelector : NovelDetailsDialog
     data object FullCover : NovelDetailsDialog
     data class ManageSources(val sources: List<NovelMergeSourceInfo>) : NovelDetailsDialog
+
+    // RK: novel trackers (Active #8). Rendered as a NavigatorAdaptiveSheet, mirroring Mihon's manga sheet.
+    data object TrackSheet : NovelDetailsDialog
 }

@@ -23,6 +23,7 @@ The format is simplified version of [Keep a Changelog](https://keepachangelog.co
 - **Novels in the History tab.** Reading a novel records it in History; the tab interleaves recently read manga and novels (All / Manga / Novels chip), newest first, with search, tap to resume, and delete or clear.
 - **Cross-source merge.** Combine the same novel from several sources into one cover and one deduplicated chapter list with a source switcher and shared read state, by hand or automatically by title.
 - **Migrate a novel to another source.** From a novel's overflow menu, search its title across your sources and move it over, carrying read / bookmark / scroll-progress (matched by chapter number) and categories, and re-downloading any chapters you had saved offline. Choose Copy (keep the original too) or Migrate (replace it).
+- **Track novels on AniList, MyAnimeList, MangaUpdates, and Kitsu.** A Tracking action on a novel binds it to any tracker you're already signed into, then set status, chapters read, score, and dates. Reading progress pushes automatically as you finish chapters (and queues to retry if you're offline).
 - **Plugins stay current.** The Browse badge counts pending plugin updates, checked in the background, with one-tap reinstall and real plugin icons.
 
 **Library**

@@ -46,6 +46,7 @@ import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
+import eu.kanade.presentation.components.NavigatorAdaptiveSheet
 import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.manga.EditCoverAction
 import eu.kanade.presentation.manga.components.ChapterHeader
@@ -56,6 +57,7 @@ import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.data.download.model.Download
+import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import reikai.data.coil.NovelCover
@@ -63,6 +65,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
 import reikai.presentation.novel.migrate.NovelMigrateSearchScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
+import reikai.presentation.novel.track.NovelTrackInfoDialogHomeScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.TwoPanelBox
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -120,6 +123,14 @@ class NovelScreen(
                 } else {
                     null
                 }
+                // RK: tracking action; mirrors MangaScreen (no logged-in trackers -> Settings > Tracking).
+                val onTracking: () -> Unit = {
+                    if (screenModel.hasLoggedInTrackers()) {
+                        screenModel.showTrackDialog()
+                    } else {
+                        navigator.push(SettingsScreen(SettingsScreen.Destination.Tracking))
+                    }
+                }
                 val onCopy: (String) -> Unit = { text -> context.copyToClipboard(text, text) }
                 val onChapterClick: (NovelChapter) -> Unit = { chapter ->
                     // Route to the chapter's own source (a unified-list row keeps its owning novelId)
@@ -136,9 +147,9 @@ class NovelScreen(
                 }
 
                 if (isTabletUi()) {
-                    NovelDetailsLargeImpl(s, screenModel, navigator::pop, onWebView, onShare, onMigrate, onSearch, onCopy, onChapterClick)
+                    NovelDetailsLargeImpl(s, screenModel, navigator::pop, onWebView, onShare, onMigrate, onTracking, onSearch, onCopy, onChapterClick)
                 } else {
-                    NovelDetailsSmallImpl(s, screenModel, navigator::pop, onWebView, onShare, onMigrate, onSearch, onCopy, onChapterClick)
+                    NovelDetailsSmallImpl(s, screenModel, navigator::pop, onWebView, onShare, onMigrate, onTracking, onSearch, onCopy, onChapterClick)
                 }
 
                 NovelDetailsDialogs(s, screenModel)
@@ -156,6 +167,7 @@ private fun NovelDetailsSmallImpl(
     onWebView: () -> Unit,
     onShare: () -> Unit,
     onMigrate: (() -> Unit)?,
+    onTracking: () -> Unit,
     onSearch: (String) -> Unit,
     onCopy: (String) -> Unit,
     onChapterClick: (NovelChapter) -> Unit,
@@ -194,7 +206,7 @@ private fun NovelDetailsSmallImpl(
             ),
         ) {
             novelInfoItems(
-                state, screenModel, onWebView, onShare, onSearch, onCopy,
+                state, screenModel, onWebView, onShare, onTracking, onSearch, onCopy,
                 isTabletUi = false,
                 appBarPadding = contentPadding.calculateTopPadding(),
             )
@@ -212,6 +224,7 @@ private fun NovelDetailsLargeImpl(
     onWebView: () -> Unit,
     onShare: () -> Unit,
     onMigrate: (() -> Unit)?,
+    onTracking: () -> Unit,
     onSearch: (String) -> Unit,
     onCopy: (String) -> Unit,
     onChapterClick: (NovelChapter) -> Unit,
@@ -246,6 +259,7 @@ private fun NovelDetailsLargeImpl(
                         screenModel,
                         onWebView,
                         onShare,
+                        onTracking,
                         onSearch,
                         onCopy,
                         isTabletUi = true,
@@ -383,6 +397,19 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: No
             onRemoveFromLibrary = screenModel::removeSourcesFromLibrary,
             onRemoveAll = screenModel::removeAllSourcesFromLibrary,
         )
+        // RK: tracking sheet (Active #8). Remember by novel id so the merge collectors' frequent
+        // recompositions don't rebuild it and reset its navigator mid-write (the manga side hit an
+        // InsertTrack JobCancellationException here).
+        NovelDetailsDialog.TrackSheet -> {
+            val trackScreen = remember(state.novel.id) {
+                NovelTrackInfoDialogHomeScreen(novelId = state.novel.id, novelTitle = state.novel.title)
+            }
+            NavigatorAdaptiveSheet(
+                screen = trackScreen,
+                enableSwipeDismiss = { it.lastItem is NovelTrackInfoDialogHomeScreen },
+                onDismissRequest = screenModel::dismissDialog,
+            )
+        }
         // Rendered by NovelCoverDialogHost: rememberScreenModel needs the Screen receiver, absent here.
         NovelDetailsDialog.FullCover -> Unit
         null -> {}
@@ -433,6 +460,7 @@ private fun LazyListScope.novelInfoItems(
     screenModel: NovelDetailsScreenModel,
     onWebView: () -> Unit,
     onShare: () -> Unit,
+    onTracking: () -> Unit,
     onSearch: (String) -> Unit,
     onCopy: (String) -> Unit,
     isTabletUi: Boolean,
@@ -460,9 +488,11 @@ private fun LazyListScope.novelInfoItems(
     item(key = "actions") {
         NovelActionRow(
             favorite = state.novel.favorite,
+            trackingCount = state.trackingCount,
             onAddToLibraryClicked = screenModel::toggleFavorite,
             onWebViewClicked = state.sourceUrl?.let { { onWebView() } },
             onShareClicked = state.sourceUrl?.let { { onShare() } },
+            onTrackingClicked = onTracking,
         )
     }
     item(key = "description") {

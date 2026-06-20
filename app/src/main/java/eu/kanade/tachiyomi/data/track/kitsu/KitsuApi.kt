@@ -129,20 +129,20 @@ class KitsuApi(private val client: OkHttpClient, interceptor: KitsuInterceptor) 
         }
     }
 
-    suspend fun search(query: String): List<TrackSearch> {
+    suspend fun search(query: String, novel: Boolean = false): List<TrackSearch> {
         return withIOContext {
             with(json) {
                 authClient.newCall(GET(ALGOLIA_KEY_URL))
                     .awaitSuccess()
                     .parseAs<KitsuSearchResult>()
                     .let {
-                        algoliaSearch(it.media.key, query)
+                        algoliaSearch(it.media.key, query, novel)
                     }
             }
         }
     }
 
-    private suspend fun algoliaSearch(key: String, query: String): List<TrackSearch> {
+    private suspend fun algoliaSearch(key: String, query: String, novel: Boolean = false): List<TrackSearch> {
         return withIOContext {
             val jsonObject = buildJsonObject {
                 put("params", "query=${URLEncoder.encode(query, StandardCharsets.UTF_8.name())}$ALGOLIA_FILTER")
@@ -164,7 +164,9 @@ class KitsuApi(private val client: OkHttpClient, interceptor: KitsuInterceptor) 
                     .awaitSuccess()
                     .parseAs<KitsuAlgoliaSearchResult>()
                     .hits
-                    .filter { it.subtype != "novel" }
+                    // RK --> Kitsu "manga" kind covers light novels via subtype "novel" (Active #8)
+                    .filter { (it.subtype == "novel") == novel }
+                    // RK <--
                     .map { it.toTrack() }
             }
         }

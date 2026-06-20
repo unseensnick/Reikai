@@ -130,6 +130,24 @@ class MyAnimeList(id: Long) : BaseTracker(id, "MyAnimeList"), DeletableTracker {
         return api.search(query)
     }
 
+    // RK --> novel-aware search (Active #8): same flow, novel-filtered remote search
+    override suspend fun searchNovel(query: String): List<TrackSearch> {
+        if (query.startsWith(SEARCH_ID_PREFIX)) {
+            query.substringAfter(SEARCH_ID_PREFIX).toIntOrNull()?.let { id ->
+                return listOf(api.getMangaDetails(id))
+            }
+        }
+
+        if (query.startsWith(SEARCH_LIST_PREFIX)) {
+            query.substringAfter(SEARCH_LIST_PREFIX).let { title ->
+                return api.findListItems(title)
+            }
+        }
+
+        return api.search(query, novel = true)
+    }
+    // RK <--
+
     override suspend fun refresh(track: Track): Track {
         return api.findListItem(track) ?: add(track)
     }

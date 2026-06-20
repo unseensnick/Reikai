@@ -146,16 +146,22 @@ class MangaUpdatesApi(
         }
     }
 
-    suspend fun search(query: String): List<MURecord> {
+    suspend fun search(query: String, novel: Boolean = false): List<MURecord> {
         val body = buildJsonObject {
             put("search", query)
-            put(
-                "filter_types",
-                buildJsonArray {
-                    add("drama cd")
-                    add("novel")
-                },
-            )
+            // RK --> manga search filters out novels + drama CDs. Novel search sends no filter_types
+            // (returns every type regardless of include/exclude semantics) and is post-filtered by
+            // record type in the caller, so it is robust without confirming the API's filter meaning (Active #8).
+            if (!novel) {
+                put(
+                    "filter_types",
+                    buildJsonArray {
+                        add("drama cd")
+                        add("novel")
+                    },
+                )
+            }
+            // RK <--
         }
 
         return with(json) {

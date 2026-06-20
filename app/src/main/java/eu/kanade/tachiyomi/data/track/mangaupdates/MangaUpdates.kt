@@ -95,6 +95,16 @@ class MangaUpdates(id: Long) : BaseTracker(id, "MangaUpdates"), DeletableTracker
             }
     }
 
+    // RK --> novel-aware search (Active #8): keep only "Novel"-type series from the unfiltered results
+    override suspend fun searchNovel(query: String): List<TrackSearch> {
+        return api.search(query, novel = true)
+            .filter { it.type?.equals("novel", ignoreCase = true) == true }
+            .map {
+                it.toTrackSearch(id)
+            }
+    }
+    // RK <--
+
     override suspend fun refresh(track: Track): Track {
         val (series, rating) = api.getSeriesListItem(track)
         return track.copyFrom(series, rating)
