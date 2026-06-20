@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.GetApp
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -47,19 +48,37 @@ fun LnPluginManager(
     onUninstall: (NovelSource) -> Unit,
     onUpdateAll: () -> Unit,
     onAddRepo: () -> Unit,
+    onRetry: () -> Unit,
     isSearching: Boolean = false,
 ) {
     if (state.isEmpty) {
         EmptyScreen(
-            stringRes = if (isSearching) MR.strings.no_results_found else MR.strings.ln_no_repos,
+            stringRes = when {
+                isSearching -> MR.strings.no_results_found
+                // A repo is added but nothing loaded (empty or unreachable) reads differently from
+                // having no repos at all.
+                state.hasRepos -> MR.strings.ln_no_plugins
+                else -> MR.strings.ln_no_repos
+            },
             modifier = Modifier.padding(contentPadding),
-            actions = listOf(
-                EmptyScreenAction(
-                    stringRes = MR.strings.ln_repos,
-                    icon = Icons.Outlined.Settings,
-                    onClick = onAddRepo,
-                ),
-            ),
+            actions = buildList {
+                if (state.hasRepos && !isSearching) {
+                    add(
+                        EmptyScreenAction(
+                            stringRes = MR.strings.action_retry,
+                            icon = Icons.Outlined.Refresh,
+                            onClick = onRetry,
+                        ),
+                    )
+                }
+                add(
+                    EmptyScreenAction(
+                        stringRes = MR.strings.ln_repos,
+                        icon = Icons.Outlined.Settings,
+                        onClick = onAddRepo,
+                    ),
+                )
+            },
         )
         return
     }

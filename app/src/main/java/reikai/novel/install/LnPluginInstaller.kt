@@ -19,6 +19,7 @@ import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.source.LnPluginSource
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.system.logcat
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Installs and uninstalls light-novel plugins.
@@ -39,17 +40,20 @@ class LnPluginInstaller(
     private val host: LnPluginHost,
 ) {
 
+    // Serializes the bulk load so two ensureLoaded calls don't double-load. NOT held by install/
+    // uninstall: those only touch the concurrent [loadedUrls] set, so a tap-to-install never blocks
+    // behind an in-progress (possibly slow, e.g. a down repo) ensureLoaded.
     private val loadMutex = Mutex()
-    @Volatile private var loadedOnce = false
+    // Canonical URLs already loaded + registered this process. ensureLoaded retries only the installed
+    // URLs NOT in here, so a plugin whose download failed once (network blip, Cloudflare, cold cache
+    // after a restore) heals on the next novel-screen open instead of needing a cold restart.
+    private val loadedUrls: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
-    /** Load every installed plugin into the app-scoped host exactly once per process, registering
-     *  the sources with [NovelSourceManager]. Idempotent and concurrency-safe. */
+    /** Load any installed plugins not yet registered this process, in parallel. Retries previously
+     *  failed ones on each call, so navigating to a novel screen self-heals a transient load failure. */
     suspend fun ensureLoaded() {
-        if (loadedOnce) return
         loadMutex.withLock {
-            if (loadedOnce) return
-            loadInstalled()
-            loadedOnce = true
+            loadUrlsLocked(prefs.installedPluginUrls().get() - loadedUrls)
         }
     }
 
@@ -62,39 +66,68 @@ class LnPluginInstaller(
         val info = host.loadPlugin(scopeIdFromUrl(canonical), src, metadata?.iconUrl, metadata?.lang)
         val source = LnPluginSource(host, info)
         manager.register(source)
-        prefs.installedPluginUrls().set(prefs.installedPluginUrls().get() + canonical)
-        val record = metadata?.copy(pluginId = info.id)
-            ?: LnInstalledPluginMetadata(pluginId = info.id)
-        prefs.installedPluginMetadata().set(prefs.installedPluginMetadata().get() + (canonical to record))
+
+        // A plugin's identity is [info.id], not its URL. Drop any prior install of the same plugin (the
+        // same plugin from a different/old repo, or a URL carried in by a restore) so installing
+        // REPLACES it instead of leaving a duplicate URL that reloads on the next launch.
+        val currentMetadata = prefs.installedPluginMetadata().get()
+        val staleUrls = currentMetadata.filterValues { it.pluginId == info.id }.keys - canonical
+        val record = metadata?.copy(pluginId = info.id) ?: LnInstalledPluginMetadata(pluginId = info.id)
+        prefs.installedPluginUrls().set(prefs.installedPluginUrls().get() - staleUrls + canonical)
+        prefs.installedPluginMetadata().set(currentMetadata - staleUrls + (canonical to record))
+        loadedUrls.removeAll(staleUrls)
+        loadedUrls.add(canonical)
+
         logcat(LogPriority.INFO) { "installed plugin ${info.id} from $canonical" }
         return source
     }
 
     /**
-     * Re-load every URL in [NovelPreferences.installedPluginUrls] into the app-scoped host and
-     * register the resulting sources. Individual failures are logged and skipped so one bad URL
-     * doesn't block the rest. Lazily backfills missing iconUrl/lang for legacy installs.
+     * Force a full re-load of every installed plugin (e.g. a manual "reload sources"), retrying any
+     * that previously failed. Individual failures are logged and skipped so one bad URL doesn't block
+     * the rest. Prefer [ensureLoaded] for the lazy on-open path.
      */
-    suspend fun loadInstalled(): List<LnPluginSource> {
-        val urls = prefs.installedPluginUrls().get()
+    suspend fun loadInstalled(): List<LnPluginSource> = loadMutex.withLock {
+        loadedUrls.clear()
+        loadUrlsLocked(prefs.installedPluginUrls().get())
+    }
+
+    /**
+     * Load [urls] into the app-scoped host in parallel and register the successes. The slow part (the
+     * network download per plugin) overlaps; the JS engine eval serializes safely behind the host's
+     * own mutex. Successful URLs are recorded in [loadedUrls]; failures are logged and left out so a
+     * later [ensureLoaded] retries them. Caller must hold [loadMutex]. Lazily backfills missing
+     * iconUrl/lang for legacy installs.
+     */
+    private suspend fun loadUrlsLocked(urls: Set<String>): List<LnPluginSource> {
+        if (urls.isEmpty()) return emptyList()
         val metadata = backfillMetadata(urls)
-        return urls.mapNotNull { url ->
-            try {
-                val src = loader.fetchSource(url, forceRefresh = false)
-                val info = host.loadPlugin(
-                    scopeIdFromUrl(url),
-                    src,
-                    metadata[url]?.iconUrl,
-                    metadata[url]?.lang,
-                )
-                val source = LnPluginSource(host, info)
-                manager.register(source)
-                source
-            } catch (e: Throwable) {
-                logcat(LogPriority.ERROR, e) { "loadInstalled: failed for $url" }
-                null
-            }
+        val results = coroutineScope {
+            urls.map { url ->
+                async {
+                    try {
+                        val src = loader.fetchSource(url, forceRefresh = false)
+                        val info = host.loadPlugin(
+                            scopeIdFromUrl(url),
+                            src,
+                            metadata[url]?.iconUrl,
+                            metadata[url]?.lang,
+                        )
+                        val source = LnPluginSource(host, info)
+                        manager.register(source)
+                        url to source
+                    } catch (e: Throwable) {
+                        logcat(LogPriority.ERROR, e) { "loadInstalled: failed for $url" }
+                        null
+                    }
+                }
+            }.awaitAll()
         }
+        val ok = results.filterNotNull()
+        // Record successes on the single (mutex-holding) coroutine, after awaitAll, to avoid racing on
+        // loadedUrls from the parallel children.
+        loadedUrls += ok.map { it.first }
+        return ok.map { it.second }
     }
 
     /**
@@ -140,16 +173,20 @@ class LnPluginInstaller(
     }
 
     /**
-     * Remove a plugin's URL from persistence and unregister its source. The loaded plugin instance
-     * stays in the host until the host is destroyed; that's fine because the source is no longer
-     * reachable through the manager.
+     * Remove a plugin from persistence and unregister its source. Removes EVERY URL mapped to this
+     * plugin id (a plugin can have several if it was installed from more than one repo or carried in by
+     * a restore), so uninstall fully removes it instead of leaving a sibling URL that reloads on the
+     * next launch. The loaded plugin instance stays in the host until the host is destroyed; that's
+     * fine because the source is no longer reachable through the manager.
      */
     suspend fun uninstall(pluginId: String, pluginJsUrl: String) {
-        val canonical = canonicalizePluginUrl(pluginJsUrl)
-        prefs.installedPluginUrls().set(prefs.installedPluginUrls().get() - canonical)
-        prefs.installedPluginMetadata().set(prefs.installedPluginMetadata().get() - canonical)
+        val metadata = prefs.installedPluginMetadata().get()
+        val urlsToRemove = metadata.filterValues { it.pluginId == pluginId }.keys + canonicalizePluginUrl(pluginJsUrl)
+        prefs.installedPluginUrls().set(prefs.installedPluginUrls().get() - urlsToRemove)
+        prefs.installedPluginMetadata().set(metadata - urlsToRemove)
+        loadedUrls.removeAll(urlsToRemove)
         manager.unregister(pluginId)
-        logcat(LogPriority.INFO) { "uninstalled plugin $pluginId (was $canonical)" }
+        logcat(LogPriority.INFO) { "uninstalled plugin $pluginId (${urlsToRemove.size} url(s))" }
     }
 
     /**

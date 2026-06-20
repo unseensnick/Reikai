@@ -86,6 +86,7 @@ fun Screen.reikaiExtensionsTab(
                         onUninstall = lnModel::uninstall,
                         onUpdateAll = lnModel::updateAll,
                         onAddRepo = openRepos,
+                        onRetry = lnModel::refresh,
                     )
                     ContentType.ALL -> CombinedExtensionsContent(
                         extState = extState,
