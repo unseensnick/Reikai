@@ -49,3 +49,24 @@ SET
     last_read = :readAt,
     time_read = time_read + :timeRead
 WHERE chapter_id = :chapterId;
+
+-- RK: backup read. Every history row for one novel, joined to its chapter's url (the stable key the
+-- backup serializes, since chapter ids change on restore). Soft-deleted rows (last_read = 0) excluded.
+getByNovelId:
+SELECT C.url AS chapterUrl, H.last_read, H.time_read
+FROM novels N
+INNER JOIN novel_chapters C ON N._id = C.novel_id
+INNER JOIN novel_history H ON C._id = H.chapter_id
+WHERE N._id = :novelId AND H.last_read > 0;
+
+-- RK: backup restore. Idempotent upsert (MAX, not accumulate) so re-restoring the same backup doesn't
+-- double-count time_read or rewind last_read.
+restoreUpsert:
+INSERT INTO novel_history(chapter_id, last_read, time_read)
+VALUES (:chapterId, :readAt, :timeRead)
+ON CONFLICT(chapter_id)
+DO UPDATE
+SET
+    last_read = MAX(COALESCE(last_read, 0), :readAt),
+    time_read = MAX(time_read, :timeRead)
+WHERE chapter_id = :chapterId;

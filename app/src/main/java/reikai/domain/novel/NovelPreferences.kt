@@ -21,7 +21,7 @@ class NovelPreferences(
      * read from each plugin after load, so an unloadable plugin (404, parse error) can still be
      * uninstalled by removing its URL.
      */
-    fun installedPluginUrls() = preferenceStore.getStringSet("ln_installed_plugin_urls", emptySet())
+    fun installedPluginUrls() = preferenceStore.getStringSet(INSTALLED_PLUGIN_URLS_KEY, emptySet())
 
     /**
      * Per-plugin metadata side-table keyed by the same canonicalized URL as [installedPluginUrls].
@@ -154,6 +154,10 @@ class NovelPreferences(
     fun novelMigrationFlags() = preferenceStore.getInt("novel_migration_flags", NovelMigrationFlag.DEFAULT_BITS)
 
     companion object {
+        // Exposed so the backup restorer can pull the installed-plugin URL set out of the backed-up
+        // preference list and re-download each plugin (the .js files aren't in the backup).
+        const val INSTALLED_PLUGIN_URLS_KEY = "ln_installed_plugin_urls"
+
         private val metadataMapSerializer =
             MapSerializer(String.serializer(), LnInstalledPluginMetadata.serializer())
         private val metadataJson = Json { ignoreUnknownKeys = true }

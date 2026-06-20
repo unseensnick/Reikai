@@ -181,10 +181,10 @@ class ReikaiLibraryPreferences(
     // Novel merge (P5 S8). Keys preserved from the Yokai era for upgrade continuity.
 
     /** Manual novel merge groups: each entry is a comma-joined, sorted novel-id group (e.g. "1,5,9"). */
-    val novelManualMerges: Preference<Set<String>> = preferenceStore.getStringSet("novel_manual_merges", emptySet())
+    val novelManualMerges: Preference<Set<String>> = preferenceStore.getStringSet(NOVEL_MANUAL_MERGES_KEY, emptySet())
 
     /** Explicit novel unmerges: normalized "min,max" id pairs that must never be grouped. */
-    val novelManualUnmerges: Preference<Set<String>> = preferenceStore.getStringSet("novel_manual_unmerges", emptySet())
+    val novelManualUnmerges: Preference<Set<String>> = preferenceStore.getStringSet(NOVEL_MANUAL_UNMERGES_KEY, emptySet())
 
     /** Auto-group favorited novels that share a title across sources (see [novelAutoMergeRequireAuthor]). */
     val novelAutoMergeSameTitle: Preference<Boolean> = preferenceStore.getBoolean("novel_auto_merge_same_title", true)
@@ -198,4 +198,11 @@ class ReikaiLibraryPreferences(
     val showNovelMergeSourceIcons: Preference<Boolean> = preferenceStore.getBoolean("novel_merge_source_icons", true)
 
     // endregion
+
+    companion object {
+        // The merge prefs store novel IDs, which change on restore, so the backup restorer rebuilds them
+        // from {url, source} refs and the generic preference restore must skip these two keys.
+        const val NOVEL_MANUAL_MERGES_KEY = "novel_manual_merges"
+        const val NOVEL_MANUAL_UNMERGES_KEY = "novel_manual_unmerges"
+    }
 }

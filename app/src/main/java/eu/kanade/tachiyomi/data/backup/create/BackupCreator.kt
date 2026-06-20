@@ -6,12 +6,15 @@ import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.backup.BackupFileValidator
 import eu.kanade.tachiyomi.data.backup.create.creators.CategoriesBackupCreator
+import eu.kanade.tachiyomi.data.backup.create.creators.ExtensionBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.ExtensionStoresBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.MangaBackupCreator
+import eu.kanade.tachiyomi.data.backup.create.creators.NovelBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.PreferenceBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.SourcesBackupCreator
 import eu.kanade.tachiyomi.data.backup.models.Backup
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
+import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
@@ -51,6 +54,10 @@ class BackupCreator(
     private val preferenceBackupCreator: PreferenceBackupCreator = PreferenceBackupCreator(),
     private val extensionStoresBackupCreator: ExtensionStoresBackupCreator = ExtensionStoresBackupCreator(),
     private val sourcesBackupCreator: SourcesBackupCreator = SourcesBackupCreator(),
+    // RK -->
+    private val novelBackupCreator: NovelBackupCreator = NovelBackupCreator(),
+    private val extensionBackupCreator: ExtensionBackupCreator = ExtensionBackupCreator(),
+    // RK <--
 ) {
 
     suspend fun backup(uri: Uri, options: BackupOptions): String {
@@ -80,6 +87,9 @@ class BackupCreator(
             val nonFavoriteManga = if (options.readEntries) mangaRepository.getReadMangaNotInLibrary() else emptyList()
             val backupManga = backupMangas(getFavorites.await() + nonFavoriteManga, options)
 
+            // RK: the light-novel library (favorites + chapters/categories/tracks/history + merges).
+            val novelData = novelBackupCreator(options)
+
             val backup = Backup(
                 backupManga = backupManga,
                 backupCategories = backupCategories(options),
@@ -87,6 +97,13 @@ class BackupCreator(
                 backupPreferences = backupAppPreferences(options),
                 backupExtensionStores = backupExtensionStores(options),
                 backupSourcePreferences = backupSourcePreferences(options),
+                // RK -->
+                backupNovels = novelData.novels,
+                backupNovelCategories = novelData.categories,
+                backupNovelMerges = novelData.merges,
+                backupNovelUnmerges = novelData.unmerges,
+                backupExtensions = backupExtensions(options),
+                // RK <--
             )
 
             val byteArray = parser.encodeToByteArray(Backup.serializer(), backup)
@@ -145,6 +162,13 @@ class BackupCreator(
         if (!options.extensionStores) return emptyList()
 
         return extensionStoresBackupCreator()
+    }
+
+    // RK: installed manga extensions, gated by the same toggle as their repos.
+    private fun backupExtensions(options: BackupOptions): List<BackupExtension> {
+        if (!options.extensionStores) return emptyList()
+
+        return extensionBackupCreator()
     }
 
     private fun backupSourcePreferences(options: BackupOptions): List<BackupSourcePreferences> {
