@@ -1,7 +1,9 @@
 package reikai.presentation.novel.reader
 
+import android.app.Application
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import eu.kanade.domain.track.service.TrackPreferences
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -12,11 +14,14 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.UpsertNovelHistory
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryUpdate
+import reikai.domain.novel.track.TrackNovelChapter
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.lang.launchIO
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 
 /**
@@ -63,6 +68,11 @@ class NovelReaderScreenModel(
     private val novelPreferences: NovelPreferences by injectLazy()
     private val downloadManager: NovelDownloadManager by injectLazy()
     private val upsertNovelHistory: UpsertNovelHistory by injectLazy()
+
+    // RK --> novel trackers (Active #8): push read progress on chapter completion
+    private val trackNovelChapter: TrackNovelChapter by injectLazy()
+    private val trackPreferences: TrackPreferences by injectLazy()
+    // RK <--
 
     private var currentId: Long = initialChapterId
 
@@ -228,9 +238,15 @@ class NovelReaderScreenModel(
             novelRepo.setLastReadAt(currentNovelId, System.currentTimeMillis())
             if (clamped >= 97) {
                 chapterRepo.setReadBulk(listOf(id), true)
+                val chapter = chapterRepo.getById(id)
+                // RK --> push read progress to bound trackers, mirroring ReaderViewModel.updateTrackChapterRead (Active #8)
+                if (trackPreferences.autoUpdateTrack.get()) {
+                    chapter?.let { trackNovelChapter.await(Injekt.get<Application>(), currentNovelId, it.chapterNumber) }
+                }
+                // RK <--
                 // The in-RAM htmlCache keeps the current view alive, so deleting the file is safe here.
                 if (novelPreferences.removeAfterMarkedAsRead().get()) {
-                    chapterRepo.getById(id)?.let { downloadManager.deleteChapters(listOf(it)) }
+                    chapter?.let { downloadManager.deleteChapters(listOf(it)) }
                 }
             }
         }

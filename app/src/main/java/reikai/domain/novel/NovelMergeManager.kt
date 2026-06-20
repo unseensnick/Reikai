@@ -37,6 +37,16 @@ class NovelMergeManager(
     }
 
     /**
+     * Merge-group ids for a novel by id alone (resolves its title/author first), or just [novelId] when
+     * it isn't stored or isn't grouped. The single entry point group-aware tracking uses, so the group
+     * math lives here rather than being repeated at each call site.
+     */
+    suspend fun relatedNovelIdsFor(novelId: Long): List<Long> {
+        val novel = novelRepository.getById(novelId) ?: return listOf(novelId)
+        return computeRelatedNovelIds(novel.id, novel.title, novel.author).toList().ifEmpty { listOf(novelId) }
+    }
+
+    /**
      * Manually merge [ids] into one group: add a merge entry and drop any unmerge pair between them so
      * they collapse together (even with different titles or auto-merge off). No-op for < 2 ids.
      */

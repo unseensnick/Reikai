@@ -25,6 +25,7 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import nl.adaptivity.xmlutil.XmlDeclMode
 import nl.adaptivity.xmlutil.core.XmlVersion
 import nl.adaptivity.xmlutil.serialization.XML
+import reikai.domain.novel.track.NovelDelayedTrackingStore
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.NovelDownloadProvider
 import reikai.novel.host.LnPluginHost
@@ -145,6 +146,9 @@ class AppModule(val app: Application) : InjektModule {
 
         addSingletonFactory { TrackerManager() }
         addSingletonFactory { DelayedTrackingStore(app) }
+        // RK --> novel trackers (Active #8)
+        addSingletonFactory { NovelDelayedTrackingStore(app) }
+        // RK <--
 
         addSingletonFactory { ImageSaver(app) }
 

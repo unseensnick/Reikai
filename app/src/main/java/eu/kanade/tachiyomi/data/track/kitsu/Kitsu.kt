@@ -121,6 +121,12 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
         return api.search(query)
     }
 
+    // RK --> novel-aware search (Active #8)
+    override suspend fun searchNovel(query: String): List<TrackSearch> {
+        return api.search(query, novel = true)
+    }
+    // RK <--
+
     override suspend fun refresh(track: Track): Track {
         val remoteTrack = api.getLibManga(track)
         track.copyPersonalFrom(remoteTrack)

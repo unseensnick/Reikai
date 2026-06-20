@@ -47,6 +47,7 @@ import reikai.data.novel.NovelCategoryRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
+import reikai.data.novel.NovelTrackRepositoryImpl
 import reikai.data.recommendation.taste.TasteLibraryRepositoryImpl
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.PropagateTrackerLinks
@@ -55,8 +56,17 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.NovelTrackRepository
+import reikai.domain.novel.track.NovelTrackUpdater
+import reikai.domain.novel.track.PropagateNovelTrackerLinks
+import reikai.domain.novel.track.TrackNovelChapter
+import reikai.domain.novel.interactor.AddNovelTrack
 import reikai.domain.novel.interactor.DeleteNovelCategories
+import reikai.domain.novel.interactor.DeleteNovelTrack
 import reikai.domain.novel.interactor.GetNextNovelChapter
+import reikai.domain.novel.interactor.GetNovelTracks
+import reikai.domain.novel.interactor.InsertNovelTrack
+import reikai.domain.novel.interactor.RefreshNovelTracks
 import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.MigrateNovelUseCase
 import reikai.domain.novel.interactor.GetNovelHistory
@@ -170,6 +180,17 @@ class DomainModule : InjektModule {
         addFactory { UpsertNovelHistory(get()) }
         addFactory { RemoveNovelHistory(get()) }
         addFactory { GetNextNovelChapter(get()) }
+        // RK <--
+        // RK --> novel trackers (Active #8)
+        addSingletonFactory<NovelTrackRepository> { NovelTrackRepositoryImpl(get()) }
+        addFactory { GetNovelTracks(get(), get()) }
+        addFactory { InsertNovelTrack(get()) }
+        addFactory { DeleteNovelTrack(get(), get()) }
+        addFactory { NovelTrackUpdater(get()) }
+        addFactory { AddNovelTrack(get(), get(), get()) }
+        addFactory { RefreshNovelTracks(get(), get(), get()) }
+        addFactory { TrackNovelChapter(get(), get(), get(), get()) }
+        addFactory { PropagateNovelTrackerLinks(get(), get(), get(), get(), get()) }
         // RK <--
         // RK --> pref-based merge (P3 manga, P5 S8 novel)
         addSingletonFactory { MangaMergeManager(get(), get(), get()) }

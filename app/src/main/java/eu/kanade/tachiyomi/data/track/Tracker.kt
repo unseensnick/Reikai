@@ -50,6 +50,11 @@ interface Tracker {
 
     suspend fun search(query: String): List<TrackSearch>
 
+    // RK --> novel-aware search (Active #8). Default delegates to the manga search so trackers outside
+    // the novel-capable set degrade gracefully; the four light-novel trackers override it.
+    suspend fun searchNovel(query: String): List<TrackSearch> = search(query)
+    // RK <--
+
     suspend fun refresh(track: Track): Track
 
     suspend fun login(username: String, password: String)
