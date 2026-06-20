@@ -92,6 +92,7 @@ Lower-priority manga↔novel parity gaps, recorded so they aren't lost. Pull int
 ## Parked / not building
 
 - **Dedicated LN trackers** (NovelUpdates / MiraiList / Novel Trackr / RanobeDB / Hardcover): not viable as of June 2026 (no sanctioned read+write API for on-device use). Re-check Hardcover only if it leaves beta and ships OAuth + allowlisting. Detail in the `novel-tracking` memory.
+- **Adult-source / EXH subsystem** (E-Hentai/nHentai inverted branches, `exh.source` delegated sources): deferred at P2 Stage 4. The basic lewd filter (Komikku's `Manga.isLewd()` genre-tag + source-name heuristic) shipped; the full adult-source subsystem was punted to a later sprint and is not built.
 - **Y13** force side-nav rail, **Y17** DOKI theme, **Y18** in-app app-icon changer (P8, dropped; revivable — Y18 is blocked on Reikai-branded icon assets).
 - **Y4** drag-sort, **Y5** staggered grid, **Y8** (= R16, duplicate), **Y19** stats drill-down (out of scope).
 - **EPUB export** (LNReader has it; out of plan).
