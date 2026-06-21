@@ -178,19 +178,37 @@ class NovelReaderScreenModel(
 
     fun retry() = load()
 
-    fun next() = resolvedNext?.let { goTo(it) } ?: Unit
+    // Only a forward skip marks the departed chapter read (mirrors manga: loadNextChapter only).
+    fun next() = resolvedNext?.let { goTo(it, markDepartedRead = true) } ?: Unit
     fun prev() = resolvedPrev?.let { goTo(it) } ?: Unit
 
-    private fun goTo(id: Long) {
+    private fun goTo(id: Long, markDepartedRead: Boolean = false) {
         // Record the outgoing chapter before switching (the analog of Mihon's loadNewChapter ->
         // updateHistory + restartReadTimer), then load the new one (loadCurrent resets the timer).
         mutableState.value = NovelReaderState.Loading
         screenModelScope.launchIO {
             updateHistory()
+            // RK --> mark-read-on-skip: the departed chapter + its owning novel are still current here
+            // (before the reassignment + loadCurrent below re-point them to the incoming chapter).
+            if (markDepartedRead) markReadOnSkip(currentId, currentNovelId)
+            // RK <--
             currentId = id
             loadCurrent()
         }
     }
+
+    // RK --> mark-read-on-skip (opt-in): mark the chapter the user skipped away from as read (forward
+    // only), the novel twin of ReaderViewModel.markChapterReadOnSkip. Reuses saveProgress's tracker push.
+    private suspend fun markReadOnSkip(departedId: Long, departedNovelId: Long) {
+        if (incognitoMode || !novelPreferences.readerMarkReadOnSkip().get()) return
+        val chapter = chapterRepo.getById(departedId) ?: return
+        if (chapter.read) return
+        chapterRepo.setReadBulk(listOf(departedId), true)
+        if (trackPreferences.autoUpdateTrack.get()) {
+            trackNovelChapter.await(Injekt.get<Application>(), departedNovelId, chapter.chapterNumber)
+        }
+    }
+    // RK <--
 
     /** Stamp the current chapter into novel history and accumulate this session's read time. Called on
      *  chapter switch and on leaving the reader (the novel twin of ReaderViewModel.updateHistory). */
