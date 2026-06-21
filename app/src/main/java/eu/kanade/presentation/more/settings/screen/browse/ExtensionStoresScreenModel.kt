@@ -159,6 +159,8 @@ class ExtensionStoresScreenModel(
             signingKey = "",
             contact = ExtensionStore.Contact(website = website, discord = null),
             isLegacy = false,
+            // RK: a hand-added repo has no separate extension-list file; null = use the index (mihonapp/mihon#3454)
+            extensionListUrl = null,
         )
     }
     // RK <--
