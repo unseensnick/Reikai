@@ -212,7 +212,14 @@ object SettingsReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.markReadOnSkip,
                     title = stringResource(MR.strings.pref_mark_read_on_skip),
-                    subtitle = stringResource(MR.strings.pref_mark_read_on_skip_summary),
+                    // RK: content-type subtitle differentiates the manga toggle from the novel twin below
+                    subtitle = stringResource(MR.strings.content_type_manga),
+                ),
+                // Light-novel twin: marks the chapter you skip away from (forward "next") as read.
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerMarkReadOnSkip(),
+                    title = stringResource(MR.strings.pref_mark_read_on_skip),
+                    subtitle = stringResource(MR.strings.content_type_novels),
                 ),
                 Preference.PreferenceItem.MultiSelectListPreference(
                     preference = readerPreferences.readerBottomButtons,

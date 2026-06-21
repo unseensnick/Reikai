@@ -99,6 +99,10 @@ class NovelPreferences(
      *  same-number duplicates a cross-source merge produces). Reading-navigation only, non-destructive. */
     fun readerSkipDuplicateChapters() = preferenceStore.getBoolean("ln_reader_skip_duplicate_chapters", false)
 
+    /** When on, tapping "next" marks the chapter you skipped away from as read (forward only), the novel
+     *  twin of the manga reader's mark-read-on-skip. Opt-in. */
+    fun readerMarkReadOnSkip() = preferenceStore.getBoolean("ln_reader_mark_read_on_skip", false)
+
     // Downloads (S5). Key strings preserved from the Yōkai-era fork for upgrade continuity.
 
     /** Delete a downloaded chapter's offline copy once it's marked read. */
