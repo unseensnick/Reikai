@@ -14,6 +14,7 @@ data class NovelReaderSettings(
     val followSystemTheme: Boolean,
     val backgroundColor: String,
     val textColor: String,
+    val keepScreenOn: Boolean,
 )
 
 /** A reader background + text color pairing. Tapping one in the settings sheet writes both. */

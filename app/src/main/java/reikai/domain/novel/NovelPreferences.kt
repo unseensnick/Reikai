@@ -87,6 +87,9 @@ class NovelPreferences(
     fun readerFontFamily() = preferenceStore.getString("ln_reader_font_family", "")
     fun readerPadding() = preferenceStore.getInt("ln_reader_padding", 16)
 
+    /** Hold the screen awake while reading (Android FLAG_KEEP_SCREEN_ON). Mirrors the manga reader. */
+    fun readerKeepScreenOn() = preferenceStore.getBoolean("ln_reader_keep_screen_on", false)
+
     /** When true the reader follows the system light/dark mode; otherwise the chosen preset wins. */
     fun readerFollowSystemTheme() = preferenceStore.getBoolean("ln_reader_follow_system_theme", true)
     fun readerBackgroundColor() = preferenceStore.getString("ln_reader_bg_color", "#292832")
