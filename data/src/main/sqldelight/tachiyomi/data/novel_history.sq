@@ -3,8 +3,8 @@
 -- divergences from the manga table, both deliberate:
 -- 1. `last_read` is a plain epoch-millis INTEGER (not Mihon's `AS Date`), matching novels.last_read_at
 --    so no column adapter is needed.
--- 2. No scanlator / read-duration consumers exist on the novel side yet, so only the queries the
---    History feature calls are defined (no getReadDuration; add it with a novel Stats screen).
+-- 2. No scanlator consumer exists on the novel side, so per-scanlator queries are omitted; the
+--    read-duration total (getTotalReadDuration) backs the novel Stats screen.
 -- resetById / resetByNovelId soft-delete (last_read = 0, hidden by the feed's readAt > 0 filter, so a
 -- re-read re-surfaces the row); removeAll hard-clears, mirroring Mihon.
 CREATE TABLE novel_history(
@@ -39,6 +39,12 @@ WHERE _id IN (
 
 removeAll:
 DELETE FROM novel_history;
+
+-- Total novel reading time across all chapters, backing the novel Stats screen (twin of history.sq's
+-- getReadDuration). Soft-deleted rows keep their time_read, matching the manga sum.
+getTotalReadDuration:
+SELECT coalesce(sum(time_read), 0)
+FROM novel_history;
 
 upsert:
 INSERT INTO novel_history(chapter_id, last_read, time_read)

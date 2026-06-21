@@ -1,5 +1,6 @@
 package reikai.data.novel
 
+import app.cash.sqldelight.async.coroutines.awaitAsOne
 import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import kotlinx.coroutines.flow.Flow
 import logcat.LogPriority
@@ -51,4 +52,7 @@ class NovelHistoryRepositoryImpl(
             logcat(LogPriority.ERROR, e) { "Failed to upsert novel history chapterId=${update.chapterId}" }
         }
     }
+
+    override suspend fun getTotalReadDuration(): Long =
+        database.novel_historyQueries.getTotalReadDuration().awaitAsOne()
 }
