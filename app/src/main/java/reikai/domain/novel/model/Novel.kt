@@ -46,6 +46,8 @@ data class Novel(
      * edit survives pull-to-refresh; clearing it lets the source value win again.
      */
     val editedFlags: Long,
+    /** Free-text user note shown/edited on the details screen (the novel twin of `Manga.notes`). */
+    val notes: String,
 ) : Serializable {
 
     companion object {
@@ -70,6 +72,7 @@ data class Novel(
             totalPages = 1L,
             lastReadAt = null,
             editedFlags = 0L,
+            notes = "",
         )
     }
 }

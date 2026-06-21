@@ -34,7 +34,8 @@ fun MangaNotesScreen(
         },
     ) { contentPadding ->
         MangaNotesTextArea(
-            state = state,
+            // RK: shared editor now takes a plain notes String (see MangaNotesTextArea)
+            notes = state.notes,
             onUpdate = onUpdate,
             modifier = Modifier
                 .padding(contentPadding)

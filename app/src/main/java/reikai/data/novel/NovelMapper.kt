@@ -39,6 +39,7 @@ fun mapNovel(
     totalPages: Long,
     lastReadAt: Long?,
     editedFlags: Long,
+    notes: String,
 ): Novel = Novel(
     id = id,
     source = source,
@@ -60,6 +61,7 @@ fun mapNovel(
     totalPages = totalPages,
     lastReadAt = lastReadAt,
     editedFlags = editedFlags,
+    notes = notes,
 )
 
 /**
@@ -88,6 +90,7 @@ fun mapLibraryNovel(
     totalPages: Long,
     lastReadAt: Long?,
     editedFlags: Long,
+    notes: String,
     totalCount: Long,
     readCount: Double,
     latestUpload: Long,
@@ -117,6 +120,7 @@ fun mapLibraryNovel(
         totalPages,
         lastReadAt,
         editedFlags,
+        notes,
     ),
     categories = categories.split(",").map { it.toLong() },
     totalChapters = totalCount,
@@ -152,6 +156,7 @@ fun mapNovelWithChapterCount(
     totalPages: Long,
     lastReadAt: Long?,
     editedFlags: Long,
+    notes: String,
     chapterCount: Long,
 ): NovelWithChapterCount = NovelWithChapterCount(
     novel = mapNovel(
@@ -175,6 +180,7 @@ fun mapNovelWithChapterCount(
         totalPages,
         lastReadAt,
         editedFlags,
+        notes,
     ),
     chapterCount = chapterCount,
 )

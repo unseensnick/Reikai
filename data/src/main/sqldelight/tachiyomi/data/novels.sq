@@ -33,7 +33,8 @@ CREATE TABLE novels(
     cover_last_modified INTEGER NOT NULL DEFAULT 0,
     total_pages INTEGER NOT NULL DEFAULT 1,
     last_read_at INTEGER,
-    edited_flags INTEGER NOT NULL DEFAULT 0
+    edited_flags INTEGER NOT NULL DEFAULT 0,
+    notes TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX novels_url_index ON novels(url);
@@ -88,8 +89,8 @@ LEFT JOIN chapter_counts CC
 ON N._id = CC.novel_id;
 
 insert:
-INSERT INTO novels (source, url, title, author, artist, description, genre, status, thumbnail_url, favorite, last_update, initialized, chapter_flags, date_added, update_strategy, cover_last_modified, total_pages, last_read_at, edited_flags)
-VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :favorite, :lastUpdate, :initialized, :chapterFlags, :dateAdded, :updateStrategy, :coverLastModified, :totalPages, :lastReadAt, :editedFlags);
+INSERT INTO novels (source, url, title, author, artist, description, genre, status, thumbnail_url, favorite, last_update, initialized, chapter_flags, date_added, update_strategy, cover_last_modified, total_pages, last_read_at, edited_flags, notes)
+VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :favorite, :lastUpdate, :initialized, :chapterFlags, :dateAdded, :updateStrategy, :coverLastModified, :totalPages, :lastReadAt, :editedFlags, :notes);
 
 -- Full-row update: every caller writes a complete Novel (read-modify-write via `copy`), so no
 -- `coalesce` partial path is needed. Keeping the columns adapter-typed (no coalesce) means the
@@ -114,8 +115,37 @@ UPDATE novels SET
     cover_last_modified = :coverLastModified,
     total_pages = :totalPages,
     last_read_at = :lastReadAt,
-    edited_flags = :editedFlags
+    edited_flags = :editedFlags,
+    notes = :notes
 WHERE _id = :novelId;
+
+-- Partial update (the novel twin of mangas.sq's coalesce update): each column `coalesce(:x, x)`s, so a
+-- NovelUpdate patch writes only the fields it sets (null = leave unchanged). Used for surgical edits
+-- (e.g. notes); the full-row `update` above stays for restore / edit-info, which need to write nulls.
+-- NOTE: `genre` (List<String>) and `update_strategy` (UpdateStrategy) are omitted: SQLDelight does not
+-- preserve those custom column adapters through `coalesce` for this table (it emits raw String/Long),
+-- so patch them via the full-row `update` instead. Boolean-adapter columns coalesce fine.
+partialUpdate:
+UPDATE novels SET
+    source = coalesce(:source, source),
+    url = coalesce(:url, url),
+    title = coalesce(:title, title),
+    author = coalesce(:author, author),
+    artist = coalesce(:artist, artist),
+    description = coalesce(:description, description),
+    status = coalesce(:status, status),
+    thumbnail_url = coalesce(:thumbnailUrl, thumbnail_url),
+    favorite = coalesce(:favorite, favorite),
+    last_update = coalesce(:lastUpdate, last_update),
+    initialized = coalesce(:initialized, initialized),
+    chapter_flags = coalesce(:chapterFlags, chapter_flags),
+    date_added = coalesce(:dateAdded, date_added),
+    cover_last_modified = coalesce(:coverLastModified, cover_last_modified),
+    total_pages = coalesce(:totalPages, total_pages),
+    last_read_at = coalesce(:lastReadAt, last_read_at),
+    edited_flags = coalesce(:editedFlags, edited_flags),
+    notes = coalesce(:notes, notes)
+WHERE _id = :id;
 
 -- Focused single-column stamp written from the reader on every progress save, so it avoids the
 -- full-row read-modify-write the LastRead library sort would otherwise pay on each scroll.

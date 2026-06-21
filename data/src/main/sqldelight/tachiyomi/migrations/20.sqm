@@ -1,0 +1,4 @@
+-- Per-novel notes (the novel twin of mangas.notes): a free-text note shown/edited on the novel
+-- details screen. New column, so already-installed DBs need this migration; novels.sq's CREATE TABLE
+-- covers fresh installs.
+ALTER TABLE novels ADD notes TEXT NOT NULL DEFAULT '';

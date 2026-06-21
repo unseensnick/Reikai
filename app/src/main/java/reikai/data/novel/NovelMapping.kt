@@ -78,6 +78,7 @@ fun SourceNovel.toNovel(
     totalPages = totalPages.toLong(),
     lastReadAt = null,
     editedFlags = 0L,
+    notes = "",
 )
 
 /**

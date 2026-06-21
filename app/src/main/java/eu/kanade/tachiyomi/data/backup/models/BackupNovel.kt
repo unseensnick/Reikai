@@ -32,6 +32,7 @@ class BackupNovel(
     @ProtoNumber(21) var categories: List<Long> = emptyList(),
     @ProtoNumber(22) var tracking: List<BackupNovelTracking> = emptyList(),
     @ProtoNumber(23) var history: List<BackupNovelHistory> = emptyList(),
+    @ProtoNumber(24) var notes: String = "",
 ) {
     fun toNovelImpl(): Novel {
         return Novel.create().copy(
@@ -54,6 +55,7 @@ class BackupNovel(
             totalPages = this@BackupNovel.totalPages,
             lastReadAt = this@BackupNovel.lastReadAt,
             editedFlags = this@BackupNovel.editedFlags,
+            notes = this@BackupNovel.notes,
         )
     }
 }

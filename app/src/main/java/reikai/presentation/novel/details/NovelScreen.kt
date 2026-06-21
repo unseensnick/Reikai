@@ -64,6 +64,7 @@ import reikai.data.coil.NovelCover
 import reikai.domain.novel.model.NovelChapter
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
 import reikai.presentation.novel.migrate.NovelMigrateSearchScreen
+import reikai.presentation.novel.notes.NovelNotesScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
 import reikai.presentation.novel.track.NovelTrackInfoDialogHomeScreen
 import tachiyomi.i18n.MR
@@ -132,6 +133,10 @@ class NovelScreen(
                         navigator.push(SettingsScreen(SettingsScreen.Destination.Tracking))
                     }
                 }
+                // RK: open the full-screen notes editor for the favorited (anchor) novel.
+                val onEditNotes: () -> Unit = {
+                    navigator.push(NovelNotesScreen(s.novel.id, s.novel.title, s.novel.notes))
+                }
                 val onCopy: (String) -> Unit = { text -> context.copyToClipboard(text, text) }
                 val onChapterClick: (NovelChapter) -> Unit = { chapter ->
                     // Route to the chapter's own source (a unified-list row keeps its owning novelId)
@@ -148,9 +153,9 @@ class NovelScreen(
                 }
 
                 if (isTabletUi()) {
-                    NovelDetailsLargeImpl(s, screenModel, navigator::pop, onWebView, onShare, onMigrate, onTracking, onSearch, onCopy, onChapterClick)
+                    NovelDetailsLargeImpl(s, screenModel, navigator::pop, onWebView, onShare, onMigrate, onTracking, onEditNotes, onSearch, onCopy, onChapterClick)
                 } else {
-                    NovelDetailsSmallImpl(s, screenModel, navigator::pop, onWebView, onShare, onMigrate, onTracking, onSearch, onCopy, onChapterClick)
+                    NovelDetailsSmallImpl(s, screenModel, navigator::pop, onWebView, onShare, onMigrate, onTracking, onEditNotes, onSearch, onCopy, onChapterClick)
                 }
 
                 NovelDetailsDialogs(s, screenModel)
@@ -169,6 +174,7 @@ private fun NovelDetailsSmallImpl(
     onShare: () -> Unit,
     onMigrate: (() -> Unit)?,
     onTracking: () -> Unit,
+    onEditNotes: () -> Unit,
     onSearch: (String) -> Unit,
     onCopy: (String) -> Unit,
     onChapterClick: (NovelChapter) -> Unit,
@@ -187,6 +193,7 @@ private fun NovelDetailsSmallImpl(
                 onBack = onBack,
                 onShare = onShare,
                 onMigrate = onMigrate,
+                onEditNotes = onEditNotes,
                 titleAlphaProvider = { titleAlpha },
                 backgroundAlphaProvider = { backgroundAlpha },
             )
@@ -213,7 +220,7 @@ private fun NovelDetailsSmallImpl(
                 ),
             ) {
                 novelInfoItems(
-                    state, screenModel, onWebView, onShare, onTracking, onSearch, onCopy,
+                    state, screenModel, onWebView, onShare, onTracking, onEditNotes, onSearch, onCopy,
                     isTabletUi = false,
                     appBarPadding = contentPadding.calculateTopPadding(),
                 )
@@ -233,6 +240,7 @@ private fun NovelDetailsLargeImpl(
     onShare: () -> Unit,
     onMigrate: (() -> Unit)?,
     onTracking: () -> Unit,
+    onEditNotes: () -> Unit,
     onSearch: (String) -> Unit,
     onCopy: (String) -> Unit,
     onChapterClick: (NovelChapter) -> Unit,
@@ -246,6 +254,7 @@ private fun NovelDetailsLargeImpl(
                 onBack = onBack,
                 onShare = onShare,
                 onMigrate = onMigrate,
+                onEditNotes = onEditNotes,
                 titleAlphaProvider = { 1f },
                 backgroundAlphaProvider = { 1f },
             )
@@ -274,6 +283,7 @@ private fun NovelDetailsLargeImpl(
                             onWebView,
                             onShare,
                             onTracking,
+                            onEditNotes,
                             onSearch,
                             onCopy,
                             isTabletUi = true,
@@ -300,6 +310,7 @@ private fun NovelDetailsToolbar(
     onBack: () -> Unit,
     onShare: () -> Unit,
     onMigrate: (() -> Unit)?,
+    onEditNotes: () -> Unit,
     titleAlphaProvider: () -> Float,
     backgroundAlphaProvider: () -> Float,
 ) {
@@ -311,6 +322,7 @@ private fun NovelDetailsToolbar(
         onClickRefresh = screenModel::refresh,
         onClickEditCategory = screenModel::showChangeCategoryDialog,
         onClickEditInfo = screenModel::showEditNovelInfoDialog,
+        onClickEditNotes = onEditNotes,
         onClickShare = state.sourceUrl?.let { { onShare() } },
         onClickManageSources = if (state.mergeSources.size > 1) screenModel::showManageSourcesDialog else null,
         onClickMigrate = onMigrate,
@@ -476,6 +488,7 @@ private fun LazyListScope.novelInfoItems(
     onWebView: () -> Unit,
     onShare: () -> Unit,
     onTracking: () -> Unit,
+    onEditNotes: () -> Unit,
     onSearch: (String) -> Unit,
     onCopy: (String) -> Unit,
     isTabletUi: Boolean,
@@ -515,10 +528,11 @@ private fun LazyListScope.novelInfoItems(
             defaultExpandState = false,
             description = display.description,
             tagsProvider = { display.genre },
-            notes = "",
+            // RK: notes are a user annotation on the favorited anchor row, not the viewed source's metadata.
+            notes = state.novel.notes,
             onTagSearch = onSearch,
             onCopyTagToClipboard = { onCopy(it) },
-            onEditNotes = {},
+            onEditNotes = onEditNotes,
         )
     }
 }
