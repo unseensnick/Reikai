@@ -4,6 +4,7 @@ import android.app.Application
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.presentation.manga.DownloadAction
+import eu.kanade.domain.base.BasePreferences
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -79,6 +80,7 @@ class NovelLibraryScreenModel :
     private val getNovelCategories: GetNovelCategories by injectLazy()
     private val setNovelCategories: SetNovelCategories by injectLazy()
     private val libraryPreferences: LibraryPreferences by injectLazy()
+    private val basePreferences: BasePreferences by injectLazy()
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
     private val sourceManager: NovelSourceManager by injectLazy()
     private val mergeManager: NovelMergeManager by injectLazy()
@@ -172,8 +174,15 @@ class NovelLibraryScreenModel :
             val exc = exclude.toLongIdSet()
             Triple(categoryFilterActive(enabled, inc, exc), inc, exc)
         }
-        val filterFlow = combine(triStateFilterFlow, categoryFilterFlow) { base, (active, inc, exc) ->
-            base.copy(categoriesActive = active, categoriesInclude = inc, categoriesExclude = exc)
+        val filterFlow = combine(
+            triStateFilterFlow,
+            categoryFilterFlow,
+            basePreferences.downloadedOnly.changes(),
+        ) { base, (active, inc, exc), downloadedOnly ->
+            FilterSettings(
+                base.copy(categoriesActive = active, categoriesInclude = inc, categoriesExclude = exc),
+                downloadedOnly,
+            )
         }
         val mergeFlow = combine(
             reikaiLibraryPreferences.novelManualMerges.changes(),
@@ -190,10 +199,10 @@ class NovelLibraryScreenModel :
             filterFlow,
             mergeFlow,
             reikaiLibraryPreferences.groupNovelLibraryBy.changes(),
-        ) { badges, misc, filters, merge, groupBy ->
+        ) { badges, misc, filterSettings, merge, groupBy ->
             LibrarySettings(
                 badges, misc.defaultSort, misc.randomSeed, misc.showContinue, misc.showHidden,
-                filters, merge, misc.categorySortOrder, groupBy,
+                filterSettings.filters, filterSettings.downloadedOnly, merge, misc.categorySortOrder, groupBy,
             )
         }
     }
@@ -208,7 +217,8 @@ class NovelLibraryScreenModel :
         atBottom: Boolean,
     ): State {
         val filtered = library.filter { novel ->
-            (query.isNullOrBlank() || novel.matchesQuery(query)) && settings.filters.matches(novel)
+            (query.isNullOrBlank() || novel.matchesQuery(query)) &&
+                settings.filters.matches(novel, settings.downloadedOnly)
         }
         // Collapse merged groups into one representative entry (the most-chapters novel).
         val collapsed = NovelMergeCollapse.collapse(
@@ -614,6 +624,9 @@ class NovelLibraryScreenModel :
     val groupLibraryBy: Preference<Int> get() = reikaiLibraryPreferences.groupNovelLibraryBy
     fun setGrouping(value: Int) = reikaiLibraryPreferences.groupNovelLibraryBy.set(value)
 
+    // Global "Downloaded only" mode (More menu), exposed so the filter sheet can lock the Downloaded chip.
+    val downloadedOnly: Preference<Boolean> get() = basePreferences.downloadedOnly
+
     // Filter prefs exposed for the settings dialog (read via collectAsState, cycled via toggleFilter).
     val filterDownloaded: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterDownloaded
     val filterUnread: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterUnread
@@ -698,6 +711,9 @@ class NovelLibraryScreenModel :
         val showSourceIcons: Boolean,
     )
 
+    /** Carries the per-session filters plus the global Downloaded-only mode out of the filter sub-flow. */
+    private data class FilterSettings(val filters: NovelFilters, val downloadedOnly: Boolean)
+
     private data class LibrarySettings(
         val badges: BadgePrefs,
         val defaultSort: Long,
@@ -705,13 +721,14 @@ class NovelLibraryScreenModel :
         val showContinue: Boolean,
         val showHidden: Boolean,
         val filters: NovelFilters,
+        val downloadedOnly: Boolean,
         val merge: MergeSettings,
         val categorySortOrder: Int,
         val groupBy: Int,
     )
 
-    private fun NovelFilters.matches(n: LibraryNovel): Boolean =
-        downloaded.matches(n.downloadCount > 0) &&
+    private fun NovelFilters.matches(n: LibraryNovel, forceDownloaded: Boolean): Boolean =
+        (if (forceDownloaded) TriState.ENABLED_IS else downloaded).matches(n.downloadCount > 0) &&
             unread.matches(n.unreadCount > 0) &&
             started.matches(n.hasStarted) &&
             completed.matches(n.novel.status == NovelStatusCode.COMPLETED.toLong()) &&
