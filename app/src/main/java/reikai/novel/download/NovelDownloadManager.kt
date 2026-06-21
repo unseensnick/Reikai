@@ -2,6 +2,7 @@ package reikai.novel.download
 
 import android.content.Context
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.util.system.activeNetworkState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -18,6 +19,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.download.service.DownloadPreferences
 import uy.kohesive.injekt.injectLazy
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
@@ -42,6 +44,7 @@ class NovelDownloadManager(private val context: Context) {
     private val sourceManager: NovelSourceManager by injectLazy()
     private val installer: LnPluginInstaller by injectLazy()
     private val networkHelper: NetworkHelper by injectLazy()
+    private val downloadPreferences: DownloadPreferences by injectLazy()
 
     private val store = NovelDownloadStore(context)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -144,6 +147,9 @@ class NovelDownloadManager(private val context: Context) {
             }
             var done = 0
             while (true) {
+                // Honor the shared "download only over Wi-Fi" preference: stop draining while it's on and
+                // we're off Wi-Fi. Queued chapters stay QUEUE and resume on the next run once Wi-Fi returns.
+                if (downloadPreferences.downloadOnlyOverWifi.get() && !context.activeNetworkState().isWifi) break
                 val next = _queueState.value.firstOrNull { it.state == NovelDownload.State.QUEUE } ?: break
                 setState(next.chapterId, NovelDownload.State.DOWNLOADING)
                 val novel = novelRepo.getById(next.novelId)
