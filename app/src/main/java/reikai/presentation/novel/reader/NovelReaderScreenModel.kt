@@ -3,6 +3,7 @@ package reikai.presentation.novel.reader
 import android.app.Application
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.track.service.TrackPreferences
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -73,6 +74,12 @@ class NovelReaderScreenModel(
     private val trackNovelChapter: TrackNovelChapter by injectLazy()
     private val trackPreferences: TrackPreferences by injectLazy()
     // RK <--
+
+    private val getIncognitoState: GetIncognitoState by injectLazy()
+
+    // Captured once at reader open (mirrors ReaderViewModel). Global-only: novel sources are
+    // String-keyed with no installed extension, so per-source incognito (await(sourceId)) can't apply.
+    private val incognitoMode: Boolean by lazy { getIncognitoState.await(null) }
 
     private var currentId: Long = initialChapterId
 
@@ -185,6 +192,7 @@ class NovelReaderScreenModel(
     /** Stamp the current chapter into novel history and accumulate this session's read time. Called on
      *  chapter switch and on leaving the reader (the novel twin of ReaderViewModel.updateHistory). */
     suspend fun updateHistory() {
+        if (incognitoMode) return
         val now = System.currentTimeMillis()
         val duration = chapterReadStartTime?.let { now - it } ?: 0L
         upsertNovelHistory.await(NovelHistoryUpdate(currentId, now, duration))
@@ -230,6 +238,7 @@ class NovelReaderScreenModel(
     /** Persist the reader's scroll position. The web layer reports a whole percent (0..100); store it
      *  as 0..10000 to match [NovelChapter.lastTextProgress]. Reaching the end auto-marks read. */
     fun saveProgress(percent: Int) {
+        if (incognitoMode) return
         val id = currentId
         val clamped = percent.coerceIn(0, 100)
         screenModelScope.launchIO {
