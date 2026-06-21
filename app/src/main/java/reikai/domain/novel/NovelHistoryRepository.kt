@@ -17,4 +17,7 @@ interface NovelHistoryRepository {
     suspend fun resetNovelHistoryByNovelId(novelId: Long)
     suspend fun deleteAllNovelHistory()
     suspend fun upsertNovelHistory(update: NovelHistoryUpdate)
+
+    /** Total novel reading time (ms) across all chapters, for the Stats screen. */
+    suspend fun getTotalReadDuration(): Long
 }

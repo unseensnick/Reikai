@@ -23,6 +23,9 @@ class StatsScreen : Screen() {
 
         val screenModel = rememberScreenModel { StatsScreenModel() }
         val state by screenModel.state.collectAsState()
+        // RK --> All / Manga / Novels switch
+        val contentType by screenModel.contentType.collectAsState()
+        // RK <--
 
         Scaffold(
             topBar = { scrollBehavior ->
@@ -41,6 +44,10 @@ class StatsScreen : Screen() {
             StatsScreenContent(
                 state = state as StatsScreenState.Success,
                 paddingValues = paddingValues,
+                // RK -->
+                contentType = contentType,
+                onContentTypeSelected = screenModel::setContentType,
+                // RK <--
             )
         }
     }

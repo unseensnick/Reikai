@@ -20,6 +20,8 @@ import eu.kanade.presentation.more.stats.components.StatsItem
 import eu.kanade.presentation.more.stats.components.StatsOverviewItem
 import eu.kanade.presentation.more.stats.data.StatsData
 import eu.kanade.presentation.util.toDurationString
+import reikai.domain.library.ContentType
+import reikai.presentation.components.ContentTypeFilterChips
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.SectionCard
 import tachiyomi.presentation.core.components.material.padding
@@ -32,11 +34,23 @@ import kotlin.time.toDuration
 fun StatsScreenContent(
     state: StatsScreenState.Success,
     paddingValues: PaddingValues,
+    // RK --> All / Manga / Novels switch
+    contentType: ContentType,
+    onContentTypeSelected: (ContentType) -> Unit,
+    // RK <--
 ) {
     LazyColumn(
         contentPadding = paddingValues,
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
     ) {
+        // RK --> content-type switch, mirroring the Updates/History tabs
+        item {
+            ContentTypeFilterChips(
+                selected = contentType,
+                onSelect = onContentTypeSelected,
+            )
+        }
+        // RK <--
         item {
             OverviewSection(state.overview)
         }
