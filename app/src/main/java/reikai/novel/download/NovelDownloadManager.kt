@@ -155,16 +155,29 @@ class NovelDownloadManager(private val context: Context) {
                 val novel = novelRepo.getById(next.novelId)
                 val total = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
                 onProgress(done, total, novel?.title.orEmpty())
-                val ok = runCatching {
-                    val source = novel?.let { sourceManager.get(it.source) } ?: return@runCatching false
-                    val html = source.parseChapter(next.url)
-                    if (html.isBlank()) return@runCatching false
-                    // Embed inline images so the saved file reads offline (see inlineChapterImages).
-                    val selfContained = inlineChapterImages(html, source.site, networkHelper.client)
-                    provider.writeChapter(next.novelId, next.chapterId, selfContained)
-                }.getOrElse {
-                    logcat(LogPriority.ERROR, it) { "Novel chapter download failed: chapter=${next.chapterId}" }
-                    false
+                // Try a few times before giving up so a transient network blip or a momentarily
+                // rate-limited source doesn't kill the chapter on the first stumble (mirrors the manga
+                // Downloader). Backoff is per-chapter, separate from the cross-chapter pacing below.
+                var ok = false
+                var attempt = 0
+                while (true) {
+                    ok = runCatching {
+                        val source = novel?.let { sourceManager.get(it.source) } ?: return@runCatching false
+                        val html = source.parseChapter(next.url)
+                        if (html.isBlank()) return@runCatching false
+                        // Embed inline images so the saved file reads offline (see inlineChapterImages).
+                        val selfContained = inlineChapterImages(html, source.site, networkHelper.client)
+                        provider.writeChapter(next.novelId, next.chapterId, selfContained)
+                    }.getOrElse {
+                        logcat(LogPriority.ERROR, it) {
+                            "Novel chapter download attempt ${attempt + 1} failed: chapter=${next.chapterId}"
+                        }
+                        false
+                    }
+                    if (ok || attempt >= MAX_RETRIES) break
+                    attempt++
+                    // Exponential backoff: 2s, 4s, 8s.
+                    delay((1L shl attempt) * 1000L)
                 }
                 if (ok) {
                     chapterRepo.setDownloaded(next.chapterId, true)
@@ -210,5 +223,9 @@ class NovelDownloadManager(private val context: Context) {
          *  a single host polite (~<=1 req/s); the adaptive cap covers sites that push back. */
         private const val BASE_DELAY_MS = 500L
         private const val MAX_DELAY_MS = 30_000L
+
+        /** Retry a failed chapter download this many times (after the first try) before surfacing ERROR,
+         *  with exponential backoff (2s, 4s, 8s), mirroring the manga Downloader. */
+        private const val MAX_RETRIES = 3
     }
 }
