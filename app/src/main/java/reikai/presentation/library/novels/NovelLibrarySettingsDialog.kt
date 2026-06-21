@@ -126,8 +126,17 @@ private fun ColumnScope.FilterPage(
     screenModel: NovelLibraryScreenModel,
     onManageCategories: () -> Unit,
 ) {
+    // Downloaded is rendered on its own so the global "Downloaded only" mode can force it on and lock it
+    // (mirrors the manga LibrarySettingsDialog).
+    val downloadedOnly by screenModel.downloadedOnly.collectAsState()
+    val filterDownloaded by screenModel.filterDownloaded.collectAsState()
+    TriStateItem(
+        label = stringResource(MR.strings.label_downloaded),
+        state = if (downloadedOnly) TriState.ENABLED_IS else filterDownloaded,
+        enabled = !downloadedOnly,
+        onClick = { screenModel.toggleFilter(screenModel.filterDownloaded) },
+    )
     val filters = listOf(
-        MR.strings.label_downloaded to screenModel.filterDownloaded,
         MR.strings.action_filter_unread to screenModel.filterUnread,
         MR.strings.label_started to screenModel.filterStarted,
         MR.strings.completed to screenModel.filterCompleted,
