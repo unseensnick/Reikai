@@ -18,8 +18,10 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.download.service.DownloadPreferences
+import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
@@ -147,10 +149,19 @@ class NovelDownloadManager(private val context: Context) {
             }
             var done = 0
             while (true) {
-                // Honor the shared "download only over Wi-Fi" preference: stop draining while it's on and
-                // we're off Wi-Fi. Queued chapters stay QUEUE and resume on the next run once Wi-Fi returns.
-                if (downloadPreferences.downloadOnlyOverWifi.get() && !context.activeNetworkState().isWifi) break
                 val next = _queueState.value.firstOrNull { it.state == NovelDownload.State.QUEUE } ?: break
+                // Honor the shared "download only over Wi-Fi" preference: pause (don't drop) the drain
+                // while it's on and we're off Wi-Fi, and resume on its own once Wi-Fi is back. The worker
+                // stays foreground showing a "no Wi-Fi" notice, mirroring the manga DownloadJob (which keeps
+                // its worker alive and watches the network) instead of ending with the queue stuck.
+                if (downloadPreferences.downloadOnlyOverWifi.get() && !context.activeNetworkState().isWifi) {
+                    while (downloadPreferences.downloadOnlyOverWifi.get() && !context.activeNetworkState().isWifi) {
+                        val pending = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
+                        onProgress(done, pending, context.stringResource(MR.strings.download_notifier_text_only_wifi))
+                        delay(WIFI_RECHECK_MS)
+                    }
+                    continue // re-pick the next chapter: the queue may have changed while we waited
+                }
                 setState(next.chapterId, NovelDownload.State.DOWNLOADING)
                 val novel = novelRepo.getById(next.novelId)
                 val total = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
@@ -227,5 +238,8 @@ class NovelDownloadManager(private val context: Context) {
         /** Retry a failed chapter download this many times (after the first try) before surfacing ERROR,
          *  with exponential backoff (2s, 4s, 8s), mirroring the manga Downloader. */
         private const val MAX_RETRIES = 3
+
+        /** How often to re-check connectivity while a "download only over Wi-Fi" drain is paused off Wi-Fi. */
+        private const val WIFI_RECHECK_MS = 5_000L
     }
 }
