@@ -12,9 +12,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import reikai.domain.novel.NovelRepository
-import reikai.domain.novel.interactor.GetNovelCategories
-import reikai.domain.novel.interactor.SetNovelCategories
-import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.source.ReikaiSourcePreferences
@@ -40,8 +37,7 @@ class NovelBrowseScreenModel(
     private val installer: LnPluginInstaller by injectLazy()
     private val manager: NovelSourceManager by injectLazy()
     private val novelRepository: NovelRepository by injectLazy()
-    private val getNovelCategories: GetNovelCategories by injectLazy()
-    private val setNovelCategories: SetNovelCategories by injectLazy()
+    private val libraryAdder: NovelLibraryAdder by injectLazy()
     private val reikaiSourcePreferences: ReikaiSourcePreferences by injectLazy()
 
     /** Compose-observable display mode (comfortable / compact / list), persisted via [ReikaiSourcePreferences]. */
@@ -117,74 +113,32 @@ class NovelBrowseScreenModel(
     fun openSettingsSheet() = mutableState.update { it.copy(settingsSheetOpen = true) }
     fun closeSettingsSheet() = mutableState.update { it.copy(settingsSheetOpen = false) }
 
-    // --- Favorite from browse (long-press) ---
+    // --- Favorite from browse (long-press), via the shared [NovelLibraryAdder] ---
 
-    /** Long-press a result: if it's already in the library offer to remove it; otherwise check for
-     *  similarly-named library novels (the manga "possible duplicates" flow) before adding. */
     fun onLongClickItem(item: NovelItem) {
         screenModelScope.launchIO {
-            if ((sourceId to item.path) in state.value.favoritedKeys) {
-                mutableState.update { it.copy(dialog = NovelBrowseDialog.RemoveNovel(item)) }
-                return@launchIO
-            }
-            // -1: the item isn't favorited yet, so there's no library row to exclude (a non-favorite
-            // shadow row is excluded by the query's favorite=1 filter anyway).
-            val duplicates = novelRepository.getDuplicateLibraryNovel(-1L, item.name)
-            if (duplicates.isNotEmpty()) {
-                // Resolve names + sites here (sources are loaded by browse init) so the dialog stays DI-free.
-                val resolved = duplicates.associate { it.novel.source to manager.get(it.novel.source) }
-                val sourceNames = resolved.mapValues { (id, src) -> src?.name ?: id }
-                val sourceSites = resolved.mapValues { (_, src) -> src?.site }
-                mutableState.update {
-                    it.copy(dialog = NovelBrowseDialog.AddDuplicate(item, duplicates, sourceNames, sourceSites))
-                }
-            } else {
-                addToLibrary(item)
-            }
+            val dialog = libraryAdder.onLongClick(item, sourceId, state.value.favoritedKeys)
+            mutableState.update { it.copy(dialog = dialog) }
         }
     }
 
     /** "Add anyway" from the duplicates dialog: add despite the similarly-named entries. */
     fun addFromDuplicate(item: NovelItem) {
-        screenModelScope.launchIO { addToLibrary(item) }
-    }
-
-    /** Favorite the browse item (persisting a minimal row, full metadata fills on first details
-     *  open) and, if the user has categories, open the picker. insertOrGet may return a non-favorite
-     *  shadow row from a prior details open, so favorite is applied as a follow-up update. */
-    private suspend fun addToLibrary(item: NovelItem) {
-        val base = Novel.create().copy(
-            source = sourceId,
-            url = item.path,
-            title = item.name,
-            thumbnailUrl = item.cover,
-        )
-        val stored = novelRepository.insertOrGet(base) ?: return
-        if (!stored.favorite) {
-            novelRepository.update(stored.copy(favorite = true, dateAdded = System.currentTimeMillis()))
-        }
-        val categories = getNovelCategories.await().filter { it.id > 0L }
-        if (categories.isNotEmpty()) {
-            val current = getNovelCategories.awaitByNovelId(stored.id).map { it.id }.toSet()
-            mutableState.update { it.copy(dialog = NovelBrowseDialog.ChangeCategory(stored.id, categories, current)) }
-        } else {
-            mutableState.update { it.copy(dialog = null) }
+        screenModelScope.launchIO {
+            mutableState.update { it.copy(dialog = libraryAdder.addToLibrary(item, sourceId)) }
         }
     }
 
     fun applyCategories(novelId: Long, categoryIds: List<Long>) {
         screenModelScope.launchIO {
-            setNovelCategories.await(novelId, categoryIds)
+            libraryAdder.applyCategories(novelId, categoryIds)
             mutableState.update { it.copy(dialog = null) }
         }
     }
 
-    /** Remove a favorited result from the library (keeps the row + read state, like the manga side). */
     fun confirmRemove(item: NovelItem) {
         screenModelScope.launchIO {
-            novelRepository.getByUrlAndSource(item.path, sourceId)?.let {
-                novelRepository.update(it.copy(favorite = false))
-            }
+            libraryAdder.confirmRemove(item, sourceId)
             mutableState.update { it.copy(dialog = null) }
         }
     }
@@ -299,6 +253,8 @@ data class NovelBrowseState(
 sealed interface NovelBrowseDialog {
     data class AddDuplicate(
         val item: NovelItem,
+        /** The source the result came from, so the confirm acts on the right one (varies in global search). */
+        val sourceId: String,
         val duplicates: List<NovelWithChapterCount>,
         /** Source id -> display name for each duplicate's source (resolved in the model, dialog is DI-free). */
         val sourceNames: Map<String, String>,
@@ -310,7 +266,7 @@ sealed interface NovelBrowseDialog {
         val allCategories: List<NovelCategory>,
         val currentCategoryIds: Set<Long>,
     ) : NovelBrowseDialog
-    data class RemoveNovel(val item: NovelItem) : NovelBrowseDialog
+    data class RemoveNovel(val item: NovelItem, val sourceId: String) : NovelBrowseDialog
 }
 
 /**

@@ -412,9 +412,10 @@ private fun NovelBrowseBody(
     }
 }
 
-/** Confirm removing a favorited result from the library, the novel twin of `RemoveMangaDialog`. */
+/** Confirm removing a favorited result from the library, the novel twin of `RemoveMangaDialog`.
+ *  Shared with the novel global search, which reuses the same long-press remove flow. */
 @Composable
-private fun RemoveNovelDialog(title: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+internal fun RemoveNovelDialog(title: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(MR.strings.are_you_sure)) },

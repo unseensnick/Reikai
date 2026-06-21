@@ -20,11 +20,16 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import mihon.domain.manga.model.toDomainManga
+import reikai.presentation.browse.AddFavoriteResult
+import reikai.presentation.browse.MangaLibraryAdder
+import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -38,6 +43,8 @@ abstract class SearchScreenModel(
     private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
     private val getManga: GetManga = Injekt.get(),
     private val preferences: SourcePreferences = Injekt.get(),
+    // RK: shared long-press add-to-library orchestration (also used by the Browse screen)
+    private val mangaLibraryAdder: MangaLibraryAdder = Injekt.get(),
 ) : StateScreenModel<SearchScreenModel.State>(initialState) {
 
     private val coroutineDispatcher = Executors.newFixedThreadPool(5).asCoroutineDispatcher()
@@ -198,6 +205,37 @@ abstract class SearchScreenModel(
         }
     }
 
+    // RK --> long-press add-to-library, via the shared MangaLibraryAdder. Results are already local
+    // (networkToLocalManga), so no materialize is needed. The source is resolved per-manga inside the
+    // adder since global search spans sources.
+    fun setDialog(dialog: Dialog?) {
+        mutableState.update { it.copy(dialog = dialog) }
+    }
+
+    suspend fun getDuplicateLibraryManga(manga: Manga): List<MangaWithChapterCount> =
+        mangaLibraryAdder.getDuplicates(manga)
+
+    fun changeMangaFavorite(manga: Manga) {
+        screenModelScope.launchIO { mangaLibraryAdder.changeFavorite(manga) }
+    }
+
+    fun addFavorite(manga: Manga) {
+        screenModelScope.launchIO {
+            when (val result = mangaLibraryAdder.resolveAddFavorite(manga)) {
+                AddFavoriteResult.Added -> {}
+                is AddFavoriteResult.NeedsCategoryChoice ->
+                    mutableState.update {
+                        it.copy(dialog = Dialog.ChangeMangaCategory(manga, result.initialSelection))
+                    }
+            }
+        }
+    }
+
+    fun moveMangaToCategories(manga: Manga, categoryIds: List<Long>) {
+        screenModelScope.launchIO { mangaLibraryAdder.moveToCategories(manga, categoryIds) }
+    }
+    // RK <--
+
     fun clearDialog() {
         mutableState.update { it.copy(dialog = null) }
     }
@@ -218,6 +256,15 @@ abstract class SearchScreenModel(
 
     sealed interface Dialog {
         data class Migrate(val target: Manga, val current: Manga) : Dialog
+
+        // RK --> long-press add-to-library dialogs (rendered by the global search screen)
+        data class RemoveManga(val manga: Manga) : Dialog
+        data class AddDuplicateManga(val manga: Manga, val duplicates: List<MangaWithChapterCount>) : Dialog
+        data class ChangeMangaCategory(
+            val manga: Manga,
+            val initialSelection: List<CheckboxState.State<Category>>,
+        ) : Dialog
+        // RK <--
     }
 }
 

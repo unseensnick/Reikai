@@ -14,40 +14,30 @@ import androidx.paging.map
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.core.preference.asState
-import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.source.service.SourcePreferences
-import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.presentation.util.ioCoroutineScope
-import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.source.model.FilterList
-import eu.kanade.tachiyomi.util.removeCovers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import reikai.presentation.browse.AddFavoriteResult
+import reikai.presentation.browse.MangaLibraryAdder
 import tachiyomi.core.common.preference.CheckboxState
-import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.core.common.util.lang.launchIO
-import tachiyomi.domain.category.interactor.GetCategories
-import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.chapter.interactor.SetMangaDefaultChapterFlags
 import tachiyomi.domain.library.service.LibraryPreferences
-import tachiyomi.domain.manga.interactor.GetDuplicateLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaWithChapterCount
-import tachiyomi.domain.manga.model.toMangaUpdate
 import tachiyomi.domain.source.interactor.GetRemoteManga
 import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.time.Instant
 import eu.kanade.tachiyomi.source.model.Filter as SourceModelFilter
 
 class BrowseSourceScreenModel(
@@ -56,16 +46,12 @@ class BrowseSourceScreenModel(
     sourceManager: SourceManager = Injekt.get(),
     sourcePreferences: SourcePreferences = Injekt.get(),
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
-    private val coverCache: CoverCache = Injekt.get(),
     private val getRemoteManga: GetRemoteManga = Injekt.get(),
-    private val getDuplicateLibraryManga: GetDuplicateLibraryManga = Injekt.get(),
-    private val getCategories: GetCategories = Injekt.get(),
-    private val setMangaCategories: SetMangaCategories = Injekt.get(),
-    private val setMangaDefaultChapterFlags: SetMangaDefaultChapterFlags = Injekt.get(),
     private val getManga: GetManga = Injekt.get(),
-    private val updateManga: UpdateManga = Injekt.get(),
-    private val addTracks: AddTracks = Injekt.get(),
     getIncognitoState: GetIncognitoState = Injekt.get(),
+    // RK --> favorite / category / duplicate orchestration extracted to the shared MangaLibraryAdder
+    private val mangaLibraryAdder: MangaLibraryAdder = Injekt.get(),
+    // RK <--
 ) : StateScreenModel<BrowseSourceScreenModel.State>(State(Listing.valueOf(listingQuery))) {
 
     var displayMode by sourcePreferences.sourceDisplayMode.asState(screenModelScope)
@@ -204,90 +190,29 @@ class BrowseSourceScreenModel(
      *
      * @param manga the manga to update.
      */
+    // RK --> favorite / category / duplicate flow delegated to the shared MangaLibraryAdder
     fun changeMangaFavorite(manga: Manga) {
-        screenModelScope.launch {
-            var new = manga.copy(
-                favorite = !manga.favorite,
-                dateAdded = when (manga.favorite) {
-                    true -> 0
-                    false -> Instant.now().toEpochMilli()
-                },
-            )
-
-            if (!new.favorite) {
-                new = new.removeCovers(coverCache)
-            } else {
-                setMangaDefaultChapterFlags.await(manga)
-                addTracks.bindEnhancedTrackers(manga, source)
-            }
-
-            updateManga.await(new.toMangaUpdate())
-        }
+        screenModelScope.launch { mangaLibraryAdder.changeFavorite(manga) }
     }
 
     fun addFavorite(manga: Manga) {
         screenModelScope.launch {
-            val categories = getCategories()
-            val defaultCategoryId = libraryPreferences.defaultCategory.get()
-            val defaultCategory = categories.find { it.id == defaultCategoryId.toLong() }
-
-            when {
-                // Default category set
-                defaultCategory != null -> {
-                    moveMangaToCategories(manga, defaultCategory)
-
-                    changeMangaFavorite(manga)
-                }
-
-                // Automatic 'Default' or no categories
-                defaultCategoryId == 0 || categories.isEmpty() -> {
-                    moveMangaToCategories(manga)
-
-                    changeMangaFavorite(manga)
-                }
-
-                // Choose a category
-                else -> {
-                    val preselectedIds = getCategories.await(manga.id).map { it.id }
-                    setDialog(
-                        Dialog.ChangeMangaCategory(
-                            manga,
-                            categories.mapAsCheckboxState { it.id in preselectedIds },
-                        ),
-                    )
-                }
+            when (val result = mangaLibraryAdder.resolveAddFavorite(manga)) {
+                AddFavoriteResult.Added -> {}
+                is AddFavoriteResult.NeedsCategoryChoice ->
+                    setDialog(Dialog.ChangeMangaCategory(manga, result.initialSelection))
             }
         }
     }
 
-    /**
-     * Get user categories.
-     *
-     * @return List of categories, not including the default category
-     */
-    suspend fun getCategories(): List<Category> {
-        return getCategories.subscribe()
-            .firstOrNull()
-            ?.filterNot { it.isSystemCategory }
-            .orEmpty()
-    }
-
     suspend fun getDuplicateLibraryManga(manga: Manga): List<MangaWithChapterCount> {
-        return getDuplicateLibraryManga.invoke(manga)
-    }
-
-    private fun moveMangaToCategories(manga: Manga, vararg categories: Category) {
-        moveMangaToCategories(manga, categories.filter { it.id != 0L }.map { it.id })
+        return mangaLibraryAdder.getDuplicates(manga)
     }
 
     fun moveMangaToCategories(manga: Manga, categoryIds: List<Long>) {
-        screenModelScope.launchIO {
-            setMangaCategories.await(
-                mangaId = manga.id,
-                categoryIds = categoryIds.toList(),
-            )
-        }
+        screenModelScope.launchIO { mangaLibraryAdder.moveToCategories(manga, categoryIds) }
     }
+    // RK <--
 
     fun openFilterSheet() {
         setDialog(Dialog.Filter)

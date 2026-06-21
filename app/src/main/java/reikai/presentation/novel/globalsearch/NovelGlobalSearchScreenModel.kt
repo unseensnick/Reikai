@@ -15,6 +15,8 @@ import reikai.novel.host.NovelItem
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.novel.browse.NovelBrowseDialog
+import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.core.common.util.lang.launchIO
 import uy.kohesive.injekt.injectLazy
 
@@ -33,6 +35,7 @@ class NovelGlobalSearchScreenModel(
     private val manager: NovelSourceManager by injectLazy()
     private val installer: LnPluginInstaller by injectLazy()
     private val novelRepository: NovelRepository by injectLazy()
+    private val libraryAdder: NovelLibraryAdder by injectLazy()
     private val sourcePreferences: ReikaiSourcePreferences by injectLazy()
 
     private var searchJob: Job? = null
@@ -64,6 +67,38 @@ class NovelGlobalSearchScreenModel(
         sourcePreferences.novelGlobalSearchHasResults.set(newValue)
         mutableState.update { it.copy(onlyShowHasResults = newValue) }
     }
+
+    // --- Long-press add-to-library, via the shared [NovelLibraryAdder]. The source id comes from the
+    // tapped result's row since results span sources. ---
+
+    fun onLongClickItem(item: NovelItem, sourceId: String) {
+        screenModelScope.launchIO {
+            val dialog = libraryAdder.onLongClick(item, sourceId, state.value.favoritedKeys)
+            mutableState.update { it.copy(dialog = dialog) }
+        }
+    }
+
+    fun addFromDuplicate(item: NovelItem, sourceId: String) {
+        screenModelScope.launchIO {
+            mutableState.update { it.copy(dialog = libraryAdder.addToLibrary(item, sourceId)) }
+        }
+    }
+
+    fun applyCategories(novelId: Long, categoryIds: List<Long>) {
+        screenModelScope.launchIO {
+            libraryAdder.applyCategories(novelId, categoryIds)
+            mutableState.update { it.copy(dialog = null) }
+        }
+    }
+
+    fun confirmRemove(item: NovelItem, sourceId: String) {
+        screenModelScope.launchIO {
+            libraryAdder.confirmRemove(item, sourceId)
+            mutableState.update { it.copy(dialog = null) }
+        }
+    }
+
+    fun dismissDialog() = mutableState.update { it.copy(dialog = null) }
 
     fun search(query: String) {
         searchJob?.cancel()
@@ -113,6 +148,8 @@ data class NovelGlobalSearchState(
         NovelGlobalSearchScreenModel.SourceFilter.PinnedOnly,
     /** Hide sources that returned no results (persisted). */
     val onlyShowHasResults: Boolean = false,
+    /** Active long-press dialog (add-duplicate / category picker / remove), or null. */
+    val dialog: NovelBrowseDialog? = null,
 )
 
 /** One source's slice of a global search: the source plus its independent load state. */
