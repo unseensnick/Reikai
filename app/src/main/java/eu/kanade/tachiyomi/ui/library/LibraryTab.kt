@@ -442,6 +442,8 @@ data object LibraryTab : Tab {
                                 onGlobalSearchClicked = {
                                     navigator.push(GlobalSearchScreen(activeSearchQuery ?: ""))
                                 },
+                                // RK: pull-to-refresh on the single-list updates the whole library (= overflow Update library).
+                                onRefresh = { onClickRefresh(null) },
                                 // RK 4.6: per-category header sort (Sort tab scoped to it), refresh, select-all
                                 onClickCategorySort = { category ->
                                     if (isNovels) {

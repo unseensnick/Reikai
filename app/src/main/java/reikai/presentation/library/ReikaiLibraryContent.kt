@@ -10,6 +10,11 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -22,11 +27,15 @@ import eu.kanade.presentation.library.components.MangaCompactGridItem
 import eu.kanade.presentation.library.components.MangaListItem
 import eu.kanade.presentation.library.components.UnreadBadge
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.model.sort
+import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.util.plus
+import kotlin.time.Duration.Companion.seconds
 
 /** Whether a category section is collapsed (real categories keyed by id, dynamic ones by header key). */
 fun reikaiIsCollapsed(
@@ -127,6 +136,8 @@ fun ReikaiLibraryContent(
     onToggleDefaultCollapse: (String) -> Unit,
     onToggleDynamicCollapse: (String) -> Unit,
     onGlobalSearchClicked: () -> Unit,
+    // RK: pull down at the top of the single-list to update the whole library (overflow Update library).
+    onRefresh: () -> Boolean,
     // RK 4.6: per-category header affordances (real categories only; dynamic groups opt out)
     onClickCategorySort: (Category) -> Unit,
     onRefreshCategory: (Category) -> Unit,
@@ -165,151 +176,172 @@ fun ReikaiLibraryContent(
             columns = columnCount,
         )
 
-        ReikaiFastScrollLazyVerticalGrid(
-            columns = GridCells.Fixed(columnCount),
-            totalRows = rowStartIndices.size,
-            itemIndexForRow = { rowStartIndices.getOrElse(it) { 0 } },
-            state = gridState,
-            contentPadding = gridPadding,
-            // Inset the thumb track to the visible scroll area so it isn't hidden behind the top bar
-            // or bottom nav.
-            topContentPadding = contentPadding.calculateTopPadding(),
-            bottomContentPadding = contentPadding.calculateBottomPadding(),
-            endContentPadding = contentPadding.calculateEndPadding(LayoutDirection.Ltr),
-            verticalArrangement = Arrangement.spacedBy(if (isList) 0.dp else cellSpacing),
-            horizontalArrangement = Arrangement.spacedBy(cellSpacing),
+        val scope = rememberCoroutineScope()
+        var isRefreshing by remember { mutableStateOf(false) }
+        PullRefresh(
+            refreshing = isRefreshing,
+            enabled = selection.isEmpty(),
+            onRefresh = {
+                val started = onRefresh()
+                if (started) {
+                    scope.launch {
+                        // Cosmetic spinner only: the library update runs as a background job.
+                        isRefreshing = true
+                        delay(1.seconds)
+                        isRefreshing = false
+                    }
+                }
+            },
+            indicatorPadding = PaddingValues(top = contentPadding.calculateTopPadding()),
         ) {
-            if (!searchQuery.isNullOrEmpty()) {
-                item(span = { GridItemSpan(maxLineSpan) }, contentType = "reikai_global_search") {
-                    GlobalSearchItem(searchQuery = searchQuery, onClick = onGlobalSearchClicked)
-                }
-            }
-
-            categories.forEach { category ->
-                val dynamic = ReikaiDynamicCategory.isDynamic(category)
-                val headerKey = if (dynamic) ReikaiDynamicCategory.headerKey(category) else category.id.toString()
-                val collapsed = reikaiIsCollapsed(category, collapsedCategories, collapsedDynamicCategories)
-                val items = getItemsForCategory(category)
-
-                item(
-                    span = { GridItemSpan(maxLineSpan) },
-                    key = "reikai_header_${category.id}",
-                    contentType = "reikai_header",
-                ) {
-                    ReikaiLibraryCategoryHeader(
-                        name = if (dynamic) ReikaiDynamicCategory.displayName(category) else category.visualName,
-                        itemCount = items.size,
-                        showItemCount = showItemCounts,
-                        isCollapsed = collapsed,
-                        onClick = {
-                            if (dynamic) onToggleDynamicCollapse(headerKey) else onToggleDefaultCollapse(headerKey)
-                        },
-                        selectionMode = selection.isNotEmpty(),
-                        allSelected = items.isNotEmpty() && items.all { it.id in selection },
-                        onToggleSelectAll = { onSelectAllInCategory(category) },
-                        // Dynamic groups have no real category to sort/refresh.
-                        sort = if (dynamic) null else category.sort,
-                        onClickSort = if (dynamic) null else { { onClickCategorySort(category) } },
-                        onClickRefresh = if (dynamic) null else { { onRefreshCategory(category) } },
-                    )
+            ReikaiFastScrollLazyVerticalGrid(
+                columns = GridCells.Fixed(columnCount),
+                totalRows = rowStartIndices.size,
+                itemIndexForRow = { rowStartIndices.getOrElse(it) { 0 } },
+                state = gridState,
+                contentPadding = gridPadding,
+                // Inset the thumb track to the visible scroll area so it isn't hidden behind the top bar
+                // or bottom nav.
+                topContentPadding = contentPadding.calculateTopPadding(),
+                bottomContentPadding = contentPadding.calculateBottomPadding(),
+                endContentPadding = contentPadding.calculateEndPadding(LayoutDirection.Ltr),
+                verticalArrangement = Arrangement.spacedBy(if (isList) 0.dp else cellSpacing),
+                horizontalArrangement = Arrangement.spacedBy(cellSpacing),
+            ) {
+                if (!searchQuery.isNullOrEmpty()) {
+                    item(span = { GridItemSpan(maxLineSpan) }, contentType = "reikai_global_search") {
+                        GlobalSearchItem(searchQuery = searchQuery, onClick = onGlobalSearchClicked)
+                    }
                 }
 
-                if (!collapsed) {
-                    items(
-                        items = items,
-                        // A manga can belong to several categories, so qualify the key by category.
-                        key = { "reikai_cell_${category.id}_${it.id}" },
-                        contentType = { cellContentType },
-                    ) { libraryItem ->
-                        val manga = libraryItem.libraryManga.manga
-                        val isSelected = manga.id in selection
-                        val coverData = libraryCoverModel(libraryItem) // RK: NovelCover for novels, else MangaCover
-                        val onClick = { onClickManga(category, libraryItem.libraryManga) }
-                        val onLongClick = { onLongClickManga(category, libraryItem.libraryManga) }
-                        // Show the play button only when there's something unread (matches the pager).
-                        val onContinueReading = if (onClickContinueReading != null && libraryItem.unreadCount > 0) {
-                            { onClickContinueReading(libraryItem.libraryManga) }
-                        } else {
-                            null
-                        }
+                categories.forEach { category ->
+                    val dynamic = ReikaiDynamicCategory.isDynamic(category)
+                    val headerKey = if (dynamic) ReikaiDynamicCategory.headerKey(category) else category.id.toString()
+                    val collapsed = reikaiIsCollapsed(category, collapsedCategories, collapsedDynamicCategories)
+                    val items = getItemsForCategory(category)
 
-                        when (displayMode) {
-                            LibraryDisplayMode.List -> MangaListItem(
-                                coverData = coverData,
-                                title = manga.title,
-                                onClick = onClick,
-                                onLongClick = onLongClick,
-                                onClickContinueReading = onContinueReading,
-                                badge = {
-                                    DownloadsBadge(count = libraryItem.badges.downloadCount)
-                                    UnreadBadge(count = libraryItem.badges.unreadCount)
-                                    LanguageBadge(
-                                        isLocal = libraryItem.badges.isLocal,
-                                        sourceLanguage = libraryItem.badges.sourceLanguage,
-                                    )
-                                    LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
-                                },
-                                isSelected = isSelected,
-                            )
-                            LibraryDisplayMode.ComfortableGrid -> MangaComfortableGridItem(
-                                coverData = coverData,
-                                title = manga.title,
-                                onClick = onClick,
-                                onLongClick = onLongClick,
-                                onClickContinueReading = onContinueReading,
-                                isSelected = isSelected,
-                                coverBadgeStart = {
-                                    DownloadsBadge(count = libraryItem.badges.downloadCount)
-                                    UnreadBadge(count = libraryItem.badges.unreadCount)
-                                },
-                                coverBadgeEnd = {
-                                    LanguageBadge(
-                                        isLocal = libraryItem.badges.isLocal,
-                                        sourceLanguage = libraryItem.badges.sourceLanguage,
-                                    )
-                                    LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
-                                },
-                            )
-                            // Panorama: same uniform Book-height cell, wide covers shown whole (letterboxed).
-                            LibraryDisplayMode.ComfortableGridPanorama -> ReikaiComfortableGridPanoramaItem(
-                                coverData = coverData,
-                                title = manga.title,
-                                onClick = onClick,
-                                onLongClick = onLongClick,
-                                onClickContinueReading = onContinueReading,
-                                isSelected = isSelected,
-                                coverBadgeStart = {
-                                    DownloadsBadge(count = libraryItem.badges.downloadCount)
-                                    UnreadBadge(count = libraryItem.badges.unreadCount)
-                                },
-                                coverBadgeEnd = {
-                                    LanguageBadge(
-                                        isLocal = libraryItem.badges.isLocal,
-                                        sourceLanguage = libraryItem.badges.sourceLanguage,
-                                    )
-                                    LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
-                                },
-                            )
-                            // Compact grid (with title) and cover-only grid (title null) share a cell.
-                            LibraryDisplayMode.CompactGrid, LibraryDisplayMode.CoverOnlyGrid -> MangaCompactGridItem(
-                                coverData = coverData,
-                                title = manga.title.takeIf { displayMode is LibraryDisplayMode.CompactGrid },
-                                onClick = onClick,
-                                onLongClick = onLongClick,
-                                onClickContinueReading = onContinueReading,
-                                isSelected = isSelected,
-                                coverBadgeStart = {
-                                    DownloadsBadge(count = libraryItem.badges.downloadCount)
-                                    UnreadBadge(count = libraryItem.badges.unreadCount)
-                                },
-                                coverBadgeEnd = {
-                                    LanguageBadge(
-                                        isLocal = libraryItem.badges.isLocal,
-                                        sourceLanguage = libraryItem.badges.sourceLanguage,
-                                    )
-                                    LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
-                                },
-                            )
+                    item(
+                        span = { GridItemSpan(maxLineSpan) },
+                        key = "reikai_header_${category.id}",
+                        contentType = "reikai_header",
+                    ) {
+                        ReikaiLibraryCategoryHeader(
+                            name = if (dynamic) ReikaiDynamicCategory.displayName(category) else category.visualName,
+                            itemCount = items.size,
+                            showItemCount = showItemCounts,
+                            isCollapsed = collapsed,
+                            onClick = {
+                                if (dynamic) onToggleDynamicCollapse(headerKey) else onToggleDefaultCollapse(headerKey)
+                            },
+                            selectionMode = selection.isNotEmpty(),
+                            allSelected = items.isNotEmpty() && items.all { it.id in selection },
+                            onToggleSelectAll = { onSelectAllInCategory(category) },
+                            // Dynamic groups have no real category to sort/refresh.
+                            sort = if (dynamic) null else category.sort,
+                            onClickSort = if (dynamic) null else { { onClickCategorySort(category) } },
+                            onClickRefresh = if (dynamic) null else { { onRefreshCategory(category) } },
+                        )
+                    }
+
+                    if (!collapsed) {
+                        items(
+                            items = items,
+                            // A manga can belong to several categories, so qualify the key by category.
+                            key = { "reikai_cell_${category.id}_${it.id}" },
+                            contentType = { cellContentType },
+                        ) { libraryItem ->
+                            val manga = libraryItem.libraryManga.manga
+                            val isSelected = manga.id in selection
+                            val coverData = libraryCoverModel(libraryItem) // RK: NovelCover for novels, else MangaCover
+                            val onClick = { onClickManga(category, libraryItem.libraryManga) }
+                            val onLongClick = { onLongClickManga(category, libraryItem.libraryManga) }
+                            // Show the play button only when there's something unread (matches the pager).
+                            val onContinueReading = if (onClickContinueReading != null && libraryItem.unreadCount > 0) {
+                                { onClickContinueReading(libraryItem.libraryManga) }
+                            } else {
+                                null
+                            }
+
+                            when (displayMode) {
+                                LibraryDisplayMode.List -> MangaListItem(
+                                    coverData = coverData,
+                                    title = manga.title,
+                                    onClick = onClick,
+                                    onLongClick = onLongClick,
+                                    onClickContinueReading = onContinueReading,
+                                    badge = {
+                                        DownloadsBadge(count = libraryItem.badges.downloadCount)
+                                        UnreadBadge(count = libraryItem.badges.unreadCount)
+                                        LanguageBadge(
+                                            isLocal = libraryItem.badges.isLocal,
+                                            sourceLanguage = libraryItem.badges.sourceLanguage,
+                                        )
+                                        LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
+                                    },
+                                    isSelected = isSelected,
+                                )
+                                LibraryDisplayMode.ComfortableGrid -> MangaComfortableGridItem(
+                                    coverData = coverData,
+                                    title = manga.title,
+                                    onClick = onClick,
+                                    onLongClick = onLongClick,
+                                    onClickContinueReading = onContinueReading,
+                                    isSelected = isSelected,
+                                    coverBadgeStart = {
+                                        DownloadsBadge(count = libraryItem.badges.downloadCount)
+                                        UnreadBadge(count = libraryItem.badges.unreadCount)
+                                    },
+                                    coverBadgeEnd = {
+                                        LanguageBadge(
+                                            isLocal = libraryItem.badges.isLocal,
+                                            sourceLanguage = libraryItem.badges.sourceLanguage,
+                                        )
+                                        LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
+                                    },
+                                )
+                                // Panorama: same uniform Book-height cell, wide covers shown whole (letterboxed).
+                                LibraryDisplayMode.ComfortableGridPanorama -> ReikaiComfortableGridPanoramaItem(
+                                    coverData = coverData,
+                                    title = manga.title,
+                                    onClick = onClick,
+                                    onLongClick = onLongClick,
+                                    onClickContinueReading = onContinueReading,
+                                    isSelected = isSelected,
+                                    coverBadgeStart = {
+                                        DownloadsBadge(count = libraryItem.badges.downloadCount)
+                                        UnreadBadge(count = libraryItem.badges.unreadCount)
+                                    },
+                                    coverBadgeEnd = {
+                                        LanguageBadge(
+                                            isLocal = libraryItem.badges.isLocal,
+                                            sourceLanguage = libraryItem.badges.sourceLanguage,
+                                        )
+                                        LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
+                                    },
+                                )
+                                // Compact grid (with title) and cover-only grid (title null) share a cell.
+                                LibraryDisplayMode.CompactGrid,
+                                LibraryDisplayMode.CoverOnlyGrid,
+                                -> MangaCompactGridItem(
+                                    coverData = coverData,
+                                    title = manga.title.takeIf { displayMode is LibraryDisplayMode.CompactGrid },
+                                    onClick = onClick,
+                                    onLongClick = onLongClick,
+                                    onClickContinueReading = onContinueReading,
+                                    isSelected = isSelected,
+                                    coverBadgeStart = {
+                                        DownloadsBadge(count = libraryItem.badges.downloadCount)
+                                        UnreadBadge(count = libraryItem.badges.unreadCount)
+                                    },
+                                    coverBadgeEnd = {
+                                        LanguageBadge(
+                                            isLocal = libraryItem.badges.isLocal,
+                                            sourceLanguage = libraryItem.badges.sourceLanguage,
+                                        )
+                                        LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
+                                    },
+                                )
+                            }
                         }
                     }
                 }
