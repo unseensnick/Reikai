@@ -126,7 +126,15 @@ class NovelLibraryScreenModel :
             ) { categories, library, query, sel, grouping ->
                 buildState(categories, library, query, sel, grouping.settings, grouping.collapsed, grouping.atBottom)
             }.collectLatest { built ->
-                mutableState.update { current -> built.copy(activeCategoryIndex = current.activeCategoryIndex) }
+                // Preserve the live searchQuery (and active page): the async buildState lags the user's
+                // typing, so overwriting searchQuery here resets the search field to a stale value mid-
+                // input and scrambles fast keystrokes. search() owns searchQuery synchronously instead.
+                mutableState.update { current ->
+                    built.copy(
+                        activeCategoryIndex = current.activeCategoryIndex,
+                        searchQuery = current.searchQuery,
+                    )
+                }
             }
         }
     }
@@ -391,7 +399,12 @@ class NovelLibraryScreenModel :
 
     // --- search / selection / collapse mutators (read by LibraryTab) ---
 
-    fun search(query: String?) { searchQuery.value = query }
+    fun search(query: String?) {
+        // Update the field's state synchronously so it stays responsive to fast typing (mirrors the
+        // manga LibraryScreenModel); searchQuery also drives the async filter combine below.
+        mutableState.update { it.copy(searchQuery = query) }
+        searchQuery.value = query
+    }
 
     fun clearSelection() {
         lastSelectionCategory = null
