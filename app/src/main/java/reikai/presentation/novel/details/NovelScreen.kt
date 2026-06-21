@@ -68,6 +68,7 @@ import reikai.presentation.novel.reader.NovelReaderScreen
 import reikai.presentation.novel.track.NovelTrackInfoDialogHomeScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.TwoPanelBox
+import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
@@ -195,23 +196,30 @@ private fun NovelDetailsSmallImpl(
         floatingActionButton = { NovelResumeFab(state, listState, onChapterClick) },
     ) { contentPadding ->
         val layoutDirection = LocalLayoutDirection.current
-        // Drop the top inset so the info-box backdrop bleeds edge-to-edge behind the toolbar (matches
-        // the manga detail). The info box itself offsets its content by the app-bar padding instead.
-        LazyColumn(
-            state = listState,
-            contentPadding = PaddingValues(
-                start = contentPadding.calculateStartPadding(layoutDirection),
-                end = contentPadding.calculateEndPadding(layoutDirection),
-                bottom = contentPadding.calculateBottomPadding(),
-            ),
+        PullRefresh(
+            refreshing = state.isRefreshing,
+            onRefresh = screenModel::refresh,
+            enabled = !state.selectionMode,
+            indicatorPadding = PaddingValues(top = contentPadding.calculateTopPadding()),
         ) {
-            novelInfoItems(
-                state, screenModel, onWebView, onShare, onTracking, onSearch, onCopy,
-                isTabletUi = false,
-                appBarPadding = contentPadding.calculateTopPadding(),
-            )
-            novelChapterHeaderItems(state, screenModel)
-            novelChapterItems(state, screenModel, onChapterClick)
+            // Drop the top inset so the info-box backdrop bleeds edge-to-edge behind the toolbar (matches
+            // the manga detail). The info box itself offsets its content by the app-bar padding instead.
+            LazyColumn(
+                state = listState,
+                contentPadding = PaddingValues(
+                    start = contentPadding.calculateStartPadding(layoutDirection),
+                    end = contentPadding.calculateEndPadding(layoutDirection),
+                    bottom = contentPadding.calculateBottomPadding(),
+                ),
+            ) {
+                novelInfoItems(
+                    state, screenModel, onWebView, onShare, onTracking, onSearch, onCopy,
+                    isTabletUi = false,
+                    appBarPadding = contentPadding.calculateTopPadding(),
+                )
+                novelChapterHeaderItems(state, screenModel)
+                novelChapterItems(state, screenModel, onChapterClick)
+            }
         }
     }
 }
@@ -250,31 +258,38 @@ private fun NovelDetailsLargeImpl(
         snackbarHost = { SnackbarHost(screenModel.snackbarHostState) },
         floatingActionButton = { NovelResumeFab(state, chapterListState, onChapterClick) },
     ) { contentPadding ->
-        TwoPanelBox(
-            startContent = {
-                LazyColumn(contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding())) {
-                    // The start pane only pads the bottom, so the info box clears the app bar itself.
-                    novelInfoItems(
-                        state,
-                        screenModel,
-                        onWebView,
-                        onShare,
-                        onTracking,
-                        onSearch,
-                        onCopy,
-                        isTabletUi = true,
-                        appBarPadding = contentPadding.calculateTopPadding(),
-                    )
-                }
-            },
-            endContent = {
-                // Chips + chapter header sit atop the chapter pane (mirrors MangaScreen's tablet layout).
-                LazyColumn(state = chapterListState, contentPadding = contentPadding) {
-                    novelChapterHeaderItems(state, screenModel)
-                    novelChapterItems(state, screenModel, onChapterClick)
-                }
-            },
-        )
+        PullRefresh(
+            refreshing = state.isRefreshing,
+            onRefresh = screenModel::refresh,
+            enabled = !state.selectionMode,
+            indicatorPadding = PaddingValues(top = contentPadding.calculateTopPadding()),
+        ) {
+            TwoPanelBox(
+                startContent = {
+                    LazyColumn(contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding())) {
+                        // The start pane only pads the bottom, so the info box clears the app bar itself.
+                        novelInfoItems(
+                            state,
+                            screenModel,
+                            onWebView,
+                            onShare,
+                            onTracking,
+                            onSearch,
+                            onCopy,
+                            isTabletUi = true,
+                            appBarPadding = contentPadding.calculateTopPadding(),
+                        )
+                    }
+                },
+                endContent = {
+                    // Chips + chapter header sit atop the chapter pane (mirrors MangaScreen's tablet layout).
+                    LazyColumn(state = chapterListState, contentPadding = contentPadding) {
+                        novelChapterHeaderItems(state, screenModel)
+                        novelChapterItems(state, screenModel, onChapterClick)
+                    }
+                },
+            )
+        }
     }
 }
 
