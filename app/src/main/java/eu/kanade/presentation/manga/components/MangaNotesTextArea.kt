@@ -44,7 +44,6 @@ import androidx.compose.ui.unit.dp
 import com.mohamedrejeb.richeditor.model.rememberRichTextState
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditor
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults.richTextEditorColors
-import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesScreen
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
@@ -57,7 +56,9 @@ import kotlin.time.Duration.Companion.seconds
 
 @Composable
 fun MangaNotesTextArea(
-    state: MangaNotesScreen.State,
+    // RK: decoupled from MangaNotesScreen.State to a plain `notes` String so the novel notes editor
+    // (reikai NovelNotesScreen) reuses this exact markdown editor instead of duplicating it.
+    notes: String,
     onUpdate: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -78,7 +79,7 @@ fun MangaNotesTextArea(
         }
     }
     LaunchedEffect(Unit) {
-        richTextState.setMarkdown(state.notes)
+        richTextState.setMarkdown(notes)
         richTextState.config.unorderedListIndent = 4
         richTextState.config.orderedListIndent = 20
     }

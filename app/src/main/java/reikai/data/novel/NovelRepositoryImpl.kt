@@ -8,6 +8,7 @@ import logcat.LogPriority
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.novel.model.NovelWithChapterCount
 import tachiyomi.core.common.util.system.logcat
@@ -74,6 +75,7 @@ class NovelRepositoryImpl(
                 totalPages = novel.totalPages,
                 lastReadAt = novel.lastReadAt,
                 editedFlags = novel.editedFlags,
+                notes = novel.notes,
             )
             database.novelsQueries.selectLastInsertedRowId().awaitAsOne()
         }
@@ -103,11 +105,40 @@ class NovelRepositoryImpl(
             totalPages = novel.totalPages,
             lastReadAt = novel.lastReadAt,
             editedFlags = novel.editedFlags,
+            notes = novel.notes,
             novelId = novel.id,
         )
         true
     } catch (e: Exception) {
         logcat(LogPriority.ERROR, e) { "Failed to update novel id=${novel.id}" }
+        false
+    }
+
+    override suspend fun update(update: NovelUpdate): Boolean = try {
+        database.novelsQueries.partialUpdate(
+            source = update.source,
+            url = update.url,
+            title = update.title,
+            author = update.author,
+            artist = update.artist,
+            description = update.description,
+            status = update.status,
+            thumbnailUrl = update.thumbnailUrl,
+            favorite = update.favorite,
+            lastUpdate = update.lastUpdate,
+            initialized = update.initialized,
+            chapterFlags = update.chapterFlags,
+            dateAdded = update.dateAdded,
+            coverLastModified = update.coverLastModified,
+            totalPages = update.totalPages,
+            lastReadAt = update.lastReadAt,
+            editedFlags = update.editedFlags,
+            notes = update.notes,
+            id = update.id,
+        )
+        true
+    } catch (e: Exception) {
+        logcat(LogPriority.ERROR, e) { "Failed to partial-update novel id=${update.id}" }
         false
     }
 

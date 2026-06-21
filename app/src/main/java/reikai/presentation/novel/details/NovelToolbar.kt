@@ -43,6 +43,7 @@ fun NovelToolbar(
     onClickRefresh: () -> Unit,
     onClickEditCategory: () -> Unit,
     onClickEditInfo: () -> Unit,
+    onClickEditNotes: () -> Unit,
     onClickShare: (() -> Unit)?,
     onClickManageSources: (() -> Unit)?,
     // RK: null unless the novel is favorited (migration only re-homes a library novel).
@@ -135,6 +136,7 @@ fun NovelToolbar(
                     add(AppBar.OverflowAction(title = stringResource(MR.strings.action_webview_refresh), onClick = onClickRefresh))
                     add(AppBar.OverflowAction(title = stringResource(MR.strings.action_edit_categories), onClick = onClickEditCategory))
                     add(AppBar.OverflowAction(title = stringResource(MR.strings.action_edit), onClick = onClickEditInfo))
+                    add(AppBar.OverflowAction(title = stringResource(MR.strings.action_notes), onClick = onClickEditNotes))
                     if (onClickManageSources != null) {
                         add(AppBar.OverflowAction(title = stringResource(MR.strings.action_manage_sources), onClick = onClickManageSources))
                     }

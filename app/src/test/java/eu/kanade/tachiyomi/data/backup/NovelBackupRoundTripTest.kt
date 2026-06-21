@@ -131,6 +131,7 @@ class NovelBackupRoundTripTest {
             favorite = true,
             totalPages = 3,
             editedFlags = 8,
+            notes = "my note",
         )
 
         val novel = backup.toNovelImpl()
@@ -143,6 +144,7 @@ class NovelBackupRoundTripTest {
         novel.favorite shouldBe true
         novel.totalPages shouldBe 3L
         novel.editedFlags shouldBe 8L
+        novel.notes shouldBe "my note"
     }
 
     @Test

@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.novel.model.NovelWithChapterCount
 
@@ -58,6 +59,10 @@ interface NovelRepository {
      */
     suspend fun insertOrGet(novel: Novel): Novel?
     suspend fun update(novel: Novel): Boolean
+
+    /** Surgical partial update: writes only the fields [update] sets (null = leave unchanged), the
+     *  novel twin of `MangaRepository.update(MangaUpdate)`. Use over [update] for single-field edits. */
+    suspend fun update(update: NovelUpdate): Boolean
 
     /** Stamp the novel's last-read time (denormalized for the LastRead library sort). */
     suspend fun setLastReadAt(id: Long, at: Long): Boolean
