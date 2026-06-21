@@ -145,7 +145,8 @@ class NovelReaderScreenModel(
             novelPreferences.readerBackgroundColor().changes(),
             novelPreferences.readerTextColor().changes(),
         ) { followSystem, bg, text -> ThemePrefs(followSystem, bg, text) },
-    ) { display, theme ->
+        novelPreferences.readerKeepScreenOn().changes(),
+    ) { display, theme, keepScreenOn ->
         NovelReaderSettings(
             fontSize = display.fontSize,
             lineHeight = display.lineHeight,
@@ -155,6 +156,7 @@ class NovelReaderScreenModel(
             followSystemTheme = theme.followSystem,
             backgroundColor = theme.background,
             textColor = theme.textColor,
+            keepScreenOn = keepScreenOn,
         )
     }.stateIn(screenModelScope, SharingStarted.Eagerly, currentSettings())
 
@@ -167,6 +169,7 @@ class NovelReaderScreenModel(
         followSystemTheme = novelPreferences.readerFollowSystemTheme().get(),
         backgroundColor = novelPreferences.readerBackgroundColor().get(),
         textColor = novelPreferences.readerTextColor().get(),
+        keepScreenOn = novelPreferences.readerKeepScreenOn().get(),
     )
 
     init {
@@ -226,6 +229,8 @@ class NovelReaderScreenModel(
     fun setTextAlign(value: String) = novelPreferences.readerTextAlign().set(value)
     fun setPadding(value: Int) = novelPreferences.readerPadding().set(value)
     fun setFontFamily(value: String) = novelPreferences.readerFontFamily().set(value)
+
+    fun setKeepScreenOn(value: Boolean) = novelPreferences.readerKeepScreenOn().set(value)
 
     fun setFollowSystemTheme() = novelPreferences.readerFollowSystemTheme().set(true)
 

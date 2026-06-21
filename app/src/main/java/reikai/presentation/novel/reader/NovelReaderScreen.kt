@@ -1,6 +1,7 @@
 package reikai.presentation.novel.reader
 
 import android.app.Activity
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
@@ -104,6 +105,18 @@ class NovelReaderScreen(
             }
         }
 
+        // Hold the screen awake while reading when the pref is on; always clear the flag on leave so
+        // the rest of the app keeps its normal timeout (the manga reader does this in ReaderActivity).
+        DisposableEffect(settings.keepScreenOn) {
+            val window = (context as? Activity)?.window
+            if (settings.keepScreenOn) {
+                window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            } else {
+                window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+            onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+        }
+
         // Record reading history when the reader is backgrounded (ON_PAUSE) or left (screen pop): the
         // novel twin of ReaderActivity.onPause -> updateHistory. The host Activity's lifecycleScope is
         // used (not this screen's, which is cancelled on pop) and the write is non-cancellable so it
@@ -201,6 +214,7 @@ class NovelReaderScreen(
                 onFontFamily = screenModel::setFontFamily,
                 onFollowSystem = screenModel::setFollowSystemTheme,
                 onPreset = screenModel::setThemePreset,
+                onKeepScreenOn = screenModel::setKeepScreenOn,
                 onDismiss = { settingsOpen = false },
             )
         }
