@@ -4,7 +4,7 @@ Forward-looking plan for the Mihon rebase (branch `design/mihon-rebase`, which b
 
 ## Status snapshot (June 2026)
 
-The rebase from Yōkai onto Mihon is nearly complete. The light-novel vertical (P5) is the last in-flight phase; everything else is done, dropped, or folded into the sequence below.
+The rebase from Yōkai onto Mihon is essentially complete: the light-novel vertical (P5) core sequence (round 1, #1-#9) has shipped and is on-device verified. What remains is **round 2** below: the manga↔novel parity backlog promoted to active, plus the revived adult-source subsystem. Everything else is done, dropped, or folded in.
 
 | Phase | What | Status |
 |---|---|---|
@@ -12,7 +12,7 @@ The rebase from Yōkai onto Mihon is nearly complete. The light-novel vertical (
 | P2 | Library screen carry: single-list + hopper, dynamic grouping (Group tab), filter/sort, category sort order, update-errors screen | ✅ done |
 | P3 | Manga details carry: merge / Manage-sources UI, private tracking, two-finger range select, cover-accent backdrop, recommendations carousel | ✅ done |
 | P4 | Pref-based merge engine + preferred-source ranking + tracker-link mirroring | ✅ done |
-| P5 | Light-novel vertical (domain/DB, QuickJS host, browse, details, reader, downloads, library, background updates, merge, grouping, unified Updates) | 🔶 in progress — see Active sequence |
+| P5 | Light-novel vertical (domain/DB, QuickJS host, browse, details, reader, downloads, library, background updates, merge, grouping, unified Updates) | ✅ core done (round 1, #1-#9); round-2 parity polish + adult sources below |
 | P6 | Recommendations: engine, taste profile, tracker recs, See-all browse | ✅ done |
 | P7 | Reader tweaks: configurable bottom bar, chapters sheet, cover tint, mark-read-on-skip, resume/preload | ✅ done |
 | P8 | Settings / shell carry | ❌ dropped (Mihon already covers it) |
@@ -30,9 +30,9 @@ Completed and pushed: Tier 1 (`6c27c5923`), Tier 2 (`85ff3326d`), Tier 3 (`f7839
 
 **Leave alone (intentional Mihon-clones / already shared, audited and confirmed):** novel browse cells, source/merge badges, merge-source chips, manage-sources dialogs, `NovelCategoryScreenModel`, the two notifiers, the 5 tracker-fetcher shells + their `mapStatus` tables, the 4 recs providers' HTTP shape, recs grid items, the foreground-service idiom, SQLDelight-mandated mapper param lists, the flag-bit layouts (`NovelLibrarySort`/`NovelChapterFlags`), negative-id encoding, and the already-shared `MergeGroupAlgebra`/`LibraryDynamicGrouping`/`ContentTypeFilterChips`/`reikaiSortCategories`/`matchesCategoryFilter`.
 
-## Active sequence (do in this order)
+## Active sequence — round 1 (✅ done)
 
-Two ordering rules: **the backup proto goes last** (it must serialize everything the earlier items add: history rows, tracker links, categories, merges, grouping), and the quick polish leads for momentum. The Tier 0 cleanup above is done, so these slices build on the shared helpers rather than extending copy-paste.
+The P5 core sequence (#1-#9), all shipped + on-device verified. (Ordering rule that drove it: the backup proto went last because it serializes everything the earlier items add: history, tracker links, categories, merges, grouping; the quick polish led for momentum.) The next work is **round 2** below.
 
 ### 1. Novel grouping: collapse-at-bottom  ✅ done (`e5c0ecee6`)
 Threaded the novel session-collapse set + the `collapsedDynamicAtBottom` pref through `buildState` into `buildNovelDynamicGrouping` (a 3-way inner combine on the main flow, so a collapse toggle rebuilds and re-sinks live); dropped the redundant post-build collapse stamp/collector. Also fixed `toggleAllCategoriesCollapsed` to key dynamic groups by `headerKey` (real categories by id), mirroring `LibraryScreenModel`, so the hopper "collapse all" collapses + sinks dynamic groups too. Verified on-device (Z Fold) in both the single-list and tabbed views.
@@ -62,7 +62,7 @@ A Tracking overflow action on novel details opens a sheet (the novel twin of Mih
 
 ### 9. Novel backup proto (S9)  ✅ done (`a6027edf2`, on-device verified)  — last core item
 The novel twin of Mihon's backup/restore, plus an installed-sources backup. New `BackupNovel` / `BackupNovelChapter` / `BackupNovelTracking` / `BackupNovelHistory` / `BackupNovelCategory` proto classes (700 range, clear of Mihon's 1-106 and Komikku's 600/610), grafted onto the root `Backup` and into `BackupCreator` / `BackupRestorer` with `// RK`. `NovelBackupCreator` / `NovelRestorer` mirror the manga path (match-or-insert by url+source, re-link chapters by url / categories by name / tracks by tracker id / history by chapter url), gated by the same `BackupOptions` toggles as manga (novels are first-class library content, no separate toggle). Merge/grouping survives id reassignment: each manual merge + unmerge group is serialized as stable `{url, source}` refs (`BackupNovelMerge`) and rebuilt against the restored ids, with the two id-keyed merge prefs excluded from the generic preference restore (`// RK` in `PreferenceRestorer`). One new `novel_history` query pair (read for backup, idempotent `restoreUpsert`). **Installed-sources follow-on (folded in):** `BackupExtension` records installed manga extensions and a restore reinstalls them via the standard installer (unmatched logged); novel plugins need no new proto (their state rides the preference backup) and are re-downloaded from their saved URLs by `NovelPluginRestorer`. Unit-tested (`NovelBackupRoundTripTest`: merge id-remap round-trip + proto mapping); on-device verified (Z Fold): a real backup includes the novel library (titles absent from the pre-novel backup, +1.9 MB decompressed) and restores it. Backward compat: protobuf defaults absent fields and the validator doesn't version-gate, so older pre-novel backups still restore.
-- **Deferred:** turning the "couldn't reinstall (repo missing)" restore-log entries into a guided post-restore onboarding step (see the Parity backlog "Restore-path onboarding" item).
+- **Deferred:** turning the "couldn't reinstall (repo missing)" restore-log entries into a guided post-restore onboarding step (see the round-2 "Restore-path onboarding" item).
 
 ## Signed release pipeline (Mihon AGP signing)  ✅ built 2026-06-17 (pending repo PAT + first-run verify)
 
@@ -79,21 +79,34 @@ Replaced the rebase stopgap (debug-signed release via the `// RK` island) with A
 
 **Verify (first run):** a push to `design/mihon-rebase` publishes a preview to `Reikai-preview`; a tag/`workflow_dispatch` release draft-publishes to `Reikai`; on-device, About → Check for updates finds the published release and prompts, on both a release and a preview install.
 
-## Parity backlog (later)
+## Active sequence — round 2 (do roughly in this order)
 
-Lower-priority manga↔novel parity gaps, recorded so they aren't lost. Pull into the active sequence as momentum allows; none block the items above.
+Round 1 (#1-#9 above) is done. This is the manga↔novel parity backlog promoted to active, plus the revived adult-source subsystem (last). Found by a parity sweep + an lnreader (`refs/lnreader-*`) gap scout (2026-06-21), verified inline; the parity items are all app-side feasible (no missing plugin capability). Suggested order, quick-wins first: the two privacy/library modes (incognito, downloaded-only), then the `[S]` items (notes, keep-screen-on, stats, download retry, Wi-Fi-only), then the `[M]` items (source filtering, batch migration, small-polish, restore onboarding), then the lower-value reader/queue/widget items, and finally the `[L]` adult-source subsystem.
 
 - **Novels in the Stats screen  `[S]`:** `StatsScreenModel` injects only `GetLibraryManga`, so the novel library is invisible in every stat. Add novel counts (titles, chapters read, completed) via a `// RK` graft.
 - **Per-entry Notes for novels  `[S]`:** novel details passes `notes = ""` / `onEditNotes = {}` to `ExpandableMangaDescription`; wire a real notes field (manga has per-title notes).
 - **Reader keep-screen-on  `[S]`:** the novel reader's `keepScreenOn` is only a JS var in the HTML builder; add the Android `FLAG_KEEP_SCREEN_ON` window flag driven by the existing reader pref (manga does this in `ReaderActivity`).
 - **Small polish batch  `[S]`:** give the novel update result notification per-title entries + deep-links (currently one "N novels" line); add the missing novel settings twins (delete-after-N-slots, don't-delete-bookmarked, download-exclude-categories, download-ahead, auto-refresh-metadata). (Done: novel global-search source headers are now tappable to open that source's full browse, shipped with novel source pinning + the Pinned / All / Has-results global-search chips.)
 - **Restore-path onboarding  `[S]`/`[M]`:** when a restore finishes with sources it could not auto-bring-back (a manga extension whose repo/APK is missing, or a novel plugin that failed to re-download), today they only land in the restore log. Turn that into a guided post-restore step: surface the unmatched extensions/plugins as an actionable list (grouped by repo) that walks the user through reinstalling them, instead of a passive log line. Builds on the installed-sources backup shipped with #9.
-- **Novel reader engine extras  `[M]`/`[L]`:** LNReader's bundled `core.js` supports TTS, page-mode (vs scroll), auto-scroll, bionic reading, tap-to-scroll, volume-button paging, custom CSS/JS/themes, an in-reader chapter drawer, and a progress seekbar, all hard-wired off in `NovelReaderHtmlBuilder`. **TTS** is the only high-interest one (and is gated by the headless-host polyfill concern, see the `ln-host-polyfill-parity` memory); the rest are low value. This matches the old Yōkai reader (also limited), so it is unported-LNReader-parity, not a regression.
+- **Novel reader engine extras  `[M]`/`[L]`:** LNReader's bundled `core.js` supports TTS, page-mode (vs scroll), auto-scroll, bionic reading, tap-to-scroll, volume-button paging, swipe-to-change-chapter, remove-extra-paragraph-spacing, custom CSS/JS/themes, an in-reader chapter drawer, and a progress seekbar, all hard-wired off in `NovelReaderHtmlBuilder`. **TTS** is the only high-interest one (and is gated by the headless-host polyfill concern, see the `ln-host-polyfill-parity` memory); the rest are low value. This matches the old Yōkai reader (also limited), so it is unported-LNReader-parity, not a regression.
+
+The items below were found by a manga↔novel parity sweep + an lnreader (`refs/lnreader-*`) gap scout (2026-06-21) and verified inline; all are app-side feasible (no missing plugin capability). **Dropped after research:** open-random (already covered by the novel Random sort + hopper `randomRoute` actions); "supports latest" gating (lnreader's plugin contract has no `supportsLatest` flag, only an optional `showLatestNovels` arg, and lnreader shows Latest unconditionally too); download pause/resume (already done via WorkManager start/stop). **False positives ruled out:** custom covers (novels have `NovelCoverScreenModel`), secure-screen (`MainActivity.registerSecureActivity` covers the in-MainActivity novel reader), NSFW source toggle + local badge (no `isNsfw`/local novel source), repo-management UI (exists in the extended `ExtensionStoresScreen`).
+
+- **Incognito mode for novels  `[S]`/`[M]`:** the global Incognito toggle (More menu; `basePreferences.incognitoMode` via `GetIncognitoState`) gates manga history / mark-read / tracker-sync, but nothing under `reikai.*` checks it, so novels still record history + last-read and auto-sync trackers while incognito. Gate the novel reader's `updateHistory`/`saveProgress`, the browse last-used write, and novel auto-track. lnreader implements this as a reference.
+- **"Downloaded only" mode for the novel library  `[S]`/`[M]`:** the global Downloaded-only toggle (More menu) filters the manga library, but the novel library has no `downloadedOnly` reference, so it ignores the mode. Honor it in `NovelLibraryScreenModel` (the per-session "downloaded" filter chip already exists; this is the separate app-wide mode).
+- **Source filtering for novels  `[M]`:** the novel sources list (`NovelSourcesScreenModel`) only groups by language read-only. Add a per-language enable/disable filter (lnreader persists one) and per-source enable/disable (manga's `SourcesFilterScreen`).
+- **Batch / library migration for novels  `[M]`:** novels migrate one at a time from details; add library multi-select + batch migration (manga's migration list). Pure orchestration over the already-wrapped `searchNovels` + `parseNovel`; lnreader is single-only too, so this is a Reikai extra.
+- **Download retry on failure  `[S]`:** `NovelDownloadManager` marks a chapter `ERROR` and drops it on the first failure; add bounded retry with backoff (manga's `Downloader` retries 3x). lnreader doesn't retry either.
+- **Download only over Wi-Fi  `[S]`:** on-demand novel downloads aren't gated on a Wi-Fi-only pref (manga's `downloadOnlyOverWifi` in `DownloadJob`); add a network check to `NovelDownloadJob`. (The auto-update job already has device restrictions.)
+- **Full download-queue reorder  `[S]`/`[M]`:** the novel queue supports bump-to-top + pause/resume; add arbitrary reorder (manga's `reorderQueue`; lnreader omits it).
+- **Reader orientation lock  `[S]`/`[M]`:** the novel reader has no orientation control; add a portrait/landscape/auto lock via `requestedOrientation` (manga's `ReaderOrientation`; lnreader has none, so this is an enhancement, not strict parity).
+- **Reader mark-read-on-skip  `[S]`:** auto-mark chapters you jump past in the reader (manga's `markReadOnSkip`); the manual "mark previous as read" already exists on novel details. Low value.
+- **Novel Updates home-screen widget  `[L]`:** the glance Updates widget is manga-only; a novel/unified widget needs net-new Android App Widget scaffolding. Low priority (the in-app unified Updates feed already covers novels).
+- **Adult-source / EXH subsystem  `[L]`  — revived from parked:** the full adult-source subsystem (E-Hentai / nHentai inverted branches, `exh.source` delegated sources), deferred at P2 Stage 4. The basic lewd filter (Komikku's `Manga.isLewd()` genre-tag + source-name heuristic) already shipped; this is the rest: delegated sources, gallery metadata, and search. Largest item here and multi-stage; `/scout` before starting.
 
 ## Parked / not building
 
 - **Dedicated LN trackers** (NovelUpdates / MiraiList / Novel Trackr / RanobeDB / Hardcover): not viable as of June 2026 (no sanctioned read+write API for on-device use). Re-check Hardcover only if it leaves beta and ships OAuth + allowlisting. Detail in the `novel-tracking` memory.
-- **Adult-source / EXH subsystem** (E-Hentai/nHentai inverted branches, `exh.source` delegated sources): deferred at P2 Stage 4. The basic lewd filter (Komikku's `Manga.isLewd()` genre-tag + source-name heuristic) shipped; the full adult-source subsystem was punted to a later sprint and is not built.
 - **Y13** force side-nav rail, **Y17** DOKI theme, **Y18** in-app app-icon changer (P8, dropped; revivable — Y18 is blocked on Reikai-branded icon assets).
 - **Y4** drag-sort, **Y5** staggered grid, **Y8** (= R16, duplicate), **Y19** stats drill-down (out of scope).
 - **EPUB export** (LNReader has it; out of plan).
