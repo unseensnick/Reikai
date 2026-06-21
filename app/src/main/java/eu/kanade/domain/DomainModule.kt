@@ -90,6 +90,8 @@ import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.ShikimoriLibraryFetcher
 import reikai.domain.recommendation.taste.TasteCandidateFetcher
 import reikai.domain.recommendation.taste.TasteLibraryRepository
+import reikai.presentation.browse.MangaLibraryAdder
+import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.data.category.CategoryRepositoryImpl
 import tachiyomi.data.chapter.ChapterRepositoryImpl
 import tachiyomi.data.history.HistoryRepositoryImpl
@@ -164,6 +166,9 @@ class DomainModule : InjektModule {
         addFactory { UpsertLibraryUpdateError(get()) }
         addFactory { DeleteLibraryUpdateErrors(get()) }
         // RK <--
+        // RK --> shared long-press add-to-library (Browse + global search)
+        addFactory { MangaLibraryAdder() }
+        // RK <--
         // RK --> light-novel vertical (P5 S1: domain/DB foundation)
         addSingletonFactory<NovelRepository> { NovelRepositoryImpl(get()) }
         addSingletonFactory<NovelChapterRepository> { NovelChapterRepositoryImpl(get()) }
@@ -173,6 +178,7 @@ class DomainModule : InjektModule {
         addFactory { InsertNovelCategories(get()) }
         addFactory { DeleteNovelCategories(get()) }
         addFactory { ReorderNovelCategories(get()) }
+        addFactory { NovelLibraryAdder(get(), get(), get(), get()) }
         // RK <--
         // RK --> novel reading history (P5 / Active #5)
         addSingletonFactory<NovelHistoryRepository> { NovelHistoryRepositoryImpl(get()) }

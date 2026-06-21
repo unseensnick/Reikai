@@ -6,15 +6,24 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.presentation.browse.GlobalSearchScreen
+import eu.kanade.presentation.browse.components.RemoveMangaDialog
+import eu.kanade.presentation.category.components.ChangeCategoryDialog
+import eu.kanade.presentation.manga.DuplicateMangaDialog
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
+import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import mihon.feature.migration.dialog.MigrateMangaDialog
+import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 class GlobalSearchScreen(
@@ -30,6 +39,8 @@ class GlobalSearchScreen(
         }
 
         val navigator = LocalNavigator.currentOrThrow
+        val scope = rememberCoroutineScope()
+        val haptic = LocalHapticFeedback.current
 
         val screenModel = rememberScreenModel {
             GlobalSearchScreenModel(
@@ -73,8 +84,66 @@ class GlobalSearchScreen(
                     navigator.push(BrowseSourceScreen(it.id, state.searchQuery))
                 },
                 onClickItem = { navigator.push(MangaScreen(it.id, true)) },
-                onLongClickItem = { navigator.push(MangaScreen(it.id, true)) },
+                // RK: long-press adds to / removes from the library, matching the Browse screen.
+                onLongClickItem = { manga ->
+                    scope.launchIO {
+                        val duplicates = screenModel.getDuplicateLibraryManga(manga)
+                        when {
+                            manga.favorite ->
+                                screenModel.setDialog(SearchScreenModel.Dialog.RemoveManga(manga))
+                            duplicates.isNotEmpty() ->
+                                screenModel.setDialog(
+                                    SearchScreenModel.Dialog.AddDuplicateManga(manga, duplicates),
+                                )
+                            else -> screenModel.addFavorite(manga)
+                        }
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    }
+                },
             )
         }
+
+        // RK --> long-press add-to-library dialogs, mirroring BrowseSourceScreen
+        val onDismissRequest = screenModel::clearDialog
+        when (val dialog = state.dialog) {
+            is SearchScreenModel.Dialog.AddDuplicateManga -> {
+                DuplicateMangaDialog(
+                    duplicates = dialog.duplicates,
+                    onDismissRequest = onDismissRequest,
+                    onConfirm = { screenModel.addFavorite(dialog.manga) },
+                    onOpenManga = { navigator.push(MangaScreen(it.id)) },
+                    onMigrate = { screenModel.setMigrateDialog(it.id, dialog.manga) },
+                )
+            }
+            is SearchScreenModel.Dialog.Migrate -> {
+                MigrateMangaDialog(
+                    current = dialog.current,
+                    target = dialog.target,
+                    // Initiated from [dialog.target], so the title opens [dialog.current].
+                    onClickTitle = { navigator.push(MangaScreen(dialog.current.id)) },
+                    onDismissRequest = onDismissRequest,
+                )
+            }
+            is SearchScreenModel.Dialog.RemoveManga -> {
+                RemoveMangaDialog(
+                    onDismissRequest = onDismissRequest,
+                    onConfirm = { screenModel.changeMangaFavorite(dialog.manga) },
+                    mangaToRemove = dialog.manga,
+                )
+            }
+            is SearchScreenModel.Dialog.ChangeMangaCategory -> {
+                ChangeCategoryDialog(
+                    initialSelection = dialog.initialSelection,
+                    onDismissRequest = onDismissRequest,
+                    onEditCategories = { navigator.push(CategoryScreen()) },
+                    onConfirm = { include, _ ->
+                        screenModel.changeMangaFavorite(dialog.manga)
+                        screenModel.moveMangaToCategories(dialog.manga, include)
+                    },
+                )
+            }
+            else -> {}
+        }
+        // RK <--
     }
 }

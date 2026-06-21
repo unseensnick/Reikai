@@ -49,8 +49,13 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSource
+import reikai.presentation.novel.browse.DuplicateNovelDialog
+import reikai.presentation.novel.browse.NovelBrowseDialog
 import reikai.presentation.novel.browse.NovelBrowseGridCell
 import reikai.presentation.novel.browse.NovelBrowseScreen
+import reikai.presentation.novel.browse.RemoveNovelDialog
+import reikai.presentation.novel.details.NovelCategoryDialog
+import reikai.presentation.novel.details.NovelDetailsDialog
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreenModel.SourceFilter
 import tachiyomi.i18n.MR
@@ -98,7 +103,30 @@ class NovelGlobalSearchScreen(
                 onToggleHasResults = screenModel::toggleHasResults,
                 onResultClick = { source, item -> navigator.push(NovelScreen(source.id, item.path)) },
                 onClickSource = { source -> navigator.push(NovelBrowseScreen(source.id, state.query)) },
+                onResultLongClick = { source, item -> screenModel.onLongClickItem(item, source.id) },
             )
+        }
+
+        when (val dialog = state.dialog) {
+            is NovelBrowseDialog.AddDuplicate -> DuplicateNovelDialog(
+                duplicates = dialog.duplicates,
+                sourceNames = dialog.sourceNames,
+                sourceSites = dialog.sourceSites,
+                onDismissRequest = screenModel::dismissDialog,
+                onConfirm = { screenModel.addFromDuplicate(dialog.item, dialog.sourceId) },
+                onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
+            )
+            is NovelBrowseDialog.ChangeCategory -> NovelCategoryDialog(
+                dialog = NovelDetailsDialog.ChangeCategory(dialog.allCategories, dialog.currentCategoryIds),
+                onDismiss = screenModel::dismissDialog,
+                onConfirm = { screenModel.applyCategories(dialog.novelId, it) },
+            )
+            is NovelBrowseDialog.RemoveNovel -> RemoveNovelDialog(
+                title = dialog.item.name,
+                onDismiss = screenModel::dismissDialog,
+                onConfirm = { screenModel.confirmRemove(dialog.item, dialog.sourceId) },
+            )
+            null -> {}
         }
     }
 }
@@ -118,6 +146,8 @@ internal fun NovelGlobalSearchResults(
     onResultClick: (NovelSource, NovelItem) -> Unit,
     onClickSource: ((NovelSource) -> Unit)?,
     sourceFilter: (SourceSearchResult) -> Boolean = { true },
+    // Long-press handler; null falls back to [onResultClick] (migrate mode, where long-press = tap).
+    onResultLongClick: ((NovelSource, NovelItem) -> Unit)? = null,
 ) {
     val layoutDirection = LocalLayoutDirection.current
     Column(modifier = Modifier.padding(top = contentPadding.calculateTopPadding())) {
@@ -142,6 +172,7 @@ internal fun NovelGlobalSearchResults(
                     result = result,
                     favoritedKeys = state.favoritedKeys,
                     onResultClick = { onResultClick(result.source, it) },
+                    onResultLongClick = { (onResultLongClick ?: onResultClick)(result.source, it) },
                     onClickSource = onClickSource?.let { handler -> { handler(result.source) } },
                 )
             }
@@ -196,6 +227,7 @@ internal fun SourceSection(
     result: SourceSearchResult,
     favoritedKeys: Set<Pair<String, String>>,
     onResultClick: (NovelItem) -> Unit,
+    onResultLongClick: (NovelItem) -> Unit,
     // RK: null in migrate mode, where opening the source's browse would be a dead-end.
     onClickSource: (() -> Unit)?,
 ) {
@@ -251,7 +283,7 @@ internal fun SourceSection(
                                 inLibrary = (result.source.id to item.path) in favoritedKeys,
                                 site = result.source.site,
                                 onClick = { onResultClick(item) },
-                                onLongClick = { onResultClick(item) },
+                                onLongClick = { onResultLongClick(item) },
                             )
                         }
                     }
