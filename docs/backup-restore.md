@@ -12,6 +12,8 @@ Pick what to include, tap **Create**, and save the resulting `.tachibk` file som
 
 Backups don't include downloaded chapter files. To preserve downloads, copy the app's downloads folder separately.
 
+One option, **Include sensitive settings (e.g. tracker login tokens)**, is off by default. Turn it on to carry your tracker sign-ins and source logins into the backup, so you don't have to log in again after restoring. Leave it off if you might share the file, since it then contains credentials.
+
 ## Restoring a backup
 
 *Settings → Data and storage → Restore backup → pick the .tachibk file.*
@@ -51,7 +53,7 @@ A backup covers both your manga library and your light-novel library.
 |---|---|
 | Downloaded chapter files | Copy the downloads folder separately |
 | Cover image cache | Re-downloaded on demand |
-| Tracker sign-in / authentication | Sign in again under Settings → Tracking for security |
+| Tracker & source sign-ins | Excluded by default; opt in with **Include sensitive settings** when creating the backup. Otherwise sign in again under Settings → Tracking. |
 | App-level Android permissions | Re-grant on the new install |
 
 ## Merge / unmerge groups on restore
@@ -60,18 +62,3 @@ Multi-source grouping behaves differently for novels and manga:
 
 - **Novel merge / unmerge groups** are saved as stable source-and-address references and are rebuilt correctly when you restore, including onto a fresh install.
 - **Manga merge / unmerge groups** are stored using internal ids that aren't re-mapped on restore. After restoring to a fresh install, manga grouping may not come back correctly. If your manga grouping matters, expect to redo some of it after a restore.
-
-## Migrating from an old `.yokai` build (1.9.7.5.x)
-
-This is past history for users coming from a much older release. Reikai once changed its release package suffix from `.yokai` to `.y2k`. Android treats apps with different package ids as separate installs, so a `.y2k` build did not auto-update an existing `.yokai` build.
-
-If you're still on a very old `.yokai` install:
-
-1. Open the old install → Settings → Data and storage → **Create backup**. Save the file off-device.
-2. Install the current build. Both apps appear in your launcher as separate installs.
-3. Open the current build → Settings → Data and storage → **Restore backup** → pick the backup from step 1.
-4. Verify the restore looks correct, then uninstall the old build.
-
-Back up before uninstalling: Android wipes per-app data on uninstall, and there's no in-place transfer between two separate installs.
-
-Note: very old `.yokai` builds predate the move to Mihon, so their backups may not restore into the current build at all. Treat that migration as best-effort and keep the old backup file.

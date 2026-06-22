@@ -57,13 +57,17 @@ Both the toggle and a non-blank URL are required for FlareSolverr to run; turnin
 
 ### Reaching FlareSolverr from outside your home network
 
-The simplest way to keep your FlareSolverr endpoint reachable when the device leaves your LAN, without exposing it to the public internet, is a mesh VPN like [Tailscale](https://tailscale.com/) (or alternatives such as [Headscale](https://github.com/juanfont/headscale), [ZeroTier](https://www.zerotier.com/), [NetBird](https://netbird.io/)).
+Two common ways to reach FlareSolverr when your device leaves the LAN:
+
+**Mesh VPN (keeps it private).** A mesh VPN like [Tailscale](https://tailscale.com/) (or alternatives such as [Headscale](https://github.com/juanfont/headscale), [ZeroTier](https://www.zerotier.com/), [NetBird](https://netbird.io/)) keeps the endpoint reachable only from your own devices.
 
 1. Install the mesh VPN client on both the FlareSolverr host and your Android device, signed in to the same network.
 2. Note the FlareSolverr host's VPN address: for Tailscale this is either a `100.x.y.z` address or a tailnet hostname like `unraid.tail-scale.ts.net`.
 3. In *Settings → Advanced → Network → FlareSolverr URL,* enter `http://<vpn-address>:8191` instead of the LAN IP.
 
-This avoids opening port `8191` on your router and avoids the complexity of running a public reverse proxy with TLS and auth in front of FlareSolverr. Connections only succeed when the device is signed in to the same mesh, so the endpoint isn't reachable from the open internet.
+This avoids opening port `8191` on your router; connections only succeed when the device is signed in to the same mesh, so the endpoint isn't reachable from the open internet.
+
+**Public domain via a reverse proxy.** If you already own a domain and run a reverse proxy (Caddy, nginx, Traefik), point a subdomain at the FlareSolverr host's `8191` port and put TLS plus authentication in front of it, then set the app's FlareSolverr URL to `https://flaresolverr.example.com`. This does expose an endpoint on the public internet, so the auth layer matters: lock it down with basic auth, an IP allowlist, or mTLS. An unprotected FlareSolverr is effectively an open proxy.
 
 ## Performance expectations
 
