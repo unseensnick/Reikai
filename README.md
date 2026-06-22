@@ -10,13 +10,13 @@
 
 A free and open source reader for Android, built on Mihon.
 
-[![Reikai Stable](https://img.shields.io/github/v/release/unseensnick/Reikai?maxAge=3600&label=Stable&labelColor=06599d&color=043b69)](https://github.com/unseensnick/Reikai/releases) [![CI](https://github.com/unseensnick/Reikai/actions/workflows/build_check.yml/badge.svg?labelColor=27303D)](https://github.com/unseensnick/Reikai/actions/workflows/build_check.yml) [![License: Apache-2.0](https://img.shields.io/github/license/unseensnick/Reikai?labelColor=27303D&color=0877d2)](/LICENSE)
+[![Reikai Stable](https://img.shields.io/github/v/release/unseensnick/Reikai?maxAge=3600&label=Stable&labelColor=06599d&color=043b69)](https://github.com/unseensnick/Reikai/releases) [![Reikai Preview](https://img.shields.io/github/v/release/unseensnick/Reikai-preview?maxAge=3600&label=Preview&labelColor=2c2c47&color=1c1c39)](https://github.com/unseensnick/Reikai-preview/releases) [![CI](https://github.com/unseensnick/Reikai/actions/workflows/build_check.yml/badge.svg?labelColor=27303D)](https://github.com/unseensnick/Reikai/actions/workflows/build_check.yml) [![License: Apache-2.0](https://img.shields.io/github/license/unseensnick/Reikai?labelColor=27303D&color=0877d2)](/LICENSE)
 
 *Requires Android 8.0 or higher.*
 
-<img src="./.github/readme-images/screens.webp" alt="screenshots" />
+Stable builds are on the [Releases](https://github.com/unseensnick/Reikai/releases) page; rolling nightly builds are published to [Reikai-preview](https://github.com/unseensnick/Reikai-preview/releases).
 
-</div>
+<img src="./.github/readme-images/screens.webp" alt="screenshots" />
 
 ## About
 
@@ -27,6 +27,8 @@ Two things set it apart from the lineage: **manga and light novels share one lib
 It is built first for my own daily use, so development is sporadic and the feature set follows my taste rather than a broad roadmap. It rides Mihon's actively maintained base for the core reader and layers these features on top.
 
 ## Features
+
+<div align="left">
 
 Grouped by where each one comes from: what's original to Reikai, the light-novel layer, what's adapted from other forks, and what's inherited from the Mihon base.
 
@@ -77,6 +79,8 @@ The core manga experience is Mihon's (Tachiyomi lineage):
 
 </details>
 
+</div>
+
 ## Contributing
 
 [Code of conduct](./CODE_OF_CONDUCT.md) · [Contributing guide](./CONTRIBUTING.md)
@@ -89,12 +93,16 @@ Reikai does not maintain or fix extensions/sources. Problems with a specific sou
 
 Reikai is a personal fork and stands on the work of the projects it builds on and borrows from:
 
+<div align="left">
+
 - [Mihon](https://github.com/mihonapp/mihon): the base it is built on.
 - [Yōkai](https://github.com/null2264/yokai): the previous base, where several of the features were first built.
 - [TachiyomiJ2K](https://github.com/Jays2Kings/tachiyomiJ2K): the single-list library and dynamic-grouping experience.
 - [Komikku](https://github.com/komikku-app/komikku): the related-mangas carousel.
 - [LNReader](https://github.com/LNReader/lnreader): the light-novel source format and reader.
 - [Tachiyomi](https://github.com/tachiyomiorg) and its wider community, where the lineage began.
+
+</div>
 
 Thanks to everyone who contributed to those projects.
 
@@ -121,3 +129,5 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 </pre>
+
+</div>
