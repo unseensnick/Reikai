@@ -62,7 +62,7 @@ object SettingsReaderScreen : SearchableSettings {
                 preference = readerPref.pageTransitions,
                 title = stringResource(MR.strings.pref_page_transitions),
             ),
-            getDisplayGroup(readerPreferences = readerPref),
+            getDisplayGroup(readerPreferences = readerPref, novelPreferences = novelPref),
             getEInkGroup(readerPreferences = readerPref),
             getReadingGroup(readerPreferences = readerPref, novelPreferences = novelPref),
             getPagedGroup(readerPreferences = readerPref),
@@ -73,7 +73,10 @@ object SettingsReaderScreen : SearchableSettings {
     }
 
     @Composable
-    private fun getDisplayGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
+    private fun getDisplayGroup(
+        readerPreferences: ReaderPreferences,
+        novelPreferences: NovelPreferences,
+    ): Preference.PreferenceGroup {
         val fullscreen by readerPreferences.fullscreen.collectAsState()
         val verticalNavigatorForLongStrip by readerPreferences.verticalNavigatorForLongStrip.collectAsState()
         return Preference.PreferenceGroup(
@@ -84,7 +87,21 @@ object SettingsReaderScreen : SearchableSettings {
                     entries = ReaderOrientation.entries.drop(1)
                         .associate { it.flagValue to stringResource(it.stringRes) },
                     title = stringResource(MR.strings.pref_rotation_type),
+                    // RK: prefix the content type so the manga row reads distinctly from the novel twin
+                    // below, while %s still shows the chosen orientation.
+                    subtitle = "${stringResource(MR.strings.content_type_manga)} · %s",
                 ),
+                // RK --> light-novel twin: default reader orientation for novels (Default is dropped,
+                // since a global "follow default" is meaningless; Reverse portrait is dropped too).
+                Preference.PreferenceItem.ListPreference(
+                    preference = novelPreferences.readerDefaultOrientation(),
+                    entries = ReaderOrientation.entries
+                        .filter { it != ReaderOrientation.DEFAULT && it != ReaderOrientation.REVERSE_PORTRAIT }
+                        .associate { it.flagValue to stringResource(it.stringRes) },
+                    title = stringResource(MR.strings.pref_rotation_type),
+                    subtitle = "${stringResource(MR.strings.content_type_novels)} · %s",
+                ),
+                // RK <--
                 Preference.PreferenceItem.ListPreference(
                     preference = readerPreferences.readerTheme,
                     entries = mapOf(

@@ -34,7 +34,8 @@ CREATE TABLE novels(
     total_pages INTEGER NOT NULL DEFAULT 1,
     last_read_at INTEGER,
     edited_flags INTEGER NOT NULL DEFAULT 0,
-    notes TEXT NOT NULL DEFAULT ''
+    notes TEXT NOT NULL DEFAULT '',
+    viewer_flags INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX novels_url_index ON novels(url);
@@ -89,8 +90,8 @@ LEFT JOIN chapter_counts CC
 ON N._id = CC.novel_id;
 
 insert:
-INSERT INTO novels (source, url, title, author, artist, description, genre, status, thumbnail_url, favorite, last_update, initialized, chapter_flags, date_added, update_strategy, cover_last_modified, total_pages, last_read_at, edited_flags, notes)
-VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :favorite, :lastUpdate, :initialized, :chapterFlags, :dateAdded, :updateStrategy, :coverLastModified, :totalPages, :lastReadAt, :editedFlags, :notes);
+INSERT INTO novels (source, url, title, author, artist, description, genre, status, thumbnail_url, favorite, last_update, initialized, chapter_flags, date_added, update_strategy, cover_last_modified, total_pages, last_read_at, edited_flags, notes, viewer_flags)
+VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :favorite, :lastUpdate, :initialized, :chapterFlags, :dateAdded, :updateStrategy, :coverLastModified, :totalPages, :lastReadAt, :editedFlags, :notes, :viewerFlags);
 
 -- Full-row update: every caller writes a complete Novel (read-modify-write via `copy`), so no
 -- `coalesce` partial path is needed. Keeping the columns adapter-typed (no coalesce) means the
@@ -116,7 +117,8 @@ UPDATE novels SET
     total_pages = :totalPages,
     last_read_at = :lastReadAt,
     edited_flags = :editedFlags,
-    notes = :notes
+    notes = :notes,
+    viewer_flags = :viewerFlags
 WHERE _id = :novelId;
 
 -- Partial update (the novel twin of mangas.sq's coalesce update): each column `coalesce(:x, x)`s, so a
@@ -144,7 +146,8 @@ UPDATE novels SET
     total_pages = coalesce(:totalPages, total_pages),
     last_read_at = coalesce(:lastReadAt, last_read_at),
     edited_flags = coalesce(:editedFlags, edited_flags),
-    notes = coalesce(:notes, notes)
+    notes = coalesce(:notes, notes),
+    viewer_flags = coalesce(:viewerFlags, viewer_flags)
 WHERE _id = :id;
 
 -- Focused single-column stamp written from the reader on every progress save, so it avoids the

@@ -1,5 +1,6 @@
 package reikai.domain.novel
 
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -89,6 +90,11 @@ class NovelPreferences(
 
     /** Hold the screen awake while reading (Android FLAG_KEEP_SCREEN_ON). Mirrors the manga reader. */
     fun readerKeepScreenOn() = preferenceStore.getBoolean("ln_reader_keep_screen_on", false)
+
+    /** Default reader orientation for novels with no per-novel override, the novel twin of the manga
+     *  reader's `defaultOrientationType`. Stores a [ReaderOrientation] `flagValue`. */
+    fun readerDefaultOrientation() =
+        preferenceStore.getInt("ln_reader_default_orientation", ReaderOrientation.FREE.flagValue)
 
     /** When true the reader follows the system light/dark mode; otherwise the chosen preset wins. */
     fun readerFollowSystemTheme() = preferenceStore.getBoolean("ln_reader_follow_system_theme", true)

@@ -79,6 +79,7 @@ fun SourceNovel.toNovel(
     lastReadAt = null,
     editedFlags = 0L,
     notes = "",
+    viewerFlags = 0L,
 )
 
 /**

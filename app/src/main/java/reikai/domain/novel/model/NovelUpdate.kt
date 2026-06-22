@@ -32,4 +32,5 @@ data class NovelUpdate(
     val lastReadAt: Long? = null,
     val editedFlags: Long? = null,
     val notes: String? = null,
+    val viewerFlags: Long? = null,
 )

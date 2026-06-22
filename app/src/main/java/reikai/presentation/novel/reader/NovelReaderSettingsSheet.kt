@@ -41,6 +41,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * Reader display + theme settings, hosted in the same [TabbedDialog] as the S3c chapter-settings
@@ -60,6 +62,7 @@ fun NovelReaderSettingsSheet(
     onFollowSystem: () -> Unit,
     onPreset: (ReaderThemePreset) -> Unit,
     onKeepScreenOn: (Boolean) -> Unit,
+    onOrientation: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -119,6 +122,21 @@ fun NovelReaderSettingsSheet(
                     ) {
                         Text("Keep screen on", style = MaterialTheme.typography.bodyLarge)
                         Switch(checked = settings.keepScreenOn, onCheckedChange = onKeepScreenOn)
+                    }
+                    // Per-novel orientation: Default (follow the global default) + the concrete locks.
+                    Text("Orientation", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        readerOrientations.forEach { orientation ->
+                            FilterChip(
+                                selected = settings.orientation == orientation.flagValue,
+                                onClick = { onOrientation(orientation.flagValue) },
+                                leadingIcon = { Icon(orientation.icon, contentDescription = null) },
+                                label = { Text(stringResource(orientation.stringRes)) },
+                            )
+                        }
                     }
                 }
                 1 -> {

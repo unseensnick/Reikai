@@ -76,6 +76,7 @@ class NovelRepositoryImpl(
                 lastReadAt = novel.lastReadAt,
                 editedFlags = novel.editedFlags,
                 notes = novel.notes,
+                viewerFlags = novel.viewerFlags,
             )
             database.novelsQueries.selectLastInsertedRowId().awaitAsOne()
         }
@@ -106,6 +107,7 @@ class NovelRepositoryImpl(
             lastReadAt = novel.lastReadAt,
             editedFlags = novel.editedFlags,
             notes = novel.notes,
+            viewerFlags = novel.viewerFlags,
             novelId = novel.id,
         )
         true
@@ -134,6 +136,7 @@ class NovelRepositoryImpl(
             lastReadAt = update.lastReadAt,
             editedFlags = update.editedFlags,
             notes = update.notes,
+            viewerFlags = update.viewerFlags,
             id = update.id,
         )
         true

@@ -40,6 +40,7 @@ fun mapNovel(
     lastReadAt: Long?,
     editedFlags: Long,
     notes: String,
+    viewerFlags: Long,
 ): Novel = Novel(
     id = id,
     source = source,
@@ -62,10 +63,11 @@ fun mapNovel(
     lastReadAt = lastReadAt,
     editedFlags = editedFlags,
     notes = notes,
+    viewerFlags = viewerFlags,
 )
 
 /**
- * Maps a `novelLibraryView` row to [LibraryNovel]. The first 20 args are the `novels` columns (same
+ * Maps a `novelLibraryView` row to [LibraryNovel]. The first 21 args are the `novels` columns (same
  * order as [mapNovel]); the trailing 7 are the view's aggregates. `sum(...)` columns arrive as
  * `Double` (SQLDelight bypasses the Boolean adapter for aggregates), so they are narrowed to `Long`.
  */
@@ -91,6 +93,7 @@ fun mapLibraryNovel(
     lastReadAt: Long?,
     editedFlags: Long,
     notes: String,
+    viewerFlags: Long,
     totalCount: Long,
     readCount: Double,
     latestUpload: Long,
@@ -121,6 +124,7 @@ fun mapLibraryNovel(
         lastReadAt,
         editedFlags,
         notes,
+        viewerFlags,
     ),
     categories = categories.split(",").map { it.toLong() },
     totalChapters = totalCount,
@@ -132,7 +136,7 @@ fun mapLibraryNovel(
 )
 
 /**
- * Maps a `getDuplicateLibraryNovel` row to [NovelWithChapterCount]. The first 20 args are the
+ * Maps a `getDuplicateLibraryNovel` row to [NovelWithChapterCount]. The first 21 args are the
  * `novels` columns (same order as [mapNovel]); the trailing arg is the joined chapter count.
  */
 fun mapNovelWithChapterCount(
@@ -157,6 +161,7 @@ fun mapNovelWithChapterCount(
     lastReadAt: Long?,
     editedFlags: Long,
     notes: String,
+    viewerFlags: Long,
     chapterCount: Long,
 ): NovelWithChapterCount = NovelWithChapterCount(
     novel = mapNovel(
@@ -181,6 +186,7 @@ fun mapNovelWithChapterCount(
         lastReadAt,
         editedFlags,
         notes,
+        viewerFlags,
     ),
     chapterCount = chapterCount,
 )

@@ -33,6 +33,7 @@ class BackupNovel(
     @ProtoNumber(22) var tracking: List<BackupNovelTracking> = emptyList(),
     @ProtoNumber(23) var history: List<BackupNovelHistory> = emptyList(),
     @ProtoNumber(24) var notes: String = "",
+    @ProtoNumber(25) var viewerFlags: Long = 0,
 ) {
     fun toNovelImpl(): Novel {
         return Novel.create().copy(
@@ -56,6 +57,7 @@ class BackupNovel(
             lastReadAt = this@BackupNovel.lastReadAt,
             editedFlags = this@BackupNovel.editedFlags,
             notes = this@BackupNovel.notes,
+            viewerFlags = this@BackupNovel.viewerFlags,
         )
     }
 }
