@@ -293,6 +293,11 @@ class ExtensionManager(
      * @param extension The extension to be registered.
      */
     private fun registerNewExtension(extension: Extension.Installed) {
+        // RK: a now-trusted/installed extension supersedes any stale untrusted entry for the same
+        // package, mirroring onExtensionUntrusted's removal from the installed map. Without this, a
+        // package evaluated as untrusted then trusted (as Reikai's restore reinstall can do) lingers in
+        // both maps and shows twice until the next app restart re-scans.
+        untrustedExtensionMapFlow.value -= extension.pkgName
         installedExtensionMapFlow.value += extension
     }
 

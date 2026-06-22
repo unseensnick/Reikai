@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.model.InstallStep
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.takeWhile
@@ -22,8 +23,8 @@ class ExtensionRestorer(
 ) {
 
     /** Reinstall the backed-up extensions; returns the names of those that couldn't be matched. */
-    suspend fun restore(backupExtensions: List<BackupExtension>): List<String> {
-        if (backupExtensions.isEmpty()) return emptyList()
+    suspend fun restore(backupExtensions: List<BackupExtension>): List<String> = coroutineScope {
+        if (backupExtensions.isEmpty()) return@coroutineScope emptyList()
 
         extensionManager.findAvailableExtensions()
         // availableExtensionsFlow is a stateIn(Lazily) flow, so its .value lags behind the fetch we just
@@ -39,23 +40,32 @@ class ExtensionRestorer(
         val unmatched = mutableListOf<String>()
         backupExtensions.forEach { backupExtension ->
             if (backupExtension.pkgName in installedPkgs) return@forEach
-            val available = availableByPkg[backupExtension.pkgName]
-            if (available == null) {
+            val match = availableByPkg[backupExtension.pkgName]
+            if (match == null) {
                 unmatched += backupExtension.name
                 return@forEach
             }
-            extensionManager.scope.launch {
-                runCatching {
-                    extensionManager.installExtension(available)
-                        .takeWhile { it != InstallStep.Installed && it != InstallStep.Error }
-                        .collect()
+            // RK: install on the restore's own scope and let coroutineScope await it, instead of firing
+            // it onto the app-lifetime extensionManager.scope. The fire-and-forget installs kept landing
+            // after the restore "finished", racing the trust evaluation (so a freshly reinstalled
+            // extension could be seen once as untrusted and once as trusted, lingering in both lists) and
+            // colliding with the user's own actions. Each install is bounded so one slow download can't
+            // stall the whole restore.
+            launch {
+                withTimeoutOrNull(INSTALL_TIMEOUT_MS) {
+                    runCatching {
+                        extensionManager.installExtension(match)
+                            .takeWhile { it != InstallStep.Installed && it != InstallStep.Error }
+                            .collect()
+                    }
                 }
             }
         }
-        return unmatched
+        unmatched
     }
 
     companion object {
         private const val AVAILABLE_WAIT_MS = 20_000L
+        private const val INSTALL_TIMEOUT_MS = 90_000L
     }
 }
