@@ -40,6 +40,10 @@ Note: full batch / library migration (pick and order target sources, then a per-
 
 See `novel-reader.md` for the reader architecture these settings hang off.
 
+### Downloads
+
+**Reorder and sort the novel download queue.** The queue surface is now drag-to-reorder and sortable, matching the manga side. It renders as one flat reorderable list (via `sh.calvin.reorderable`); the novel title shows as a caption only at a group boundary (its novel differs from the row above), so it reads grouped while staying a single flat list the reorder library can drive. Dragging commits once on drop through `NovelDownloadManager.reorderQueue`, which sets the live `queueState` and re-persists the order via a new `NovelDownloadStore.replaceAll`, so a reorder survives a cold restart (the old in-memory-only `startDownloadNow` bump did not). The Sort menu (upload date / chapter number, asc/desc) sorts each novel's chapters among themselves and keeps the novels' first-appearance order, mirroring the manga per-series sort. In the unified queue's ALL view the one Sort action applies to whichever queues are shown, so manga and novels sort together by the same key. The active drain re-reads the queue each step, so a reorder takes effect on the next pick and the in-flight chapter is untouched.
+
 ### Stats
 
 **Novels in the Stats screen.** The Stats screen has an All / Manga / Novels chip (the same shared `ContentTypeFilterChips` used elsewhere) that switches which content's stats show; All combines both. `StatsScreenModel` reads the manga and novel libraries once and folds precomputed pieces per type, so switching the chip needs no recompute. Novels show the full card set: read-duration from a `novel_history` total-read-duration query, trackers via `GetNovelTracks`, and a novel global-update count over the novel update prefs. Only the `local` source count is manga-only (zero for novels). Every additive card reads as manga plus novels.
@@ -74,6 +78,11 @@ Reader
 - `app/src/main/java/reikai/presentation/novel/reader/NovelReaderSettingsSheet.kt` (Display settings: orientation, keep-screen-on)
 - `app/src/main/java/reikai/domain/novel/NovelPreferences.kt` (`readerKeepScreenOn`, `readerMarkReadOnSkip`, orientation default)
 
+Downloads
+- `app/src/main/java/reikai/presentation/download/NovelDownloadQueueList.kt` (flat reorderable list with boundary captions) and `NovelDownloadQueueScreenModel.kt` (flat state, `reorder` / `sort`)
+- `app/src/main/java/reikai/novel/download/NovelDownloadManager.kt` (`reorderQueue`) and `NovelDownloadStore.kt` (`replaceAll`)
+- `app/src/main/java/eu/kanade/tachiyomi/ui/download/DownloadQueueScreen.kt` (`// RK` unified Sort across both queues)
+
 Stats
 - `app/src/main/java/eu/kanade/tachiyomi/ui/stats/StatsScreenModel.kt` (`// RK` graft for the content-type fold)
 
@@ -101,6 +110,7 @@ All shipped and on-device verified (Z Fold / Fold6).
 | Mark chapter read when skipping ahead | Reader | `045d60ab5` |
 | Download retry on failure | Reader / downloads | `f4dc3c8cc` |
 | Download only over Wi-Fi | Reader / downloads | `a8a21bdcf` (resume-when-back `05e0b2620`) |
+| Download-queue reorder + sort | Downloads | `_pending_` |
 | Novels in the Stats screen | Stats | `5215e531e` |
 | Per-novel Notes | Cross-cutting | `9147b9f21` |
 | Long-press add-to-library in global search (manga + novel) | Browse | `1d2aa4b8a` |

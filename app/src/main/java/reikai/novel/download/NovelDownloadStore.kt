@@ -32,6 +32,16 @@ class NovelDownloadStore(context: Context) {
         }
     }
 
+    /** Re-persist the whole queue in a new order (drag-to-reorder / sort). Clears then rewrites each
+     *  entry with an ascending [DownloadObject.order] matching the list sequence, so a cold restart
+     *  drains in this order. One edit, so the order numbers stay contiguous. */
+    fun replaceAll(downloads: List<NovelDownload>) {
+        preferences.edit {
+            clear()
+            downloads.forEach { putString(it.chapterId.toString(), serialize(it)) }
+        }
+    }
+
     fun remove(chapterId: Long) {
         preferences.edit { remove(chapterId.toString()) }
     }

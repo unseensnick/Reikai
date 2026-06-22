@@ -82,9 +82,9 @@ object DownloadQueueScreen : Screen() {
 
         // RK --> novel side of the unified queue + the content-type chip (P5 S5)
         val novelModel = rememberScreenModel { NovelDownloadQueueScreenModel() }
-        val novelGroups by novelModel.state.collectAsState()
+        val novelItems by novelModel.state.collectAsState()
         val contentType by novelModel.contentType.collectAsState()
-        val novelCount by remember { derivedStateOf { novelGroups.sumOf { it.items.size } } }
+        val novelCount = novelItems.size
         val showManga = contentType != ContentType.NOVELS
         val showNovels = contentType != ContentType.MANGA
         val shownCount = (if (showManga) downloadCount else 0) + (if (showNovels) novelCount else 0)
@@ -139,8 +139,12 @@ object DownloadQueueScreen : Screen() {
                     },
                     navigateUp = navigator::pop,
                     actions = {
-                        // RK: sort + reorder act on the manga queue; gate to the manga/all view
-                        if (showManga && downloadList.isNotEmpty()) {
+                        // RK: sort acts on whichever queue(s) are visible, so in the ALL view one pick
+                        // sorts manga and novels by the same key. Novel chapters sort per-novel (the
+                        // novel side has no page metadata), mirroring the manga per-series sort.
+                        val mangaSortable = showManga && downloadList.isNotEmpty()
+                        val novelSortable = showNovels && novelItems.isNotEmpty()
+                        if (mangaSortable || novelSortable) {
                             var sortExpanded by remember { mutableStateOf(false) }
                             val onDismissRequest = { sortExpanded = false }
                             DropdownMenu(
@@ -153,20 +157,20 @@ object DownloadQueueScreen : Screen() {
                                         DropdownMenuItem(
                                             text = { Text(text = stringResource(MR.strings.action_newest)) },
                                             onClick = {
-                                                screenModel.reorderQueue(
-                                                    { it.download.chapter.dateUpload },
-                                                    true,
-                                                )
+                                                if (mangaSortable) {
+                                                    screenModel.reorderQueue({ it.download.chapter.dateUpload }, true)
+                                                }
+                                                if (novelSortable) novelModel.sort({ it.dateUpload }, true)
                                                 closeMenu()
                                             },
                                         )
                                         DropdownMenuItem(
                                             text = { Text(text = stringResource(MR.strings.action_oldest)) },
                                             onClick = {
-                                                screenModel.reorderQueue(
-                                                    { it.download.chapter.dateUpload },
-                                                    false,
-                                                )
+                                                if (mangaSortable) {
+                                                    screenModel.reorderQueue({ it.download.chapter.dateUpload }, false)
+                                                }
+                                                if (novelSortable) novelModel.sort({ it.dateUpload }, false)
                                                 closeMenu()
                                             },
                                         )
@@ -178,20 +182,20 @@ object DownloadQueueScreen : Screen() {
                                         DropdownMenuItem(
                                             text = { Text(text = stringResource(MR.strings.action_asc)) },
                                             onClick = {
-                                                screenModel.reorderQueue(
-                                                    { it.download.chapter.chapterNumber },
-                                                    false,
-                                                )
+                                                if (mangaSortable) {
+                                                    screenModel.reorderQueue({ it.download.chapter.chapterNumber }, false)
+                                                }
+                                                if (novelSortable) novelModel.sort({ it.chapterNumber }, false)
                                                 closeMenu()
                                             },
                                         )
                                         DropdownMenuItem(
                                             text = { Text(text = stringResource(MR.strings.action_desc)) },
                                             onClick = {
-                                                screenModel.reorderQueue(
-                                                    { it.download.chapter.chapterNumber },
-                                                    true,
-                                                )
+                                                if (mangaSortable) {
+                                                    screenModel.reorderQueue({ it.download.chapter.chapterNumber }, true)
+                                                }
+                                                if (novelSortable) novelModel.sort({ it.chapterNumber }, true)
                                                 closeMenu()
                                             },
                                         )
@@ -208,21 +212,11 @@ object DownloadQueueScreen : Screen() {
                                     ),
                                     AppBar.OverflowAction(
                                         title = stringResource(MR.strings.action_cancel_all),
-                                        // RK: clear the novel queue too when both are shown
+                                        // RK: clear whichever queues are shown
                                         onClick = {
-                                            screenModel.clearQueue()
-                                            if (showNovels) novelModel.cancelAll()
+                                            if (mangaSortable) screenModel.clearQueue()
+                                            if (novelSortable) novelModel.cancelAll()
                                         },
-                                    ),
-                                ),
-                            )
-                        } else if (showNovels && novelGroups.isNotEmpty()) {
-                            // RK: novels-only view, just a cancel-all (no reorder/sort for text downloads)
-                            AppBarActions(
-                                listOf(
-                                    AppBar.OverflowAction(
-                                        title = stringResource(MR.strings.action_cancel_all),
-                                        onClick = { novelModel.cancelAll() },
                                     ),
                                 ),
                             )
@@ -329,14 +323,15 @@ object DownloadQueueScreen : Screen() {
             }
 
             val novelBody: @Composable (PaddingValues) -> Unit = { pad ->
-                if (novelGroups.isEmpty()) {
+                if (novelItems.isEmpty()) {
                     EmptyScreen(
                         stringRes = MR.strings.information_no_downloads,
                         modifier = Modifier.padding(pad),
                     )
                 } else {
                     NovelDownloadQueueList(
-                        groups = novelGroups,
+                        items = novelItems,
+                        onReorder = novelModel::reorder,
                         onCancel = novelModel::cancel,
                         contentPadding = pad,
                     )
@@ -358,14 +353,14 @@ object DownloadQueueScreen : Screen() {
                     ContentType.MANGA -> Box(modifier = Modifier.weight(1f)) { mangaBody(bodyPadding) }
                     ContentType.NOVELS -> Box(modifier = Modifier.weight(1f)) { novelBody(bodyPadding) }
                     ContentType.ALL -> when {
-                        downloadList.isEmpty() && novelGroups.isEmpty() ->
+                        downloadList.isEmpty() && novelItems.isEmpty() ->
                             Box(modifier = Modifier.weight(1f)) {
                                 EmptyScreen(
                                     stringRes = MR.strings.information_no_downloads,
                                     modifier = Modifier.padding(bodyPadding),
                                 )
                             }
-                        novelGroups.isEmpty() -> Box(modifier = Modifier.weight(1f)) { mangaBody(bodyPadding) }
+                        novelItems.isEmpty() -> Box(modifier = Modifier.weight(1f)) { mangaBody(bodyPadding) }
                         downloadList.isEmpty() -> Box(modifier = Modifier.weight(1f)) { novelBody(bodyPadding) }
                         else -> {
                             Box(modifier = Modifier.weight(1f)) { mangaBody(bodyPadding) }
