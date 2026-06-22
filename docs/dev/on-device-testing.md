@@ -10,7 +10,7 @@ loopback failure for Gradle and mangles `/sdcard`-style paths via MSYS).
 
 - **adb:** `$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe` (there's a `sqlite3.exe` beside it for DB pulls).
 - **Debug package:** `eu.kanade.tachiyomi.debugY2k` (the instrumented test package is `…debugY2k.test`).
-- **Build + install** (JDK not on PATH, set JAVA_HOME inline): `$env:JAVA_HOME="$HOME\scoop\apps\temurin17-jdk\current"; & ".\gradlew.bat" :app:installDebug --offline --console=plain`. Compile-only: `:app:compileDebugKotlin`.
+- **Build + install** (JDK not on PATH, set JAVA_HOME inline): `$env:JAVA_HOME="$HOME\.jdks\temurin-21.0.11"; & ".\gradlew.bat" :app:installDebug --offline --console=plain`. Compile-only: `:app:compileDebugKotlin`.
 - **Confirm the device + that the app is installed:** `& $adb devices` and `& $adb shell pm path eu.kanade.tachiyomi.debugY2k`.
 - **Screen geometry is device-specific.** Get it with `& $adb shell wm size` (the reference Z Fold reports `1856x2160`). You need the real resolution because a screenshot you read back is downscaled, so tap coordinates must be mapped against the REAL resolution (see §2/§3).
 - **Foldables freeze the inner display when folded/asleep.** Always wake first (§1) or `screencap` returns a stale frozen frame and `input` may not land.
@@ -199,7 +199,7 @@ What it actually does ([HeadlessJsIntegrationTest.kt](../../app/src/androidTest/
 Run it (install the app + the androidTest APK, then instrument just the LN method):
 
 ```powershell
-$env:JAVA_HOME="$HOME\scoop\apps\temurin17-jdk\current"
+$env:JAVA_HOME="$HOME\.jdks\temurin-21.0.11"
 & ".\gradlew.bat" :app:installDebug :app:installDebugAndroidTest --offline --console=plain
 $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
 & $adb logcat -c
@@ -218,7 +218,7 @@ overall pass/fail). The report line for a plugin tells you which layer broke:
 - `search -> 0 results`, or `parseNovel -> … chapters=0`, or `parseChapter -> 0 chars` — loads and runs but parses nothing = a **selector mismatch or a site block**. Cross-check with §4: a `<-- 403` means blocked; a `<-- 200` with empty output means the parser/selector is wrong.
 
 **To debug a SPECIFIC updated plugin** that the sample might skip: add its registry `id` to the
-`anchorIds` list at [HeadlessJsIntegrationTest.kt:61](../../app/src/androidTest/java/reikai/novel/host/HeadlessJsIntegrationTest.kt:61) so it is always fetched, loaded, searched, and chained; rebuild the androidTest APK and re-run. (Test-only edit, don't ship it.)
+`anchorIds` list in [HeadlessJsIntegrationTest.kt](../../app/src/androidTest/java/reikai/novel/host/HeadlessJsIntegrationTest.kt) so it is always fetched, loaded, searched, and chained; rebuild the androidTest APK and re-run. (Test-only edit, don't ship it.)
 
 **Local / forked plugin edits:** the test pulls the **published** v3.0.0 registry, so editing a plugin
 in a local `refs/lnreader-plugins` clone is NOT picked up here. To exercise local plugin code, host it

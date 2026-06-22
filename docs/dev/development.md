@@ -25,9 +25,9 @@ The working rules under `.claude/rules/` are the single source of truth; this do
 
 ## Build
 
-- Android Studio (`Build → Make/Rebuild`). JDK 17. Formatting via Spotless (`./gradlew spotlessApply`).
+- Android Studio (`Build → Make/Rebuild`). JDK 21 (Temurin 21.0.11; matches `.github/.java-version`). Formatting via Spotless (`./gradlew spotlessApply`).
 - `minSdk 26`, `targetSdk 36`, `compileSdk 37`.
-- No product flavors. Build types: `debug` (`.debugY2k`), `release` (`.y2k`, debug-signed for now), plus Mihon's `foss` / `preview` / `benchmark`. Reikai's `beta` / `nightly` types are re-added at release-cut.
+- No product flavors. Build types: `debug` (`.debugY2k`), `release` (`.y2k`), `foss`, `preview`, `benchmark`. Release builds use AGP-native signing with the real key when CI secrets or a local `keystore.properties` are present, else they fall back to debug-signed (see the `// RK` signing block in `app/build.gradle.kts`). The `preview` build type doubles as the nightly channel.
 - Domain tests: `./gradlew :domain:test`.
 - CLI Gradle is intermittent on the dev machine (loopback flake); build/test on-device in Android Studio when it fails.
 
@@ -48,7 +48,7 @@ Multi-module Gradle project; convention plugins live in `gradle/build-logic` (`i
 | `source-api` | Extension contract loaded by 3rd-party extensions |
 | `source-local` | Local source |
 | `telemetry` | Optional telemetry (gated by `Config.includeTelemetry`) |
-| `macrobenchmark` | Startup/scroll benchmarks |
+| `baseline-profile` | Baseline profile generation (startup / scroll) |
 
 ## Key technologies
 
