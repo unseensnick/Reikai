@@ -110,7 +110,7 @@ All shipped and on-device verified (Z Fold / Fold6).
 | Mark chapter read when skipping ahead | Reader | `045d60ab5` |
 | Download retry on failure | Reader / downloads | `f4dc3c8cc` |
 | Download only over Wi-Fi | Reader / downloads | `a8a21bdcf` (resume-when-back `05e0b2620`) |
-| Download-queue reorder + sort | Downloads | `_pending_` |
+| Download-queue reorder + sort | Downloads | `f5f526094` |
 | Novels in the Stats screen | Stats | `5215e531e` |
 | Per-novel Notes | Cross-cutting | `9147b9f21` |
 | Long-press add-to-library in global search (manga + novel) | Browse | `1d2aa4b8a` |
