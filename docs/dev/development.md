@@ -12,7 +12,7 @@
 
 ## Rebase status
 
-The rebase runs in phases (P0-P9). The master plan and per-phase status live in the rebase plan file (mirrored to `plans/`) and the `mihon-rebase` memory. The old Yōkai-based code stays on the `design/library-compose` branch as the porting reference. The Mihon-based work lands on `design/mihon-rebase`.
+The rebase runs in phases (P0-P9). The master plan and per-phase status live in [ROADMAP.md](../../ROADMAP.md), the per-feature implementation records in [plans/](plans/), and the `mihon-rebase` memory. The old Yōkai-based code stays on the `design/library-compose` branch as the porting reference. The Mihon-based work lands on `design/mihon-rebase`.
 
 ## Canonical rules
 
