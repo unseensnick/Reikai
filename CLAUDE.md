@@ -24,7 +24,7 @@ Mihon is **Compose + Voyager throughout**: there is no Conductor `*Controller` /
 
 ## Screen conventions (match Mihon)
 
-Every Reikai screen ported onto or added to Mihon follows Mihon's existing Voyager conventions. Index (full rationale + reference screen in [.claude/rules/compose-port.md](.claude/rules/compose-port.md)):
+Every Reikai screen ported onto or added to Mihon follows Mihon's existing Voyager conventions. Index (full rationale + reference screen in [.claude/rules/screen-conventions.md](.claude/rules/screen-conventions.md)):
 
 1. A Voyager `Screen` / `Tab` class, not a bare `@Composable fun FooScreen()`.
 2. Business logic in a `ScreenModel` resolved via `rememberScreenModel { ... }`. Pure-UI screens may skip it and say so in a one-line comment.
@@ -71,7 +71,7 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 ## Where things live
 
 - [.claude/rules/architecture.md](.claude/rules/architecture.md) — Compose + Voyager, Injekt DI, PreferenceStore, coroutines, domain models, module layout, `// RK` markers.
-- [.claude/rules/compose-port.md](.claude/rules/compose-port.md) — Reikai screen conventions on Mihon, with rationale and a reference screen.
+- [.claude/rules/screen-conventions.md](.claude/rules/screen-conventions.md) — Reikai screen conventions on Mihon, with rationale and a reference screen.
 - [.claude/rules/workflow.md](.claude/rules/workflow.md) — CHANGELOG rule, commits/PRs, release-cut, Mihon-upstream + Reikai-feature porting. **Commit message standard** (in "Commits & PRs"): subject `type(scope): summary` (imperative, <=72 chars); body leads with 1-2 plain-language sentences a non-developer can read, then benefit-first bullets (large commits group a user-facing section then `Under the hood:`), optional footer for tests/tradeoffs. Lead with the user-facing effect, never implementation. No em dashes, no AI watermarks. ROADMAP refs are written `Roadmap N` (no `#` — a bare `#N` auto-links to a Reikai issue on GitHub). **Mihon-sync standards** (the commit-message convention referencing upstream PRs/issues as `mihonapp/mihon#N` (cross-repo link, since a bare `#N` auto-links to a Reikai issue), the verbatim-cp + `// RK` hand-merge method, and the running synced-base ledger) live in its "Syncing with Mihon" section and, in full, the `upstream-sync` memory.
 - [.claude/rules/code-quality.md](.claude/rules/code-quality.md) — DRY/YAGNI/KISS, naming, code markers, file organization.
 - [.claude/rules/testing.md](.claude/rules/testing.md) — behavior over implementation, mock at boundaries, coroutine test patterns.

@@ -14,7 +14,7 @@ The one View-based holdout, shared with upstream, is the **reader** (`ReaderActi
 
 ## Reikai screens on Mihon
 
-Reikai's ported screens (library, manga details, the light-novel surfaces) follow Mihon's conventions (see [compose-port.md](compose-port.md)) and are re-typed to Mihon's models. Two placement rules:
+Reikai's ported screens (library, manga details, the light-novel surfaces) follow Mihon's conventions (see [screen-conventions.md](screen-conventions.md)) and are re-typed to Mihon's models. Two placement rules:
 
 - **Net-new code lives in its own files/modules** (own ScreenModels, own `.sq` tables, own Voyager screens).
 - **Edits to Mihon's own files** (the nav tab list, backup proto fields, DI registration) are fenced with `// RK -->` / `// RK <--` comment islands so they survive upstream merges and are greppable. Mirrors Komikku's `// SY` / `// KMK` convention.

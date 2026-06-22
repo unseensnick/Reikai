@@ -19,7 +19,7 @@ The rebase runs in phases (P0-P9). The master plan and per-phase status live in 
 The working rules under `.claude/rules/` are the single source of truth; this doc points to them rather than duplicating:
 
 - [architecture.md](../../.claude/rules/architecture.md) — Compose + Voyager, Injekt DI, `PreferenceStore`, coroutines, domain models, modules, `// RK` patch markers.
-- [compose-port.md](../../.claude/rules/compose-port.md) — Reikai screen conventions on Mihon.
+- [screen-conventions.md](../../.claude/rules/screen-conventions.md) — Reikai screen conventions on Mihon.
 - [workflow.md](../../.claude/rules/workflow.md) — CHANGELOG, commits/PRs, release-cut, upstream + feature porting.
 - [code-quality.md](../../.claude/rules/code-quality.md), [testing.md](../../.claude/rules/testing.md), [database.md](../../.claude/rules/database.md), [security.md](../../.claude/rules/security.md).
 
