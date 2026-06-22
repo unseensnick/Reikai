@@ -187,6 +187,19 @@ object SettingsDataScreen : SearchableSettings {
 
         val lastAutoBackup by backupPreferences.lastAutoBackupTimestamp.collectAsState()
 
+        // RK: push the restore-options screen from a LaunchedEffect, not directly inside the
+        // activity-result callback. That callback fires as the activity resumes from the file picker,
+        // and a Voyager push there can land before the next recomposition, so the options screen
+        // sometimes did not render until the user tapped. Capturing the uri in state defers the push to
+        // a normal composition pass.
+        var pickedBackupUri by remember { mutableStateOf<String?>(null) }
+        LaunchedEffect(pickedBackupUri) {
+            pickedBackupUri?.let {
+                navigator.push(RestoreBackupScreen(it))
+                pickedBackupUri = null
+            }
+        }
+
         val chooseBackup = rememberLauncherForActivityResult(
             object : ActivityResultContracts.GetContent() {
                 override fun createIntent(context: Context, input: String): Intent {
@@ -200,7 +213,7 @@ object SettingsDataScreen : SearchableSettings {
                 return@rememberLauncherForActivityResult
             }
 
-            navigator.push(RestoreBackupScreen(it.toString()))
+            pickedBackupUri = it.toString()
         }
 
         return Preference.PreferenceGroup(
