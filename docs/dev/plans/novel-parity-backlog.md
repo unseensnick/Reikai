@@ -104,7 +104,7 @@ All shipped and on-device verified (Z Fold / Fold6).
 | Novels in the Stats screen | Stats | `5215e531e` |
 | Per-novel Notes | Cross-cutting | `9147b9f21` |
 | Long-press add-to-library in global search (manga + novel) | Browse | `1d2aa4b8a` |
-| Surgical novel writes via UpdateNovel / SetNovelChapterFlags / SetNovelViewerFlags | Cross-cutting | `c5835c418` |
+| Surgical novel writes via UpdateNovel / SetNovelChapterFlags / SetNovelViewerFlags | Cross-cutting | `b6b1429d6` |
 
 ## Decisions & tradeoffs
 
