@@ -58,7 +58,4 @@ A backup covers both your manga library and your light-novel library.
 
 ## Merge / unmerge groups on restore
 
-Multi-source grouping behaves differently for novels and manga:
-
-- **Novel merge / unmerge groups** are saved as stable source-and-address references and are rebuilt correctly when you restore, including onto a fresh install.
-- **Manga merge / unmerge groups** are stored using internal ids that aren't re-mapped on restore. After restoring to a fresh install, manga grouping may not come back correctly. If your manga grouping matters, expect to redo some of it after a restore.
+Multi-source grouping for both manga and novels is saved as stable source-and-address references, so your merged groups are rebuilt correctly when you restore, including onto a fresh install.

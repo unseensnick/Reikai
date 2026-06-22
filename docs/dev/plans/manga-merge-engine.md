@@ -24,7 +24,7 @@ A merge group is not a database row. It is computed on the fly from two preferen
 - **Manual unmerges** (`mangaManualUnmerges`): a set of normalized `"min,max"` id pairs the user explicitly split apart.
 - **Auto same-title** (`autoMergeSameTitle`): a toggle. When on, any two favorited manga with the same case-insensitive title are auto-grouped, unless an unmerge pair says otherwise.
 
-So a manga's group is: the manual-merge members it appears in, plus same-title favorites (if auto is on), minus any pair explicitly unmerged. Storing groups as preferences (not a join table) means the whole feature is just set math over strings: no schema, no migration, and it round-trips through Mihon's generic preference backup for free.
+So a manga's group is: the manual-merge members it appears in, plus same-title favorites (if auto is on), minus any pair explicitly unmerged. Storing groups as preferences (not a join table) means the whole feature is just set math over strings: no schema and no migration. The id-based group prefs are serialized as stable `{url, source}` refs for backup and rebuilt on restore (`BackupMangaMerge`, `MangaRestorer.restoreMerges`), since the local ids change on a fresh install.
 
 ### Merge-group algebra
 
@@ -98,7 +98,7 @@ Shipped. P4 is done and on-device verified (Roadmap P4, marked done in `ROADMAP.
 
 ## Decisions & tradeoffs
 
-- **Pref-based, not a DB merge table.** Komikku's approach is a `merged.sq` join table plus a `MergedSource` virtual source and roughly 443 patched files. Reikai deliberately avoids that weight: a group is computed from two `Set<String>` prefs, so there is no schema, no migration, and it round-trips through Mihon's generic preference backup for free. Tradeoff: groups are recomputed rather than queried, and the set math has to be careful (hence the pure, heavily-tested `MergeGroupAlgebra`).
+- **Pref-based, not a DB merge table.** Komikku's approach is a `merged.sq` join table plus a `MergedSource` virtual source and roughly 443 patched files. Reikai deliberately avoids that weight: a group is computed from two `Set<String>` prefs, so there is no schema and no migration. The id-based group prefs are serialized as stable `{url, source}` refs for backup and rebuilt on restore (`BackupMangaMerge`, `MangaRestorer.restoreMerges`), since the local ids change on a fresh install. Tradeoff: groups are recomputed rather than queried, and the set math has to be careful (hence the pure, heavily-tested `MergeGroupAlgebra`).
 - **Collapse at the library grouping layer, not in SQL.** Favorites load normally; collapse happens after, alongside the existing dynamic grouping. Keeps the merge feature off the query path and out of Mihon's data layer.
 - **Distinct-count trunk, not most-rows.** Borrowing Komikku's "most chapters" trunk would let a scanlator-heavy source (many duplicate rows) win over a source that actually covers more real chapter numbers. Counting distinct recognized numbers fixes the Comick case.
 - **Float-narrowed dedup key.** Forced by the source API storing `chapter_number` as a 32-bit float: a reported `1.1f` and a recognition-parsed `1.1` differ by about 2.4e-8, so an exact-double key silently leaks duplicates. This also affects the novel side (same float column).
