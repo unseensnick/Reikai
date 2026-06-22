@@ -125,8 +125,8 @@ For day-to-day commit / push / PR work, run **`/ship`** (or **`/debug-fix --fast
 
 Don't bump per-push; ship alpha cycles by branch/tag. At release-cut, bump both in `app/build.gradle.kts`:
 
-- `versionName` — the scheme for the Mihon era is a release-cut decision (the old `upstream.fork-patch` 5-segment scheme tracked Yōkai; the upstream segment now tracks Mihon). The rebase foundation carried `1.9.7.5.10` / code `169` for in-place-upgrade continuity.
-- `versionCode` — integer, always increment, and it must exceed the last shipped Yōkai-based code (168) for release installs to upgrade.
+- `versionName`: Reikai uses its own Semantic Versioning in Mihon's `0.x.y` style, independent of Mihon's own number and dropping the old 5-segment `upstream.fork-patch` scheme that tracked Yōkai. The first Mihon-based release is `0.1.0`. This is only the display string; `versionCode` is what governs in-place upgrades.
+- `versionCode`: integer, always increment, and it must exceed the last shipped Yōkai-based code (168) for release installs to upgrade.
 
 ## Syncing with Mihon (the live base)
 
