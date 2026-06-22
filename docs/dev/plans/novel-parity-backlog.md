@@ -52,6 +52,8 @@ See `novel-reader.md` for the reader architecture these settings hang off.
 
 Per-novel Notes introduced the additive `NovelUpdate` partial-update path: a free-text markdown note on each saved novel's details screen (overflow to Notes, plus an Edit button in the expanded description once a note exists), reusing Mihon's `MangaNotesTextArea`. Rather than rewrite the whole row, it saves through a new `novels.sq partialUpdate` driven by a `NovelUpdate` model (the novel twin of `MangaUpdate`), touching only the changed column. The orientation lock above also rides this path. Caveat: `genre` (a list) and `update_strategy` cannot go through the coalesce partial path (SQLDelight drops their column adapters for the novels table), so callers patching those stay on the full-row `update(Novel)`. The note round-trips through backup. See `novel-backup.md`, which documents the proto round-trip the partial-update fields participate in.
 
+**Surgical writes centralised in interactors (matching manga).** Once the partial-update path existed, the remaining full-row `update(Novel)` writers (favorite toggles, cover-changed stamp, last-update stamp, chapter sort / filter / display flags, reader orientation) were moved onto it and grouped into three interactors mirroring Mihon's: `UpdateNovel` (twin of `UpdateManga`, with `awaitUpdateFavorite` / `awaitUpdateCoverLastModified` / `awaitUpdateLastUpdate` plus a generic `await(NovelUpdate)`), `SetNovelChapterFlags` (twin of `SetMangaChapterFlags`), and `SetNovelViewerFlags` (twin of `SetMangaViewerFlags`, orientation only since the novel reader is text-based). Each write now touches a single column instead of a read-modify-write of the whole row, and the favorite paths pick up manga's `dateAdded` semantics (set on favorite, zeroed on unfavorite). Two paths deliberately stay full-row: edit-info and restore, which legitimately write columns back to null (`coalesce` can't express that) and touch the adapter-typed `genre` / `update_strategy`. One nuance: the merge-group bulk favorite toggle uses the favorite-only generic `await` rather than `awaitUpdateFavorite`, because its undo restores a removed merge source and must preserve the original `dateAdded` instead of re-stamping it.
+
 ## Key files
 
 History
@@ -82,6 +84,7 @@ Browse
 Cross-cutting
 - `app/src/main/java/reikai/domain/novel/model/NovelUpdate.kt` (the partial-update model)
 - `app/src/main/java/reikai/presentation/novel/notes/NovelNotesScreen.kt`
+- `app/src/main/java/reikai/domain/novel/interactor/UpdateNovel.kt`, `SetNovelChapterFlags.kt`, `SetNovelViewerFlags.kt` (the surgical-write interactors)
 
 ## Status
 
@@ -101,6 +104,7 @@ All shipped and on-device verified (Z Fold / Fold6).
 | Novels in the Stats screen | Stats | `5215e531e` |
 | Per-novel Notes | Cross-cutting | `9147b9f21` |
 | Long-press add-to-library in global search (manga + novel) | Browse | `1d2aa4b8a` |
+| Surgical novel writes via UpdateNovel / SetNovelChapterFlags / SetNovelViewerFlags | Cross-cutting | `c5835c418` |
 
 ## Decisions & tradeoffs
 

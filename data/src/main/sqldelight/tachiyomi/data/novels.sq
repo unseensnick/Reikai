@@ -93,8 +93,9 @@ insert:
 INSERT INTO novels (source, url, title, author, artist, description, genre, status, thumbnail_url, favorite, last_update, initialized, chapter_flags, date_added, update_strategy, cover_last_modified, total_pages, last_read_at, edited_flags, notes, viewer_flags)
 VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :favorite, :lastUpdate, :initialized, :chapterFlags, :dateAdded, :updateStrategy, :coverLastModified, :totalPages, :lastReadAt, :editedFlags, :notes, :viewerFlags);
 
--- Full-row update: every caller writes a complete Novel (read-modify-write via `copy`), so no
--- `coalesce` partial path is needed. Keeping the columns adapter-typed (no coalesce) means the
+-- Full-row update for the paths that legitimately write a complete Novel: restore and edit-info
+-- (which set columns back to null, something `coalesce` can't express). Surgical single/few-column
+-- writes go through `partialUpdate` below. Keeping these columns adapter-typed (no coalesce) means the
 -- `genre` / `update_strategy` adapters survive, so the call site passes the typed values directly.
 update:
 UPDATE novels SET

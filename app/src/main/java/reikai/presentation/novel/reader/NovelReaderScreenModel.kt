@@ -14,10 +14,10 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpsertNovelHistory
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryUpdate
-import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.readerOrientation
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.novel.download.NovelDownloadManager
@@ -73,6 +73,7 @@ class NovelReaderScreenModel(
     private val novelPreferences: NovelPreferences by injectLazy()
     private val downloadManager: NovelDownloadManager by injectLazy()
     private val upsertNovelHistory: UpsertNovelHistory by injectLazy()
+    private val setNovelViewerFlags: SetNovelViewerFlags by injectLazy()
 
     // RK --> novel trackers (Active #8): push read progress on chapter completion
     private val trackNovelChapter: TrackNovelChapter by injectLazy()
@@ -277,15 +278,12 @@ class NovelReaderScreenModel(
     fun setKeepScreenOn(value: Boolean) = novelPreferences.readerKeepScreenOn().set(value)
 
     /** Set this novel's reader orientation (a [ReaderOrientation] flagValue; DEFAULT = follow the
-     *  global default). Writes only the orientation bits of the anchor's viewer_flags via a surgical
-     *  [NovelUpdate]; the override flow updates the live settings + the apply effect immediately. */
+     *  global default). Writes only the orientation bits of the anchor's viewer_flags via
+     *  [SetNovelViewerFlags]; the override flow updates the live settings + the apply effect immediately. */
     fun setOrientation(flagValue: Int) {
         orientationOverride.value = flagValue
         screenModelScope.launchIO {
-            val mask = ReaderOrientation.MASK.toLong()
-            val current = novelRepo.getById(novelId)?.viewerFlags ?: 0L
-            val newFlags = current and mask.inv() or (flagValue.toLong() and mask)
-            novelRepo.update(NovelUpdate(id = novelId, viewerFlags = newFlags))
+            setNovelViewerFlags.awaitSetOrientation(novelId, flagValue.toLong())
         }
     }
 

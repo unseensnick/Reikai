@@ -29,6 +29,7 @@ import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.SetNovelCategories
+import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelCategoryUpdate
@@ -74,6 +75,7 @@ class NovelLibraryScreenModel :
 
     private val context: Application by injectLazy()
     private val novelRepository: NovelRepository by injectLazy()
+    private val updateNovel: UpdateNovel by injectLazy()
     private val novelChapterRepository: NovelChapterRepository by injectLazy()
     private val novelCategoryRepository: NovelCategoryRepository by injectLazy()
     private val novelDownloadManager: NovelDownloadManager by injectLazy()
@@ -560,7 +562,7 @@ class NovelLibraryScreenModel :
         screenModelScope.launchIO {
             novelIds.forEach { novelId ->
                 if (deleteFromLibrary) {
-                    novelRepository.getById(novelId)?.let { novelRepository.update(it.copy(favorite = false)) }
+                    updateNovel.awaitUpdateFavorite(novelId, favorite = false)
                 }
                 if (deleteDownloads) {
                     val downloaded = novelChapterRepository.getByNovelId(novelId).filter { it.isDownloaded }

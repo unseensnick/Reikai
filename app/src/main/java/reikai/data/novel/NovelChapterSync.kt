@@ -6,6 +6,7 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.NovelUpdate
 import reikai.novel.host.ChapterItem
 import tachiyomi.data.Database
 import tachiyomi.domain.chapter.service.ChapterRecognition
@@ -173,7 +174,7 @@ suspend fun syncChaptersWithNovelSource(
     }
 
     // novels.last_update tracks the last time the chapter list changed at all; only on a real change.
-    novelRepository.update(novel.copy(lastUpdate = System.currentTimeMillis()))
+    novelRepository.update(NovelUpdate(id = novel.id, lastUpdate = System.currentTimeMillis()))
 
     return insertedChapters.filterNot { it.url in changedOrDuplicateReadUrls } to
         toDelete.filterNot { it.url in changedOrDuplicateReadUrls }

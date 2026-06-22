@@ -74,6 +74,9 @@ import reikai.domain.novel.interactor.InsertNovelCategories
 import reikai.domain.novel.interactor.RemoveNovelHistory
 import reikai.domain.novel.interactor.ReorderNovelCategories
 import reikai.domain.novel.interactor.SetNovelCategories
+import reikai.domain.novel.interactor.SetNovelChapterFlags
+import reikai.domain.novel.interactor.SetNovelViewerFlags
+import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.interactor.UpsertNovelHistory
 import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.RecommendationsFetcher
@@ -178,7 +181,10 @@ class DomainModule : InjektModule {
         addFactory { InsertNovelCategories(get()) }
         addFactory { DeleteNovelCategories(get()) }
         addFactory { ReorderNovelCategories(get()) }
-        addFactory { NovelLibraryAdder(get(), get(), get(), get()) }
+        addFactory { UpdateNovel(get()) }
+        addFactory { SetNovelChapterFlags(get()) }
+        addFactory { SetNovelViewerFlags(get()) }
+        addFactory { NovelLibraryAdder(get(), get(), get(), get(), get()) }
         // RK <--
         // RK --> novel reading history (P5 / Active #5)
         addSingletonFactory<NovelHistoryRepository> { NovelHistoryRepositoryImpl(get()) }
