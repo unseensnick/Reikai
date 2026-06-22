@@ -10,102 +10,82 @@
 
 <div align="center">
 
-A free and open source manga reader
+A free and open source manga and light-novel reader for Android
 
-[![CI](https://github.com/unseensnick/Reikai/actions/workflows/build_check.yml/badge.svg?labelColor=27303D)](https://github.com/unseensnick/Reikai/actions/workflows/build_check.yml)
-[![License: Apache-2.0](https://img.shields.io/github/license/unseensnick/Reikai?labelColor=27303D&color=0877d2)](/LICENSE)
-
-<img src="./.github/readme-images/screens.webp" alt="screenshots" />
-
-## Download
-
-[![Reikai Stable](https://img.shields.io/github/v/release/unseensnick/Reikai?maxAge=3600&label=Stable&labelColor=06599d&color=043b69)](https://github.com/unseensnick/Reikai/releases)
+[![Reikai Stable](https://img.shields.io/github/v/release/unseensnick/Reikai?maxAge=3600&label=Stable&labelColor=06599d&color=043b69)](https://github.com/unseensnick/Reikai/releases) [![CI](https://github.com/unseensnick/Reikai/actions/workflows/build_check.yml/badge.svg?labelColor=27303D)](https://github.com/unseensnick/Reikai/actions/workflows/build_check.yml) [![License: Apache-2.0](https://img.shields.io/github/license/unseensnick/Reikai?labelColor=27303D&color=0877d2)](/LICENSE)
 
 *Requires Android 8.0 or higher.*
 
+<img src="./.github/readme-images/screens.webp" alt="screenshots" />
+
 ## About
 
-Reikai (霊界, "spirit world") is a personal manga + light-novel reader **built on [Mihon](https://github.com/mihonapp/mihon)**. It started as a fork of [Yōkai](https://github.com/null2264/yokai) (妖怪, "spirit-creature") and is being rebased onto Mihon. Built for personal use; updates are sporadic.
+Reikai (霊界, "spirit world") is a personal manga and light-novel reader for Android, built on [Mihon](https://github.com/mihonapp/mihon) (Tachiyomi lineage). It started as a fork of [Yōkai](https://github.com/null2264/yokai) and was later rebased onto Mihon.
 
-The goal is to ride Mihon's actively maintained Compose base while layering on the features below, which suit my needs and aren't likely to land upstream as PRs.
+Two things set it apart from the lineage: **manga and light novels share one library** as equal content types, with the same layout and interactions; and it adds **multi-source power features** the lineage lacks, like folding the same series from several sources into a single entry, and ordering categories per library.
 
-> **Status:** the rebase onto Mihon is in progress, so feature availability is in flux while the features below are ported over from the Yōkai-based build. See [docs/dev/development.md](docs/dev/development.md) for the current state.
+It is built first for my own daily use, so development is sporadic and the feature set follows my taste rather than a broad roadmap. It rides Mihon's actively maintained base for the core reader and layers these features on top.
 
 ## Features
+
+Features are grouped by where they come from: what's original to Reikai, what's adapted from other projects, and what comes from the Mihon base.
 
 <div align="left">
 
 <details open="">
     <summary><h3>Unique to Reikai</h3></summary>
 
-* **Multi-source manga grouping**: same-title entries from different sources fold into a single library card with a source-count badge. Switch sources via chips on the detail screen without losing progress or tracker links ([docs](docs/multi-source.md)).
-* **Manual merge / unmerge**: merge entries with different titles (e.g. romanization variants) or split a group back to standalone entries ([docs](docs/multi-source.md)).
-* **Bulk-remove merged groups**: remove all sources from a group at once via Library multi-select ([docs](docs/multi-source.md#bulk-remove-all-sources-from-library)).
-* **Tracker sync across grouped sources**: add a tracker on one source in a group and it propagates to all other sources automatically ([docs](docs/tracker-sync.md)).
-* **Category sort order & bulk delete**: sort categories A→Z / Z→A, or delete multiple categories at once ([docs](docs/categories.md)).
-* **Taste-profile personalization** of the related-mangas carousel: recommendations reranked against your tracked-tag preferences, with status-aware hide filters ([docs](docs/related-mangas.md#taste-profile)).
-* **FlareSolverr support** for Cloudflare bypass on sources that block WebView ([docs](docs/flaresolverr.md)).
-* **Light novels in your library**: a dedicated Novels tab brings light novels into the same library experience as manga (categories, dynamic grouping, search, filter, per-category sort, category hopper) — including Reikai's own multi-source grouping, manual merge/unmerge, and category sort order extended to novels, none of which LNReader has.
+* **Multi-source grouping** (manga and novels): same-title entries from different sources fold into a single library card. Switch between sources with chips on the detail screen without losing progress or tracker links. It is preference-based rather than a database merge table, so it stays lightweight and the grouping is trivially reversible ([docs](docs/multi-source.md)).
+* **Manual merge / unmerge**: hand-pick a set of library entries and merge them into one group yourself, for when the same series carries different titles across sources (romanization variants, for example) and auto-grouping doesn't catch them; unmerge splits a group back into standalone entries. Group-wide removal is available from the **Manage sources** dialog ([docs](docs/multi-source.md)).
+* **Tracker sync across grouped sources**: add a tracker on one source in a group and it is shared across the others; each source keeps the tracker if you later split the group ([docs](docs/tracker-sync.md)).
+* **Category sort order & bulk delete**: order categories Off / A→Z / Z→A everywhere they appear, and multi-select to delete several categories at once with undo. Both work for manga and novel categories ([docs](docs/categories.md)).
+* **Taste-profile recommendations**: a tag-preference profile built from your tracker libraries personalizes the related row on manga details. It adds taste-driven candidates (tag searches on the current source, and cross-recommendations from your top tracked titles), reranks the row against your taste, and offers optional status-aware hide filters plus a full-screen *See all* browse with bulk add-to-library ([docs](docs/related-mangas.md#taste-profile)).
+* **FlareSolverr support**: route a Cloudflare-blocked source through a [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) proxy when the in-app WebView can't solve it. WebView stays the default and the fallback ([docs](docs/flaresolverr.md)).
+* **Library update-errors screen**: an opt-in, persistent list of entries that failed their last update, grouped by reason (Settings → Advanced).
 
 </details>
 
 <details open="">
-    <summary><h3>From Komikku</h3></summary>
+    <summary><h3>Light novels</h3></summary>
 
-* **Related-mangas carousel** on manga details: pulls from five independent streams (source API, keyword search, three tracker services) merged into one deduplicated row ([docs](docs/related-mangas.md)).
-* **Full-screen "See all" browse** for related mangas, with bulk add-to-library ([docs](docs/related-mangas.md)).
+Light novels are first-class: one library behind a Manga / Novels chip, with their own categories, dynamic grouping, search, filter / sort, and category hopper, plus Reikai's multi-source merge, tracker sync, reading history, offline downloads, background updates, tracking (AniList / MyAnimeList / MangaUpdates / Kitsu), per-novel notes, and backup.
 
-</details>
-
-<details open="">
-    <summary><h3>From LNReader</h3></summary>
-
-* **Light novel sources**: install and browse light novels via [LNReader](https://github.com/LNReader/lnreader)-format source plugins, hosted in-app next to your manga extensions, with update detection on the Browse tab.
-* **Light novel reading** *(in progress)*: an in-app light-novel reader, source-catalog browsing, and novel details are being ported from LNReader.
+* **Sources and reader come from [LNReader](https://github.com/LNReader/lnreader)**: novel sources use LNReader's JavaScript plugin format, and the reader uses LNReader's web typography (both ported).
+* **Everything around them is Reikai's own**: the plugins run in a headless QuickJS host (no WebView), so novel sources work in the background like manga extensions, and the library integration, cross-source merge, tracking, downloads, and backup are all net-new.
 
 </details>
 
 <details open="">
-    <summary><h3>From Yōkai</h3></summary>
+    <summary><h3>Adapted from Komikku</h3></summary>
 
-* NSFW/SFW library filter (taken from [TachiyomiSY](https://github.com/jobobby04/TachiyomiSY)).
-* Fix backup incompatibility with upstream.
-* New theme.
-* Local Source chapters now read ComicInfo.xml for chapter title, number, and scanlator.
+* **Related-mangas carousel** on manga details: similar titles below the description, pooled and deduplicated from three streams: the source's own related-manga API, a keyword-search fallback, and public tracker recommendations (AniList, MyAnimeList, MangaUpdates, Shikimori). The carousel and these baseline streams come from [Komikku](https://github.com/komikku-app/komikku); Reikai's personalization layer on top is listed under *Unique to Reikai* above ([docs](docs/related-mangas.md)).
 
 </details>
 
 <details open="">
-    <summary><h3>From upstream (Tachiyomi/Mihon)</h3></summary>
+    <summary><h3>Library experience (TachiyomiJ2K lineage)</h3></summary>
 
-* Local reading of downloaded content.
-* A configurable reader with multiple viewers, reading directions and other settings.
-* Tracker support: [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/explore/anime), [Manga Updates](https://www.mangaupdates.com/), [Shikimori](https://shikimori.one), and [Bangumi](https://bgm.tv/).
-* Categories to organize your library.
-* Light and dark themes.
-* Schedule updating your library for new chapters.
-* Create backups locally to read offline or to your desired cloud service.
+These come from the [TachiyomiJ2K](https://github.com/Jays2Kings/tachiyomiJ2K) lineage by way of Yōkai, rebuilt on Mihon so they sit alongside Mihon's own tabbed library.
+
+* **Single-list view with a category hopper**: an optional one-scroll view of collapsible categories with a floating jump-to puck, plus per-category sort, refresh, and select-all.
+* **Dynamic grouping**: group the library by source, tag, author, language, status, or tracking status instead of by category, in both views and for both content types.
+* **Cover-color theming**: tint the reader and manga details with each entry's cover color.
 
 </details>
 
 <details>
-    <summary><h3>From J2K</h3></summary>
+    <summary><h3>From the Mihon base</h3></summary>
 
-* UI redesign.
-* New Manga details screens, themed by their manga covers.
-* Combine 2 pages while reading into a single one for a better tablet experience.
-* Floating searchbar to easily start a search in your library or while browsing.
-* Library redesigned as a single list view: categories in a vertical view, collapsible with a tap.
-* Staggered Library grid.
-* Dynamic Categories: group your library automatically by tags, tracking status, source, and more.
-* New Recents page: quick access to newly added manga, new chapters, and where you left off.
-* New Themes.
-* Dynamic Shortcuts: open the latest chapter of what you were last reading right from your homescreen.
-* New material snackbar: removing manga auto-deletes chapters with an undo button.
-* Batch Auto-Source Migration (taken from [TachiyomiEH](https://github.com/NerdNumber9/TachiyomiEH)).
-* View all chapters right in the reader.
-* Material Design You additions throughout.
-* Android 12 features such as automatic extension and app updates.
+The core manga experience is Mihon's (Tachiyomi lineage):
+
+* Local reading of downloaded content.
+* A configurable reader with multiple viewers, reading directions, and settings.
+* Tracker support: [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://www.mangaupdates.com/), [Shikimori](https://shikimori.one), and [Bangumi](https://bgm.tv/).
+* Categories to organize your library.
+* Light and dark themes.
+* Scheduled library updates.
+* Local backups, or to your own cloud storage.
+* Third-party extensions and repository management.
 
 </details>
 
@@ -113,47 +93,31 @@ The goal is to ride Mihon's actively maintained Compose base while layering on t
 
 ## Contributing
 
-This is a personal fork; pull requests may not be reviewed. Feel free to open an issue to report a bug.
+This is a personal fork, so development is sporadic: bug reports are genuinely welcome, but pull requests may take a while and might not be merged if they don't fit the fork's direction. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to report a bug, request a feature, or build the project.
 
-<div align="left">
+Note: Reikai does not maintain or fix extensions/sources. Problems with a specific source or extension are out of scope.
 
-<details><summary>Bugs</summary>
+### Acknowledgements
 
-* Include version (**Settings → About → Version**). Check the [changelog](https://github.com/unseensnick/Reikai/releases) and [open issues](https://github.com/unseensnick/Reikai/issues) first; it may already be fixed or tracked.
-* Include steps to reproduce (if not obvious from description).
-* Include screenshot (if needed).
-* If it could be device-dependent, try reproducing on another device (if possible).
-* For large logs use [Pastebin](https://pastebin.com/) (or similar).
+Reikai is a personal fork and stands on the work of the projects it builds on and borrows from:
 
-</details>
+* [Mihon](https://github.com/mihonapp/mihon): the base it is built on.
+* [Yōkai](https://github.com/null2264/yokai): the previous base, where several of the features were first built.
+* [TachiyomiJ2K](https://github.com/Jays2Kings/tachiyomiJ2K): the single-list library and dynamic-grouping experience.
+* [Komikku](https://github.com/komikku-app/komikku): the related-mangas carousel.
+* [LNReader](https://github.com/LNReader/lnreader): the light-novel source format and reader.
+* [Tachiyomi](https://github.com/tachiyomiorg) and its wider community, where the lineage began.
 
-<details><summary>Syncing from upstream</summary>
-
-Upstream is now [Mihon](https://github.com/mihonapp/mihon); changes are ported manually (clone it locally, check what changed, apply the relevant diffs by hand, fenced with `// RK` markers). Reikai's own pre-rebase features are ported from the `design/library-compose` branch.
-
-See [docs/dev/development.md](docs/dev/development.md#porting) for details.
-
-</details>
-
-</div>
-
-### Credits
-
-Thank you to all the people who have contributed!
-
-<a href="https://github.com/unseensnick/Reikai/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=unseensnick/Reikai" alt="Reikai contributors" title="Reikai contributors" width="600"/>
-</a>
+Thanks to everyone who contributed to those projects.
 
 ### Disclaimer
 
-The developer(s) of this application does not have any affiliation with the content providers available, and this application hosts zero content.
+The developer of this application does not have any affiliation with the content providers available, and this application hosts zero content.
 
 ### License
 
 <pre>
 Copyright © 2015 Javier Tomás
-Copyright © 2024 null2264
 Copyright © 2026 unseensnick
 
 Licensed under the Apache License, Version 2.0 (the "License");
