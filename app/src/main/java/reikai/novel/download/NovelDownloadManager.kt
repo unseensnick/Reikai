@@ -122,6 +122,15 @@ class NovelDownloadManager(private val context: Context) {
         NovelDownloadJob.start(context)
     }
 
+    /** Replace the pending queue order (drag-to-reorder or sort from the queue screen) and persist it,
+     *  so a cold restart drains in the new order. The active drain re-reads the queue each step, so a
+     *  reorder takes effect on the next pick and the in-flight chapter is left alone. */
+    fun reorderQueue(downloads: List<NovelDownload>) {
+        _queueState.value = downloads
+        scope.launch { store.replaceAll(downloads) }
+        if (downloads.any { it.state == NovelDownload.State.QUEUE }) NovelDownloadJob.start(context)
+    }
+
     fun deleteChapters(chapters: List<NovelChapter>) {
         if (chapters.isEmpty()) return
         val ids = chapters.map { it.id }.toSet()
