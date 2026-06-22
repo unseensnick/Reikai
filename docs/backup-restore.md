@@ -1,12 +1,14 @@
 # Backup & restore
 
-How to back up your library, tracking, and settings — and how Reikai's backup format relates to upstream Yōkai.
+How to back up your library, tracking, and settings, and what to expect when you restore.
+
+Reikai is built on Mihon, and uses Mihon's backup format: a single compressed `.tachibk` file. These backups are not interchangeable with old Yōkai-based Reikai builds: the database structure is different, so a Mihon-based install can't open a Yōkai-Reikai backup, and an old build can't open one made here.
 
 ## Creating a backup
 
 *Settings → Data and storage → Create backup.*
 
-Pick what to include (library, categories, chapters, tracking, history, settings), tap **Create**, and save the resulting `.tachibk` file somewhere safe — cloud sync, SD card, external storage.
+Pick what to include, tap **Create**, and save the resulting `.tachibk` file somewhere safe (cloud sync, SD card, external storage).
 
 Backups don't include downloaded chapter files. To preserve downloads, copy the app's downloads folder separately.
 
@@ -14,45 +16,62 @@ Backups don't include downloaded chapter files. To preserve downloads, copy the 
 
 *Settings → Data and storage → Restore backup → pick the .tachibk file.*
 
-The restore replaces the current library state with the backup. The app warns before applying so an accidental tap is recoverable until you confirm.
+The restore replaces the current library state with the backup. The app warns before applying, so an accidental tap is recoverable until you confirm.
 
-After restore, open Settings → Browse → Extensions and re-install any extensions that were active in the backup. Backups reference sources by id, not by extension binary — the manga reappears immediately, but you need the matching extension installed to actually fetch chapters.
+Backups record which sources and extensions you were using:
 
-## Reikai ↔ upstream Yōkai compatibility
+- **Manga extensions** you had installed are recorded, so a restore can offer to reinstall them. Until the matching extension is installed, the manga reappears in your library but can't fetch chapters.
+- **Novel plugins** are re-downloaded automatically from their saved addresses after a restore.
 
-A backup made in **Reikai** restores cleanly into **upstream Yōkai**, and vice versa. The backup format is shared.
+## What's included
 
-Reikai-specific state behaves as follows on a cross-fork round-trip:
+A backup covers both your manga library and your light-novel library.
 
-- **Multi-source grouping** (manual merges / unmerges) — included in the backup file. Survives a Reikai → Reikai restore; upstream Yōkai ignores it on restore (the manga reappear ungrouped), and round-tripping back through upstream loses the grouping.
-- **Taste-profile cache, category sort order, related-mangas settings** — included in the backup. Survives a Reikai → Reikai restore; upstream silently drops unknown preference keys on restore.
-- **Tracker links, library entries, categories, chapter read state, history, downloads metadata** — fully portable in both directions.
+**Manga**
 
-If you're temporarily switching to upstream Yōkai and plan to come back, make a Reikai backup *before* switching so Reikai-specific state isn't lost.
+- Saved manga, categories, and category assignments
+- Read / unread chapter state and reading history
+- Tracker links (the connection between a manga and its tracker entry)
+- Which manga extensions you had installed
 
-## Migrating across the .yokai → .y2k package suffix (1.9.7.5.x)
+**Light novels**
 
-Reikai 1.9.7.5.8 changed the release package suffix from `.yokai` to `.y2k` so Reikai can install alongside upstream Yōkai instead of overwriting it. Android treats apps with different package ids as separate installs, so the new build doesn't auto-update the old one.
+- Saved novels with their chapters, read state, and reading history
+- Novel categories and assignments
+- Tracker bindings for novels
+- Manual novel merge / unmerge groups
 
-Existing Reikai users upgrading from a `.yokai` build to a `.y2k` build:
+**App-wide**
 
-1. Open your existing `.yokai` install → Settings → Data and storage → **Create backup**. Save the `.tachibk` file off-device.
-2. Install the new `.y2k` build. Both apps will now appear in your launcher; they're separate installs and don't share data.
-3. Open the new `.y2k` install → Settings → Data and storage → **Restore backup** → pick the backup from step 1.
-4. Verify the restore looks correct (library entries, categories, tracking, history). Then uninstall the old `.yokai` build to reclaim space and avoid confusion.
+- App settings (themes, reader preferences, library preferences)
 
-If you forget to back up before uninstalling the old build, the old library is gone — Android wipes per-app data when an app is uninstalled. There's no "transfer in place" path because the two installs are independent from Android's perspective.
+## What's not included
 
-## Backup contents — what's portable, what isn't
-
-| Included | Not included |
+| Not included | Why |
 |---|---|
-| Library entries (favorited manga) | Downloaded chapter files |
-| Categories and their manga assignments | Installed extensions (re-install after restore) |
-| Tracker links and per-manga track entries | Cover image cache (re-downloaded on demand) |
-| Read / unread chapter state and history | Tracker authentication tokens (re-sign-in after restore) |
-| App settings (themes, reader prefs, library prefs) | App-level Android permissions |
-| Multi-source merge/unmerge state *(Reikai)* | |
-| Taste-profile cache *(Reikai)* | |
+| Downloaded chapter files | Copy the downloads folder separately |
+| Cover image cache | Re-downloaded on demand |
+| Tracker sign-in / authentication | Sign in again under Settings → Tracking for security |
+| App-level Android permissions | Re-grant on the new install |
 
-Tracker sign-in state is not included for security reasons — restored backups expose only the link between a manga and its tracker entry, not the credentials. Sign in again under Settings → Tracking after a restore.
+## Merge / unmerge groups on restore
+
+Multi-source grouping behaves differently for novels and manga:
+
+- **Novel merge / unmerge groups** are saved as stable source-and-address references and are rebuilt correctly when you restore, including onto a fresh install.
+- **Manga merge / unmerge groups** are stored using internal ids that aren't re-mapped on restore. After restoring to a fresh install, manga grouping may not come back correctly. If your manga grouping matters, expect to redo some of it after a restore.
+
+## Migrating from an old `.yokai` build (1.9.7.5.x)
+
+This is past history for users coming from a much older release. Reikai once changed its release package suffix from `.yokai` to `.y2k`. Android treats apps with different package ids as separate installs, so a `.y2k` build did not auto-update an existing `.yokai` build.
+
+If you're still on a very old `.yokai` install:
+
+1. Open the old install → Settings → Data and storage → **Create backup**. Save the file off-device.
+2. Install the current build. Both apps appear in your launcher as separate installs.
+3. Open the current build → Settings → Data and storage → **Restore backup** → pick the backup from step 1.
+4. Verify the restore looks correct, then uninstall the old build.
+
+Back up before uninstalling: Android wipes per-app data on uninstall, and there's no in-place transfer between two separate installs.
+
+Note: very old `.yokai` builds predate the move to Mihon, so their backups may not restore into the current build at all. Treat that migration as best-effort and keep the old backup file.
