@@ -2,7 +2,7 @@
 
 Android manga + light-novel reader. Personal fork built on [Mihon](https://github.com/mihonapp/mihon) (Tachiyomi lineage), adding light novels, multi-source grouping, manual merge/unmerge, and category sort order.
 
-**Rebase in progress (2026-06):** Reikai was previously a fork of [Yōkai](https://github.com/null2264/yokai) and is being rebased onto Mihon. The Mihon-based foundation lives on the `design/mihon-rebase` branch. The old Yōkai-based code (branch `design/library-compose`) is kept only as the porting reference. Full plan and feature list: the rebase plan file; ongoing status: the `mihon-rebase` memory.
+**Rebase in progress (2026-06):** Reikai was previously a fork of [Yōkai](https://github.com/null2264/yokai) and is being rebased onto Mihon. The Mihon-based foundation lives on the `design/mihon-rebase` branch. The old Yōkai-based code (branch `design/library-compose`) is kept only as the porting reference. Full plan and feature list: [ROADMAP.md](ROADMAP.md) plus the per-feature records in [docs/dev/plans/](docs/dev/plans/); ongoing status: the `mihon-rebase` memory.
 
 ## Working approach
 
@@ -78,6 +78,7 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 - [.claude/rules/database.md](.claude/rules/database.md) — SQLDelight migrations.
 - [.claude/rules/security.md](.claude/rules/security.md) — secrets, input validation.
 - [docs/dev/development.md](docs/dev/development.md) — architecture and module overview. NOTE: still describes the Yōkai base; being updated for Mihon.
+- [docs/dev/plans/](docs/dev/plans/): per-feature implementation and decision records (one per substantial feature, indexed by its README). The forward backlog is [ROADMAP.md](ROADMAP.md); the format for both lives in `.claude/rules/workflow.md`.
 - [docs/dev/readme-showcase.md](docs/dev/readme-showcase.md) — how the README showcase animation (`screens.webp`) is captured and built; the reproduction kit (stills + frame + scripts) lives in `.github/readme-images/showcase/`.
 - Read-only reference clones live in `refs/` (declared in `.claude/settings.json`), mostly self-evident from their names. Non-obvious: `refs/tachiyomi-extension/` is the **Suwayomi** extension repo (`Suwayomi/tachiyomi-extension`, for connecting Reikai to a self-hosted Suwayomi server as an in-app source), NOT the archived `tachiyomiorg/tachiyomi-extensions`.
 

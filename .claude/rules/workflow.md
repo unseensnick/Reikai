@@ -16,6 +16,38 @@ Update `CHANGELOG.md`:
 
 Check `README.md` and `docs/*.md` for stale references when behavior or fork-specific mechanics change. Update in the same change. Describe current behavior, not the journey: no "we tried X then switched to Y" paragraphs. Don't rewrite already-released CHANGELOG entries.
 
+## Roadmap & plans
+
+Two artifacts hold the forward plan. Keep them separate: the roadmap is the terse what-and-when; the plan docs are the how-and-why.
+
+### `ROADMAP.md` (tracked, the single backlog)
+
+Forward-looking only. Structure, top to bottom:
+
+1. **Status table** at the top: one row per phase / area, a one-line "what", and a status cell. Terse.
+2. **Now** (in progress), **Next** (queued, in priority order), **Later** (backlog, unordered). Each item is **one line**: a bold title, a size tag (`[S]` / `[M]` / `[L]`), a one-sentence "what", and a link to its plan doc in `docs/dev/plans/` when one exists. No inline plans: the detail lives in the plan doc.
+3. **Parked / not building**: one line per item with a one-line reason.
+4. **Shipped**: a terse done-log, grouped by area, each line ending with the commit short-SHA(s). This stays in `ROADMAP.md` so the roadmap keeps a record of what landed without the detail; full per-feature detail lives in the plan doc.
+
+Rules: never paste an implementation plan into the roadmap (that is the failure mode this format fixes); convert relative dates to absolute; `Roadmap N` not `#N` in any prose that GitHub might auto-link.
+
+### `docs/dev/plans/` (tracked, implementation & decision records)
+
+A **substantial** feature or initiative gets one markdown here: a developer-facing record of what was built and why. Distinct from the architecture references already in `docs/` and `docs/dev/` (`multi-source.md`, `related-mangas.md`, `tracker-sync.md`, `ln-plugin-host.md`, etc.): cross-link those, do not duplicate them. One doc per feature; fold superseded iterations of the same feature into its single doc.
+
+**Template** (every plan doc follows it):
+
+- **Goal**: one or two sentences, what this delivers for the user.
+- **Why**: the motivation, the parity gap, or the constraint that made it worth building.
+- **Approach**: how it works now, in plain English first, then the mechanism. Describe current behavior, never the journey ("we tried X then switched to Y").
+- **Key files**: the entry points a developer would open first (`file:line` or path).
+- **Status**: shipped / in progress / deferred, with commit short-SHA(s).
+- **Decisions & tradeoffs**: the choices made and what was deliberately left out.
+
+Naming: real descriptive names (`novel-reader.md`, `manga-details-parity.md`), never generated slugs. `docs/dev/plans/README.md` indexes every doc with a one-line hook.
+
+**What does NOT go here:** bug-fix plans, polish batches, scouting / audit reports, doc-edit plans, and superseded drafts stay **local** (the session plan archive), out of the repo, so `docs/dev/plans/` holds only durable feature records.
+
 ## Cutting a release (user-initiated)
 
 When the user asks to cut a release:
