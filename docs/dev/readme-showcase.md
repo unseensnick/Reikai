@@ -64,9 +64,12 @@ Capture method (byte-accurate): `adb -s <emu> shell screencap -p /sdcard/x.png` 
 
 ## Tuning
 
-- **Timing** (`make-webp.sh`): `HOLD` = seconds each state holds, `FADE` = cross-dissolve seconds,
-  `L` must equal `2*HOLD + 2*FADE`. Current: hold 2.8s, fade 0.3s, loop 6.2s.
-- **Layout**: `STEP` = horizontal spacing between phones; `H` = phone height in the strip.
+- **Timing** (`make-webp.sh`): the per-state hold and cross-fade are hardcoded as constants in the `OP`
+  opacity expression (hold A, fade, hold B, fade back), not separate variables. Current: hold 2.8s, fade
+  0.3s, full loop `L` = 6.2s, frame rate `F` = 20. To retime, edit the `2.8 / 3.1 / 5.9 / 0.3` constants
+  in `OP` and keep `L` equal to the full cycle.
+- **Layout**: `H` = render height per phone, `GAP` = gap between phones, and `STEP` (`PW + GAP`) =
+  horizontal spacing between phones.
 - **Frame fit**: `make-frames.sh` places the screen at (60,55) and rounds corners to radius 108 (from
   the skin `layout`). If you swap to a different device skin, update those three numbers.
 - A different frame (e.g. a Samsung Galaxy skin) works too, but Samsung's official emulator skins bake
