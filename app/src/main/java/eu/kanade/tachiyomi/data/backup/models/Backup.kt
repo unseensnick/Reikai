@@ -22,4 +22,8 @@ data class Backup(
     // RK: installed manga extensions (Mihon backs up only their repos). Novel plugins need no field
     // here: their install state already rides the preference backup (ln_installed_plugin_urls).
     @ProtoNumber(710) var backupExtensions: List<BackupExtension> = emptyList(),
+    // RK: manga merge/unmerge groups as stable {url,source} refs (see BackupMangaMerge), since the live
+    // merge prefs store IDs that change on restore (the manga twin of backupNovelMerges at 702/703).
+    @ProtoNumber(711) var backupMangaMerges: List<BackupMangaMergeGroup> = emptyList(),
+    @ProtoNumber(712) var backupMangaUnmerges: List<BackupMangaMergeGroup> = emptyList(),
 )

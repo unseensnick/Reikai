@@ -8,7 +8,9 @@ import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
+import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupTracking
+import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.data.Database
 import tachiyomi.data.MemoColumnAdapter
 import tachiyomi.data.UpdateStrategyColumnAdapter
@@ -36,6 +38,8 @@ class MangaRestorer(
     private val getTracks: GetTracks = Injekt.get(),
     private val insertTrack: InsertTrack = Injekt.get(),
     fetchInterval: FetchInterval = Injekt.get(),
+    // RK: target of the rebuilt manga merge/unmerge prefs (see restoreMerges).
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
 ) {
 
     private var now = ZonedDateTime.now()
@@ -322,6 +326,38 @@ class MangaRestorer(
                 }
             }
         }
+    }
+
+    /**
+     * RK: rebuild the manga merge/unmerge prefs from the backup's stable {url, source} refs once the
+     * manga have been restored (their IDs differ from the source device). The manga twin of
+     * NovelRestorer.restoreMerges. Unioned with any device-local entries so a partial restore does not
+     * wipe existing merges. Call this AFTER the manga loop completes.
+     */
+    suspend fun restoreMerges(merges: List<BackupMangaMergeGroup>, unmerges: List<BackupMangaMergeGroup>) {
+        val resolvedMerges = resolveMergeGroups(merges)
+        val resolvedUnmerges = resolveMergeGroups(unmerges)
+        if (resolvedMerges.isNotEmpty()) {
+            reikaiLibraryPreferences.mangaManualMerges.set(
+                reikaiLibraryPreferences.mangaManualMerges.get() + resolvedMerges,
+            )
+        }
+        if (resolvedUnmerges.isNotEmpty()) {
+            reikaiLibraryPreferences.mangaManualUnmerges.set(
+                reikaiLibraryPreferences.mangaManualUnmerges.get() + resolvedUnmerges,
+            )
+        }
+    }
+
+    private suspend fun resolveMergeGroups(groups: List<BackupMangaMergeGroup>): Set<String> {
+        if (groups.isEmpty()) return emptySet()
+        return groups.mapNotNull { group ->
+            val ids = group.refs
+                .mapNotNull { getMangaByUrlAndSourceId.await(it.url, it.source)?.id }
+                .distinct()
+                .sorted()
+            ids.takeIf { it.size >= 2 }?.joinToString(",")
+        }.toSet()
     }
 
     private suspend fun restoreHistory(backupHistory: List<BackupHistory>) {
