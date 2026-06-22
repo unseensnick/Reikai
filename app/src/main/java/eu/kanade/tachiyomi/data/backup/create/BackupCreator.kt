@@ -17,6 +17,8 @@ import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
+import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
+import eu.kanade.tachiyomi.data.backup.models.BackupMangaSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
@@ -28,6 +30,7 @@ import okio.sink
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.backup.service.BackupPreferences
+import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.repository.MangaRepository
@@ -48,6 +51,8 @@ class BackupCreator(
     private val getFavorites: GetFavorites = Injekt.get(),
     private val backupPreferences: BackupPreferences = Injekt.get(),
     private val mangaRepository: MangaRepository = Injekt.get(),
+    // RK: source of the manga merge/unmerge prefs serialized as {url,source} refs.
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
 
     private val categoriesBackupCreator: CategoriesBackupCreator = CategoriesBackupCreator(),
     private val mangaBackupCreator: MangaBackupCreator = MangaBackupCreator(),
@@ -84,8 +89,9 @@ class BackupCreator(
                 throw IllegalStateException(context.stringResource(MR.strings.create_backup_file_error))
             }
 
+            val favorites = getFavorites.await()
             val nonFavoriteManga = if (options.readEntries) mangaRepository.getReadMangaNotInLibrary() else emptyList()
-            val backupManga = backupMangas(getFavorites.await() + nonFavoriteManga, options)
+            val backupManga = backupMangas(favorites + nonFavoriteManga, options)
 
             // RK: the light-novel library (favorites + chapters/categories/tracks/history + merges).
             val novelData = novelBackupCreator(options)
@@ -103,6 +109,8 @@ class BackupCreator(
                 backupNovelMerges = novelData.merges,
                 backupNovelUnmerges = novelData.unmerges,
                 backupExtensions = backupExtensions(options),
+                backupMangaMerges = backupMangaMergeGroups(reikaiLibraryPreferences.mangaManualMerges.get(), favorites, options),
+                backupMangaUnmerges = backupMangaMergeGroups(reikaiLibraryPreferences.mangaManualUnmerges.get(), favorites, options),
                 // RK <--
             )
 
@@ -156,6 +164,25 @@ class BackupCreator(
         if (!options.appSettings) return emptyList()
 
         return preferenceBackupCreator.createApp(includePrivatePreferences = options.privateSettings)
+    }
+
+    // RK: translate a merge-pref's comma-joined ID groups into stable {url, source} refs (the manga twin
+    // of NovelBackupCreator.serializeGroups). Gated by libraryEntries (merges are meaningless without the
+    // library). A group is dropped if fewer than two members resolve, since a one-member group is no
+    // longer a merge. Merge members are favorites, so the favorites map resolves them all.
+    private fun backupMangaMergeGroups(
+        groups: Set<String>,
+        favorites: List<Manga>,
+        options: BackupOptions,
+    ): List<BackupMangaMergeGroup> {
+        if (!options.libraryEntries || groups.isEmpty()) return emptyList()
+        val byId = favorites.associateBy { it.id }
+        return groups.mapNotNull { group ->
+            val refs = group.split(",")
+                .mapNotNull { it.trim().toLongOrNull() }
+                .mapNotNull { id -> byId[id]?.let { BackupMangaSourceRef(url = it.url, source = it.source) } }
+            refs.takeIf { it.size >= 2 }?.let { BackupMangaMergeGroup(refs = it) }
+        }
     }
 
     private suspend fun backupExtensionStores(options: BackupOptions): List<BackupExtensionStore> {

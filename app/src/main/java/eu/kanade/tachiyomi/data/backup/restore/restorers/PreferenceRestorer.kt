@@ -61,9 +61,12 @@ class PreferenceRestorer(
         val backupCategoriesById = backupCategories?.associateBy { it.id.toString() }.orEmpty()
         val prefs = preferenceStore.getAll()
         toRestore.forEach { (key, value) ->
-            // RK: the novel merge prefs store novel IDs, which change on restore. NovelRestorer rebuilds
-            // them from the backup's {url, source} refs, so skip the raw values here to avoid stale IDs.
-            if (key == ReikaiLibraryPreferences.NOVEL_MANUAL_MERGES_KEY ||
+            // RK: the merge prefs store entry IDs, which change on restore. MangaRestorer / NovelRestorer
+            // rebuild them from the backup's {url, source} refs, so skip the raw values here to avoid
+            // stale IDs (manga + novel).
+            if (key == ReikaiLibraryPreferences.MANGA_MANUAL_MERGES_KEY ||
+                key == ReikaiLibraryPreferences.MANGA_MANUAL_UNMERGES_KEY ||
+                key == ReikaiLibraryPreferences.NOVEL_MANUAL_MERGES_KEY ||
                 key == ReikaiLibraryPreferences.NOVEL_MANUAL_UNMERGES_KEY
             ) {
                 return@forEach

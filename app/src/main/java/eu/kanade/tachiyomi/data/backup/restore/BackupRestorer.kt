@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.data.backup.BackupNotifier
 import eu.kanade.tachiyomi.data.backup.models.Backup
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
+import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
 import eu.kanade.tachiyomi.data.backup.restore.restorers.CategoriesRestorer
@@ -97,8 +98,14 @@ class BackupRestorer(
         }
 
         coroutineScope {
+            // RK: categories must finish restoring BEFORE manga + app-settings, both of which map to
+            // live categories by name (a manga's category assignments in MangaRestorer.restoreCategories;
+            // the default-category pref in PreferenceRestorer). Upstream launches all of these
+            // concurrently, so a manga restored before its categories exist loses them and lands in the
+            // Default category (a long-standing Tachiyomi-lineage race: a random count slips through each
+            // run). Awaiting the categories job first fixes it; everything below stays parallel.
             if (options.categories) {
-                restoreCategories(backup.backupCategories)
+                restoreCategories(backup.backupCategories).join()
             }
             if (options.appSettings) {
                 restoreAppPreferences(backup.backupPreferences, backup.backupCategories.takeIf { options.categories })
@@ -107,7 +114,12 @@ class BackupRestorer(
                 restoreSourcePreferences(backup.backupSourcePreferences)
             }
             if (options.libraryEntries) {
-                restoreManga(backup.backupManga, if (options.categories) backup.backupCategories else emptyList())
+                restoreManga(
+                    backup.backupManga,
+                    if (options.categories) backup.backupCategories else emptyList(),
+                    backup.backupMangaMerges,
+                    backup.backupMangaUnmerges,
+                )
             }
             if (options.extensionStores) {
                 restoreExtensionStores(backup)
@@ -163,6 +175,9 @@ class BackupRestorer(
     private fun CoroutineScope.restoreManga(
         backupMangas: List<BackupManga>,
         backupCategories: List<BackupCategory>,
+        // RK: merge/unmerge groups, rebuilt from {url,source} once the restored manga have fresh IDs.
+        backupMangaMerges: List<BackupMangaMergeGroup>,
+        backupMangaUnmerges: List<BackupMangaMergeGroup>,
     ) = launch {
         mangaRestorer.sortByNew(backupMangas)
             .forEach {
@@ -178,6 +193,10 @@ class BackupRestorer(
                 restoreProgress += 1
                 notifier.showRestoreProgress(it.title, restoreProgress, restoreAmount, isSync)
             }
+
+        // RK: with every manga restored (fresh IDs), rebuild the merge prefs from the backup's refs.
+        ensureActive()
+        mangaRestorer.restoreMerges(backupMangaMerges, backupMangaUnmerges)
     }
 
     private fun CoroutineScope.restoreAppPreferences(

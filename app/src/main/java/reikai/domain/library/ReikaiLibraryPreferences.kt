@@ -152,10 +152,10 @@ class ReikaiLibraryPreferences(
     // region Merging (pref-based; no DB join table)
 
     /** Manual merge groups: each entry is a comma-joined, sorted manga-id group (e.g. "1,5,9"). */
-    val mangaManualMerges: Preference<Set<String>> = preferenceStore.getStringSet("manga_manual_merges", emptySet())
+    val mangaManualMerges: Preference<Set<String>> = preferenceStore.getStringSet(MANGA_MANUAL_MERGES_KEY, emptySet())
 
     /** Explicit unmerges: normalized "min,max" id pairs that must never be grouped. */
-    val mangaManualUnmerges: Preference<Set<String>> = preferenceStore.getStringSet("manga_manual_unmerges", emptySet())
+    val mangaManualUnmerges: Preference<Set<String>> = preferenceStore.getStringSet(MANGA_MANUAL_UNMERGES_KEY, emptySet())
 
     /** Auto-group favorited series that share a title across sources (guarded by the healing pass). */
     val autoMergeSameTitle: Preference<Boolean> = preferenceStore.getBoolean("auto_merge_same_title", true)
@@ -200,8 +200,11 @@ class ReikaiLibraryPreferences(
     // endregion
 
     companion object {
-        // The merge prefs store novel IDs, which change on restore, so the backup restorer rebuilds them
-        // from {url, source} refs and the generic preference restore must skip these two keys.
+        // The merge prefs store entry IDs, which change on restore, so the backup restorer rebuilds them
+        // from {url, source} refs and the generic preference restore must skip these keys (both manga
+        // and novel; see BackupMangaMerge / BackupNovelMerge).
+        const val MANGA_MANUAL_MERGES_KEY = "manga_manual_merges"
+        const val MANGA_MANUAL_UNMERGES_KEY = "manga_manual_unmerges"
         const val NOVEL_MANUAL_MERGES_KEY = "novel_manual_merges"
         const val NOVEL_MANUAL_UNMERGES_KEY = "novel_manual_unmerges"
     }
