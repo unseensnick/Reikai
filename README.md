@@ -6,7 +6,9 @@
 
 # Reikai
 
-A free and open source manga and light-novel reader for Android
+### One library for manga and light novels
+
+A free and open source reader for Android, built on Mihon.
 
 [![Reikai Stable](https://img.shields.io/github/v/release/unseensnick/Reikai?maxAge=3600&label=Stable&labelColor=06599d&color=043b69)](https://github.com/unseensnick/Reikai/releases) [![CI](https://github.com/unseensnick/Reikai/actions/workflows/build_check.yml/badge.svg?labelColor=27303D)](https://github.com/unseensnick/Reikai/actions/workflows/build_check.yml) [![License: Apache-2.0](https://img.shields.io/github/license/unseensnick/Reikai?labelColor=27303D&color=0877d2)](/LICENSE)
 
@@ -26,7 +28,7 @@ It is built first for my own daily use, so development is sporadic and the featu
 
 ## Features
 
-Grouped by where each one comes from: what's original to Reikai, the light-novel layer, what's adapted from other projects, and what's inherited from the Mihon base.
+Grouped by where each one comes from: what's original to Reikai, the light-novel layer, what's adapted from other forks, and what's inherited from the Mihon base.
 
 ### Unique to Reikai
 
@@ -49,7 +51,7 @@ Light novels are a first-class content type: one library behind a Manga / Novels
 
 ### Adapted from Komikku
 
-- **Related-mangas carousel** on manga details: similar titles below the description, pooled and deduplicated from three streams: the source's own related-manga API, a keyword-search fallback, and public tracker recommendations (AniList, MyAnimeList, MangaUpdates, Shikimori). The carousel and these baseline streams come from [Komikku](https://github.com/komikku-app/komikku); Reikai's personalization layer on top is listed under *Unique to Reikai* above ([docs](docs/related-mangas.md)).
+- **Related-mangas carousel** on manga details: similar titles below the description, pooled and deduplicated from three streams (the source's own related-manga API, a keyword-search fallback, and public tracker recommendations from AniList, MyAnimeList, MangaUpdates, and Shikimori). The carousel and these baseline streams come from [Komikku](https://github.com/komikku-app/komikku); Reikai's personalization layer on top is listed under *Unique to Reikai* above ([docs](docs/related-mangas.md)).
 
 ### Library experience (TachiyomiJ2K lineage)
 
@@ -59,7 +61,8 @@ From the [TachiyomiJ2K](https://github.com/Jays2Kings/tachiyomiJ2K) lineage by w
 - **Dynamic grouping**: group the library by source, tag, author, language, status, or tracking status instead of by category, in both views and for both content types.
 - **Cover-color theming**: tint the reader and manga details with each entry's cover color.
 
-### From the Mihon base
+<details>
+<summary><strong>From the Mihon base</strong></summary>
 
 The core manga experience is Mihon's (Tachiyomi lineage):
 
@@ -72,9 +75,13 @@ The core manga experience is Mihon's (Tachiyomi lineage):
 - Local backups, or to your own cloud storage.
 - Third-party extensions and repository management.
 
+</details>
+
 ## Contributing
 
-This is a personal fork, so development is sporadic: bug reports are genuinely welcome, but pull requests may take a while and might not be merged if they don't fit the fork's direction. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to report a bug, request a feature, or build the project.
+[Code of conduct](./CODE_OF_CONDUCT.md) · [Contributing guide](./CONTRIBUTING.md)
+
+This is a personal fork, so development is sporadic: bug reports are genuinely welcome, but pull requests may take a while and might not be merged if they don't fit the fork's direction. Report a bug with an [issue](https://github.com/unseensnick/Reikai/issues), and raise a feature idea or question in a [discussion](https://github.com/unseensnick/Reikai/discussions).
 
 Reikai does not maintain or fix extensions/sources. Problems with a specific source or extension are out of scope.
 
@@ -97,8 +104,9 @@ The developer of this application does not have any affiliation with the content
 
 ## License
 
-```
+<pre>
 Copyright © 2015 Javier Tomás
+Copyright © 2024 Mihon Open Source Project
 Copyright © 2026 unseensnick
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -112,4 +120,4 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-```
+</pre>
