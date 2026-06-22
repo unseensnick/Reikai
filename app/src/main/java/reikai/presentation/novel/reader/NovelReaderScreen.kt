@@ -1,6 +1,7 @@
 package reikai.presentation.novel.reader
 
 import android.app.Activity
+import android.content.pm.ActivityInfo
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.compose.animation.AnimatedVisibility
@@ -27,6 +28,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,6 +48,7 @@ import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.util.Screen
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import tachiyomi.core.common.util.lang.launchNonCancellable
 
 /**
@@ -115,6 +118,20 @@ class NovelReaderScreen(
                 window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
             onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+        }
+
+        // Lock the screen to this novel's resolved orientation while reading: apply on every change,
+        // and restore free rotation once on leave via a separate DisposableEffect(Unit) (the same
+        // idiom as the system-bars restore above). MainActivity has no fixed orientation, so
+        // UNSPECIFIED is the correct restore. NOTE: Android 16 (targetSdk 36) ignores app orientation
+        // requests on large screens (foldables unfolded, tablets), so this is a no-op there by OS
+        // policy; it takes effect on phones and folded covers.
+        LaunchedEffect(settings.resolvedOrientation) {
+            (context as? Activity)?.requestedOrientation =
+                ReaderOrientation.fromPreference(settings.resolvedOrientation).flag
+        }
+        DisposableEffect(Unit) {
+            onDispose { (context as? Activity)?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
         }
 
         // Record reading history when the reader is backgrounded (ON_PAUSE) or left (screen pop): the
@@ -215,6 +232,7 @@ class NovelReaderScreen(
                 onFollowSystem = screenModel::setFollowSystemTheme,
                 onPreset = screenModel::setThemePreset,
                 onKeepScreenOn = screenModel::setKeepScreenOn,
+                onOrientation = screenModel::setOrientation,
                 onDismiss = { settingsOpen = false },
             )
         }

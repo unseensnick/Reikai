@@ -2,13 +2,14 @@ package reikai.domain.novel.model
 
 import androidx.compose.runtime.Immutable
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import java.io.Serializable
 
 /**
  * Domain mirror of the `novels` SQLDelight table. Held disjoint from [tachiyomi.domain.manga.model.Manga]
  * because the source-id space differs (lnreader plugin.id is a [String], not a [Long]) and the
- * content is text rather than images, so several manga-only fields (viewer flags, scanlators,
- * fetch interval) don't apply.
+ * content is text rather than images, so most manga-only fields (scanlators, fetch interval) don't
+ * apply. [viewerFlags] is the one carried over: it stores the per-novel reader orientation only.
  */
 @Immutable
 data class Novel(
@@ -48,6 +49,12 @@ data class Novel(
     val editedFlags: Long,
     /** Free-text user note shown/edited on the details screen (the novel twin of `Manga.notes`). */
     val notes: String,
+    /**
+     * Reader viewer-flags bitmask, the novel twin of `Manga.viewerFlags`. Currently only the
+     * [ReaderOrientation] bits are used (novels have no reading mode); 0 means "follow the global
+     * default orientation". See [readerOrientation].
+     */
+    val viewerFlags: Long,
 ) : Serializable {
 
     companion object {
@@ -73,6 +80,14 @@ data class Novel(
             lastReadAt = null,
             editedFlags = 0L,
             notes = "",
+            viewerFlags = 0L,
         )
     }
 }
+
+/**
+ * The per-novel reader orientation bits (the novel twin of `Manga.readerOrientation`). 0 = DEFAULT,
+ * which the reader resolves to the global default orientation.
+ */
+val Novel.readerOrientation: Long
+    get() = viewerFlags and ReaderOrientation.MASK.toLong()

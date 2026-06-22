@@ -5,6 +5,8 @@ import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.track.service.TrackPreferences
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -15,6 +17,8 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.UpsertNovelHistory
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryUpdate
+import reikai.domain.novel.model.NovelUpdate
+import reikai.domain.novel.model.readerOrientation
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
@@ -88,6 +92,12 @@ class NovelReaderScreenModel(
 
     private val skipDupePref = novelPreferences.readerSkipDuplicateChapters()
 
+    /** Per-novel reader orientation override (a [ReaderOrientation] flagValue; 0 = follow the global
+     *  default), seeded from the host novel in [init]. Keyed on the opened entry [novelId] (the anchor
+     *  for a merged novel), since orientation is a book-level preference like sort/filter, not the
+     *  per-source progress that [currentNovelId] tracks. */
+    private val orientationOverride = MutableStateFlow(ReaderOrientation.DEFAULT.flagValue)
+
     /** Reading-order number of the current chapter; the skip-duplicate walk compares against it. */
     @Volatile
     private var currentNumber: Double = -1.0
@@ -146,7 +156,11 @@ class NovelReaderScreenModel(
             novelPreferences.readerTextColor().changes(),
         ) { followSystem, bg, text -> ThemePrefs(followSystem, bg, text) },
         novelPreferences.readerKeepScreenOn().changes(),
-    ) { display, theme, keepScreenOn ->
+        combine(
+            orientationOverride,
+            novelPreferences.readerDefaultOrientation().changes(),
+        ) { override, default -> OrientationPrefs(override, default) },
+    ) { display, theme, keepScreenOn, orient ->
         NovelReaderSettings(
             fontSize = display.fontSize,
             lineHeight = display.lineHeight,
@@ -157,22 +171,34 @@ class NovelReaderScreenModel(
             backgroundColor = theme.background,
             textColor = theme.textColor,
             keepScreenOn = keepScreenOn,
+            orientation = orient.override,
+            resolvedOrientation = orient.resolved,
         )
     }.stateIn(screenModelScope, SharingStarted.Eagerly, currentSettings())
 
-    private fun currentSettings() = NovelReaderSettings(
-        fontSize = novelPreferences.readerFontSize().get(),
-        lineHeight = novelPreferences.readerLineSpacing().get(),
-        textAlign = novelPreferences.readerTextAlign().get(),
-        padding = novelPreferences.readerPadding().get(),
-        fontFamily = novelPreferences.readerFontFamily().get(),
-        followSystemTheme = novelPreferences.readerFollowSystemTheme().get(),
-        backgroundColor = novelPreferences.readerBackgroundColor().get(),
-        textColor = novelPreferences.readerTextColor().get(),
-        keepScreenOn = novelPreferences.readerKeepScreenOn().get(),
-    )
+    private fun currentSettings(): NovelReaderSettings {
+        val override = orientationOverride.value
+        val default = novelPreferences.readerDefaultOrientation().get()
+        return NovelReaderSettings(
+            fontSize = novelPreferences.readerFontSize().get(),
+            lineHeight = novelPreferences.readerLineSpacing().get(),
+            textAlign = novelPreferences.readerTextAlign().get(),
+            padding = novelPreferences.readerPadding().get(),
+            fontFamily = novelPreferences.readerFontFamily().get(),
+            followSystemTheme = novelPreferences.readerFollowSystemTheme().get(),
+            backgroundColor = novelPreferences.readerBackgroundColor().get(),
+            textColor = novelPreferences.readerTextColor().get(),
+            keepScreenOn = novelPreferences.readerKeepScreenOn().get(),
+            orientation = override,
+            resolvedOrientation = OrientationPrefs(override, default).resolved,
+        )
+    }
 
     init {
+        // Seed the per-novel orientation from the opened entry (the anchor for a merged novel).
+        screenModelScope.launchIO {
+            novelRepo.getById(novelId)?.let { orientationOverride.value = it.readerOrientation.toInt() }
+        }
         load()
     }
 
@@ -249,6 +275,19 @@ class NovelReaderScreenModel(
     fun setFontFamily(value: String) = novelPreferences.readerFontFamily().set(value)
 
     fun setKeepScreenOn(value: Boolean) = novelPreferences.readerKeepScreenOn().set(value)
+
+    /** Set this novel's reader orientation (a [ReaderOrientation] flagValue; DEFAULT = follow the
+     *  global default). Writes only the orientation bits of the anchor's viewer_flags via a surgical
+     *  [NovelUpdate]; the override flow updates the live settings + the apply effect immediately. */
+    fun setOrientation(flagValue: Int) {
+        orientationOverride.value = flagValue
+        screenModelScope.launchIO {
+            val mask = ReaderOrientation.MASK.toLong()
+            val current = novelRepo.getById(novelId)?.viewerFlags ?: 0L
+            val newFlags = current and mask.inv() or (flagValue.toLong() and mask)
+            novelRepo.update(NovelUpdate(id = novelId, viewerFlags = newFlags))
+        }
+    }
 
     fun setFollowSystemTheme() = novelPreferences.readerFollowSystemTheme().set(true)
 
@@ -362,4 +401,10 @@ class NovelReaderScreenModel(
         val fontFamily: String,
     )
     private data class ThemePrefs(val followSystem: Boolean, val background: String, val textColor: String)
+
+    /** Per-novel orientation [override] + the global [default]; [resolved] is what the reader applies
+     *  (the override, or the default when the override is DEFAULT/unset). */
+    private data class OrientationPrefs(val override: Int, val default: Int) {
+        val resolved: Int get() = if (override == ReaderOrientation.DEFAULT.flagValue) default else override
+    }
 }

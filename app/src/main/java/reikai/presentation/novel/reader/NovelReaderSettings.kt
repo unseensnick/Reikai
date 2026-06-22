@@ -1,5 +1,7 @@
 package reikai.presentation.novel.reader
 
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+
 /**
  * Resolved reader display settings fed to the WebView (the LNReader `ChapterReaderSettings` subset
  * the web layer reads). [followSystemTheme] is carried so the settings sheet can show the "Auto"
@@ -15,7 +17,17 @@ data class NovelReaderSettings(
     val backgroundColor: String,
     val textColor: String,
     val keepScreenOn: Boolean,
+    /** The per-novel reader orientation `flagValue` (0 = Default, i.e. follow the global default).
+     *  Drives the settings sheet's current selection. */
+    val orientation: Int,
+    /** [orientation] resolved against the global default: the concrete orientation the reader applies. */
+    val resolvedOrientation: Int,
 )
+
+/** Per-novel orientation choices in the reader sheet: Default (follow the global default) plus the
+ *  concrete locks. Reverse-portrait is dropped (rarely wanted); the global-default Settings list
+ *  additionally drops Default. */
+val readerOrientations = ReaderOrientation.entries.filter { it != ReaderOrientation.REVERSE_PORTRAIT }
 
 /** A reader background + text color pairing. Tapping one in the settings sheet writes both. */
 data class ReaderThemePreset(val name: String, val background: String, val textColor: String)

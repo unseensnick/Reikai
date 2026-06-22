@@ -1,0 +1,5 @@
+-- Per-novel reader orientation (the novel twin of mangas.viewer, masked to the orientation bits): a
+-- viewer-flags bitmask so a novel can lock its reader orientation, falling back to the global default
+-- when unset (0). New column, so already-installed DBs need this migration; novels.sq's CREATE TABLE
+-- covers fresh installs.
+ALTER TABLE novels ADD viewer_flags INTEGER NOT NULL DEFAULT 0;
