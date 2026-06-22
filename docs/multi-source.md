@@ -2,13 +2,17 @@
 
 Many manga are available from multiple sources. Reikai folds same-title entries from different sources into a single library card so the library reflects unique manga rather than duplicates, and lets you switch between which source you're reading from on a per-manga basis.
 
+Light novels support the same cross-source merge, so a novel available from several sources groups the same way.
+
 Each section below leads with the in-app path or trigger so you know exactly where the feature lives.
 
 ## Auto grouping
 
-*No setup — automatic in the library.*
+*No setup: automatic in the library.*
 
-When two or more library entries share the same title (case-insensitive), they're rendered as a single card. A small pill badge in the corner of the card shows the source count (e.g. `2`, `3`).
+When two or more library entries share the same title (case-insensitive), they're rendered as a single card. This is on by default.
+
+By default the merged card shows the grouped sources' icons in its corner (up to three, with a "+N" overflow if there are more). If source icons are turned off or unavailable, the card falls back to a numeric count instead.
 
 Grouping is per-category, so the same manga across two categories still shows once per category.
 
@@ -16,11 +20,11 @@ Grouping is per-category, so the same manga across two categories still shows on
 
 *Manga details screen, in the header below the cover.*
 
-Open any manga that's part of a multi-source group and you'll see a horizontal chip row, one chip per source. The currently-displayed source is highlighted. Tap any other chip to switch to that source's version of the manga while keeping the merged-group context — chapters, progress, and library state all stay tied to the group.
+Open any manga that's part of a multi-source group and you'll see a horizontal chip row, one chip per source. The currently-displayed source is highlighted. Tap any other chip to switch to that source's version of the manga while keeping the merged-group context: chapters, progress, and library state all stay tied to the group.
 
-The chip row appears on phones and on sw600dp tablet/foldable layouts.
+Long-press a chip to split that source out of the group. A confirmation titled "Split" appears, reading "Split <source> out of this merged group?" Confirming returns that source to a standalone library card; the rest of the group stays merged.
 
-The chip row refreshes automatically whenever you return to the manga details screen from another screen (e.g. after adding a new same-title source via Global Search) — no need to back out to Library and come back.
+The chip row refreshes automatically whenever you return to the manga details screen from another screen (for example, after adding a new same-title source via Global Search), so there's no need to back out to Library and come back.
 
 ## Manual merge & unmerge
 
@@ -28,41 +32,41 @@ The auto-grouping is title-based; sometimes you want to merge entries that don't
 
 ### Merge
 
-*Library → long-press an entry to enter multi-select → tap any other entries you want to include → tap the **⋮ overflow menu** in the toolbar → **Merge selected**.*
+*Library → long-press an entry to enter multi-select → tap any other entries you want to include → tap **Merge** in the bottom action bar.*
 
-The Merge action lives in the overflow menu rather than the main toolbar — it isn't destructive, but it's also not something you want to fire accidentally. The selected entries become one library card and share the same chapter list, progress, and library state going forward.
+The **Merge** button appears in the bottom action bar once two or more entries are selected. The selected entries become one library card and share the same chapter list, progress, and library state going forward.
 
 ### Unmerge
 
-Two paths, both ending at the same confirmation dialog:
+Two paths, both ending at the same confirmation:
 
-- **From the source chips** — *Manga details → long-press a source chip → confirm "Remove from group".* Quickest if you only want to detach one source from the chip row you're already looking at.
-- **From the manage sources sheet** — *Manga details → overflow menu (⋮) → Manage sources → check one or more sources → tap "Split selected" → confirm.* Lets you split several sources at once and is easier than chip long-press on smaller screens.
+- **From the source chips**: *Manga details → long-press a source chip → confirm "Split".* Quickest if you only want to detach one source from the chip row you're already looking at.
+- **From the Manage sources dialog**: *Manga details → overflow menu (⋮) → Manage sources → choose a source → "Split".* Easier than chip long-press on smaller screens.
 
-Either way, the source you remove goes back to being a standalone library entry; the rest of the group stays merged.
+Either way, the source you split goes back to being a standalone library entry; the rest of the group stays merged. The split shows an Undo snackbar, so an accidental tap can be reverted within the grace period.
 
 Manual merge / unmerge state is included in app backups, so it survives a backup-and-restore.
 
-## Manage sources sheet
+## Manage sources dialog
 
 *Manga details → overflow menu (⋮) → Manage sources.*
 
-This sheet shows every source currently grouped with the open manga and lets you act on them in bulk. Tap anywhere on a row to toggle its checkbox; the bottom action bar exposes two operations on the selection:
+This dialog shows every source currently grouped with the open manga and offers three actions:
 
-- **Split selected** — detaches the checked sources from the group (same effect as long-pressing each chip), leaving them as standalone library entries.
-- **Remove selected from library** — unfavorites the checked sources outright, deleting their downloaded chapters and covers. Useful when you want to drop unwanted source duplicates entirely rather than just splitting them off.
+- **Split**: detaches a source from the group (same effect as long-pressing its chip), leaving it as a standalone library entry.
+- **Remove from library**: unfavorites a source outright, deleting its downloaded chapters and covers. Useful when you want to drop an unwanted source duplicate entirely rather than just splitting it off.
+- **Remove all from library**: unfavorites every source in the merged group at once. This is the only way to remove a whole group in one action.
 
-Both actions confirm via dialog and then show an undo snackbar — the change isn't committed until the snackbar dismisses, so an accidental tap can be reverted within the grace period.
+Split and remove actions show an Undo snackbar, so an accidental tap can be reverted within the grace period.
 
-The sheet only appears when the manga has at least one related library entry. To merge two existing entries, use Library multi-select → Merge selected (described above).
+## Removing merged entries from the library
 
-## Bulk "remove all sources from library"
+The favorite (heart) button on the manga details screen adds or removes only the one entry you're viewing. It does not offer a group-wide removal.
 
-When a multi-source group is in your library, removing it normally would only remove the entry you tapped on, leaving the other sources behind. Two paths handle the bulk case:
+A library multi-select delete (long-press to multi-select, then delete) removes only the entries you actually selected.
 
-- **Single-manga path** — *Manga details → tap the favorite (heart) button → "Remove all sources from library"* in the popup. Removes every source that's part of the same merged group.
-- **Library multi-select** — *Library, long-press to multi-select, include any merged-group entry in your selection, then delete.* The deletion automatically extends to all sources in any selected merged group, no extra confirmation needed.
+To remove an entire merged group in one step, use **Remove all from library** in the Manage sources dialog (above).
 
 ## Settings
 
-There's no dedicated settings screen for grouping. The two manual-merge preferences live in the standard preference store and are managed entirely through the chip / multi-select interactions described above.
+There's no dedicated settings screen for grouping. The grouping toggles live in the library display settings, and the manual merge / unmerge actions are driven entirely through the chip and multi-select interactions described above.
