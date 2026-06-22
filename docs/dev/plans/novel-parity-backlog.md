@@ -80,6 +80,7 @@ Reader
 
 Downloads
 - `app/src/main/java/reikai/presentation/download/NovelDownloadQueueList.kt` (flat reorderable list with boundary captions) and `NovelDownloadQueueScreenModel.kt` (flat state, `reorder` / `sort`)
+- `app/src/main/java/reikai/presentation/download/DownloadQueueSortSheet.kt` (the `TabbedDialog` + `SortItem` sort modal, matching the library / chapter sort sheets)
 - `app/src/main/java/reikai/novel/download/NovelDownloadManager.kt` (`reorderQueue`) and `NovelDownloadStore.kt` (`replaceAll`)
 - `app/src/main/java/eu/kanade/tachiyomi/ui/download/DownloadQueueScreen.kt` (`// RK` unified Sort across both queues)
 
