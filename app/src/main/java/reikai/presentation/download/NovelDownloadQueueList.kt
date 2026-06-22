@@ -52,12 +52,18 @@ fun NovelDownloadQueueList(
         localItems.add(to.index, localItems.removeAt(from.index))
     }
 
-    // Adopt the manager's order when not mid-drag (avoids clobbering the live drag); commit our order
-    // once a drag settles, only if it actually changed.
+    // Adopt the manager's order when not mid-drag (avoids clobbering the live drag), but only when it
+    // actually differs: after a drag commits, the manager echoes back the same order, and rebuilding
+    // the list then would reset the scroll position. Commit our order once a drag settles.
     LaunchedEffect(items) {
-        if (!reorderableState.isAnyItemDragging) {
+        val newIds = items.map { it.chapterId }
+        if (!reorderableState.isAnyItemDragging && newIds != localItems.map { it.chapterId }) {
+            val sameSet = newIds.toSet() == localItems.map { it.chapterId }.toSet()
             localItems.clear()
             localItems.addAll(items)
+            // A pure reorder (sort) keeps the same ids: show it from the top instead of letting the
+            // keyed list follow the old top item down to its new position (which reads as scrolling).
+            if (sameSet && newIds.isNotEmpty()) listState.scrollToItem(0)
         }
     }
     LaunchedEffect(reorderableState.isAnyItemDragging) {

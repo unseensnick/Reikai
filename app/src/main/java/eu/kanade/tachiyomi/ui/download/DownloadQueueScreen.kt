@@ -11,10 +11,9 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Pause
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -52,12 +51,12 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
-import eu.kanade.presentation.components.DropdownMenu
-import eu.kanade.presentation.components.NestedMenuItem
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.databinding.DownloadListBinding
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.download.DownloadQueueSortKey
+import reikai.presentation.download.DownloadQueueSortSheet
 import reikai.presentation.download.NovelDownloadQueueList
 import reikai.presentation.download.NovelDownloadQueueScreenModel
 import tachiyomi.core.common.util.lang.launchUI
@@ -88,6 +87,13 @@ object DownloadQueueScreen : Screen() {
         val showManga = contentType != ContentType.NOVELS
         val showNovels = contentType != ContentType.MANGA
         val shownCount = (if (showManga) downloadCount else 0) + (if (showNovels) novelCount else 0)
+        // sort acts on whichever queue(s) are visible, so in the ALL view one pick sorts both
+        val mangaSortable = showManga && downloadList.isNotEmpty()
+        val novelSortable = showNovels && novelItems.isNotEmpty()
+        var showSortSheet by remember { mutableStateOf(false) }
+        // Default to chapter number ascending (the natural download order), shown active in the sheet.
+        var sortKey by remember { mutableStateOf(DownloadQueueSortKey.CHAPTER_NUMBER) }
+        var sortDescending by remember { mutableStateOf(false) }
         // RK <--
 
         val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
@@ -139,76 +145,15 @@ object DownloadQueueScreen : Screen() {
                     },
                     navigateUp = navigator::pop,
                     actions = {
-                        // RK: sort acts on whichever queue(s) are visible, so in the ALL view one pick
-                        // sorts manga and novels by the same key. Novel chapters sort per-novel (the
-                        // novel side has no page metadata), mirroring the manga per-series sort.
-                        val mangaSortable = showManga && downloadList.isNotEmpty()
-                        val novelSortable = showNovels && novelItems.isNotEmpty()
+                        // RK: a standard sort modal (matching the library / chapter sort sheets) over
+                        // whichever queue(s) are visible, so in the ALL view one pick sorts both.
                         if (mangaSortable || novelSortable) {
-                            var sortExpanded by remember { mutableStateOf(false) }
-                            val onDismissRequest = { sortExpanded = false }
-                            DropdownMenu(
-                                expanded = sortExpanded,
-                                onDismissRequest = onDismissRequest,
-                            ) {
-                                NestedMenuItem(
-                                    text = { Text(text = stringResource(MR.strings.action_order_by_upload_date)) },
-                                    children = { closeMenu ->
-                                        DropdownMenuItem(
-                                            text = { Text(text = stringResource(MR.strings.action_newest)) },
-                                            onClick = {
-                                                if (mangaSortable) {
-                                                    screenModel.reorderQueue({ it.download.chapter.dateUpload }, true)
-                                                }
-                                                if (novelSortable) novelModel.sort({ it.dateUpload }, true)
-                                                closeMenu()
-                                            },
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text(text = stringResource(MR.strings.action_oldest)) },
-                                            onClick = {
-                                                if (mangaSortable) {
-                                                    screenModel.reorderQueue({ it.download.chapter.dateUpload }, false)
-                                                }
-                                                if (novelSortable) novelModel.sort({ it.dateUpload }, false)
-                                                closeMenu()
-                                            },
-                                        )
-                                    },
-                                )
-                                NestedMenuItem(
-                                    text = { Text(text = stringResource(MR.strings.action_order_by_chapter_number)) },
-                                    children = { closeMenu ->
-                                        DropdownMenuItem(
-                                            text = { Text(text = stringResource(MR.strings.action_asc)) },
-                                            onClick = {
-                                                if (mangaSortable) {
-                                                    screenModel.reorderQueue({ it.download.chapter.chapterNumber }, false)
-                                                }
-                                                if (novelSortable) novelModel.sort({ it.chapterNumber }, false)
-                                                closeMenu()
-                                            },
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text(text = stringResource(MR.strings.action_desc)) },
-                                            onClick = {
-                                                if (mangaSortable) {
-                                                    screenModel.reorderQueue({ it.download.chapter.chapterNumber }, true)
-                                                }
-                                                if (novelSortable) novelModel.sort({ it.chapterNumber }, true)
-                                                closeMenu()
-                                            },
-                                        )
-                                    },
-                                )
-                            }
-
                             AppBarActions(
                                 listOf(
                                     AppBar.Action(
                                         title = stringResource(MR.strings.action_sort),
-                                        icon = Icons.AutoMirrored.Outlined.Sort,
-                                        onClick = { sortExpanded = true },
+                                        icon = Icons.Outlined.FilterList,
+                                        onClick = { showSortSheet = true },
                                     ),
                                     AppBar.OverflowAction(
                                         title = stringResource(MR.strings.action_cancel_all),
@@ -369,6 +314,33 @@ object DownloadQueueScreen : Screen() {
                         }
                     }
                 }
+            }
+
+            if (showSortSheet) {
+                DownloadQueueSortSheet(
+                    sortKey = sortKey,
+                    sortDescending = sortDescending,
+                    onSort = { key ->
+                        val newDescending = if (key == sortKey) !sortDescending else sortDescending
+                        sortKey = key
+                        sortDescending = newDescending
+                        when (key) {
+                            DownloadQueueSortKey.UPLOAD_DATE -> {
+                                if (mangaSortable) {
+                                    screenModel.reorderQueue({ it.download.chapter.dateUpload }, newDescending)
+                                }
+                                if (novelSortable) novelModel.sort({ it.dateUpload }, newDescending)
+                            }
+                            DownloadQueueSortKey.CHAPTER_NUMBER -> {
+                                if (mangaSortable) {
+                                    screenModel.reorderQueue({ it.download.chapter.chapterNumber }, newDescending)
+                                }
+                                if (novelSortable) novelModel.sort({ it.chapterNumber }, newDescending)
+                            }
+                        }
+                    },
+                    onDismissRequest = { showSortSheet = false },
+                )
             }
             // RK <--
         }
