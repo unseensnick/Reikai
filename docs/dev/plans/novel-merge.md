@@ -24,7 +24,7 @@ A merge group is not a database row. It is computed on the fly from preference s
 - **Manual unmerges** (`novelManualUnmerges`): normalized `"min,max"` id pairs the user split apart.
 - **Auto same-title** (`novelAutoMergeSameTitle`): a toggle. When on, favorited novels with the same case-insensitive title auto-group, unless an unmerge pair forbids it.
 
-So a novel's group is its manual-merge members, plus same-title favorites (if auto is on), minus any unmerged pair. Storing groups as preferences means no schema and no migration, and groups round-trip through the generic preference backup for free.
+So a novel's group is its manual-merge members, plus same-title favorites (if auto is on), minus any unmerged pair. Storing groups as preferences means no schema and no migration. For backup, the id-based group prefs are serialized as stable `{url, source}` refs and rebuilt on restore, since the local ids change on a fresh install (see [novel-backup.md](novel-backup.md)).
 
 The pure set math is the **shared `MergeGroupAlgebra`** (`computeGroupIds` / `computeMerge` / `computeSplit` / `computeDissolve` plus the collapse parsers), operating only on `Long` ids and `Set<String>` pref encodings so it carries no domain types and is reused by both manga and novels verbatim. `NovelMergeManager` wraps it with the novel concerns: reading/writing the novel prefs, resolving same-title favorites, and the **same-title author guard**.
 
@@ -90,7 +90,7 @@ Shipped. P5 S8 is done and on-device verified (Roadmap P5 core sequence, marked 
 
 ## Decisions & tradeoffs
 
-- **Shared algebra with manga.** The group set math is identical for both content types, so it lives once in `MergeGroupAlgebra` (pure, heavily tested) and each manager adds only its own concern (manga: tracker healing; novel: the author guard). No duplicated set logic, no schema, and groups round-trip through preference backup.
+- **Shared algebra with manga.** The group set math is identical for both content types, so it lives once in `MergeGroupAlgebra` (pure, heavily tested) and each manager adds only its own concern (manga: tracker healing; novel: the author guard). No duplicated set logic and no schema; for backup, groups are serialized as `{url, source}` refs and rebuilt on restore (see [novel-backup.md](novel-backup.md)).
 - **Title-first matching, not number-first.** Forced by novels: chapter numbers disagree across sources far more than manga's, and title-only MTL chapters have no number at all. The normalized-title key is the chosen middle ground; no fuzzy/edit-distance matching (a normalized exact match is predictable and cheap). The label-word stripper is English-only (deferred i18n; most LN sources are English).
 - **Most-chapters trunk, not distinct-count.** Manga counts distinct recognized numbers to defeat scanlator-duplicate rows. Novels have no scanlator variants, so raw chapter count is both correct and simpler.
 - **Group-aware tracking is owned, so one row not copy-per-member.** Rather than mirroring a `manga_sync`-style row onto every member (the manga copy-on-write approach), the novel side resolves the whole group through `NovelMergeManager` and keeps a single tracker binding the group shares. Before a split, the details screen runs `PropagateNovelTrackerLinks.distribute` so each surviving source still carries the tracker afterward. (Full rationale in [novel-tracking.md](novel-tracking.md).)
