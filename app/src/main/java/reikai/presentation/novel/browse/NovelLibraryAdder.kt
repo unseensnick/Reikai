@@ -3,6 +3,7 @@ package reikai.presentation.novel.browse
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.SetNovelCategories
+import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSourceManager
@@ -18,6 +19,7 @@ class NovelLibraryAdder(
     private val manager: NovelSourceManager,
     private val getNovelCategories: GetNovelCategories,
     private val setNovelCategories: SetNovelCategories,
+    private val updateNovel: UpdateNovel,
 ) {
 
     /** Decide the long-press outcome: remove (already saved), confirm a possible duplicate, or add. */
@@ -58,7 +60,7 @@ class NovelLibraryAdder(
         )
         val stored = novelRepository.insertOrGet(base) ?: return null
         if (!stored.favorite) {
-            novelRepository.update(stored.copy(favorite = true, dateAdded = System.currentTimeMillis()))
+            updateNovel.awaitUpdateFavorite(stored.id, favorite = true)
         }
         val categories = getNovelCategories.await().filter { it.id > 0L }
         return if (categories.isNotEmpty()) {
@@ -76,7 +78,7 @@ class NovelLibraryAdder(
     /** Remove a favorited result from the library (keeps the row + read state, like the manga side). */
     suspend fun confirmRemove(item: NovelItem, sourceId: String) {
         novelRepository.getByUrlAndSource(item.path, sourceId)?.let {
-            novelRepository.update(it.copy(favorite = false))
+            updateNovel.awaitUpdateFavorite(it.id, favorite = false)
         }
     }
 }

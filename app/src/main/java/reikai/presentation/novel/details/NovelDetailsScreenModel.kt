@@ -41,6 +41,8 @@ import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.RefreshNovelTracks
 import reikai.domain.novel.interactor.SetNovelCategories
+import reikai.domain.novel.interactor.SetNovelChapterFlags
+import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.model.Novel
@@ -48,6 +50,7 @@ import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelChapterFlags
 import reikai.domain.novel.model.NovelEditFlags
+import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.effectiveBookmarkedFilter
 import reikai.domain.novel.model.effectiveHideChapterTitles
 import reikai.domain.novel.model.effectiveReadFilter
@@ -55,7 +58,6 @@ import reikai.domain.novel.model.effectiveSortDescending
 import reikai.domain.novel.model.effectiveSorting
 import reikai.domain.novel.model.mergeRefreshedNovel
 import reikai.domain.novel.model.setEditedFlag
-import reikai.domain.novel.model.setNovelFlag
 import reikai.domain.novel.model.sortedAndFiltered
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadManager
@@ -89,6 +91,8 @@ class NovelDetailsScreenModel(
 ) : StateScreenModel<NovelDetailsState>(NovelDetailsState.Loading) {
 
     private val novelRepo: NovelRepository by injectLazy()
+    private val updateNovel: UpdateNovel by injectLazy()
+    private val setNovelChapterFlags: SetNovelChapterFlags by injectLazy()
     private val chapterRepo: NovelChapterRepository by injectLazy()
     private val database: Database by injectLazy()
     private val downloadManager: NovelDownloadManager by injectLazy()
@@ -594,8 +598,10 @@ class NovelDetailsScreenModel(
         removeSourcesFromLibrary(relatedNovelIds.value.toList())
     }
 
+    // Favorite-only (not awaitUpdateFavorite): the merge-source undo restores a removed group, so the
+    // original dateAdded must survive instead of being re-stamped.
     private suspend fun setFavorites(ids: List<Long>, favorite: Boolean) {
-        ids.forEach { id -> novelRepo.getById(id)?.let { novelRepo.update(it.copy(favorite = favorite)) } }
+        ids.forEach { id -> updateNovel.await(NovelUpdate(id = id, favorite = favorite)) }
     }
 
     /** Renumber sourceOrder over the unified list (ascending by chapter number = reading order) so a
@@ -662,14 +668,14 @@ class NovelDetailsScreenModel(
         screenModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
             if (!novel.favorite) {
-                novelRepo.update(novel.copy(favorite = true, dateAdded = System.currentTimeMillis()))
+                updateNovel.awaitUpdateFavorite(novel.id, favorite = true)
                 val categories = getNovelCategories.await().filter { it.id > 0L }
                 if (categories.isNotEmpty()) {
                     val current = getNovelCategories.awaitByNovelId(novel.id).map { it.id }.toSet()
                     updateLoaded { it.copy(dialog = NovelDetailsDialog.ChangeCategory(categories, current)) }
                 }
             } else {
-                novelRepo.update(novel.copy(favorite = false))
+                updateNovel.awaitUpdateFavorite(novel.id, favorite = false)
             }
         }
     }
@@ -761,28 +767,14 @@ class NovelDetailsScreenModel(
 
     // --- Chapter sort / filter / display ---
 
-    fun setSortOrder(sort: Long, descending: Boolean) = updateChapterFlags { flags ->
-        var f = setNovelFlag(flags, sort, NovelChapterFlags.SORTING_MASK)
-        f =
-            setNovelFlag(
-                f,
-                if (descending) NovelChapterFlags.SORT_DESC else NovelChapterFlags.SORT_ASC,
-                NovelChapterFlags.SORT_DIR_MASK,
-            )
-        setNovelFlag(f, NovelChapterFlags.SORT_LOCAL, NovelChapterFlags.SORT_LOCAL_MASK)
-    }
+    fun setSortOrder(sort: Long, descending: Boolean) =
+        withLoadedNovel { setNovelChapterFlags.awaitSetSortOrder(it, sort, descending) }
 
-    fun setFilters(read: Long, bookmarked: Long) = updateChapterFlags { flags ->
-        var f = setNovelFlag(flags, read, NovelChapterFlags.READ_MASK)
-        f = setNovelFlag(f, bookmarked, NovelChapterFlags.BOOKMARKED_MASK)
-        setNovelFlag(f, NovelChapterFlags.FILTER_LOCAL, NovelChapterFlags.FILTER_LOCAL_MASK)
-    }
+    fun setFilters(read: Long, bookmarked: Long) =
+        withLoadedNovel { setNovelChapterFlags.awaitSetFilters(it, read, bookmarked) }
 
-    fun setHideChapterTitles(hide: Boolean) = updateChapterFlags { flags ->
-        val display = if (hide) NovelChapterFlags.DISPLAY_NUMBER else NovelChapterFlags.DISPLAY_NAME
-        val f = setNovelFlag(flags, display, NovelChapterFlags.DISPLAY_MASK)
-        setNovelFlag(f, NovelChapterFlags.SORT_LOCAL, NovelChapterFlags.SORT_LOCAL_MASK)
-    }
+    fun setHideChapterTitles(hide: Boolean) =
+        withLoadedNovel { setNovelChapterFlags.awaitSetHideTitles(it, hide) }
 
     /** Write the current view as the global chapter-settings default and drop this novel's overrides. */
     fun setChapterSettingsAsDefault() {
@@ -793,29 +785,18 @@ class NovelDetailsScreenModel(
             novelPreferences.defaultChapterHideTitles().set(loaded.hideChapterTitles)
             novelPreferences.defaultChapterFilterUnread().set(loaded.readFilter)
             novelPreferences.defaultChapterFilterBookmarked().set(loaded.bookmarkedFilter)
-            novelRepo.update(loaded.novel.copy(chapterFlags = clearLocalBits(loaded.novel.chapterFlags)))
+            setNovelChapterFlags.awaitClearLocalOverrides(loaded.novel)
         }
     }
 
     /** Drop this novel's overrides so the global default applies. */
-    fun resetChapterSettings() {
+    fun resetChapterSettings() =
+        withLoadedNovel { setNovelChapterFlags.awaitClearLocalOverrides(it) }
+
+    private fun withLoadedNovel(block: suspend (Novel) -> Unit) {
         screenModelScope.launchIO {
             val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
-            novelRepo.update(n.copy(chapterFlags = clearLocalBits(n.chapterFlags)))
-        }
-    }
-
-    private fun clearLocalBits(flags: Long): Long =
-        setNovelFlag(
-            setNovelFlag(flags, 0L, NovelChapterFlags.SORT_LOCAL_MASK),
-            0L,
-            NovelChapterFlags.FILTER_LOCAL_MASK,
-        )
-
-    private inline fun updateChapterFlags(crossinline transform: (Long) -> Long) {
-        screenModelScope.launchIO {
-            val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
-            novelRepo.update(n.copy(chapterFlags = transform(n.chapterFlags)))
+            block(n)
         }
     }
 

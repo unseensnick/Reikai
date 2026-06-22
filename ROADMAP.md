@@ -31,7 +31,6 @@ Nothing actively in progress.
 Queued, roughly in priority order.
 
 - **Release pipeline first-run verify**  `[S]`: create the `PREVIEW_REPO_TOKEN` fine-grained PAT (Contents: write on `unseensnick/Reikai-preview`) as a secret on `unseensnick/Reikai`, then confirm a push publishes a preview, a tag draft-publishes a release, and the in-app updater prompts on both. User action; the workflows are built.
-- **Migrate novel writes to `NovelUpdate`**  `[M]`: move the remaining full-row `novelRepo.update(Novel)` callers (favorite toggle, edit-info, last-read stamp, flags) onto surgical partial-update patches, matching manga's `MangaUpdate`. Keep full-row writes for restore / edit-info paths that legitimately write nulls; `genre` and `update_strategy` stay full-row (SQLDelight drops their adapters on the coalesce path). See [novel-parity-backlog.md](docs/dev/plans/novel-parity-backlog.md).
 - **Batch / library migration for novels**  `[M]`/`[L]`: match manga's full flow (order target sources, a per-novel review list, a Copy/Migrate confirm). Scouted and decided; reuses `MigrateNovelUseCase`, `MigrateNovelDialog`, `NovelGlobalSearchResults`. The per-novel review list matters because novels have no smart-title matching. See [novel-parity-backlog.md](docs/dev/plans/novel-parity-backlog.md).
 - **Full download-queue reorder**  `[S]`/`[M]`: drag-to-reorder across one flattened novel queue plus a Sort menu (upload date, chapter number), persisted to `NovelDownloadStore`. Scouted and decided; today the queue has bump-to-top + pause/resume only.
 - **Restore-path onboarding**  `[S]`/`[M]`: turn the passive "couldn't reinstall" restore-log lines into a guided post-restore step that walks the user through reinstalling the missing extensions / plugins. Builds on the installed-sources backup. See [novel-backup.md](docs/dev/plans/novel-backup.md).
@@ -94,6 +93,7 @@ Terse done-log, grouped by area. Full detail in the linked plan docs.
 
 ### Novel parity backlog
 - History tab, source migration, per-novel notes, novels in Stats, reader orientation lock, keep-screen-on, incognito, downloaded-only mode, mark-read-on-skip, download retry + Wi-Fi-only, global-search long-press add, collapse-at-bottom grouping, category filter, bulk-download dropdown, working Last-read sort, source pinning + global-search chips. Per-item commit SHAs in [novel-parity-backlog.md](docs/dev/plans/novel-parity-backlog.md).
+- Surgical novel writes: favorite / cover / chapter-flag / orientation changes route through `UpdateNovel` / `SetNovelChapterFlags` / `SetNovelViewerFlags` interactors (the novel twins of Mihon's), writing one column instead of the whole row. See [novel-parity-backlog.md](docs/dev/plans/novel-parity-backlog.md).
 
 ### Unified surfaces
 - Unified Updates tab: manga + novel interleaved, filters, by-category, group-by-series. See [unified-updates.md](docs/dev/plans/unified-updates.md).

@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import reikai.data.coil.NovelCover
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
@@ -29,7 +30,6 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.time.Instant
 
 /**
  * Backs the novel full-cover dialog, the novel twin of
@@ -44,6 +44,7 @@ class NovelCoverScreenModel(
     private val novelSource: String,
     private val site: String?,
     private val novelRepo: NovelRepository = Injekt.get(),
+    private val updateNovel: UpdateNovel = Injekt.get(),
     private val coverCache: CoverCache = Injekt.get(),
     private val imageSaver: ImageSaver = Injekt.get(),
 
@@ -115,7 +116,7 @@ class NovelCoverScreenModel(
                 context.contentResolver.openInputStream(data)?.use { input ->
                     coverCache.getCustomCoverFile(-novel.id).outputStream().use { output -> input.copyTo(output) }
                 }
-                novelRepo.update(novel.copy(coverLastModified = Instant.now().toEpochMilli()))
+                updateNovel.awaitUpdateCoverLastModified(novel.id)
                 notifyCoverUpdated(context)
             } catch (e: Exception) {
                 notifyFailed(context, e)
@@ -128,7 +129,7 @@ class NovelCoverScreenModel(
         screenModelScope.launchIO {
             try {
                 coverCache.deleteCustomCover(-novel.id)
-                novelRepo.update(novel.copy(coverLastModified = Instant.now().toEpochMilli()))
+                updateNovel.awaitUpdateCoverLastModified(novel.id)
                 notifyCoverUpdated(context)
             } catch (e: Exception) {
                 notifyFailed(context, e)

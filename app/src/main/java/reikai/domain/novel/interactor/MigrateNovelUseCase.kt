@@ -3,10 +3,10 @@ package reikai.domain.novel.interactor
 import kotlinx.coroutines.CancellationException
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
-import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelMigrationFlag
+import reikai.domain.novel.model.NovelUpdate
 import reikai.novel.download.NovelDownloadManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -21,12 +21,12 @@ import uy.kohesive.injekt.api.get
  * group. History-tab rows and tracks are intentionally not carried (parity with Mihon).
  */
 class MigrateNovelUseCase(
-    private val novelRepository: NovelRepository = Injekt.get(),
     private val novelChapterRepository: NovelChapterRepository = Injekt.get(),
     private val getNovelCategories: GetNovelCategories = Injekt.get(),
     private val setNovelCategories: SetNovelCategories = Injekt.get(),
     private val novelMergeManager: NovelMergeManager = Injekt.get(),
     private val novelDownloadManager: NovelDownloadManager = Injekt.get(),
+    private val updateNovel: UpdateNovel = Injekt.get(),
 ) {
 
     suspend operator fun invoke(
@@ -56,15 +56,19 @@ class MigrateNovelUseCase(
                 setNovelCategories.await(target.id, categoryIds)
             }
 
-            novelRepository.update(
-                target.copy(favorite = true, lastReadAt = current.lastReadAt ?: target.lastReadAt),
+            updateNovel.await(
+                NovelUpdate(
+                    id = target.id,
+                    favorite = true,
+                    lastReadAt = current.lastReadAt ?: target.lastReadAt,
+                ),
             )
 
             if (replace) {
                 // Resolve the old novel's merge group before unfavoriting it, then split it out so no
                 // dangling merge-pref pair lingers (harmless, but tidy).
                 val group = novelMergeManager.computeRelatedNovelIds(current.id, current.title, current.author)
-                novelRepository.update(current.copy(favorite = false))
+                updateNovel.await(NovelUpdate(id = current.id, favorite = false))
                 if (group.size > 1) novelMergeManager.removeFromGroup(group, listOf(current.id))
             }
         } catch (e: CancellationException) {
