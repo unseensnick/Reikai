@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpsertNovelHistory
 import reikai.domain.novel.model.NovelChapter
@@ -74,6 +75,7 @@ class NovelReaderScreenModel(
     private val downloadManager: NovelDownloadManager by injectLazy()
     private val upsertNovelHistory: UpsertNovelHistory by injectLazy()
     private val setNovelViewerFlags: SetNovelViewerFlags by injectLazy()
+    private val getNovelCategories: GetNovelCategories by injectLazy()
 
     // RK --> novel trackers (Active #8): push read progress on chapter completion
     private val trackNovelChapter: TrackNovelChapter by injectLazy()
@@ -267,6 +269,21 @@ class NovelReaderScreenModel(
         resolvedPrev = resolveNeighbor(-1)
         resolvedNext = resolveNeighbor(+1)
         prefetchNext()
+        maybeDownloadAhead()
+    }
+
+    /** Download-ahead: enqueue the next N un-downloaded chapters in reading order (novel twin of manga's
+     *  autoDownloadWhileReading). Skipped in incognito and when off. */
+    private suspend fun maybeDownloadAhead() {
+        if (incognitoMode) return
+        val ahead = novelPreferences.autoDownloadWhileReading().get()
+        if (ahead <= 0) return
+        val index = orderedIds.indexOf(currentId)
+        if (index < 0) return
+        val nextIds = orderedIds.drop(index + 1).take(ahead)
+        val toDownload = nextIds.mapNotNull { chapterRepo.getById(it) }
+            .filterNot { downloadManager.isChapterDownloaded(it) }
+        if (toDownload.isNotEmpty()) downloadManager.downloadChapters(toDownload)
     }
 
     fun setFontSize(value: Int) = novelPreferences.readerFontSize().set(value)
@@ -314,11 +331,31 @@ class NovelReaderScreenModel(
                 }
                 // RK <--
                 // The in-RAM htmlCache keeps the current view alive, so deleting the file is safe here.
-                if (novelPreferences.removeAfterMarkedAsRead().get()) {
-                    chapter?.let { downloadManager.deleteChapters(listOf(it)) }
-                }
+                maybeDeleteAfterRead(id)
             }
         }
+    }
+
+    /** Auto-delete on read: keep the last N read chapters downloaded (the [removeAfterReadSlots] buffer;
+     *  the legacy [removeAfterMarkedAsRead] boolean maps to slot 0), skipping a bookmarked chapter unless
+     *  allowed and skipping novels in an excluded category. Deletes the chapter [slots] positions back in
+     *  reading order, so sequential reading keeps a rolling buffer. */
+    private suspend fun maybeDeleteAfterRead(readChapterId: Long) {
+        val slots = novelPreferences.removeAfterReadSlots().get().let {
+            if (it >= 0) it else if (novelPreferences.removeAfterMarkedAsRead().get()) 0 else return
+        }
+        val index = orderedIds.indexOf(readChapterId)
+        if (index < 0) return
+        val targetId = orderedIds.getOrNull(index - slots) ?: return
+        val target = chapterRepo.getById(targetId) ?: return
+        if (!target.read) return
+        if (target.bookmark && !novelPreferences.removeBookmarkedChapters().get()) return
+        val excluded = novelPreferences.removeExcludeCategories().get().mapNotNull { it.toLongOrNull() }
+        if (excluded.isNotEmpty()) {
+            val cats = getNovelCategories.awaitByNovelId(currentNovelId).map { it.id }.ifEmpty { listOf(0L) }
+            if (cats.intersect(excluded.toSet()).isNotEmpty()) return
+        }
+        downloadManager.deleteChapters(listOf(target))
     }
 
     private fun load() {

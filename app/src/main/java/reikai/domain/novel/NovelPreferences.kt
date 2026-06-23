@@ -114,6 +114,23 @@ class NovelPreferences(
     /** Delete a downloaded chapter's offline copy once it's marked read. */
     fun removeAfterMarkedAsRead() = preferenceStore.getBoolean("novel_remove_after_marked_as_read", false)
 
+    /** Keep only the last N read chapters downloaded (a rolling buffer), the novel twin of manga's
+     *  `removeAfterReadSlots`. -1 = off; 0 = delete the just-read chapter; 1 = keep 1 back, etc. When
+     *  set (>= 0) it takes precedence over [removeAfterMarkedAsRead]. */
+    fun removeAfterReadSlots() = preferenceStore.getInt("novel_remove_after_read_slots", -1)
+
+    /** When false (default), never auto-delete a bookmarked chapter on read. Twin of manga's
+     *  `removeBookmarkedChapters`. */
+    fun removeBookmarkedChapters() = preferenceStore.getBoolean("novel_remove_bookmarked", false)
+
+    /** Category ids whose novels' chapters are never auto-deleted on read. Twin of manga's
+     *  `removeExcludeCategories`. */
+    fun removeExcludeCategories() = preferenceStore.getStringSet("novel_remove_exclude_categories", emptySet())
+
+    /** Download the next N un-downloaded chapters as you read (download-ahead). 0 = off. Twin of
+     *  manga's `autoDownloadWhileReading`. */
+    fun autoDownloadWhileReading() = preferenceStore.getInt("novel_auto_download_while_reading", 0)
+
     /** Auto-download newly fetched chapters when an update is detected. The pref + manager plumbing
      *  land in S5; the update-detection trigger that consumes it is wired in S7. */
     fun downloadNewChapters() = preferenceStore.getBoolean("novel_download_new_chapters", false)
