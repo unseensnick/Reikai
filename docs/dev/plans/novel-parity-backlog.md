@@ -103,7 +103,7 @@ All shipped and on-device verified (Z Fold / Fold6).
 |---|---|---|
 | Novel History tab (Roadmap 5) | History | `bc0b78d37`..`2d2807015` |
 | Migrate a novel to another source (Roadmap 7) | Migration | `9756d2a76` (download re-queue follow-up `fc6dabb03`) |
-| Batch / library migration (unified 1..N screen) | Migration | `_pending_` |
+| Batch / library migration (unified 1..N screen) | Migration | `e80c66a0b` |
 | "Downloaded only" novel library mode | Library modes | `f7d85efcd` |
 | Incognito mode for novels | Library modes | `25d046329` |
 | Per-novel reader orientation lock | Reader | `37bfa661f` |
