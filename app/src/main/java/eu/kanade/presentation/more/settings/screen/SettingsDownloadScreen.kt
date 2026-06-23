@@ -98,8 +98,7 @@ object SettingsDownloadScreen : SearchableSettings {
         novelCategories: List<Category>,
     ): Preference.PreferenceGroup {
         // Each shared setting is paired manga-then-novel and labelled with the content type, so the
-        // duplicated titles read clearly. RK: removeAfterMarkedAsRead is manga-only; the novel reader's
-        // single delete trigger folds it into removeAfterReadSlots (slot 0 fallback).
+        // duplicated titles read clearly.
         val slotEntries = mapOf(
             -1 to stringResource(MR.strings.disabled),
             0 to stringResource(MR.strings.last_read_chapter),
@@ -117,6 +116,11 @@ object SettingsDownloadScreen : SearchableSettings {
                     preference = downloadPreferences.removeAfterMarkedAsRead,
                     title = stringResource(MR.strings.pref_remove_after_marked_as_read),
                     subtitle = mangaLabel,
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.removeAfterMarkedAsRead(),
+                    title = stringResource(MR.strings.pref_remove_after_marked_as_read),
+                    subtitle = novelLabel,
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = downloadPreferences.removeAfterReadSlots,

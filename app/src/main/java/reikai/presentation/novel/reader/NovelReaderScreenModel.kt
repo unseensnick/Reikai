@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
 import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpsertNovelHistory
@@ -76,6 +77,7 @@ class NovelReaderScreenModel(
     private val upsertNovelHistory: UpsertNovelHistory by injectLazy()
     private val setNovelViewerFlags: SetNovelViewerFlags by injectLazy()
     private val getNovelCategories: GetNovelCategories by injectLazy()
+    private val deleteNovelChaptersAfterRead: DeleteNovelChaptersAfterRead by injectLazy()
 
     // RK --> novel trackers (Active #8): push read progress on chapter completion
     private val trackNovelChapter: TrackNovelChapter by injectLazy()
@@ -331,19 +333,20 @@ class NovelReaderScreenModel(
                 }
                 // RK <--
                 // The in-RAM htmlCache keeps the current view alive, so deleting the file is safe here.
+                // Finishing a chapter marks it read, so honor "delete after marked as read" too.
+                chapter?.let { deleteNovelChaptersAfterRead.await(currentNovelId, listOf(it)) }
                 maybeDeleteAfterRead(id)
             }
         }
     }
 
-    /** Auto-delete on read: keep the last N read chapters downloaded (the [removeAfterReadSlots] buffer;
-     *  the legacy [removeAfterMarkedAsRead] boolean maps to slot 0), skipping a bookmarked chapter unless
-     *  allowed and skipping novels in an excluded category. Deletes the chapter [slots] positions back in
-     *  reading order, so sequential reading keeps a rolling buffer. */
+    /** Keep the last N read chapters downloaded (the [NovelPreferences.removeAfterReadSlots] buffer):
+     *  delete the chapter [slots] positions back in reading order, so sequential reading keeps a rolling
+     *  buffer. Skips a bookmarked chapter unless allowed and novels in an excluded category. The separate
+     *  "delete after marked as read" pref is handled by [deleteNovelChaptersAfterRead] on the mark itself. */
     private suspend fun maybeDeleteAfterRead(readChapterId: Long) {
-        val slots = novelPreferences.removeAfterReadSlots().get().let {
-            if (it >= 0) it else if (novelPreferences.removeAfterMarkedAsRead().get()) 0 else return
-        }
+        val slots = novelPreferences.removeAfterReadSlots().get()
+        if (slots < 0) return
         val index = orderedIds.indexOf(readChapterId)
         if (index < 0) return
         val targetId = orderedIds.getOrNull(index - slots) ?: return
