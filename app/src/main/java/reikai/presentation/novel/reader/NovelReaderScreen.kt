@@ -178,6 +178,7 @@ class NovelReaderScreen(
                     hasNext = s.hasNext,
                     onToggleMenu = { menuVisible = !menuVisible },
                     onSaveProgress = screenModel::saveProgress,
+                    onNavigate = { forward -> if (forward) screenModel.next() else screenModel.prev() },
                     ttsController = screenModel.ttsController,
                     modifier = Modifier.fillMaxSize(),
                 )
@@ -263,6 +264,10 @@ class NovelReaderScreen(
                 currentTtsEngine = screenModel.ttsEnginePackage(),
                 currentTtsVoice = screenModel.ttsVoiceName(),
                 currentTtsLanguages = screenModel.ttsLanguages(),
+                onBionicReading = screenModel::setBionicReading,
+                onRemoveExtraSpacing = screenModel::setRemoveExtraSpacing,
+                onTapToScroll = screenModel::setTapToScroll,
+                onSwipeGestures = screenModel::setSwipeGestures,
                 onDismiss = { settingsOpen = false },
             )
         }

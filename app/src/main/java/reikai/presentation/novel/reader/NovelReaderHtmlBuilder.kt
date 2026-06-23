@@ -153,7 +153,7 @@ fun generalSettingsJson(settings: NovelReaderSettings): JSONObject = JSONObject(
     put("keepScreenOn", true)
     put("fullScreenMode", true)
     put("pageReader", false)
-    put("swipeGestures", false)
+    put("swipeGestures", settings.swipeGestures)
     put("showScrollPercentage", false)
     put("useVolumeButtons", false)
     put("volumeButtonsOffset", JSONObject.NULL)
@@ -162,9 +162,9 @@ fun generalSettingsJson(settings: NovelReaderSettings): JSONObject = JSONObject(
     put("autoScrollInterval", 10)
     put("autoScrollOffset", JSONObject.NULL)
     put("verticalSeekbar", false)
-    put("removeExtraParagraphSpacing", false)
-    put("bionicReading", false)
-    put("tapToScroll", false)
+    put("removeExtraParagraphSpacing", settings.removeExtraSpacing)
+    put("bionicReading", settings.bionicReading)
+    put("tapToScroll", settings.tapToScroll)
     put("TTSEnable", settings.ttsEnabled)
 }
 
