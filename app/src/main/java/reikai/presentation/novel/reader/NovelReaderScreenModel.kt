@@ -439,6 +439,7 @@ class NovelReaderScreenModel(
             currentNumber = chapter.chapterNumber
             currentNovelId = chapter.novelId
             chapterReadStartTime = System.currentTimeMillis()
+            ttsController.setNowPlaying(chapter.name)
             val (html, baseUrl) = htmlCache[id] ?: loadChapterHtml(chapter).also { htmlCache[id] = it }
             resolveBothNeighbors()
             NovelReaderState.Loaded(

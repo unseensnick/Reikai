@@ -7,14 +7,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONObject
+import reikai.data.novel.tts.NovelTtsService
+import reikai.data.novel.tts.NovelTtsSession
 import reikai.data.novel.tts.SystemTtsEngine
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.tts.NovelTtsEngine
 import reikai.domain.novel.tts.TtsEngineInfo
+import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.novel.tts.TtsVoice
-
-/** Reader TTS playback state for the floating control's icon. */
-enum class TtsPlayback { Stopped, Playing, Paused }
 
 /**
  * Drives read-aloud for the novel reader. The WebView's `core.js` owns "which paragraph and the
@@ -25,8 +25,9 @@ enum class TtsPlayback { Stopped, Playing, Paused }
  * Lifecycle-owned by [NovelReaderScreenModel] (so it survives rotation); the WebView registers its
  * `evaluateJavascript` sink via [setEvalJs] and forwards `core.js` messages via [onWebMessage].
  *
- * Background playback (keep reading when the app is backgrounded) and the media notification land in
- * the next stage; here read-aloud runs while the reader is on screen.
+ * Playback state is mirrored to [NovelTtsSession], which [NovelTtsService] renders as a media-style
+ * notification + MediaSession (lock-screen / headset controls) and which keeps the process alive so
+ * reading continues when the app is backgrounded.
  */
 class NovelTtsController(
     private val context: Context,
@@ -51,12 +52,39 @@ class NovelTtsController(
      *  one so it doesn't reset our just-set Playing state. */
     private var suppressStopOnce = false
 
+    /** Now-playing chapter title for the media notification. */
+    private var nowPlaying: String = ""
+
     fun setEvalJs(sink: (String) -> Unit) {
         evalJs = sink
     }
 
     fun clearEvalJs() {
         evalJs = null
+    }
+
+    /** Current chapter title, shown in the media notification. */
+    fun setNowPlaying(title: String) {
+        nowPlaying = title
+        if (_playback.value != TtsPlayback.Stopped) publishSession()
+    }
+
+    private fun setPlayback(value: TtsPlayback) {
+        _playback.value = value
+        publishSession()
+    }
+
+    private fun publishSession() {
+        NovelTtsSession.state.value = NovelTtsSession.State(_playback.value, nowPlaying)
+    }
+
+    /** Point the shared session's transport actions at this controller and bring up the foreground
+     *  service (keep-alive + media notification). Idempotent. */
+    private fun ensureSessionAndService() {
+        NovelTtsSession.onPlay = ::play
+        NovelTtsSession.onPause = ::pause
+        NovelTtsSession.onStop = ::stop
+        NovelTtsService.start(context)
     }
 
     private fun ensureEngine(): NovelTtsEngine =
@@ -93,13 +121,14 @@ class NovelTtsController(
     fun toggle() = if (_playback.value == TtsPlayback.Playing) pause() else play()
 
     fun play() {
+        ensureSessionAndService()
         val e = ensureEngine()
         if (_playback.value == TtsPlayback.Paused) {
-            _playback.value = TtsPlayback.Playing
+            setPlayback(TtsPlayback.Playing)
             evalJs?.invoke(JS_RESUME)
             return
         }
-        _playback.value = TtsPlayback.Playing
+        setPlayback(TtsPlayback.Playing)
         if (e.isReady) issueStart() else startPending = true
     }
 
@@ -111,7 +140,7 @@ class NovelTtsController(
 
     fun pause() {
         if (_playback.value != TtsPlayback.Playing) return
-        _playback.value = TtsPlayback.Paused
+        setPlayback(TtsPlayback.Paused)
         evalJs?.invoke(JS_PAUSE)
     }
 
@@ -119,7 +148,7 @@ class NovelTtsController(
         startPending = false
         autoStartPending = false
         suppressStopOnce = false
-        _playback.value = TtsPlayback.Stopped
+        setPlayback(TtsPlayback.Stopped)
         engine?.stop()
         evalJs?.invoke(JS_STOP)
     }
@@ -130,10 +159,10 @@ class NovelTtsController(
         engine?.stop()
         if (autoStartPending) {
             autoStartPending = false
-            _playback.value = TtsPlayback.Stopped
+            setPlayback(TtsPlayback.Stopped)
             play()
         } else {
-            _playback.value = TtsPlayback.Stopped
+            setPlayback(TtsPlayback.Stopped)
         }
     }
 
@@ -153,7 +182,7 @@ class NovelTtsController(
                 if (suppressStopOnce) {
                     suppressStopOnce = false
                 } else {
-                    mainHandler.post { _playback.value = TtsPlayback.Stopped }
+                    mainHandler.post { setPlayback(TtsPlayback.Stopped) }
                 }
             }
             "next" -> if (json.optBoolean("autoStartTTS")) {
@@ -170,6 +199,8 @@ class NovelTtsController(
         engine?.shutdown()
         engine = null
         evalJs = null
+        // Drops the notification + stops the service, and clears the stale callbacks.
+        NovelTtsSession.reset()
     }
 
     private companion object {

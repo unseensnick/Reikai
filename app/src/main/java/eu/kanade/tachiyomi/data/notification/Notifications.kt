@@ -75,6 +75,10 @@ object Notifications {
     const val CHANNEL_INCOGNITO_MODE = "incognito_mode_channel"
     const val ID_INCOGNITO_MODE = -701
 
+    // RK: novel read-aloud (TTS) media-style playback notification
+    const val CHANNEL_NOVEL_TTS = "novel_tts_channel"
+    const val ID_NOVEL_TTS = -801
+
     /**
      * Notification channel and ids used for app and extension updates.
      */
@@ -191,6 +195,11 @@ object Notifications {
                 },
                 buildNotificationChannel(CHANNEL_INCOGNITO_MODE, IMPORTANCE_LOW) {
                     setName(context.stringResource(MR.strings.pref_incognito_mode))
+                },
+                // RK: novel read-aloud (TTS) playback notification
+                buildNotificationChannel(CHANNEL_NOVEL_TTS, IMPORTANCE_LOW) {
+                    setName(context.stringResource(MR.strings.channel_novel_tts))
+                    setShowBadge(false)
                 },
                 buildNotificationChannel(CHANNEL_APP_UPDATE, IMPORTANCE_DEFAULT) {
                     setGroup(GROUP_APK_UPDATES)

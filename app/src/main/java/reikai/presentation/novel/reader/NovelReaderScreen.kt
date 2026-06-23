@@ -49,6 +49,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import reikai.domain.novel.tts.TtsPlayback
 import tachiyomi.core.common.util.lang.launchNonCancellable
 
 /**

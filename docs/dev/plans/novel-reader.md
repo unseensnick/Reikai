@@ -61,6 +61,16 @@ Two device-level settings are applied by the screen, not the WebView:
 
 The reader theme defaults to following the app theme ("Auto", resolved to a light/dark preset in the screen); sepia / mint / dark / black presets apply when chosen, so the surface never feels disconnected on first open.
 
+### Read-aloud (text-to-speech)
+
+A floating puck reads the chapter aloud. The split is the same as the rest of the reader: `core.js` owns "which paragraph and the highlight", Reikai owns the voice and all the chrome.
+
+- The loop reuses `core.js`'s TTS contract verbatim. Tapping the puck asks `core.js` to start from the paragraph at the top of the screen; it highlights that paragraph and posts a `speak` message; `NovelTtsController` voices the text through a `NovelTtsEngine` and, when the utterance finishes, tells `core.js` to advance (`tts.next()`), which re-highlights and posts the next `speak`. The engine sits behind an interface (`SystemTtsEngine` wraps Android `TextToSpeech`) so an offline neural backend can replace it without touching the bridge or the chrome.
+- The control is a small draggable Compose puck (`NovelTtsFloatingButton`), not LNReader's in-page button (we still don't load `index.js`). Tap toggles play/pause, long-press stops, and it free-positions anywhere with its spot persisted; it dims while playing so the text stays readable.
+- The TTS settings tab picks the engine and voice (the voice list filters by language), speed, pitch, auto-advance to the next chapter, and scroll-to-top. Rate/pitch/voice are applied to the native engine; the WebView's `tts` block is only steering `core.js`.
+- Playback survives backgrounding. `NovelTtsController` mirrors its state to `NovelTtsSession`, and `NovelTtsService` (a foreground `mediaPlayback` service) keeps the process alive and renders a `MediaSession` notification with lock-screen / headset play-pause-stop. No native queue-walking is needed: the foreground service keeps the WebView's loop running in the background. The service stops itself, and the notification clears, when playback ends or the reader is closed.
+- The general-settings block (`TTSEnable`) is pushed live only when it actually flips, because a `core.js` watcher rebuilds the chapter DOM on any `generalSettings` reassignment, which would wipe the read-aloud highlight (the `display`/`readerSettings` block reassigns freely).
+
 ## Key files
 
 The reader and its details host are net-new `reikai.*` code. The only Mihon-file patches are the `// RK` launch sites that push `NovelReaderScreen`: `HistoryTab.kt`, `UpdatesTab.kt`, and `LibraryTab.kt`.
@@ -69,26 +79,34 @@ The reader and its details host are net-new `reikai.*` code. The only Mihon-file
 - `app/src/main/java/reikai/presentation/novel/reader/NovelReaderScreenModel.kt`: `StateScreenModel`; chapter loading + prefetch, prev/next ordering (cross-source, skip-duplicate aware), progress saves, read-state + tracker sync, incognito gating, settings flow.
 - `app/src/main/java/reikai/presentation/novel/reader/NovelReaderWebView.kt`: the `AndroidView(WebView)` canvas; document load, live settings push, theme-color derivation, cutout padding.
 - `app/src/main/java/reikai/presentation/novel/reader/NovelReaderHtmlBuilder.kt`: `buildReaderHtml` + `readerSettingsJson`; the per-chapter document, CSS variables, `initialReaderConfig`, the `ReactNativeWebView` -> `NativeReader` shim.
-- `app/src/main/java/reikai/presentation/novel/reader/NovelReaderWebInterface.kt`: `@JavascriptInterface` bridge (`hide` / `save` / `console`).
+- `app/src/main/java/reikai/presentation/novel/reader/NovelReaderWebInterface.kt`: `@JavascriptInterface` bridge (`hide` / `save` / `console`, the `core.js` TTS messages, and the `reikai-ready` ping).
 - `app/src/main/java/reikai/presentation/novel/reader/NovelReaderSettings.kt`: settings data class, theme presets, font list.
-- `app/src/main/java/reikai/presentation/novel/reader/NovelReaderSettingsSheet.kt`: Compose settings sheet (Display + Theme tabs).
+- `app/src/main/java/reikai/presentation/novel/reader/NovelReaderSettingsSheet.kt`: Compose settings sheet (Display / Theme / TTS tabs).
 - `app/src/main/java/reikai/domain/novel/NovelPreferences.kt`: reader preference keys (the `ln_reader_*` strings above).
 - `app/src/main/assets/lnreader-web/`: bundled `css/index.css` + `js/{core.js, van.js, icons.js, text-vibe.js, polyfill-onscrollend.js}`, copied verbatim from LNReader.
 
+Read-aloud (TTS) lives in its own files:
+
+- `app/src/main/java/reikai/domain/novel/tts/NovelTtsEngine.kt`: the engine interface + voice/engine/playback models (the seam for a future neural engine).
+- `app/src/main/java/reikai/data/novel/tts/SystemTtsEngine.kt`: Android `TextToSpeech` backend.
+- `app/src/main/java/reikai/presentation/novel/reader/NovelTtsController.kt`: drives the `core.js` read-aloud loop, owns playback state, mirrors it to the session.
+- `app/src/main/java/reikai/presentation/novel/reader/NovelTtsFloatingButton.kt`: the draggable play/pause puck.
+- `app/src/main/java/reikai/data/novel/tts/NovelTtsSession.kt` + `NovelTtsService.kt`: the foreground `mediaPlayback` service + `MediaSession` notification, and the singleton that bridges them to the controller. Mihon-file patches (`// RK`): the `androidx.media:media` dependency, the manifest service + `FOREGROUND_SERVICE_MEDIA_PLAYBACK` permission, and a `Notifications` channel.
+
 ## Status
 
-Shipped (P5 core sequence, on-device verified). Live reading with typography and themes, scroll resume, prev/next with prefetch, cross-source reading on merged novels, auto-mark-read, history, tracker sync, incognito gating, keep-screen-on, orientation lock, and mark-read-on-skip are all in place.
+Shipped (P5 core sequence, on-device verified). Live reading with typography and themes, scroll resume, prev/next with prefetch, cross-source reading on merged novels, auto-mark-read, history, tracker sync, incognito gating, keep-screen-on, orientation lock, and mark-read-on-skip are all in place. Read-aloud (TTS) shipped as the engine-extras round 2: foreground reading with the draggable puck and settings tab, plus background playback with a lock-screen / headset media notification (on-device verified on the Fold6).
 
 ## Decisions & tradeoffs
 
 **Compose owns all chrome; the WebView is text only.** LNReader's `index.js` renders an in-page ToolWrapper, buttons, and scrollbar. Reikai does not load it. Loading it would put a second, web-styled UI on top of the native one and break cohesion with the Mihon base. The cost is that the bridge and prev/next plumbing are native, which is the point.
 
-**LNReader engine extras are wired off on purpose.** `core.js` supports TTS, page-mode (vs scroll), auto-scroll, bionic reading, tap-to-scroll, volume-button paging, swipe-to-change-chapter, remove-extra-paragraph-spacing, custom CSS/JS/themes, an in-reader chapter drawer, and a progress seekbar. All are hard-set off in `NovelReaderHtmlBuilder`: the behavior flags (TTS, page-mode, auto-scroll, bionic, tap/volume/swipe paging, seekbar, remove-extra-spacing) in its `generalSettings` block, and the custom CSS / JS / themes in its `readerSettingsJson` block (the in-reader chapter drawer simply never renders, since `index.js` is not loaded). The reasoning:
+**TTS shipped natively; the other LNReader engine extras are still wired off.** `core.js` supports TTS, page-mode (vs scroll), auto-scroll, bionic reading, tap-to-scroll, volume-button paging, swipe-to-change-chapter, remove-extra-paragraph-spacing, custom CSS/JS/themes, an in-reader chapter drawer, and a progress seekbar. TTS is now on (rebuilt natively, see above); the rest stay hard-off in `NovelReaderHtmlBuilder`: the behavior flags (page-mode, auto-scroll, bionic, tap/volume/swipe paging, seekbar, remove-extra-spacing) in its `generalSettings` block, and the custom CSS / JS / themes in its `readerSettingsJson` block (the in-reader chapter drawer simply never renders, since `index.js` is not loaded). The reasoning:
 
-- **TTS** is the only high-interest extra, and it is gated by a real constraint, not preference. Plugins can run JS in a headless QuickJS host that lacks the browser globals a WebView gave for free, so any TTS path that depends on those globals fails silently unless fully polyfilled (see the `ln-host-polyfill-parity` memory and [novel-plugin-host.md](novel-plugin-host.md)). TTS is therefore deferred until the host parity work makes it safe, not switched on speculatively.
+- **TTS** was the high-interest extra and is implemented natively: `core.js` only emits `speak` requests, so the audio is produced by Android `TextToSpeech` and the lock-screen controls by a `MediaSession`, with nothing depending on the headless plugin host (an earlier worry; the reader WebView is a separate environment from the QuickJS plugin host, so the `ln-host-polyfill-parity` concern never applied to it).
 - **The rest are low value** for this reader (page-mode, auto-scroll, bionic reading, volume/swipe paging, in-page drawer/seekbar) and would each add surface area and another way the in-page UI could diverge from the Compose chrome.
 
-This matches the old Yokai reader, which was also limited to scroll mode with native chrome. So leaving these off is unported-LNReader-parity, not a regression. The tracked follow-up (TTS plus the lower-value extras) is the "Novel reader engine extras" round-2 item in [novel-parity-backlog.md](novel-parity-backlog.md).
+Leaving the remainder off matches the old Yokai reader (scroll mode, native chrome), so it is unported-LNReader-parity, not a regression. The tracked follow-up (the lower-value extras) is the "Novel reader engine extras" round-2 item in [novel-parity-backlog.md](novel-parity-backlog.md).
 
 **Live settings over reload.** Display changes push through `reader.readerSettings.val` instead of rebuilding the document, so font/size/spacing/theme adjustments are instant and never lose scroll position. The document rebuilds only on a chapter change or an app-theme change.
 

@@ -33,6 +33,9 @@
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
+    <!-- RK: novel read-aloud (TTS) background playback -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
     <application
         android:name=".App"
         android:allowBackup="false"
@@ -202,6 +205,12 @@
             android:name=".extension.util.ExtensionInstallService"
             android:exported="false"
             android:foregroundServiceType="shortService" />
+
+        <!-- RK: novel read-aloud (TTS) keep-alive + media notification -->
+        <service
+            android:name="reikai.data.novel.tts.NovelTtsService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
 
         <service
             android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
