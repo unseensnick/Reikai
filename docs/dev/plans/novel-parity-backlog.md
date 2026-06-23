@@ -42,6 +42,10 @@ See `novel-reader.md` for the reader architecture these settings hang off.
 
 ### Downloads
 
+**Delete-after-read + download-ahead settings (manga parity).** The novel reader's delete-on-read path (`NovelReaderScreenModel.saveProgress`) gained the manga options: `removeAfterReadSlots` (keep the last N read chapters downloaded, deleting the chapter N positions back in reading order; the legacy `removeAfterMarkedAsRead` boolean maps to slot 0 as a fallback), a don't-delete-bookmarked guard, and an exclude-categories-from-delete guard. The reader's neighbor-resolve path also enqueues the next N un-downloaded chapters when `autoDownloadWhileReading` is set (skipped in incognito). All four are novel twins under Settings → Downloads (Delete-chapters and Download-ahead groups), with content-type labels. Note: manga's `autoUpdateMetadata` toggle was deliberately not ported (a no-op for novels, see Decisions).
+
+**Per-title update notifications + deep-link.** Background novel updates now post one notification per updated novel (new-chapter count, grouped under a summary) instead of a single "N novels" line, mirroring the manga `LibraryUpdateNotifier`. Tapping a per-novel notification opens that novel's details via a new `SHORTCUT_NOVEL` intent (source + url extras) handled in `MainActivity` (the novel twin of `SHORTCUT_MANGA`; works cold or while running). The novel reader is a Voyager screen with no standalone reader Activity, so the deep-link targets `NovelScreen` (details) rather than the reader.
+
 **Reorder and sort the novel download queue.** The queue surface is now drag-to-reorder and sortable, matching the manga side. It renders as one flat reorderable list (via `sh.calvin.reorderable`); the novel title shows as a caption only at a group boundary (its novel differs from the row above), so it reads grouped while staying a single flat list the reorder library can drive. Dragging commits once on drop through `NovelDownloadManager.reorderQueue`, which sets the live `queueState` and re-persists the order via a new `NovelDownloadStore.replaceAll`, so a reorder survives a cold restart (the old in-memory-only `startDownloadNow` bump did not). The Sort menu (upload date / chapter number, asc/desc) sorts each novel's chapters among themselves and keeps the novels' first-appearance order, mirroring the manga per-series sort. In the unified queue's ALL view the one Sort action applies to whichever queues are shown, so manga and novels sort together by the same key. The active drain re-reads the queue each step, so a reorder takes effect on the next pick and the in-flight chapter is untouched.
 
 ### Stats
@@ -116,6 +120,8 @@ All shipped and on-device verified (Z Fold / Fold6).
 | Per-novel Notes | Cross-cutting | `9147b9f21` |
 | Long-press add-to-library in global search (manga + novel) | Browse | `1d2aa4b8a` |
 | Surgical novel writes via UpdateNovel / SetNovelChapterFlags / SetNovelViewerFlags | Cross-cutting | `b6b1429d6` |
+| Delete-after-read slots + bookmark/category guards + download-ahead | Downloads | `b441ff013` |
+| Per-title update notifications + SHORTCUT_NOVEL deep-link | Downloads | `8baa4120f` |
 
 ## Decisions & tradeoffs
 
@@ -126,4 +132,5 @@ These are deliberate parity trims, places where the novel side intentionally doe
 - **Migration creates a new target row, never edits in place or deletes.** Migrate unfavorites the old novel and splits it from any merge group rather than overwriting it. Safer, recoverable, and matching Mihon.
 - **Incognito for novels is global-only, with no per-source variant.** Novel sources are String-keyed with no installed extension, so a per-source incognito toggle has nothing to bind to. The details mark-read tracker sync stays ungated, matching manga.
 - **Notes are saved surgically, not as a full-row rewrite.** This is why the `NovelUpdate` partial-update exists. The `genre` and `update_strategy` columns cannot use it (SQLDelight drops their adapters on the novels table), so callers patching those keep the full-row update.
+- **Manga's `autoUpdateMetadata` toggle is not ported.** It's a no-op for novels: `source.parseNovel` returns metadata and chapters in one call (so skipping metadata saves no request, unlike manga's separate details fetch), and `mergeRefreshedNovel` already respects the edit-lock, so novels refresh metadata for free during updates with user edits protected. Parked rather than built.
 - **Orientation lock is a no-op on large screens by OS policy.** Android 16 (targetSdk 36) ignores fixed-orientation requests on unfolded foldables and tablets; the feature works on phones and folded covers and cannot be made to work otherwise without lowering the target SDK.
