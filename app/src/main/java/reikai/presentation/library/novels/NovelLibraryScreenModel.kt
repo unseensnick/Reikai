@@ -27,6 +27,7 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
 import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.UpdateNovel
@@ -76,6 +77,7 @@ class NovelLibraryScreenModel :
     private val context: Application by injectLazy()
     private val novelRepository: NovelRepository by injectLazy()
     private val updateNovel: UpdateNovel by injectLazy()
+    private val deleteNovelChaptersAfterRead: DeleteNovelChaptersAfterRead by injectLazy()
     private val novelChapterRepository: NovelChapterRepository by injectLazy()
     private val novelCategoryRepository: NovelCategoryRepository by injectLazy()
     private val novelDownloadManager: NovelDownloadManager by injectLazy()
@@ -505,8 +507,11 @@ class NovelLibraryScreenModel :
     fun markReadSelection(read: Boolean) {
         val novelIds = state.value.selectedNovelIds
         screenModelScope.launchIO {
-            val chapterIds = novelIds.flatMap { id -> novelChapterRepository.getByNovelId(id).map { it.id } }
-            if (chapterIds.isNotEmpty()) novelChapterRepository.setReadBulk(chapterIds, read)
+            novelIds.forEach { id ->
+                val chapters = novelChapterRepository.getByNovelId(id)
+                if (chapters.isNotEmpty()) novelChapterRepository.setReadBulk(chapters.map { it.id }, read)
+                if (read) deleteNovelChaptersAfterRead.await(id, chapters)
+            }
             clearSelection()
         }
     }

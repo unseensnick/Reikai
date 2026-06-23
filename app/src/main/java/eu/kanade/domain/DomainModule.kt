@@ -62,6 +62,7 @@ import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.interactor.AddNovelTrack
 import reikai.domain.novel.interactor.DeleteNovelCategories
+import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
 import reikai.domain.novel.interactor.DeleteNovelTrack
 import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.GetNovelTracks
@@ -182,6 +183,7 @@ class DomainModule : InjektModule {
         addFactory { DeleteNovelCategories(get()) }
         addFactory { ReorderNovelCategories(get()) }
         addFactory { UpdateNovel(get()) }
+        addFactory { DeleteNovelChaptersAfterRead(get(), get(), get()) }
         addFactory { SetNovelChapterFlags(get()) }
         addFactory { SetNovelViewerFlags(get()) }
         addFactory { NovelLibraryAdder(get(), get(), get(), get(), get()) }

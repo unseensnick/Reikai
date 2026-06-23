@@ -37,6 +37,7 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
 import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.RefreshNovelTracks
@@ -100,6 +101,7 @@ class NovelDetailsScreenModel(
     private val installer: LnPluginInstaller by injectLazy()
     private val getNovelCategories: GetNovelCategories by injectLazy()
     private val setNovelCategories: SetNovelCategories by injectLazy()
+    private val deleteNovelChaptersAfterRead: DeleteNovelChaptersAfterRead by injectLazy()
     private val novelPreferences: NovelPreferences by injectLazy()
     private val uiPreferences: UiPreferences by injectLazy()
     private val mergeManager: NovelMergeManager by injectLazy()
@@ -858,7 +860,7 @@ class NovelDetailsScreenModel(
 
     fun markSelectedRead(read: Boolean) = withSelection { chapters ->
         chapterRepo.setReadBulk(chapters.map { it.id }, read)
-        if (read) autoTrackOnMarkRead(chapters)
+        if (read) onMarkedRead(chapters)
     }
 
     fun bookmarkSelected(bookmark: Boolean) = withSelection { chapters ->
@@ -875,7 +877,7 @@ class NovelDetailsScreenModel(
             if (earliest > 0) {
                 val previous = ascending.subList(0, earliest)
                 chapterRepo.setReadBulk(previous.map { it.id }, read)
-                if (read) autoTrackOnMarkRead(previous)
+                if (read) onMarkedRead(previous)
             }
             clearSelection()
         }
@@ -886,7 +888,7 @@ class NovelDetailsScreenModel(
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
             val all = chapterRepo.getByNovelId(loaded.novel.id)
             chapterRepo.setReadBulk(all.map { it.id }, read)
-            if (read) autoTrackOnMarkRead(all)
+            if (read) onMarkedRead(all)
         }
     }
 
@@ -897,8 +899,16 @@ class NovelDetailsScreenModel(
     fun markChapterRead(chapter: NovelChapter, read: Boolean) {
         screenModelScope.launchIO {
             chapterRepo.setReadBulk(listOf(chapter.id), read)
-            if (read) autoTrackOnMarkRead(listOf(chapter))
+            if (read) onMarkedRead(listOf(chapter))
         }
+    }
+
+    /** Run the on-mark-read side effects: push to trackers + delete the downloaded copies when the
+     *  "delete after marked as read" pref is on. */
+    private fun onMarkedRead(chapters: List<NovelChapter>) {
+        autoTrackOnMarkRead(chapters)
+        val novelId = (state.value as? NovelDetailsState.Loaded)?.novel?.id ?: return
+        screenModelScope.launchIO { deleteNovelChaptersAfterRead.await(novelId, chapters) }
     }
 
     // RK --> novel trackers (Active #8)
