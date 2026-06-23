@@ -75,6 +75,7 @@ object SettingsDownloadScreen : SearchableSettings {
                 downloadPreferences = downloadPreferences,
                 novelPreferences = novelPreferences, // RK: novel delete-on-read sits in this group too
                 categories = allCategories,
+                novelCategories = novelCategories.map { it.toCategory() }, // RK: novel exclude-categories
             ),
             getAutoDownloadGroup(
                 downloadPreferences = downloadPreferences,
@@ -82,7 +83,10 @@ object SettingsDownloadScreen : SearchableSettings {
                 allCategories = allCategories,
                 novelCategories = novelCategories.map { it.toCategory() }, // RK
             ),
-            getDownloadAheadGroup(downloadPreferences = downloadPreferences),
+            getDownloadAheadGroup(
+                downloadPreferences = downloadPreferences,
+                novelPreferences = novelPreferences, // RK: novel download-ahead twin
+            ),
         )
     }
 
@@ -91,6 +95,7 @@ object SettingsDownloadScreen : SearchableSettings {
         downloadPreferences: DownloadPreferences,
         novelPreferences: NovelPreferences,
         categories: List<Category>,
+        novelCategories: List<Category>,
     ): Preference.PreferenceGroup {
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_delete_chapters),
@@ -99,12 +104,6 @@ object SettingsDownloadScreen : SearchableSettings {
                     preference = downloadPreferences.removeAfterMarkedAsRead,
                     title = stringResource(MR.strings.pref_remove_after_marked_as_read),
                     subtitle = stringResource(MR.strings.content_type_manga),
-                ),
-                // RK: the light-novel twin of the option above (separate downloader + preference)
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = novelPreferences.removeAfterMarkedAsRead(),
-                    title = stringResource(MR.strings.pref_remove_after_marked_as_read),
-                    subtitle = stringResource(MR.strings.content_type_novels),
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = downloadPreferences.removeAfterReadSlots,
@@ -126,6 +125,41 @@ object SettingsDownloadScreen : SearchableSettings {
                     downloadPreferences = downloadPreferences,
                     categories = { categories },
                 ),
+                // RK --> light-novel delete-on-read twins (separate downloader + preferences). The
+                // novel reader has one delete trigger, so removeAfterReadSlots subsumes the legacy
+                // removeAfterMarkedAsRead boolean (kept only as a fallback when the slots list is off).
+                Preference.PreferenceItem.ListPreference(
+                    preference = novelPreferences.removeAfterReadSlots(),
+                    entries = mapOf(
+                        -1 to stringResource(MR.strings.disabled),
+                        0 to stringResource(MR.strings.last_read_chapter),
+                        1 to stringResource(MR.strings.second_to_last),
+                        2 to stringResource(MR.strings.third_to_last),
+                        3 to stringResource(MR.strings.fourth_to_last),
+                        4 to stringResource(MR.strings.fifth_to_last),
+                    ),
+                    title = stringResource(MR.strings.pref_remove_after_read),
+                    // Keep the selected-value subtitle, prefixed with the content type to tell it from manga.
+                    subtitleProvider = { value, entries ->
+                        "${stringResource(MR.strings.content_type_novels)}: ${entries[value]}"
+                    },
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.removeBookmarkedChapters(),
+                    title = stringResource(MR.strings.pref_remove_bookmarked_chapters),
+                    subtitle = stringResource(MR.strings.content_type_novels),
+                ),
+                Preference.PreferenceItem.MultiSelectListPreference(
+                    preference = novelPreferences.removeExcludeCategories(),
+                    entries = novelCategories.associate { it.id.toString() to it.visualName },
+                    title = stringResource(MR.strings.pref_remove_exclude_categories),
+                    subtitleProvider = { value, entries ->
+                        val selected = value.mapNotNull { entries[it] }.sorted().joinToString()
+                        val prefix = stringResource(MR.strings.content_type_novels)
+                        if (selected.isEmpty()) prefix else "$prefix: $selected"
+                    },
+                ),
+                // RK <--
             ),
         )
     }
@@ -255,21 +289,32 @@ object SettingsDownloadScreen : SearchableSettings {
     @Composable
     private fun getDownloadAheadGroup(
         downloadPreferences: DownloadPreferences,
+        novelPreferences: NovelPreferences,
     ): Preference.PreferenceGroup {
+        val entries = listOf(0, 2, 3, 5, 10)
+            .associateWith {
+                if (it == 0) {
+                    stringResource(MR.strings.disabled)
+                } else {
+                    pluralStringResource(MR.plurals.next_unread_chapters, count = it, it)
+                }
+            }
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.download_ahead),
             preferenceItems = listOf(
                 Preference.PreferenceItem.ListPreference(
                     preference = downloadPreferences.autoDownloadWhileReading,
-                    entries = listOf(0, 2, 3, 5, 10)
-                        .associateWith {
-                            if (it == 0) {
-                                stringResource(MR.strings.disabled)
-                            } else {
-                                pluralStringResource(MR.plurals.next_unread_chapters, count = it, it)
-                            }
-                        },
+                    entries = entries,
                     title = stringResource(MR.strings.auto_download_while_reading),
+                ),
+                // RK: the light-novel twin (separate downloader + preference)
+                Preference.PreferenceItem.ListPreference(
+                    preference = novelPreferences.autoDownloadWhileReading(),
+                    entries = entries,
+                    title = stringResource(MR.strings.auto_download_while_reading),
+                    subtitleProvider = { value, entriesMap ->
+                        "${stringResource(MR.strings.content_type_novels)}: ${entriesMap[value]}"
+                    },
                 ),
                 Preference.PreferenceItem.InfoPreference(stringResource(MR.strings.download_ahead_info)),
             ),
