@@ -145,7 +145,9 @@ private fun MigrationRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                TextButton(onClick = { screenModel.toggleExpanded(id) }) { Text("Change") }
+                TextButton(onClick = { screenModel.toggleExpanded(id) }) {
+                    Text(text = stringResource(MR.strings.action_change))
+                }
                 IconButton(onClick = { screenModel.clearChoice(id) }) {
                     Icon(imageVector = Icons.Filled.Close, contentDescription = null)
                 }
@@ -159,7 +161,9 @@ private fun MigrationRow(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Button(onClick = { screenModel.acceptSuggested(id) }) { Text("Accept") }
+                    Button(onClick = { screenModel.acceptSuggested(id) }) {
+                        Text(text = stringResource(MR.strings.action_accept))
+                    }
                     ExpandToggle(row.expanded) { screenModel.toggleExpanded(id) }
                 }
             }
@@ -169,7 +173,9 @@ private fun MigrationRow(
             }
             else -> Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(text = stringResource(MR.strings.no_results_found), modifier = Modifier.weight(1f))
-                TextButton(onClick = { screenModel.toggleExpanded(id) }) { Text("Change") }
+                TextButton(onClick = { screenModel.toggleExpanded(id) }) {
+                    Text(text = stringResource(MR.strings.action_change))
+                }
             }
         }
 
