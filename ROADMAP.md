@@ -84,7 +84,7 @@ Terse done-log, grouped by area. Full detail in the linked plan docs.
 - Reader engine extras round 2: read-aloud (TTS) with background playback + lock-screen media notification, bionic reading, remove-extra-spacing, tap-edges-to-scroll, swipe-between-chapters, auto-scroll, and a vertical progress seekbar; settings reorganized to General / Display / TTS tabs (`8a782ef55`, `b0134fe0e`, `e8453f0f0`, `0c918713d`). The remaining `core.js` extras stay off by design (volume-button paging, paged reading, battery/time + reading-% overlays, custom CSS/JS/themes, in-reader chapter drawer); rationale in [novel-reader.md](docs/dev/plans/novel-reader.md).
 - Categories + hopper + tab-aware Display sheet. See [novel-categories.md](docs/dev/plans/novel-categories.md).
 - Background update job (`NovelUpdateJob`). See [novel-update-job.md](docs/dev/plans/novel-update-job.md).
-- Home-screen widget for manga + novel updates: a sectioned Glance widget added alongside Mihon's manga-only one. See [unified-updates.md](docs/dev/plans/unified-updates.md).
+- Home-screen widget for manga + novel updates: a sectioned Glance widget added alongside Mihon's manga-only one (`3b1f11a3e`). See [unified-updates.md](docs/dev/plans/unified-updates.md).
 - Cross-source merge + dynamic grouping. See [novel-merge.md](docs/dev/plans/novel-merge.md).
 - Tracking on AniList / MyAnimeList / MangaUpdates / Kitsu, group-aware (`5e8f53aca`). See [novel-tracking.md](docs/dev/plans/novel-tracking.md).
 - Backup proto + installed-sources backup (`a6027edf2`). See [novel-backup.md](docs/dev/plans/novel-backup.md).
