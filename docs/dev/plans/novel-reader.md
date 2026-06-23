@@ -103,12 +103,12 @@ Shipped (P5 core sequence, on-device verified). Live reading with typography and
 
 **Most LNReader engine extras shipped; a few stay off.** `core.js` supports TTS, page-mode (vs scroll), auto-scroll, bionic reading, tap-to-scroll, volume-button paging, swipe-to-change-chapter, remove-extra-paragraph-spacing, custom CSS/JS/themes, an in-reader chapter drawer, and a progress seekbar. Shipped (engine-extras round 2): **TTS** (native, see above), **bionic reading** and **remove-extra-spacing** (`core.js` flags), **tap-edges-to-scroll** and **swipe-between-chapters** (`core.js` gestures, with `next`/`prev` routed natively), and two native builds, **auto-scroll** (an injected requestAnimationFrame scroller, paused while the chrome is shown) and the **vertical progress seekbar** (Material3 `VerticalSlider`, the same primitive the manga reader's `ChapterNavigator` uses). What stays off:
 
-- **Volume-button paging** needs Activity-level key interception (not a `core.js` flag); deferred.
-- **Page-mode** (`core.js` supports it, but it reworks the scroll-and-progress model and is LNReader-"Experimental"); deferred as high-cost / low-reward.
-- **Battery/time and reading-% overlays** duplicate the system status bar and the seekbar; intentionally skipped.
-- **Custom CSS/JS/themes and the in-reader chapter drawer** would require loading `index.js`, which breaks the Compose-chrome rule; not built.
+- **Volume-button paging** needs Activity-level key interception (not a `core.js` flag); stays off.
+- **Page-mode** (`core.js` supports it, but it reworks the scroll-and-progress model and is LNReader-"Experimental"); stays off as high-cost / low-reward.
+- **Battery/time and reading-% overlays** duplicate the system status bar and the seekbar; stays off.
+- **Custom CSS/JS/themes and the in-reader chapter drawer** would require loading `index.js`, which breaks the Compose-chrome rule; stays off.
 
-The deferred remainder is the "Novel reader engine extras (remainder)" item in [ROADMAP.md](../../../ROADMAP.md).
+These stay off by design; noted alongside the shipped round-2 extras in [ROADMAP.md](../../../ROADMAP.md).
 
 One `core.js` gotcha the extras surfaced: reassigning `reader.generalSettings.val` re-runs a watcher that rebuilds the chapter DOM (the bionic/spacing reflow), so the live-settings push reassigns the general block only when one of its flags actually changes; the display block (font/size/theme/tts rate-pitch) reassigns freely.
 
