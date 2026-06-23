@@ -86,6 +86,10 @@ class NovelReaderScreenModel(
 
     private val getIncognitoState: GetIncognitoState by injectLazy()
 
+    /** Read-aloud (TTS) controller. Owned here so it survives rotation; the WebView registers its
+     *  `evaluateJavascript` sink. Auto-page-advance continues into the next chapter via [next]. */
+    val ttsController = NovelTtsController(Injekt.get<Application>(), novelPreferences) { next() }
+
     // Captured once at reader open (mirrors ReaderViewModel). Global-only: novel sources are
     // String-keyed with no installed extension, so per-source incognito (await(sourceId)) can't apply.
     private val incognitoMode: Boolean by lazy { getIncognitoState.await(null) }
@@ -165,7 +169,16 @@ class NovelReaderScreenModel(
             orientationOverride,
             novelPreferences.readerDefaultOrientation().changes(),
         ) { override, default -> OrientationPrefs(override, default) },
-    ) { display, theme, keepScreenOn, orient ->
+        combine(
+            novelPreferences.readerTtsEnabled().changes(),
+            novelPreferences.readerTtsRate().changes(),
+            novelPreferences.readerTtsPitch().changes(),
+            novelPreferences.readerTtsAutoPageAdvance().changes(),
+            novelPreferences.readerTtsScrollToTop().changes(),
+        ) { enabled, rate, pitch, autoAdvance, scrollTop ->
+            TtsPrefs(enabled, rate, pitch, autoAdvance, scrollTop)
+        },
+    ) { display, theme, keepScreenOn, orient, tts ->
         NovelReaderSettings(
             fontSize = display.fontSize,
             lineHeight = display.lineHeight,
@@ -178,6 +191,11 @@ class NovelReaderScreenModel(
             keepScreenOn = keepScreenOn,
             orientation = orient.override,
             resolvedOrientation = orient.resolved,
+            ttsEnabled = tts.enabled,
+            ttsRate = tts.rate,
+            ttsPitch = tts.pitch,
+            ttsAutoPageAdvance = tts.autoPageAdvance,
+            ttsScrollToTop = tts.scrollToTop,
         )
     }.stateIn(screenModelScope, SharingStarted.Eagerly, currentSettings())
 
@@ -196,6 +214,11 @@ class NovelReaderScreenModel(
             keepScreenOn = novelPreferences.readerKeepScreenOn().get(),
             orientation = override,
             resolvedOrientation = OrientationPrefs(override, default).resolved,
+            ttsEnabled = novelPreferences.readerTtsEnabled().get(),
+            ttsRate = novelPreferences.readerTtsRate().get(),
+            ttsPitch = novelPreferences.readerTtsPitch().get(),
+            ttsAutoPageAdvance = novelPreferences.readerTtsAutoPageAdvance().get(),
+            ttsScrollToTop = novelPreferences.readerTtsScrollToTop().get(),
         )
     }
 
@@ -295,6 +318,42 @@ class NovelReaderScreenModel(
     fun setFontFamily(value: String) = novelPreferences.readerFontFamily().set(value)
 
     fun setKeepScreenOn(value: Boolean) = novelPreferences.readerKeepScreenOn().set(value)
+
+    // Text-to-speech setters. Rate/pitch/voice are pushed to the live audio engine too (the WebView's
+    // tts block only steers core.js); an engine swap rebuilds the backend.
+    fun setTtsEnabled(value: Boolean) {
+        novelPreferences.readerTtsEnabled().set(value)
+        if (!value) ttsController.stop()
+    }
+    fun setTtsRate(value: Float) {
+        novelPreferences.readerTtsRate().set(value)
+        ttsController.refreshSettings(engineChanged = false)
+    }
+    fun setTtsPitch(value: Float) {
+        novelPreferences.readerTtsPitch().set(value)
+        ttsController.refreshSettings(engineChanged = false)
+    }
+    fun setTtsAutoPageAdvance(value: Boolean) = novelPreferences.readerTtsAutoPageAdvance().set(value)
+    fun setTtsScrollToTop(value: Boolean) = novelPreferences.readerTtsScrollToTop().set(value)
+    fun setTtsEngine(packageName: String) {
+        novelPreferences.readerTtsEngine().set(packageName)
+        novelPreferences.readerTtsVoice().set("")
+        ttsController.refreshSettings(engineChanged = true)
+    }
+    fun setTtsVoice(name: String) {
+        novelPreferences.readerTtsVoice().set(name)
+        ttsController.refreshSettings(engineChanged = false)
+    }
+    fun setTtsLanguages(languages: Set<String>) = novelPreferences.readerTtsLanguages().set(languages)
+    fun setTtsButtonPosition(x: Int, y: Int) {
+        novelPreferences.readerTtsButtonX().set(x)
+        novelPreferences.readerTtsButtonY().set(y)
+    }
+    fun ttsButtonPosition(): Pair<Int, Int> =
+        novelPreferences.readerTtsButtonX().get() to novelPreferences.readerTtsButtonY().get()
+    fun ttsEnginePackage(): String = novelPreferences.readerTtsEngine().get()
+    fun ttsVoiceName(): String = novelPreferences.readerTtsVoice().get()
+    fun ttsLanguages(): Set<String> = novelPreferences.readerTtsLanguages().get()
 
     /** Set this novel's reader orientation (a [ReaderOrientation] flagValue; DEFAULT = follow the
      *  global default). Writes only the orientation bits of the anchor's viewer_flags via
@@ -439,6 +498,18 @@ class NovelReaderScreenModel(
         val fontFamily: String,
     )
     private data class ThemePrefs(val followSystem: Boolean, val background: String, val textColor: String)
+    private data class TtsPrefs(
+        val enabled: Boolean,
+        val rate: Float,
+        val pitch: Float,
+        val autoPageAdvance: Boolean,
+        val scrollToTop: Boolean,
+    )
+
+    override fun onDispose() {
+        super.onDispose()
+        ttsController.shutdown()
+    }
 
     /** Per-novel orientation [override] + the global [default]; [resolved] is what the reader applies
      *  (the override, or the default when the override is DEFAULT/unset). */

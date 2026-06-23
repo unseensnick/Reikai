@@ -51,27 +51,7 @@ fun buildReaderHtml(
     debug: Boolean,
 ): String {
     val readerSettings = readerSettingsJson(settings)
-
-    // Scroll mode only, all UI features that `index.js` would render are off (we drive chrome in
-    // Compose). `core.js` reads these but renders nothing without `index.js`.
-    val generalSettings = JSONObject().apply {
-        put("keepScreenOn", true)
-        put("fullScreenMode", true)
-        put("pageReader", false)
-        put("swipeGestures", false)
-        put("showScrollPercentage", false)
-        put("useVolumeButtons", false)
-        put("volumeButtonsOffset", JSONObject.NULL)
-        put("showBatteryAndTime", false)
-        put("autoScroll", false)
-        put("autoScrollInterval", 10)
-        put("autoScrollOffset", JSONObject.NULL)
-        put("verticalSeekbar", false)
-        put("removeExtraParagraphSpacing", false)
-        put("bionicReading", false)
-        put("tapToScroll", false)
-        put("TTSEnable", false)
-    }
+    val generalSettings = generalSettingsJson(settings)
 
     val config = JSONObject().apply {
         put("readerSettings", readerSettings)
@@ -142,8 +122,50 @@ fun buildReaderHtml(
         <script src="$ASSET_BASE/js/van.js"></script>
         <script src="$ASSET_BASE/js/text-vibe.js"></script>
         <script src="$ASSET_BASE/js/core.js"></script>
+        <script>
+        // Reikai TTS: start read-aloud from the first paragraph at/below the viewport top (so play
+        // reads from where you are, not the chapter top). core.js owns the element list + highlight.
+        window.reikaiTtsStart = function () {
+          if (!window.tts || !window.reader) return;
+          try {
+            var els = tts.getAllReadableElements(reader.chapterElement);
+            var start = null;
+            for (var i = 0; i < els.length; i++) {
+              if (els[i].getBoundingClientRect().bottom > 80) { start = els[i]; break; }
+            }
+            tts.start(start || undefined);
+          } catch (e) { tts.start(); }
+        };
+        // Tell native the document is up (drives TTS auto-advance + state reset on chapter change).
+        if (window.NativeReader) NativeReader.postMessage(JSON.stringify({ type: 'reikai-ready' }));
+        </script>
         </html>
     """.trimIndent()
+}
+
+/**
+ * The LNReader `chapterGeneralSettings` object `core.js` reads. Scroll mode only: every in-page UI
+ * feature `index.js` would render is off (Reikai drives chrome in Compose). [NovelReaderSettings.ttsEnabled]
+ * gates `TTSEnable`, which `core.js` watches to stop read-aloud when switched off. Pushed live (like
+ * [readerSettingsJson]) so toggling TTS in settings takes effect without a reload.
+ */
+fun generalSettingsJson(settings: NovelReaderSettings): JSONObject = JSONObject().apply {
+    put("keepScreenOn", true)
+    put("fullScreenMode", true)
+    put("pageReader", false)
+    put("swipeGestures", false)
+    put("showScrollPercentage", false)
+    put("useVolumeButtons", false)
+    put("volumeButtonsOffset", JSONObject.NULL)
+    put("showBatteryAndTime", false)
+    put("autoScroll", false)
+    put("autoScrollInterval", 10)
+    put("autoScrollOffset", JSONObject.NULL)
+    put("verticalSeekbar", false)
+    put("removeExtraParagraphSpacing", false)
+    put("bionicReading", false)
+    put("tapToScroll", false)
+    put("TTSEnable", settings.ttsEnabled)
 }
 
 /**
@@ -165,10 +187,10 @@ fun readerSettingsJson(settings: NovelReaderSettings): JSONObject = JSONObject()
     put(
         "tts",
         JSONObject().apply {
-            put("rate", 1)
-            put("pitch", 1)
-            put("autoPageAdvance", false)
-            put("scrollToTop", true)
+            put("rate", settings.ttsRate.toDouble())
+            put("pitch", settings.ttsPitch.toDouble())
+            put("autoPageAdvance", settings.ttsAutoPageAdvance)
+            put("scrollToTop", settings.ttsScrollToTop)
         },
     )
     put("epubLocation", "")
