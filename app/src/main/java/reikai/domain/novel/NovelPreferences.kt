@@ -157,6 +157,15 @@ class NovelPreferences(
     /** Swipe left / right to go to the next / previous chapter. */
     fun readerSwipeGestures() = preferenceStore.getBoolean("ln_reader_swipe_gestures", false)
 
+    /** Continuously scroll the chapter while reading (paused while the chrome is shown). */
+    fun readerAutoScroll() = preferenceStore.getBoolean("ln_reader_auto_scroll", false)
+
+    /** Auto-scroll speed in CSS pixels per frame (~60fps). */
+    fun readerAutoScrollSpeed() = preferenceStore.getFloat("ln_reader_auto_scroll_speed", 1.0f)
+
+    /** Show a vertical progress seekbar (scrub) on the right edge when the chrome is visible. */
+    fun readerVerticalSeekbar() = preferenceStore.getBoolean("ln_reader_vertical_seekbar", false)
+
     // Downloads (S5). Key strings preserved from the Yōkai-era fork for upgrade continuity.
 
     /** Delete a downloaded chapter's offline copy once it's marked read. */

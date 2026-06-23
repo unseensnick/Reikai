@@ -61,10 +61,9 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * Reader display + theme + TTS settings, hosted in the same [TabbedDialog] as the S3c chapter-settings
- * sheet (Display / Theme / TTS tabs) so the reader's chrome stays cohesive with the rest of the app.
- * Holds no prefs: the caller's ScreenModel persists changes and feeds new [settings] back in, which
- * the reader pushes to the WebView live.
+ * Reader settings in a [TabbedDialog] with three tabs: General (the reading toggles), Display
+ * (typography + theme), and TTS. Holds no prefs: the caller's ScreenModel persists changes and feeds
+ * new [settings] back in, which the reader pushes to the WebView live.
  */
 // no ScreenModel: pure UI, state owned by the caller's ScreenModel.
 @Composable
@@ -96,12 +95,15 @@ fun NovelReaderSettingsSheet(
     onRemoveExtraSpacing: (Boolean) -> Unit,
     onTapToScroll: (Boolean) -> Unit,
     onSwipeGestures: (Boolean) -> Unit,
+    onAutoScroll: (Boolean) -> Unit,
+    onAutoScrollSpeed: (Float) -> Unit,
+    onVerticalSeekbar: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
     TabbedDialog(
         onDismissRequest = onDismiss,
-        tabTitles = listOf("Display", "Theme", "General", "TTS"),
+        tabTitles = listOf("General", "Display", "TTS"),
     ) { page ->
         Column(
             modifier = Modifier
@@ -110,7 +112,7 @@ fun NovelReaderSettingsSheet(
                 .verticalScroll(rememberScrollState()),
         ) {
             when (page) {
-                0 -> {
+                1 -> {
                     LabeledSlider("Font size", "${settings.fontSize}", settings.fontSize.toFloat(), 12f..32f, 19) { onFontSize(it.toInt()) }
                     LabeledSlider("Line height", "%.1f".format(settings.lineHeight), settings.lineHeight, 1.0f..2.5f, 14) { onLineHeight((it * 10).toInt() / 10f) }
                     LabeledSlider("Padding", "${settings.padding}", settings.padding.toFloat(), 0f..48f, 11) { onPadding(it.toInt()) }
@@ -145,7 +147,25 @@ fun NovelReaderSettingsSheet(
                             )
                         }
                     }
-                    SwitchRow("Keep screen on", settings.keepScreenOn, onKeepScreenOn)
+                    Text("Theme", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable(onClick = onFollowSystem).padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        RadioButton(selected = settings.followSystemTheme, onClick = null)
+                        Text("Follow system (auto light / dark)", style = MaterialTheme.typography.bodyLarge)
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        readerThemePresets.forEach { preset ->
+                            val selected = !settings.followSystemTheme &&
+                                settings.backgroundColor.equals(preset.background, ignoreCase = true)
+                            PresetSwatch(preset, selected) { onPreset(preset) }
+                        }
+                    }
                     // Per-novel orientation: Default (follow the global default) + the concrete locks.
                     Text("Orientation", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
                     Row(
@@ -162,34 +182,21 @@ fun NovelReaderSettingsSheet(
                         }
                     }
                 }
-                1 -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable(onClick = onFollowSystem).padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
-                        RadioButton(selected = settings.followSystemTheme, onClick = null)
-                        Text("Follow system (auto light / dark)", style = MaterialTheme.typography.bodyLarge)
-                    }
-                    Text("Presets", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        readerThemePresets.forEach { preset ->
-                            val selected = !settings.followSystemTheme &&
-                                settings.backgroundColor.equals(preset.background, ignoreCase = true)
-                            PresetSwatch(preset, selected) { onPreset(preset) }
-                        }
-                    }
-                }
-                2 -> {
+                0 -> {
                     SwitchRow("Bionic reading", settings.bionicReading, onBionicReading)
                     SwitchRow("Remove extra spacing", settings.removeExtraSpacing, onRemoveExtraSpacing)
+                    SwitchRow("Auto-scroll", settings.autoScroll, onAutoScroll)
+                    if (settings.autoScroll) {
+                        LabeledSlider("Scroll speed", "%.1f".format(settings.autoScrollSpeed), settings.autoScrollSpeed, 0.2f..4.0f, 18) {
+                            onAutoScrollSpeed((it * 10).roundToInt() / 10f)
+                        }
+                    }
+                    SwitchRow("Progress seekbar", settings.verticalSeekbar, onVerticalSeekbar)
                     SwitchRow("Tap edges to scroll", settings.tapToScroll, onTapToScroll)
                     SwitchRow("Swipe between chapters", settings.swipeGestures, onSwipeGestures)
+                    SwitchRow("Keep screen on", settings.keepScreenOn, onKeepScreenOn)
                 }
-                3 -> TtsTab(
+                2 -> TtsTab(
                     settings = settings,
                     onTtsEnabled = onTtsEnabled,
                     onTtsRate = onTtsRate,

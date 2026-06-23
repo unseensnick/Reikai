@@ -5,15 +5,22 @@ import android.content.pm.ActivityInfo
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -23,9 +30,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.VerticalSlider
+import androidx.compose.material3.rememberSliderState
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -39,6 +50,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -86,6 +99,12 @@ class NovelReaderScreen(
 
         var menuVisible by rememberSaveable { mutableStateOf(true) }
         var settingsOpen by rememberSaveable { mutableStateOf(false) }
+
+        // Reading progress (whole percent) for the vertical seekbar, and a handle the WebView registers
+        // so the seekbar can scrub. Auto-scroll runs only while reading (chrome hidden).
+        var progressPercent by remember { mutableStateOf(0) }
+        var scrollToPercent by remember { mutableStateOf<((Int) -> Unit)?>(null) }
+        val autoScrollActive = settings.autoScroll && !menuVisible
 
         // Immersive: hide the system bars while reading, reveal them with the chrome on tap. Restore
         // them when leaving the reader so the rest of the app is unaffected.
@@ -168,20 +187,32 @@ class NovelReaderScreen(
                 ) {
                     Text("${s.message}\n\nTap to retry")
                 }
-                is NovelReaderState.Loaded -> NovelReaderWebView(
-                    html = s.html,
-                    baseUrl = s.baseUrl,
-                    settings = settings,
-                    chapterTitle = s.chapterTitle,
-                    initialProgressPercent = s.initialProgressPercent,
-                    hasPrev = s.hasPrev,
-                    hasNext = s.hasNext,
-                    onToggleMenu = { menuVisible = !menuVisible },
-                    onSaveProgress = screenModel::saveProgress,
-                    onNavigate = { forward -> if (forward) screenModel.next() else screenModel.prev() },
-                    ttsController = screenModel.ttsController,
-                    modifier = Modifier.fillMaxSize(),
-                )
+                is NovelReaderState.Loaded -> {
+                    // Seed the seekbar from the chapter's resume position on (re)load.
+                    LaunchedEffect(s.chapterTitle, s.initialProgressPercent) {
+                        progressPercent = s.initialProgressPercent
+                    }
+                    NovelReaderWebView(
+                        html = s.html,
+                        baseUrl = s.baseUrl,
+                        settings = settings,
+                        chapterTitle = s.chapterTitle,
+                        initialProgressPercent = s.initialProgressPercent,
+                        hasPrev = s.hasPrev,
+                        hasNext = s.hasNext,
+                        onToggleMenu = { menuVisible = !menuVisible },
+                        onSaveProgress = { pct ->
+                            progressPercent = pct
+                            screenModel.saveProgress(pct)
+                        },
+                        onNavigate = { forward -> if (forward) screenModel.next() else screenModel.prev() },
+                        autoScrollActive = autoScrollActive,
+                        autoScrollSpeed = settings.autoScrollSpeed,
+                        onScrollHandleReady = { scrollToPercent = it },
+                        ttsController = screenModel.ttsController,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
 
             AnimatedVisibility(
@@ -221,6 +252,22 @@ class NovelReaderScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next chapter")
                     }
                 }
+            }
+
+            // Vertical progress seekbar on the right edge, shown with the chrome when enabled.
+            AnimatedVisibility(
+                visible = menuVisible && settings.verticalSeekbar,
+                modifier = Modifier.align(Alignment.CenterEnd),
+                enter = fadeIn(),
+                exit = fadeOut(),
+            ) {
+                VerticalSeekbar(
+                    value = progressPercent.toFloat(),
+                    onValueChange = { v ->
+                        progressPercent = v.roundToInt()
+                        scrollToPercent?.invoke(v.roundToInt())
+                    },
+                )
             }
 
             // Floating read-aloud puck (shown only when TTS is on). Drawn last so it overlays the
@@ -268,8 +315,52 @@ class NovelReaderScreen(
                 onRemoveExtraSpacing = screenModel::setRemoveExtraSpacing,
                 onTapToScroll = screenModel::setTapToScroll,
                 onSwipeGestures = screenModel::setSwipeGestures,
+                onAutoScroll = screenModel::setAutoScroll,
+                onAutoScrollSpeed = screenModel::setAutoScrollSpeed,
+                onVerticalSeekbar = screenModel::setVerticalSeekbar,
                 onDismiss = { settingsOpen = false },
             )
         }
     }
 }
+
+/** The reader's right-edge progress seekbar, matching the manga ChapterNavigator's long-strip slider:
+ *  the same Material3 [VerticalSlider] in the same rounded translucent pill, theme-colored, 0% at the
+ *  top with the fill growing downward as you read. Just the seekbar: no chapter-skip buttons or
+ *  page labels. */
+@Composable
+private fun VerticalSeekbar(value: Float, onValueChange: (Float) -> Unit) {
+    // Rest the thumb just shy of the bottom so it never pins to the literal end (where M3's slider
+    // makes it finicky to grab); only the end is a problem, the top is fine. Scrubbing still reaches
+    // 0 / 100%; only the thumb's resting display is inset. Keeps the default thumb + track, so it
+    // matches the manga reader exactly.
+    val state = rememberSliderState(
+        value = value.coerceIn(0f, SEEKBAR_MAX),
+        steps = SEEKBAR_STEPS,
+        valueRange = 0f..100f,
+    )
+    state.value = value.coerceIn(0f, SEEKBAR_MAX)
+    state.onValueChange = onValueChange
+    val backgroundColor = MaterialTheme.colorScheme
+        .surfaceColorAtElevation(3.dp)
+        .copy(alpha = if (isSystemInDarkTheme()) 0.9f else 0.95f)
+    // Round the background (not a clip) so nothing crops the thumb at the ends.
+    Column(
+        modifier = Modifier
+            .fillMaxHeight(0.72f)
+            .padding(end = 8.dp)
+            .background(backgroundColor, RoundedCornerShape(24.dp))
+            .padding(vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        VerticalSlider(
+            state = state,
+            modifier = Modifier
+                .weight(1f)
+                .padding(vertical = 8.dp),
+        )
+    }
+}
+
+private const val SEEKBAR_STEPS = 33
+private const val SEEKBAR_MAX = 99f
