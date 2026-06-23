@@ -83,7 +83,7 @@ Terse done-log, grouped by area. Full detail in the linked plan docs.
 - Browse + global search + installable LN plugins. See [novel-browse.md](docs/dev/plans/novel-browse.md).
 - Details screen at manga parity. See [novel-details.md](docs/dev/plans/novel-details.md).
 - Reader (WebView text canvas + Compose chrome). See [novel-reader.md](docs/dev/plans/novel-reader.md).
-- Reader engine extras round 2: read-aloud (TTS) with background playback + lock-screen media notification, bionic reading, remove-extra-spacing, tap-edges-to-scroll, swipe-between-chapters, auto-scroll, and a vertical progress seekbar; settings reorganized to General / Display / TTS tabs (`8a782ef55`, `b0134fe0e`, `e8453f0f0`, `106ea8826`). See [novel-reader.md](docs/dev/plans/novel-reader.md).
+- Reader engine extras round 2: read-aloud (TTS) with background playback + lock-screen media notification, bionic reading, remove-extra-spacing, tap-edges-to-scroll, swipe-between-chapters, auto-scroll, and a vertical progress seekbar; settings reorganized to General / Display / TTS tabs (`8a782ef55`, `b0134fe0e`, `e8453f0f0`, `0c918713d`). See [novel-reader.md](docs/dev/plans/novel-reader.md).
 - Categories + hopper + tab-aware Display sheet. See [novel-categories.md](docs/dev/plans/novel-categories.md).
 - Background update job (`NovelUpdateJob`). See [novel-update-job.md](docs/dev/plans/novel-update-job.md).
 - Cross-source merge + dynamic grouping. See [novel-merge.md](docs/dev/plans/novel-merge.md).
