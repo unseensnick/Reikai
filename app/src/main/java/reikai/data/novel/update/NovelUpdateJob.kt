@@ -108,7 +108,7 @@ class NovelUpdateJob(
         if (favorites.isEmpty()) return
 
         val downloadNew = preferences.downloadNewChapters().get()
-        var updatedCount = 0
+        val updates = mutableListOf<Pair<Novel, Int>>()
         var newChapterTotal = 0
         favorites.forEachIndexed { index, novel ->
             currentCoroutineContext().ensureActive()
@@ -117,7 +117,7 @@ class NovelUpdateJob(
             try {
                 val newChapters = checkNovel(novel, source)
                 if (newChapters.isNotEmpty()) {
-                    updatedCount++
+                    updates.add(novel to newChapters.size)
                     newChapterTotal += newChapters.size
                     if (downloadNew) {
                         val toDownload = filterChaptersForDownload(novel, newChapters)
@@ -134,7 +134,7 @@ class NovelUpdateJob(
         if (newChapterTotal > 0) {
             libraryPreferences.newUpdatesCount.getAndSet { it + newChapterTotal }
         }
-        notifier.showResult(updatedCount)
+        notifier.showResults(updates)
     }
 
     /** Re-parse the novel, persist metadata edit-lock-safely, sync page 1, and walk any newly-opened

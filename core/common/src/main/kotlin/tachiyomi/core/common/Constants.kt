@@ -9,11 +9,17 @@ object Constants {
 
     const val MANGA_EXTRA = "manga"
 
+    // RK: deep-link a per-novel update notification into its details (NovelScreen needs source + url)
+    const val NOVEL_SOURCE_EXTRA = "novel_source"
+    const val NOVEL_URL_EXTRA = "novel_url"
+
     const val MAIN_ACTIVITY = "eu.kanade.tachiyomi.ui.main.MainActivity"
 
     // Shortcut actions
     const val SHORTCUT_LIBRARY = "eu.kanade.tachiyomi.SHOW_LIBRARY"
     const val SHORTCUT_MANGA = "eu.kanade.tachiyomi.SHOW_MANGA"
+    const val SHORTCUT_NOVEL = "eu.kanade.tachiyomi.SHOW_NOVEL" // RK
+
     const val SHORTCUT_UPDATES = "eu.kanade.tachiyomi.SHOW_RECENTLY_UPDATED"
     const val SHORTCUT_HISTORY = "eu.kanade.tachiyomi.SHOW_RECENTLY_READ"
     const val SHORTCUT_SOURCES = "eu.kanade.tachiyomi.SHOW_CATALOGUES"

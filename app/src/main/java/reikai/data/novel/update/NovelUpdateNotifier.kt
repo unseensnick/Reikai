@@ -4,13 +4,16 @@ import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import androidx.core.app.NotificationCompat
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notificationManager
+import reikai.domain.novel.model.Novel
 import tachiyomi.core.common.Constants
+import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 
@@ -51,16 +54,51 @@ class NovelUpdateNotifier(private val context: Context) {
         context.notificationManager.cancel(Notifications.ID_NOVEL_LIBRARY_PROGRESS)
     }
 
-    /** One-shot "N novels have new chapters" entry; skipped when nothing changed. */
-    fun showResult(updatedCount: Int) {
-        if (updatedCount <= 0) return
-        val notification = context.notificationBuilder(Notifications.CHANNEL_NOVEL_LIBRARY_RESULT) {
-            setContentTitle(context.stringResource(MR.strings.novel_new_chapters_available, updatedCount))
+    /** One notification per updated novel (tap to open its details), grouped under a summary; skipped
+     *  when nothing changed. Mirrors the manga per-title update notifications. */
+    fun showResults(updates: List<Pair<Novel, Int>>) {
+        if (updates.isEmpty()) return
+        val perNovel = updates.map { (novel, newChapters) ->
+            novel.id.hashCode() to context.notificationBuilder(Notifications.CHANNEL_NOVEL_LIBRARY_RESULT) {
+                setContentTitle(novel.title)
+                setContentText(
+                    context.pluralStringResource(MR.plurals.notification_chapters_generic, newChapters, newChapters),
+                )
+                setSmallIcon(R.drawable.ic_book_24dp)
+                setGroup(Notifications.GROUP_NOVEL_NEW_CHAPTERS)
+                setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY)
+                setAutoCancel(true)
+                setContentIntent(openNovelPendingIntent(novel))
+            }.build()
+        }
+        val summary = context.notificationBuilder(Notifications.CHANNEL_NOVEL_LIBRARY_RESULT) {
+            setContentTitle(context.stringResource(MR.strings.novel_new_chapters_available, updates.size))
             setSmallIcon(R.drawable.ic_book_24dp)
+            setGroup(Notifications.GROUP_NOVEL_NEW_CHAPTERS)
+            setGroupSummary(true)
             setAutoCancel(true)
             setContentIntent(openLibraryPendingIntent())
         }.build()
-        context.notificationManager.notify(Notifications.ID_NOVEL_LIBRARY_RESULT, notification)
+        with(context.notificationManager) {
+            perNovel.forEach { (id, notification) -> notify(id, notification) }
+            notify(Notifications.ID_NOVEL_LIBRARY_RESULT, summary)
+        }
+    }
+
+    /** Deep-link a per-novel notification into its details via the [Constants.SHORTCUT_NOVEL] action. */
+    private fun openNovelPendingIntent(novel: Novel): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            action = Constants.SHORTCUT_NOVEL
+            putExtra(Constants.NOVEL_SOURCE_EXTRA, novel.source)
+            putExtra(Constants.NOVEL_URL_EXTRA, novel.url)
+        }
+        return PendingIntent.getActivity(
+            context,
+            novel.id.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
     }
 
     private fun openLibraryPendingIntent(): PendingIntent {

@@ -108,6 +108,7 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.core.migration.Migrator
 import mihon.feature.support.SupportUsScreen
+import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
@@ -534,6 +535,16 @@ class MainActivity : BaseActivity() {
                 val idToOpen = intent.extras?.getLong(Constants.MANGA_EXTRA) ?: return false
                 navigator.popUntilRoot()
                 HomeScreen.Tab.Library(idToOpen)
+            }
+            // RK: open a novel's details from a per-novel update notification
+            Constants.SHORTCUT_NOVEL -> {
+                val source = intent.getStringExtra(Constants.NOVEL_SOURCE_EXTRA)
+                val url = intent.getStringExtra(Constants.NOVEL_URL_EXTRA)
+                if (source != null && url != null) {
+                    navigator.popUntilRoot()
+                    navigator.push(NovelScreen(source, url))
+                }
+                null
             }
             Constants.SHORTCUT_UPDATES -> HomeScreen.Tab.Updates
             Constants.SHORTCUT_HISTORY -> HomeScreen.Tab.History
