@@ -22,6 +22,12 @@ data class NovelReaderSettings(
     val orientation: Int,
     /** [orientation] resolved against the global default: the concrete orientation the reader applies. */
     val resolvedOrientation: Int,
+    // Text-to-speech: the subset the WebView's `core.js` reads (general `TTSEnable` + the `tts` block).
+    val ttsEnabled: Boolean,
+    val ttsRate: Float,
+    val ttsPitch: Float,
+    val ttsAutoPageAdvance: Boolean,
+    val ttsScrollToTop: Boolean,
 )
 
 /** Per-novel orientation choices in the reader sheet: Default (follow the global default) plus the

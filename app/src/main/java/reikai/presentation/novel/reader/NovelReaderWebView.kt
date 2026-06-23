@@ -45,6 +45,7 @@ fun NovelReaderWebView(
     hasNext: Boolean,
     onToggleMenu: () -> Unit,
     onSaveProgress: (Int) -> Unit,
+    ttsController: NovelTtsController,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -104,6 +105,8 @@ fun NovelReaderWebView(
                     onHide = { mainHandler.post { onToggle.value() } },
                     onConsole = { msg -> if (BuildConfig.DEBUG) logcat { msg } },
                     onSave = { percent -> onSave.value(percent) },
+                    onTtsMessage = { type, json -> ttsController.onWebMessage(type, json) },
+                    onReaderReady = { mainHandler.post { ttsController.onReaderReady() } },
                 ),
                 "NativeReader",
             )
@@ -114,15 +117,24 @@ fun NovelReaderWebView(
         onDispose { webView.destroy() }
     }
 
+    // Let the TTS controller drive core.js (tts.start / next / pause / stop) on the main thread.
+    DisposableEffect(ttsController, webView) {
+        ttsController.setEvalJs { js -> mainHandler.post { webView.evaluateJavascript(js, null) } }
+        onDispose { ttsController.clearEvalJs() }
+    }
+
     LaunchedEffect(document, baseUrl) {
         webView.loadDataWithBaseURL(baseUrl, document, "text/html", "UTF-8", null)
     }
 
-    // Push settings live once the page is up (guarded so it no-ops before the reader exists).
+    // Push settings live once the page is up (guarded so it no-ops before the reader exists). Both
+    // the display settings and the general block (TTSEnable) update in place, so toggling TTS or
+    // changing rate/pitch needs no reload.
     LaunchedEffect(settings) {
-        val json = readerSettingsJson(settings).toString()
+        val readerJson = readerSettingsJson(settings).toString()
+        val generalJson = generalSettingsJson(settings).toString()
         webView.evaluateJavascript(
-            "if (window.reader) { reader.readerSettings.val = $json; }",
+            "if (window.reader) { reader.readerSettings.val = $readerJson; reader.generalSettings.val = $generalJson; }",
             null,
         )
     }

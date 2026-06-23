@@ -177,6 +177,7 @@ class NovelReaderScreen(
                     hasNext = s.hasNext,
                     onToggleMenu = { menuVisible = !menuVisible },
                     onSaveProgress = screenModel::saveProgress,
+                    ttsController = screenModel.ttsController,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -219,6 +220,21 @@ class NovelReaderScreen(
                     }
                 }
             }
+
+            // Floating read-aloud puck (shown only when TTS is on). Drawn last so it overlays the
+            // text + chrome; empty areas of its container pass taps through to the WebView.
+            if (settings.ttsEnabled) {
+                val ttsPlayback by screenModel.ttsController.playback.collectAsState()
+                val initialPos = remember { screenModel.ttsButtonPosition() }
+                NovelTtsFloatingButton(
+                    playing = ttsPlayback == TtsPlayback.Playing,
+                    initialX = initialPos.first,
+                    initialY = initialPos.second,
+                    onToggle = { screenModel.ttsController.toggle() },
+                    onStop = { screenModel.ttsController.stop() },
+                    onMoved = { x, y -> screenModel.setTtsButtonPosition(x, y) },
+                )
+            }
         }
 
         if (settingsOpen) {
@@ -233,6 +249,19 @@ class NovelReaderScreen(
                 onPreset = screenModel::setThemePreset,
                 onKeepScreenOn = screenModel::setKeepScreenOn,
                 onOrientation = screenModel::setOrientation,
+                onTtsEnabled = screenModel::setTtsEnabled,
+                onTtsRate = screenModel::setTtsRate,
+                onTtsPitch = screenModel::setTtsPitch,
+                onTtsAutoPageAdvance = screenModel::setTtsAutoPageAdvance,
+                onTtsScrollToTop = screenModel::setTtsScrollToTop,
+                onTtsEngine = screenModel::setTtsEngine,
+                onTtsVoice = screenModel::setTtsVoice,
+                onTtsLanguages = screenModel::setTtsLanguages,
+                ttsEngines = { screenModel.ttsController.availableEngines() },
+                ttsVoices = { screenModel.ttsController.availableVoices() },
+                currentTtsEngine = screenModel.ttsEnginePackage(),
+                currentTtsVoice = screenModel.ttsVoiceName(),
+                currentTtsLanguages = screenModel.ttsLanguages(),
                 onDismiss = { settingsOpen = false },
             )
         }

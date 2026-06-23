@@ -109,6 +109,39 @@ class NovelPreferences(
      *  twin of the manga reader's mark-read-on-skip. Opt-in. */
     fun readerMarkReadOnSkip() = preferenceStore.getBoolean("ln_reader_mark_read_on_skip", false)
 
+    // Text-to-speech (reader engine extras, round 2). The bundled `core.js` posts `speak` messages we
+    // voice with Android TextToSpeech; these prefs drive the engine + the WebView's `tts` settings block.
+
+    /** Master switch: show the floating play control and let `core.js` run TTS. Off by default. */
+    fun readerTtsEnabled() = preferenceStore.getBoolean("ln_reader_tts_enabled", false)
+
+    /** Chosen `TextToSpeech` engine package (e.g. `com.google.android.tts`); empty = system default. */
+    fun readerTtsEngine() = preferenceStore.getString("ln_reader_tts_engine", "")
+
+    /** Chosen voice name within the engine (the `Voice.name` id); empty = engine default. */
+    fun readerTtsVoice() = preferenceStore.getString("ln_reader_tts_voice", "")
+
+    /** Base language codes (e.g. `en`, `ja`) the voice picker is filtered to. Empty = show every
+     *  language the engine offers. */
+    fun readerTtsLanguages() = preferenceStore.getStringSet("ln_reader_tts_languages", emptySet())
+
+    /** Speech rate multiplier (0.1..5.0; 1.0 = normal). */
+    fun readerTtsRate() = preferenceStore.getFloat("ln_reader_tts_rate", 1.0f)
+
+    /** Speech pitch multiplier (0.1..5.0; 1.0 = normal). */
+    fun readerTtsPitch() = preferenceStore.getFloat("ln_reader_tts_pitch", 1.0f)
+
+    /** When the chapter finishes reading aloud, auto-advance to the next chapter and keep reading. */
+    fun readerTtsAutoPageAdvance() = preferenceStore.getBoolean("ln_reader_tts_auto_page_advance", false)
+
+    /** Scroll the spoken paragraph near the top (vs centering it) as TTS advances. */
+    fun readerTtsScrollToTop() = preferenceStore.getBoolean("ln_reader_tts_scroll_to_top", true)
+
+    /** Persisted floating-puck position (dp offsets within the reader). [Int.MIN_VALUE] = not yet
+     *  placed, so the puck uses its default anchor. */
+    fun readerTtsButtonX() = preferenceStore.getInt("ln_reader_tts_button_x", Int.MIN_VALUE)
+    fun readerTtsButtonY() = preferenceStore.getInt("ln_reader_tts_button_y", Int.MIN_VALUE)
+
     // Downloads (S5). Key strings preserved from the Yōkai-era fork for upgrade continuity.
 
     /** Delete a downloaded chapter's offline copy once it's marked read. */
