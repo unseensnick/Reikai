@@ -101,12 +101,16 @@ Shipped (P5 core sequence, on-device verified). Live reading with typography and
 
 **Compose owns all chrome; the WebView is text only.** LNReader's `index.js` renders an in-page ToolWrapper, buttons, and scrollbar. Reikai does not load it. Loading it would put a second, web-styled UI on top of the native one and break cohesion with the Mihon base. The cost is that the bridge and prev/next plumbing are native, which is the point.
 
-**TTS shipped natively; the other LNReader engine extras are still wired off.** `core.js` supports TTS, page-mode (vs scroll), auto-scroll, bionic reading, tap-to-scroll, volume-button paging, swipe-to-change-chapter, remove-extra-paragraph-spacing, custom CSS/JS/themes, an in-reader chapter drawer, and a progress seekbar. TTS is now on (rebuilt natively, see above); the rest stay hard-off in `NovelReaderHtmlBuilder`: the behavior flags (page-mode, auto-scroll, bionic, tap/volume/swipe paging, seekbar, remove-extra-spacing) in its `generalSettings` block, and the custom CSS / JS / themes in its `readerSettingsJson` block (the in-reader chapter drawer simply never renders, since `index.js` is not loaded). The reasoning:
+**Most LNReader engine extras shipped; a few stay off.** `core.js` supports TTS, page-mode (vs scroll), auto-scroll, bionic reading, tap-to-scroll, volume-button paging, swipe-to-change-chapter, remove-extra-paragraph-spacing, custom CSS/JS/themes, an in-reader chapter drawer, and a progress seekbar. Shipped (engine-extras round 2): **TTS** (native, see above), **bionic reading** and **remove-extra-spacing** (`core.js` flags), **tap-edges-to-scroll** and **swipe-between-chapters** (`core.js` gestures, with `next`/`prev` routed natively), and two native builds, **auto-scroll** (an injected requestAnimationFrame scroller, paused while the chrome is shown) and the **vertical progress seekbar** (Material3 `VerticalSlider`, the same primitive the manga reader's `ChapterNavigator` uses). What stays off:
 
-- **TTS** was the high-interest extra and is implemented natively: `core.js` only emits `speak` requests, so the audio is produced by Android `TextToSpeech` and the lock-screen controls by a `MediaSession`, with nothing depending on the headless plugin host (an earlier worry; the reader WebView is a separate environment from the QuickJS plugin host, so the `ln-host-polyfill-parity` concern never applied to it).
-- **The rest are low value** for this reader (page-mode, auto-scroll, bionic reading, volume/swipe paging, in-page drawer/seekbar) and would each add surface area and another way the in-page UI could diverge from the Compose chrome.
+- **Volume-button paging** needs Activity-level key interception (not a `core.js` flag); deferred.
+- **Page-mode** (`core.js` supports it, but it reworks the scroll-and-progress model and is LNReader-"Experimental"); deferred as high-cost / low-reward.
+- **Battery/time and reading-% overlays** duplicate the system status bar and the seekbar; intentionally skipped.
+- **Custom CSS/JS/themes and the in-reader chapter drawer** would require loading `index.js`, which breaks the Compose-chrome rule; not built.
 
-Leaving the remainder off matches the old Yokai reader (scroll mode, native chrome), so it is unported-LNReader-parity, not a regression. The tracked follow-up (the lower-value extras) is the "Novel reader engine extras" round-2 item in [novel-parity-backlog.md](novel-parity-backlog.md).
+The deferred remainder is the "Novel reader engine extras (remainder)" item in [ROADMAP.md](../../../ROADMAP.md).
+
+One `core.js` gotcha the extras surfaced: reassigning `reader.generalSettings.val` re-runs a watcher that rebuilds the chapter DOM (the bionic/spacing reflow), so the live-settings push reassigns the general block only when one of its flags actually changes; the display block (font/size/theme/tts rate-pitch) reassigns freely.
 
 **Live settings over reload.** Display changes push through `reader.readerSettings.val` instead of rebuilding the document, so font/size/spacing/theme adjustments are instant and never lose scroll position. The document rebuilds only on a chapter change or an app-theme change.
 

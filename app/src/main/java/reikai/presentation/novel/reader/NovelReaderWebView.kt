@@ -1,6 +1,7 @@
 package reikai.presentation.novel.reader
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.webkit.WebView
@@ -47,6 +48,9 @@ fun NovelReaderWebView(
     onToggleMenu: () -> Unit,
     onSaveProgress: (Int) -> Unit,
     onNavigate: (forward: Boolean) -> Unit,
+    autoScrollActive: Boolean,
+    autoScrollSpeed: Float,
+    onScrollHandleReady: ((Int) -> Unit) -> Unit,
     ttsController: NovelTtsController,
     modifier: Modifier = Modifier,
 ) {
@@ -98,7 +102,7 @@ fun NovelReaderWebView(
     val onNav = rememberUpdatedState(onNavigate)
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
     val webView = remember {
-        WebView(context).apply {
+        ProgressWebView(context).apply {
             setDefaultSettings()
             // file:///android_asset bundled CSS/JS + fonts. The dangerous universal/file-from-file
             // access flags stay off (security): the chapter HTML is loaded over an http base URL.
@@ -107,7 +111,7 @@ fun NovelReaderWebView(
                 NovelReaderWebInterface(
                     onHide = { mainHandler.post { onToggle.value() } },
                     onConsole = { msg -> if (BuildConfig.DEBUG) logcat { msg } },
-                    onSave = { percent -> onSave.value(percent) },
+                    onSave = { percent -> mainHandler.post { onSave.value(percent) } },
                     onTtsMessage = { type, json -> ttsController.onWebMessage(type, json) },
                     onReaderReady = { mainHandler.post { ttsController.onReaderReady() } },
                     onNavigate = { forward -> mainHandler.post { onNav.value(forward) } },
@@ -125,6 +129,25 @@ fun NovelReaderWebView(
     DisposableEffect(ttsController, webView) {
         ttsController.setEvalJs { js -> mainHandler.post { webView.evaluateJavascript(js, null) } }
         onDispose { ttsController.clearEvalJs() }
+    }
+
+    // Expose a scroll-to-percent handle for the vertical seekbar. Scrolls the WebView natively (the
+    // seekbar's onValueChange is already on the main thread), so scrubbing is instant, no JS round-trip.
+    DisposableEffect(webView) {
+        onScrollHandleReady { percent ->
+            webView.scrollTo(0, (webView.maxScroll * percent / 100f).roundToInt())
+        }
+        onDispose {}
+    }
+
+    // Auto-scroll: start/stop the injected scroller. Active only while enabled and the chrome is hidden.
+    LaunchedEffect(autoScrollActive, autoScrollSpeed) {
+        val js = if (autoScrollActive) {
+            "if (window.reikaiAutoScroll) reikaiAutoScroll.start($autoScrollSpeed);"
+        } else {
+            "if (window.reikaiAutoScroll) reikaiAutoScroll.stop();"
+        }
+        webView.evaluateJavascript(js, null)
     }
 
     LaunchedEffect(document, baseUrl) {
@@ -152,6 +175,14 @@ fun NovelReaderWebView(
     }
 
     AndroidView(factory = { webView }, modifier = modifier)
+}
+
+/** WebView that exposes its vertical scroll range so the progress seekbar can scrub it natively
+ *  (instant, no JS round-trip), the way the manga reader scrolls its view. */
+@SuppressLint("ViewConstructor")
+private class ProgressWebView(context: Context) : WebView(context) {
+    val maxScroll: Int
+        get() = (computeVerticalScrollRange() - computeVerticalScrollExtent()).coerceAtLeast(0)
 }
 
 private fun Color.toCssHex(): String = "#%06X".format(0xFFFFFF and toArgb())

@@ -36,7 +36,7 @@ Queued, roughly in priority order.
 
 Backlog, unordered.
 
-- **Novel reader engine extras**  `[M]`/`[L]`: LNReader's bundled `core.js` extras (TTS, page-mode, auto-scroll, bionic reading, tap/volume paging, custom CSS/JS/themes, in-reader chapter drawer, seekbar) are wired off. TTS is the only high-interest one and is gated by the headless-host polyfill concern; the rest are low value. This matches the old Yōkai reader, so it is unported-LNReader-parity, not a regression. See [novel-reader.md](docs/dev/plans/novel-reader.md).
+- **Novel reader engine extras (remainder)**  `[L]`: the high- and medium-value `core.js` extras shipped (TTS + background playback, bionic, remove-spacing, tap/swipe, auto-scroll, vertical seekbar). Still parked, all low value or high cost: volume-button paging (needs Activity-level key interception), paged reading (`core.js` supports it but it reworks the scroll/progress model and is LNReader-"Experimental"), the battery/time and reading-% overlays (duplicate the system bar / the seekbar), and custom CSS/JS/themes + the in-reader chapter drawer (would require loading `index.js`, breaking the Compose-chrome rule). See [novel-reader.md](docs/dev/plans/novel-reader.md).
 - **Novel Updates home-screen widget**  `[L]`: the glance Updates widget is manga-only; a novel/unified widget needs net-new App Widget scaffolding. Low priority (the in-app unified Updates feed already covers novels). See [unified-updates.md](docs/dev/plans/unified-updates.md).
 - **Adult-source / EXH subsystem**  `[L]`: the full adult-source subsystem (E-Hentai / nHentai inverted branches, `exh.source` delegated sources, gallery metadata, search), deferred at P2. The basic lewd filter already shipped; this is the rest. Largest remaining item and multi-stage; run `/scout` before starting.
 
@@ -83,6 +83,7 @@ Terse done-log, grouped by area. Full detail in the linked plan docs.
 - Browse + global search + installable LN plugins. See [novel-browse.md](docs/dev/plans/novel-browse.md).
 - Details screen at manga parity. See [novel-details.md](docs/dev/plans/novel-details.md).
 - Reader (WebView text canvas + Compose chrome). See [novel-reader.md](docs/dev/plans/novel-reader.md).
+- Reader engine extras round 2: read-aloud (TTS) with background playback + lock-screen media notification, bionic reading, remove-extra-spacing, tap-edges-to-scroll, swipe-between-chapters, auto-scroll, and a vertical progress seekbar; settings reorganized to General / Display / TTS tabs (`8a782ef55`, `b0134fe0e`, `e8453f0f0`, `106ea8826`). See [novel-reader.md](docs/dev/plans/novel-reader.md).
 - Categories + hopper + tab-aware Display sheet. See [novel-categories.md](docs/dev/plans/novel-categories.md).
 - Background update job (`NovelUpdateJob`). See [novel-update-job.md](docs/dev/plans/novel-update-job.md).
 - Cross-source merge + dynamic grouping. See [novel-merge.md](docs/dev/plans/novel-merge.md).

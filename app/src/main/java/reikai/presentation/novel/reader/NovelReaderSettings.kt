@@ -33,6 +33,10 @@ data class NovelReaderSettings(
     val removeExtraSpacing: Boolean,
     val tapToScroll: Boolean,
     val swipeGestures: Boolean,
+    // Driven natively (not by core.js): auto-scroll runs an injected scroller, the seekbar is Compose.
+    val autoScroll: Boolean,
+    val autoScrollSpeed: Float,
+    val verticalSeekbar: Boolean,
 )
 
 /** Per-novel orientation choices in the reader sheet: Default (follow the global default) plus the

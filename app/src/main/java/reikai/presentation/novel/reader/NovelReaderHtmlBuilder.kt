@@ -136,6 +136,15 @@ fun buildReaderHtml(
             tts.start(start || undefined);
           } catch (e) { tts.start(); }
         };
+        // Auto-scroll: a requestAnimationFrame loop that nudges the page down each frame.
+        window.reikaiAutoScroll = (function () {
+          var raf = null, speed = 0;
+          function step() { window.scrollBy(0, speed); raf = requestAnimationFrame(step); }
+          return {
+            start: function (px) { speed = px; if (!raf) raf = requestAnimationFrame(step); },
+            stop: function () { if (raf) { cancelAnimationFrame(raf); raf = null; } },
+          };
+        })();
         // Tell native the document is up (drives TTS auto-advance + state reset on chapter change).
         if (window.NativeReader) NativeReader.postMessage(JSON.stringify({ type: 'reikai-ready' }));
         </script>

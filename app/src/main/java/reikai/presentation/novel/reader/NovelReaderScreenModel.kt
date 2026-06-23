@@ -184,8 +184,13 @@ class NovelReaderScreenModel(
                 novelPreferences.readerRemoveExtraSpacing().changes(),
                 novelPreferences.readerTapToScroll().changes(),
                 novelPreferences.readerSwipeGestures().changes(),
-            ) { bionic, spacing, tapScroll, swipe -> ExtrasPrefs(bionic, spacing, tapScroll, swipe) },
-        ) { tts, extras -> ReaderExtraPrefs(tts, extras) },
+            ) { bionic, spacing, tapScroll, swipe -> FlagPrefs(bionic, spacing, tapScroll, swipe) },
+            combine(
+                novelPreferences.readerAutoScroll().changes(),
+                novelPreferences.readerAutoScrollSpeed().changes(),
+                novelPreferences.readerVerticalSeekbar().changes(),
+            ) { autoScroll, speed, seekbar -> ScrollPrefs(autoScroll, speed, seekbar) },
+        ) { tts, flags, scroll -> ReaderExtraPrefs(tts, flags, scroll) },
     ) { display, theme, keepScreenOn, orient, extra ->
         NovelReaderSettings(
             fontSize = display.fontSize,
@@ -204,10 +209,13 @@ class NovelReaderScreenModel(
             ttsPitch = extra.tts.pitch,
             ttsAutoPageAdvance = extra.tts.autoPageAdvance,
             ttsScrollToTop = extra.tts.scrollToTop,
-            bionicReading = extra.extras.bionicReading,
-            removeExtraSpacing = extra.extras.removeExtraSpacing,
-            tapToScroll = extra.extras.tapToScroll,
-            swipeGestures = extra.extras.swipeGestures,
+            bionicReading = extra.flags.bionicReading,
+            removeExtraSpacing = extra.flags.removeExtraSpacing,
+            tapToScroll = extra.flags.tapToScroll,
+            swipeGestures = extra.flags.swipeGestures,
+            autoScroll = extra.scroll.autoScroll,
+            autoScrollSpeed = extra.scroll.autoScrollSpeed,
+            verticalSeekbar = extra.scroll.verticalSeekbar,
         )
     }.stateIn(screenModelScope, SharingStarted.Eagerly, currentSettings())
 
@@ -235,6 +243,9 @@ class NovelReaderScreenModel(
             removeExtraSpacing = novelPreferences.readerRemoveExtraSpacing().get(),
             tapToScroll = novelPreferences.readerTapToScroll().get(),
             swipeGestures = novelPreferences.readerSwipeGestures().get(),
+            autoScroll = novelPreferences.readerAutoScroll().get(),
+            autoScrollSpeed = novelPreferences.readerAutoScrollSpeed().get(),
+            verticalSeekbar = novelPreferences.readerVerticalSeekbar().get(),
         )
     }
 
@@ -366,6 +377,9 @@ class NovelReaderScreenModel(
     fun setRemoveExtraSpacing(value: Boolean) = novelPreferences.readerRemoveExtraSpacing().set(value)
     fun setTapToScroll(value: Boolean) = novelPreferences.readerTapToScroll().set(value)
     fun setSwipeGestures(value: Boolean) = novelPreferences.readerSwipeGestures().set(value)
+    fun setAutoScroll(value: Boolean) = novelPreferences.readerAutoScroll().set(value)
+    fun setAutoScrollSpeed(value: Float) = novelPreferences.readerAutoScrollSpeed().set(value)
+    fun setVerticalSeekbar(value: Boolean) = novelPreferences.readerVerticalSeekbar().set(value)
     fun setTtsButtonPosition(x: Int, y: Int) {
         novelPreferences.readerTtsButtonX().set(x)
         novelPreferences.readerTtsButtonY().set(y)
@@ -527,13 +541,18 @@ class NovelReaderScreenModel(
         val autoPageAdvance: Boolean,
         val scrollToTop: Boolean,
     )
-    private data class ExtrasPrefs(
+    private data class FlagPrefs(
         val bionicReading: Boolean,
         val removeExtraSpacing: Boolean,
         val tapToScroll: Boolean,
         val swipeGestures: Boolean,
     )
-    private data class ReaderExtraPrefs(val tts: TtsPrefs, val extras: ExtrasPrefs)
+    private data class ScrollPrefs(
+        val autoScroll: Boolean,
+        val autoScrollSpeed: Float,
+        val verticalSeekbar: Boolean,
+    )
+    private data class ReaderExtraPrefs(val tts: TtsPrefs, val flags: FlagPrefs, val scroll: ScrollPrefs)
 
     override fun onDispose() {
         super.onDispose()
