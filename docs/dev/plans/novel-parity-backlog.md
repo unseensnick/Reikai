@@ -22,7 +22,7 @@ Grouped by the area of the app each touches. Each entry describes current behavi
 
 **Migrate a novel to another source.** A favorite-gated Migrate action in the novel details overflow, the novel twin of Mihon's manga migration. It searches the title across novel sources (reusing the global-search fan-out behind a shared results composable, hiding the current source); picking a target materializes it (fetch plus chapter sync), then a Mihon-style "Select data to include" dialog offers a Copy versus Migrate choice. `MigrateNovelUseCase` copies per-chapter read, bookmark, and scroll-progress matched by chapter number, moves categories, and favorites the target. On Migrate (not Copy) it also unfavorites the old novel and splits it out of any merge group. The result is a new target row with the old one unfavorited (not an in-place edit, not a delete): safer, recoverable, and matching Mihon. A follow-up re-queues for download any chapters that were offline on the old source, matched by chapter number, re-fetching the files rather than copying them (the manager skips chapters the target already has). See `novel-details.md` for the details-screen surface and `novel-browse.md` for the global-search fan-out it reuses.
 
-Note: full batch / library migration (pick and order target sources, then a per-novel review list) is scouted but not yet built; only the per-novel Migrate action above is shipped.
+**Batch / library migration (1..N novels).** Single and batch migration now share one screen (`NovelMigrationListScreen`): a single novel comes from the details overflow (one row), a batch from library multi-select (N rows). Each row auto-searches its title across sources the first time it scrolls into view (search-on-scroll, paced by one shared `Semaphore(5)` so a big selection can't burst many requests at one host), and shows the first non-empty result as an unchecked **Suggested** target with **Accept**, or a **Change** override that re-queries and lists every candidate. The picked target is materialised lazily (only on Accept/pick: `parseNovel` + insert shadow row + chapter sync). A bottom Migrate action opens the Copy / Migrate + flags confirm, which loops `MigrateNovelUseCase` over the rows that have a chosen target (un-chosen rows are skipped). This replaced the old single-only `NovelMigrateSearchScreen` + `MigrateNovelDialog`. Why manual (no auto-commit): novels have no smart-title matching, and auto-picking the wrong edition is worse for novels (translations, alt sources, volume splits); search-on-scroll + manual accept mirrors LNReader's own single-migrate (auto-search all sources, manual pick, lazy fetch), just batched.
 
 ### Library modes
 
@@ -67,8 +67,7 @@ History
 
 Migration
 - `app/src/main/java/reikai/domain/novel/interactor/MigrateNovelUseCase.kt`
-- `app/src/main/java/reikai/presentation/novel/migrate/NovelMigrateSearchScreen.kt`
-- `app/src/main/java/reikai/presentation/novel/migrate/MigrateNovelDialog.kt`
+- `app/src/main/java/reikai/presentation/novel/migrate/NovelMigrationListScreen.kt` + `NovelMigrationListScreenModel.kt` (the unified 1..N migration screen, auto-search + suggested + lazy materialize + batch Copy/Migrate)
 
 Library modes
 - `app/src/main/java/reikai/presentation/library/novels/NovelLibraryScreenModel.kt` (downloaded-only force, incognito gating on the browse side)
@@ -104,6 +103,7 @@ All shipped and on-device verified (Z Fold / Fold6).
 |---|---|---|
 | Novel History tab (Roadmap 5) | History | `bc0b78d37`..`2d2807015` |
 | Migrate a novel to another source (Roadmap 7) | Migration | `9756d2a76` (download re-queue follow-up `fc6dabb03`) |
+| Batch / library migration (unified 1..N screen) | Migration | `_pending_` |
 | "Downloaded only" novel library mode | Library modes | `f7d85efcd` |
 | Incognito mode for novels | Library modes | `25d046329` |
 | Per-novel reader orientation lock | Reader | `37bfa661f` |
