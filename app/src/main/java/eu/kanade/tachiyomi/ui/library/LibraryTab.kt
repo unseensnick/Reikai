@@ -78,6 +78,7 @@ import reikai.presentation.library.ReikaiLibraryContent
 import reikai.presentation.library.novels.NovelLibraryScreenModel
 import reikai.presentation.library.novels.NovelLibrarySettingsDialog
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
+import reikai.presentation.novel.migrate.NovelMigrationListScreen
 import reikai.presentation.library.reikaiCategoryHeaderIndices
 import reikai.presentation.library.reikaiIsCollapsed
 import reikai.presentation.library.reikaiSortCategories
@@ -333,7 +334,7 @@ data object LibraryTab : Tab {
             },
             bottomBar = {
                 // RK: novels get their own action bar (download menu, mark read/unread, change
-                // category, delete); merge + migrate stay manga-only (deferred / S8).
+                // category, delete, merge, and batch migrate).
                 if (isNovels) {
                     LibraryBottomActionMenu(
                         visible = novelState.selectionMode,
@@ -342,7 +343,11 @@ data object LibraryTab : Tab {
                         onMarkAsUnreadClicked = { novelModel.markReadSelection(false) },
                         onDownloadClicked = novelModel::performDownloadAction,
                         onDeleteClicked = novelModel::openDeleteDialog,
-                        onMigrateClicked = null,
+                        onMigrateClicked = {
+                            val ids = novelState.selectedNovelIds
+                            novelModel.clearSelection()
+                            navigator.push(NovelMigrationListScreen(ids))
+                        },
                         // RK: manual merge of the selected novels (needs at least two) + unmerge (P5 S8)
                         onMergeClicked = novelModel::mergeSelection.takeIf { novelState.selection.size >= 2 },
                         onUnmergeClicked = novelModel::unmergeSelection.takeIf { novelState.selectionContainsMerged },

@@ -133,9 +133,8 @@ class NovelGlobalSearchScreen(
 
 /**
  * The shared cross-source results body: the Pinned / All / Has-results chips and one row per source.
- * Reused by the migrate target picker ([reikai.presentation.novel.migrate.NovelMigrateSearchScreen]),
- * which passes a different [onResultClick] (open the migrate dialog) and a [sourceFilter] that hides
- * the novel's current source. [onClickSource] is null in migrate mode (no source-browse dead-end).
+ * The migration screen ([reikai.presentation.novel.migrate.NovelMigrationListScreen]) runs the same
+ * per-source fan-out per row; this composable backs the standalone global search.
  */
 @Composable
 internal fun NovelGlobalSearchResults(
