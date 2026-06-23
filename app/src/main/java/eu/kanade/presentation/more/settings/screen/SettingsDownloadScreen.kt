@@ -97,83 +97,71 @@ object SettingsDownloadScreen : SearchableSettings {
         categories: List<Category>,
         novelCategories: List<Category>,
     ): Preference.PreferenceGroup {
+        // Each shared setting is paired manga-then-novel and labelled with the content type, so the
+        // duplicated titles read clearly. RK: removeAfterMarkedAsRead is manga-only; the novel reader's
+        // single delete trigger folds it into removeAfterReadSlots (slot 0 fallback).
+        val slotEntries = mapOf(
+            -1 to stringResource(MR.strings.disabled),
+            0 to stringResource(MR.strings.last_read_chapter),
+            1 to stringResource(MR.strings.second_to_last),
+            2 to stringResource(MR.strings.third_to_last),
+            3 to stringResource(MR.strings.fourth_to_last),
+            4 to stringResource(MR.strings.fifth_to_last),
+        )
+        val mangaLabel = stringResource(MR.strings.content_type_manga)
+        val novelLabel = stringResource(MR.strings.content_type_novels)
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_delete_chapters),
             preferenceItems = listOf(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = downloadPreferences.removeAfterMarkedAsRead,
                     title = stringResource(MR.strings.pref_remove_after_marked_as_read),
-                    subtitle = stringResource(MR.strings.content_type_manga),
+                    subtitle = mangaLabel,
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = downloadPreferences.removeAfterReadSlots,
-                    entries = mapOf(
-                        -1 to stringResource(MR.strings.disabled),
-                        0 to stringResource(MR.strings.last_read_chapter),
-                        1 to stringResource(MR.strings.second_to_last),
-                        2 to stringResource(MR.strings.third_to_last),
-                        3 to stringResource(MR.strings.fourth_to_last),
-                        4 to stringResource(MR.strings.fifth_to_last),
-                    ),
+                    entries = slotEntries,
                     title = stringResource(MR.strings.pref_remove_after_read),
+                    subtitleProvider = { value, entries -> "$mangaLabel: ${entries[value]}" },
+                ),
+                Preference.PreferenceItem.ListPreference(
+                    preference = novelPreferences.removeAfterReadSlots(),
+                    entries = slotEntries,
+                    title = stringResource(MR.strings.pref_remove_after_read),
+                    subtitleProvider = { value, entries -> "$novelLabel: ${entries[value]}" },
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = downloadPreferences.removeBookmarkedChapters,
                     title = stringResource(MR.strings.pref_remove_bookmarked_chapters),
-                ),
-                getExcludedCategoriesPreference(
-                    downloadPreferences = downloadPreferences,
-                    categories = { categories },
-                ),
-                // RK --> light-novel delete-on-read twins (separate downloader + preferences). The
-                // novel reader has one delete trigger, so removeAfterReadSlots subsumes the legacy
-                // removeAfterMarkedAsRead boolean (kept only as a fallback when the slots list is off).
-                Preference.PreferenceItem.ListPreference(
-                    preference = novelPreferences.removeAfterReadSlots(),
-                    entries = mapOf(
-                        -1 to stringResource(MR.strings.disabled),
-                        0 to stringResource(MR.strings.last_read_chapter),
-                        1 to stringResource(MR.strings.second_to_last),
-                        2 to stringResource(MR.strings.third_to_last),
-                        3 to stringResource(MR.strings.fourth_to_last),
-                        4 to stringResource(MR.strings.fifth_to_last),
-                    ),
-                    title = stringResource(MR.strings.pref_remove_after_read),
-                    // Keep the selected-value subtitle, prefixed with the content type to tell it from manga.
-                    subtitleProvider = { value, entries ->
-                        "${stringResource(MR.strings.content_type_novels)}: ${entries[value]}"
-                    },
+                    subtitle = mangaLabel,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.removeBookmarkedChapters(),
                     title = stringResource(MR.strings.pref_remove_bookmarked_chapters),
-                    subtitle = stringResource(MR.strings.content_type_novels),
+                    subtitle = novelLabel,
                 ),
-                Preference.PreferenceItem.MultiSelectListPreference(
-                    preference = novelPreferences.removeExcludeCategories(),
-                    entries = novelCategories.associate { it.id.toString() to it.visualName },
-                    title = stringResource(MR.strings.pref_remove_exclude_categories),
-                    subtitleProvider = { value, entries ->
-                        val selected = value.mapNotNull { entries[it] }.sorted().joinToString()
-                        val prefix = stringResource(MR.strings.content_type_novels)
-                        if (selected.isEmpty()) prefix else "$prefix: $selected"
-                    },
-                ),
-                // RK <--
+                excludeCategoriesPreference(downloadPreferences.removeExcludeCategories, categories, mangaLabel),
+                excludeCategoriesPreference(novelPreferences.removeExcludeCategories(), novelCategories, novelLabel),
             ),
         )
     }
 
+    /** An "Excluded categories" multi-select labelled with its content type, keeping the selected
+     *  category names as the subtitle. */
     @Composable
-    private fun getExcludedCategoriesPreference(
-        downloadPreferences: DownloadPreferences,
-        categories: () -> List<Category>,
+    private fun excludeCategoriesPreference(
+        preference: tachiyomi.core.common.preference.Preference<Set<String>>,
+        categories: List<Category>,
+        label: String,
     ): Preference.PreferenceItem.MultiSelectListPreference {
         return Preference.PreferenceItem.MultiSelectListPreference(
-            preference = downloadPreferences.removeExcludeCategories,
-            entries = categories()
-                .associate { it.id.toString() to it.visualName },
+            preference = preference,
+            entries = categories.associate { it.id.toString() to it.visualName },
             title = stringResource(MR.strings.pref_remove_exclude_categories),
+            subtitleProvider = { value, entries ->
+                val selected = value.mapNotNull { entries[it] }.sorted().joinToString()
+                if (selected.isEmpty()) label else "$label: $selected"
+            },
         )
     }
 
