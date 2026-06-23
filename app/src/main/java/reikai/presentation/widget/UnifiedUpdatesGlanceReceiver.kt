@@ -1,0 +1,9 @@
+package reikai.presentation.widget
+
+import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetReceiver
+
+class UnifiedUpdatesGlanceReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget
+        get() = UnifiedUpdatesGlanceWidget()
+}
