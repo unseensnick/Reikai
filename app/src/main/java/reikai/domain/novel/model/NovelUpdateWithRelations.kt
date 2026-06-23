@@ -23,4 +23,5 @@ data class NovelUpdateWithRelations(
     val dateFetch: Long,
     val isDownloaded: Boolean,
     val coverData: NovelCover,
+    val novelUrl: String,
 )

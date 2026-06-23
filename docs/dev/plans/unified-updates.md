@@ -47,9 +47,23 @@ Confirmed in `app/src/main/java/`:
 
 The novel feed is produced by the background novel update job documented in novel-update-job.md.
 
+## Home-screen widget
+
+The in-app feed has a home-screen companion: a resizable widget that shows recently updated manga and novels together, split into a labeled "Novels" strip and a "Manga" strip. Mihon's own widget is a bare cover grid with no labels, so mixing the two types would make covers indistinguishable; the section labels solve that without a per-cover badge. The strict-by-time interleave the in-app feed uses is dropped here on purpose: for an at-a-glance "what's new" surface, grouping by type reads better than a time order you cannot visually parse in a wall of covers.
+
+Mihon's `UpdatesGridGlanceWidget` stays the manga-only widget, untouched (it ports verbatim on upstream sync); the unified one is added alongside it, so the launcher's widget picker lists both. Tapping a cover opens that title's details via the existing `SHORTCUT_MANGA` / `SHORTCUT_NOVEL` deep links into `MainActivity`.
+
+**Why it lives in the app module, not `presentation-widget`.** A unified widget has to query novels and build novel covers, and both the novel query (`NovelRepository.getRecentNovelUpdatesAsFlow`) and the novel coil model (`NovelCover`) live in the app module's `reikai.*` packages. `presentation-widget` is a library module that cannot depend on `app`, so it cannot see those types. The app module can: it already depends on `presentation-widget`, so the new widget reuses that module's public pieces (`UpdatesMangaCover`, `CoverWidth`/`CoverHeight`, `calculateRowAndColumnCount`, `BaseUpdatesGridGlanceWidget.DateLimit`, `LockedWidget`) while keeping the novel-specific code local. The cost is one new dependency: the app module now pulls in Glance directly (`// RK` in `app/build.gradle.kts`).
+
+**Refresh.** Mihon's `WidgetManager` only watches manga updates and lives in `presentation-widget`, so it cannot drive the unified widget. A parallel `UnifiedUpdatesWidgetManager` in the app module combines the manga and novel update flows plus the app-lock toggle and re-renders on change; it is started from `App` next to the stock `WidgetManager`.
+
+**The novel page url.** Opening a novel from a cover needs the `SHORTCUT_NOVEL` deep link's (source, url) pair, but `NovelUpdateWithRelations` only carried the chapter url. The novel's own url was added to `novelUpdatesView` (the view already joins the novels table for title and cover), with migration `22.sqm` recreating the view for installed databases.
+
+Key files (app module): `reikai/presentation/widget/UnifiedUpdatesGlanceWidget.kt` (the widget + cover/section building), `UnifiedUpdatesGlanceReceiver.kt`, `UnifiedUpdatesWidgetManager.kt`, `res/xml/unified_updates_widget_info.xml`, and the `// RK` receiver block in `app/src/main/AndroidManifest.xml`.
+
 ## Status
 
-Shipped and on-device verified (Z Fold / Fold6). All four pieces (consolidation, novel filters, by-category, group-by-series) are live on `design/mihon-rebase`. The novel History tab is the History-side twin of this same consolidation pattern; see novel-parity-backlog.md.
+Shipped and on-device verified (Z Fold / Fold6): all four pieces of the in-app feed (consolidation, novel filters, by-category, group-by-series) are live on `design/mihon-rebase`. The home-screen widget compiles and is pending on-device verification. The novel History tab is the History-side twin of this same consolidation pattern; see novel-parity-backlog.md.
 
 ## Decisions & tradeoffs
 

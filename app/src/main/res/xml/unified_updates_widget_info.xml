@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- RK: home-screen widget showing recent manga + novel updates in labeled sections. Reuses
+     presentation-widget's loading layout and preview drawable. Default 4x3 with top-aligned content. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/appwidget_unified_updates_description"
+    android:previewImage="@drawable/updates_grid_widget_preview"
+    android:initialLayout="@layout/appwidget_loading"
+    android:minWidth="240dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="80dp"
+    android:minResizeHeight="110dp"
+    android:maxResizeWidth="600dp"
+    android:maxResizeHeight="600dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="3"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen" />

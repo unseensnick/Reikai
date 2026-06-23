@@ -211,6 +211,7 @@ fun mapNovelUpdate(
     coverLastModified: Long,
     dateFetch: Long,
     isDownloaded: Boolean,
+    novelUrl: String,
 ): NovelUpdateWithRelations = NovelUpdateWithRelations(
     novelId = novelId,
     novelTitle = novelTitle,
@@ -223,6 +224,7 @@ fun mapNovelUpdate(
     source = source,
     dateFetch = dateFetch,
     isDownloaded = isDownloaded,
+    novelUrl = novelUrl,
     coverData = NovelCover(
         url = thumbnailUrl,
         site = null,

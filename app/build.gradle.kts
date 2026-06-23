@@ -237,6 +237,10 @@ dependencies {
     implementation(projects.presentationWidget)
     implementation(projects.telemetry)
 
+    // RK: Glance for the unified manga + novel updates home-screen widget (hosted in the app module
+    // because it needs the novel query/cover types that live here; presentation-widget can't see them)
+    implementation(libs.androidx.glance.appWidget)
+
     // Compose
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.foundation)

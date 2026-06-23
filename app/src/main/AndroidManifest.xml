@@ -201,6 +201,21 @@
             android:name=".data.notification.NotificationReceiver"
             android:exported="false" />
 
+        <!-- RK: home-screen widget for recent manga + novel updates (alongside Mihon's manga-only one) -->
+        <receiver
+            android:name="reikai.presentation.widget.UnifiedUpdatesGlanceReceiver"
+            android:enabled="@bool/glance_appwidget_available"
+            android:exported="false"
+            android:label="@string/label_unified_updates">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/unified_updates_widget_info" />
+        </receiver>
+
         <service
             android:name=".extension.util.ExtensionInstallService"
             android:exported="false"
