@@ -127,14 +127,16 @@ fun NovelReaderWebView(
         webView.loadDataWithBaseURL(baseUrl, document, "text/html", "UTF-8", null)
     }
 
-    // Push settings live once the page is up (guarded so it no-ops before the reader exists). Both
-    // the display settings and the general block (TTSEnable) update in place, so toggling TTS or
-    // changing rate/pitch needs no reload.
+    // Push settings live once the page is up (guarded so it no-ops before the reader exists). The
+    // display block (incl. tts rate/pitch) reassigns freely: its watchers only update CSS variables.
+    // The general block is reassigned ONLY when TTSEnable flips, because a `core.js` watcher rebuilds
+    // the chapter DOM on any generalSettings change, which would wipe the read-aloud highlight.
     LaunchedEffect(settings) {
         val readerJson = readerSettingsJson(settings).toString()
         val generalJson = generalSettingsJson(settings).toString()
         webView.evaluateJavascript(
-            "if (window.reader) { reader.readerSettings.val = $readerJson; reader.generalSettings.val = $generalJson; }",
+            "if (window.reader) { reader.readerSettings.val = $readerJson; " +
+                "if (reader.generalSettings.val.TTSEnable !== ${settings.ttsEnabled}) reader.generalSettings.val = $generalJson; }",
             null,
         )
     }

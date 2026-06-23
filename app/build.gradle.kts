@@ -270,6 +270,8 @@ dependencies {
     implementation(libs.androidx.constraintLayout)
     implementation(libs.androidx.core)
     implementation(libs.androidx.coreSplashScreen)
+    // RK: MediaSession + media-style notification for novel read-aloud (TTS) background playback
+    implementation(libs.androidx.media)
     implementation(libs.androidx.recyclerView)
     implementation(libs.androidx.viewPager)
     implementation(libs.androidx.profileInstaller)

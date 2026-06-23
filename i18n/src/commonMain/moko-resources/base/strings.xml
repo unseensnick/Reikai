@@ -249,6 +249,7 @@
     <string name="ln_no_plugins">Couldn\'t load any plugins from your repos. Check the repo and your connection, then retry.</string>
     <string name="ln_no_sources">No light novel sources installed. Install one from the Extensions tab.</string>
     <string name="channel_ln_plugin_updates">Light novel plugin updates</string>
+    <string name="channel_novel_tts">Novel read aloud</string>
     <string name="ln_plugins_update_available">%d light novel plugin update(s) available</string>
     <!-- RK: light-novel chapter updates (P5 S7) -->
     <string name="novel_library_update">Light novel updates</string>

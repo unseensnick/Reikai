@@ -34,6 +34,10 @@ interface NovelTtsEngine {
     fun shutdown()
 }
 
+/** Reader read-aloud playback state, shared by the controller, the floating control, and the media
+ *  notification service. */
+enum class TtsPlayback { Stopped, Playing, Paused }
+
 /** An installed TTS engine: [packageName] feeds the backend constructor, [label] is user-facing. */
 data class TtsEngineInfo(val packageName: String, val label: String)
 
