@@ -20,6 +20,7 @@ class NovelReaderWebInterface(
     private val onSave: (Int) -> Unit,
     private val onTtsMessage: (String, JSONObject) -> Unit,
     private val onReaderReady: () -> Unit,
+    private val onNavigate: (forward: Boolean) -> Unit,
 ) {
     @JavascriptInterface
     fun postMessage(message: String) {
@@ -29,8 +30,11 @@ class NovelReaderWebInterface(
             "console" -> onConsole(json.optString("msg"))
             "save" -> json.optInt("data", -1).takeIf { it >= 0 }?.let(onSave)
             "reikai-ready" -> onReaderReady()
-            "speak", "pause-speak", "stop-speak", "tts-queue", "tts-state", "next" ->
-                onTtsMessage(type, json)
+            "prev" -> onNavigate(false)
+            // `next` is overloaded: the TTS auto-advance carries autoStartTTS (handled by the
+            // controller); a bare `next` is a swipe-to-next-chapter gesture.
+            "next" -> if (json.optBoolean("autoStartTTS")) onTtsMessage(type, json) else onNavigate(true)
+            "speak", "pause-speak", "stop-speak", "tts-queue", "tts-state" -> onTtsMessage(type, json)
         }
     }
 }

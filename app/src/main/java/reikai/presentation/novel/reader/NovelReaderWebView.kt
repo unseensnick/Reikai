@@ -10,6 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
@@ -45,6 +46,7 @@ fun NovelReaderWebView(
     hasNext: Boolean,
     onToggleMenu: () -> Unit,
     onSaveProgress: (Int) -> Unit,
+    onNavigate: (forward: Boolean) -> Unit,
     ttsController: NovelTtsController,
     modifier: Modifier = Modifier,
 ) {
@@ -93,6 +95,7 @@ fun NovelReaderWebView(
 
     val onToggle = rememberUpdatedState(onToggleMenu)
     val onSave = rememberUpdatedState(onSaveProgress)
+    val onNav = rememberUpdatedState(onNavigate)
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
     val webView = remember {
         WebView(context).apply {
@@ -107,6 +110,7 @@ fun NovelReaderWebView(
                     onSave = { percent -> onSave.value(percent) },
                     onTtsMessage = { type, json -> ttsController.onWebMessage(type, json) },
                     onReaderReady = { mainHandler.post { ttsController.onReaderReady() } },
+                    onNavigate = { forward -> mainHandler.post { onNav.value(forward) } },
                 ),
                 "NativeReader",
             )
@@ -129,16 +133,22 @@ fun NovelReaderWebView(
 
     // Push settings live once the page is up (guarded so it no-ops before the reader exists). The
     // display block (incl. tts rate/pitch) reassigns freely: its watchers only update CSS variables.
-    // The general block is reassigned ONLY when TTSEnable flips, because a `core.js` watcher rebuilds
-    // the chapter DOM on any generalSettings change, which would wipe the read-aloud highlight.
+    // The general block (TTSEnable, bionic, remove-spacing) is reassigned only when it actually
+    // changes, because a `core.js` watcher rebuilds the chapter DOM on any generalSettings change
+    // (intended for bionic/spacing; on a no-op rate/pitch change it would needlessly wipe the
+    // read-aloud highlight).
+    val lastGeneral = remember { mutableStateOf(generalSettingsJson(settings).toString()) }
     LaunchedEffect(settings) {
         val readerJson = readerSettingsJson(settings).toString()
         val generalJson = generalSettingsJson(settings).toString()
-        webView.evaluateJavascript(
-            "if (window.reader) { reader.readerSettings.val = $readerJson; " +
-                "if (reader.generalSettings.val.TTSEnable !== ${settings.ttsEnabled}) reader.generalSettings.val = $generalJson; }",
-            null,
-        )
+        val pushGeneral = generalJson != lastGeneral.value
+        if (pushGeneral) lastGeneral.value = generalJson
+        val script = buildString {
+            append("if (window.reader) { reader.readerSettings.val = ").append(readerJson).append(';')
+            if (pushGeneral) append(" reader.generalSettings.val = ").append(generalJson).append(';')
+            append(" }")
+        }
+        webView.evaluateJavascript(script, null)
     }
 
     AndroidView(factory = { webView }, modifier = modifier)

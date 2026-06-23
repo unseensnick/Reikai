@@ -142,6 +142,21 @@ class NovelPreferences(
     fun readerTtsButtonX() = preferenceStore.getInt("ln_reader_tts_button_x", Int.MIN_VALUE)
     fun readerTtsButtonY() = preferenceStore.getInt("ln_reader_tts_button_y", Int.MIN_VALUE)
 
+    // Reader engine extras (round 2). Flags the bundled `core.js` applies to the chapter text; toggling
+    // one re-pushes the general settings block, which reflows the text in place.
+
+    /** Bold the start of each word (bionic reading) to ease skimming. */
+    fun readerBionicReading() = preferenceStore.getBoolean("ln_reader_bionic_reading", false)
+
+    /** Collapse large runs of blank space between paragraphs. */
+    fun readerRemoveExtraSpacing() = preferenceStore.getBoolean("ln_reader_remove_extra_spacing", false)
+
+    /** Tap the top / bottom of the screen to scroll a page (center tap still toggles the chrome). */
+    fun readerTapToScroll() = preferenceStore.getBoolean("ln_reader_tap_to_scroll", false)
+
+    /** Swipe left / right to go to the next / previous chapter. */
+    fun readerSwipeGestures() = preferenceStore.getBoolean("ln_reader_swipe_gestures", false)
+
     // Downloads (S5). Key strings preserved from the Yōkai-era fork for upgrade continuity.
 
     /** Delete a downloaded chapter's offline copy once it's marked read. */

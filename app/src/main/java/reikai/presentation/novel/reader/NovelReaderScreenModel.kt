@@ -170,15 +170,23 @@ class NovelReaderScreenModel(
             novelPreferences.readerDefaultOrientation().changes(),
         ) { override, default -> OrientationPrefs(override, default) },
         combine(
-            novelPreferences.readerTtsEnabled().changes(),
-            novelPreferences.readerTtsRate().changes(),
-            novelPreferences.readerTtsPitch().changes(),
-            novelPreferences.readerTtsAutoPageAdvance().changes(),
-            novelPreferences.readerTtsScrollToTop().changes(),
-        ) { enabled, rate, pitch, autoAdvance, scrollTop ->
-            TtsPrefs(enabled, rate, pitch, autoAdvance, scrollTop)
-        },
-    ) { display, theme, keepScreenOn, orient, tts ->
+            combine(
+                novelPreferences.readerTtsEnabled().changes(),
+                novelPreferences.readerTtsRate().changes(),
+                novelPreferences.readerTtsPitch().changes(),
+                novelPreferences.readerTtsAutoPageAdvance().changes(),
+                novelPreferences.readerTtsScrollToTop().changes(),
+            ) { enabled, rate, pitch, autoAdvance, scrollTop ->
+                TtsPrefs(enabled, rate, pitch, autoAdvance, scrollTop)
+            },
+            combine(
+                novelPreferences.readerBionicReading().changes(),
+                novelPreferences.readerRemoveExtraSpacing().changes(),
+                novelPreferences.readerTapToScroll().changes(),
+                novelPreferences.readerSwipeGestures().changes(),
+            ) { bionic, spacing, tapScroll, swipe -> ExtrasPrefs(bionic, spacing, tapScroll, swipe) },
+        ) { tts, extras -> ReaderExtraPrefs(tts, extras) },
+    ) { display, theme, keepScreenOn, orient, extra ->
         NovelReaderSettings(
             fontSize = display.fontSize,
             lineHeight = display.lineHeight,
@@ -191,11 +199,15 @@ class NovelReaderScreenModel(
             keepScreenOn = keepScreenOn,
             orientation = orient.override,
             resolvedOrientation = orient.resolved,
-            ttsEnabled = tts.enabled,
-            ttsRate = tts.rate,
-            ttsPitch = tts.pitch,
-            ttsAutoPageAdvance = tts.autoPageAdvance,
-            ttsScrollToTop = tts.scrollToTop,
+            ttsEnabled = extra.tts.enabled,
+            ttsRate = extra.tts.rate,
+            ttsPitch = extra.tts.pitch,
+            ttsAutoPageAdvance = extra.tts.autoPageAdvance,
+            ttsScrollToTop = extra.tts.scrollToTop,
+            bionicReading = extra.extras.bionicReading,
+            removeExtraSpacing = extra.extras.removeExtraSpacing,
+            tapToScroll = extra.extras.tapToScroll,
+            swipeGestures = extra.extras.swipeGestures,
         )
     }.stateIn(screenModelScope, SharingStarted.Eagerly, currentSettings())
 
@@ -219,6 +231,10 @@ class NovelReaderScreenModel(
             ttsPitch = novelPreferences.readerTtsPitch().get(),
             ttsAutoPageAdvance = novelPreferences.readerTtsAutoPageAdvance().get(),
             ttsScrollToTop = novelPreferences.readerTtsScrollToTop().get(),
+            bionicReading = novelPreferences.readerBionicReading().get(),
+            removeExtraSpacing = novelPreferences.readerRemoveExtraSpacing().get(),
+            tapToScroll = novelPreferences.readerTapToScroll().get(),
+            swipeGestures = novelPreferences.readerSwipeGestures().get(),
         )
     }
 
@@ -345,6 +361,11 @@ class NovelReaderScreenModel(
         ttsController.refreshSettings(engineChanged = false)
     }
     fun setTtsLanguages(languages: Set<String>) = novelPreferences.readerTtsLanguages().set(languages)
+
+    fun setBionicReading(value: Boolean) = novelPreferences.readerBionicReading().set(value)
+    fun setRemoveExtraSpacing(value: Boolean) = novelPreferences.readerRemoveExtraSpacing().set(value)
+    fun setTapToScroll(value: Boolean) = novelPreferences.readerTapToScroll().set(value)
+    fun setSwipeGestures(value: Boolean) = novelPreferences.readerSwipeGestures().set(value)
     fun setTtsButtonPosition(x: Int, y: Int) {
         novelPreferences.readerTtsButtonX().set(x)
         novelPreferences.readerTtsButtonY().set(y)
@@ -506,6 +527,13 @@ class NovelReaderScreenModel(
         val autoPageAdvance: Boolean,
         val scrollToTop: Boolean,
     )
+    private data class ExtrasPrefs(
+        val bionicReading: Boolean,
+        val removeExtraSpacing: Boolean,
+        val tapToScroll: Boolean,
+        val swipeGestures: Boolean,
+    )
+    private data class ReaderExtraPrefs(val tts: TtsPrefs, val extras: ExtrasPrefs)
 
     override fun onDispose() {
         super.onDispose()

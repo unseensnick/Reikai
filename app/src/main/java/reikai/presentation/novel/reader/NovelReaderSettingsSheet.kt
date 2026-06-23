@@ -92,12 +92,16 @@ fun NovelReaderSettingsSheet(
     currentTtsEngine: String,
     currentTtsVoice: String,
     currentTtsLanguages: Set<String>,
+    onBionicReading: (Boolean) -> Unit,
+    onRemoveExtraSpacing: (Boolean) -> Unit,
+    onTapToScroll: (Boolean) -> Unit,
+    onSwipeGestures: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
     TabbedDialog(
         onDismissRequest = onDismiss,
-        tabTitles = listOf("Display", "Theme", "TTS"),
+        tabTitles = listOf("Display", "Theme", "General", "TTS"),
     ) { page ->
         Column(
             modifier = Modifier
@@ -179,7 +183,13 @@ fun NovelReaderSettingsSheet(
                         }
                     }
                 }
-                2 -> TtsTab(
+                2 -> {
+                    SwitchRow("Bionic reading", settings.bionicReading, onBionicReading)
+                    SwitchRow("Remove extra spacing", settings.removeExtraSpacing, onRemoveExtraSpacing)
+                    SwitchRow("Tap edges to scroll", settings.tapToScroll, onTapToScroll)
+                    SwitchRow("Swipe between chapters", settings.swipeGestures, onSwipeGestures)
+                }
+                3 -> TtsTab(
                     settings = settings,
                     onTtsEnabled = onTtsEnabled,
                     onTtsRate = onTtsRate,

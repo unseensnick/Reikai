@@ -28,6 +28,11 @@ data class NovelReaderSettings(
     val ttsPitch: Float,
     val ttsAutoPageAdvance: Boolean,
     val ttsScrollToTop: Boolean,
+    // Engine extras applied by `core.js` (general settings block).
+    val bionicReading: Boolean,
+    val removeExtraSpacing: Boolean,
+    val tapToScroll: Boolean,
+    val swipeGestures: Boolean,
 )
 
 /** Per-novel orientation choices in the reader sheet: Default (follow the global default) plus the
