@@ -51,6 +51,7 @@ Backlog, unordered.
 - **Y13** force side-nav rail, **Y17** DOKI theme, **Y18** in-app app-icon changer (dropped; Y18 revivable once Reikai-branded icon assets exist).
 - **Y4** drag-sort, **Y5** staggered grid, **Y8** (duplicate of R16), **Y19** stats drill-down: out of scope.
 - **EPUB export**: out of plan.
+- **Hitomi.la enhanced source** (part of the adult / EXH subsystem): one of the big-three gallery sites, but no stock Keiyoushi extension exists, so enhancing it means first writing or sourcing the base extension, a larger lift than the other phase-4 sources. Worth attempting at a later date; no date set.
 
 ## Shipped
 

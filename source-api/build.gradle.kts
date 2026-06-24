@@ -28,6 +28,8 @@ kotlin {
         api(libs.injekt)
         api(libs.rxJava)
         api(libs.jsoup)
+        // RK: EXH gallery metadata classes label their fields via MR string resources.
+        api(projects.i18n)
 
         implementation(platform(libs.androidx.compose.bom))
         implementation(libs.androidx.compose.runtime)

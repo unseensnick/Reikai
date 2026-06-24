@@ -1,0 +1,40 @@
+-- Adult / EXH subsystem (Phase 1): gallery metadata persistence. These tables only reach fresh
+-- installs via Schema.create(), so existing installs need them created here or metadata queries
+-- crash "no such table". Mirrors data/search_metadata.sq, search_tags.sq, search_titles.sq.
+CREATE TABLE search_metadata (
+    manga_id INTEGER NOT NULL PRIMARY KEY,
+    uploader TEXT,
+    extra TEXT NOT NULL,
+    indexed_extra TEXT,
+    extra_version INTEGER NOT NULL,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX search_metadata_uploader_index ON search_metadata(uploader);
+CREATE INDEX search_metadata_indexed_extra_index ON search_metadata(indexed_extra);
+
+CREATE TABLE search_tags (
+    _id INTEGER NOT NULL PRIMARY KEY,
+    manga_id INTEGER NOT NULL,
+    namespace TEXT,
+    name TEXT NOT NULL,
+    type INTEGER NOT NULL,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX search_tags_manga_id_index ON search_tags(manga_id);
+CREATE INDEX search_tags_namespace_name_index ON search_tags(namespace, name);
+
+CREATE TABLE search_titles (
+    _id INTEGER NOT NULL PRIMARY KEY,
+    manga_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    type INTEGER NOT NULL,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX search_titles_manga_id_index ON search_titles(manga_id);
+CREATE INDEX search_titles_title_index ON search_titles(title);

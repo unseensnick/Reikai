@@ -11,12 +11,18 @@ import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
+// RK -->
+import exh.pref.DelegateSourcePreferences
+import exh.source.DelegatedHttpSource
+// RK <--
 import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import rx.Observable
 import tachiyomi.core.common.util.lang.awaitSingle
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 import java.net.URI
 import java.net.URISyntaxException
@@ -71,12 +77,16 @@ abstract class HttpSource : CatalogueSource {
     /**
      * Headers used for requests.
      */
-    val headers: Headers by lazy { headersBuilder().build() }
+    // RK: open so an EXH DelegatedHttpSource can forward the delegate's headers.
+    open val headers: Headers by lazy { headersBuilder().build() }
 
     /**
      * Default network client for doing requests.
      */
-    open val client: OkHttpClient get() = network.client
+    // RK --> prefer a bound delegate's network client so an enhanced source (EXH) can supply
+    //        its own cookies/headers; null for ordinary sources, so behaviour is unchanged.
+    open val client: OkHttpClient get() = delegate?.networkHttpClient ?: network.client
+    // RK <--
 
     /**
      * Generates a unique ID for the source based on the provided [name], [lang] and
@@ -454,7 +464,8 @@ abstract class HttpSource : CatalogueSource {
     )
     protected open fun imageUrlParse(response: Response): String = throw UnsupportedOperationException()
 
-    suspend fun getImage(page: Page): Response {
+    // RK: open so an EXH DelegatedHttpSource can forward image requests to the delegate.
+    open suspend fun getImage(page: Page): Response {
         return client.newCachelessCallWithProgress(imageRequest(page), page)
             .awaitSuccess()
     }
@@ -545,4 +556,18 @@ abstract class HttpSource : CatalogueSource {
      */
     @Deprecated("All modifications should be done when constructing the chapter")
     open fun prepareNewChapter(chapter: SChapter, manga: SManga) {}
+
+    // RK --> EXH delegation: an EnhancedHttpSource binds its DelegatedHttpSource here so this
+    //        original source routes through it while the delegate-sources preference is on.
+    private var delegate: DelegatedHttpSource? = null
+        get() = if (Injekt.get<DelegateSourcePreferences>().delegateSources().get()) {
+            field
+        } else {
+            null
+        }
+
+    fun bindDelegate(delegate: DelegatedHttpSource) {
+        this.delegate = delegate
+    }
+    // RK <--
 }

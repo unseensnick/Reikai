@@ -1228,4 +1228,25 @@
     <string name="donationCampaign.paragraph3">Regardless, Mihon will continue to be maintained by me and the volunteers, and it will stay open source.</string>
     <string name="donationCampaign.contactPlatform">Discord</string>
     <string name="donationCampaign.dismiss">Dismiss</string>
+
+    <!-- RK: adult/EXH subsystem - gallery metadata field labels (Phase 1) -->
+    <string name="id">Id</string>
+    <string name="thumbnail_url">Thumbnail url</string>
+    <string name="uploader">Uploader</string>
+    <string name="uploader_capital">Uploader Capitalized</string>
+    <string name="page_count">Page count</string>
+    <string name="alt_title">Alt Title</string>
+    <string name="date_posted">Date posted</string>
+    <string name="total_favorites">Total favorites</string>
+    <string name="media_id">Media id</string>
+    <string name="japanese_title">Japanese Title</string>
+    <string name="english_title">English Title</string>
+    <string name="short_title">Short Title</string>
+    <string name="path">Path</string>
+    <string name="filename">File name</string>
+    <string name="file_extension">File extension</string>
+    <string name="base_url">Base url</string>
+    <string name="gallery_size">Gallery size</string>
+    <string name="total_ratings">Total ratings</string>
+    <string name="average_rating">Average rating</string>
 </resources>
