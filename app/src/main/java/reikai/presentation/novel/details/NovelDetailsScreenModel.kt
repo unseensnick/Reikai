@@ -231,7 +231,13 @@ class NovelDetailsScreenModel(
             } else {
                 source = resolved
                 mutableState.update {
-                    (it as? NovelDetailsState.Loaded)?.copy(sourceName = resolved.name, sourceUrl = resolved.site) ?: it
+                    (it as? NovelDetailsState.Loaded)?.let { l ->
+                        l.copy(
+                            sourceName = resolved.name,
+                            sourceUrl = resolved.site,
+                            novelWebUrl = resolved.webUrl(l.displayNovel.url),
+                        )
+                    } ?: it
                 }
                 val loaded = state.value as? NovelDetailsState.Loaded
                 if (loaded == null || loaded.chapters.isEmpty()) maybeFirstFetch(loaded?.novel)
@@ -415,6 +421,7 @@ class NovelDetailsScreenModel(
                 seedColor = loaded?.seedColor,
                 sourceName = viewSource?.name ?: source?.name ?: loaded?.sourceName ?: sourceId,
                 sourceUrl = viewSource?.site ?: source?.site ?: loaded?.sourceUrl,
+                novelWebUrl = (viewSource ?: source)?.webUrl(viewNovel.url) ?: loaded?.novelWebUrl,
                 sorting = anchor.effectiveSorting(novelPreferences),
                 sortDescending = anchor.effectiveSortDescending(novelPreferences),
                 readFilter = anchor.effectiveReadFilter(novelPreferences),
@@ -1057,9 +1064,11 @@ sealed interface NovelDetailsState {
         val hasStarted: Boolean = false,
         /** Cover-derived header tint; null when off or not yet extracted. */
         val seedColor: Color? = null,
-        /** Resolved source name + homepage (for the header line + WebView); fall back to the id/url. */
+        /** Resolved source name + homepage. [sourceUrl] is the source SITE (used as the cover-load
+         *  Referer); [novelWebUrl] is this novel's own page (site + path), for WebView and Share. */
         val sourceName: String = "",
         val sourceUrl: String? = null,
+        val novelWebUrl: String? = null,
         // Resolved (per-novel or global-default) chapter view settings.
         val sorting: Long = NovelChapterFlags.SORTING_SOURCE,
         val sortDescending: Boolean = true,
