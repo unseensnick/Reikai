@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
+import kotlinx.collections.immutable.toImmutableList
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
@@ -161,10 +162,20 @@ private fun FilterItem(filter: Filter<*>, onUpdate: () -> Unit) {
                 }
             }
         }
-        // RK: EXH advanced-tag autocomplete has no sheet UI yet; the tag-entry control lands with
-        //     the inverted-search phase. Rendering nothing keeps the filter in the list (and usable
-        //     programmatically) without a control.
-        is Filter.AutoComplete -> {}
+        // RK: EXH advanced-tag autocomplete (namespace:tag) with suggestions from EHTags.
+        is Filter.AutoComplete -> {
+            AutoCompleteItem(
+                name = filter.name,
+                state = filter.state.toImmutableList(),
+                hint = filter.hint,
+                values = filter.values.toImmutableList(),
+                skipAutoFillTags = filter.skipAutoFillTags.toImmutableList(),
+                validPrefixes = filter.validPrefixes.toImmutableList(),
+            ) {
+                filter.state = it
+                onUpdate()
+            }
+        }
     }
 }
 
