@@ -36,7 +36,7 @@ Queued, roughly in priority order.
 
 Backlog, unordered.
 
-- **Adult-source / EXH subsystem**  `[L]`: the full adult-source subsystem (E-Hentai / nHentai inverted branches, `exh.source` delegated sources, gallery metadata, search), deferred at P2. The basic lewd filter already shipped; this is the rest. Largest remaining item and multi-stage; run `/scout` before starting.
+- **Adult-source / EXH subsystem (phases 4-5 remaining)**  `[L]`: phases 1-3 have shipped (see Shipped → Adult / EXH). Remaining: **Phase 4** = more enhanced wrappers (Koharu/SchaleNetwork, HentaiFox, AsmHentai, Luscious, HentaiNexus, 3Hentai), each following the phase-1 delegated-source pattern (a `DelegatedHttpSource` impl + a `*SearchMetadata` class + a `DELEGATED_SOURCES` entry in `AndroidSourceManager`); **Phase 5** = E-Hentai favorites two-way sync + the gallery-update background worker + the full `EHentaiUpdateHelper` (replacing the in-session stub) + the deferred `SettingsEhScreen` groups (Favorites sync, Gallery update checker). Re-typing tax per the KEY DISCOVERY patterns still applies. Hitomi.la stays parked (no stock extension; see below).
 
 ## Parked / not building
 
@@ -99,6 +99,12 @@ Terse done-log, grouped by area. Full detail in the linked plan docs.
 - Batch / library migration: one unified migration screen for 1..N novels (single from a novel's overflow, batch from library multi-select). Each row auto-searches on scroll and suggests a target to accept or override; lazy-materialize on pick, then Copy / Migrate with flags. Replaces the old single-only migrate UI. See [novel-parity-backlog.md](docs/dev/plans/novel-parity-backlog.md).
 - Download settings parity: keep-last-N-read (delete-after-read slots), don't-delete-bookmarked, exclude-categories-from-delete, and download-ahead, all under Settings → Downloads. See [novel-parity-backlog.md](docs/dev/plans/novel-parity-backlog.md).
 - Per-title novel update notifications: one grouped notification per updated novel, deep-linking into the novel via a new `SHORTCUT_NOVEL` intent. See [novel-parity-backlog.md](docs/dev/plans/novel-parity-backlog.md).
+
+### Adult / EXH subsystem (phases 1-3)
+Ported from `refs/komikku`, re-typed onto Mihon's models. Committed on `design/mihon-rebase`, not yet pushed; on-device verified on emulator-5554.
+- Phase 1: delegation core (`EnhancedHttpSource` / `DelegatedHttpSource`) + gallery-metadata store (`search_metadata` / `search_tags` / `search_titles`, migration 23) + the 4 free enhanced sources (nHentai, Pururin, 8Muses, LANraragi) + URL import (`a105d5ab3`, `e6807a43f`, `10ef6caf7`).
+- Phase 2: built-in E-Hentai / ExHentai source (anonymous browse + read, full gallery filters, gallery-version chapters); Settings → Advanced "Enable adult sources" toggle; ExHentai WebView login; E-Hentai settings screen + server-profile sync (uconfig) (`1a072568f`, `c8d939d2b`, `ab6325aae`, `9868c4ae1`, `bc288cff1`, `add58456a`).
+- Phase 3: E-Hentai tag autocomplete (full EHTags catalogue), library search by gallery tags, Compose-native gallery metadata viewer (`04467c276`, `52348af35`, `b6bbc417a`).
 
 ### Unified surfaces
 - Unified Updates tab: manga + novel interleaved, filters, by-category, group-by-series. See [unified-updates.md](docs/dev/plans/unified-updates.md).
