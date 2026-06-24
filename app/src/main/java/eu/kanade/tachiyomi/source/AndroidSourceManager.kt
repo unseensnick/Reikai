@@ -5,13 +5,17 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.online.HttpSource
 // RK -->
+import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.source.online.all.Lanraragi
 import eu.kanade.tachiyomi.source.online.all.NHentai
 import eu.kanade.tachiyomi.source.online.english.EightMuses
 import eu.kanade.tachiyomi.source.online.english.Pururin
 import exh.source.DelegatedHttpSource
+import exh.source.EHENTAI_EXT_SOURCES
 import exh.source.EIGHTMUSES_SOURCE_ID
+import exh.source.EXHENTAI_EXT_SOURCES
 import exh.source.EnhancedHttpSource
+import exh.source.ExhPreferences
 import exh.source.PURURIN_SOURCE_ID
 // RK <--
 import kotlinx.coroutines.CoroutineScope
@@ -22,6 +26,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -45,6 +50,9 @@ class AndroidSourceManager(
 
     private val downloadManager: DownloadManager by injectLazy()
 
+    // RK: gates the built-in E-Hentai / ExHentai sources.
+    private val exhPreferences: ExhPreferences by injectLazy()
+
     private val scope = CoroutineScope(Job() + Dispatchers.IO)
 
     private val sourcesMapFlow = MutableStateFlow(ConcurrentHashMap<Long, Source>())
@@ -56,7 +64,15 @@ class AndroidSourceManager(
     init {
         scope.launch {
             extensionManager.installedExtensionsFlow
-                .collectLatest { extensions ->
+                // RK: re-collect whenever the EXH gates flip so the built-in EH/ExH sources
+                //     appear or disappear without an app restart.
+                .combine(exhPreferences.enableExhentai().changes()) { extensions, enableExhentai ->
+                    extensions to enableExhentai
+                }
+                .combine(exhPreferences.isHentaiEnabled().changes()) { (extensions, enableExhentai), isHentaiEnabled ->
+                    Triple(extensions, enableExhentai, isHentaiEnabled)
+                }
+                .collectLatest { (extensions, enableExhentai, isHentaiEnabled) ->
                     val mutableMap = ConcurrentHashMap<Long, Source>(
                         mapOf(
                             LocalSource.ID to LocalSource(
@@ -65,7 +81,20 @@ class AndroidSourceManager(
                                 Injekt.get(),
                             ),
                         ),
-                    )
+                    ).apply {
+                        // RK: register the built-in E-Hentai sources (one per language) when the
+                        //     hentai gate is on; ExHentai needs the additional login gate.
+                        if (isHentaiEnabled) {
+                            EHENTAI_EXT_SOURCES.forEach { (id, lang) ->
+                                put(id, EHentai(id, false, context, lang))
+                            }
+                            if (enableExhentai) {
+                                EXHENTAI_EXT_SOURCES.forEach { (id, lang) ->
+                                    put(id, EHentai(id, true, context, lang))
+                                }
+                            }
+                        }
+                    }
                     extensions.forEach { extension ->
                         extension.sources.forEach {
                             // RK: wrap delegated adult sources so installed galleries gain metadata

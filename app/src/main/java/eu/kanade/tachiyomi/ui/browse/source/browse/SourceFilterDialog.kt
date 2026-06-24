@@ -161,6 +161,10 @@ private fun FilterItem(filter: Filter<*>, onUpdate: () -> Unit) {
                 }
             }
         }
+        // RK: EXH advanced-tag autocomplete has no sheet UI yet; the tag-entry control lands with
+        //     the inverted-search phase. Rendering nothing keeps the filter in the list (and usable
+        //     programmatically) without a control.
+        is Filter.AutoComplete -> {}
     }
 }
 

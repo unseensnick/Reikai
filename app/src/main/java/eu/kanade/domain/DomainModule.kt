@@ -138,6 +138,7 @@ import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
 // RK -->
 import eu.kanade.tachiyomi.source.online.MetadataSource
+import exh.eh.EHentaiUpdateHelper
 import tachiyomi.data.manga.MangaMetadataRepositoryImpl
 import tachiyomi.domain.manga.interactor.GetFlatMetadataById
 import tachiyomi.domain.manga.interactor.GetSearchMetadata
@@ -279,6 +280,8 @@ class DomainModule : InjektModule {
         addFactory { GetSearchMetadata(get()) }
         addFactory { GetSearchTags(get()) }
         addFactory { GetSearchTitles(get()) }
+        // RK: E-Hentai in-session gallery-version cache (Phase 2b stub; full helper in a later phase)
+        addSingletonFactory { EHentaiUpdateHelper() }
         addFactory { GetNextChapters(get(), get(), get()) }
         addFactory { GetUpcomingManga(get()) }
         addFactory { ResetViewerFlags(get()) }
