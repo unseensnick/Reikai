@@ -334,14 +334,16 @@ class EHentai(
         // Pull all the way to the root gallery
         // We can't do this recursively or we run into stack overflows on shit like this:
         //   https://exhentai.org/g/1073061/f9345f1c12/
-        var url = manga.url
+        // NOTE: named galleryUrl, not url: inside the SChapter.also builders below an unqualified
+        //       `url` would otherwise resolve to this local and leave the chapter's url unset.
+        var galleryUrl = manga.url
         var doc: Document
 
         while (true) {
-            val gid = EHentaiSearchMetadata.galleryId(url).toInt()
+            val gid = EHentaiSearchMetadata.galleryId(galleryUrl).toInt()
             val cachedParent = updateHelper.parentLookupTable.get(gid)
             if (cachedParent == null) {
-                doc = client.newCall(exGet(baseUrl + url)).awaitSuccess().asJsoup()
+                doc = client.newCall(exGet(baseUrl + galleryUrl)).awaitSuccess().asJsoup()
 
                 val parentLink = doc.select("#gdd .gdt1").find { el ->
                     el.text().lowercase() == "parent:"
@@ -355,12 +357,12 @@ class EHentai(
                             EHentaiSearchMetadata.galleryToken(parentLink),
                         ),
                     )
-                    url = EHentaiSearchMetadata.normalizeUrl(parentLink)
+                    galleryUrl = EHentaiSearchMetadata.normalizeUrl(parentLink)
                 } else {
                     break
                 }
             } else {
-                url = EHentaiSearchMetadata.idAndTokenToUrl(
+                galleryUrl = EHentaiSearchMetadata.idAndTokenToUrl(
                     cachedParent.gId,
                     cachedParent.gToken,
                 )
@@ -369,17 +371,17 @@ class EHentai(
         val newDisplay = doc.select("#gnd a")
         // Build chapter for root gallery
         val location = doc.location()
-        val self = SChapter.create().apply {
-            url = EHentaiSearchMetadata.normalizeUrl(location)
-            name = "v1: " + doc.selectFirst("#gn")!!.text()
-            chapter_number = 1f
-            date_upload = ZonedDateTime.parse(
+        val self = SChapter.create().also { chapter ->
+            chapter.url = EHentaiSearchMetadata.normalizeUrl(location)
+            chapter.name = "v1: " + doc.selectFirst("#gn")!!.text()
+            chapter.chapter_number = 1f
+            chapter.date_upload = ZonedDateTime.parse(
                 doc.select("#gdd .gdt1").find { el ->
                     el.text().lowercase() == "posted:"
                 }!!.nextElementSibling()!!.text(),
                 MetadataUtil.EX_DATE_FORMAT.withZone(ZoneOffset.UTC),
             )!!.toInstant().toEpochMilli()
-            scanlator = EHentaiSearchMetadata.galleryId(location)
+            chapter.scanlator = EHentaiSearchMetadata.galleryId(location)
         }
         // Build and append the rest of the galleries
         return if (DebugToggles.INCLUDE_ONLY_ROOT_WHEN_LOADING_EXH_VERSIONS.enabled) {
@@ -389,15 +391,15 @@ class EHentai(
                 val link = newGallery.attr("href")
                 val newGalleryName = newGallery.text()
                 val posted = (newGallery.nextSibling() as TextNode).text().removePrefix(", added ")
-                SChapter.create().apply {
-                    url = EHentaiSearchMetadata.normalizeUrl(link)
-                    name = "v${index + 2}: $newGalleryName"
-                    chapter_number = index + 2f
-                    date_upload = ZonedDateTime.parse(
+                SChapter.create().also { chapter ->
+                    chapter.url = EHentaiSearchMetadata.normalizeUrl(link)
+                    chapter.name = "v${index + 2}: $newGalleryName"
+                    chapter.chapter_number = index + 2f
+                    chapter.date_upload = ZonedDateTime.parse(
                         posted,
                         MetadataUtil.EX_DATE_FORMAT.withZone(ZoneOffset.UTC),
                     ).toInstant().toEpochMilli()
-                    scanlator = EHentaiSearchMetadata.galleryId(link)
+                    chapter.scanlator = EHentaiSearchMetadata.galleryId(link)
                 }
             }.reversed() + self
         }
