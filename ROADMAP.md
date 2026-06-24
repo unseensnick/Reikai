@@ -31,6 +31,7 @@ Nothing actively in progress.
 Queued, roughly in priority order.
 
 - **Release pipeline first-run verify**  `[S]`: create the `PREVIEW_REPO_TOKEN` fine-grained PAT (Contents: write on `unseensnick/Reikai-preview`) as a secret on `unseensnick/Reikai`, then confirm a push publishes a preview, a tag draft-publishes a release, and the in-app updater prompts on both. User action; the workflows are built.
+- **Merge-aware manga reader**  `[M]`: bring the manga reader to the merge parity the novel reader has. Its in-reader chapter list is single-source today (`ReaderViewModel.chapterList` = `getChaptersByMangaId(manga.id)`); feed it the unified cross-source list (reuse `MangaScreenModel.mergedChaptersFlow` / `ChapterAggregation`) with per-source labels, and rework chapter loading (`loadAdjacent`) to navigate across sources. Touches Mihon's `ReaderViewModel` (`// RK`), so larger than the novel-side sheet.
 
 ## Later
 

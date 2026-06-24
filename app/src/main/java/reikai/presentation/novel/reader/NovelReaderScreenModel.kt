@@ -22,6 +22,8 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryUpdate
 import reikai.domain.novel.model.readerOrientation
 import reikai.domain.novel.track.TrackNovelChapter
+import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
@@ -46,6 +48,11 @@ sealed interface NovelReaderState {
         val initialProgressPercent: Int,
         val hasPrev: Boolean,
         val hasNext: Boolean,
+        /** This chapter's page on the source site (site + chapter path), for the WebView button; null
+         *  for a downloaded chapter whose source isn't loaded this session. */
+        val webUrl: String? = null,
+        /** Whether the current chapter is bookmarked (drives the top-bar bookmark toggle). */
+        val bookmarked: Boolean = false,
     ) : NovelReaderState
     data class Failed(val message: String) : NovelReaderState
 }
@@ -262,6 +269,61 @@ class NovelReaderScreenModel(
     // Only a forward skip marks the departed chapter read (mirrors manga: loadNextChapter only).
     fun next() = resolvedNext?.let { goTo(it, markDepartedRead = true) } ?: Unit
     fun prev() = resolvedPrev?.let { goTo(it) } ?: Unit
+
+    /** Jump straight to [id] from the chapters sheet (no-op if it is already the current chapter). */
+    fun goToChapter(id: Long) { if (id != currentId) goTo(id) }
+
+    fun currentChapterId(): Long = currentId
+
+    /** Chapters in reading order, for the jump-to-chapter sheet. One query for the anchor novel covers
+     *  the non-merged case; a merged novel's cross-source siblings fall back to per-id lookups. */
+    suspend fun chapterList(): List<NovelChapter> {
+        val anchor = chapterRepo.getByNovelId(novelId).associateBy { it.id }
+        return orderedIds.mapNotNull { id -> anchor[id] ?: chapterRepo.getById(id) }
+    }
+
+    /** Toggle the current chapter's bookmark (the top-bar action). */
+    fun toggleBookmark() {
+        val loaded = state.value as? NovelReaderState.Loaded ?: return
+        setChapterBookmark(currentId, !loaded.bookmarked)
+    }
+
+    /** Set [bookmark] on chapter [id] (the chapters sheet's swipe/toggle); reflects in the top bar when
+     *  [id] is the current chapter. */
+    fun setChapterBookmark(id: Long, bookmark: Boolean) {
+        if (id == currentId) {
+            (state.value as? NovelReaderState.Loaded)?.let { mutableState.value = it.copy(bookmarked = bookmark) }
+        }
+        screenModelScope.launchIO { chapterRepo.setBookmark(id, bookmark) }
+    }
+
+    /** Live download queue, for the chapters sheet's per-row download indicator. */
+    val downloadQueue: StateFlow<List<NovelDownload>> get() = downloadManager.queueState
+
+    /** Start / cancel / delete a chapter download from the chapters sheet (mirrors the details model). */
+    fun onChapterDownloadAction(chapter: NovelChapter, action: ChapterDownloadAction) {
+        when (action) {
+            ChapterDownloadAction.START -> downloadManager.downloadChapters(listOf(chapter))
+            ChapterDownloadAction.START_NOW -> {
+                downloadManager.downloadChapters(listOf(chapter))
+                downloadManager.startDownloadNow(chapter.id)
+            }
+            ChapterDownloadAction.CANCEL -> downloadManager.cancelDownloads(listOf(chapter.id))
+            ChapterDownloadAction.DELETE -> downloadManager.deleteChapters(listOf(chapter))
+        }
+    }
+
+    /** Per-source display names keyed by novelId, for the chapters sheet's source labels on a merged
+     *  novel. Empty for a single-source novel (one distinct novelId), so no label is shown. */
+    suspend fun chapterSourceNames(chapters: List<NovelChapter>): Map<Long, String> {
+        val novelIds = chapters.map { it.novelId }.distinct()
+        if (novelIds.size <= 1) return emptyMap()
+        return novelIds.associateWith { id ->
+            sourcesByNovel[id]?.name
+                ?: novelRepo.getById(id)?.source?.let { sourceManager.get(it)?.name ?: it }
+                ?: ""
+        }
+    }
 
     private fun goTo(id: Long, markDepartedRead: Boolean = false) {
         // Record the outgoing chapter before switching (the analog of Mihon's loadNewChapter ->
@@ -485,6 +547,9 @@ class NovelReaderScreenModel(
                 initialProgressPercent = (chapter.lastTextProgress / 100).coerceIn(0L, 100L).toInt(),
                 hasPrev = resolvedPrev != null,
                 hasNext = resolvedNext != null,
+                // Only from an already-resolved source (so offline downloaded reading stays instant).
+                webUrl = sourcesByNovel[chapter.novelId]?.webUrl(chapter.url),
+                bookmarked = chapter.bookmark,
             )
         } catch (e: Throwable) {
             NovelReaderState.Failed(e.message ?: "Failed to load chapter")

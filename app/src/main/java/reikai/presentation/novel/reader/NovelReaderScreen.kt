@@ -11,13 +11,15 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,6 +27,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.FormatListNumbered
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -34,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalSlider
 import androidx.compose.material3.rememberSliderState
 import androidx.compose.material3.surfaceColorAtElevation
@@ -62,6 +69,8 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import eu.kanade.tachiyomi.ui.webview.WebViewScreen
+import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.tts.TtsPlayback
 import tachiyomi.core.common.util.lang.launchNonCancellable
 
@@ -99,6 +108,13 @@ class NovelReaderScreen(
 
         var menuVisible by rememberSaveable { mutableStateOf(true) }
         var settingsOpen by rememberSaveable { mutableStateOf(false) }
+        var chaptersOpen by rememberSaveable { mutableStateOf(false) }
+        var orientationOpen by rememberSaveable { mutableStateOf(false) }
+
+        // Translucent chrome background matching the manga reader's toolbars (and the seekbar pill).
+        val chromeColor = MaterialTheme.colorScheme
+            .surfaceColorAtElevation(3.dp)
+            .copy(alpha = if (isSystemInDarkTheme()) 0.9f else 0.95f)
 
         // Reading progress (whole percent) for the vertical seekbar, and a handle the WebView registers
         // so the seekbar can scrub. Auto-scroll runs only while reading (chrome hidden).
@@ -228,6 +244,28 @@ class NovelReaderScreen(
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     },
+                    actions = {
+                        val loaded = state as? NovelReaderState.Loaded
+                        val webUrl = loaded?.webUrl
+                        if (webUrl != null) {
+                            val webTitle = loaded?.chapterTitle
+                            IconButton(onClick = {
+                                navigator.push(WebViewScreen(url = webUrl, initialTitle = webTitle, sourceId = null))
+                            }) {
+                                Icon(Icons.Outlined.Public, contentDescription = "Open chapter in WebView")
+                            }
+                        }
+                        val bookmarked = loaded?.bookmarked
+                        if (bookmarked != null) {
+                            IconButton(onClick = { screenModel.toggleBookmark() }) {
+                                Icon(
+                                    if (bookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
+                                    contentDescription = if (bookmarked) "Remove bookmark" else "Bookmark",
+                                )
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = chromeColor),
                     windowInsets = WindowInsets.statusBars,
                 )
             }
@@ -239,17 +277,33 @@ class NovelReaderScreen(
                 exit = slideOutVertically { it },
             ) {
                 val loaded = state as? NovelReaderState.Loaded
-                BottomAppBar(windowInsets = WindowInsets.navigationBars) {
-                    IconButton(onClick = { screenModel.prev() }, enabled = loaded?.hasPrev == true) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous chapter")
-                    }
-                    Spacer(Modifier.weight(1f))
-                    IconButton(onClick = { settingsOpen = true }) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Reader settings")
-                    }
-                    Spacer(Modifier.weight(1f))
-                    IconButton(onClick = { screenModel.next() }, enabled = loaded?.hasNext == true) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next chapter")
+                BottomAppBar(
+                    containerColor = chromeColor,
+                    windowInsets = WindowInsets.navigationBars,
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        IconButton(onClick = { screenModel.prev() }, enabled = loaded?.hasPrev == true) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous chapter")
+                        }
+                        IconButton(onClick = { chaptersOpen = true }) {
+                            Icon(Icons.Outlined.FormatListNumbered, contentDescription = "Chapters")
+                        }
+                        IconButton(onClick = { orientationOpen = true }) {
+                            Icon(
+                                ReaderOrientation.fromPreference(settings.orientation).icon,
+                                contentDescription = "Rotation",
+                            )
+                        }
+                        IconButton(onClick = { settingsOpen = true }) {
+                            Icon(Icons.Filled.Settings, contentDescription = "Reader settings")
+                        }
+                        IconButton(onClick = { screenModel.next() }, enabled = loaded?.hasNext == true) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next chapter")
+                        }
                     }
                 }
             }
@@ -321,8 +375,41 @@ class NovelReaderScreen(
                 onDismiss = { settingsOpen = false },
             )
         }
+
+        if (chaptersOpen) {
+            var chapters by remember { mutableStateOf<List<NovelChapter>?>(null) }
+            var sourceNames by remember { mutableStateOf<Map<Long, String>>(emptyMap()) }
+            LaunchedEffect(Unit) {
+                val list = screenModel.chapterList()
+                sourceNames = screenModel.chapterSourceNames(list)
+                chapters = list
+            }
+            val downloadQueue by screenModel.downloadQueue.collectAsState()
+            NovelReaderChapterListDialog(
+                onDismissRequest = { chaptersOpen = false },
+                chapters = chapters,
+                sourceNames = sourceNames,
+                currentChapterId = screenModel.currentChapterId(),
+                downloadQueue = downloadQueue,
+                onClickChapter = { ch ->
+                    chaptersOpen = false
+                    screenModel.goToChapter(ch.id)
+                },
+                onBookmark = { ch -> screenModel.setChapterBookmark(ch.id, !ch.bookmark) },
+                onDownloadAction = { ch, action -> screenModel.onChapterDownloadAction(ch, action) },
+            )
+        }
+
+        if (orientationOpen) {
+            NovelReaderOrientationDialog(
+                currentOrientation = settings.orientation,
+                onChange = screenModel::setOrientation,
+                onDismiss = { orientationOpen = false },
+            )
+        }
     }
 }
+
 
 /** The reader's right-edge progress seekbar, matching the manga ChapterNavigator's long-strip slider:
  *  the same Material3 [VerticalSlider] in the same rounded translucent pill, theme-colored, 0% at the
@@ -353,12 +440,15 @@ private fun VerticalSeekbar(value: Float, onValueChange: (Float) -> Unit) {
             .padding(vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        // Reading progress as a percent (like LNReader's reader): current at top, 100 at the bottom.
+        Text(value.roundToInt().toString())
         VerticalSlider(
             state = state,
             modifier = Modifier
                 .weight(1f)
                 .padding(vertical = 8.dp),
         )
+        Text("100")
     }
 }
 
