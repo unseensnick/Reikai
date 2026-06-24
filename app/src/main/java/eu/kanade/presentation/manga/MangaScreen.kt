@@ -116,6 +116,8 @@ fun MangaScreen(
     onEditNotesClicked: () -> Unit,
     // RK: merge-group source management; null when the manga is not part of a group
     onManageSourcesClicked: (() -> Unit)? = null,
+    // RK: opens the gallery metadata viewer (adult/metadata sources only)
+    onMetadataViewerClicked: (() -> Unit)? = null,
     onSelectSource: (Long?) -> Unit = {},
     onSplitSource: (Long) -> Unit = {},
     // RK: related-mangas carousel card tap
@@ -172,6 +174,7 @@ fun MangaScreen(
             onMigrateClicked = onMigrateClicked,
             onEditNotesClicked = onEditNotesClicked,
             onManageSourcesClicked = onManageSourcesClicked,
+            onMetadataViewerClicked = onMetadataViewerClicked,
             onSelectSource = onSelectSource,
             onSplitSource = onSplitSource,
             onRelatedClick = onRelatedClick,
@@ -213,6 +216,7 @@ fun MangaScreen(
             onMigrateClicked = onMigrateClicked,
             onEditNotesClicked = onEditNotesClicked,
             onManageSourcesClicked = onManageSourcesClicked,
+            onMetadataViewerClicked = onMetadataViewerClicked,
             onSelectSource = onSelectSource,
             onSplitSource = onSplitSource,
             onRelatedClick = onRelatedClick,
@@ -265,6 +269,8 @@ private fun MangaScreenSmallImpl(
     onEditNotesClicked: () -> Unit,
     // RK: merge-group source management; null when the manga is not part of a group
     onManageSourcesClicked: (() -> Unit)? = null,
+    // RK: opens the gallery metadata viewer (adult/metadata sources only)
+    onMetadataViewerClicked: (() -> Unit)? = null,
     onSelectSource: (Long?) -> Unit = {},
     onSplitSource: (Long) -> Unit = {},
     // RK: related-mangas carousel card tap
@@ -331,6 +337,7 @@ private fun MangaScreenSmallImpl(
                 onClickMigrate = onMigrateClicked,
                 onClickEditNotes = onEditNotesClicked,
                 onClickManageSources = onManageSourcesClicked,
+                onClickMetadataViewer = onMetadataViewerClicked,
                 actionModeCounter = selectedChapterCount,
                 onCancelActionMode = { onAllChapterSelected(false) },
                 onSelectAll = { onAllChapterSelected(true) },
@@ -545,6 +552,8 @@ fun MangaScreenLargeImpl(
     onEditNotesClicked: () -> Unit,
     // RK: merge-group source management; null when the manga is not part of a group
     onManageSourcesClicked: (() -> Unit)? = null,
+    // RK: opens the gallery metadata viewer (adult/metadata sources only)
+    onMetadataViewerClicked: (() -> Unit)? = null,
     onSelectSource: (Long?) -> Unit = {},
     onSplitSource: (Long) -> Unit = {},
     // RK: related-mangas carousel card tap
@@ -604,6 +613,7 @@ fun MangaScreenLargeImpl(
                 onClickMigrate = onMigrateClicked,
                 onClickEditNotes = onEditNotesClicked,
                 onClickManageSources = onManageSourcesClicked,
+                onClickMetadataViewer = onMetadataViewerClicked,
                 onCancelActionMode = { onAllChapterSelected(false) },
                 actionModeCounter = selectedChapterCount,
                 onSelectAll = { onAllChapterSelected(true) },

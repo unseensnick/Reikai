@@ -39,6 +39,8 @@ fun MangaToolbar(
     onClickEditNotes: () -> Unit,
     // RK: non-null only when the manga is part of a merge group
     onClickManageSources: (() -> Unit)? = null,
+    // RK: non-null only for adult/metadata sources, opens the gallery metadata viewer
+    onClickMetadataViewer: (() -> Unit)? = null,
 
     // For action mode
     actionModeCounter: Int,
@@ -154,6 +156,14 @@ fun MangaToolbar(
                             AppBar.OverflowAction(
                                 title = stringResource(MR.strings.action_manage_sources),
                                 onClick = onClickManageSources,
+                            ),
+                        )
+                    }
+                    if (onClickMetadataViewer != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_metadata_viewer),
+                                onClick = onClickMetadataViewer,
                             ),
                         )
                     }

@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -43,6 +44,9 @@ import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.isLocalOrStub
 import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.source.online.MetadataSource
+import exh.source.getMainSource
+import exh.ui.metadata.MetadataViewScreen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
@@ -181,6 +185,16 @@ class MangaScreen(
                 // stays available while viewing a single source chip)
                 onManageSourcesClicked = screenModel::showManageSourcesDialog
                     .takeIf { successState.mergeSources.size > 1 },
+                // RK: gallery metadata viewer, only for adult/metadata sources
+                onMetadataViewerClicked = {
+                    navigator.push(
+                        MetadataViewScreen(
+                            mangaId = successState.manga.id,
+                            sourceId = successState.source.id,
+                            seedColor = successState.seedColor?.toArgb(),
+                        ),
+                    )
+                }.takeIf { successState.source.getMainSource<MetadataSource<*, *>>() != null },
                 // RK: source-switcher chips
                 onSelectSource = screenModel::selectSource,
                 onSplitSource = { screenModel.splitSources(listOf(it)) },
