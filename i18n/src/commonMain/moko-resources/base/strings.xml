@@ -1249,4 +1249,14 @@
     <string name="gallery_size">Gallery size</string>
     <string name="total_ratings">Total ratings</string>
     <string name="average_rating">Average rating</string>
+    <!-- RK: E-Hentai gallery metadata field labels (Phase 2) -->
+    <string name="genre">Genre</string>
+    <string name="token">Token</string>
+    <string name="is_exhentai_gallery">is Exhentai gallery</string>
+    <string name="parent">Parent</string>
+    <string name="visible">Visible</string>
+    <string name="language">Language</string>
+    <string name="translated">Translated</string>
+    <string name="aged">Aged</string>
+    <string name="last_update_check">Last update check</string>
 </resources>
