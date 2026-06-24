@@ -27,8 +27,8 @@ import eu.kanade.tachiyomi.data.saver.Location
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.reader.chapter.ReaderChapterItem
-import eu.kanade.tachiyomi.ui.reader.loader.ChapterLoader
 import eu.kanade.tachiyomi.ui.reader.loader.DownloadPageLoader
+import eu.kanade.tachiyomi.ui.reader.loader.MergedChapterLoader
 import eu.kanade.tachiyomi.ui.reader.model.InsertPage
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
@@ -58,6 +58,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
+import reikai.domain.manga.MergedChapterProvider
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -107,6 +108,7 @@ class ReaderViewModel @JvmOverloads constructor(
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
     // RK -->
     private val uiPreferences: UiPreferences = Injekt.get(),
+    private val mergedChapterProvider: MergedChapterProvider = Injekt.get(),
     // RK <--
 ) : ViewModel() {
 
@@ -143,7 +145,13 @@ class ReaderViewModel @JvmOverloads constructor(
     /**
      * The chapter loader for the loaded manga. It'll be null until [manga] is set.
      */
-    private var loader: ChapterLoader? = null
+    // RK: a merge-aware loader that routes each chapter to its own source's loader (a plain
+    // single-source manga just gets one delegate, same behaviour as before).
+    private var loader: MergedChapterLoader? = null
+
+    // RK: the resolved merge group (member manga + unified chapter list). Null until [init] resolves
+    // it; for an unmerged manga it holds just that manga and its own chapters.
+    private var mergedGroup: MergedChapterProvider.Group? = null
 
     /**
      * The time the chapter was started reading
@@ -163,7 +171,18 @@ class ReaderViewModel @JvmOverloads constructor(
      */
     private val chapterList by lazy {
         val manga = manga!!
-        val chapters = runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
+        // RK: unified cross-source list for a merge group (resolved in init); falls back to the
+        // single-source list if accessed before init. A chapter opened from outside the merged
+        // details view (history, updates) can be deduped out of the unified list, so make sure the
+        // opened chapter is present before we look it up.
+        val merged = mergedGroup?.chapters
+            ?: runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
+        val chapters = if (merged.any { it.id == chapterId }) {
+            merged
+        } else {
+            merged + runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
+                .filter { it.id == chapterId }
+        }
 
         val selectedChapter = chapters.find { it.id == chapterId }
             ?: error("Requested chapter of id $chapterId not found in chapter list")
@@ -292,8 +311,12 @@ class ReaderViewModel @JvmOverloads constructor(
                     if (chapterId == -1L) chapterId = initialChapterId
 
                     val context = Injekt.get<Application>()
-                    val source = sourceManager.getOrStub(manga.source)
-                    loader = ChapterLoader(context, downloadManager, downloadProvider, manga, source)
+                    // RK --> resolve the merge group up front so the chapter list spans every grouped
+                    // source and the loader can route each chapter to its own source.
+                    val group = mergedChapterProvider.load(manga)
+                    mergedGroup = group
+                    loader = MergedChapterLoader(context, downloadManager, downloadProvider, group.mangaById)
+                    // RK <--
 
                     loadChapter(loader!!, chapterList.first { chapterId == it.chapter.id })
                     Result.success(true)
@@ -315,7 +338,7 @@ class ReaderViewModel @JvmOverloads constructor(
      * Callers must handle errors.
      */
     private suspend fun loadChapter(
-        loader: ChapterLoader,
+        loader: MergedChapterLoader,
         chapter: ReaderChapter,
     ): ViewerChapters {
         loader.loadChapter(chapter)

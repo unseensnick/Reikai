@@ -50,6 +50,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.NovelTrackRepositoryImpl
 import reikai.data.recommendation.taste.TasteLibraryRepositoryImpl
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.PropagateTrackerLinks
 import reikai.domain.novel.NovelCategoryRepository
 import reikai.domain.novel.NovelChapterRepository
@@ -208,6 +209,7 @@ class DomainModule : InjektModule {
         // RK <--
         // RK --> pref-based merge (P3 manga, P5 S8 novel)
         addSingletonFactory { MangaMergeManager(get(), get(), get()) }
+        addSingletonFactory { MergedChapterProvider(get(), get(), get()) }
         addSingletonFactory { PropagateTrackerLinks(get(), get(), get(), get(), get()) }
         addSingletonFactory { NovelMergeManager(get(), get()) }
         // RK <--
