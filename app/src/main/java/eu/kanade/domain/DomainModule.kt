@@ -136,6 +136,16 @@ import tachiyomi.domain.manga.interactor.GetDuplicateLibraryManga
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
+// RK -->
+import eu.kanade.tachiyomi.source.online.MetadataSource
+import tachiyomi.data.manga.MangaMetadataRepositoryImpl
+import tachiyomi.domain.manga.interactor.GetFlatMetadataById
+import tachiyomi.domain.manga.interactor.GetSearchMetadata
+import tachiyomi.domain.manga.interactor.GetSearchTags
+import tachiyomi.domain.manga.interactor.GetSearchTitles
+import tachiyomi.domain.manga.interactor.InsertFlatMetadata
+import tachiyomi.domain.manga.repository.MangaMetadataRepository
+// RK <--
 import tachiyomi.domain.manga.interactor.GetMangaByUrlAndSourceId
 import tachiyomi.domain.manga.interactor.GetMangaWithChapters
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
@@ -259,6 +269,16 @@ class DomainModule : InjektModule {
         addFactory { GetMangaWithChapters(get(), get()) }
         addFactory { GetMangaByUrlAndSourceId(get()) }
         addFactory { GetManga(get()) }
+        // RK: adult/EXH gallery-metadata persistence + the MetadataSource DI contracts
+        addSingletonFactory<MangaMetadataRepository> { MangaMetadataRepositoryImpl(get()) }
+        addFactory<MetadataSource.GetMangaId> { GetManga(get()) }
+        addFactory<MetadataSource.GetFlatMetadataById> { GetFlatMetadataById(get()) }
+        addFactory<MetadataSource.InsertFlatMetadata> { InsertFlatMetadata(get()) }
+        addFactory { GetFlatMetadataById(get()) }
+        addFactory { InsertFlatMetadata(get()) }
+        addFactory { GetSearchMetadata(get()) }
+        addFactory { GetSearchTags(get()) }
+        addFactory { GetSearchTitles(get()) }
         addFactory { GetNextChapters(get(), get(), get()) }
         addFactory { GetUpcomingManga(get()) }
         addFactory { ResetViewerFlags(get()) }

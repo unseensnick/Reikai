@@ -4,6 +4,16 @@ import android.content.Context
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.online.HttpSource
+// RK -->
+import eu.kanade.tachiyomi.source.online.all.Lanraragi
+import eu.kanade.tachiyomi.source.online.all.NHentai
+import eu.kanade.tachiyomi.source.online.english.EightMuses
+import eu.kanade.tachiyomi.source.online.english.Pururin
+import exh.source.DelegatedHttpSource
+import exh.source.EIGHTMUSES_SOURCE_ID
+import exh.source.EnhancedHttpSource
+import exh.source.PURURIN_SOURCE_ID
+// RK <--
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -58,7 +68,8 @@ class AndroidSourceManager(
                     )
                     extensions.forEach { extension ->
                         extension.sources.forEach {
-                            mutableMap[it.id] = it
+                            // RK: wrap delegated adult sources so installed galleries gain metadata
+                            mutableMap[it.id] = it.toEnhancedSource()
                             registerStubSource(StubSource.from(it))
                         }
                     }
@@ -118,4 +129,64 @@ class AndroidSourceManager(
         }
         return StubSource(id = id, lang = "", name = "")
     }
+
+    // RK -->
+    // If an installed extension is in DELEGATED_SOURCES, wrap it in an EnhancedHttpSource so its
+    // galleries gain searchable tag/title metadata; otherwise return the source unchanged.
+    private fun Source.toEnhancedSource(): Source {
+        val sourceQName = this::class.qualifiedName ?: return this
+        val delegate = DELEGATED_SOURCES[sourceQName]
+            ?: DELEGATED_SOURCES.values.find {
+                it.factory && sourceQName.startsWith(it.originalSourceQualifiedClassName)
+            }
+        return if (this is HttpSource && delegate != null) {
+            EnhancedHttpSource(this, delegate.newSourceFactory(this, context))
+        } else {
+            this
+        }
+    }
+
+    companion object {
+        private const val fillInSourceId = Long.MAX_VALUE
+
+        // Installed extensions that get wrapped in a metadata-enhancing EnhancedHttpSource.
+        // factory = true matches by package prefix (multi-language factory extensions).
+        private val DELEGATED_SOURCES = listOf(
+            DelegatedSource(
+                "Pururin",
+                PURURIN_SOURCE_ID,
+                "eu.kanade.tachiyomi.extension.en.pururin.Pururin",
+                ::Pururin,
+            ),
+            DelegatedSource(
+                "8Muses",
+                EIGHTMUSES_SOURCE_ID,
+                "eu.kanade.tachiyomi.extension.en.eightmuses.EightMuses",
+                ::EightMuses,
+            ),
+            DelegatedSource(
+                "NHentai",
+                fillInSourceId,
+                "eu.kanade.tachiyomi.extension.all.nhentai.NHentai",
+                ::NHentai,
+                factory = true,
+            ),
+            DelegatedSource(
+                "LANraragi",
+                fillInSourceId,
+                "eu.kanade.tachiyomi.extension.all.lanraragi.LANraragi",
+                ::Lanraragi,
+                factory = true,
+            ),
+        ).associateBy { it.originalSourceQualifiedClassName }
+
+        private data class DelegatedSource(
+            val sourceName: String,
+            val sourceId: Long,
+            val originalSourceQualifiedClassName: String,
+            val newSourceFactory: (HttpSource, Context) -> DelegatedHttpSource,
+            val factory: Boolean = false,
+        )
+    }
+    // RK <--
 }
