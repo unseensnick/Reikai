@@ -31,7 +31,6 @@ Nothing actively in progress.
 Queued, roughly in priority order.
 
 - **Release pipeline first-run verify**  `[S]`: create the `PREVIEW_REPO_TOKEN` fine-grained PAT (Contents: write on `unseensnick/Reikai-preview`) as a secret on `unseensnick/Reikai`, then confirm a push publishes a preview, a tag draft-publishes a release, and the in-app updater prompts on both. User action; the workflows are built.
-- **Merge-aware manga reader**  `[M]`: bring the manga reader to the merge parity the novel reader has. Its in-reader chapter list is single-source today (`ReaderViewModel.chapterList` = `getChaptersByMangaId(manga.id)`); feed it the unified cross-source list (reuse `MangaScreenModel.mergedChaptersFlow` / `ChapterAggregation`) with per-source labels, and rework chapter loading (`loadAdjacent`) to navigate across sources. Touches Mihon's `ReaderViewModel` (`// RK`), so larger than the novel-side sheet.
 
 ## Later
 
@@ -72,6 +71,7 @@ Terse done-log, grouped by area. Full detail in the linked plan docs.
 - Pref-based multi-source merge engine + preferred-source ranking + tracker-link mirroring + FlareSolverr (P4). See [manga-merge-engine.md](docs/dev/plans/manga-merge-engine.md).
 - Recommendations / related carousel: five streams, taste rerank, tracker cross-recs, See-all browse (P6). See [recommendations.md](docs/dev/plans/recommendations.md).
 - Reader tweaks: configurable bottom bar, chapters sheet, cover tint, mark-read-on-skip, resume/preload (P7).
+- Merge-aware reader: read a merged manga through all its sources (unified list + per-source labels, cross-source prev/next, per-source side effects) via a thin Reikai layer over Mihon's reader (`4c811bae7`, `977ddf8a0`, `3ba35b67d`). See [merge-aware-manga-reader.md](docs/dev/plans/merge-aware-manga-reader.md).
 - Category bulk-delete with deferred-undo (`5173d08b4`).
 
 ### Library shell (manga + novels)
