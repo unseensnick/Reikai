@@ -62,7 +62,6 @@ import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.logcat
 import exh.source.ExhPreferences
-import exh.ui.login.EhLoginActivity
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.novel.NovelMergeManager
@@ -98,9 +97,6 @@ object SettingsAdvancedScreen : SearchableSettings {
         // RK: gate for the built-in adult sources (E-Hentai / ExHentai)
         val exhPreferences = remember { Injekt.get<ExhPreferences>() }
         val hentaiEnabled by exhPreferences.isHentaiEnabled().collectAsState()
-        val ehLoginLauncher = rememberLauncherForActivityResult(
-            ActivityResultContracts.StartActivityForResult(),
-        ) { /* enableExhentai is set inside the login flow; nothing to do here */ }
 
         return listOfNotNull(
             Preference.PreferenceItem.TextPreference(
@@ -134,12 +130,12 @@ object SettingsAdvancedScreen : SearchableSettings {
                 title = stringResource(MR.strings.pref_enable_adult_sources),
                 subtitle = stringResource(MR.strings.pref_enable_adult_sources_summary),
             ),
-            // RK: ExHentai WebView login (only meaningful once adult sources are enabled)
+            // RK: dedicated E-Hentai settings (login, image quality, server profile); only once
+            //     adult sources are enabled.
             if (hentaiEnabled) {
                 Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_log_in_to_exhentai),
-                    subtitle = stringResource(MR.strings.pref_log_in_to_exhentai_summary),
-                    onClick = { ehLoginLauncher.launch(EhLoginActivity.newIntent(context)) },
+                    title = stringResource(MR.strings.pref_category_eh),
+                    onClick = { navigator.push(SettingsEhScreen) },
                 )
             } else {
                 null

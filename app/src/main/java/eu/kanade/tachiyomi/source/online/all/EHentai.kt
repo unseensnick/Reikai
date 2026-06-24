@@ -746,7 +746,7 @@ class EHentai(
         throw UnsupportedOperationException("Unused method was called somehow!")
     }
 
-    private fun spPref() = if (exh) {
+    fun spPref() = if (exh) {
         exhPreferences.exhSettingsProfile()
     } else {
         exhPreferences.ehSettingsProfile()
@@ -785,7 +785,7 @@ class EHentai(
         return cookies
     }
 
-    private fun cookiesHeader(cfCookies: Map<String, String> = emptyMap(), sp: Int = spPref().get()) =
+    fun cookiesHeader(cfCookies: Map<String, String> = emptyMap(), sp: Int = spPref().get()) =
         buildCookies(rawCookies(sp) + cfCookies)
 
     // Headers
