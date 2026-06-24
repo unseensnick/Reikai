@@ -1259,4 +1259,6 @@
     <string name="translated">Translated</string>
     <string name="aged">Aged</string>
     <string name="last_update_check">Last update check</string>
+    <string name="pref_enable_adult_sources">Enable adult sources (E-Hentai)</string>
+    <string name="pref_enable_adult_sources_summary">Adds the built-in E-Hentai sources to Browse. ExHentai also requires you to log in.</string>
 </resources>

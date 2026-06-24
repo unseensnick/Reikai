@@ -61,6 +61,7 @@ import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.logcat
+import exh.source.ExhPreferences
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.novel.NovelMergeManager
@@ -93,6 +94,8 @@ object SettingsAdvancedScreen : SearchableSettings {
         // RK: pref-based merge maintenance
         val mergeManager = remember { Injekt.get<MangaMergeManager>() }
         val novelMergeManager = remember { Injekt.get<NovelMergeManager>() }
+        // RK: gate for the built-in adult sources (E-Hentai / ExHentai)
+        val exhPreferences = remember { Injekt.get<ExhPreferences>() }
 
         return listOf(
             Preference.PreferenceItem.TextPreference(
@@ -118,6 +121,13 @@ object SettingsAdvancedScreen : SearchableSettings {
                 preference = reikaiLibraryPreferences.trackUpdateErrors,
                 title = stringResource(MR.strings.pref_track_update_errors),
                 subtitle = stringResource(MR.strings.pref_track_update_errors_summary),
+            ),
+            // RK: enable the built-in E-Hentai sources (anonymous browsing). ExHentai additionally
+            //     needs login, which lands with the dedicated E-Hentai settings screen.
+            Preference.PreferenceItem.SwitchPreference(
+                preference = exhPreferences.isHentaiEnabled(),
+                title = stringResource(MR.strings.pref_enable_adult_sources),
+                subtitle = stringResource(MR.strings.pref_enable_adult_sources_summary),
             ),
             // RK --> clear pref-based merge state
             Preference.PreferenceItem.TextPreference(
