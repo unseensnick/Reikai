@@ -4,6 +4,8 @@ import android.content.Context
 import android.net.Uri
 import androidx.core.net.toUri
 import eu.kanade.tachiyomi.network.awaitSuccess
+import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
@@ -15,6 +17,7 @@ import eu.kanade.tachiyomi.util.asJsoup
 import exh.metadata.metadata.EightMusesSearchMetadata
 import exh.metadata.metadata.base.RaisedTag
 import exh.source.DelegatedHttpSource
+import exh.util.urlImportFetchSearchMangaSuspend
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 
@@ -47,6 +50,13 @@ class EightMuses(delegate: HttpSource, val context: Context) :
             chapters
         }
         return SMangaUpdate(updatedManga, updatedChapters)
+    }
+
+    // RK: resolve a pasted 8muses gallery URL via GalleryAdder; otherwise run a normal search.
+    override suspend fun getSearchManga(page: Int, query: String, filters: FilterList): MangasPage {
+        return urlImportFetchSearchMangaSuspend(context, query) {
+            super<DelegatedHttpSource>.getSearchManga(page, query, filters)
+        }
     }
 
     data class SelfContents(val albums: List<Element>, val images: List<Element>)

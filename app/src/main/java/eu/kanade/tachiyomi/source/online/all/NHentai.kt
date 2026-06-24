@@ -9,6 +9,8 @@ import eu.kanade.tachiyomi.network.newCachelessCallWithProgress
 import eu.kanade.tachiyomi.source.PagePreviewInfo
 import eu.kanade.tachiyomi.source.PagePreviewPage
 import eu.kanade.tachiyomi.source.PagePreviewSource
+import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
@@ -21,6 +23,7 @@ import exh.metadata.metadata.RaisedSearchMetadata
 import exh.metadata.metadata.base.RaisedTag
 import exh.source.DelegatedHttpSource
 import exh.util.trimOrNull
+import exh.util.urlImportFetchSearchMangaSuspend
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -68,6 +71,13 @@ class NHentai(delegate: HttpSource, val context: Context) :
             chapters
         }
         return SMangaUpdate(updatedManga, updatedChapters)
+    }
+
+    // RK: resolve a pasted nhentai gallery URL via GalleryAdder; otherwise run a normal search.
+    override suspend fun getSearchManga(page: Int, query: String, filters: FilterList): MangasPage {
+        return urlImportFetchSearchMangaSuspend(context, query) {
+            super<DelegatedHttpSource>.getSearchManga(page, query, filters)
+        }
     }
 
     override suspend fun parseIntoMetadata(metadata: NHentaiSearchMetadata, input: Response) {

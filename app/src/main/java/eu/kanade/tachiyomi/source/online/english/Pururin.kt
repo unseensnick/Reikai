@@ -4,6 +4,8 @@ import android.content.Context
 import android.net.Uri
 import androidx.core.net.toUri
 import eu.kanade.tachiyomi.network.awaitSuccess
+import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
@@ -18,6 +20,7 @@ import exh.metadata.metadata.base.RaisedTag
 import exh.source.DelegatedHttpSource
 import exh.util.dropBlank
 import exh.util.trimAll
+import exh.util.urlImportFetchSearchMangaSuspend
 import org.jsoup.nodes.Document
 
 class Pururin(delegate: HttpSource, val context: Context) :
@@ -56,6 +59,19 @@ class Pururin(delegate: HttpSource, val context: Context) :
             chapters
         }
         return SMangaUpdate(updatedManga, updatedChapters)
+    }
+
+    // RK: resolve a pasted Pururin gallery URL (or id:<n>) via GalleryAdder; otherwise normal search.
+    override suspend fun getSearchManga(page: Int, query: String, filters: FilterList): MangasPage {
+        val trimmedIdQuery = query.trim().removePrefix("id:")
+        val newQuery = if ((trimmedIdQuery.toIntOrNull() ?: -1) >= 0) {
+            "$baseUrl/gallery/$trimmedIdQuery/-"
+        } else {
+            query
+        }
+        return urlImportFetchSearchMangaSuspend(context, newQuery) {
+            super<DelegatedHttpSource>.getSearchManga(page, query, filters)
+        }
     }
 
     override suspend fun parseIntoMetadata(metadata: PururinSearchMetadata, input: Document) {
