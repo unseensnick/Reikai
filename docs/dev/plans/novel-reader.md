@@ -32,9 +32,12 @@ A document is rebuilt only when the chapter HTML or the app theme colors change.
 
 `NovelReaderScreen.kt` is the Voyager `Screen` (serializable args only: `novelId`, `initialChapterId`, and an optional `orderedChapterIds` reading order). Its `Content()` is a `Box` holding the WebView canvas plus the chrome:
 
-- A top `TopAppBar` (chapter title + back) and a bottom `BottomAppBar` (previous chapter / settings / next chapter), both `AnimatedVisibility` that slide in and out with a `menuVisible` flag.
+- A top `TopAppBar` (back, chapter title, WebView, bookmark) and a bottom `BottomAppBar` (previous chapter, chapters list, rotation, settings, next chapter), both `AnimatedVisibility` that slide in and out with a `menuVisible` flag. Both bars use the manga reader's translucent `surfaceColorAtElevation(3.dp)` chrome color, and the bottom bar is evenly spaced.
 - A single center tap (relayed from the WebView's `hide` message) toggles `menuVisible`, which simultaneously hides/shows the chrome and the system bars via `WindowInsetsControllerCompat` (immersive reading). The system bars are restored when the screen is left so the rest of the app is unaffected.
 - The settings sheet (`NovelReaderSettingsSheet.kt`) opens from the bottom bar.
+- The chapters list (`NovelReaderChapterListDialog.kt`) is the in-reader jump-to-chapter sheet, the novel twin of the manga reader's `ChapterListDialog`. It reuses `MangaChapterListItem` so the rows match the novel details list and the manga reader exactly (read dot, relative date, bookmark, a working download button with start/cancel/delete + optimistic delete + live queue state), opens scrolled to the current chapter, and tapping a row jumps to it. For a merged novel it shows the unified cross-source order with a per-source label (`NovelReaderScreenModel.chapterSourceNames`); a single-source novel shows no label. The reader model mirrors the details model's `downloadQueue` / `onChapterDownloadAction` / `setChapterBookmark`. (The manga reader's own chapter list is single-source today; bringing it to this same merge parity is a queued ROADMAP item.)
+- The rotation button opens `NovelReaderOrientationDialog`, the orientation picker reusing the shared `ModeSelectionDialog` icon grid (the same one the manga reader's `OrientationSelectDialog` uses), wired to the per-novel orientation flag.
+- The WebView button (top bar) opens the current chapter's page on the source site (`site` + chapter path, via `NovelSource.webUrl`); it appears only when the chapter's source is loaded. The bookmark button toggles the current chapter's bookmark.
 
 ### NovelReaderScreenModel state + progress saves
 
@@ -95,7 +98,7 @@ Read-aloud (TTS) lives in its own files:
 
 ## Status
 
-Shipped (P5 core sequence, on-device verified). Live reading with typography and themes, scroll resume, prev/next with prefetch, cross-source reading on merged novels, auto-mark-read, history, tracker sync, incognito gating, keep-screen-on, orientation lock, and mark-read-on-skip are all in place. Read-aloud (TTS) shipped as the engine-extras round 2: foreground reading with the draggable puck and settings tab, plus background playback with a lock-screen / headset media notification (on-device verified on the Fold6).
+Shipped (P5 core sequence, on-device verified). Live reading with typography and themes, scroll resume, prev/next with prefetch, cross-source reading on merged novels, auto-mark-read, history, tracker sync, incognito gating, keep-screen-on, orientation lock, and mark-read-on-skip are all in place. Read-aloud (TTS) shipped as the engine-extras round 2: foreground reading with the draggable puck and settings tab, plus background playback with a lock-screen / headset media notification (on-device verified on the Fold6). Round 3 (chrome + chapter-list parity: the chapters sheet, orientation picker, top-bar WebView + bookmark, seekbar percent labels, translucent chrome) shipped in `bc3d21ed2` / `762704ec1`; compiles, on-device verification of the chapter-list sheet pending.
 
 ## Decisions & tradeoffs
 
