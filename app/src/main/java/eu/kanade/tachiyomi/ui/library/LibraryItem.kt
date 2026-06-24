@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.library
 
 import eu.kanade.tachiyomi.source.getNameForMangaInfo
+import exh.metadata.sql.models.SearchTag
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.source.model.Source
 import tachiyomi.domain.source.service.SourceManager
@@ -17,6 +18,9 @@ data class LibraryItem(
     // RK: ids of every source-manga collapsed into this entry (size > 1 means it is a merge group).
     // List (not LongArray) so the data-class equality the library StateFlow relies on still holds.
     val relatedMangaIds: List<Long> = emptyList(),
+    // RK: the gallery's indexed EXH tags (E-Hentai/nHentai/etc.), for library tag search. Null for
+    // ordinary manga that have no captured metadata.
+    val searchTags: List<SearchTag>? = null,
 ) {
     val id: Long = libraryManga.id
 
@@ -43,10 +47,14 @@ data class LibraryItem(
             (libraryManga.manga.author?.contains(constraint, true) ?: false) ||
             (libraryManga.manga.artist?.contains(constraint, true) ?: false) ||
             (libraryManga.manga.description?.contains(constraint, true) ?: false) ||
+            // RK: match the gallery's indexed EXH tags by name (inverted tag search)
+            (searchTags?.any { it.name.contains(constraint, true) } ?: false) ||
             constraint.split(",").map { it.trim() }.all { subconstraint ->
                 checkNegatableConstraint(subconstraint) {
                     sourceName.contains(it, true) ||
-                        (libraryManga.manga.genre?.any { genre -> genre.equals(it, true) } ?: false)
+                        (libraryManga.manga.genre?.any { genre -> genre.equals(it, true) } ?: false) ||
+                        // RK: also let each comma-separated constraint match an EXH tag name
+                        (searchTags?.any { tag -> tag.name.contains(it, true) } ?: false)
                 }
             }
     }

@@ -75,6 +75,7 @@ import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.model.sort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetLibraryManga
+import tachiyomi.domain.manga.interactor.GetSearchTags
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.model.applyFilter
@@ -91,6 +92,8 @@ import kotlin.time.Duration.Companion.seconds
 class LibraryScreenModel(
     private val getLibraryManga: GetLibraryManga = Injekt.get(),
     private val getCategories: GetCategories = Injekt.get(),
+    // RK: gallery tags for library inverted tag search
+    private val getSearchTags: GetSearchTags = Injekt.get(),
     private val getTracksPerManga: GetTracksPerManga = Injekt.get(),
     private val getNextChapters: GetNextChapters = Injekt.get(),
     private val getChaptersByMangaId: GetChaptersByMangaId = Injekt.get(),
@@ -677,11 +680,15 @@ class LibraryScreenModel(
             // RK: re-collapse when the merge prefs change
             mergePrefsFlow(),
         ) { libraryManga, preferences, _, mergePrefs ->
+            // RK: one batch query for every gallery's EXH tags (empty for libraries without adult
+            //     metadata), keyed by manga id for the inverted tag search in LibraryItem.matches.
+            val tagsByManga = getSearchTags.awaitAll().groupBy { it.mangaId }
             val items = libraryManga.map { manga ->
                 LibraryItem(
                     libraryManga = manga,
                     downloadCount = downloadManager.getDownloadCount(manga.manga),
                     unreadCount = manga.unreadCount,
+                    searchTags = tagsByManga[manga.id],
                     isLocal = manga.manga.isLocal(),
                     badges = LibraryItem.Badges(
                         downloadCount = if (preferences.downloadBadge) {

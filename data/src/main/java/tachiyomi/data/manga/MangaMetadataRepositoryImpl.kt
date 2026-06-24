@@ -32,6 +32,10 @@ class MangaMetadataRepositoryImpl(
         return database.search_tagsQueries.selectByMangaId(id, ::searchTagMapper).subscribeToList()
     }
 
+    override suspend fun getAllTags(): List<SearchTag> {
+        return database.search_tagsQueries.selectAll(::searchTagMapper).awaitAsList()
+    }
+
     override suspend fun getTitlesById(id: Long): List<SearchTitle> {
         return database.search_titlesQueries.selectByMangaId(id, ::searchTitleMapper).awaitAsList()
     }
