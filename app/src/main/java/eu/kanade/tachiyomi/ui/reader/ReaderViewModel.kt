@@ -877,15 +877,20 @@ class ReaderViewModel @JvmOverloads constructor(
 
     /** Snapshot of the reader's chapter list for the in-reader chapter dialog (Y10). */
     fun getChapters(): List<ReaderChapterItem> {
-        val manga = manga ?: return emptyList()
+        manga ?: return emptyList()
         val currentChapter = getCurrentChapter()
         val dateFormat = UiPreferences.dateFormat(uiPreferences.dateFormat.get())
+        // RK: in a merged group each row carries its OWN source's manga (so the download indicator is
+        // correct) and a source-name label; an unmerged manga gets no label, as before.
+        val merged = mergedGroup?.isMerged == true
         return chapterList.map {
+            val dbChapter = it.chapter
             ReaderChapterItem(
-                chapter = it.chapter.toDomainChapter()!!,
-                manga = manga,
-                isCurrent = it.chapter.id == currentChapter?.chapter?.id,
+                chapter = dbChapter.toDomainChapter()!!,
+                manga = mangaForChapterId(dbChapter.manga_id),
+                isCurrent = dbChapter.id == currentChapter?.chapter?.id,
                 dateFormat = dateFormat,
+                sourceName = if (merged) mergedGroup?.sourceNameByMangaId?.get(dbChapter.manga_id) else null,
             )
         }
     }
