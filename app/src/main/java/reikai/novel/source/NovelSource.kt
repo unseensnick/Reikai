@@ -84,4 +84,12 @@ interface NovelSource {
      * fall back to [site] (the source homepage).
      */
     suspend fun resolveUrl(path: String, isNovel: Boolean): String? = null
+
+    /**
+     * Full browser URL for a source-relative [path] (a novel or chapter), for opening in WebView or
+     * sharing: the path itself if it is already absolute, else [site] + path. Mirrors lnreader's
+     * `resolveUrl` service fallback (`plugin.site + path`); the [resolveUrl] plugin override is left
+     * for a future caller since almost no plugins implement it.
+     */
+    fun webUrl(path: String): String = if (path.startsWith("http")) path else site + path
 }

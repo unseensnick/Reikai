@@ -101,12 +101,12 @@ class NovelScreen(
             ) { padding -> EmptyScreen(message = s.message, modifier = Modifier.padding(padding)) }
             is NovelDetailsState.Loaded -> TachiyomiTheme(seedColor = s.seedColor) {
                 val onWebView: () -> Unit = {
-                    s.sourceUrl?.takeIf { it.isNotBlank() }?.let { url ->
+                    s.novelWebUrl?.takeIf { it.isNotBlank() }?.let { url ->
                         navigator.push(WebViewScreen(url = url, initialTitle = s.sourceName, sourceId = null))
                     }
                 }
                 val onShare: () -> Unit = {
-                    s.sourceUrl?.takeIf { it.isNotBlank() }?.let { url ->
+                    s.novelWebUrl?.takeIf { it.isNotBlank() }?.let { url ->
                         context.startActivity(
                             Intent.createChooser(
                                 Intent(Intent.ACTION_SEND).apply {
@@ -323,7 +323,7 @@ private fun NovelDetailsToolbar(
         onClickEditCategory = screenModel::showChangeCategoryDialog,
         onClickEditInfo = screenModel::showEditNovelInfoDialog,
         onClickEditNotes = onEditNotes,
-        onClickShare = state.sourceUrl?.let { { onShare() } },
+        onClickShare = state.novelWebUrl?.let { { onShare() } },
         onClickManageSources = if (state.mergeSources.size > 1) screenModel::showManageSourcesDialog else null,
         onClickMigrate = onMigrate,
         onClickDownload = screenModel::runDownloadAction,
@@ -518,8 +518,8 @@ private fun LazyListScope.novelInfoItems(
             favorite = state.novel.favorite,
             trackingCount = state.trackingCount,
             onAddToLibraryClicked = screenModel::toggleFavorite,
-            onWebViewClicked = state.sourceUrl?.let { { onWebView() } },
-            onShareClicked = state.sourceUrl?.let { { onShare() } },
+            onWebViewClicked = state.novelWebUrl?.let { { onWebView() } },
+            onShareClicked = state.novelWebUrl?.let { { onShare() } },
             onTrackingClicked = onTracking,
         )
     }
