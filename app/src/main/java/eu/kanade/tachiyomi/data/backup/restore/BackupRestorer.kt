@@ -22,17 +22,26 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.data.Database
 import tachiyomi.i18n.MR
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.incrementAndFetch
 
+@OptIn(ExperimentalAtomicApi::class)
 class BackupRestorer(
     private val context: Context,
     private val notifier: BackupNotifier,
     private val isSync: Boolean,
 
+    private val database: Database = Injekt.get(),
     private val categoriesRestorer: CategoriesRestorer = CategoriesRestorer(),
     private val preferenceRestorer: PreferenceRestorer = PreferenceRestorer(context),
     private val extensionStoreRestorer: ExtensionStoreRestorer = ExtensionStoreRestorer(),
@@ -44,8 +53,8 @@ class BackupRestorer(
 ) {
 
     private var restoreAmount = 0
-    private var restoreProgress = 0
-    private val errors = mutableListOf<Pair<Date, String>>()
+    private val restoreProgress = AtomicInt(0)
+    private val errors = CopyOnWriteArrayList<Pair<Date, String>>()
 
     /**
      * Mapping of source ID to source name from backup data
@@ -144,17 +153,23 @@ class BackupRestorer(
             novelRestorer.restoreCategories(backup.backupNovelCategories)
         }
         if (options.libraryEntries) {
-            backup.backupNovels.forEach { backupNovel ->
-                ensureActive()
-                try {
-                    novelRestorer.restore(backupNovel, backup.backupNovelCategories)
-                } catch (e: Exception) {
-                    errors.add(Date() to "${backupNovel.title} [${backupNovel.source}]: ${e.message}")
-                }
+            backup.backupNovels
+                .chunked(100)
+                .forEach { chunk ->
+                    database.transaction {
+                        chunk.forEach { backupNovel ->
+                            ensureActive()
+                            try {
+                                novelRestorer.restore(backupNovel, backup.backupNovelCategories)
+                            } catch (e: Exception) {
+                                errors.add(Date() to "${backupNovel.title} [${backupNovel.source}]: ${e.message}")
+                            }
 
-                restoreProgress += 1
-                notifier.showRestoreProgress(backupNovel.title, restoreProgress, restoreAmount, isSync)
-            }
+                            restoreProgress.incrementAndFetch()
+                        }
+                    }
+                    notifier.showRestoreProgress(chunk.last().title, restoreProgress.load(), restoreAmount, isSync)
+                }
             novelRestorer.restoreMerges(backup.backupNovelMerges, backup.backupNovelUnmerges)
         }
     }
@@ -163,10 +178,10 @@ class BackupRestorer(
         ensureActive()
         categoriesRestorer(backupCategories)
 
-        restoreProgress += 1
+        val progress = restoreProgress.incrementAndFetch()
         notifier.showRestoreProgress(
             context.stringResource(MR.strings.categories),
-            restoreProgress,
+            progress,
             restoreAmount,
             isSync,
         )
@@ -180,18 +195,23 @@ class BackupRestorer(
         backupMangaUnmerges: List<BackupMangaMergeGroup>,
     ) = launch {
         mangaRestorer.sortByNew(backupMangas)
-            .forEach {
-                ensureActive()
+            .chunked(100)
+            .forEach { chunk ->
+                database.transaction {
+                    chunk.forEach {
+                        ensureActive()
 
-                try {
-                    mangaRestorer.restore(it, backupCategories)
-                } catch (e: Exception) {
-                    val sourceName = sourceMapping[it.source] ?: it.source.toString()
-                    errors.add(Date() to "${it.title} [$sourceName]: ${e.message}")
+                        try {
+                            mangaRestorer.restore(it, backupCategories)
+                        } catch (e: Exception) {
+                            val sourceName = sourceMapping[it.source] ?: it.source.toString()
+                            errors.add(Date() to "${it.title} [$sourceName]: ${e.message}")
+                        }
+
+                        restoreProgress.incrementAndFetch()
+                    }
                 }
-
-                restoreProgress += 1
-                notifier.showRestoreProgress(it.title, restoreProgress, restoreAmount, isSync)
+                notifier.showRestoreProgress(chunk.last().title, restoreProgress.load(), restoreAmount, isSync)
             }
 
         // RK: with every manga restored (fresh IDs), rebuild the merge prefs from the backup's refs.
@@ -209,10 +229,10 @@ class BackupRestorer(
             categories,
         )
 
-        restoreProgress += 1
+        val progress = restoreProgress.incrementAndFetch()
         notifier.showRestoreProgress(
             context.stringResource(MR.strings.app_settings),
-            restoreProgress,
+            progress,
             restoreAmount,
             isSync,
         )
@@ -222,10 +242,10 @@ class BackupRestorer(
         ensureActive()
         preferenceRestorer.restoreSource(preferences)
 
-        restoreProgress += 1
+        val progress = restoreProgress.incrementAndFetch()
         notifier.showRestoreProgress(
             context.stringResource(MR.strings.source_settings),
-            restoreProgress,
+            progress,
             restoreAmount,
             isSync,
         )
@@ -235,19 +255,24 @@ class BackupRestorer(
         backup: Backup,
     ) = launch {
         backup.backupExtensionStores
-            .forEach {
-                ensureActive()
+            .chunked(100)
+            .forEach { chunk ->
+                database.transaction {
+                    chunk.forEach {
+                        ensureActive()
 
-                try {
-                    extensionStoreRestorer(it)
-                } catch (e: Exception) {
-                    errors.add(Date() to "Error Adding Repo: ${it.name} : ${e.message}")
+                        try {
+                            extensionStoreRestorer(it)
+                        } catch (e: Exception) {
+                            errors.add(Date() to "Error Adding Repo: ${it.name} : ${e.message}")
+                        }
+
+                        restoreProgress.incrementAndFetch()
+                    }
                 }
-
-                restoreProgress += 1
                 notifier.showRestoreProgress(
                     context.stringResource(MR.strings.extensionStores),
-                    restoreProgress,
+                    restoreProgress.load(),
                     restoreAmount,
                     isSync,
                 )
