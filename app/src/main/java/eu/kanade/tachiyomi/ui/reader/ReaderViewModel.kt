@@ -153,6 +153,29 @@ class ReaderViewModel @JvmOverloads constructor(
     // it; for an unmerged manga it holds just that manga and its own chapters.
     private var mergedGroup: MergedChapterProvider.Group? = null
 
+    // RK: resolve a chapter's own manga within the merge group, falling back to the opened manga when
+    // unmerged or when the id isn't in the group. Per-chapter side effects (downloads, tracker,
+    // delete-on-read) target the chapter's real source instead of the manga the reader was opened from.
+    private fun mangaForChapterId(chapterMangaId: Long?): Manga =
+        chapterMangaId?.let { mergedGroup?.mangaById?.get(it) } ?: manga!!
+
+    // RK: per-source "is this chapter downloaded" check for the transition card. Resolves the
+    // chapter's OWN merged source, and uses the in-memory download cache (skipCache = false) instead
+    // of a storage-access probe, so the card binds once with the right value: no main-thread stutter
+    // and no late layout reflow (an icon popping in) when crossing into another merged source.
+    fun isChapterDownloaded(readerChapter: ReaderChapter?): Boolean {
+        val chapter = readerChapter?.chapter ?: return false
+        val mangaForChapter = mangaForChapterId(chapter.manga_id)
+        if (mangaForChapter.isLocal()) return true
+        return downloadManager.isChapterDownloaded(
+            chapter.name,
+            chapter.scanlator,
+            chapter.url,
+            mangaForChapter.title,
+            mangaForChapter.source,
+        )
+    }
+
     /**
      * The time the chapter was started reading
      */
@@ -161,8 +184,10 @@ class ReaderViewModel @JvmOverloads constructor(
     private var chapterToDownload: Download? = null
 
     private val unfilteredChapterList by lazy {
-        val manga = manga!!
-        runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = false) }
+        // RK: span the whole merge group so "mark same-number duplicates read" reaches sibling
+        // sources too; for an unmerged manga this is just its own chapters, as before.
+        val ids = mergedGroup?.mangaById?.keys ?: setOf(manga!!.id)
+        runBlocking { ids.flatMap { getChaptersByMangaId.await(it, applyScanlatorFilter = false) } }
     }
 
     /**
@@ -190,6 +215,10 @@ class ReaderViewModel @JvmOverloads constructor(
         val chaptersForReader = when {
             (readerPreferences.skipRead.get() || readerPreferences.skipFiltered.get()) -> {
                 val filteredChapters = chapters.filterNot {
+                    // RK: the filter PREFS stay the opened manga's (the user's current context), but
+                    // the downloaded check resolves to each chapter's OWN source so a merged chapter
+                    // is probed in the right download folder.
+                    val chapterManga = mangaForChapterId(it.mangaId)
                     when {
                         readerPreferences.skipRead.get() && it.read -> true
                         readerPreferences.skipFiltered.get() -> {
@@ -201,8 +230,8 @@ class ReaderViewModel @JvmOverloads constructor(
                                             it.name,
                                             it.scanlator,
                                             it.url,
-                                            manga.title,
-                                            manga.source,
+                                            chapterManga.title,
+                                            chapterManga.source,
                                         )
                                     ) ||
                                 (
@@ -211,8 +240,8 @@ class ReaderViewModel @JvmOverloads constructor(
                                             it.name,
                                             it.scanlator,
                                             it.url,
-                                            manga.title,
-                                            manga.source,
+                                            chapterManga.title,
+                                            chapterManga.source,
                                         )
                                     ) ||
                                 (manga.bookmarkedFilterRaw == Manga.CHAPTER_SHOW_BOOKMARKED && !it.bookmark) ||
@@ -423,14 +452,16 @@ class ReaderViewModel @JvmOverloads constructor(
         }
 
         if (chapter.pageLoader?.isLocal == false) {
-            val manga = manga ?: return
+            manga ?: return
             val dbChapter = chapter.chapter
+            // RK: probe the chapter's own source's download folder, not the opened manga's.
+            val chapterManga = mangaForChapterId(dbChapter.manga_id)
             val isDownloaded = downloadManager.isChapterDownloaded(
                 dbChapter.name,
                 dbChapter.scanlator,
                 dbChapter.url,
-                manga.title,
-                manga.source,
+                chapterManga.title,
+                chapterManga.source,
                 skipCache = true,
             )
             if (isDownloaded) {
@@ -502,16 +533,18 @@ class ReaderViewModel @JvmOverloads constructor(
         val nextChapter = state.value.viewerChapters?.nextChapter?.chapter ?: return
 
         viewModelScope.launchIO {
+            // RK: download-ahead follows the next chapter's OWN source across a merge boundary.
+            val nextChapterManga = mangaForChapterId(nextChapter.manga_id)
             val isNextChapterDownloaded = downloadManager.isChapterDownloaded(
                 nextChapter.name,
                 nextChapter.scanlator,
                 nextChapter.url,
-                manga.title,
-                manga.source,
+                nextChapterManga.title,
+                nextChapterManga.source,
             )
             if (!isNextChapterDownloaded) return@launchIO
 
-            val chaptersToDownload = getNextChapters.await(manga.id, nextChapter.id!!).run {
+            val chaptersToDownload = getNextChapters.await(nextChapterManga.id, nextChapter.id!!).run {
                 if (readerPreferences.skipDupe.get()) {
                     removeDuplicates(nextChapter.toDomainChapter()!!)
                 } else {
@@ -520,7 +553,7 @@ class ReaderViewModel @JvmOverloads constructor(
             }.take(downloadAheadAmount)
 
             downloadManager.downloadChapters(
-                manga,
+                nextChapterManga,
                 chaptersToDownload,
             )
         }
@@ -881,16 +914,18 @@ class ReaderViewModel @JvmOverloads constructor(
 
     /** Start/cancel/delete a chapter download from the chapter dialog (Y10). */
     fun handleChapterDownload(chapter: Chapter, action: ChapterDownloadAction) {
-        val manga = manga ?: return
+        manga ?: return
+        // RK: act on the chapter's own source so download/delete hit the right folder for a merged chapter.
+        val chapterManga = mangaForChapterId(chapter.mangaId)
         when (action) {
-            ChapterDownloadAction.START -> downloadManager.downloadChapters(manga, listOf(chapter))
+            ChapterDownloadAction.START -> downloadManager.downloadChapters(chapterManga, listOf(chapter))
             ChapterDownloadAction.START_NOW -> downloadManager.startDownloadNow(chapter.id)
             ChapterDownloadAction.CANCEL -> {
                 val download = downloadManager.getQueuedDownloadOrNull(chapter.id) ?: return
                 downloadManager.cancelQueuedDownloads(listOf(download))
             }
             ChapterDownloadAction.DELETE -> {
-                downloadManager.deleteChapters(listOf(chapter), manga, sourceManager.getOrStub(manga.source))
+                downloadManager.deleteChapters(listOf(chapter), chapterManga, sourceManager.getOrStub(chapterManga.source))
             }
         }
     }
@@ -1026,11 +1061,14 @@ class ReaderViewModel @JvmOverloads constructor(
         if (incognitoMode) return
         if (!trackPreferences.autoUpdateTrack.get()) return
 
-        val manga = manga ?: return
+        manga ?: return
         val context = Injekt.get<Application>()
+        // RK: sync the tracker of the chapter's OWN source (per-source; trackers are propagated across
+        // the merge group anyway, so this stays consistent after an unmerge).
+        val chapterManga = mangaForChapterId(readerChapter.chapter.manga_id)
 
         viewModelScope.launchNonCancellable {
-            trackChapter.await(context, manga.id, readerChapter.chapter.chapter_number.toDouble())
+            trackChapter.await(context, chapterManga.id, readerChapter.chapter.chapter_number.toDouble())
         }
     }
 
@@ -1040,10 +1078,12 @@ class ReaderViewModel @JvmOverloads constructor(
      */
     private fun enqueueDeleteReadChapters(chapter: ReaderChapter) {
         if (!chapter.chapter.read) return
-        val manga = manga ?: return
+        manga ?: return
+        // RK: delete-after-read targets the chapter's own source's download.
+        val chapterManga = mangaForChapterId(chapter.chapter.manga_id)
 
         viewModelScope.launchNonCancellable {
-            downloadManager.enqueueChaptersToDelete(listOf(chapter.chapter.toDomainChapter()!!), manga)
+            downloadManager.enqueueChaptersToDelete(listOf(chapter.chapter.toDomainChapter()!!), chapterManga)
         }
     }
 

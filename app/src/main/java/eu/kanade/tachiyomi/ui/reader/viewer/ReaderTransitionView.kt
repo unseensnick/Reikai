@@ -16,10 +16,7 @@ import androidx.compose.ui.platform.AbstractComposeView
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.reader.ChapterTransition
 import eu.kanade.presentation.theme.TachiyomiTheme
-import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
-import tachiyomi.domain.manga.model.Manga
-import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -37,26 +34,15 @@ class ReaderTransitionView @JvmOverloads constructor(
         layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
     }
 
-    fun bind(transition: ChapterTransition, downloadManager: DownloadManager, manga: Manga?) {
-        data = if (manga != null) {
-            Data(
-                transition = transition,
-                currChapterDownloaded = transition.from.pageLoader?.isLocal == true,
-                goingToChapterDownloaded = manga.isLocal() ||
-                    transition.to?.chapter?.let { goingToChapter ->
-                        downloadManager.isChapterDownloaded(
-                            chapterName = goingToChapter.name,
-                            chapterScanlator = goingToChapter.scanlator,
-                            chapterUrl = goingToChapter.url,
-                            mangaTitle = manga.title,
-                            sourceId = manga.source,
-                            skipCache = true,
-                        )
-                    } ?: false,
-            )
-        } else {
-            null
-        }
+    // RK: the "going to" downloaded state is resolved off the main thread by the caller (per the
+    // chapter's own source) and passed in, so binding the transition card never blocks the UI thread
+    // on a storage probe (the cause of a stutter when crossing into another merged source).
+    fun bind(transition: ChapterTransition, currChapterDownloaded: Boolean, goingToChapterDownloaded: Boolean) {
+        data = Data(
+            transition = transition,
+            currChapterDownloaded = currChapterDownloaded,
+            goingToChapterDownloaded = goingToChapterDownloaded,
+        )
     }
 
     @Composable

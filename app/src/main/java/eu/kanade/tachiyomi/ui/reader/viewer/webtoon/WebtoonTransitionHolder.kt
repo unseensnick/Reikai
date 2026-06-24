@@ -64,7 +64,13 @@ class WebtoonTransitionHolder(
      * Binds the given [transition] with this view holder, subscribing to its state.
      */
     fun bind(transition: ChapterTransition) {
-        transitionView.bind(transition, viewer.downloadManager, viewer.activity.viewModel.manga)
+        // RK: per-source "next chapter downloaded" badge read from the in-memory download cache, so
+        // binding stays cheap (no storage probe) and happens once (no boundary stutter or reflow).
+        transitionView.bind(
+            transition,
+            currChapterDownloaded = transition.from.pageLoader?.isLocal == true,
+            goingToChapterDownloaded = viewer.activity.viewModel.isChapterDownloaded(transition.to),
+        )
 
         transition.to?.let { observeStatus(it, transition) }
     }
