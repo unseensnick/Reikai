@@ -177,6 +177,12 @@
             android:configChanges="uiMode|orientation|screenSize"
             android:exported="false" />
 
+        <!-- RK: E-Hentai / ExHentai WebView login -->
+        <activity
+            android:name="exh.ui.login.EhLoginActivity"
+            android:configChanges="uiMode|orientation|screenSize"
+            android:exported="false" />
+
         <activity
             android:name=".extension.util.ExtensionInstallActivity"
             android:exported="false"

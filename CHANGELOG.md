@@ -16,7 +16,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Read a merged manga straight through all its sources.** Opening a merged series in the reader now flows through the whole group: the in-reader chapter list shows every source's chapters (each labeled with its source), and reaching the end of one source's chapters continues into the next without leaving the reader. Downloads and tracker updates follow each chapter's own source.
 - **Open Reikai's settings from Android's system settings.** Reikai now appears as a configurable app in Android Settings; opening it there jumps straight to the in-app Settings screen. (Synced from Mihon.)
-- **Browse E-Hentai, built in.** Turn on Settings → Advanced → Enable adult sources to add E-Hentai to Browse, then search with the full gallery filters, open a gallery, and read it. ExHentai (which needs login) and a dedicated E-Hentai settings screen are coming.
+- **Browse E-Hentai and ExHentai, built in.** Turn on Settings → Advanced → Enable adult sources to add E-Hentai to Browse, then search with the full gallery filters, open a gallery, and read it. Log in to ExHentai from the same screen to unlock it too. A dedicated E-Hentai settings screen is coming.
 
 **Light novels**
 - **First-class in your library.** A Manga / Novels chip switches the library between the two; novels get the same grid, grouping, badges, multi-select, and Filter / Sort / Display sheet as manga, with their own categories.

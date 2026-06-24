@@ -1261,4 +1261,11 @@
     <string name="last_update_check">Last update check</string>
     <string name="pref_enable_adult_sources">Enable adult sources (E-Hentai)</string>
     <string name="pref_enable_adult_sources_summary">Adds the built-in E-Hentai sources to Browse. ExHentai also requires you to log in.</string>
+    <string name="pref_log_in_to_exhentai">Log in to ExHentai</string>
+    <string name="pref_log_in_to_exhentai_summary">Sign in to unlock ExHentai galleries</string>
+    <string name="recheck_login_status">Recheck login status</string>
+    <string name="alternative_login_page">Alternative login page</string>
+    <string name="skip_page_restyling">Skip page restyling</string>
+    <string name="custom_igneous_cookie">Custom igneous cookie</string>
+    <string name="custom_igneous_cookie_message">Some users cannot access ExHentai the normal way, and have to pass in a specific igneous cookie value, this option is for those users.</string>
 </resources>

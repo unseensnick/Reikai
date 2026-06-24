@@ -62,6 +62,7 @@ import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.logcat
 import exh.source.ExhPreferences
+import exh.ui.login.EhLoginActivity
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.novel.NovelMergeManager
@@ -96,8 +97,12 @@ object SettingsAdvancedScreen : SearchableSettings {
         val novelMergeManager = remember { Injekt.get<NovelMergeManager>() }
         // RK: gate for the built-in adult sources (E-Hentai / ExHentai)
         val exhPreferences = remember { Injekt.get<ExhPreferences>() }
+        val hentaiEnabled by exhPreferences.isHentaiEnabled().collectAsState()
+        val ehLoginLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.StartActivityForResult(),
+        ) { /* enableExhentai is set inside the login flow; nothing to do here */ }
 
-        return listOf(
+        return listOfNotNull(
             Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.pref_dump_crash_logs),
                 subtitle = stringResource(MR.strings.pref_dump_crash_logs_summary),
@@ -123,12 +128,22 @@ object SettingsAdvancedScreen : SearchableSettings {
                 subtitle = stringResource(MR.strings.pref_track_update_errors_summary),
             ),
             // RK: enable the built-in E-Hentai sources (anonymous browsing). ExHentai additionally
-            //     needs login, which lands with the dedicated E-Hentai settings screen.
+            //     needs login via the entry below.
             Preference.PreferenceItem.SwitchPreference(
                 preference = exhPreferences.isHentaiEnabled(),
                 title = stringResource(MR.strings.pref_enable_adult_sources),
                 subtitle = stringResource(MR.strings.pref_enable_adult_sources_summary),
             ),
+            // RK: ExHentai WebView login (only meaningful once adult sources are enabled)
+            if (hentaiEnabled) {
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.pref_log_in_to_exhentai),
+                    subtitle = stringResource(MR.strings.pref_log_in_to_exhentai_summary),
+                    onClick = { ehLoginLauncher.launch(EhLoginActivity.newIntent(context)) },
+                )
+            } else {
+                null
+            },
             // RK --> clear pref-based merge state
             Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.pref_clear_manual_merges),
