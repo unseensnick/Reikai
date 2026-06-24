@@ -62,7 +62,13 @@ class PagerTransitionHolder(
         addView(transitionView)
         addView(pagesContainer)
 
-        transitionView.bind(transition, viewer.downloadManager, viewer.activity.viewModel.manga)
+        // RK: the "next chapter downloaded" badge is keyed to the chapter's own source and read from
+        // the in-memory download cache, so binding stays cheap (no storage probe) and happens once.
+        transitionView.bind(
+            transition,
+            currChapterDownloaded = transition.from.pageLoader?.isLocal == true,
+            goingToChapterDownloaded = viewer.activity.viewModel.isChapterDownloaded(transition.to),
+        )
 
         transition.to?.let(::observeStatus)
     }
