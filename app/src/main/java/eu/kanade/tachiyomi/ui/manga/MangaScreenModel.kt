@@ -63,7 +63,7 @@ import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.manga.ChapterAggregation
+import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
@@ -147,6 +147,7 @@ class MangaScreenModel(
     private val updateMangaFromRemote: UpdateMangaFromRemote = Injekt.get(),
     // RK -->
     private val mergeManager: MangaMergeManager = Injekt.get(),
+    private val mergedChapterProvider: MergedChapterProvider = Injekt.get(),
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
     private val relatedMangasLoader: RelatedMangasLoader = Injekt.get(),
     private val recommendationPreferences: ReikaiRecommendationPreferences = Injekt.get(),
@@ -755,7 +756,6 @@ class MangaScreenModel(
     /** Combine every grouped source's chapters into one aggregated, deduped, reading-ordered list.
      *  Suspend because [GetMangaWithChapters.subscribe] is; called from the suspend flatMapLatest. */
     private suspend fun mergedChaptersFlow(displayManga: Manga, relatedIds: LongArray): Flow<MergedChapters> {
-        val preferredSourceIds = reikaiLibraryPreferences.preferredMangaSources.get()
         val perSibling = mutableListOf<Flow<Triple<Long, Manga, List<Chapter>>>>()
         for (id in relatedIds) {
             perSibling += getMangaAndChapters.subscribe(id, applyScanlatorFilter = true)
@@ -765,18 +765,11 @@ class MangaScreenModel(
             val mangaBySource = siblings.associate { (id, manga, _) -> id to manga }
             val chaptersBySource = siblings.associate { (id, _, chapters) -> id to chapters }
             val sourceIdByManga = siblings.associate { (id, manga, _) -> id to manga.source }
-            val aggregated = ChapterAggregation
-                .aggregate(chaptersBySource, sourceIdByManga, preferredSourceIds)
-                .let(::restampReadingOrder)
+            // The aggregate + reading-order policy is shared with the reader via MergedChapterProvider.
+            val aggregated = mergedChapterProvider.aggregate(chaptersBySource, sourceIdByManga)
             MergedChapters(displayManga, aggregated, mangaBySource)
         }
     }
-
-    /** Renumber source_order over the unified list (descending by chapter number) so a "by source
-     *  order" sort doesn't interleave sources. Copies, leaving each source's own order untouched. */
-    private fun restampReadingOrder(chapters: List<Chapter>): List<Chapter> =
-        chapters.sortedByDescending { it.chapterNumber }
-            .mapIndexed { index, chapter -> chapter.copy(sourceOrder = index.toLong()) }
     // RK <--
 
     /**

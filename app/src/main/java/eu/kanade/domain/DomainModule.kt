@@ -209,7 +209,7 @@ class DomainModule : InjektModule {
         // RK <--
         // RK --> pref-based merge (P3 manga, P5 S8 novel)
         addSingletonFactory { MangaMergeManager(get(), get(), get()) }
-        addSingletonFactory { MergedChapterProvider(get(), get(), get()) }
+        addSingletonFactory { MergedChapterProvider(get(), get(), get(), get()) }
         addSingletonFactory { PropagateTrackerLinks(get(), get(), get(), get(), get()) }
         addSingletonFactory { NovelMergeManager(get(), get()) }
         // RK <--

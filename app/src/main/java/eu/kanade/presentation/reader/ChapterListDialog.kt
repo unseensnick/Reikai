@@ -98,7 +98,11 @@ fun ChapterListDialog(
                                 .toRelativeString(context, dateRelativeTime, chapterItem.dateFormat)
                         },
                     readProgress = null,
-                    scanlator = chapterItem.chapter.scanlator,
+                    // RK: in a merged group, lead the subtitle with the source name (then the
+                    // scanlator) so each row shows which source it came from.
+                    scanlator = listOfNotNull(chapterItem.sourceName, chapterItem.chapter.scanlator)
+                        .joinToString(" • ")
+                        .ifEmpty { null },
                     read = chapterItem.chapter.read,
                     bookmark = chapterItem.chapter.bookmark,
                     selected = false,

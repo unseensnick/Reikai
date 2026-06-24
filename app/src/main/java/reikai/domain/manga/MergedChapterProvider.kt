@@ -4,6 +4,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.interactor.GetMangaWithChapters
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -22,13 +23,16 @@ import uy.kohesive.injekt.api.get
 class MergedChapterProvider(
     private val getMangaWithChapters: GetMangaWithChapters = Injekt.get(),
     private val mergeManager: MangaMergeManager = Injekt.get(),
+    private val sourceManager: SourceManager = Injekt.get(),
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
 ) {
 
-    /** The resolved group: every member manga keyed by id, plus the unified reading-ordered chapters. */
+    /** The resolved group: every member manga keyed by id, the unified reading-ordered chapters, and
+     *  each member's source name for per-source labels (empty when not merged). */
     class Group(
         val mangaById: Map<Long, Manga>,
         val chapters: List<Chapter>,
+        val sourceNameByMangaId: Map<Long, String>,
     ) {
         val isMerged: Boolean get() = mangaById.size > 1
     }
@@ -39,12 +43,14 @@ class MergedChapterProvider(
             return Group(
                 mangaById = mapOf(anchor.id to anchor),
                 chapters = getMangaWithChapters.awaitChapters(anchor.id, applyScanlatorFilter = true),
+                sourceNameByMangaId = emptyMap(),
             )
         }
         val mangaById = ids.associateWith { getMangaWithChapters.awaitManga(it) }
         val chaptersBySource = ids.associateWith { getMangaWithChapters.awaitChapters(it, applyScanlatorFilter = true) }
         val sourceIdByManga = mangaById.mapValues { it.value.source }
-        return Group(mangaById, aggregate(chaptersBySource, sourceIdByManga))
+        val sourceNameByMangaId = mangaById.mapValues { sourceManager.getOrStub(it.value.source).name }
+        return Group(mangaById, aggregate(chaptersBySource, sourceIdByManga), sourceNameByMangaId)
     }
 
     /** Aggregate + reading order: stitch the sources into one list, then restamp source order so a

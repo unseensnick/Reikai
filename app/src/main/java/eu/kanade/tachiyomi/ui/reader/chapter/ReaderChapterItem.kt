@@ -12,4 +12,7 @@ data class ReaderChapterItem(
     val manga: Manga,
     val isCurrent: Boolean,
     val dateFormat: DateTimeFormatter,
+    // RK: the chapter's source name for a merged group (null when not merged), shown as the row's
+    // subtitle so a unified list makes clear which source each chapter comes from.
+    val sourceName: String? = null,
 )
