@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.online.HttpSource
 // RK -->
 import eu.kanade.tachiyomi.source.online.all.EHentai
+import eu.kanade.tachiyomi.source.online.all.HentaiFox
 import eu.kanade.tachiyomi.source.online.all.Lanraragi
 import eu.kanade.tachiyomi.source.online.all.NHentai
 import eu.kanade.tachiyomi.source.online.english.EightMuses
@@ -214,6 +215,13 @@ class AndroidSourceManager(
                 fillInSourceId,
                 "eu.kanade.tachiyomi.extension.all.lanraragi.LANraragi",
                 ::Lanraragi,
+                factory = true,
+            ),
+            DelegatedSource(
+                "HentaiFox",
+                fillInSourceId,
+                "eu.kanade.tachiyomi.extension.all.hentaifox.HentaiFox",
+                ::HentaiFox,
                 factory = true,
             ),
         ).associateBy { it.originalSourceQualifiedClassName }
