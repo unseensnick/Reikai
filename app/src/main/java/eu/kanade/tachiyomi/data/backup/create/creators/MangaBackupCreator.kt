@@ -6,6 +6,9 @@ import eu.kanade.tachiyomi.data.backup.create.BackupOptions
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
+import eu.kanade.tachiyomi.data.backup.models.BackupSearchMetadata
+import eu.kanade.tachiyomi.data.backup.models.BackupSearchTag
+import eu.kanade.tachiyomi.data.backup.models.BackupSearchTitle
 import eu.kanade.tachiyomi.data.backup.models.backupChapterMapper
 import eu.kanade.tachiyomi.data.backup.models.backupTrackMapper
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
@@ -14,6 +17,7 @@ import tachiyomi.data.MemoColumnAdapter
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.repository.MangaMetadataRepository
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -21,6 +25,8 @@ class MangaBackupCreator(
     private val database: Database = Injekt.get(),
     private val getCategories: GetCategories = Injekt.get(),
     private val getHistory: GetHistory = Injekt.get(),
+    // RK: source of captured adult/EXH gallery metadata for the backup.
+    private val mangaMetadataRepository: MangaMetadataRepository = Injekt.get(),
 ) {
 
     suspend operator fun invoke(mangas: List<Manga>, options: BackupOptions): List<BackupManga> {
@@ -80,6 +86,20 @@ class MangaBackupCreator(
                     mangaObject.history = history
                 }
             }
+        }
+
+        // RK: carry captured adult/EXH gallery metadata so a restore brings the tags back.
+        mangaMetadataRepository.getMetadataById(manga.id)?.let { meta ->
+            mangaObject.searchMetadata = BackupSearchMetadata(
+                uploader = meta.uploader,
+                extra = meta.extra,
+                indexedExtra = meta.indexedExtra,
+                extraVersion = meta.extraVersion,
+                tags = mangaMetadataRepository.getTagsById(manga.id)
+                    .map { BackupSearchTag(it.namespace, it.name, it.type) },
+                titles = mangaMetadataRepository.getTitlesById(manga.id)
+                    .map { BackupSearchTitle(it.title, it.type) },
+            )
         }
 
         return mangaObject

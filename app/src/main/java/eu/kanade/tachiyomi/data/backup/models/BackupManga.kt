@@ -46,6 +46,8 @@ class BackupManga(
     @ProtoNumber(110) var notes: String = "",
     @ProtoNumber(111) var initialized: Boolean = false,
     @ProtoNumber(112) var memo: ByteArray = JsonObjectEmptyBytes,
+    // RK: captured adult/EXH gallery metadata (700-range stays clear of Mihon's numbers).
+    @ProtoNumber(700) var searchMetadata: BackupSearchMetadata? = null,
 ) {
     fun getMangaImpl(): Manga {
         return Manga.create().copy(

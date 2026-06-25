@@ -9,8 +9,14 @@ import eu.kanade.tachiyomi.data.backup.models.BackupChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
+import eu.kanade.tachiyomi.data.backup.models.BackupSearchMetadata
 import eu.kanade.tachiyomi.data.backup.models.BackupTracking
+import exh.metadata.metadata.base.FlatMetadata
+import exh.metadata.sql.models.SearchMetadata
+import exh.metadata.sql.models.SearchTag
+import exh.metadata.sql.models.SearchTitle
 import reikai.domain.library.ReikaiLibraryPreferences
+import tachiyomi.domain.manga.repository.MangaMetadataRepository
 import tachiyomi.data.Database
 import tachiyomi.data.MemoColumnAdapter
 import tachiyomi.data.UpdateStrategyColumnAdapter
@@ -40,6 +46,8 @@ class MangaRestorer(
     fetchInterval: FetchInterval = Injekt.get(),
     // RK: target of the rebuilt manga merge/unmerge prefs (see restoreMerges).
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
+    // RK: restores captured adult/EXH gallery metadata (search_metadata/tags/titles).
+    private val mangaMetadataRepository: MangaMetadataRepository = Injekt.get(),
 ) {
 
     private var now = ZonedDateTime.now()
@@ -84,6 +92,7 @@ class MangaRestorer(
                 history = backupManga.history,
                 tracks = backupManga.tracking,
                 excludedScanlators = backupManga.excludedScanlators,
+                searchMetadata = backupManga.searchMetadata,
             )
         }
     }
@@ -284,14 +293,38 @@ class MangaRestorer(
         history: List<BackupHistory>,
         tracks: List<BackupTracking>,
         excludedScanlators: List<String>,
+        searchMetadata: BackupSearchMetadata?,
     ): Manga {
         restoreCategories(manga, categories, backupCategories)
         restoreChapters(manga, chapters)
         restoreTracking(manga, tracks)
         restoreHistory(history)
         restoreExcludedScanlators(manga, excludedScanlators)
+        restoreSearchMetadata(manga, searchMetadata)
         updateManga.awaitUpdateFetchInterval(manga, now, currentFetchWindow)
         return manga
+    }
+
+    // RK: re-insert captured adult/EXH gallery metadata for a restored gallery, keyed to its new id.
+    private suspend fun restoreSearchMetadata(manga: Manga, backup: BackupSearchMetadata?) {
+        backup ?: return
+        mangaMetadataRepository.insertFlatMetadata(
+            FlatMetadata(
+                metadata = SearchMetadata(
+                    mangaId = manga.id,
+                    uploader = backup.uploader,
+                    extra = backup.extra,
+                    indexedExtra = backup.indexedExtra,
+                    extraVersion = backup.extraVersion,
+                ),
+                tags = backup.tags.map {
+                    SearchTag(id = null, mangaId = manga.id, namespace = it.namespace, name = it.name, type = it.type)
+                },
+                titles = backup.titles.map {
+                    SearchTitle(id = null, mangaId = manga.id, title = it.title, type = it.type)
+                },
+            ),
+        )
     }
 
     /**
