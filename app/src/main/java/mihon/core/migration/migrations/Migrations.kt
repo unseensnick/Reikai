@@ -12,5 +12,6 @@ val migrations: List<Migration>
         // RK -->
         SetupLnPluginUpdateMigration(),
         SetupNovelUpdateMigration(),
+        SetupEHentaiUpdateMigration(),
         // RK <--
     )

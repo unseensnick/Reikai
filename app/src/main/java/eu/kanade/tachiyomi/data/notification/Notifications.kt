@@ -38,6 +38,10 @@ object Notifications {
     const val ID_NOVEL_LIBRARY_RESULT = -105
     const val GROUP_NOVEL_NEW_CHAPTERS = "eu.kanade.tachiyomi.NOVEL_NEW_CHAPTERS"
 
+    // RK: E-Hentai favorited-gallery update checker, grouped with the library updater.
+    const val CHANNEL_LIBRARY_EHENTAI = "library_ehentai_channel"
+    const val ID_EHENTAI_PROGRESS = -106
+
     /**
      * Notification channel and ids used by the downloader.
      */
@@ -160,6 +164,11 @@ object Notifications {
                 buildNotificationChannel(CHANNEL_NOVEL_LIBRARY_RESULT, IMPORTANCE_DEFAULT) {
                     setName(context.stringResource(MR.strings.channel_new_chapters))
                     setGroup(GROUP_LIBRARY)
+                },
+                buildNotificationChannel(CHANNEL_LIBRARY_EHENTAI, IMPORTANCE_LOW) {
+                    setName(context.stringResource(MR.strings.channel_progress))
+                    setGroup(GROUP_LIBRARY)
+                    setShowBadge(false)
                 },
                 // RK <--
                 buildNotificationChannel(CHANNEL_NEW_CHAPTERS, IMPORTANCE_DEFAULT) {
