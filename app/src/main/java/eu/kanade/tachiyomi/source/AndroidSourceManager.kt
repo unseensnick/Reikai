@@ -163,15 +163,24 @@ class AndroidSourceManager(
     // If an installed extension is in DELEGATED_SOURCES, wrap it in an EnhancedHttpSource so its
     // galleries gain searchable tag/title metadata; otherwise return the source unchanged.
     private fun Source.toEnhancedSource(): Source {
-        val sourceQName = this::class.qualifiedName ?: return this
-        val delegate = DELEGATED_SOURCES[sourceQName]
-            ?: DELEGATED_SOURCES.values.find {
-                it.factory && sourceQName.startsWith(it.originalSourceQualifiedClassName)
+        if (this !is HttpSource) return this
+        val source = this
+        // Match by source name first. R8 obfuscates the source class that a factory extension
+        // builds (e.g. HentaiFox's source becomes a top-level "a"), so its qualified class name
+        // is useless for matching; the source name is stable across versions and languages.
+        // Fall back to the class name for entry-point (non-factory) extensions like 8Muses.
+        val sourceQName = this::class.qualifiedName
+        val delegate = DELEGATED_SOURCES.values.find { it.sourceName == source.name }
+            ?: sourceQName?.let { qName ->
+                DELEGATED_SOURCES[qName]
+                    ?: DELEGATED_SOURCES.values.find {
+                        it.factory && qName.startsWith(it.originalSourceQualifiedClassName)
+                    }
             }
-        return if (this is HttpSource && delegate != null) {
-            EnhancedHttpSource(this, delegate.newSourceFactory(this, context))
+        return if (delegate != null) {
+            EnhancedHttpSource(source, delegate.newSourceFactory(source, context))
         } else {
-            this
+            source
         }
     }
 
