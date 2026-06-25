@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.online.HttpSource
 // RK -->
+import eu.kanade.tachiyomi.source.online.all.AsmHentai
 import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.source.online.all.HentaiFox
 import eu.kanade.tachiyomi.source.online.all.Lanraragi
@@ -222,6 +223,13 @@ class AndroidSourceManager(
                 fillInSourceId,
                 "eu.kanade.tachiyomi.extension.all.hentaifox.HentaiFox",
                 ::HentaiFox,
+                factory = true,
+            ),
+            DelegatedSource(
+                "AsmHentai",
+                fillInSourceId,
+                "eu.kanade.tachiyomi.extension.all.asmhentai.AsmHentai",
+                ::AsmHentai,
                 factory = true,
             ),
         ).associateBy { it.originalSourceQualifiedClassName }
