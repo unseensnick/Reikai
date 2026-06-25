@@ -201,7 +201,7 @@ class DomainModule : InjektModule {
         addFactory { DeleteNovelChaptersAfterRead(get(), get(), get()) }
         addFactory { SetNovelChapterFlags(get()) }
         addFactory { SetNovelViewerFlags(get()) }
-        addFactory { NovelLibraryAdder(get(), get(), get(), get(), get()) }
+        addFactory { NovelLibraryAdder(get(), get(), get(), get(), get(), get()) }
         // RK <--
         // RK --> novel reading history (P5 / Active #5)
         addSingletonFactory<NovelHistoryRepository> { NovelHistoryRepositoryImpl(get()) }

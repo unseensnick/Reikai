@@ -1,10 +1,12 @@
 package reikai.presentation.novel.browse
 
+import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.NovelCategory
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSourceManager
 
@@ -20,6 +22,7 @@ class NovelLibraryAdder(
     private val getNovelCategories: GetNovelCategories,
     private val setNovelCategories: SetNovelCategories,
     private val updateNovel: UpdateNovel,
+    private val novelPreferences: NovelPreferences,
 ) {
 
     /** Decide the long-press outcome: remove (already saved), confirm a possible duplicate, or add. */
@@ -48,9 +51,9 @@ class NovelLibraryAdder(
         return addToLibrary(item, sourceId)
     }
 
-    /** Favorite the item (a minimal row, full metadata fills on first details open); returns the
-     *  category picker dialog when the user has categories, else null. insertOrGet may return a
-     *  non-favorite shadow row from a prior details open, so favorite is applied as a follow-up. */
+    /** Favorite the item (a minimal row, full metadata fills on first details open); applies the
+     *  default category or returns the category picker dialog. insertOrGet may return a non-favorite
+     *  shadow row from a prior details open, so favorite is applied as a follow-up. */
     suspend fun addToLibrary(item: NovelItem, sourceId: String): NovelBrowseDialog? {
         val base = Novel.create().copy(
             source = sourceId,
@@ -62,12 +65,35 @@ class NovelLibraryAdder(
         if (!stored.favorite) {
             updateNovel.awaitUpdateFavorite(stored.id, favorite = true)
         }
+        return applyDefaultCategoryOrPrompt(stored.id)?.let { prompt ->
+            NovelBrowseDialog.ChangeCategory(stored.id, prompt.categories, prompt.currentIds)
+        }
+    }
+
+    /**
+     * Shared "land a freshly favorited novel in the right category" step, the novel twin of the manga
+     * default-category branch (MangaLibraryAdder / MangaScreenModel.toggleFavorite). Applies the
+     * configured [NovelPreferences.defaultNovelCategory] (or uncategorized) and returns null; when
+     * there's no usable default but the user has categories, returns the picker data for the caller to
+     * render its own dialog. Reused by the History add-to-library button.
+     */
+    suspend fun applyDefaultCategoryOrPrompt(novelId: Long): CategoryPrompt? {
         val categories = getNovelCategories.await().filter { it.id > 0L }
-        return if (categories.isNotEmpty()) {
-            val current = getNovelCategories.awaitByNovelId(stored.id).map { it.id }.toSet()
-            NovelBrowseDialog.ChangeCategory(stored.id, categories, current)
-        } else {
-            null
+        val defaultId = novelPreferences.defaultNovelCategory().get()
+        val target = categories.find { it.id == defaultId.toLong() }
+        return when {
+            target != null -> {
+                setNovelCategories.await(novelId, listOf(target.id))
+                null
+            }
+            defaultId == 0 || categories.isEmpty() -> {
+                setNovelCategories.await(novelId, emptyList())
+                null
+            }
+            else -> {
+                val current = getNovelCategories.awaitByNovelId(novelId).map { it.id }.toSet()
+                CategoryPrompt(categories, current)
+            }
         }
     }
 
@@ -82,3 +108,7 @@ class NovelLibraryAdder(
         }
     }
 }
+
+/** The category-picker data [NovelLibraryAdder.applyDefaultCategoryOrPrompt] returns when there is no
+ *  default category to apply; each caller wraps it in its own dialog type. */
+data class CategoryPrompt(val categories: List<NovelCategory>, val currentIds: Set<Long>)

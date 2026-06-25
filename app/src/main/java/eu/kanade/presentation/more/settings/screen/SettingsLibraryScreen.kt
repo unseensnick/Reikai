@@ -64,7 +64,14 @@ object SettingsLibraryScreen : SearchableSettings {
         val novelCategories by getNovelCategories.subscribe().collectAsState(initial = emptyList())
 
         return listOf(
-            getCategoriesGroup(LocalNavigator.currentOrThrow, allCategories, libraryPreferences),
+            // RK: pass novel prefs + categories so the Categories group also hosts the novel default category
+            getCategoriesGroup(
+                LocalNavigator.currentOrThrow,
+                allCategories,
+                libraryPreferences,
+                novelPreferences,
+                novelCategories.map { it.toCategory() },
+            ),
             getGlobalUpdateGroup(allCategories, libraryPreferences),
             // RK: background light-novel chapter updates
             getNovelUpdateGroup(novelPreferences, novelCategories.map { it.toCategory() }),
@@ -187,6 +194,9 @@ object SettingsLibraryScreen : SearchableSettings {
         navigator: Navigator,
         allCategories: List<Category>,
         libraryPreferences: LibraryPreferences,
+        // RK: novel default-category pref + novel categories, so both defaults sit in one group
+        novelPreferences: NovelPreferences,
+        novelCategories: List<Category>,
     ): Preference.PreferenceGroup {
         val scope = rememberCoroutineScope()
         val userCategoriesCount = allCategories.filterNot(Category::isSystemCategory).size
@@ -196,6 +206,12 @@ object SettingsLibraryScreen : SearchableSettings {
             allCategories.fastMap { it.id.toInt() }
         val labels = listOf(stringResource(MR.strings.default_category_summary)) +
             allCategories.fastMap { it.visualName }
+        // RK --> novel default-category entries (its own category namespace)
+        val novelIds = listOf(novelPreferences.defaultNovelCategory().defaultValue()) +
+            novelCategories.fastMap { it.id.toInt() }
+        val novelLabels = listOf(stringResource(MR.strings.default_category_summary)) +
+            novelCategories.fastMap { it.visualName }
+        // RK <--
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.categories),
@@ -214,6 +230,13 @@ object SettingsLibraryScreen : SearchableSettings {
                     entries = ids.zip(labels).toMap(),
                     title = stringResource(MR.strings.default_category),
                 ),
+                // RK --> novel default category, alongside the manga one
+                Preference.PreferenceItem.ListPreference(
+                    preference = novelPreferences.defaultNovelCategory(),
+                    entries = novelIds.zip(novelLabels).toMap(),
+                    title = "${stringResource(MR.strings.default_category)} (${stringResource(MR.strings.content_type_novels)})",
+                ),
+                // RK <--
                 Preference.PreferenceItem.SwitchPreference(
                     preference = libraryPreferences.categorizedDisplaySettings,
                     title = stringResource(MR.strings.categorized_display_settings),

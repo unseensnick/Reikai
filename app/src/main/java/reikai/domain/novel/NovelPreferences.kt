@@ -166,6 +166,12 @@ class NovelPreferences(
     /** Show a vertical progress seekbar (scrub) on the right edge when the chrome is visible. */
     fun readerVerticalSeekbar() = preferenceStore.getBoolean("ln_reader_vertical_seekbar", false)
 
+    // Library.
+
+    /** Category a newly favorited novel auto-lands in, the novel twin of manga's
+     *  [LibraryPreferences.defaultCategory]. -1 = prompt for a category when the user has any. */
+    fun defaultNovelCategory() = preferenceStore.getInt("default_novel_category", -1)
+
     // Downloads (S5). Key strings preserved from the Yōkai-era fork for upgrade continuity.
 
     /** Delete a downloaded chapter's offline copy once it's marked read. */
