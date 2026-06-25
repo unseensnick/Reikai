@@ -1272,6 +1272,12 @@
     <string name="gallery_update_checker">Gallery update checker</string>
     <string name="eh_remove_favorite_text">Remove this gallery from your library?</string>
     <string name="eh_remove_favorite_remote">Also remove from E-Hentai favorites</string>
+    <string name="eh_favorites_backup">Favorites backup</string>
+    <string name="eh_backup_favorites_to_account">Back up favorites to account</string>
+    <string name="eh_backup_favorites_to_account_summary">Add favorited galleries to your E-Hentai account. Removing one from your library keeps it on the account.</string>
+    <string name="pref_eh_favorites_slot">Default favorite category</string>
+    <string name="eh_favorites_slot">Favorites %d</string>
+    <string name="eh_back_up_favorites_now">Back up all favorites now</string>
     <string name="ehentai_prefs_account_settings">E-Hentai Website Account Settings</string>
     <string name="enable_exhentai">Enable ExHentai</string>
     <string name="requires_login">Requires login</string>

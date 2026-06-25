@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import exh.eh.EHentaiUpdateWorker
+import exh.favorites.EhFavoritesBackupJob
 import exh.source.ExhPreferences
 import exh.ui.login.EhLoginActivity
 import tachiyomi.core.common.i18n.stringResource
@@ -110,6 +111,41 @@ object SettingsEhScreen : SearchableSettings {
                 ),
             ),
             galleryUpdateCheckerGroup(exhPreferences),
+            favoritesBackupGroup(exhentaiEnabled, exhPreferences),
+        )
+    }
+
+    /**
+     * One-way backup of favorited E-Hentai galleries to the account. Requires being logged in.
+     * Removing a gallery locally keeps it on the account unless you opt in at removal time.
+     */
+    @Composable
+    private fun favoritesBackupGroup(
+        exhentaiEnabled: Boolean,
+        exhPreferences: ExhPreferences,
+    ): Preference.PreferenceGroup {
+        val context = LocalContext.current
+        return Preference.PreferenceGroup(
+            title = stringResource(MR.strings.eh_favorites_backup),
+            preferenceItems = listOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = exhPreferences.exhBackupFavoritesToAccount(),
+                    title = stringResource(MR.strings.eh_backup_favorites_to_account),
+                    subtitle = stringResource(MR.strings.eh_backup_favorites_to_account_summary),
+                    enabled = exhentaiEnabled,
+                ),
+                Preference.PreferenceItem.ListPreference(
+                    preference = exhPreferences.exhFavoritesBackupSlot(),
+                    entries = (0..9).associateWith { stringResource(MR.strings.eh_favorites_slot, it) },
+                    title = stringResource(MR.strings.pref_eh_favorites_slot),
+                    enabled = exhentaiEnabled,
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.eh_back_up_favorites_now),
+                    enabled = exhentaiEnabled,
+                    onClick = { EhFavoritesBackupJob.startNow(context) },
+                ),
+            ),
         )
     }
 

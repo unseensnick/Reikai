@@ -36,7 +36,7 @@ Queued, roughly in priority order.
 
 Backlog, unordered.
 
-- **Adult-source / EXH subsystem (Phase 5b remaining)**  `[L]`: phases 1-4 + 5a have shipped (see Shipped → Adult / EXH). Remaining: **Phase 5b** = E-Hentai favorites two-way sync (`FavoritesSyncHelper`, a new `eh_favorites` table + migration, `FavoriteEntry`/`FavoriteEntryAlternative` models, `EHentai.fetchFavorites`, a sync dialog, the "Favorites sync" settings group, and `// RK` patches into Mihon's `LibraryScreenModel`/`LibraryTab`). It is the only EXH piece that mutates the library from a remote source, so it was deliberately split from 5a and deferred; build it only if account-library mirroring is wanted. Komikku port, KEY DISCOVERY re-typing tax applies. Luscious, HentaiNexus, 3Hentai, and Hitomi.la stay parked (see below).
+- _(empty: the Adult / EXH subsystem is complete; see Shipped. The remaining optional EXH ideas are under Parked.)_
 
 ## Parked / not building
 
@@ -51,6 +51,7 @@ Backlog, unordered.
 - **Y13** force side-nav rail, **Y17** DOKI theme, **Y18** in-app app-icon changer (dropped; Y18 revivable once Reikai-branded icon assets exist).
 - **Y4** drag-sort, **Y5** staggered grid, **Y8** (duplicate of R16), **Y19** stats drill-down: out of scope.
 - **EPUB export**: out of plan.
+- **Full two-way E-Hentai favorites sync** (pull account -> library): the scoped one-way backup (push add + opt-in remote remove) shipped instead (see Shipped → Phase 5b). The full `FavoritesSyncHelper` (download the account's favorites and add/remove library entries to mirror them, with an `eh_favorites` snapshot table, conflict handling, and library-screen patches) was deliberately not built: it is the only EXH feature that would mutate the library from a remote source. Revive only if account -> library mirroring is wanted.
 - **Adult / EXH enhanced sources — Hitomi.la, 3Hentai, Luscious, HentaiNexus** (part of the adult / EXH subsystem): **Hitomi.la** and **3Hentai** have no stock Keiyoushi extension, so enhancing them means writing or sourcing the base extension first, a larger lift. **Luscious** (GraphQL; tags come back as flat text and the per-tag category is fetched then discarded by the extension's DTO) and **HentaiNexus** (single-language, detail tags collapse into one flat genre, pages are encrypted) expose too little structured metadata to justify a wrapper. Revisit individually; no date set.
 
 ## Shipped
@@ -100,13 +101,14 @@ Terse done-log, grouped by area. Full detail in the linked plan docs.
 - Download settings parity: keep-last-N-read (delete-after-read slots), don't-delete-bookmarked, exclude-categories-from-delete, and download-ahead, all under Settings → Downloads. See [novel-parity-backlog.md](docs/dev/plans/novel-parity-backlog.md).
 - Per-title novel update notifications: one grouped notification per updated novel, deep-linking into the novel via a new `SHORTCUT_NOVEL` intent. See [novel-parity-backlog.md](docs/dev/plans/novel-parity-backlog.md).
 
-### Adult / EXH subsystem (phases 1-4 + 5a)
+### Adult / EXH subsystem (phases 1-4 + 5a + 5b)
 Ported from `refs/komikku`, re-typed onto Mihon's models. Committed on `design/mihon-rebase`, not yet pushed; on-device verified on emulator-5554.
 - Phase 1: delegation core (`EnhancedHttpSource` / `DelegatedHttpSource`) + gallery-metadata store (`search_metadata` / `search_tags` / `search_titles`, migration 23) + the 4 free enhanced sources (nHentai, Pururin, 8Muses, LANraragi) + URL import (`a105d5ab3`, `e6807a43f`, `10ef6caf7`).
 - Phase 2: built-in E-Hentai / ExHentai source (anonymous browse + read, full gallery filters, gallery-version chapters); Settings → Advanced "Enable adult sources" toggle; ExHentai WebView login; E-Hentai settings screen + server-profile sync (uconfig) (`1a072568f`, `c8d939d2b`, `ab6325aae`, `9868c4ae1`, `bc288cff1`, `add58456a`).
 - Phase 3: E-Hentai tag autocomplete (full EHTags catalogue), library search by gallery tags, Compose-native gallery metadata viewer (`04467c276`, `52348af35`, `b6bbc417a`).
 - Phase 4: three net-new enhanced wrappers (HentaiFox, AsmHentai, Koharu/SchaleNetwork) that re-parse each site's gallery details into namespaced tags; plus a fix to match delegated sources by source name so R8-minified factory extensions wrap (also repairs nHentai/LANraragi). Scoped down from six (Luscious/HentaiNexus/3Hentai parked). On-device verified (`896c440cc`, `db45bc176`, `4aa67b83e` + the SchaleNetwork wrapper).
-- Phase 5a: E-Hentai favorited-gallery update checker. A WorkManager job re-checks each favorited EH gallery for a newer version and reconciles the version chain locally (full disk-backed `EHentaiUpdateHelper` + `MemAutoFlushingLookupTable` replacing the in-session stub, merging chapters / read state / history / categories), with a "Gallery update checker" settings group. Split from the favorites two-way sync (5b), which is deferred. On-device verified: launch, settings render, scheduling; deep version-reconciliation is a faithful port not yet live-triggered.
+- Phase 5a: E-Hentai favorited-gallery update checker. A WorkManager job re-checks each favorited EH gallery for a newer version and reconciles the version chain locally (full disk-backed `EHentaiUpdateHelper` + `MemAutoFlushingLookupTable` replacing the in-session stub, merging chapters / read state / history / categories), with a "Gallery update checker" settings group. On-device verified: launch, settings render, scheduling; deep version-reconciliation is a faithful port not yet live-triggered.
+- Phase 5b (scoped): E-Hentai favorites account backup (one-way push + opt-in remote remove), not the full two-way sync. Favoriting a gallery adds it to the account; deleting locally keeps it on the account unless you tick "Also remove from E-Hentai favorites" in a DeletableTracker-style confirm; a "Back up all favorites now" job pushes the existing library (throttled). New `EHentai.fetchFavorites`/`addFavorite`/`removeFavorites`, `EhFavoritesBackupJob`, a `// RK` island in `MangaScreenModel`/`MangaScreen` + the confirm dialog, and a "Favorites backup" settings group. Account push/remove needs an ExHentai login to verify live (user-side); compile + non-account paths verified.
 
 ### Unified surfaces
 - Unified Updates tab: manga + novel interleaved, filters, by-category, group-by-series. See [unified-updates.md](docs/dev/plans/unified-updates.md).
