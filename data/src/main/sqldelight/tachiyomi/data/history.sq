@@ -39,6 +39,12 @@ UPDATE history
 SET last_read = 0
 WHERE _id = :historyId;
 
+-- RK: reset a batch of history rows (EHentai gallery-version reconciliation).
+resetHistoryByIds:
+UPDATE history
+SET last_read = 0
+WHERE _id IN :historyIds;
+
 resetHistoryByMangaId:
 UPDATE history
 SET last_read = 0

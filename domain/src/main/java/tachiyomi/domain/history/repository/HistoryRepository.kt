@@ -17,6 +17,9 @@ interface HistoryRepository {
 
     suspend fun resetHistory(historyId: Long)
 
+    // RK: batch reset for EHentai gallery-version reconciliation.
+    suspend fun resetHistory(historyIds: List<Long>)
+
     suspend fun resetHistoryByMangaId(mangaId: Long)
 
     suspend fun deleteAllHistory(): Boolean

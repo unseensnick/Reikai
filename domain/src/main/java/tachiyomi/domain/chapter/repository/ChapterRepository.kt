@@ -27,4 +27,7 @@ interface ChapterRepository {
     suspend fun getChapterByMangaIdAsFlow(mangaId: Long, applyScanlatorFilter: Boolean = false): Flow<List<Chapter>>
 
     suspend fun getChapterByUrlAndMangaId(url: String, mangaId: Long): Chapter?
+
+    // RK: every chapter across all manga sharing a url, for EHentai gallery-version reconciliation.
+    suspend fun getChapterByUrl(url: String): List<Chapter>
 }

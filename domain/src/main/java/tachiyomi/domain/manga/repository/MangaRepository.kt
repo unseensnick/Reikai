@@ -18,6 +18,9 @@ interface MangaRepository {
 
     suspend fun getFavorites(): List<Manga>
 
+    // RK: favorited adult-source galleries with captured metadata (EHentai update checker).
+    suspend fun getExhFavoriteMangaWithMetadata(sources: List<Long>): List<Manga>
+
     suspend fun getReadMangaNotInLibrary(): List<Manga>
 
     suspend fun getLibraryManga(): List<LibraryManga>

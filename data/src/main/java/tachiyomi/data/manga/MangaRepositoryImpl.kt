@@ -55,6 +55,13 @@ class MangaRepositoryImpl(
             .awaitAsList()
     }
 
+    // RK: backs the EHentai gallery update checker.
+    override suspend fun getExhFavoriteMangaWithMetadata(sources: List<Long>): List<Manga> {
+        return database.mangasQueries
+            .getEhMangaWithMetadata(sources, MangaMapper::mapManga)
+            .awaitAsList()
+    }
+
     override suspend fun getReadMangaNotInLibrary(): List<Manga> {
         return database.mangasQueries
             .getReadMangaNotInLibrary(MangaMapper::mapManga)

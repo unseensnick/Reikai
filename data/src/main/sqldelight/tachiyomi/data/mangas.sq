@@ -82,6 +82,14 @@ SELECT *
 FROM mangas
 WHERE favorite = 1;
 
+-- RK: favorited adult-source galleries that have captured metadata (EHentai update checker).
+getEhMangaWithMetadata:
+SELECT mangas.*
+FROM mangas
+INNER JOIN search_metadata
+ON mangas._id = search_metadata.manga_id
+WHERE mangas.favorite = 1 AND mangas.source IN :sources;
+
 getReadMangaNotInLibrary:
 SELECT *
 FROM mangas

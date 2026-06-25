@@ -130,6 +130,13 @@ class ChapterRepositoryImpl(
             .awaitAsOneOrNull()
     }
 
+    // RK: backs GetChapterByUrl for EHentai gallery-version reconciliation.
+    override suspend fun getChapterByUrl(url: String): List<Chapter> {
+        return database.chaptersQueries
+            .getChapterByUrl(url, ::mapChapter)
+            .awaitAsList()
+    }
+
     @Suppress("UNUSED_PARAMETER")
     private fun mapChapter(
         id: Long,

@@ -18,4 +18,9 @@ class RemoveHistory(
     suspend fun await(mangaId: Long) {
         repository.resetHistoryByMangaId(mangaId)
     }
+
+    // RK: batch reset for EHentai gallery-version reconciliation.
+    suspend fun await(historyIds: List<Long>) {
+        repository.resetHistory(historyIds)
+    }
 }
