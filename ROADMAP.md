@@ -36,7 +36,7 @@ Queued, roughly in priority order.
 
 Backlog, unordered.
 
-- **Adult-source / EXH subsystem (Phase 5 remaining)**  `[L]`: phases 1-4 have shipped (see Shipped → Adult / EXH). Remaining: **Phase 5** = E-Hentai favorites two-way sync + the gallery-update background worker + the full `EHentaiUpdateHelper` (replacing the in-session stub) + the deferred `SettingsEhScreen` groups (Favorites sync, Gallery update checker); this one IS a Komikku port, so the KEY DISCOVERY re-typing tax applies. Luscious, HentaiNexus, 3Hentai, and Hitomi.la stay parked (see below).
+- **Adult-source / EXH subsystem (Phase 5b remaining)**  `[L]`: phases 1-4 + 5a have shipped (see Shipped → Adult / EXH). Remaining: **Phase 5b** = E-Hentai favorites two-way sync (`FavoritesSyncHelper`, a new `eh_favorites` table + migration, `FavoriteEntry`/`FavoriteEntryAlternative` models, `EHentai.fetchFavorites`, a sync dialog, the "Favorites sync" settings group, and `// RK` patches into Mihon's `LibraryScreenModel`/`LibraryTab`). It is the only EXH piece that mutates the library from a remote source, so it was deliberately split from 5a and deferred; build it only if account-library mirroring is wanted. Komikku port, KEY DISCOVERY re-typing tax applies. Luscious, HentaiNexus, 3Hentai, and Hitomi.la stay parked (see below).
 
 ## Parked / not building
 
@@ -100,12 +100,13 @@ Terse done-log, grouped by area. Full detail in the linked plan docs.
 - Download settings parity: keep-last-N-read (delete-after-read slots), don't-delete-bookmarked, exclude-categories-from-delete, and download-ahead, all under Settings → Downloads. See [novel-parity-backlog.md](docs/dev/plans/novel-parity-backlog.md).
 - Per-title novel update notifications: one grouped notification per updated novel, deep-linking into the novel via a new `SHORTCUT_NOVEL` intent. See [novel-parity-backlog.md](docs/dev/plans/novel-parity-backlog.md).
 
-### Adult / EXH subsystem (phases 1-4)
+### Adult / EXH subsystem (phases 1-4 + 5a)
 Ported from `refs/komikku`, re-typed onto Mihon's models. Committed on `design/mihon-rebase`, not yet pushed; on-device verified on emulator-5554.
 - Phase 1: delegation core (`EnhancedHttpSource` / `DelegatedHttpSource`) + gallery-metadata store (`search_metadata` / `search_tags` / `search_titles`, migration 23) + the 4 free enhanced sources (nHentai, Pururin, 8Muses, LANraragi) + URL import (`a105d5ab3`, `e6807a43f`, `10ef6caf7`).
 - Phase 2: built-in E-Hentai / ExHentai source (anonymous browse + read, full gallery filters, gallery-version chapters); Settings → Advanced "Enable adult sources" toggle; ExHentai WebView login; E-Hentai settings screen + server-profile sync (uconfig) (`1a072568f`, `c8d939d2b`, `ab6325aae`, `9868c4ae1`, `bc288cff1`, `add58456a`).
 - Phase 3: E-Hentai tag autocomplete (full EHTags catalogue), library search by gallery tags, Compose-native gallery metadata viewer (`04467c276`, `52348af35`, `b6bbc417a`).
 - Phase 4: three net-new enhanced wrappers (HentaiFox, AsmHentai, Koharu/SchaleNetwork) that re-parse each site's gallery details into namespaced tags; plus a fix to match delegated sources by source name so R8-minified factory extensions wrap (also repairs nHentai/LANraragi). Scoped down from six (Luscious/HentaiNexus/3Hentai parked). On-device verified (`896c440cc`, `db45bc176`, `4aa67b83e` + the SchaleNetwork wrapper).
+- Phase 5a: E-Hentai favorited-gallery update checker. A WorkManager job re-checks each favorited EH gallery for a newer version and reconciles the version chain locally (full disk-backed `EHentaiUpdateHelper` + `MemAutoFlushingLookupTable` replacing the in-session stub, merging chapters / read state / history / categories), with a "Gallery update checker" settings group. Split from the favorites two-way sync (5b), which is deferred. On-device verified: launch, settings render, scheduling; deep version-reconciliation is a faithful port not yet live-triggered.
 
 ### Unified surfaces
 - Unified Updates tab: manga + novel interleaved, filters, by-category, group-by-series. See [unified-updates.md](docs/dev/plans/unified-updates.md).

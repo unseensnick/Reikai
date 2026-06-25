@@ -45,7 +45,9 @@ class ExhPreferences(
 
     fun logLevel() = preferenceStore.getInt("eh_log_level", 0)
 
-    fun exhAutoUpdateFrequency() = preferenceStore.getInt("eh_auto_update_frequency", 1)
+    // RK: default Daily. The worker only re-checks each gallery once per day anyway, so a tighter
+    // schedule just wakes up to skip; 24 also keeps the value within the settings frequency options.
+    fun exhAutoUpdateFrequency() = preferenceStore.getInt("eh_auto_update_frequency", 24)
 
     fun exhAutoUpdateRequirements() = preferenceStore.getStringSet("eh_auto_update_restrictions", emptySet())
 

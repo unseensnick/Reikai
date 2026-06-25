@@ -1269,6 +1269,7 @@
     <string name="custom_igneous_cookie_message">Some users cannot access ExHentai the normal way, and have to pass in a specific igneous cookie value, this option is for those users.</string>
     <!-- RK: E-Hentai settings screen + server profile config (Phase B2) -->
     <string name="pref_category_eh">E-Hentai</string>
+    <string name="gallery_update_checker">Gallery update checker</string>
     <string name="ehentai_prefs_account_settings">E-Hentai Website Account Settings</string>
     <string name="enable_exhentai">Enable ExHentai</string>
     <string name="requires_login">Requires login</string>

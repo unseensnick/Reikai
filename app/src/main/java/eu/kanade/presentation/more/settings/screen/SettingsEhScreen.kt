@@ -26,9 +26,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
+import exh.eh.EHentaiUpdateWorker
 import exh.source.ExhPreferences
 import exh.ui.login.EhLoginActivity
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_CHARGING
+import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_NETWORK_NOT_METERED
+import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_ONLY_ON_WIFI
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
@@ -36,9 +40,9 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 /**
- * Focused E-Hentai settings screen (Phase B2). Covers the website account / display options and the
- * server profile upload (uconfig). The favorites-sync and gallery-update-checker groups depend on
- * later EXH phases and are intentionally omitted for now.
+ * E-Hentai settings screen. Covers the website account / display options, the server profile upload
+ * (uconfig), and the favorited-gallery update checker (Phase 5a). The favorites two-way sync group
+ * depends on a later EXH phase and is intentionally omitted for now.
  */
 object SettingsEhScreen : SearchableSettings {
     private fun readResolve(): Any = SettingsEhScreen
@@ -103,6 +107,51 @@ object SettingsEhScreen : SearchableSettings {
                     watchedListDefaultState(exhentaiEnabled, exhPreferences),
                     imageQuality(exhentaiEnabled, exhPreferences),
                     enhancedEhentaiView(exhPreferences),
+                ),
+            ),
+            galleryUpdateCheckerGroup(exhPreferences),
+        )
+    }
+
+    /**
+     * Background checker that re-checks each favorited E-Hentai gallery for a newer version. Works
+     * for anonymous favorites too, so it is not gated on the ExHentai login.
+     */
+    @Composable
+    private fun galleryUpdateCheckerGroup(exhPreferences: ExhPreferences): Preference.PreferenceGroup {
+        val context = LocalContext.current
+        return Preference.PreferenceGroup(
+            title = stringResource(MR.strings.gallery_update_checker),
+            preferenceItems = listOf(
+                Preference.PreferenceItem.ListPreference(
+                    preference = exhPreferences.exhAutoUpdateFrequency(),
+                    entries = mapOf(
+                        0 to stringResource(MR.strings.update_never),
+                        12 to stringResource(MR.strings.update_12hour),
+                        24 to stringResource(MR.strings.update_24hour),
+                        48 to stringResource(MR.strings.update_48hour),
+                        72 to stringResource(MR.strings.update_72hour),
+                        168 to stringResource(MR.strings.update_weekly),
+                    ),
+                    title = stringResource(MR.strings.pref_library_update_interval),
+                    onValueChanged = {
+                        EHentaiUpdateWorker.setupTask(context, it)
+                        true
+                    },
+                ),
+                Preference.PreferenceItem.MultiSelectListPreference(
+                    preference = exhPreferences.exhAutoUpdateRequirements(),
+                    entries = mapOf(
+                        DEVICE_ONLY_ON_WIFI to stringResource(MR.strings.connected_to_wifi),
+                        DEVICE_NETWORK_NOT_METERED to stringResource(MR.strings.network_not_metered),
+                        DEVICE_CHARGING to stringResource(MR.strings.charging),
+                    ),
+                    title = stringResource(MR.strings.pref_library_update_restriction),
+                    subtitle = stringResource(MR.strings.restrictions),
+                    onValueChanged = {
+                        EHentaiUpdateWorker.setupTask(context)
+                        true
+                    },
                 ),
             ),
         )
