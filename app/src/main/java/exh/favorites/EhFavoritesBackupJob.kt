@@ -17,7 +17,7 @@ import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.source.EXH_SOURCE_ID
 import exh.source.ExhPreferences
 import exh.source.isEhBasedManga
-import kotlinx.coroutines.delay
+import exh.util.ThrottleManager
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.repository.MangaRepository
@@ -54,8 +54,10 @@ class EhFavoritesBackupJob(private val context: Context, workerParams: WorkerPar
                 .filter { EHentaiSearchMetadata.galleryId(it.url) !in remoteGids }
 
             val slot = exhPreferences.exhFavoritesBackupSlot().get()
+            val throttle = ThrottleManager()
             toPush.forEachIndexed { index, manga ->
                 notifier.showProgressNotification(manga, index, toPush.size)
+                throttle.throttle()
                 runCatching {
                     source.addFavorite(
                         EHentaiSearchMetadata.galleryId(manga.url),
@@ -63,7 +65,6 @@ class EhFavoritesBackupJob(private val context: Context, workerParams: WorkerPar
                         slot,
                     )
                 }.onFailure { logcat(LogPriority.ERROR, it) { "Failed to back up gallery ${manga.id}" } }
-                delay(THROTTLE_MS)
             }
             Result.success()
         } catch (e: Exception) {
@@ -88,9 +89,6 @@ class EhFavoritesBackupJob(private val context: Context, workerParams: WorkerPar
 
     companion object {
         private const val TAG = "EhFavoritesBackup"
-
-        // E-Hentai rate-limits favorites operations; pace the adds.
-        private const val THROTTLE_MS = 1500L
 
         fun startNow(context: Context) {
             context.workManager.enqueue(

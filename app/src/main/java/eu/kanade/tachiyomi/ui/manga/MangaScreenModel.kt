@@ -540,6 +540,9 @@ class MangaScreenModel(
         }.onFailure { logcat(LogPriority.ERROR, it) { "Failed to remove E-Hentai favorite remotely" } }
     }
 
+    // NOTE: if the user favorites via the category picker and then cancels it, this still pushes
+    //       (the picker commits the favorite later in moveMangaToCategoriesAndAddToLibrary).
+    //       Benign: the account is the disposable backstop, so a stray entry is the safe direction.
     private suspend fun maybeBackupFavoriteToAccount(manga: Manga) {
         if (!manga.isEhBasedManga() ||
             !exhPreferences.enableExhentai().get() ||

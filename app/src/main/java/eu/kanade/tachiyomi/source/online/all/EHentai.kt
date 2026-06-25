@@ -50,6 +50,8 @@ import exh.util.nullIfBlank
 import exh.util.trimAll
 import exh.util.trimOrNull
 import exh.util.urlImportFetchSearchMangaSuspend
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
@@ -598,7 +600,7 @@ class EHentai(
             .add("apply", "Add to Favorites")
             .add("update", "1")
             .build()
-        client.newCall(POST(url, headers, body)).awaitSuccess().close()
+        retryFavoritesRequest { client.newCall(POST(url, headers, body)).awaitSuccess().close() }
     }
 
     suspend fun removeFavorites(gids: List<String>) {
@@ -607,7 +609,27 @@ class EHentai(
             .add("ddact", "delete")
             .add("apply", "Apply")
         gids.forEach { body.add("modifygids[]", it) }
-        client.newCall(POST("$baseUrl/favorites.php", headers, body.build())).awaitSuccess().close()
+        retryFavoritesRequest {
+            client.newCall(POST("$baseUrl/favorites.php", headers, body.build())).awaitSuccess().close()
+        }
+    }
+
+    // A transient network blip shouldn't silently drop a favorites write. Retry a few times,
+    // then let the failure propagate to the caller (which logs it). Cancellation is not retried.
+    private suspend fun retryFavoritesRequest(block: suspend () -> Unit) {
+        var lastError: Throwable? = null
+        repeat(FAVORITES_RETRY_ATTEMPTS) { attempt ->
+            try {
+                block()
+                return
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                lastError = e
+                if (attempt < FAVORITES_RETRY_ATTEMPTS - 1) delay(FAVORITES_RETRY_DELAY_MS)
+            }
+        }
+        throw lastError ?: IllegalStateException("E-Hentai favorites request failed")
     }
 
     override suspend fun getMangaUpdate(
@@ -1292,6 +1314,10 @@ class EHentai(
     companion object {
         private const val TR_SUFFIX = "TR"
         private const val REVERSE_PARAM = "TEH_REVERSE"
+
+        // RK: favorites account-write retry (see retryFavoritesRequest).
+        private const val FAVORITES_RETRY_ATTEMPTS = 3
+        private const val FAVORITES_RETRY_DELAY_MS = 2000L
         private val PAGE_COUNT_REGEX = "[0-9]*".toRegex()
         private val RATING_REGEX = "([0-9]*)px".toRegex()
         private const val THUMB_DOMAIN = "ehgt.org"
