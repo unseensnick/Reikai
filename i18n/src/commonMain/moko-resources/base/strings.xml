@@ -1270,6 +1270,8 @@
     <!-- RK: E-Hentai settings screen + server profile config (Phase B2) -->
     <string name="pref_category_eh">E-Hentai</string>
     <string name="gallery_update_checker">Gallery update checker</string>
+    <string name="eh_remove_favorite_text">Remove this gallery from your library?</string>
+    <string name="eh_remove_favorite_remote">Also remove from E-Hentai favorites</string>
     <string name="ehentai_prefs_account_settings">E-Hentai Website Account Settings</string>
     <string name="enable_exhentai">Enable ExHentai</string>
     <string name="requires_login">Requires login</string>

@@ -63,6 +63,7 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.feature.migration.config.MigrationConfigScreen
 import mihon.feature.migration.dialog.MigrateMangaDialog
+import reikai.presentation.manga.EhRemoveFavoriteDialog
 import reikai.presentation.manga.ManageSourcesDialog
 import reikai.presentation.recommendation.browse.RelatedMangasBrowseScreen
 import tachiyomi.core.common.util.lang.withIOContext
@@ -341,6 +342,12 @@ class MangaScreen(
                     onSplit = screenModel::splitSources,
                     onRemoveFromLibrary = screenModel::removeSourcesFromLibrary,
                     onRemoveAll = screenModel::removeAllSourcesFromLibrary,
+                )
+            }
+            is MangaScreenModel.Dialog.EhRemoveFavorite -> {
+                EhRemoveFavoriteDialog(
+                    onDismissRequest = onDismissRequest,
+                    onConfirm = screenModel::confirmEhRemoveFromLibrary,
                 )
             }
             // RK <--

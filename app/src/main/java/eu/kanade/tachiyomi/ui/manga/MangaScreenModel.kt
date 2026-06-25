@@ -40,6 +40,7 @@ import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import eu.kanade.tachiyomi.util.removeCovers
@@ -110,6 +111,10 @@ import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import uy.kohesive.injekt.injectLazy
+import exh.metadata.metadata.EHentaiSearchMetadata
+import exh.source.ExhPreferences
+import exh.source.isEhBasedManga
 import kotlin.math.floor
 
 // RK: max related candidates shown in the details carousel; the full pool is kept in the cache for
@@ -419,21 +424,29 @@ class MangaScreenModel(
     // Manga info - start
 
     fun toggleFavorite() {
-        toggleFavorite(
-            onRemoved = {
-                screenModelScope.launch {
-                    if (!hasDownloads()) return@launch
-                    val result = snackbarHostState.showSnackbar(
-                        message = context.stringResource(MR.strings.delete_downloads_for_manga),
-                        actionLabel = context.stringResource(MR.strings.action_delete),
-                        withDismissAction = true,
-                    )
-                    if (result == SnackbarResult.ActionPerformed) {
-                        deleteDownloads()
-                    }
-                }
-            },
-        )
+        // RK: removing a favorited E-Hentai gallery with backup enabled goes through a confirm
+        //     dialog (DeletableTracker-style), so the user can opt to also remove it from the account.
+        val manga = successState?.manga
+        if (manga != null && isFavorited && shouldConfirmEhRemoveFromAccount(manga)) {
+            updateSuccessState { it.copy(dialog = Dialog.EhRemoveFavorite(manga)) }
+            return
+        }
+        toggleFavorite(onRemoved = ::promptDeleteDownloadsOnRemoved)
+    }
+
+    // RK: extracted so the E-Hentai "remove from account" confirm can reuse the same downloads prompt.
+    private fun promptDeleteDownloadsOnRemoved() {
+        screenModelScope.launch {
+            if (!hasDownloads()) return@launch
+            val result = snackbarHostState.showSnackbar(
+                message = context.stringResource(MR.strings.delete_downloads_for_manga),
+                actionLabel = context.stringResource(MR.strings.action_delete),
+                withDismissAction = true,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                deleteDownloads()
+            }
+        }
     }
 
     /**
@@ -493,9 +506,55 @@ class MangaScreenModel(
 
                 // Finally match with enhanced tracking when available
                 addTracks.bindEnhancedTrackers(manga, state.source)
+                // RK: back up newly-favorited E-Hentai galleries to the account.
+                maybeBackupFavoriteToAccount(manga)
             }
         }
     }
+
+    // RK -->
+    private val exhPreferences: ExhPreferences by injectLazy()
+
+    private fun shouldConfirmEhRemoveFromAccount(manga: Manga): Boolean {
+        return manga.isEhBasedManga() &&
+            exhPreferences.enableExhentai().get() &&
+            exhPreferences.exhBackupFavoritesToAccount().get()
+    }
+
+    fun confirmEhRemoveFromLibrary(removeFromAccount: Boolean) {
+        val manga = successState?.manga
+        dismissDialog()
+        if (manga == null) return
+        toggleFavorite(onRemoved = ::promptDeleteDownloadsOnRemoved)
+        if (removeFromAccount) {
+            screenModelScope.launchIO { removeFromEhAccount(manga) }
+        }
+    }
+
+    private suspend fun removeFromEhAccount(manga: Manga) {
+        val source = Injekt.get<SourceManager>().get(manga.source) as? EHentai ?: return
+        runCatching {
+            source.removeFavorites(listOf(EHentaiSearchMetadata.galleryId(manga.url)))
+        }.onFailure { logcat(LogPriority.ERROR, it) { "Failed to remove E-Hentai favorite remotely" } }
+    }
+
+    private suspend fun maybeBackupFavoriteToAccount(manga: Manga) {
+        if (!manga.isEhBasedManga() ||
+            !exhPreferences.enableExhentai().get() ||
+            !exhPreferences.exhBackupFavoritesToAccount().get()
+        ) {
+            return
+        }
+        val source = Injekt.get<SourceManager>().get(manga.source) as? EHentai ?: return
+        runCatching {
+            source.addFavorite(
+                EHentaiSearchMetadata.galleryId(manga.url),
+                EHentaiSearchMetadata.galleryToken(manga.url),
+                exhPreferences.exhFavoritesBackupSlot().get(),
+            )
+        }.onFailure { logcat(LogPriority.ERROR, it) { "Failed to back up E-Hentai favorite to account" } }
+    }
+    // RK <--
 
     fun showChangeCategoryDialog() {
         val manga = successState?.manga ?: return
@@ -1295,6 +1354,9 @@ class MangaScreenModel(
 
         // RK: pref-based merge, manage the grouped sources (split / remove from library)
         data class ManageSources(val sources: List<MergeSourceInfo>) : Dialog
+
+        // RK: confirm removing a favorited E-Hentai gallery, with an opt-in "also remove from account".
+        data class EhRemoveFavorite(val manga: Manga) : Dialog
     }
 
     // RK: a grouped source row shown in the Manage sources dialog.
