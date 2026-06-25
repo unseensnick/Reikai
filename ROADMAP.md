@@ -34,25 +34,33 @@ Queued, roughly in priority order.
 
 ## Later
 
-Backlog, unordered. The parity items below came out of a manga-vs-novel feature audit (2026-06-25) and were each verified against current code before listing.
+Backlog from a manga-vs-novel feature audit (2026-06-25), each item verified against current code before listing. Grouped into batches by shared code surface; suggested execution order is **A -> B -> C -> D**, then the standalone items (each carries its own migration / proto / subsystem and is best done alone). Sizes: `[S]` / `[M]`.
 
-**Novel parity**
-- **Novel update robustness** `[M]`: port the manga update job's retry backoff + per-title error log + Update-errors screen to `NovelUpdateJob`, which today has none (so novel update failures are silent and a failing novel can hammer the job queue).
-- **Novel tracking private listing** `[M]`: add the private-listing toggle for novel trackers; needs a `novel_tracks` schema migration to add the column (manga supports it, novel hard-disables it via `allowPrivate = false`).
-- **Novel migration carries cover + notes** `[S]`: `NovelMigrationFlag` only carries chapters + categories, so migrating a novel drops its custom cover and notes (both of which novels otherwise support); optionally add a target-source picker like manga's.
-- **Novel restore skip-if-newer** `[S]`: add `version` / `lastModifiedAt` to `BackupNovel` so restore can skip an existing newer copy (manga has both proto fields; novel has neither, so novel restore always overwrites).
-- **Novel chapter "downloaded" filter** `[S]`: the novel chapter settings sheet filters by unread + bookmarked only; add the downloaded filter manga has (likely needs a `NovelChapterFlags.SHOW_DOWNLOADED` bit).
+### Batch A: small novel parity sweep
+No migrations; small, self-contained UI/pref additions in different files, bundled for momentum.
 - **Novel default-category preference** `[S]`: let new novels auto-land in a chosen category; today only manga reads `libraryPreferences.defaultCategory`, so novels always land uncategorized.
-- **Per-category manual novel update** `[S]`: `NovelUpdateJob.startNow` takes no category, so there is no "update just this category" for novels (manga's `startNow(category)` has it).
 - **Novel history add-to-library button** `[S]`: novel history rows have no inline add-to-library affordance (manga's history rows do).
-- **Novel reader brightness / colour filter** `[M]`: the novel reader has theme presets only; port the manga reader's custom brightness + colour-filter / grayscale controls.
-- **Novel missing-chapter gap separators** `[S]`: `NovelScreen` hardcodes `missingChapterCount = 0`, so novels never show the missing-count header or gap separators manga shows.
-- **Novel source enable/disable** `[S]`: novel sources in the Sources tab can only be pinned or opened; manga sources get a `SourceOptionsDialog` with a Disable toggle. Low value (LNReader plugins are roughly one-source-per-plugin, so uninstall is the practical equivalent), but a genuine gap.
+- **Novel source enable/disable** `[S]`: novel sources in the Sources tab can only be pinned or opened; manga sources get a `SourceOptionsDialog` with a Disable toggle. Add a `disabledNovelSources` pref behind a shared `GetEnabledNovelSources` helper (mirroring manga's `GetEnabledSources`) so a disabled source is hidden from both the Sources tab and novel global search at once, the plugin stays installed and auto-updating but out of the way (which uninstall can't give you).
 
-**Adult / EXH settings UI** (pref keys already exist in `core/common` `ExhPreferences`; only the Compose UI is missing; match Komikku's placement, see `refs/komikku` `SettingsEhScreen`)
+### Batch B: novel chapter list
+Both touch the novel details chapter-list path (`NovelDetailsDialogs` / `NovelScreen` / `NovelDetailsScreenModel`).
+- **Novel chapter "downloaded" filter** `[S]`: the novel chapter settings sheet filters by unread + bookmarked only; add the downloaded filter manga has (likely needs a `NovelChapterFlags.SHOW_DOWNLOADED` bit).
+- **Novel missing-chapter gap separators** `[S]`: `NovelScreen` hardcodes `missingChapterCount = 0`, so novels never show the missing-count header or gap separators manga shows.
+
+### Batch C: novel update job
+Both land in `NovelUpdateJob` (+ the unified Updates UI for the manual trigger).
+- **Novel update robustness** `[M]`: port the manga update job's retry backoff + per-title error log + Update-errors screen to `NovelUpdateJob`, which today has none (so novel update failures are silent and a failing novel can hammer the job queue).
+- **Per-category manual novel update** `[S]`: `NovelUpdateJob.startNow` takes no category, so there is no "update just this category" for novels (manga's `startNow(category)` has it).
+
+### Batch D: EXH settings UI
+All in one screen (`SettingsEhScreen`); pref keys already exist in `core/common` `ExhPreferences`. Match Komikku's placement (`refs/komikku` `SettingsEhScreen`).
 - **Surface the missing EXH settings** `[M]`: add UI for Incognito mode (`ehIncognitoMode`, in a top "Source settings" group), Language filtering (`exhSettingsLanguages`), Front-page categories (`exhEnabledCategories`), and the Updater statistics dialog (`exhAutoUpdateStats`). Language + categories also need wiring into the `EHConfigurator` server-profile reconfigure trigger; Incognito needs a `ToggleIncognito` wire-up check. Excludes the two-way "Favorites Sync" group (under Parked).
 
-**Manga**
+### Standalone (own migration / proto / subsystem; do separately)
+- **Novel tracking private listing** `[M]`: add the private-listing toggle for novel trackers; needs a `novel_tracks` schema migration to add the column (manga supports it, novel hard-disables it via `allowPrivate = false`).
+- **Novel restore skip-if-newer** `[S]`: add `version` / `lastModifiedAt` to `BackupNovel` so restore can skip an existing newer copy (manga has both proto fields; novel has neither, so novel restore always overwrites).
+- **Novel migration carries cover + notes** `[S]`: `NovelMigrationFlag` only carries chapters + categories, so migrating a novel drops its custom cover and notes (both of which novels otherwise support); optionally add a target-source picker like manga's.
+- **Novel reader brightness / colour filter** `[M]`: the novel reader has theme presets only; port the manga reader's custom brightness + colour-filter / grayscale controls.
 - **Manga per-page chapter loading** `[M]`: manga loads the whole chapter list at once; novels page huge lists via `NovelPageSelectorSheet`. Low value (manga chapter lists are rarely huge) but a genuine gap.
 
 ## Parked / not building
