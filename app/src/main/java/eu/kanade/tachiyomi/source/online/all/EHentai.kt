@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.core.net.toUri
 import eu.kanade.tachiyomi.network.GET
+import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.await
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.newCachelessCallWithProgress
@@ -60,6 +61,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import okhttp3.CacheControl
+import okhttp3.FormBody
 import okhttp3.Headers
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -558,6 +560,54 @@ class EHentai(
                 it.newBuilder().cacheControl(cacheControl).build()
             }
         }
+    }
+
+    // RK: E-Hentai account favorites backup. fetchFavorites reads the account's list (for dedup +
+    // slot names); addFavorite / removeFavorites are the account writes. All authenticated via the
+    // EH login cookies already on `headers`.
+    suspend fun fetchFavorites(): Pair<List<ParsedManga>, List<String>> {
+        val favoriteUrl = "$baseUrl/favorites.php"
+        val result = mutableListOf<ParsedManga>()
+        var page = 1
+        var favNames: List<String>? = null
+
+        do {
+            val doc = client.newCall(
+                exGet(favoriteUrl, next = page, cacheControl = CacheControl.FORCE_NETWORK),
+            ).awaitSuccess().asJsoup()
+
+            val parsed = extendedGenericMangaParse(doc)
+            result += parsed.first
+
+            if (favNames == null) {
+                favNames = doc.select(".fp:not(.fps)").mapNotNull { it.child(2).text() }
+            }
+
+            page = parsed.first.lastOrNull()?.manga?.url
+                ?.let { EHentaiSearchMetadata.galleryId(it) }?.toIntOrNull() ?: 0
+        } while (parsed.second != null)
+
+        return result.toList() to (favNames ?: emptyList())
+    }
+
+    suspend fun addFavorite(gid: String, token: String, favCategory: Int) {
+        val url = "$baseUrl/gallerypopups.php?gid=$gid&t=$token&act=addfav"
+        val body = FormBody.Builder()
+            .add("favcat", favCategory.toString())
+            .add("favnote", "")
+            .add("apply", "Add to Favorites")
+            .add("update", "1")
+            .build()
+        client.newCall(POST(url, headers, body)).awaitSuccess().close()
+    }
+
+    suspend fun removeFavorites(gids: List<String>) {
+        if (gids.isEmpty()) return
+        val body = FormBody.Builder()
+            .add("ddact", "delete")
+            .add("apply", "Apply")
+        gids.forEach { body.add("modifygids[]", it) }
+        client.newCall(POST("$baseUrl/favorites.php", headers, body.build())).awaitSuccess().close()
     }
 
     override suspend fun getMangaUpdate(

@@ -53,6 +53,11 @@ class ExhPreferences(
 
     fun exhAutoUpdateStats() = preferenceStore.getString(Preference.appStateKey("eh_auto_update_stats"), "")
 
+    // RK: one-way favorites backup to the E-Hentai account (push add, opt-in remote remove).
+    fun exhBackupFavoritesToAccount() = preferenceStore.getBoolean("eh_backup_favorites_to_account", false)
+
+    fun exhFavoritesBackupSlot() = preferenceStore.getInt("eh_favorites_backup_slot", 0)
+
     fun exhWatchedListDefaultState() = preferenceStore.getBoolean("eh_watched_list_default_state", false)
 
     fun exhSettingsLanguages() = preferenceStore.getString(
