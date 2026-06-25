@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.all.AsmHentai
 import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.source.online.all.HentaiFox
+import eu.kanade.tachiyomi.source.online.all.Koharu
 import eu.kanade.tachiyomi.source.online.all.Lanraragi
 import eu.kanade.tachiyomi.source.online.all.NHentai
 import eu.kanade.tachiyomi.source.online.english.EightMuses
@@ -230,6 +231,14 @@ class AndroidSourceManager(
                 fillInSourceId,
                 "eu.kanade.tachiyomi.extension.all.asmhentai.AsmHentai",
                 ::AsmHentai,
+                factory = true,
+            ),
+            DelegatedSource(
+                // The Koharu extension's source is named "SchaleNetwork"; match on that.
+                "SchaleNetwork",
+                fillInSourceId,
+                "eu.kanade.tachiyomi.extension.all.koharu.Koharu",
+                ::Koharu,
                 factory = true,
             ),
         ).associateBy { it.originalSourceQualifiedClassName }
