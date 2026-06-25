@@ -450,7 +450,9 @@ private fun MangaScreenSmallImpl(
                         contentType = MangaScreenItem.DESCRIPTION_WITH_TAG,
                     ) {
                         ExpandableMangaDescription(
-                            defaultExpandState = state.isFromSource,
+                            // RK: also expand by default for EH/EXH galleries (tags are the
+                            // content, no description), so the library view matches the source view.
+                            defaultExpandState = state.isFromSource || state.isMetadataSource,
                             description = state.manga.description,
                             tagsProvider = { state.manga.genre },
                             notes = state.manga.notes,

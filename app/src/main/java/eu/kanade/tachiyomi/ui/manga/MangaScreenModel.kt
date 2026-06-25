@@ -40,6 +40,7 @@ import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.chapter.getNextUnread
@@ -114,6 +115,7 @@ import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.source.ExhPreferences
+import exh.source.getMainSource
 import exh.source.isEhBasedManga
 import kotlin.math.floor
 
@@ -1583,6 +1585,13 @@ class MangaScreenModel(
             // RK: cover-derived theming color (Y11), null when off or not yet extracted.
             val seedColor: Color? = null,
         ) : State {
+            // RK -->
+            // EH/EXH galleries are tags-as-content with no description, so default the info box
+            // to expanded in the library too (Mihon only auto-expands when arriving from a source).
+            val isMetadataSource: Boolean
+                get() = source.getMainSource<MetadataSource<*, *>>() != null
+            // RK <--
+
             val processedChapters by lazy {
                 chapters.applyFilters(manga).toList()
             }
