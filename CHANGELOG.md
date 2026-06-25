@@ -84,6 +84,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Installed sources come back on restore.** A backup now records which manga extensions and novel plugins you had installed, so a restore reinstalls them automatically; anything whose repo is missing is listed in the restore log so you know what to add back by hand.
 
 ### Changes
+- **Add a novel to your library straight from History.** A novel in the History tab that you haven't saved now shows an add-to-library button (like manga history rows); it favorites the novel and drops it in your default novel category, or asks.
 - **New novels can auto-land in a default category.** Pick a default novel category under Settings → Library → Categories (next to the manga one); novels you add then go straight there instead of always asking, the same as manga.
 - **E-Hentai favorites backup is gentler and more reliable.** Backing up a large library to your account now paces itself with a gradual backoff instead of a fixed delay, so it is less likely to trip E-Hentai's rate limits, and each favorite push retries a few times so a brief network hiccup no longer silently drops it.
 - **Adult-source gallery details show their full tags from the library.** Opening a saved E-Hentai (or other enhanced-source) gallery from your library now expands the description and tag cloud by default, the same as when browsing the source. These galleries have no description and their tags are the content, so they no longer hide behind a single sideways-scrolling row.

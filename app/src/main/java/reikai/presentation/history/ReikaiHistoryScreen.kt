@@ -56,6 +56,7 @@ fun ReikaiHistoryScreen(
     onClickMangaFavorite: (mangaId: Long) -> Unit,
     onClickNovelCover: (novelId: Long) -> Unit,
     onClickNovelResume: (NovelHistoryWithRelations) -> Unit,
+    onClickNovelFavorite: (novelId: Long) -> Unit,
 ) {
     val mangaState by mangaModel.state.collectAsState()
     val novelState by novelModel.state.collectAsState()
@@ -124,6 +125,7 @@ fun ReikaiHistoryScreen(
                             onClickMangaFavorite = onClickMangaFavorite,
                             onClickNovelCover = onClickNovelCover,
                             onClickNovelResume = onClickNovelResume,
+                            onClickNovelFavorite = onClickNovelFavorite,
                         )
                     }
                 }
@@ -141,6 +143,7 @@ private fun LazyListScope.historyRows(
     onClickMangaFavorite: (Long) -> Unit,
     onClickNovelCover: (Long) -> Unit,
     onClickNovelResume: (NovelHistoryWithRelations) -> Unit,
+    onClickNovelFavorite: (Long) -> Unit,
 ) {
     items(
         items = rows,
@@ -178,6 +181,7 @@ private fun LazyListScope.historyRows(
                     onClickCover = { onClickNovelCover(value.novelId) },
                     onClickResume = { onClickNovelResume(value) },
                     onClickDelete = { novelModel.setDialog(NovelHistoryScreenModel.Dialog.Delete(value)) },
+                    onClickFavorite = { onClickNovelFavorite(value.novelId) },
                 )
             }
         }

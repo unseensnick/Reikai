@@ -23,8 +23,11 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.GetNovelHistory
 import reikai.domain.novel.interactor.RemoveNovelHistory
+import reikai.domain.novel.interactor.UpdateNovel
+import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
 import uy.kohesive.injekt.Injekt
@@ -43,6 +46,8 @@ class NovelHistoryScreenModel(
     private val getNextNovelChapter: GetNextNovelChapter = Injekt.get(),
     private val novelRepository: NovelRepository = Injekt.get(),
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
+    private val updateNovel: UpdateNovel = Injekt.get(),
+    private val novelLibraryAdder: NovelLibraryAdder = Injekt.get(),
 ) : StateScreenModel<NovelHistoryScreenModel.State>(State()) {
 
     private val _events: Channel<Event> = Channel(Channel.UNLIMITED)
@@ -87,6 +92,22 @@ class NovelHistoryScreenModel(
         }
     }
 
+    /** Add a not-yet-library novel from its history row: favorite the existing row, then apply the
+     *  default category or prompt (reuses NovelLibraryAdder's add-to-library category logic). */
+    fun addFavorite(novelId: Long) {
+        screenModelScope.launchIO {
+            updateNovel.awaitUpdateFavorite(novelId, favorite = true)
+            novelLibraryAdder.applyDefaultCategoryOrPrompt(novelId)?.let { prompt ->
+                setDialog(Dialog.ChangeCategory(novelId, prompt.categories, prompt.currentIds))
+            }
+        }
+    }
+
+    fun applyCategories(novelId: Long, categoryIds: List<Long>) {
+        setDialog(null)
+        screenModelScope.launchIO { novelLibraryAdder.applyCategories(novelId, categoryIds) }
+    }
+
     /** The latest novel read, for the tab-reselect global-latest resume. */
     suspend fun getLast(): NovelHistoryWithRelations? = getNovelHistory.getLast()
 
@@ -119,6 +140,11 @@ class NovelHistoryScreenModel(
     sealed interface Dialog {
         data object DeleteAll : Dialog
         data class Delete(val history: NovelHistoryWithRelations) : Dialog
+        data class ChangeCategory(
+            val novelId: Long,
+            val categories: List<NovelCategory>,
+            val currentIds: Set<Long>,
+        ) : Dialog
     }
 
     sealed interface Event {

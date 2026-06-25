@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -32,8 +33,8 @@ private val NovelHistoryItemHeight = 96.dp
 
 /**
  * One novel row in the History tab, the novel twin of Mihon's [eu.kanade.presentation.history.components.HistoryItem].
- * Cover opens the novel details; the row resumes reading; the trash icon deletes the entry. No
- * add-to-library button (unlike the manga row): re-add a non-library novel from its details screen.
+ * Cover opens the novel details; the row resumes reading; the trash icon deletes the entry. A
+ * not-yet-library novel also shows an add-to-library button (matching the manga row).
  */
 @Composable
 fun NovelHistoryUiItem(
@@ -41,6 +42,7 @@ fun NovelHistoryUiItem(
     onClickCover: () -> Unit,
     onClickResume: () -> Unit,
     onClickDelete: () -> Unit,
+    onClickFavorite: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -78,6 +80,15 @@ fun NovelHistoryUiItem(
                 modifier = Modifier.padding(top = 4.dp),
                 style = textStyle,
             )
+        }
+        if (!history.coverData.isNovelFavorite) {
+            IconButton(onClick = onClickFavorite) {
+                Icon(
+                    imageVector = Icons.Outlined.FavoriteBorder,
+                    contentDescription = stringResource(MR.strings.add_to_library),
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
         }
         IconButton(onClick = onClickDelete) {
             Icon(
