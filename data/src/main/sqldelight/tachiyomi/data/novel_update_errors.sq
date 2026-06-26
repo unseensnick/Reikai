@@ -1,0 +1,38 @@
+CREATE TABLE novel_update_errors (
+    _id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    novel_id INTEGER NOT NULL UNIQUE,
+    message TEXT NOT NULL,
+    last_update INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY(novel_id) REFERENCES novels (_id)
+    ON DELETE CASCADE
+);
+
+upsert:
+INSERT INTO novel_update_errors(novel_id, message, last_update)
+VALUES (:novelId, :message, strftime('%s', 'now'))
+ON CONFLICT(novel_id)
+DO UPDATE
+SET
+    message = :message,
+    last_update = strftime('%s', 'now')
+WHERE novel_id = :novelId;
+
+deleteByErrorIds:
+DELETE FROM novel_update_errors
+WHERE _id IN :ids;
+
+deleteByNovelIds:
+DELETE FROM novel_update_errors
+WHERE novel_id IN :novelIds;
+
+deleteAll:
+DELETE FROM novel_update_errors;
+
+deleteNonFavorites:
+DELETE FROM novel_update_errors
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM novels
+    WHERE novel_update_errors.novel_id = novels._id
+    AND novels.favorite = 1
+);

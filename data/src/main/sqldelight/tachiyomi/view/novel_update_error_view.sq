@@ -1,0 +1,19 @@
+CREATE VIEW novel_update_error_view AS
+SELECT
+    novels._id AS novelId,
+    novels.title AS novelTitle,
+    novels.source,
+    novels.url,
+    novels.thumbnail_url AS thumbnailUrl,
+    novels.cover_last_modified AS coverLastModified,
+    novel_update_errors._id AS errorId,
+    novel_update_errors.message AS message,
+    novel_update_errors.last_update AS lastUpdate
+FROM novels JOIN novel_update_errors
+ON novels._id = novel_update_errors.novel_id
+WHERE novels.favorite = 1
+ORDER BY novel_update_errors.last_update DESC;
+
+errors:
+SELECT *
+FROM novel_update_error_view;

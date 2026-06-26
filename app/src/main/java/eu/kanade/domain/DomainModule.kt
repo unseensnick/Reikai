@@ -44,6 +44,11 @@ import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
 import reikai.domain.library.updateerror.GetLibraryUpdateErrors
 import reikai.domain.library.updateerror.LibraryUpdateErrorRepository
 import reikai.domain.library.updateerror.UpsertLibraryUpdateError
+import reikai.data.novel.updateerror.NovelUpdateErrorRepositoryImpl
+import reikai.domain.novel.updateerror.DeleteNovelUpdateErrors
+import reikai.domain.novel.updateerror.GetNovelUpdateErrors
+import reikai.domain.novel.updateerror.NovelUpdateErrorRepository
+import reikai.domain.novel.updateerror.UpsertNovelUpdateError
 import reikai.data.novel.NovelCategoryRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
@@ -185,6 +190,12 @@ class DomainModule : InjektModule {
         addFactory { GetLibraryUpdateErrors(get()) }
         addFactory { UpsertLibraryUpdateError(get()) }
         addFactory { DeleteLibraryUpdateErrors(get()) }
+        // RK <--
+        // RK --> novel update-errors (Batch C)
+        addSingletonFactory<NovelUpdateErrorRepository> { NovelUpdateErrorRepositoryImpl(get()) }
+        addFactory { GetNovelUpdateErrors(get()) }
+        addFactory { UpsertNovelUpdateError(get()) }
+        addFactory { DeleteNovelUpdateErrors(get()) }
         // RK <--
         // RK --> shared long-press add-to-library (Browse + global search)
         addFactory { MangaLibraryAdder() }

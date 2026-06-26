@@ -31,6 +31,10 @@ import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import reikai.data.coil.NovelCover
+import reikai.domain.library.ContentType
+import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.domain.manga.model.MangaCover as MangaCoverData
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -40,13 +44,16 @@ import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.selectedBackground
 
-class UpdateErrorsScreen : Screen() {
+/** Opens on the [initialContentType] chip (e.g. Novels when reached from the novel library). */
+class UpdateErrorsScreen(
+    private val initialContentType: ContentType = ContentType.ALL,
+) : Screen() {
 
     @Composable
     override fun Content() {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel { UpdateErrorsScreenModel() }
+        val screenModel = rememberScreenModel { UpdateErrorsScreenModel(initialContentType) }
         val state by screenModel.state.collectAsState()
 
         if (state is UpdateErrorsScreenState.Loading) {
@@ -62,23 +69,24 @@ class UpdateErrorsScreen : Screen() {
                     navigateUp = navigator::pop,
                     actionModeCounter = successState.selected.size,
                     onCancelActionMode = screenModel::clearSelection,
-                    actions = {
-                        if (successState.selectionMode) {
-                            AppBarActions(
-                                listOf(
-                                    AppBar.Action(
-                                        title = stringResource(MR.strings.action_select_all),
-                                        icon = Icons.Outlined.SelectAll,
-                                        onClick = screenModel::selectAll,
-                                    ),
-                                    AppBar.Action(
-                                        title = stringResource(MR.strings.action_delete),
-                                        icon = Icons.Outlined.Delete,
-                                        onClick = screenModel::dismissSelected,
-                                    ),
+                    actionModeActions = {
+                        AppBarActions(
+                            listOf(
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.action_select_all),
+                                    icon = Icons.Outlined.SelectAll,
+                                    onClick = screenModel::selectAll,
                                 ),
-                            )
-                        } else if (!successState.isEmpty) {
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.action_delete),
+                                    icon = Icons.Outlined.Delete,
+                                    onClick = screenModel::dismissSelected,
+                                ),
+                            ),
+                        )
+                    },
+                    actions = {
+                        if (!successState.isEmpty) {
                             AppBarActions(
                                 listOf(
                                     AppBar.Action(
@@ -98,46 +106,55 @@ class UpdateErrorsScreen : Screen() {
                 )
             },
         ) { paddingValues ->
-            if (successState.isEmpty) {
-                EmptyScreen(
-                    stringRes = MR.strings.info_empty_update_errors,
-                    modifier = Modifier.padding(paddingValues),
+            Column(modifier = Modifier.padding(paddingValues)) {
+                ContentTypeFilterChips(
+                    selected = successState.contentType,
+                    onSelect = screenModel::setContentType,
                 )
-                return@Scaffold
-            }
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = paddingValues,
-            ) {
-                successState.groups.forEach { group ->
-                    item(key = "header-${group.message}") {
-                        Text(
-                            text = group.message,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(
-                                horizontal = MaterialTheme.padding.medium,
-                                vertical = MaterialTheme.padding.small,
-                            ),
-                        )
-                    }
-                    items(
-                        items = group.errors,
-                        key = { "error-${it.error.errorId}" },
-                    ) { item ->
-                        UpdateErrorRow(
-                            item = item,
-                            isSelected = item.error.errorId in successState.selected,
-                            onClick = {
-                                if (successState.selectionMode) {
-                                    screenModel.toggleSelection(item.error.errorId)
-                                } else {
-                                    navigator.push(MangaScreen(item.error.mangaId))
-                                }
-                            },
-                            onLongClick = { screenModel.toggleSelection(item.error.errorId) },
-                        )
+                if (successState.isEmpty) {
+                    EmptyScreen(
+                        stringRes = MR.strings.info_empty_update_errors,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                    return@Column
+                }
+
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    successState.groups.forEach { group ->
+                        item(key = "header-${group.message}") {
+                            Text(
+                                text = group.message,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(
+                                    horizontal = MaterialTheme.padding.medium,
+                                    vertical = MaterialTheme.padding.small,
+                                ),
+                            )
+                        }
+                        items(
+                            items = group.errors,
+                            key = { "error-${it.key}" },
+                        ) { entry ->
+                            UpdateErrorRow(
+                                entry = entry,
+                                isSelected = entry.key in successState.selected,
+                                onClick = {
+                                    if (successState.selectionMode) {
+                                        screenModel.toggleSelection(entry.key)
+                                    } else {
+                                        when (entry) {
+                                            is UpdateErrorEntry.Manga ->
+                                                navigator.push(MangaScreen(entry.error.mangaId))
+                                            is UpdateErrorEntry.Novel ->
+                                                navigator.push(NovelScreen(entry.error.source, entry.error.novelUrl))
+                                        }
+                                    }
+                                },
+                                onLongClick = { screenModel.toggleSelection(entry.key) },
+                            )
+                        }
                     }
                 }
             }
@@ -147,11 +164,27 @@ class UpdateErrorsScreen : Screen() {
 
 @Composable
 private fun UpdateErrorRow(
-    item: UpdateErrorItem,
+    entry: UpdateErrorEntry,
     isSelected: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
+    val coverData: Any = when (entry) {
+        is UpdateErrorEntry.Manga -> MangaCoverData(
+            mangaId = entry.error.mangaId,
+            sourceId = entry.error.sourceId,
+            isMangaFavorite = true,
+            url = entry.error.thumbnailUrl,
+            lastModified = entry.error.coverLastModified,
+        )
+        is UpdateErrorEntry.Novel -> NovelCover(
+            url = entry.error.thumbnailUrl,
+            site = null,
+            isNovelFavorite = true,
+            lastModified = entry.error.coverLastModified,
+            novelId = entry.error.novelId,
+        )
+    }
     Row(
         modifier = Modifier
             .selectedBackground(isSelected)
@@ -161,24 +194,18 @@ private fun UpdateErrorRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         MangaCover.Book(
-            data = MangaCoverData(
-                mangaId = item.error.mangaId,
-                sourceId = item.error.sourceId,
-                isMangaFavorite = true,
-                url = item.error.thumbnailUrl,
-                lastModified = item.error.coverLastModified,
-            ),
+            data = coverData,
             modifier = Modifier.fillMaxHeight(),
         )
         Column(modifier = Modifier.padding(start = MaterialTheme.padding.medium)) {
             Text(
-                text = item.error.mangaTitle,
+                text = entry.title,
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = item.sourceName,
+                text = entry.sourceName,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,

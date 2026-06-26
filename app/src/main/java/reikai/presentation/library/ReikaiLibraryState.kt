@@ -23,4 +23,5 @@ data class ReikaiLibraryState(
     val hopperGravity: Int = 1,
     val hopperLongPressAction: Int = 0,
     val trackUpdateErrors: Boolean = false,
+    val trackNovelUpdateErrors: Boolean = false,
 )

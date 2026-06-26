@@ -5,6 +5,7 @@ import android.content.pm.ServiceInfo
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.Build
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -16,6 +17,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkQuery
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
@@ -28,18 +30,24 @@ import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.updateerror.DeleteNovelUpdateErrors
+import reikai.domain.novel.updateerror.UpsertNovelUpdateError
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
+import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
@@ -67,6 +75,9 @@ class NovelUpdateJob(
     private val getNovelCategories: GetNovelCategories = Injekt.get()
     private val preferences: NovelPreferences = Injekt.get()
     private val libraryPreferences: LibraryPreferences = Injekt.get()
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get()
+    private val upsertNovelUpdateError: UpsertNovelUpdateError = Injekt.get()
+    private val deleteNovelUpdateErrors: DeleteNovelUpdateErrors = Injekt.get()
     private val notifier = NovelUpdateNotifier(context)
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
@@ -82,7 +93,8 @@ class NovelUpdateJob(
     override suspend fun doWork(): Result {
         setForegroundSafely()
         return try {
-            withIOContext { updateNovels() }
+            val categoryId = inputData.getLong(KEY_CATEGORY, -1L)
+            withIOContext { updateNovels(categoryId) }
             Result.success()
         } catch (_: CancellationException) {
             Result.success()
@@ -94,15 +106,22 @@ class NovelUpdateJob(
         }
     }
 
-    private suspend fun updateNovels() {
+    private suspend fun updateNovels(categoryId: Long) {
         // One load brings every installed plugin into the host; per-novel resolution is then cheap.
         runCatching { installer.ensureLoaded() }
 
         // Category scope + smart-update restrictions both need suspend per-novel lookups, so filter in
-        // a loop rather than a plain .filter.
+        // a loop rather than a plain .filter. An explicit [categoryId] (a manual "update this category")
+        // overrides the include/exclude prefs; smart-update restrictions still apply, matching manga.
+        val trackErrors = reikaiLibraryPreferences.trackNovelUpdateErrors.get()
         val favorites = buildList {
             for (novel in novelRepo.getFavorites()) {
-                if (shouldUpdate(novel) && passesSmartUpdate(novel)) add(novel)
+                val categoryOk = if (categoryId != -1L) {
+                    categoryId in getNovelCategories.awaitByNovelId(novel.id).map { it.id }.ifEmpty { listOf(0L) }
+                } else {
+                    shouldUpdate(novel)
+                }
+                if (categoryOk && passesSmartUpdate(novel)) add(novel)
             }
         }
         if (favorites.isEmpty()) return
@@ -124,10 +143,17 @@ class NovelUpdateJob(
                         if (toDownload.isNotEmpty()) downloadManager.downloadChapters(toDownload)
                     }
                 }
+                // A successful check clears any previously recorded error.
+                if (trackErrors) runCatching { deleteNovelUpdateErrors.byNovelIds(listOf(novel.id)) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
                 logcat(LogPriority.ERROR, e) { "Novel update failed: ${novel.title}" }
+                // Record the failure for the Update errors screen.
+                if (trackErrors) {
+                    val message = e.message ?: context.stringResource(MR.strings.unknown)
+                    runCatching { upsertNovelUpdateError.await(novel.id, message) }
+                }
             }
         }
         // Feed the shared Updates-icon badge (manga + novel share one total; reset on Updates open).
@@ -206,6 +232,7 @@ class NovelUpdateJob(
         private const val TAG = "NovelLibraryUpdate"
         private const val WORK_NAME_AUTO = "NovelLibraryUpdate-auto"
         private const val WORK_NAME_MANUAL = "NovelLibraryUpdate-manual"
+        private const val KEY_CATEGORY = "category"
 
         /** (Re)schedule or cancel the periodic check from the stored interval (0 = off). Idempotent. */
         fun setupTask(context: Context, prefInterval: Int? = null) {
@@ -244,6 +271,7 @@ class NovelUpdateJob(
                     .addTag(TAG)
                     .addTag(WORK_NAME_AUTO)
                     .setConstraints(constraints)
+                    .setBackoffCriteria(BackoffPolicy.LINEAR, 10, TimeUnit.MINUTES)
                     .build()
 
                 context.workManager.enqueueUniquePeriodicWork(
@@ -256,9 +284,15 @@ class NovelUpdateJob(
             }
         }
 
-        /** Run a check immediately (for manual triggers / testing); reuses a running drain via KEEP. */
-        fun startNow(context: Context) {
-            val request = OneTimeWorkRequestBuilder<NovelUpdateJob>().addTag(TAG).build()
+        /** Run a check immediately (for manual triggers / testing); reuses a running drain via KEEP.
+         *  A non-null [category] scopes the run to that category (the novel twin of manga's
+         *  per-category manual update); null updates the whole library per the include/exclude prefs. */
+        fun startNow(context: Context, category: Category? = null) {
+            val request = OneTimeWorkRequestBuilder<NovelUpdateJob>()
+                .addTag(TAG)
+                .setInputData(workDataOf(KEY_CATEGORY to (category?.id ?: -1L)))
+                .setBackoffCriteria(BackoffPolicy.LINEAR, 10, TimeUnit.MINUTES)
+                .build()
             context.workManager.enqueueUniqueWork(WORK_NAME_MANUAL, ExistingWorkPolicy.KEEP, request)
         }
 

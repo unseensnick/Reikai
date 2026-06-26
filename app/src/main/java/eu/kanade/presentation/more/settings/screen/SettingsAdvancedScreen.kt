@@ -123,6 +123,11 @@ object SettingsAdvancedScreen : SearchableSettings {
                 title = stringResource(MR.strings.pref_track_update_errors),
                 subtitle = stringResource(MR.strings.pref_track_update_errors_summary),
             ),
+            Preference.PreferenceItem.SwitchPreference(
+                preference = reikaiLibraryPreferences.trackNovelUpdateErrors,
+                title = stringResource(MR.strings.pref_track_novel_update_errors),
+                subtitle = stringResource(MR.strings.pref_track_update_errors_summary),
+            ),
             // RK: enable the built-in E-Hentai sources (anonymous browsing). ExHentai additionally
             //     needs login via the entry below.
             Preference.PreferenceItem.SwitchPreference(

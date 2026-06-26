@@ -71,6 +71,7 @@ import kotlinx.coroutines.launch
 import mihon.feature.migration.config.MigrationConfigScreen
 // RK -->
 import reikai.domain.library.ContentType
+import reikai.data.novel.update.NovelUpdateJob
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.library.ReikaiCategoryHopper
 import reikai.presentation.library.ReikaiCategoryPickerSheet
@@ -212,8 +213,15 @@ data object LibraryTab : Tab {
         }
         // RK <--
 
+        // RK: route refresh to the right vertical's job. The novel job (KEEP-deduped) has no
+        // already-running signal, so the Novels chip always reports "updating".
         val onClickRefresh: (Category?) -> Boolean = { category ->
-            val started = LibraryUpdateJob.startNow(context, category)
+            val started = if (isNovels) {
+                NovelUpdateJob.startNow(context, category)
+                true
+            } else {
+                LibraryUpdateJob.startNow(context, category)
+            }
             scope.launch {
                 val msgRes = when {
                     !started -> MR.strings.update_already_running
@@ -313,11 +321,19 @@ data object LibraryTab : Tab {
                             }
                         }
                     },
-                    // RK: opt-in Update errors screen (hidden unless the Advanced toggle is on)
-                    onClickUpdateErrors = if (state.reikai.trackUpdateErrors) {
-                        { navigator.push(UpdateErrorsScreen()) }
-                    } else {
-                        null
+                    // RK: opt-in Update errors screen (hidden unless the matching Advanced toggle is on);
+                    //     opens on the chip for the content type currently shown.
+                    onClickUpdateErrors = run {
+                        val enabled =
+                            if (isNovels) state.reikai.trackNovelUpdateErrors else state.reikai.trackUpdateErrors
+                        if (enabled) {
+                            {
+                                val initial = if (isNovels) ContentType.NOVELS else ContentType.MANGA
+                                navigator.push(UpdateErrorsScreen(initial))
+                            }
+                        } else {
+                            null
+                        }
                     },
                     searchQuery = activeSearchQuery,
                     onSearchQueryChange = onSearch,
