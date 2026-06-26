@@ -55,6 +55,12 @@ data class Novel(
      * default orientation". See [readerOrientation].
      */
     val viewerFlags: Long,
+    /**
+     * Edit-count bumped by the `update_novel_version` DB trigger on real detail changes (the novel
+     * twin of `Manga.version`). Backup restore compares it to keep the newer copy rather than
+     * blindly overwriting; see `NovelRestorer`.
+     */
+    val version: Long,
 ) : Serializable {
 
     companion object {
@@ -81,6 +87,7 @@ data class Novel(
             editedFlags = 0L,
             notes = "",
             viewerFlags = 0L,
+            version = 0L,
         )
     }
 }

@@ -41,6 +41,8 @@ fun mapNovel(
     editedFlags: Long,
     notes: String,
     viewerFlags: Long,
+    version: Long,
+    @Suppress("UNUSED_PARAMETER") isSyncing: Long,
 ): Novel = Novel(
     id = id,
     source = source,
@@ -64,6 +66,7 @@ fun mapNovel(
     editedFlags = editedFlags,
     notes = notes,
     viewerFlags = viewerFlags,
+    version = version,
 )
 
 /**
@@ -94,6 +97,8 @@ fun mapLibraryNovel(
     editedFlags: Long,
     notes: String,
     viewerFlags: Long,
+    version: Long,
+    isSyncing: Long,
     totalCount: Long,
     readCount: Double,
     latestUpload: Long,
@@ -125,6 +130,8 @@ fun mapLibraryNovel(
         editedFlags,
         notes,
         viewerFlags,
+        version,
+        isSyncing,
     ),
     categories = categories.split(",").map { it.toLong() },
     totalChapters = totalCount,
@@ -162,6 +169,8 @@ fun mapNovelWithChapterCount(
     editedFlags: Long,
     notes: String,
     viewerFlags: Long,
+    version: Long,
+    isSyncing: Long,
     chapterCount: Long,
 ): NovelWithChapterCount = NovelWithChapterCount(
     novel = mapNovel(
@@ -187,6 +196,8 @@ fun mapNovelWithChapterCount(
         editedFlags,
         notes,
         viewerFlags,
+        version,
+        isSyncing,
     ),
     chapterCount = chapterCount,
 )

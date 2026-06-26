@@ -80,6 +80,7 @@ fun SourceNovel.toNovel(
     editedFlags = 0L,
     notes = "",
     viewerFlags = 0L,
+    version = 0L,
 )
 
 /**

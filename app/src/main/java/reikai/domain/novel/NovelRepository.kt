@@ -58,7 +58,13 @@ interface NovelRepository {
      * insert-vs-update from a cached value.
      */
     suspend fun insertOrGet(novel: Novel): Novel?
-    suspend fun update(novel: Novel): Boolean
+
+    /**
+     * Full-row update. [isSyncing] true marks the write as a backup restore so the
+     * `update_novel_version` trigger does not inflate `version`; normal edits leave it false so a real
+     * detail change bumps the count (and resets the syncing flag). See `NovelRestorer`.
+     */
+    suspend fun update(novel: Novel, isSyncing: Boolean = false): Boolean
 
     /** Surgical partial update: writes only the fields [update] sets (null = leave unchanged), the
      *  novel twin of `MangaRepository.update(MangaUpdate)`. Use over [update] for single-field edits. */

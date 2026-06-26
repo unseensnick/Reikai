@@ -1,0 +1,17 @@
+-- Novel restore skip-if-newer. The novels table shipped without version tracking, so add the two
+-- columns and the version-bump trigger for existing installs; fresh installs get them from
+-- Schema.create(). Mirrors mangas.sq (the manga equivalent landed in 2.sqm). `version` is an edit
+-- count restore compares to keep the newer copy; `is_syncing` lets restore write without bumping it.
+ALTER TABLE novels ADD COLUMN version INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE novels ADD COLUMN is_syncing INTEGER NOT NULL DEFAULT 0;
+
+DROP TRIGGER IF EXISTS update_novel_version;
+CREATE TRIGGER update_novel_version AFTER UPDATE ON novels
+BEGIN
+    UPDATE novels SET version = version + 1
+    WHERE _id = new._id AND new.is_syncing = 0 AND (
+        new.url != old.url OR
+        new.description != old.description OR
+        new.favorite != old.favorite
+    );
+END;

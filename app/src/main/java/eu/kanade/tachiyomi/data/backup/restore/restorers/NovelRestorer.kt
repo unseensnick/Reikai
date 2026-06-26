@@ -15,6 +15,7 @@ import reikai.domain.novel.NovelCategoryRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.NovelTrackRepository
+import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelCategory
 import tachiyomi.data.Database
 import uy.kohesive.injekt.Injekt
@@ -60,13 +61,15 @@ class NovelRestorer(
         val novelId = if (dbNovel == null) {
             novelRepository.insert(novel) ?: return
         } else {
-            novelRepository.update(
-                novel.copy(
-                    id = dbNovel.id,
-                    favorite = dbNovel.favorite || novel.favorite,
-                    initialized = dbNovel.initialized || novel.initialized,
-                ),
-            )
+            // Keep the newer copy (higher version), the novel twin of MangaRestorer: take details from
+            // whichever side has the larger edit count, preserve the other's local fields. isSyncing =
+            // true so the restore write itself does not inflate the version via the DB trigger.
+            val merged = if (novel.version > dbNovel.version) {
+                dbNovel.copyFrom(novel)
+            } else {
+                novel.copyFrom(dbNovel)
+            }
+            novelRepository.update(merged.copy(id = dbNovel.id), isSyncing = true)
             dbNovel.id
         }
 
@@ -75,6 +78,24 @@ class NovelRestorer(
         restoreTracks(novelId, backupNovel.tracking)
         restoreHistory(novelId, backupNovel.history)
     }
+
+    /**
+     * Fold the newer copy's source details (and edit-count) onto this base, preserving the base's
+     * local fields. `editedFlags` travels with the details so the edit-lock stays aligned with the
+     * description it guards (a novel concern manga lacks).
+     */
+    private fun Novel.copyFrom(newer: Novel): Novel = this.copy(
+        favorite = this.favorite || newer.favorite,
+        author = newer.author,
+        artist = newer.artist,
+        description = newer.description,
+        genre = newer.genre,
+        thumbnailUrl = newer.thumbnailUrl,
+        status = newer.status,
+        editedFlags = newer.editedFlags,
+        initialized = this.initialized || newer.initialized,
+        version = newer.version,
+    )
 
     private suspend fun restoreChapters(
         novelId: Long,
