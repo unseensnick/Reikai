@@ -151,9 +151,8 @@ data class NovelTrackInfoDialogHomeScreen(
                 }
             },
             onCopyLink = { context.copyTrackerLink(it) },
-            onTogglePrivate = {},
-            // Novels have no private-listing column; hide the toggle.
-            allowPrivate = false,
+            onTogglePrivate = { screenModel.togglePrivate(it) },
+            allowPrivate = true,
         )
     }
 
@@ -170,6 +169,7 @@ data class NovelTrackInfoDialogHomeScreen(
     private class Model(
         private val novelId: Long,
         private val getNovelTracks: GetNovelTracks = Injekt.get(),
+        private val updater: NovelTrackUpdater = Injekt.get(),
     ) : StateScreenModel<Model.State>(State()) {
 
         init {
@@ -188,6 +188,13 @@ data class NovelTrackInfoDialogHomeScreen(
 
         fun novelTrackOf(item: TrackItem): NovelTrack? =
             state.value.novelTracks.find { it.trackerId == item.tracker.id }
+
+        fun togglePrivate(item: TrackItem) {
+            val novelTrack = novelTrackOf(item) ?: return
+            screenModelScope.launchNonCancellable {
+                updater.setRemotePrivate(item.tracker, novelTrack.toDbTrack(), !novelTrack.private)
+            }
+        }
 
         private suspend fun refreshTrackers() {
             val context = Injekt.get<Application>()
@@ -558,7 +565,7 @@ data class NovelTrackerSearchScreen(
                 navigator.pop()
             },
             onDismissRequest = navigator::pop,
-            // Novels do not support private listing.
+            // Private listing is set after binding, via the Private toggle on the track sheet.
             supportsPrivateTracking = false,
         )
     }

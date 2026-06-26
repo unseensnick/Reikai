@@ -60,6 +60,11 @@ class NovelTrackUpdater(
         updateRemote(tracker, track)
     }
 
+    suspend fun setRemotePrivate(tracker: Tracker, track: DbTrack, private: Boolean) {
+        track.private = private
+        updateRemote(tracker, track)
+    }
+
     private suspend fun updateRemote(tracker: Tracker, track: DbTrack): Unit = withIOContext {
         try {
             tracker.update(track)

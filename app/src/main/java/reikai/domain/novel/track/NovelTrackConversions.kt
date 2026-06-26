@@ -24,12 +24,12 @@ fun NovelTrack.toDbTrack(): DbTrack = DbTrack.create(trackerId).also {
     it.tracking_url = remoteUrl
     it.started_reading_date = startDate
     it.finished_reading_date = finishDate
+    it.private = private
 }
 
 /**
  * Adapt a [NovelTrack] to the manga-domain [DomainTrack] the reused tracking UI (TrackInfoDialogHome,
- * the selectors, `displayScore`) is typed against. The `mangaId` slot holds the `novelId`; `private`
- * is always false (novels have no private column).
+ * the selectors, `displayScore`) is typed against. The `mangaId` slot holds the `novelId`.
  */
 fun NovelTrack.toUiTrack(): DomainTrack = toDbTrack().toDomainTrack(idRequired = false)!!
 
@@ -49,5 +49,6 @@ fun DbTrack.toNovelTrack(idRequired: Boolean = true): NovelTrack? {
         remoteUrl = tracking_url,
         startDate = started_reading_date,
         finishDate = finished_reading_date,
+        private = private,
     )
 }

@@ -46,6 +46,7 @@ class NovelTrackRepositoryImpl(
                 remoteUrl = track.remoteUrl,
                 startDate = track.startDate,
                 finishDate = track.finishDate,
+                private = track.private,
             )
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to insert novel track novelId=${track.novelId}" }
@@ -67,6 +68,7 @@ private fun mapNovelTrack(
     remoteUrl: String,
     startDate: Long,
     finishDate: Long,
+    private: Boolean,
 ): NovelTrack = NovelTrack(
     id = id,
     novelId = novelId,
@@ -81,4 +83,5 @@ private fun mapNovelTrack(
     remoteUrl = remoteUrl,
     startDate = startDate,
     finishDate = finishDate,
+    private = private,
 )

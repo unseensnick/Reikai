@@ -171,4 +171,5 @@ private fun NovelTrack.toBackupNovelTracking() = BackupNovelTracking(
     remoteUrl = this.remoteUrl,
     startDate = this.startDate,
     finishDate = this.finishDate,
+    private = this.private,
 )

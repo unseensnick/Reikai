@@ -1,0 +1,4 @@
+-- Novel tracking private-listing. The novel_tracks table shipped (14.sqm) without a `private`
+-- column, so add it here for existing installs; fresh installs get it from Schema.create(). Mirrors
+-- manga_sync.private. Existing rows default to 0 (public).
+ALTER TABLE novel_tracks ADD COLUMN private INTEGER NOT NULL DEFAULT 0;

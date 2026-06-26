@@ -5,7 +5,7 @@ import java.io.Serializable
 /**
  * Domain mirror of the `novel_tracks` table, the novel twin of [tachiyomi.domain.track.model.Track].
  * Disjoint from the manga track because novel ids and manga ids share the same INTEGER PRIMARY KEY
- * space across separate tables. No `private` field: the table shipped without the column (14.sqm).
+ * space across separate tables.
  */
 data class NovelTrack(
     val id: Long,
@@ -21,4 +21,5 @@ data class NovelTrack(
     val remoteUrl: String,
     val startDate: Long,
     val finishDate: Long,
+    val private: Boolean,
 ) : Serializable

@@ -1,6 +1,5 @@
 // RK: novel backup (ROADMAP #9). Net-new Reikai file: novel-track twin of BackupTracking. Uses the
-// novel domain types directly (Long ids, Double progress/score); no `private` field (the novel_tracks
-// table shipped without that column).
+// novel domain types directly (Long ids, Double progress/score).
 package eu.kanade.tachiyomi.data.backup.models
 
 import kotlinx.serialization.Serializable
@@ -20,6 +19,7 @@ class BackupNovelTracking(
     @ProtoNumber(9) var remoteUrl: String = "",
     @ProtoNumber(10) var startDate: Long = 0,
     @ProtoNumber(11) var finishDate: Long = 0,
+    @ProtoNumber(12) var private: Boolean = false,
 ) {
     fun toTrackImpl(novelId: Long): NovelTrack {
         return NovelTrack(
@@ -36,6 +36,7 @@ class BackupNovelTracking(
             remoteUrl = this@BackupNovelTracking.remoteUrl,
             startDate = this@BackupNovelTracking.startDate,
             finishDate = this@BackupNovelTracking.finishDate,
+            private = this@BackupNovelTracking.private,
         )
     }
 }
