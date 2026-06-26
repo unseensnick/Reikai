@@ -18,7 +18,7 @@ Per-feature implementation and decision records live in [docs/dev/plans/](docs/d
 | P8 | Settings / shell carry | dropped (Mihon covers it; the tabbed shell shipped under P9) |
 | P9 | Category bulk-delete + unified Recents (folded into Updates + History) | done |
 | Release | Signed release pipeline (AGP signing, preview/release workflows, in-app updater) | built; first-run verify pending (user) |
-| Round 2 | Manga↔novel parity backlog + revived adult-source subsystem | mostly shipped; remainder below |
+| Round 2 | Manga↔novel parity backlog + revived adult-source subsystem | shipped; only standalone items remain (below) |
 
 The rebase is functionally complete: the core sequence and the bulk of the manga↔novel parity backlog have shipped and are on-device verified. What remains is the **Next / Later** work below.
 
@@ -34,28 +34,8 @@ Queued, roughly in priority order.
 
 ## Later
 
-Backlog from a manga-vs-novel feature audit (2026-06-25), each item verified against current code before listing. Grouped into batches by shared code surface; suggested execution order is **A -> B -> C -> D**, then the standalone items (each carries its own migration / proto / subsystem and is best done alone). Sizes: `[S]` / `[M]`.
+Remaining standalone items from the manga-vs-novel feature audit (2026-06-25), each verified against current code. The batched parity sweep (A-D) has shipped (see Shipped); each item below carries its own migration / proto / subsystem and is best done alone. Sizes: `[S]` / `[M]`.
 
-### Batch A: small novel parity sweep
-No migrations; small, self-contained UI/pref additions in different files, bundled for momentum.
-- **Novel default-category preference** `[S]`: let new novels auto-land in a chosen category; today only manga reads `libraryPreferences.defaultCategory`, so novels always land uncategorized.
-- **Novel history add-to-library button** `[S]`: novel history rows have no inline add-to-library affordance (manga's history rows do).
-- **Novel source enable/disable** `[S]`: novel sources in the Sources tab can only be pinned or opened; manga sources get a `SourceOptionsDialog` with a Disable toggle. Add a `disabledNovelSources` pref behind a shared `GetEnabledNovelSources` helper (mirroring manga's `GetEnabledSources`) so a disabled source is hidden from both the Sources tab and novel global search at once, the plugin stays installed and auto-updating but out of the way (which uninstall can't give you).
-
-### Batch B: novel chapter list
-Touches the novel details chapter-list path (`NovelDetailsDialogs` / `NovelScreen` / `NovelDetailsScreenModel`).
-- **Novel chapter "downloaded" filter** `[S]`: the novel chapter settings sheet filters by unread + bookmarked only; add the downloaded filter manga has (likely needs a `NovelChapterFlags.SHOW_DOWNLOADED` bit).
-
-### Batch C: novel update job
-Both land in `NovelUpdateJob` (+ the unified Updates UI for the manual trigger).
-- **Novel update robustness** `[M]`: port the manga update job's retry backoff + per-title error log + Update-errors screen to `NovelUpdateJob`, which today has none (so novel update failures are silent and a failing novel can hammer the job queue).
-- **Per-category manual novel update** `[S]`: `NovelUpdateJob.startNow` takes no category, so there is no "update just this category" for novels (manga's `startNow(category)` has it).
-
-### Batch D: EXH settings UI
-All in one screen (`SettingsEhScreen`); pref keys already exist in `core/common` `ExhPreferences`. Match Komikku's placement (`refs/komikku` `SettingsEhScreen`).
-- **Surface the missing EXH settings** `[M]`: add UI for Incognito mode (`ehIncognitoMode`, in a top "Source settings" group), Language filtering (`exhSettingsLanguages`), Front-page categories (`exhEnabledCategories`), and the Updater statistics dialog (`exhAutoUpdateStats`). Language + categories also need wiring into the `EHConfigurator` server-profile reconfigure trigger; Incognito needs a `ToggleIncognito` wire-up check. Excludes the two-way "Favorites Sync" group (under Parked).
-
-### Standalone (own migration / proto / subsystem; do separately)
 - **Novel tracking private listing** `[M]`: add the private-listing toggle for novel trackers; needs a `novel_tracks` schema migration to add the column (manga supports it, novel hard-disables it via `allowPrivate = false`).
 - **Novel restore skip-if-newer** `[S]`: add `version` / `lastModifiedAt` to `BackupNovel` so restore can skip an existing newer copy (manga has both proto fields; novel has neither, so novel restore always overwrites).
 - **Novel migration carries cover + notes** `[S]`: `NovelMigrationFlag` only carries chapters + categories, so migrating a novel drops its custom cover and notes (both of which novels otherwise support); optionally add a target-source picker like manga's.
@@ -126,6 +106,7 @@ Terse done-log, grouped by area. Full detail in the linked plan docs.
 - Batch / library migration: one unified migration screen for 1..N novels (single from a novel's overflow, batch from library multi-select). Each row auto-searches on scroll and suggests a target to accept or override; lazy-materialize on pick, then Copy / Migrate with flags. Replaces the old single-only migrate UI. See [novel-parity-backlog.md](docs/dev/plans/novel-parity-backlog.md).
 - Download settings parity: keep-last-N-read (delete-after-read slots), don't-delete-bookmarked, exclude-categories-from-delete, and download-ahead, all under Settings → Downloads. See [novel-parity-backlog.md](docs/dev/plans/novel-parity-backlog.md).
 - Per-title novel update notifications: one grouped notification per updated novel, deep-linking into the novel via a new `SHORTCUT_NOVEL` intent. See [novel-parity-backlog.md](docs/dev/plans/novel-parity-backlog.md).
+- Round 2 parity sweep: novel default-category for new novels (`78332b1a8`), add-to-library button on novel history rows (`f940551f1`), novel source enable/disable (`41a480054`), novel chapter "downloaded" filter (`54ec4fb3e`), and novel update-error tracking + per-category manual update (shared All / Manga / Novels Update-errors screen, fixes the Novels-chip refresh that fired the manga job) (`385224377`).
 
 ### Adult / EXH subsystem (phases 1-4 + 5a + 5b)
 Ported from `refs/komikku`, re-typed onto Mihon's models. Committed on `design/mihon-rebase`, not yet pushed; on-device verified on emulator-5554.
@@ -135,6 +116,7 @@ Ported from `refs/komikku`, re-typed onto Mihon's models. Committed on `design/m
 - Phase 4: three net-new enhanced wrappers (HentaiFox, AsmHentai, Koharu/SchaleNetwork) that re-parse each site's gallery details into namespaced tags; plus a fix to match delegated sources by source name so R8-minified factory extensions wrap (also repairs nHentai/LANraragi). Scoped down from six (Luscious/HentaiNexus/3Hentai parked). On-device verified (`896c440cc`, `db45bc176`, `4aa67b83e` + the SchaleNetwork wrapper).
 - Phase 5a: E-Hentai favorited-gallery update checker. A WorkManager job re-checks each favorited EH gallery for a newer version and reconciles the version chain locally (full disk-backed `EHentaiUpdateHelper` + `MemAutoFlushingLookupTable` replacing the in-session stub, merging chapters / read state / history / categories), with a "Gallery update checker" settings group. On-device verified: launch, settings render, scheduling; deep version-reconciliation is a faithful port not yet live-triggered.
 - Phase 5b (scoped): E-Hentai favorites account backup (one-way push + opt-in remote remove), not the full two-way sync. Favoriting a gallery adds it to the account; deleting locally keeps it on the account unless you tick "Also remove from E-Hentai favorites" in a DeletableTracker-style confirm; a "Back up all favorites now" job pushes the existing library (throttled). New `EHentai.fetchFavorites`/`addFavorite`/`removeFavorites`, `EhFavoritesBackupJob`, a `// RK` island in `MangaScreenModel`/`MangaScreen` + the confirm dialog, and a "Favorites backup" settings group. Account push/remove needs an ExHentai login to verify live (user-side); compile + non-account paths verified.
+- EXH settings + presentation polish: E-Hentai promoted to its own top-level Settings category (gated by the adult-sources pref, with a traced EH-favicon `EhAssets.EhLogo` icon) matching Komikku's placement (`398152600`); the built-in EH/ExH source rows show that logo instead of the blank placeholder (`bd1fa1c2f`); and the four missing EXH settings surfaced in `SettingsEhScreen`: Incognito (real fix via `EH_PACKAGE` + a `// RK` `GetIncognitoState` map), Language filtering, Front-page categories, and the updater-statistics dialog (`35501c13e`). On-device verified.
 
 ### Unified surfaces
 - Unified Updates tab: manga + novel interleaved, filters, by-category, group-by-series. See [unified-updates.md](docs/dev/plans/unified-updates.md).
