@@ -43,9 +43,8 @@ No migrations; small, self-contained UI/pref additions in different files, bundl
 - **Novel source enable/disable** `[S]`: novel sources in the Sources tab can only be pinned or opened; manga sources get a `SourceOptionsDialog` with a Disable toggle. Add a `disabledNovelSources` pref behind a shared `GetEnabledNovelSources` helper (mirroring manga's `GetEnabledSources`) so a disabled source is hidden from both the Sources tab and novel global search at once, the plugin stays installed and auto-updating but out of the way (which uninstall can't give you).
 
 ### Batch B: novel chapter list
-Both touch the novel details chapter-list path (`NovelDetailsDialogs` / `NovelScreen` / `NovelDetailsScreenModel`).
+Touches the novel details chapter-list path (`NovelDetailsDialogs` / `NovelScreen` / `NovelDetailsScreenModel`).
 - **Novel chapter "downloaded" filter** `[S]`: the novel chapter settings sheet filters by unread + bookmarked only; add the downloaded filter manga has (likely needs a `NovelChapterFlags.SHOW_DOWNLOADED` bit).
-- **Novel missing-chapter gap separators** `[S]`: `NovelScreen` hardcodes `missingChapterCount = 0`, so novels never show the missing-count header or gap separators manga shows.
 
 ### Batch C: novel update job
 Both land in `NovelUpdateJob` (+ the unified Updates UI for the manual trigger).
@@ -70,6 +69,7 @@ All in one screen (`SettingsEhScreen`); pref keys already exist in `core/common`
 - **Upcoming / release calendar for novels**: LN sources rarely expose a reliable release cadence, so the feed would be mostly empty; the calendar stays manga-only.
 - **Source filtering for novels** (dropped 2026-06-21): per-source browse filters and settings already exist; only a sources-list language filter was missing, low value with so few LN sources.
 - **Novel sources enable/disable filter screen**: novels can disable a source (it dims in the Sources list and drops out of global search, re-enable by long-press), but unlike manga there is no dedicated sources-filter screen to bulk-toggle enable/disable. Add one (reached from the Sources filter icon on the Novels chip) if managing many LN sources gets painful.
+- **Novel missing-chapter gap separators** (dropped 2026-06-26): manga computes gaps from a reliable sequential chapter number; novel chapter numbers are source-order-indexed and title-recognition-derived (LNReader plugins often supply none, so the number is recognized from the chapter title), and the default novel chapter sort is source order, not number, so computed gaps would be mostly false. The hardcoded `missingChapterCount = 0` in `NovelScreen` is correct.
 - **Saved searches** (browse filter presets): not Reikai-distinctive, and a full Compose rebuild for low value. The DB + serializer layer survives on `design/library-compose` if revived.
 - **Restore-path onboarding**: the restore log already lists the extensions / plugins that couldn't be reinstalled, so a guided post-restore walkthrough is low value over the passive lines. Revive if restore confusion comes up. See [novel-backup.md](docs/dev/plans/novel-backup.md).
 - **Auto-refresh-metadata toggle for novels** (manga `autoUpdateMetadata`): no-op for novels. The source parse returns metadata and chapters in one call (so a toggle saves no request, unlike manga's separate details fetch), and `mergeRefreshedNovel` already respects the edit-lock. Novels always refresh metadata during updates for free.

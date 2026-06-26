@@ -69,6 +69,9 @@ class NovelPreferences(
     /** Default bookmarked filter as the BOOKMARKED_MASK bits (0 = show all). */
     fun defaultChapterFilterBookmarked() = preferenceStore.getLong("ln_default_chapter_filter_bookmarked", 0L)
 
+    /** Default downloaded filter as the DOWNLOADED_MASK bits (0 = show all). */
+    fun defaultChapterFilterDownloaded() = preferenceStore.getLong("ln_default_chapter_filter_downloaded", 0L)
+
     /** Default display: true shows "Chapter N", false shows the source chapter title. */
     fun defaultChapterHideTitles() = preferenceStore.getBoolean("ln_default_chapter_hide_titles", false)
 

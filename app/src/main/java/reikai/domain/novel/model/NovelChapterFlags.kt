@@ -27,6 +27,11 @@ object NovelChapterFlags {
     const val SHOW_NOT_BOOKMARKED = 0x00000010L
     const val BOOKMARKED_MASK = 0x00000018L
 
+    // Downloaded filter (bits 5-6). 0 = show all.
+    const val SHOW_DOWNLOADED = 0x00000020L
+    const val SHOW_NOT_DOWNLOADED = 0x00000040L
+    const val DOWNLOADED_MASK = 0x00000060L
+
     // Sort method (bits 8-9).
     const val SORTING_SOURCE = 0x00000000L
     const val SORTING_NUMBER = 0x00000100L
@@ -50,6 +55,7 @@ val Novel.sortDescending: Boolean
     get() = chapterFlags and NovelChapterFlags.SORT_DIR_MASK == NovelChapterFlags.SORT_DESC
 val Novel.readFilter: Long get() = chapterFlags and NovelChapterFlags.READ_MASK
 val Novel.bookmarkedFilter: Long get() = chapterFlags and NovelChapterFlags.BOOKMARKED_MASK
+val Novel.downloadedFilter: Long get() = chapterFlags and NovelChapterFlags.DOWNLOADED_MASK
 val Novel.hideChapterTitles: Boolean
     get() = chapterFlags and NovelChapterFlags.DISPLAY_MASK == NovelChapterFlags.DISPLAY_NUMBER
 val Novel.usesLocalSort: Boolean
@@ -66,6 +72,8 @@ fun Novel.effectiveReadFilter(prefs: NovelPreferences): Long =
     if (usesLocalFilter) readFilter else prefs.defaultChapterFilterUnread().get()
 fun Novel.effectiveBookmarkedFilter(prefs: NovelPreferences): Long =
     if (usesLocalFilter) bookmarkedFilter else prefs.defaultChapterFilterBookmarked().get()
+fun Novel.effectiveDownloadedFilter(prefs: NovelPreferences): Long =
+    if (usesLocalFilter) downloadedFilter else prefs.defaultChapterFilterDownloaded().get()
 fun Novel.effectiveHideChapterTitles(prefs: NovelPreferences): Boolean =
     if (usesLocalSort) hideChapterTitles else prefs.defaultChapterHideTitles().get()
 
@@ -76,6 +84,7 @@ fun setNovelFlag(flags: Long, flag: Long, mask: Long): Long = (flags and mask.in
 fun List<NovelChapter>.sortedAndFiltered(novel: Novel, prefs: NovelPreferences): List<NovelChapter> {
     val read = novel.effectiveReadFilter(prefs)
     val bookmarked = novel.effectiveBookmarkedFilter(prefs)
+    val downloaded = novel.effectiveDownloadedFilter(prefs)
     val filtered = filter { ch ->
         val readOk = when (read) {
             NovelChapterFlags.SHOW_UNREAD -> !ch.read
@@ -87,7 +96,12 @@ fun List<NovelChapter>.sortedAndFiltered(novel: Novel, prefs: NovelPreferences):
             NovelChapterFlags.SHOW_NOT_BOOKMARKED -> !ch.bookmark
             else -> true
         }
-        readOk && bookmarkOk
+        val downloadOk = when (downloaded) {
+            NovelChapterFlags.SHOW_DOWNLOADED -> ch.isDownloaded
+            NovelChapterFlags.SHOW_NOT_DOWNLOADED -> !ch.isDownloaded
+            else -> true
+        }
+        readOk && bookmarkOk && downloadOk
     }
     val comparator: Comparator<NovelChapter> = when (novel.effectiveSorting(prefs)) {
         NovelChapterFlags.SORTING_NUMBER -> compareBy { it.chapterNumber }

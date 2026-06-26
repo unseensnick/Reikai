@@ -25,9 +25,10 @@ class SetNovelChapterFlags(
         return novelRepository.update(NovelUpdate(id = novel.id, chapterFlags = flags))
     }
 
-    suspend fun awaitSetFilters(novel: Novel, read: Long, bookmarked: Long): Boolean {
+    suspend fun awaitSetFilters(novel: Novel, read: Long, bookmarked: Long, downloaded: Long): Boolean {
         var flags = setNovelFlag(novel.chapterFlags, read, NovelChapterFlags.READ_MASK)
         flags = setNovelFlag(flags, bookmarked, NovelChapterFlags.BOOKMARKED_MASK)
+        flags = setNovelFlag(flags, downloaded, NovelChapterFlags.DOWNLOADED_MASK)
         flags = setNovelFlag(flags, NovelChapterFlags.FILTER_LOCAL, NovelChapterFlags.FILTER_LOCAL_MASK)
         return novelRepository.update(NovelUpdate(id = novel.id, chapterFlags = flags))
     }

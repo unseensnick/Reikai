@@ -316,7 +316,7 @@ private fun NovelDetailsToolbar(
 ) {
     NovelToolbar(
         title = state.novel.title,
-        hasFilters = state.readFilter != 0L || state.bookmarkedFilter != 0L,
+        hasFilters = state.readFilter != 0L || state.bookmarkedFilter != 0L || state.downloadedFilter != 0L,
         navigateUp = onBack,
         onClickFilter = screenModel::showChapterSettingsDialog,
         onClickRefresh = screenModel::refresh,
@@ -403,6 +403,7 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: No
             sortDescending = state.sortDescending,
             readFilter = state.readFilter,
             bookmarkedFilter = state.bookmarkedFilter,
+            downloadedFilter = state.downloadedFilter,
             hideChapterTitles = state.hideChapterTitles,
             onDismiss = screenModel::dismissDialog,
             onSortChange = screenModel::setSortOrder,

@@ -53,6 +53,7 @@ import reikai.domain.novel.model.NovelChapterFlags
 import reikai.domain.novel.model.NovelEditFlags
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.effectiveBookmarkedFilter
+import reikai.domain.novel.model.effectiveDownloadedFilter
 import reikai.domain.novel.model.effectiveHideChapterTitles
 import reikai.domain.novel.model.effectiveReadFilter
 import reikai.domain.novel.model.effectiveSortDescending
@@ -426,6 +427,7 @@ class NovelDetailsScreenModel(
                 sortDescending = anchor.effectiveSortDescending(novelPreferences),
                 readFilter = anchor.effectiveReadFilter(novelPreferences),
                 bookmarkedFilter = anchor.effectiveBookmarkedFilter(novelPreferences),
+                downloadedFilter = anchor.effectiveDownloadedFilter(novelPreferences),
                 hideChapterTitles = anchor.effectiveHideChapterTitles(novelPreferences),
                 mergeSources = mergeChips.value,
                 selectedSourceNovelId = selectedSourceNovelId.value,
@@ -501,7 +503,7 @@ class NovelDetailsScreenModel(
     private fun maybeFetchPage(novel: Novel, pageKey: String) {
         val src = source ?: return
         val loaded = state.value as? NovelDetailsState.Loaded
-        if (loaded != null && (loaded.readFilter != 0L || loaded.bookmarkedFilter != 0L)) return
+        if (loaded != null && (loaded.readFilter != 0L || loaded.bookmarkedFilter != 0L || loaded.downloadedFilter != 0L)) return
         if (!triedPages.add(pageKey)) return
         screenModelScope.launchIO {
             mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(isPageLoading = true) ?: it }
@@ -779,8 +781,8 @@ class NovelDetailsScreenModel(
     fun setSortOrder(sort: Long, descending: Boolean) =
         withLoadedNovel { setNovelChapterFlags.awaitSetSortOrder(it, sort, descending) }
 
-    fun setFilters(read: Long, bookmarked: Long) =
-        withLoadedNovel { setNovelChapterFlags.awaitSetFilters(it, read, bookmarked) }
+    fun setFilters(read: Long, bookmarked: Long, downloaded: Long) =
+        withLoadedNovel { setNovelChapterFlags.awaitSetFilters(it, read, bookmarked, downloaded) }
 
     fun setHideChapterTitles(hide: Boolean) =
         withLoadedNovel { setNovelChapterFlags.awaitSetHideTitles(it, hide) }
@@ -794,6 +796,7 @@ class NovelDetailsScreenModel(
             novelPreferences.defaultChapterHideTitles().set(loaded.hideChapterTitles)
             novelPreferences.defaultChapterFilterUnread().set(loaded.readFilter)
             novelPreferences.defaultChapterFilterBookmarked().set(loaded.bookmarkedFilter)
+            novelPreferences.defaultChapterFilterDownloaded().set(loaded.downloadedFilter)
             setNovelChapterFlags.awaitClearLocalOverrides(loaded.novel)
         }
     }
@@ -1074,6 +1077,7 @@ sealed interface NovelDetailsState {
         val sortDescending: Boolean = true,
         val readFilter: Long = 0L,
         val bookmarkedFilter: Long = 0L,
+        val downloadedFilter: Long = 0L,
         val hideChapterTitles: Boolean = false,
         /** Source-switcher chips for a merged group (empty/single = not merged, chips hidden). */
         val mergeSources: List<NovelMergeSourceInfo> = emptyList(),

@@ -161,10 +161,11 @@ fun NovelChapterSettingsDialog(
     sortDescending: Boolean,
     readFilter: Long,
     bookmarkedFilter: Long,
+    downloadedFilter: Long,
     hideChapterTitles: Boolean,
     onDismiss: () -> Unit,
     onSortChange: (Long, Boolean) -> Unit,
-    onFilterChange: (read: Long, bookmarked: Long) -> Unit,
+    onFilterChange: (read: Long, bookmarked: Long, downloaded: Long) -> Unit,
     onDisplayChange: (Boolean) -> Unit,
     onSetAsDefault: () -> Unit,
     onReset: () -> Unit,
@@ -197,12 +198,17 @@ fun NovelChapterSettingsDialog(
                     TriStateItem(
                         label = stringResource(MR.strings.action_filter_unread),
                         state = readFilter.toTriState(NovelChapterFlags.SHOW_UNREAD, NovelChapterFlags.SHOW_READ),
-                        onClick = { onFilterChange(it.toReadFlag(), bookmarkedFilter) },
+                        onClick = { onFilterChange(it.toReadFlag(), bookmarkedFilter, downloadedFilter) },
                     )
                     TriStateItem(
                         label = stringResource(MR.strings.action_filter_bookmarked),
                         state = bookmarkedFilter.toTriState(NovelChapterFlags.SHOW_BOOKMARKED, NovelChapterFlags.SHOW_NOT_BOOKMARKED),
-                        onClick = { onFilterChange(readFilter, it.toBookmarkFlag()) },
+                        onClick = { onFilterChange(readFilter, it.toBookmarkFlag(), downloadedFilter) },
+                    )
+                    TriStateItem(
+                        label = stringResource(MR.strings.label_downloaded),
+                        state = downloadedFilter.toTriState(NovelChapterFlags.SHOW_DOWNLOADED, NovelChapterFlags.SHOW_NOT_DOWNLOADED),
+                        onClick = { onFilterChange(readFilter, bookmarkedFilter, it.toDownloadFlag()) },
                     )
                 }
                 1 -> listOf(
@@ -241,6 +247,12 @@ private fun TriState.toBookmarkFlag(): Long = when (this) {
     TriState.DISABLED -> 0L
     TriState.ENABLED_IS -> NovelChapterFlags.SHOW_BOOKMARKED
     TriState.ENABLED_NOT -> NovelChapterFlags.SHOW_NOT_BOOKMARKED
+}
+
+private fun TriState.toDownloadFlag(): Long = when (this) {
+    TriState.DISABLED -> 0L
+    TriState.ENABLED_IS -> NovelChapterFlags.SHOW_DOWNLOADED
+    TriState.ENABLED_NOT -> NovelChapterFlags.SHOW_NOT_DOWNLOADED
 }
 
 /** Tapping a selected sort flips direction; tapping an unselected one keeps the current direction. */
