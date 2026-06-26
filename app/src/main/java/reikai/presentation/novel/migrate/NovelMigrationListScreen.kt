@@ -112,6 +112,7 @@ class NovelMigrationListScreen(
                 novelCount = state.chosenCount,
                 skipped = state.skippedCount,
                 initialFlags = state.initialFlags,
+                applicableFlags = state.applicableFlags,
                 onDismissRequest = screenModel::dismissConfirm,
                 onConfirm = screenModel::migrate,
             )
@@ -245,9 +246,12 @@ private fun MigrateConfirmDialog(
     novelCount: Int,
     skipped: Int,
     initialFlags: Set<NovelMigrationFlag>,
+    applicableFlags: Set<NovelMigrationFlag>,
     onDismissRequest: () -> Unit,
     onConfirm: (flags: Set<NovelMigrationFlag>, replace: Boolean) -> Unit,
 ) {
+    // selected keeps the full saved set; only applicable flags are shown, so a hidden flag's saved
+    // state is preserved (and the use case no-ops it per-novel).
     var selected by remember { mutableStateOf(initialFlags) }
     AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -258,7 +262,7 @@ private fun MigrateConfirmDialog(
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(text = stringResource(MR.strings.migration_dialog_what_to_include))
-                NovelMigrationFlag.ALL.forEach { flag ->
+                applicableFlags.forEach { flag ->
                     LabeledCheckbox(
                         label = stringResource(flag.titleRes),
                         checked = flag in selected,

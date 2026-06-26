@@ -1,11 +1,74 @@
 package reikai.domain.novel.interactor
 
+import eu.kanade.tachiyomi.data.cache.CoverCache
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.NovelMigrationFlag
+import reikai.domain.novel.model.NovelUpdate
+import java.io.File
 
 class MigrateNovelUseCaseTest {
+
+    private fun novel(id: Long, notes: String = "") = Novel.create().copy(id = id, notes = notes)
+
+    private fun useCase(coverCache: CoverCache, updateNovel: UpdateNovel) = MigrateNovelUseCase(
+        novelChapterRepository = mockk(relaxed = true),
+        getNovelCategories = mockk(relaxed = true),
+        setNovelCategories = mockk(relaxed = true),
+        novelMergeManager = mockk(relaxed = true),
+        novelDownloadManager = mockk(relaxed = true),
+        updateNovel = updateNovel,
+        coverCache = coverCache,
+    )
+
+    @Test
+    fun `cover flag copies the custom cover onto the target and bumps its timestamp`() = runTest {
+        val src = File.createTempFile("mig-src", ".0").apply { writeText("COVER-BYTES"); deleteOnExit() }
+        val dst = File.createTempFile("mig-dst", ".0").apply { writeText(""); deleteOnExit() }
+        val coverCache = mockk<CoverCache> {
+            every { getCustomCoverFile(-1L) } returns src
+            every { getCustomCoverFile(-2L) } returns dst
+        }
+        val updateNovel = mockk<UpdateNovel>(relaxed = true)
+
+        useCase(coverCache, updateNovel)(novel(1), novel(2), setOf(NovelMigrationFlag.COVER), replace = false)
+
+        dst.readText() shouldBe "COVER-BYTES"
+        coVerify { updateNovel.awaitUpdateCoverLastModified(2L) }
+    }
+
+    @Test
+    fun `notes flag carries the source notes onto the target`() = runTest {
+        val update = slot<NovelUpdate>()
+        val updateNovel = mockk<UpdateNovel>(relaxed = true) { coEvery { await(capture(update)) } returns true }
+
+        useCase(mockk(relaxed = true), updateNovel)(novel(1, notes = "my note"), novel(2), setOf(NovelMigrationFlag.NOTES), replace = false)
+
+        update.captured.notes shouldBe "my note"
+    }
+
+    @Test
+    fun `without the cover or notes flags neither is carried`() = runTest {
+        val update = slot<NovelUpdate>()
+        val coverCache = mockk<CoverCache>(relaxed = true)
+        val updateNovel = mockk<UpdateNovel>(relaxed = true) { coEvery { await(capture(update)) } returns true }
+
+        useCase(coverCache, updateNovel)(novel(1, notes = "my note"), novel(2), emptySet(), replace = false)
+
+        update.captured.notes shouldBe null
+        verify(exactly = 0) { coverCache.getCustomCoverFile(any()) }
+        coVerify(exactly = 0) { updateNovel.awaitUpdateCoverLastModified(any()) }
+    }
 
     private fun chapter(
         id: Long,

@@ -4,13 +4,16 @@ import dev.icerock.moko.resources.StringResource
 import tachiyomi.i18n.MR
 
 /**
- * Which parts of a novel's state a source migration copies. Novels have only two applicable flags:
- * manga's custom-cover / notes / remove-download don't apply, and tracks are deferred (#8). Mirrors
- * [mihon.domain.migration.models.MigrationFlag], stored as a small bitmask in [reikai.domain.novel.NovelPreferences].
+ * Which parts of a novel's state a source migration copies, mirroring Mihon's
+ * [mihon.domain.migration.models.MigrationFlag] and stored as a small bitmask in
+ * [reikai.domain.novel.NovelPreferences]. Like manga, tracks aren't carried (Mihon dropped its track
+ * flag) and there's no remove-download flag for novels.
  */
 enum class NovelMigrationFlag(val bit: Int, val titleRes: StringResource) {
-    CHAPTER(0b001, MR.strings.chapters),
-    CATEGORY(0b010, MR.strings.categories),
+    CHAPTER(0b0001, MR.strings.chapters),
+    CATEGORY(0b0010, MR.strings.categories),
+    COVER(0b0100, MR.strings.custom_cover),
+    NOTES(0b1000, MR.strings.action_notes),
     ;
 
     companion object {

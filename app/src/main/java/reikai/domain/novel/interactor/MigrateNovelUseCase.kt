@@ -1,5 +1,6 @@
 package reikai.domain.novel.interactor
 
+import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.CancellationException
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
@@ -7,6 +8,7 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.model.NovelUpdate
+import reikai.domain.novel.model.hasCustomCover
 import reikai.novel.download.NovelDownloadManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -15,10 +17,11 @@ import uy.kohesive.injekt.api.get
  * Move a favorited novel's state onto a [target] novel from another source, the novel twin of
  * [mihon.domain.migration.usecases.MigrateMangaUseCase] (and modelled on LNReader's `migrateNovel`).
  *
- * The target is already materialised + chapter-synced by the picker, so this is DB-only: it copies
- * per-chapter read / bookmark / scroll-progress (matched by chapter number), moves categories,
- * favorites the target, and (when [replace]) unfavorites the old novel and splits it out of any merge
- * group. History-tab rows and tracks are intentionally not carried (parity with Mihon).
+ * The target is already materialised + chapter-synced by the picker, so this is mostly DB-only: it
+ * copies per-chapter read / bookmark / scroll-progress (matched by chapter number), moves categories,
+ * carries the custom cover + notes when their flags are set, favorites the target, and (when [replace])
+ * unfavorites the old novel and splits it out of any merge group. History-tab rows and tracks are
+ * intentionally not carried (parity with Mihon).
  */
 class MigrateNovelUseCase(
     private val novelChapterRepository: NovelChapterRepository = Injekt.get(),
@@ -27,6 +30,7 @@ class MigrateNovelUseCase(
     private val novelMergeManager: NovelMergeManager = Injekt.get(),
     private val novelDownloadManager: NovelDownloadManager = Injekt.get(),
     private val updateNovel: UpdateNovel = Injekt.get(),
+    private val coverCache: CoverCache = Injekt.get(),
 ) {
 
     suspend operator fun invoke(
@@ -56,11 +60,20 @@ class MigrateNovelUseCase(
                 setNovelCategories.await(target.id, categoryIds)
             }
 
+            if (NovelMigrationFlag.COVER in flags && current.hasCustomCover(coverCache)) {
+                coverCache.getCustomCoverFile(-current.id).inputStream().use { input ->
+                    coverCache.getCustomCoverFile(-target.id).outputStream().use { output -> input.copyTo(output) }
+                }
+                // Bump the target's coverLastModified so coil reloads, mirroring NovelCoverScreenModel.
+                updateNovel.awaitUpdateCoverLastModified(target.id)
+            }
+
             updateNovel.await(
                 NovelUpdate(
                     id = target.id,
                     favorite = true,
                     lastReadAt = current.lastReadAt ?: target.lastReadAt,
+                    notes = if (NovelMigrationFlag.NOTES in flags) current.notes else null,
                 ),
             )
 

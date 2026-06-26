@@ -2,6 +2,7 @@ package reikai.presentation.novel.migrate
 
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -13,6 +14,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.MigrateNovelUseCase
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelMigrationFlag
+import reikai.domain.novel.model.hasCustomCover
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.host.NovelItem
 import reikai.novel.install.LnPluginInstaller
@@ -50,6 +52,7 @@ class NovelMigrationListScreenModel(
     private val sourcePreferences: ReikaiSourcePreferences by injectLazy()
     private val novelPreferences: NovelPreferences by injectLazy()
     private val migrateNovel: MigrateNovelUseCase by injectLazy()
+    private val coverCache: CoverCache by injectLazy()
 
     private val searchSemaphore = Semaphore(SEARCH_CONCURRENCY)
 
@@ -121,7 +124,20 @@ class NovelMigrationListScreenModel(
 
     fun toggleExpanded(novelId: Long) = setRow(novelId) { it.copy(expanded = !it.expanded) }
 
-    fun showConfirm() = mutableState.update { it.copy(showConfirm = true) }
+    /** Show the confirm dialog, computing which flags are worth offering across the chosen rows: cover
+     *  / notes only if at least one source novel actually has one (the novel twin of manga's
+     *  applicable-flags). Chapter / category always apply. */
+    fun showConfirm() {
+        val chosen = state.value.rows.mapNotNull { row -> row.novel.takeIf { row.chosenTarget != null } }
+        val applicable = NovelMigrationFlag.ALL.filterTo(LinkedHashSet()) { flag ->
+            when (flag) {
+                NovelMigrationFlag.COVER -> chosen.any { it.hasCustomCover(coverCache) }
+                NovelMigrationFlag.NOTES -> chosen.any { it.notes.isNotBlank() }
+                else -> true
+            }
+        }
+        mutableState.update { it.copy(showConfirm = true, applicableFlags = applicable) }
+    }
 
     fun dismissConfirm() = mutableState.update { it.copy(showConfirm = false) }
 
@@ -159,6 +175,7 @@ class NovelMigrationListScreenModel(
         val migrated: Boolean = false,
         val showConfirm: Boolean = false,
         val initialFlags: Set<NovelMigrationFlag> = NovelMigrationFlag.ALL,
+        val applicableFlags: Set<NovelMigrationFlag> = NovelMigrationFlag.ALL,
     ) {
         val chosenCount: Int get() = rows.count { it.chosenTarget != null }
         val skippedCount: Int get() = rows.size - chosenCount
