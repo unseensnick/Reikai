@@ -12,6 +12,10 @@ const val EIGHTMUSES_SOURCE_ID = 1802675169972965535L
 const val EH_SOURCE_ID = 1713178126840476467L // LEWD_SOURCE_SERIES + 1
 const val EXH_SOURCE_ID = 6225928719850211219L // LEWD_SOURCE_SERIES + 2
 
+// The stock E-Hentai extension package. The built-in EH sources have no installed extension, so this
+// is the synthetic key used to mark them incognito (see GetIncognitoState's // RK island).
+const val EH_PACKAGE = "eu.kanade.tachiyomi.extension.all.ehentai"
+
 val EHENTAI_EXT_SOURCES = mapOf(
     8100626124886895451L to "ja", // E-Hentai (Ja)
     57122881048805941L to "en", // E-Hentai (En)

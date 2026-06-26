@@ -1282,6 +1282,18 @@
     <string name="eh_favorites_slot">Favorites %d</string>
     <string name="eh_back_up_favorites_now">Back up all favorites now</string>
     <string name="ehentai_prefs_account_settings">E-Hentai Website Account Settings</string>
+    <!-- RK: language filter, front-page categories, updater statistics (Batch D, ported from Komikku) -->
+    <string name="language_filtering">Language Filtering</string>
+    <string name="language_filtering_summary">If you wish to hide galleries in certain languages from the gallery list and searches, select them in the dialog that will popup.\nNote that matching galleries will never appear regardless of your search query.\nTldr checkmarked = exclude</string>
+    <string name="front_page_categories">Front Page Categories</string>
+    <string name="front_page_categories_summary">What categories would you like to show by default on the front page and in searches? They can still be enabled by enabling their filters</string>
+    <string name="show_updater_statistics">Show updater statistics</string>
+    <string name="gallery_updater_statistics_collection">Collecting statistics…</string>
+    <string name="gallery_updater_statistics">Gallery updater statistics</string>
+    <string name="gallery_updater_stats_text">The updater last ran %1$s, and checked %2$d out of the %3$d galleries that were ready for checking.</string>
+    <string name="gallery_updater_not_ran_yet">The updater has not ran yet.</string>
+    <string name="gallery_updater_stats_time">\nGalleries that were checked in the last:\n- hour: %1$d\n- 6 hours: %2$d\n- 12 hours: %3$d\n- day: %4$d\n- 2 days: %5$d\n- week: %6$d\n- month: %7$d\n- year: %8$d</string>
+    <string name="humanize_fallback">moments ago</string>
     <string name="enable_exhentai">Enable ExHentai</string>
     <string name="requires_login">Requires login</string>
     <string name="use_hentai_at_home">Use Hentai@Home Network</string>
