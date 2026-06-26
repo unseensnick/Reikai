@@ -34,6 +34,14 @@ class ReikaiSourcePreferences(
     val pinnedNovelSources: Preference<Set<String>> =
         preferenceStore.getStringSet("ln_pinned_sources", emptySet())
 
+    /**
+     * Disabled (hidden) light-novel source ids. Novel twin of
+     * [eu.kanade.domain.source.service.SourcePreferences.disabledSources]: a disabled source is hidden
+     * from the Sources list and global search but stays installed and auto-updating.
+     */
+    val disabledNovelSources: Preference<Set<String>> =
+        preferenceStore.getStringSet("ln_disabled_sources", emptySet())
+
     /** "Has results" toggle on the novel global search (hide sources that returned nothing). Persisted,
      *  mirroring the manga global search's globalSearchFilterState. */
     val novelGlobalSearchHasResults: Preference<Boolean> =

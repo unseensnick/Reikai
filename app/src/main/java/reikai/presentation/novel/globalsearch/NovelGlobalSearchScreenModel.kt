@@ -10,11 +10,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import reikai.domain.novel.NovelRepository
+import reikai.domain.source.GetEnabledNovelSources
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.host.NovelItem
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
-import reikai.novel.source.NovelSourceManager
 import reikai.presentation.novel.browse.NovelBrowseDialog
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.core.common.util.lang.launchIO
@@ -32,11 +32,11 @@ class NovelGlobalSearchScreenModel(
     initialQuery: String,
 ) : StateScreenModel<NovelGlobalSearchState>(NovelGlobalSearchState(query = initialQuery)) {
 
-    private val manager: NovelSourceManager by injectLazy()
     private val installer: LnPluginInstaller by injectLazy()
     private val novelRepository: NovelRepository by injectLazy()
     private val libraryAdder: NovelLibraryAdder by injectLazy()
     private val sourcePreferences: ReikaiSourcePreferences by injectLazy()
+    private val getEnabledNovelSources: GetEnabledNovelSources by injectLazy()
 
     private var searchJob: Job? = null
 
@@ -103,7 +103,7 @@ class NovelGlobalSearchScreenModel(
     fun search(query: String) {
         searchJob?.cancel()
         val pinned = sourcePreferences.pinnedNovelSources.get()
-        val sources = selectGlobalSearchSources(manager.getAll(), pinned, state.value.sourceFilter)
+        val sources = selectGlobalSearchSources(getEnabledNovelSources.get(), pinned, state.value.sourceFilter)
         mutableState.update {
             it.copy(
                 query = query,

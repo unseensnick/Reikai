@@ -13,6 +13,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
@@ -33,8 +34,10 @@ import eu.kanade.tachiyomi.util.system.LocaleHelper
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import reikai.domain.library.ContentType
+import reikai.novel.source.NovelSource
 import reikai.presentation.browse.ReikaiBrowseScreenModel
 import reikai.presentation.browse.components.BrowseSectionHeader
+import reikai.presentation.browse.components.NovelSourceOptionsDialog
 import reikai.presentation.browse.components.NovelSourcePinButton
 import reikai.presentation.browse.components.NovelSourceRow
 import reikai.presentation.components.ContentTypeFilterChips
@@ -112,6 +115,7 @@ fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabCont
                         contentPadding = contentPadding,
                         onClickItem = openNovelSource,
                         onClickPin = novelModel::togglePin,
+                        onLongClickItem = novelModel::showSourceDialog,
                     )
                     ContentType.ALL -> CombinedSourcesContent(
                         sourcesState = sourcesState,
@@ -123,6 +127,7 @@ fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabCont
                         },
                         onClickNovelItem = openNovelSource,
                         onClickNovelPin = novelModel::togglePin,
+                        onLongClickNovelItem = novelModel::showSourceDialog,
                     )
                 }
             }
@@ -140,6 +145,23 @@ fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabCont
                         sourcesModel.closeDialog()
                     },
                     onDismiss = sourcesModel::closeDialog,
+                )
+            }
+
+            novelState.dialog?.let { dialog ->
+                NovelSourceOptionsDialog(
+                    sourceName = dialog.source.name,
+                    isPinned = dialog.isPinned,
+                    isDisabled = dialog.isDisabled,
+                    onClickPin = {
+                        novelModel.togglePin(dialog.source.id)
+                        novelModel.closeDialog()
+                    },
+                    onClickToggleDisable = {
+                        novelModel.toggleDisable(dialog.source.id)
+                        novelModel.closeDialog()
+                    },
+                    onDismiss = novelModel::closeDialog,
                 )
             }
 
@@ -162,6 +184,7 @@ private fun NovelSourcesList(
     contentPadding: PaddingValues,
     onClickItem: (String) -> Unit,
     onClickPin: (String) -> Unit,
+    onLongClickItem: (NovelSource) -> Unit,
 ) {
     when {
         state.isLoading -> LoadingScreen(Modifier.padding(contentPadding))
@@ -170,7 +193,12 @@ private fun NovelSourcesList(
             modifier = Modifier.padding(contentPadding),
         )
         else -> ScrollbarLazyColumn(contentPadding = contentPadding + topSmallPaddingValues) {
-            novelSourceItems(models = state.items, onClickItem = onClickItem, onClickPin = onClickPin)
+            novelSourceItems(
+                models = state.items,
+                onClickItem = onClickItem,
+                onClickPin = onClickPin,
+                onLongClickItem = onLongClickItem,
+            )
         }
     }
 }
@@ -189,6 +217,7 @@ private fun CombinedSourcesContent(
     onClickMangaItem: (Source, Listing) -> Unit,
     onClickNovelItem: (String) -> Unit,
     onClickNovelPin: (String) -> Unit,
+    onLongClickNovelItem: (NovelSource) -> Unit,
 ) {
     val groups = parseSourceGroups(sourcesState.items)
     val otherGroups = groups.filter { group -> group.sources.any { it.isLocal() } }
@@ -206,7 +235,12 @@ private fun CombinedSourcesContent(
             item(key = "all-novels-header") {
                 BrowseSectionHeader(title = stringResource(MR.strings.content_type_novels))
             }
-            novelSourceItems(models = novelState.items, onClickItem = onClickNovelItem, onClickPin = onClickNovelPin)
+            novelSourceItems(
+                models = novelState.items,
+                onClickItem = onClickNovelItem,
+                onClickPin = onClickNovelPin,
+                onLongClickItem = onLongClickNovelItem,
+            )
         }
 
         // Other (local source) sinks to the bottom, after both content types.
@@ -258,10 +292,14 @@ private fun LazyListScope.mangaSourceGroups(
     }
 }
 
+/** Alpha applied to a disabled novel source row so it reads as inactive but stays tappable. */
+private const val DISABLED_SOURCE_ALPHA = 0.38f
+
 private fun LazyListScope.novelSourceItems(
     models: List<NovelSourceUiModel>,
     onClickItem: (String) -> Unit,
     onClickPin: (String) -> Unit,
+    onLongClickItem: (NovelSource) -> Unit,
 ) {
     items(
         items = models,
@@ -275,10 +313,12 @@ private fun LazyListScope.novelSourceItems(
         when (model) {
             is NovelSourceUiModel.Header -> NovelSourceLanguageHeader(model.language)
             is NovelSourceUiModel.Item -> NovelSourceRow(
+                modifier = if (model.isDisabled) Modifier.alpha(DISABLED_SOURCE_ALPHA) else Modifier,
                 name = model.source.name,
                 lang = "",
                 iconUrl = model.source.iconUrl,
                 onClickItem = { onClickItem(model.source.id) },
+                onLongClickItem = { onLongClickItem(model.source) },
                 action = {
                     NovelSourcePinButton(
                         isPinned = model.isPinned,

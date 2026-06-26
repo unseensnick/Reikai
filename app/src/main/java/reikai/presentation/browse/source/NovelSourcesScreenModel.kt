@@ -33,7 +33,8 @@ class NovelSourcesScreenModel(
             combine(
                 manager.sources,
                 sourcePreferences.pinnedNovelSources.changes(),
-            ) { sources, pinned -> sources.toUiModels(pinned) }
+                sourcePreferences.disabledNovelSources.changes(),
+            ) { sources, pinned, disabled -> sources.toUiModels(pinned, disabled) }
                 .collectLatest { items -> mutableState.update { it.copy(isLoading = false, items = items) } }
         }
     }
@@ -44,9 +45,29 @@ class NovelSourcesScreenModel(
         pref.set(if (sourceId in current) current - sourceId else current + sourceId)
     }
 
-    private fun List<NovelSource>.toUiModels(pinned: Set<String>): List<NovelSourceUiModel> {
+    fun toggleDisable(sourceId: String) {
+        val pref = sourcePreferences.disabledNovelSources
+        val current = pref.get()
+        pref.set(if (sourceId in current) current - sourceId else current + sourceId)
+    }
+
+    fun showSourceDialog(source: NovelSource) = mutableState.update {
+        it.copy(
+            dialog = Dialog(
+                source = source,
+                isPinned = source.id in sourcePreferences.pinnedNovelSources.get(),
+                isDisabled = source.id in sourcePreferences.disabledNovelSources.get(),
+            ),
+        )
+    }
+
+    fun closeDialog() = mutableState.update { it.copy(dialog = null) }
+
+    private fun List<NovelSource>.toUiModels(pinned: Set<String>, disabled: Set<String>): List<NovelSourceUiModel> {
         // Pinned sources lead in their own section (mirrors the manga sources list); each remaining
         // source stays in its language group. A pinned source shows only in the Pinned section.
+        // Disabled sources stay in the list (rendered dimmed) so they can be re-enabled; they are
+        // excluded from global search instead (see GetEnabledNovelSources).
         val pinnedSources = filter { it.id in pinned }.sortedBy { it.name.lowercase() }
         val byLanguage = filterNot { it.id in pinned }
             .groupBy { it.lang }
@@ -54,12 +75,14 @@ class NovelSourcesScreenModel(
         return buildList {
             if (pinnedSources.isNotEmpty()) {
                 add(NovelSourceUiModel.Header(PINNED_KEY))
-                pinnedSources.forEach { add(NovelSourceUiModel.Item(it, isPinned = true)) }
+                pinnedSources.forEach {
+                    add(NovelSourceUiModel.Item(it, isPinned = true, isDisabled = it.id in disabled))
+                }
             }
             byLanguage.forEach { (lang, sources) ->
                 add(NovelSourceUiModel.Header(lang))
                 sources.sortedBy { it.name.lowercase() }
-                    .forEach { add(NovelSourceUiModel.Item(it, isPinned = false)) }
+                    .forEach { add(NovelSourceUiModel.Item(it, isPinned = false, isDisabled = it.id in disabled)) }
             }
         }
     }
@@ -68,9 +91,12 @@ class NovelSourcesScreenModel(
     data class State(
         val isLoading: Boolean = true,
         val items: List<NovelSourceUiModel> = emptyList(),
+        val dialog: Dialog? = null,
     ) {
         val isEmpty get() = items.isEmpty()
     }
+
+    data class Dialog(val source: NovelSource, val isPinned: Boolean, val isDisabled: Boolean)
 
     companion object {
         // Matches Mihon's SourcesScreenModel.PINNED_KEY so LocaleHelper renders the "Pinned" header.
@@ -80,5 +106,9 @@ class NovelSourcesScreenModel(
 
 sealed interface NovelSourceUiModel {
     data class Header(val language: String) : NovelSourceUiModel
-    data class Item(val source: NovelSource, val isPinned: Boolean = false) : NovelSourceUiModel
+    data class Item(
+        val source: NovelSource,
+        val isPinned: Boolean = false,
+        val isDisabled: Boolean = false,
+    ) : NovelSourceUiModel
 }

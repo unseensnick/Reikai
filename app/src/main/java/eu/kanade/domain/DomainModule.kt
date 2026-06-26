@@ -53,6 +53,7 @@ import reikai.data.recommendation.taste.TasteLibraryRepositoryImpl
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.PropagateTrackerLinks
+import reikai.domain.source.GetEnabledNovelSources
 import reikai.domain.novel.NovelCategoryRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelHistoryRepository
@@ -202,6 +203,7 @@ class DomainModule : InjektModule {
         addFactory { SetNovelChapterFlags(get()) }
         addFactory { SetNovelViewerFlags(get()) }
         addFactory { NovelLibraryAdder(get(), get(), get(), get(), get(), get()) }
+        addFactory { GetEnabledNovelSources(get(), get()) }
         // RK <--
         // RK --> novel reading history (P5 / Active #5)
         addSingletonFactory<NovelHistoryRepository> { NovelHistoryRepositoryImpl(get()) }
