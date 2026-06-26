@@ -2,9 +2,13 @@ package eu.kanade.presentation.browse.components
 
 import android.util.DisplayMetrics
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dangerous
 import androidx.compose.material.icons.filled.Warning
@@ -13,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -31,6 +36,9 @@ import eu.kanade.presentation.util.rememberResourceBitmapPainter
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.util.ExtensionLoader
+import exh.assets.EhAssets
+import exh.assets.ehassets.EhLogo
+import exh.source.eHentaiSourceIds
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.source.model.Source
 import tachiyomi.source.local.isLocal
@@ -61,6 +69,26 @@ fun SourceIcon(
                 contentDescription = null,
                 modifier = modifier.then(defaultModifier),
             )
+        }
+        // RK: the built-in E-Hentai / ExHentai sources ship no extension icon, so draw the EH mark
+        //     on a light tile (the brand red reads on both themes) instead of the default placeholder.
+        source.id in eHentaiSourceIds -> {
+            Box(
+                modifier = modifier
+                    .then(defaultModifier)
+                    // Match the transparent safe-zone margin baked into extension launcher icons, so
+                    // the tile reads the same size as its neighbours instead of full-bleed.
+                    .padding(5.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color.White),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    imageVector = EhAssets.EhLogo,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(0.72f),
+                )
+            }
         }
         source.isLocal() -> {
             Image(
