@@ -47,6 +47,7 @@ class PropagateNovelTrackerLinksTest {
         remoteUrl = "",
         startDate = 0L,
         finishDate = 0L,
+        private = false,
     )
 
     private fun novel(favorite: Boolean = true) = mockk<Novel> {

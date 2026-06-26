@@ -20,6 +20,7 @@ class NovelTrackConversionsTest {
         remoteUrl = "https://example/999",
         startDate = 111L,
         finishDate = 222L,
+        private = false,
     )
 
     @Test
