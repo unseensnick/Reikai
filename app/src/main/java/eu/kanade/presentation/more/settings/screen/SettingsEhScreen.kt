@@ -52,6 +52,9 @@ object SettingsEhScreen : SearchableSettings {
     @Composable
     override fun getTitleRes() = MR.strings.pref_category_eh
 
+    // RK: top-level category, hidden until adult sources are enabled (the gate lives in Advanced).
+    override fun isEnabled(): Boolean = Injekt.get<ExhPreferences>().isHentaiEnabled().get()
+
     /**
      * Re-uploads the server profile whenever a setting that feeds it changes.
      */

@@ -96,7 +96,6 @@ object SettingsAdvancedScreen : SearchableSettings {
         val novelMergeManager = remember { Injekt.get<NovelMergeManager>() }
         // RK: gate for the built-in adult sources (E-Hentai / ExHentai)
         val exhPreferences = remember { Injekt.get<ExhPreferences>() }
-        val hentaiEnabled by exhPreferences.isHentaiEnabled().collectAsState()
 
         return listOfNotNull(
             Preference.PreferenceItem.TextPreference(
@@ -128,23 +127,13 @@ object SettingsAdvancedScreen : SearchableSettings {
                 title = stringResource(MR.strings.pref_track_novel_update_errors),
                 subtitle = stringResource(MR.strings.pref_track_update_errors_summary),
             ),
-            // RK: enable the built-in E-Hentai sources (anonymous browsing). ExHentai additionally
-            //     needs login via the entry below.
+            // RK: enable the built-in E-Hentai sources (anonymous browsing). Turning this on reveals
+            //     the dedicated E-Hentai settings as a top-level category (login, image quality, etc.).
             Preference.PreferenceItem.SwitchPreference(
                 preference = exhPreferences.isHentaiEnabled(),
                 title = stringResource(MR.strings.pref_enable_adult_sources),
                 subtitle = stringResource(MR.strings.pref_enable_adult_sources_summary),
             ),
-            // RK: dedicated E-Hentai settings (login, image quality, server profile); only once
-            //     adult sources are enabled.
-            if (hentaiEnabled) {
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_category_eh),
-                    onClick = { navigator.push(SettingsEhScreen) },
-                )
-            } else {
-                null
-            },
             // RK --> clear pref-based merge state
             Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.pref_clear_manual_merges),

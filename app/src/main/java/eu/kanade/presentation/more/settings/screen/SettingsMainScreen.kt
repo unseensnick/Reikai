@@ -44,6 +44,8 @@ import eu.kanade.presentation.more.settings.screen.about.AboutScreen
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.presentation.util.LocalBackPress
 import eu.kanade.presentation.util.Screen
+import exh.assets.EhAssets
+import exh.assets.ehassets.EhLogo
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -102,6 +104,8 @@ object SettingsMainScreen : Screen() {
             containerColor = containerColor,
             content = { contentPadding ->
                 val state = rememberLazyListState()
+                // RK: hide screens that opt out (E-Hentai stays hidden until adult sources are enabled).
+                val items = items.filter { it.screen !is SearchableSettings || it.screen.isEnabled() }
                 val indexSelected = if (twoPane) {
                     items.indexOfFirst { it.screen::class == navigator.items.first()::class }
                         .also {
@@ -218,6 +222,14 @@ object SettingsMainScreen : Screen() {
             subtitleRes = MR.strings.pref_security_summary,
             icon = Icons.Outlined.Security,
             screen = SettingsSecurityScreen,
+        ),
+        // RK: E-Hentai as its own top-level category (gated by SettingsEhScreen.isEnabled), matching
+        //     Komikku's placement between Security and Advanced.
+        Item(
+            titleRes = MR.strings.pref_category_eh,
+            subtitleRes = MR.strings.pref_ehentai_summary,
+            icon = EhAssets.EhLogo,
+            screen = SettingsEhScreen,
         ),
         Item(
             titleRes = MR.strings.pref_category_advanced,

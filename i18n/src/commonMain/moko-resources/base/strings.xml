@@ -1271,6 +1271,7 @@
     <string name="custom_igneous_cookie_message">Some users cannot access ExHentai the normal way, and have to pass in a specific igneous cookie value, this option is for those users.</string>
     <!-- RK: E-Hentai settings screen + server profile config (Phase B2) -->
     <string name="pref_category_eh">E-Hentai</string>
+    <string name="pref_ehentai_summary">Login, image quality, gallery updates, favorites backup</string>
     <string name="gallery_update_checker">Gallery update checker</string>
     <string name="eh_remove_favorite_text">Remove this gallery from your library?</string>
     <string name="eh_remove_favorite_remote">Also remove from E-Hentai favorites</string>

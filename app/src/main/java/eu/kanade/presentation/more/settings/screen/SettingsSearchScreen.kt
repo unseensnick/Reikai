@@ -263,6 +263,8 @@ private fun SearchResult(
 @Composable
 @NonRestartableComposable
 private fun getIndex() = settingScreens
+    // RK: skip screens that opt out (E-Hentai while adult sources are disabled).
+    .filter(SearchableSettings::isEnabled)
     .map { screen ->
         SettingsData(
             title = stringResource(screen.getTitleRes()),
@@ -294,6 +296,7 @@ private val settingScreens = listOf(
     SettingsBrowseScreen,
     SettingsDataScreen,
     SettingsSecurityScreen,
+    SettingsEhScreen,
     SettingsAdvancedScreen,
 )
 
