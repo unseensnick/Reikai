@@ -42,6 +42,19 @@ class ReikaiSourcePreferences(
     val disabledNovelSources: Preference<Set<String>> =
         preferenceStore.getStringSet("ln_disabled_sources", emptySet())
 
+    /**
+     * Ordered novel source ids picked in the migration pre-step. Novel twin of
+     * [eu.kanade.domain.source.service.SourcePreferences.migrationSources]: the selection and its
+     * priority order drive which sources a migration searches (and so which match it suggests first).
+     * Order matters, so it is a List, stored newline-joined (source ids never contain newlines).
+     */
+    val novelMigrationSources: Preference<List<String>> = preferenceStore.getObjectFromString(
+        "ln_migration_sources",
+        emptyList(),
+        { it.joinToString("\n") },
+        { if (it.isEmpty()) emptyList() else it.split("\n") },
+    )
+
     /** "Has results" toggle on the novel global search (hide sources that returned nothing). Persisted,
      *  mirroring the manga global search's globalSearchFilterState. */
     val novelGlobalSearchHasResults: Preference<Boolean> =

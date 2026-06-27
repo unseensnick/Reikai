@@ -63,7 +63,7 @@ import eu.kanade.tachiyomi.util.system.copyToClipboard
 import reikai.data.coil.NovelCover
 import reikai.domain.novel.model.NovelChapter
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
-import reikai.presentation.novel.migrate.NovelMigrationListScreen
+import reikai.presentation.novel.migrate.NovelMigrationConfigScreen
 import reikai.presentation.novel.notes.NovelNotesScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
 import reikai.presentation.novel.track.NovelTrackInfoDialogHomeScreen
@@ -121,7 +121,7 @@ class NovelScreen(
                 val onSearch: (String) -> Unit = { query -> navigator.push(NovelGlobalSearchScreen(query)) }
                 // RK: migration only re-homes a library novel, so the action shows only when favorited.
                 val onMigrate: (() -> Unit)? = if (s.novel.favorite) {
-                    { navigator.push(NovelMigrationListScreen(listOf(s.novel.id))) }
+                    { navigator.push(NovelMigrationConfigScreen(listOf(s.novel.id))) }
                 } else {
                     null
                 }

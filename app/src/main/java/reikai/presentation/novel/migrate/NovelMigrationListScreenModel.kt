@@ -85,12 +85,19 @@ class NovelMigrationListScreenModel(
     }
 
     private fun runSearch(novelId: Long, query: String, currentSource: String) {
-        // All installed sources (migration should find a target anywhere), minus the novel's own source.
-        val sources = selectGlobalSearchSources(
-            sourceManager.getAll(),
-            sourcePreferences.pinnedNovelSources.get(),
-            NovelGlobalSearchScreenModel.SourceFilter.All,
-        ).filter { it.id != currentSource }
+        // The migration pre-step's selection (ordered) decides which sources to search; the order makes
+        // the first selected source's hit the suggested match. Empty (no pre-step yet) falls back to all.
+        val selectedIds = sourcePreferences.novelMigrationSources.get()
+        val sources = if (selectedIds.isEmpty()) {
+            selectGlobalSearchSources(
+                sourceManager.getAll(),
+                sourcePreferences.pinnedNovelSources.get(),
+                NovelGlobalSearchScreenModel.SourceFilter.All,
+            )
+        } else {
+            val byId = sourceManager.getAll().associateBy { it.id }
+            selectedIds.mapNotNull { byId[it] }
+        }.filter { it.id != currentSource }
         setRow(novelId) { it.copy(results = sources.map { s -> SourceSearchResult(s, SearchState.Loading) }) }
         if (query.isBlank()) return
         sources.forEach { source ->
