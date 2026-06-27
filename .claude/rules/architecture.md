@@ -25,6 +25,14 @@ DI is **Injekt** (`uy.kohesive.injekt`). Modules live at `app/src/main/java/eu/k
 
 No `Injekt.get<>()` / `injectLazy()` inside a `@Composable` body.
 
+## Minification (R8) and net-new packages
+
+Release-type builds (`release` / `preview` / `foss`) are minified (`isMinifyEnabled = Config.enableCodeShrink`); the `debugY2k` dev build is NOT, so R8-only bugs are invisible in the normal dev loop. The recurring one: R8 strips the generic `Signature` that Injekt's `FullTypeReference` reflects on, so an `Injekt.get<T>()` / `injectLazy<T>()` in a package that is not in the proguard keep list crashes the minified build with `IllegalArgumentException: Internal error: TypeReference constructed without actual type information`.
+
+`app/proguard-rules.pro` keeps the upstream packages (`eu.kanade.**` / `tachiyomi.**` / `mihon.**`) plus every net-new top-level package: `reikai.**` and `exh.**`. **When you add a new top-level package that uses Injekt generics, add its own `-keep,allowoptimization class <pkg>.**` line.** Past crashes: `NovelUpdateJob.setupTask` -> `Injekt.get<NovelPreferences>()` (startup); `EHentaiUpdateWorker.setupTask` -> `Injekt.get<ExhPreferences>()` (toggling the E-Hentai gallery-update schedule).
+
+Verify such code on a minified build before trusting it: `:app:assemblePreview` / `:app:installPreview` (the `preview` variant is `initWith(release)`, so minified and debug-signed; its package is `eu.kanade.tachiyomi.debug`), then exercise the path. A preview/release build is not debuggable, so drive it via UI, not `run-as`.
+
 ## Preferences
 
 Preferences go through `PreferenceStore` (`core/common/.../preference/PreferenceStore.kt`, backed by `AndroidPreferenceStore`) and the typed `*Preferences` classes (e.g. library / reader / source preference holders) injected via Injekt. There is no `PreferencesHelper` on Mihon. Never use raw `SharedPreferences`. Read preferences in the ScreenModel and expose them as state, not inside a `@Composable`.

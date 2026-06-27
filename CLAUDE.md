@@ -72,6 +72,8 @@ EVERY commit on the branch (including `docs` / `chore` / one-line fixes, not jus
 
 Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java-version`), formatting via Spotless (`./gradlew spotlessApply`), version catalogs `libs` and `mihonx`, build-logic via `gradle/build-logic` (`includeBuild`). Domain tests: `./gradlew :domain:test`. No `lintKotlin` / `formatKotlin` tasks exist (Kotlinter only installs a pre-push hook); use `spotlessApply` to format and `compileDebugKotlin` to check. (CLI Gradle is intermittent on this machine; build/test on-device in Android Studio when CLI fails.)
 
+**Release-type builds are minified, the `debugY2k` dev build is not**, so R8-only bugs are invisible in the normal dev loop. The recurring one: a net-new top-level package that uses Injekt generics (`Injekt.get<T>()`) needs its own proguard `-keep`, or the minified build crashes (Injekt `FullTypeReference`). When adding such a package or code, add the keep and verify a minified `:app:assemblePreview` build. Full rule: [.claude/rules/architecture.md](.claude/rules/architecture.md) "Minification (R8) and net-new packages".
+
 ## Design context
 
 - [PRODUCT.md](PRODUCT.md) — register (product), users, brand personality (quiet, dense, deliberate), anti-references, design principles, accessibility. Read before any UI / visual work. Maintained via the `impeccable` skill.
@@ -79,7 +81,7 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 
 ## Where things live
 
-- [.claude/rules/architecture.md](.claude/rules/architecture.md) — Compose + Voyager, Injekt DI, PreferenceStore, coroutines, domain models, module layout, `// RK` markers.
+- [.claude/rules/architecture.md](.claude/rules/architecture.md) — Compose + Voyager, Injekt DI, PreferenceStore, coroutines, domain models, module layout, `// RK` markers, R8/minification keeps for net-new packages.
 - [.claude/rules/screen-conventions.md](.claude/rules/screen-conventions.md) — Reikai screen conventions on Mihon, with rationale and a reference screen.
 - [.claude/rules/workflow.md](.claude/rules/workflow.md) — CHANGELOG rule, commits/PRs, release-cut, Mihon-upstream + Reikai-feature porting. **Commit message standard** (in "Commits & PRs"): subject `type(scope): summary` (imperative, <=72 chars); body leads with 1-2 plain-language sentences a non-developer can read, then benefit-first bullets (large commits group a user-facing section then `Under the hood:`), optional footer for tests/tradeoffs. Lead with the user-facing effect, never implementation. No em dashes, no AI watermarks. ROADMAP refs are written `Roadmap N` (never a bare `#N`, which is ambiguous); a real issue/PR uses the explicit `owner/repo#N` form (`unseensnick/Reikai#N` for ours, `mihonapp/mihon#N` for upstream). A `commit-msg` hook (`.githooks/commit-msg`) enforces the standard. **Mihon-sync standards** (the commit-message convention referencing upstream PRs/issues as `mihonapp/mihon#N` (cross-repo link, since a bare `#N` auto-links to a Reikai issue), the verbatim-cp + `// RK` hand-merge method, and the running synced-base ledger) live in its "Syncing with Mihon" section and, in full, the `upstream-sync` memory.
 - [.claude/rules/code-quality.md](.claude/rules/code-quality.md) — DRY/YAGNI/KISS, naming, code markers, file organization.
