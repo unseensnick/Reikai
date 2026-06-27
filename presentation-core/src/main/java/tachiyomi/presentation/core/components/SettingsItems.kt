@@ -253,8 +253,8 @@ fun BaseSliderItem(
             },
             valueRange = valueRange,
             steps = steps,
-            // Keep the thumb at the track ends out of the OS edge back-gesture zone.
-            modifier = Modifier.systemGestureExclusion(),
+            // Keep slider drags off the OS edge back-gesture and off the tab pager while dragging.
+            modifier = Modifier.systemGestureExclusion().lockPagerSwipeWhileDragging(),
         )
     }
 }

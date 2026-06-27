@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEachIndexed
 import kotlinx.coroutines.launch
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.components.LocalPagerSwipeSetter
 import tachiyomi.presentation.core.components.material.TabText
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -74,12 +76,20 @@ fun TabbedDialog(
             }
             HorizontalDivider()
 
-            HorizontalPager(
-                modifier = Modifier.animateContentSize(),
-                state = pagerState,
-                verticalAlignment = Alignment.Top,
-                pageContent = { page -> content(page) },
-            )
+            // Swipe-between-tabs stays on, but content can lock it for the duration of a drag (see
+            // Modifier.lockPagerSwipeWhileDragging) so a horizontal drag on a slider or a
+            // horizontally-scrolling chip row doesn't leak into the pager and switch tabs. Swiping the
+            // rest of a page still changes tabs.
+            var pagerSwipeEnabled by remember { mutableStateOf(true) }
+            CompositionLocalProvider(LocalPagerSwipeSetter provides { enabled -> pagerSwipeEnabled = enabled }) {
+                HorizontalPager(
+                    modifier = Modifier.animateContentSize(),
+                    state = pagerState,
+                    verticalAlignment = Alignment.Top,
+                    userScrollEnabled = pagerSwipeEnabled,
+                    pageContent = { page -> content(page) },
+                )
+            }
         }
     }
 }

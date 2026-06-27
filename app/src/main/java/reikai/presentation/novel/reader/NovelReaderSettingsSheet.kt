@@ -62,6 +62,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.Companion.ColorFi
 import kotlinx.coroutines.delay
 import reikai.domain.novel.tts.TtsEngineInfo
 import reikai.domain.novel.tts.TtsVoice
+import tachiyomi.presentation.core.components.lockPagerSwipeWhileDragging
 import tachiyomi.presentation.core.i18n.stringResource
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -140,7 +141,8 @@ fun NovelReaderSettingsSheet(
                     }
                     Text("Font", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
                     Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp),
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                            .lockPagerSwipeWhileDragging().padding(top = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         readerFonts.forEach { font ->
@@ -181,7 +183,8 @@ fun NovelReaderSettingsSheet(
                     // Per-novel orientation: Default (follow the global default) + the concrete locks.
                     Text("Orientation", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
                     Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp),
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                            .lockPagerSwipeWhileDragging().padding(top = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         readerOrientations.forEach { orientation ->
@@ -222,7 +225,8 @@ fun NovelReaderSettingsSheet(
                         }
                         Text("Blend mode", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
                         Row(
-                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp),
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                            .lockPagerSwipeWhileDragging().padding(top = 4.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             ColorFilterMode.forEachIndexed { index, mode ->
@@ -499,8 +503,8 @@ private fun LabeledSlider(
         onValueChange = onChange,
         valueRange = range,
         steps = steps,
-        // Keep the thumb at the track ends out of the OS edge back-gesture zone.
-        modifier = Modifier.systemGestureExclusion(),
+        // Keep slider drags off the OS edge back-gesture and off the tab pager while dragging.
+        modifier = Modifier.systemGestureExclusion().lockPagerSwipeWhileDragging(),
     )
 }
 
