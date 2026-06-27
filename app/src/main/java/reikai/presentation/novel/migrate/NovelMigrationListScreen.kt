@@ -1,8 +1,8 @@
 package reikai.presentation.novel.migrate
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
@@ -46,10 +47,11 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
 import reikai.data.coil.NovelCover
-import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.novel.host.NovelItem
+import reikai.presentation.novel.browse.NovelBrowseListCell
 import reikai.presentation.novel.details.NovelScreen
+import reikai.presentation.novel.globalsearch.SearchState
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -131,39 +133,126 @@ private fun MigrationRow(
     row: NovelMigrationListScreenModel.Row,
     screenModel: NovelMigrationListScreenModel,
 ) {
-    val id = row.novel.id
     val navigator = LocalNavigator.currentOrThrow
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text(
-            text = row.novel.title,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            text = "${row.sourceChapterCount} ch",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        // Source -> target comparison: the novel you're moving, an arrow, and the match for it.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            NovelThumb(
+                url = row.novel.thumbnailUrl,
+                site = row.sourceSite,
+                lastModified = row.novel.coverLastModified,
+                novelId = row.novel.id,
+                onClick = { navigator.push(NovelScreen(row.novel.source, row.novel.url)) },
+            )
+            Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                Text(
+                    text = row.novel.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = "${row.sourceChapterCount} ch",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 4.dp),
+            )
+            TargetSlot(row = row, modifier = Modifier.weight(1f))
+        }
+        ActionRow(row = row, screenModel = screenModel)
+        if (row.expanded) {
+            OverrideSection(row = row, screenModel = screenModel)
+        }
+    }
+}
 
-        val chosen = row.chosenTarget
-        when {
-            row.resolving -> RowStatus { CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp) }
-            chosen != null -> Row(verticalAlignment = Alignment.CenterVertically) {
-                TargetCover(
-                    novel = chosen,
-                    site = row.chosenSite,
-                    onClick = { navigator.push(NovelScreen(chosen.source, chosen.url)) },
+/** The target half of a row: a spinner while it resolves or searches, the chosen target (cover +
+ *  count), the unchecked top suggestion (cover + source), or "no results". */
+@Composable
+private fun TargetSlot(
+    row: NovelMigrationListScreenModel.Row,
+    modifier: Modifier = Modifier,
+) {
+    val navigator = LocalNavigator.currentOrThrow
+    val chosen = row.chosenTarget
+    when {
+        row.resolving -> Spinner(modifier)
+        chosen != null -> Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+            NovelThumb(
+                url = chosen.thumbnailUrl,
+                site = row.chosenSite,
+                lastModified = chosen.coverLastModified,
+                novelId = chosen.id,
+                onClick = { navigator.push(NovelScreen(chosen.source, chosen.url)) },
+            )
+            Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                Text(
+                    text = chosen.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                TargetChapterCount(sourceCount = row.sourceChapterCount, targetCount = row.targetChapterCount)
+            }
+        }
+        row.suggested != null -> {
+            val (source, item) = row.suggested!!
+            Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+                ResultCover(
+                    item = item,
+                    site = source.site,
+                    onClick = { navigator.push(NovelScreen(source.id, item.path)) },
                 )
                 Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
                     Text(
-                        text = chosen.title,
+                        text = item.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = source.name,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    TargetChapterCount(sourceCount = row.sourceChapterCount, targetCount = row.targetChapterCount)
                 }
+            }
+        }
+        row.searching -> Spinner(modifier)
+        else -> Text(
+            text = stringResource(MR.strings.no_results_found),
+            modifier = modifier.padding(start = 8.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Per-row controls under the comparison: Accept a suggestion, Change (search manually), or clear. */
+@Composable
+private fun ActionRow(
+    row: NovelMigrationListScreenModel.Row,
+    screenModel: NovelMigrationListScreenModel,
+) {
+    val id = row.novel.id
+    val chosen = row.chosenTarget
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        when {
+            row.resolving || row.searching -> Unit
+            chosen != null -> {
                 TextButton(onClick = { screenModel.toggleExpanded(id) }) {
                     Text(text = stringResource(MR.strings.action_change))
                 }
@@ -172,46 +261,23 @@ private fun MigrationRow(
                 }
             }
             row.suggested != null -> {
-                val (source, item) = row.suggested!!
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    ResultCover(
-                        item = item,
-                        site = source.site,
-                        onClick = { navigator.push(NovelScreen(source.id, item.path)) },
-                    )
-                    Text(
-                        text = "${source.name}: ${item.name}",
-                        modifier = Modifier.weight(1f).padding(start = 8.dp),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Button(onClick = { screenModel.acceptSuggested(id) }) {
-                        Text(text = stringResource(MR.strings.action_accept))
-                    }
-                    ExpandToggle(row.expanded) { screenModel.toggleExpanded(id) }
+                Button(onClick = { screenModel.acceptSuggested(id) }) {
+                    Text(text = stringResource(MR.strings.action_accept))
                 }
+                ExpandToggle(row.expanded) { screenModel.toggleExpanded(id) }
             }
-            row.searching -> RowStatus {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                Text(text = stringResource(MR.strings.action_search), modifier = Modifier.padding(start = 8.dp))
+            else -> TextButton(onClick = { screenModel.toggleExpanded(id) }) {
+                Text(text = stringResource(MR.strings.action_change))
             }
-            else -> Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = stringResource(MR.strings.no_results_found), modifier = Modifier.weight(1f))
-                TextButton(onClick = { screenModel.toggleExpanded(id) }) {
-                    Text(text = stringResource(MR.strings.action_change))
-                }
-            }
-        }
-
-        if (row.expanded) {
-            OverrideSection(row = row, screenModel = screenModel)
         }
     }
 }
 
 @Composable
-private fun RowStatus(content: @Composable () -> Unit) {
-    Row(modifier = Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) { content() }
+private fun Spinner(modifier: Modifier = Modifier) {
+    Box(modifier = modifier.padding(start = 8.dp), contentAlignment = Alignment.CenterStart) {
+        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+    }
 }
 
 @Composable
@@ -234,17 +300,11 @@ private fun ResultCover(item: NovelItem, site: String?, onClick: () -> Unit) {
     )
 }
 
-/** Cover for the chosen target ([Novel], already materialised); tap opens its details. */
+/** Cover for a stored novel (the source, or a chosen target); tap opens its details. */
 @Composable
-private fun TargetCover(novel: Novel, site: String?, onClick: () -> Unit) {
+private fun NovelThumb(url: String?, site: String?, lastModified: Long, novelId: Long, onClick: () -> Unit) {
     MangaCover.Book(
-        data = NovelCover(
-            url = novel.thumbnailUrl,
-            site = site,
-            isNovelFavorite = false,
-            lastModified = novel.coverLastModified,
-            novelId = novel.id,
-        ),
+        data = NovelCover(url = url, site = site, isNovelFavorite = false, lastModified = lastModified, novelId = novelId),
         modifier = Modifier.width(40.dp),
         onClick = onClick,
     )
@@ -298,27 +358,26 @@ private fun OverrideSection(
             }
         },
     )
-    // Flat candidate list (bounded: one page per source), no nested LazyColumn.
-    // Cover taps open the target's details to verify it; the title taps select it.
-    row.candidates.forEach { (source, item) ->
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ResultCover(
-                item = item,
-                site = source.site,
-                onClick = { navigator.push(NovelScreen(source.id, item.path)) },
-            )
+    // Browse-style picker (bounded: one page per source), grouped under each source's name. Tap a row
+    // to pick it as the target; long-press opens its details to verify first.
+    row.results.forEach { result ->
+        val novels = (result.state as? SearchState.Success)?.novels.orEmpty()
+        if (novels.isNotEmpty()) {
             Text(
-                text = "${source.name}: ${item.name}",
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable { screenModel.pick(id, source.id, item.path) }
-                    .padding(start = 8.dp, top = 10.dp, bottom = 10.dp),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+                text = result.source.name,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
             )
+            novels.forEach { item ->
+                NovelBrowseListCell(
+                    item = item,
+                    inLibrary = false,
+                    site = result.source.site,
+                    onClick = { screenModel.pick(id, result.source.id, item.path) },
+                    onLongClick = { navigator.push(NovelScreen(result.source.id, item.path)) },
+                )
+            }
         }
     }
     if (row.candidates.isEmpty() && !row.searching) {

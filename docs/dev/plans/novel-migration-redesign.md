@@ -48,7 +48,7 @@ In progress (queued as Now in `ROADMAP.md`).
 
 - **Phase 1: covers + chapter-count signal.** Implemented, compiles, pending on-device verification. Covers (tap to open details) on the suggested hit, candidate list, and chosen target; source chapter count always shown; target count with a red shortfall vs the source after selection. The cover tap opens details, which doubles as the verify path for the conservative paged-source count. Color choice: error on the delta only (count stays neutral).
 - **Phase 2: source-selection pre-step.** Implemented, compiles, pending on-device verification. New `NovelMigrationConfigScreen` (Selected / Available, drag-reorderable priority, select all / none / pinned / enabled), saved to the new `novelMigrationSources` pref (ordered, newline-joined). The migration list searches only the selected sources in saved order (fallback to all when none saved). Both entry points (novel details, library multi-select) route through it first. Rows reuse `NovelSourceRow`; the screen mirrors Mihon's `MigrationConfigScreen`.
-- **Phase 3: comparison-row redesign.** Not started.
+- **Phase 3: comparison-row redesign.** Implemented, compiles, pending on-device verification. Each row is a source -> target comparison (both covers + an arrow), laid out as a comparison line plus an action line beneath (so the lazy Accept step stays prominent, preserving the no-per-result-fetch property). The override picker is now browse-style cover rows (`NovelBrowseListCell`) grouped by source: tap to pick, long-press to open details. Deferred: per-row migrate-now / copy-now (partial-batch convenience, low value; skip and search-manually already exist as not-picking and Change).
 
 ## Decisions & tradeoffs
 

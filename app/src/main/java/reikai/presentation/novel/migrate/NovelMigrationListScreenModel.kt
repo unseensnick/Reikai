@@ -63,7 +63,11 @@ class NovelMigrationListScreenModel(
             try { installer.ensureLoaded() } catch (_: Throwable) {}
             val rows = novelIds.mapNotNull { id ->
                 novelRepository.getById(id)?.let { novel ->
-                    Row(novel = novel, sourceChapterCount = chapterRepository.getByNovelId(novel.id).size)
+                    Row(
+                        novel = novel,
+                        sourceSite = sourceManager.get(novel.source)?.site,
+                        sourceChapterCount = chapterRepository.getByNovelId(novel.id).size,
+                    )
                 }
             }
             mutableState.update { it.copy(rows = rows) }
@@ -213,6 +217,8 @@ class NovelMigrationListScreenModel(
         val chosenTarget: Novel? = null,
         /** The chosen target's source site, for the target cover's Referer. */
         val chosenSite: String? = null,
+        /** The source novel's own source site, for the source cover's Referer. */
+        val sourceSite: String? = null,
         /** The source novel's chapter count (free local read; shown always). */
         val sourceChapterCount: Int = 0,
         /** The chosen target's chapter count, read after [materialize] populates it; null until chosen. */
