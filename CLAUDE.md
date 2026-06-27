@@ -53,6 +53,15 @@ Every Reikai screen ported onto or added to Mihon follows Mihon's existing Voyag
 - No em dashes in prose, comments, commit messages, or PR bodies. Use commas, parentheses, periods, or colons. Em dashes are a Claude stylistic tic that flags writing as AI-generated.
 - No AI-generated watermarks. Don't add "Co-Authored-By: Claude", "Generated with Claude Code", robot emoji footers, or similar tags to commits, PRs, code, or docs.
 
+## Commit messages (every commit, no exceptions)
+
+EVERY commit on the branch (including `docs` / `chore` / one-line fixes, not just feature commits) follows the standard in [.claude/rules/workflow.md](.claude/rules/workflow.md) "Commit message standard". Run its pre-commit checklist before each commit; the non-negotiables:
+
+- Subject `type(scope): summary`: imperative, lower-case, no trailing period, `<=72` chars.
+- **Never a bare `#N`** in the subject OR body. Roadmap ref -> `Roadmap N`; upstream ref -> `mihonapp/mihon#N`. A bare `#N` (and `Roadmap #8`, `Mihon PR #3403`) auto-links to the wrong Reikai issue. This is the most common past slip, so check the body, not just the subject.
+- No em dashes; no AI watermark.
+- Non-trivial commits get a body that leads with 1-2 plain-language sentences, then benefit-first bullets. A trivial commit is just the compliant subject.
+
 ## Identity (load-bearing, preserve through the rebase)
 
 `applicationId = "eu.kanade.tachiyomi"` with release suffix `.y2k` (and debug `.debugY2k`), so existing installs upgrade in place. Mihon's own `applicationId` is `app.mihon`; the namespace `eu.kanade.tachiyomi` is shared by both, so source classes resolve either way. App name string `Reikai` lives in `i18n/src/commonMain/moko-resources/base/strings.xml`. Keep the `.y2k` suffix and app name; take Mihon for everything else.

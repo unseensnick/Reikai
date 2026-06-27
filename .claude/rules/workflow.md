@@ -66,6 +66,16 @@ The goal: **the whole `design/mihon-rebase` history reads in the commit message 
 3. **`git rebase -i`** to bring **every** commit to the standard: `fixup` the incremental WIP and the `docs: mark #X done` churn into their feature commit so each meaningful feature is one commit, then `reword` every surviving commit to comply, leaving none in the old style. Non-trivial commits get the lead + bullets body; for a trivial commit a clean conventional subject is itself full compliance (the standard omits the body there). Result: a fully standard-compliant, ~one-commit-per-feature history (navigable + bisectable), not one giant squash (which loses bisect).
 4. **Update the `upstream-sync` memory's ledger SHAs** afterward (the rewrite changes every SHA from the edit point forward), then `--force-with-lease` and point `main` at it.
 
+### Yōkai -> Reikai debrand (do at the release-cut)
+
+The fork was "Yōkai-Y2K" on the old Yōkai base; the Mihon-based release ships as **Reikai**. Sweep every lingering reference (`git grep -iE 'yōkai|yokai|y2k|null2264'`, ignoring `refs/`) and sort each into one of three buckets:
+
+- **Keep, load-bearing identity (NEVER touch):** the `.y2k` / `.debugY2k` `applicationId` suffix in `app/build.gradle.kts` (it is what upgrades existing installs in place), and the `yokai` / `y2k` / `ln_*` **preference key strings** (renaming them orphans user data; the comments beside them say why they are preserved).
+- **Keep as the historical record:** the old `Yōkai-Y2K v1.9.7.5.x` **releases on `unseensnick/Reikai`**, the CHANGELOG's `1.9.7.5.x` entries + its "earlier versions tracked Yōkai" header note, and the rebase/migration docs (`docs/dev/plans/rebase-overview.md`, `docs/backup-restore.md`). These are the record of where Reikai came from.
+- **Update / debrand:** user-facing + brand docs (`README.md`, `PRODUCT.md`, `DESIGN.md`), `docs/dev/development.md` (still describes the Yōkai base), and the icon art (`art/icon/*.svg`, any launcher webp carrying "Yōkai-Y2K" text). Reframe "Yōkai-era" code comments only when already editing that file (low priority, they are accurate history).
+
+**The old releases specifically:** do NOT delete the `v1.9.7.5.x` stable releases. They are the only migration path for existing `.yokai` users (back up -> install the new `.y2k` build -> restore, per `docs/backup-restore.md`). Edit the latest one's notes to point at that migration and the new Reikai release. The old `r6xxx` "Yōkai-Y2K Nightly" pre-releases were already removed (the nightly channel is now `unseensnick/Reikai-preview`); new stable releases are named `Reikai vX`.
+
 ## Commits & PRs
 
 After code changes, create a git commit (do not push unless asked).
@@ -87,6 +97,13 @@ Write commits a user could skim and a contributor could read on. Scale the struc
 3. **Footer (optional):** tests, deferred items / tradeoffs, upstream refs (`mihonapp/mihon#N`, which links to the Mihon repo; a bare `#N` would auto-link to a Reikai issue).
 
 **Rules:** blank line after the subject; no em dashes (see [code-quality.md](code-quality.md)); no AI watermarks (no `Co-Authored-By`, no generated-by footer). Lead with the user-facing effect; keep deep internals in a labeled section.
+
+**Pre-commit checklist, run on EVERY commit (no exceptions: this includes `docs`, `chore`, and one-line fixes, not just feature commits).** A commit that fails any line gets reworded before it lands:
+
+1. Subject is `type(scope): summary`: a real conventional type, imperative, lower-case, no trailing period, `<=72` chars.
+2. **No bare `#N` anywhere in the message** (subject or body). Roadmap ref -> `Roadmap N`; upstream ref -> `mihonapp/mihon#N`. A bare `#N` (and `Roadmap #8`, and `Mihon PR #3403`) auto-links to the wrong (Reikai) repo. This is the single most common past slip, check the body too, not just the subject.
+3. No em dashes; no AI watermark (`Co-Authored-By`, generated-by footer).
+4. Non-trivial commit: body leads with 1-2 plain-language sentences, then benefit-first bullets. A trivial commit is just the compliant subject (no body needed).
 
 Example (a large feature):
 
