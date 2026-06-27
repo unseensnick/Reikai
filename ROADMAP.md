@@ -20,25 +20,62 @@ Per-feature implementation and decision records live in [docs/dev/plans/](docs/d
 | Release | Signed release pipeline (AGP signing, preview/release workflows, in-app updater) | built; first-run verify pending (user) |
 | Round 2 | Manga↔novel parity backlog + revived adult-source subsystem | shipped (last standalone item parked) |
 
-The rebase is functionally complete: the core sequence and the manga↔novel parity backlog have shipped and are on-device verified. Nothing is actively in progress; **Next** is the release-pipeline verify, and the last standalone parity item is parked.
+The rebase is functionally complete: the core sequence and the manga↔novel parity backlog have shipped and are on-device verified. The parity & adult-system audit has run (report `PARITY-EXH-AUDIT.md`, local / gitignored); its EXH findings are filed into **Next** (two small fixes), **Later** (backlog parity), and **Parked** (two skips), with the manga↔novel catalog triage in progress.
 
 ## Now
 
-Nothing actively in progress.
+Nothing actively in progress (the audit triage is filing work into Next / Later below).
 
 ## Next
 
 Queued, roughly in priority order.
 
-- **Parity & adult-system audit (deep research)** `[M]`: a grounded, end-to-end audit, follow the whole path per area, producing two catalogs. (1) Manga <-> Novel feature parity both ways: for each capability, does manga have it, does novel have it, and what's the gap in each direction (scoped to what each content type can actually do, e.g. novels have no page-split). (2) Adult/EXH subsystem vs its Komikku reference: does the re-typed port behave essentially the same despite divergence (delegation/enhanced sources, metadata + tag store, gallery update checker, favorites backup, search/filters). Output a short itemized gap list per catalog. Use `/deep-research` or `/scout` per area; do not fix in the same pass.
+- **Exclude adult galleries from library updates** `[S]`: EH / ExH / Pururin / nHentai galleries default to `ALWAYS_UPDATE`, so every library refresh re-fetches each saved gallery (E-Hentai rate-limit / ban risk); their real updates are already handled by the dedicated `EHentaiUpdateWorker`. Port Komikku's `LIBRARY_UPDATE_EXCLUDED_SOURCES` + a `// RK` `filterNot` in `LibraryUpdateJob.addMangaToQueue`. The static EH / ExH / Pururin ids are the easy win (about ten lines, one file pair); Komikku also appends the dynamic nHentai ids in `handleSourceLibrary`, so full nHentai coverage is coupled to the "Dynamic delegated-source id lists" item below (do that first, or ship the static three now and add nHentai later). Highest-value finding from the adult-system audit.
+- **Suppress the stock E-Hentai extension when built-in EH is on** `[S]`: a user who installs the stock E-Hentai extension alongside our built-in EH sources sees duplicate sources. Port Komikku's `BlacklistedSources` (`BLACKLISTED_EXTENSIONS` + `BLACKLISTED_EXT_SOURCES`) so the stock extension is hidden while built-in EH is active. From the adult-system audit.
 - **Publish a fresh preview + release-pipeline first-run verify**  `[S]`: the preview prune bug is now FIXED (`f2a20eb67`, prune by build number not date), so kick a manual build, `gh workflow run preview.yml --ref design/mihon-rebase --repo unseensnick/Reikai`, and confirm r352 lands on `unseensnick/Reikai-preview` and sticks (the prune no longer eats the newest). Then the broader verify: a tag draft-publishes a release and the in-app updater prompts on both. The `PREVIEW_REPO_TOKEN` PAT already works; builds publish; this is now just the manual trigger + check.
+
+## Later
+
+Backlog, unordered. The manga↔novel parity backlog (audit catalog A) is added here as it is triaged.
+
+### Adult / EXH parity (from the 2026-06-27 audit)
+- **EXH library search engine** `[M]`: namespace / wildcard / exclude / exact / alias search over the library (`exh/search`: `SearchEngine`, `Namespace`, wildcards, `QueryComponent`). The browse-side `namespace:tag` autocomplete is already ported; this is the library-search half.
+- **Rich EXH metadata rendering** `[M]`: port `SourceTagsUtil` plus the three surfaces that depend on it: namespaced tappable tag chips on manga details, a per-source gallery info block above the description, and the EH-specific browse list row (language flag / rating / page count). Presentation only; the `*DescriptionAdapter` composables are live in Komikku, not dead.
+- **EXH gallery import entry points** `[S]`: `InterceptActivity` (share or open a gallery link to import it) and `BatchAddScreen` (paste many gallery URLs to bulk-import); both drive the already-ported `GalleryAdder`.
+- **Dynamic delegated-source id lists** `[M]`: port `currentDelegatedSources` / `handleSourceLibrary`, which compute the nHentai / metadata / lanraragi id sets; speeds `isLewd` and unlocks richer nHentai handling.
+- **Fuller GalleryAdder add path** `[S]`: chapter fetch / sync, the retry + NotFound loop, and `pickSource` filtering by enabled languages / disabled sources (our add path is currently trimmed).
+- **EXH gallery-update progress notification** `[S]`: richer content / styling to match Komikku's update-checker notification.
+
+### Manga ↔ novel parity (from the 2026-06-27 audit)
+
+Ready to build, the infrastructure already exists (good candidates to promote to **Next**):
+- **Duplicate detection when adding a novel** `[S]`: wire the existing `getDuplicateLibraryNovel` + `DuplicateNovelDialog` into the details and history add-to-library paths; manga checks for a duplicate, novel adds blind.
+- **Novel migration carry-flags** `[S]`: add a remove-downloads flag and carry the per-novel reader / chapter flags (`viewerFlags` / `chapterFlags`) to the target, completing the migration redesign.
+- **Categorized-display correctness for novels** `[S]`: novel per-category sort ignores the global `categorized_display` toggle and never resets on toggle-off; branch `setSort` and add a novel `ResetCategoryFlags` (a real correctness gap, not just polish).
+- **Expose novel tracking in library filter / sort / group** `[S]`: tracker-status filter, tracker-score sort, and group-by-track-status, all stale-descoped before novel tracking shipped.
+- **Mark same-numbered duplicate chapters read on novel completion** `[S]`: parity for merged novels (manga's `markDuplicateReadChapterAsRead`).
+- **Failed novel download error notification** `[S]`: a failed novel chapter download is silent today; mirror `DownloadNotifier.onError` in `NovelDownloadNotifier`.
+- **Novel updates refresh polish** `[S]`: a started / already-running snackbar on manual novel refresh, and make the update-row cover open novel details.
+- **Tracker-based merge-group healing for novels** `[S-M]`: port `computeHealing` to `NovelMergeManager` to auto-separate mistaken same-title merges, now that novel tracking provides the keys.
+
+Larger initiatives:
+- **Global novel reader-defaults settings screen** `[M]`: novels expose typography / theme / gestures only inside the per-novel reader sheet; add a `SearchableSettings` novel-reader page the sheet falls back to, and localize its hardcoded labels (which also blocks settings search). The single biggest catalog-A gap and the audit's only high-severity parity item.
+- **Novel library Behaviour settings** `[M]`: novels have no Behaviour surface; add swipe actions (bookmark / mark-read / download) and missing-chapter indicators for the novel library list.
+
+Low-value polish, do opportunistically:
+- Browse: source-row Latest shortcut, global-search progress indicator, Last-used section, hide-in-library toggle, per-row language sub-label, genre-tap-to-search.
+- Reader: Share + open-in-browser actions, always-on progress percent.
+- Downloads queue: pause / resume, per-row retry, move-to-top / bottom, per-series move / cancel.
+- Tracking: start-date backfill on bind, create-private-at-bind-time, hide trackers lacking a real novel search.
+- Updates / history: last-updated line on the Novels chip, fast-scroll row animation (also a manga regression on the unified history screen).
+- Details: long-press-copy the WebView URL, per-source scanlator filter for merged novels; per-category novel display settings `[M]`.
 
 ## Parked / not building
 
 - **Manga per-page chapter loading** (parked 2026-06-27): give manga the paged chapter list novels already have (a "Page n / N" bar + `NovelPageSelectorSheet`, fetched lazily per page). Parked because no manga source would feed it. Novel paging is driven by the source plugin: an lnreader plugin can return chapters page-by-page and exposes its own opt-in toggle (e.g. NovelFire's "Page Mode", default off, which sets `totalPages > 1`); Reikai's details screen just reacts to that. Manga's source contract (`getChapterList` returning the full `List<SChapter>` in one call) is fixed and shared byte-for-byte with Mihon, so manga extensions never paginate and there is no toggle to add. The feature would page a list the source already returns complete, buying nothing, and page-scoping Mihon's manga path (sort, filter, mark-all-read, download-all, next-chapter, tracker sync) is real `[M]` work plus `// RK` patch surface for paper parity.
 
 - **Dedicated LN trackers** (NovelUpdates / MiraiList / Novel Trackr / RanobeDB / Hardcover): not viable as of June 2026 (no sanctioned read+write API for on-device use). Re-check Hardcover only if it leaves beta with OAuth + allowlisting. See [novel-tracking.md](docs/dev/plans/novel-tracking.md).
-- **Novel recommendations / related carousel**: gated on novel trackers (mainstream trackers track LNs unreliably) and LN sources expose no related-title metadata; not worth building unless novel tracking proves out.
+- **Novel recommendations / related carousel** (revisit after the 2026-06-27 audit): originally gated on novel trackers, which have since shipped, so the tracker-recs + taste-rerank path is now feasible (drive `RecommendationsFetcher` off `GetNovelTracks`; novels carry the same `trackerId` / `remoteId`). The source-native related path stays infeasible (the LN plugin contract has no `getRelatedMangaList` equivalent). A `[M]` build worth reconsidering if novel recs are wanted; was parked only because trackers were missing.
 - **Upcoming / release calendar for novels**: LN sources rarely expose a reliable release cadence, so the feed would be mostly empty; the calendar stays manga-only.
 - **Source filtering for novels** (dropped 2026-06-21): per-source browse filters and settings already exist; only a sources-list language filter was missing, low value with so few LN sources.
 - **Novel sources enable/disable filter screen**: novels can disable a source (it dims in the Sources list and drops out of global search, re-enable by long-press), but unlike manga there is no dedicated sources-filter screen to bulk-toggle enable/disable. Add one (reached from the Sources filter icon on the Novels chip) if managing many LN sources gets painful.
@@ -51,6 +88,9 @@ Queued, roughly in priority order.
 - **Y4** drag-sort, **Y5** staggered grid, **Y8** (duplicate of R16), **Y19** stats drill-down: out of scope.
 - **EPUB export**: out of plan.
 - **Full two-way E-Hentai favorites sync** (pull account -> library): the scoped one-way backup (push add + opt-in remote remove) shipped instead (see Shipped → Phase 5b). The full `FavoritesSyncHelper` (download the account's favorites and add/remove library entries to mirror them, with an `eh_favorites` snapshot table, conflict handling, and library-screen patches) was deliberately not built: it is the only EXH feature that would mutate the library from a remote source. Revive only if account -> library mirroring is wanted.
+- **EXHMigrations backup source-ID remapper** (investigated 2026-06-27, not needed): Komikku remaps old stock-extension source ids on backup restore. Not needed for Reikai: EH / ExH already resolve because `AndroidSourceManager` registers a built-in `EHentai` for every stock-extension language id in `EHENTAI_EXT_SOURCES` / `EXHENTAI_EXT_SOURCES` (about 36 ids, more complete than Komikku's two-id remap); Tsumino / HBrowse are not shipped; the nHentai old-id churn predates any Reikai-relevant backup (the `.yokai` -> `.y2k` path and current Mihon imports both carry current ids); and we have no SavedSearch / Feed restorers (two of Komikku's four call sites). Worth a one-line comment by `EHENTAI_EXT_SOURCES` so it is not re-discovered as a gap.
+- **Per-source DataSaver image compression** (`exh/util/DataSaver.kt`): a general Komikku image-proxy feature (BANDWIDTH_HERO / wsrv.nl backends rewriting page-image URLs), not adult-specific; out of scope on the Mihon base.
+- **Manga surfaces confirmed not-applicable to novels** (audit 2026-06-27, recorded so they are not re-flagged as gaps): local badge / local titles stat, lewd filter, per-entry fetch-interval (filter, edit control, release-period restriction, upcoming calendar), E-Ink page-flash, save-as-CBZ / split-tall-images, EnhancedTracker one-tap / auto-bind, excluded-scanlators + adult-search-metadata backup, and the per-chapter `memo` / `lastModifiedAt` / `version` backup columns novels don't have. All inapplicable to text content or already parity-equal; the backup and stats areas came back fully intentional / NA.
 - **Adult / EXH enhanced sources — Hitomi.la, 3Hentai, Luscious, HentaiNexus** (part of the adult / EXH subsystem): **Hitomi.la** and **3Hentai** have no stock Keiyoushi extension, so enhancing them means writing or sourcing the base extension first, a larger lift. **Luscious** (GraphQL; tags come back as flat text and the per-tag category is fetched then discarded by the extension's DTO) and **HentaiNexus** (single-language, detail tags collapse into one flat genre, pages are encrypted) expose too little structured metadata to justify a wrapper. Revisit individually; no date set.
 
 ## Shipped
