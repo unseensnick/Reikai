@@ -74,6 +74,12 @@ fun Screen.reikaiExtensionsTab(
                 ContentTypeFilterChips(
                     selected = contentType,
                     onSelect = browseScreenModel::setContentType,
+                    // Show where the pending updates are: a count on the Manga / Novels chip. The All
+                    // chip stays clean; the tab badge already carries the combined total.
+                    badges = mapOf(
+                        ContentType.MANGA to extState.updates,
+                        ContentType.NOVELS to lnCount,
+                    ),
                 )
                 when (contentType) {
                     ContentType.MANGA -> mihonTab.content(contentPadding, snackbarHostState)

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.Badge
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +28,8 @@ fun ContentTypeFilterChips(
     modifier: Modifier = Modifier,
     // The library passes [ContentType.MANGA, ContentType.NOVELS] (no All); Browse/Downloads use all.
     types: List<ContentType> = ContentType.entries,
+    // Opt-in per-type count badge (the Extensions tab passes pending updates per type); empty = none.
+    badges: Map<ContentType, Int> = emptyMap(),
 ) {
     Row(
         modifier = modifier
@@ -36,10 +39,16 @@ fun ContentTypeFilterChips(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         types.forEach { type ->
+            val count = badges[type] ?: 0
             FilterChip(
                 selected = selected == type,
                 onClick = { onSelect(type) },
                 label = { Text(stringResource(type.labelRes)) },
+                trailingIcon = if (count > 0) {
+                    { Badge { Text(text = "$count") } }
+                } else {
+                    null
+                },
             )
         }
     }
