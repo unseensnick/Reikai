@@ -196,6 +196,9 @@ object SettingsEhScreen : SearchableSettings {
         val context = LocalContext.current
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.eh_favorites_backup),
+            // Every item needs the ExHentai login, and a disabled item is hidden (not greyed), so gate
+            // the whole group: this hides the header too, instead of leaving it orphaned when logged out.
+            enabled = exhentaiEnabled,
             preferenceItems = listOf(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = exhPreferences.exhBackupFavoritesToAccount(),
