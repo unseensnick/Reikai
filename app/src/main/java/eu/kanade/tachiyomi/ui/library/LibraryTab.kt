@@ -68,7 +68,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import mihon.feature.migration.config.MigrationConfigScreen
+import reikai.presentation.manga.MangaMigrationSourcePickScreen
 // RK -->
 import reikai.domain.library.ContentType
 import reikai.data.novel.update.NovelUpdateJob
@@ -79,7 +79,7 @@ import reikai.presentation.library.ReikaiLibraryContent
 import reikai.presentation.library.novels.NovelLibraryScreenModel
 import reikai.presentation.library.novels.NovelLibrarySettingsDialog
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
-import reikai.presentation.novel.migrate.NovelMigrationConfigScreen
+import reikai.presentation.novel.migrate.NovelMigrationSourcePickScreen
 import reikai.presentation.library.reikaiCategoryHeaderIndices
 import reikai.presentation.library.reikaiIsCollapsed
 import reikai.presentation.library.reikaiSortCategories
@@ -362,7 +362,7 @@ data object LibraryTab : Tab {
                         onMigrateClicked = {
                             val ids = novelState.selectedNovelIds
                             novelModel.clearSelection()
-                            navigator.push(NovelMigrationConfigScreen(ids))
+                            navigator.push(NovelMigrationSourcePickScreen(ids))
                         },
                         // RK: manual merge of the selected novels (needs at least two) + unmerge (P5 S8)
                         onMergeClicked = novelModel::mergeSelection.takeIf { novelState.selection.size >= 2 },
@@ -380,7 +380,8 @@ data object LibraryTab : Tab {
                         onMigrateClicked = {
                             val selection = state.selection
                             screenModel.clearSelection()
-                            navigator.push(MigrationConfigScreen(selection))
+                            // RK: source picker first (merged-manga member choice).
+                            navigator.push(MangaMigrationSourcePickScreen(selection.toList()))
                         },
                         // RK: manual merge of the selected manga (needs at least two)
                         onMergeClicked = screenModel::mergeSelection.takeIf { state.selection.size >= 2 },

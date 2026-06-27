@@ -61,7 +61,7 @@ import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
 import logcat.LogPriority
-import mihon.feature.migration.config.MigrationConfigScreen
+import reikai.presentation.manga.MangaMigrationSourcePickScreen
 import mihon.feature.migration.dialog.MigrateMangaDialog
 import reikai.presentation.manga.EhRemoveFavoriteDialog
 import reikai.presentation.manga.ManageSourcesDialog
@@ -179,7 +179,8 @@ class MangaScreen(
                     successState.manga.favorite
                 },
                 onMigrateClicked = {
-                    navigator.push(MigrationConfigScreen(successState.manga.id))
+                    // RK: source picker first, so a merged manga can pick which source to migrate.
+                    navigator.push(MangaMigrationSourcePickScreen(listOf(successState.manga.id)))
                 }.takeIf { successState.manga.favorite },
                 onEditNotesClicked = { navigator.push(MangaNotesScreen(manga = successState.manga)) },
                 // RK: source management only when this manga is part of a merge group (full group, so it
