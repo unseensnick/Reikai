@@ -68,7 +68,9 @@ import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.util.Screen
+import eu.kanade.presentation.reader.ReaderContentOverlay
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.Companion.ColorFilterMode
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.tts.TtsPlayback
@@ -94,6 +96,7 @@ class NovelReaderScreen(
         val screenModel = rememberScreenModel { NovelReaderScreenModel(novelId, initialChapterId, orderedChapterIds) }
         val state by screenModel.state.collectAsState()
         val rawSettings by screenModel.settings.collectAsState()
+        val overlay by screenModel.overlaySettings.collectAsState()
 
         // Resolve "Auto" into the effective light/dark preset; otherwise use the chosen preset as-is.
         val systemDark = isSystemInDarkTheme()
@@ -154,6 +157,29 @@ class NovelReaderScreen(
                 window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
             onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+        }
+
+        // Custom reader brightness: positive sets the window brightness, negative dims below the system
+        // minimum via the overlay (handled by ReaderContentOverlay), 0 / off follows the system. Restore
+        // system brightness on leave (the manga reader does this in ReaderActivity).
+        DisposableEffect(overlay.customBrightness, overlay.customBrightnessValue) {
+            (context as? Activity)?.window?.let { w ->
+                w.attributes = w.attributes.apply {
+                    screenBrightness = when {
+                        !overlay.customBrightness || overlay.customBrightnessValue == 0 ->
+                            WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                        overlay.customBrightnessValue > 0 -> overlay.customBrightnessValue / 100f
+                        else -> 0.01f
+                    }
+                }
+            }
+            onDispose {
+                (context as? Activity)?.window?.let { w ->
+                    w.attributes = w.attributes.apply {
+                        screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                    }
+                }
+            }
         }
 
         // Lock the screen to this novel's resolved orientation while reading: apply on every change,
@@ -230,6 +256,14 @@ class NovelReaderScreen(
                     )
                 }
             }
+
+            // Brightness dim + colour-filter tint, above the WebView but below the chrome so the
+            // toolbars stay crisp. Draw-only (no pointer input), so taps/scroll pass to the WebView.
+            ReaderContentOverlay(
+                brightness = if (overlay.customBrightness) overlay.customBrightnessValue else 0,
+                color = overlay.colorFilterValue.takeIf { overlay.colorFilter },
+                colorBlendMode = ColorFilterMode.getOrNull(overlay.colorFilterMode)?.second,
+            )
 
             AnimatedVisibility(
                 visible = menuVisible,
@@ -372,6 +406,12 @@ class NovelReaderScreen(
                 onAutoScroll = screenModel::setAutoScroll,
                 onAutoScrollSpeed = screenModel::setAutoScrollSpeed,
                 onVerticalSeekbar = screenModel::setVerticalSeekbar,
+                overlay = overlay,
+                onCustomBrightness = screenModel::setCustomBrightness,
+                onCustomBrightnessValue = screenModel::setCustomBrightnessValue,
+                onColorFilter = screenModel::setColorFilter,
+                onColorFilterValue = screenModel::setColorFilterValue,
+                onColorFilterMode = screenModel::setColorFilterMode,
                 onDismiss = { settingsOpen = false },
             )
         }

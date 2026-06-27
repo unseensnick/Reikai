@@ -256,6 +256,26 @@ class NovelReaderScreenModel(
         )
     }
 
+    /** Brightness + colour-filter overlay state, separate from [settings] so a change renders natively
+     *  over the WebView and never triggers a WebView settings re-push. */
+    val overlaySettings: StateFlow<NovelReaderOverlaySettings> = combine(
+        novelPreferences.readerCustomBrightness().changes(),
+        novelPreferences.readerCustomBrightnessValue().changes(),
+        novelPreferences.readerColorFilter().changes(),
+        novelPreferences.readerColorFilterValue().changes(),
+        novelPreferences.readerColorFilterMode().changes(),
+    ) { customBrightness, brightnessValue, colorFilter, colorFilterValue, colorFilterMode ->
+        NovelReaderOverlaySettings(customBrightness, brightnessValue, colorFilter, colorFilterValue, colorFilterMode)
+    }.stateIn(screenModelScope, SharingStarted.Eagerly, currentOverlaySettings())
+
+    private fun currentOverlaySettings() = NovelReaderOverlaySettings(
+        customBrightness = novelPreferences.readerCustomBrightness().get(),
+        customBrightnessValue = novelPreferences.readerCustomBrightnessValue().get(),
+        colorFilter = novelPreferences.readerColorFilter().get(),
+        colorFilterValue = novelPreferences.readerColorFilterValue().get(),
+        colorFilterMode = novelPreferences.readerColorFilterMode().get(),
+    )
+
     init {
         // Seed the per-novel orientation from the opened entry (the anchor for a merged novel).
         screenModelScope.launchIO {
@@ -469,6 +489,12 @@ class NovelReaderScreenModel(
         novelPreferences.readerBackgroundColor().set(preset.background)
         novelPreferences.readerTextColor().set(preset.textColor)
     }
+
+    fun setCustomBrightness(enabled: Boolean) = novelPreferences.readerCustomBrightness().set(enabled)
+    fun setCustomBrightnessValue(value: Int) = novelPreferences.readerCustomBrightnessValue().set(value)
+    fun setColorFilter(enabled: Boolean) = novelPreferences.readerColorFilter().set(enabled)
+    fun setColorFilterValue(value: Int) = novelPreferences.readerColorFilterValue().set(value)
+    fun setColorFilterMode(mode: Int) = novelPreferences.readerColorFilterMode().set(mode)
 
     /** Persist the reader's scroll position. The web layer reports a whole percent (0..100); store it
      *  as 0..10000 to match [NovelChapter.lastTextProgress]. Reaching the end auto-marks read. */

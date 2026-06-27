@@ -50,9 +50,14 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.alpha
+import androidx.core.graphics.blue
+import androidx.core.graphics.green
+import androidx.core.graphics.red
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.Companion.ColorFilterMode
 import kotlinx.coroutines.delay
 import reikai.domain.novel.tts.TtsEngineInfo
 import reikai.domain.novel.tts.TtsVoice
@@ -98,6 +103,12 @@ fun NovelReaderSettingsSheet(
     onAutoScroll: (Boolean) -> Unit,
     onAutoScrollSpeed: (Float) -> Unit,
     onVerticalSeekbar: (Boolean) -> Unit,
+    overlay: NovelReaderOverlaySettings,
+    onCustomBrightness: (Boolean) -> Unit,
+    onCustomBrightnessValue: (Int) -> Unit,
+    onColorFilter: (Boolean) -> Unit,
+    onColorFilterValue: (Int) -> Unit,
+    onColorFilterMode: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -179,6 +190,47 @@ fun NovelReaderSettingsSheet(
                                 leadingIcon = { Icon(orientation.icon, contentDescription = null) },
                                 label = { Text(stringResource(orientation.stringRes)) },
                             )
+                        }
+                    }
+                    Text(
+                        "Brightness & color filter",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    SwitchRow("Custom brightness", overlay.customBrightness, onCustomBrightness)
+                    if (overlay.customBrightness) {
+                        LabeledSlider(
+                            "Brightness", "${overlay.customBrightnessValue}",
+                            overlay.customBrightnessValue.toFloat(), -75f..100f, 0,
+                        ) { onCustomBrightnessValue(it.roundToInt()) }
+                    }
+                    SwitchRow("Color filter", overlay.colorFilter, onColorFilter)
+                    if (overlay.colorFilter) {
+                        val argb = overlay.colorFilterValue
+                        LabeledSlider("Red", "${argb.red}", argb.red.toFloat(), 0f..255f, 0) {
+                            onColorFilterValue(getColorValue(argb, it.roundToInt(), RED_MASK, 16))
+                        }
+                        LabeledSlider("Green", "${argb.green}", argb.green.toFloat(), 0f..255f, 0) {
+                            onColorFilterValue(getColorValue(argb, it.roundToInt(), GREEN_MASK, 8))
+                        }
+                        LabeledSlider("Blue", "${argb.blue}", argb.blue.toFloat(), 0f..255f, 0) {
+                            onColorFilterValue(getColorValue(argb, it.roundToInt(), BLUE_MASK, 0))
+                        }
+                        LabeledSlider("Opacity", "${argb.alpha}", argb.alpha.toFloat(), 0f..255f, 0) {
+                            onColorFilterValue(getColorValue(argb, it.roundToInt(), ALPHA_MASK, 24))
+                        }
+                        Text("Blend mode", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            ColorFilterMode.forEachIndexed { index, mode ->
+                                FilterChip(
+                                    selected = overlay.colorFilterMode == index,
+                                    onClick = { onColorFilterMode(index) },
+                                    label = { Text(stringResource(mode.first)) },
+                                )
+                            }
                         }
                     }
                 }
@@ -481,3 +533,12 @@ private fun PresetSwatch(preset: ReaderThemePreset, selected: Boolean, onClick: 
         Text("A", color = fg, fontWeight = FontWeight.Bold)
     }
 }
+
+/** Replace one channel of a packed ARGB int (mirrors the manga ColorFilterPage helper). */
+private fun getColorValue(currentColor: Int, color: Int, mask: Long, bitShift: Int): Int =
+    (color shl bitShift) or (currentColor and mask.inv().toInt())
+
+private const val ALPHA_MASK: Long = 0xFF000000
+private const val RED_MASK: Long = 0x00FF0000
+private const val GREEN_MASK: Long = 0x0000FF00
+private const val BLUE_MASK: Long = 0x000000FF

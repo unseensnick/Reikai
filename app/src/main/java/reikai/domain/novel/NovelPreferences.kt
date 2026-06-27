@@ -112,6 +112,26 @@ class NovelPreferences(
      *  twin of the manga reader's mark-read-on-skip. Opt-in. */
     fun readerMarkReadOnSkip() = preferenceStore.getBoolean("ln_reader_mark_read_on_skip", false)
 
+    // Brightness + colour filter. Novel-specific (independent of the manga reader's global
+    // ReaderPreferences, so each reader keeps its own); the shared ReaderContentOverlay renders them
+    // and brightness also drives the host window's screenBrightness.
+
+    /** Override the screen brightness while reading instead of following the system. */
+    fun readerCustomBrightness() = preferenceStore.getBoolean("ln_reader_custom_brightness", false)
+
+    /** Custom brightness, -75..100: positive sets the window brightness, negative dims via a black
+     *  overlay (below the system minimum), 0 = system brightness. */
+    fun readerCustomBrightnessValue() = preferenceStore.getInt("ln_reader_custom_brightness_value", 0)
+
+    /** Tint the reading surface with a colour overlay. */
+    fun readerColorFilter() = preferenceStore.getBoolean("ln_reader_color_filter", false)
+
+    /** Packed ARGB colour for the filter overlay. */
+    fun readerColorFilterValue() = preferenceStore.getInt("ln_reader_color_filter_value", 0)
+
+    /** Blend-mode index into `ReaderPreferences.ColorFilterMode`. */
+    fun readerColorFilterMode() = preferenceStore.getInt("ln_reader_color_filter_mode", 0)
+
     // Text-to-speech (reader engine extras, round 2). The bundled `core.js` posts `speak` messages we
     // voice with Android TextToSpeech; these prefs drive the engine + the WebView's `tts` settings block.
 

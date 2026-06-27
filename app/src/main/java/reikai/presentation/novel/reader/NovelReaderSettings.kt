@@ -39,6 +39,19 @@ data class NovelReaderSettings(
     val verticalSeekbar: Boolean,
 )
 
+/**
+ * Brightness + colour-filter overlay settings. Kept separate from [NovelReaderSettings] because they
+ * render as a native Compose overlay (plus the host window's brightness) and never touch the WebView,
+ * so changing them must not trigger a settings re-push to the web layer.
+ */
+data class NovelReaderOverlaySettings(
+    val customBrightness: Boolean,
+    val customBrightnessValue: Int,
+    val colorFilter: Boolean,
+    val colorFilterValue: Int,
+    val colorFilterMode: Int,
+)
+
 /** Per-novel orientation choices in the reader sheet: Default (follow the global default) plus the
  *  concrete locks. Reverse-portrait is dropped (rarely wanted); the global-default Settings list
  *  additionally drops Default. */
