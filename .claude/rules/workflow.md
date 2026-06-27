@@ -88,7 +88,7 @@ Write commits a user could skim and a contributor could read on. Scale the struc
 
 - Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`. Scope optional (`novel`, `library`, `reader`, `track`, `icon`, ...).
 - Imperative mood, lower-case, no trailing period, aim for <=72 chars.
-- **ROADMAP references: write `Roadmap N` (no `#`), never `#N`.** GitHub auto-links any `#N` token in a commit to a Reikai issue/PR, and `Roadmap #8` still triggers it (the word before `#` doesn't matter). Put the ref in a footer line (`Roadmap item 8.`) or a short subject parenthetical (`(Roadmap 8)`) if it fits.
+- **ROADMAP references: write `Roadmap N` (no `#`), never `#N`.** GitHub auto-links any `#N` token in a commit to a Reikai issue/PR, and `Roadmap #8` still triggers it (the word before `#` doesn't matter). Put the ref in a footer line (`Roadmap item 8.`) or a short subject parenthetical (`(Roadmap 8)`) if it fits. To link an actual GitHub issue or PR, use the explicit `owner/repo#N` form (`unseensnick/Reikai#N` for our own, `mihonapp/mihon#N` for upstream), never a bare `#N`.
 
 **Body (omit only for trivial commits; wrap ~72 cols):**
 
@@ -101,9 +101,11 @@ Write commits a user could skim and a contributor could read on. Scale the struc
 **Pre-commit checklist, run on EVERY commit (no exceptions: this includes `docs`, `chore`, and one-line fixes, not just feature commits).** A commit that fails any line gets reworded before it lands:
 
 1. Subject is `type(scope): summary`: a real conventional type, imperative, lower-case, no trailing period, `<=72` chars.
-2. **No bare `#N` anywhere in the message** (subject or body). Roadmap ref -> `Roadmap N`; upstream ref -> `mihonapp/mihon#N`. A bare `#N` (and `Roadmap #8`, and `Mihon PR #3403`) auto-links to the wrong (Reikai) repo. This is the single most common past slip, check the body too, not just the subject.
+2. **No bare `#N` anywhere in the message** (subject or body): it is ambiguous (a misformatted roadmap or upstream ref vs a real issue, indistinguishable to GitHub and the hook). A roadmap item is `Roadmap N` (not a GitHub issue, so no `#`); a real issue/PR uses the explicit `owner/repo#N` form, `unseensnick/Reikai#N` for our own and `mihonapp/mihon#N` for upstream, which links correctly and is unambiguous. A bare `#N` (and `Roadmap #8`, `Mihon PR #3403`) is the single most common past slip, check the body too, not just the subject.
 3. No em dashes; no AI watermark (`Co-Authored-By`, generated-by footer).
 4. Non-trivial commit: body leads with 1-2 plain-language sentences, then benefit-first bullets. A trivial commit is just the compliant subject (no body needed).
+
+A **`commit-msg` git hook enforces this** automatically: `.githooks/commit-msg` (tracked) is installed at `.git/hooks/commit-msg` and rejects a non-compliant message (bad subject, over-72 subject, bare `#<number>`, em dash, AI watermark). Reinstall on a fresh clone with `cp .githooks/commit-msg .git/hooks/ && chmod +x .git/hooks/commit-msg`. It leaves `.git/hooks/` as the hooks path so Kotlinter's pre-push hook still works.
 
 Example (a large feature):
 
@@ -153,7 +155,7 @@ Mihon upstream changes are **ported manually** from the local `refs/mihon/` clon
 
 ## Porting remaining Reikai features
 
-Reikai's own features are ported from the **`design/library-compose`** branch (the old Yōkai-based fork) per the rebase plan, re-typed onto Mihon's models. `refs/yokai/` is historical reference only.
+Any remaining Reikai-own feature (the parity backlog is mostly shipped) is ported from the **`design/library-compose`** branch (the old Yōkai-based fork) per the rebase plan, re-typed onto Mihon's models. `refs/yokai/` is historical reference only.
 
 ## Identity (preserve through the rebase)
 

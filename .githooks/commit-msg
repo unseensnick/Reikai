@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Reikai commit-message standard enforcement (see .claude/rules/workflow.md).
+# Rejects a commit whose message breaks the standard. Tracked here as the source of
+# truth; activate on a clone with:  cp .githooks/commit-msg .git/hooks/ && chmod +x .git/hooks/commit-msg
+msg_file="$1"
+subject=$(sed -n '1p' "$msg_file")
+msg=$(cat "$msg_file")
+errors=()
+
+# Let rebase / merge / revert tooling and fixup / squash through untouched.
+case "$subject" in
+  Merge\ *|Revert\ *|fixup!\ *|squash!\ *) exit 0 ;;
+esac
+
+# 1) Conventional subject: type(scope): summary
+echo "$subject" | grep -qE '^(feat|fix|docs|chore|refactor|test|perf|build|ci|style|revert)(\([a-z0-9/._ -]+\))?: .+' \
+  || errors+=("subject must be 'type(scope): summary' (feat|fix|docs|chore|refactor|test|perf|build|ci|style|revert)")
+
+# 2) Subject <= 72 chars
+[ "${#subject}" -le 72 ] || errors+=("subject is ${#subject} chars (max 72)")
+
+# 3) No em dash anywhere in the message
+echo "$msg" | grep -q '—' && errors+=("contains an em dash; use commas, parentheses, periods, or colons")
+
+# 4) No AI watermark
+echo "$msg" | grep -qiE 'co-authored-by|generated with|claude\.ai/code|🤖' \
+  && errors+=("contains an AI watermark (Co-Authored-By / Generated with / robot emoji)")
+
+# 5) No BARE '#<number>' issue ref (ambiguous: a misformatted roadmap/upstream ref vs a real issue).
+#    Allowed: any explicit owner/repo#N (unseensnick/Reikai#N for our own issues, mihonapp/mihon#N for
+#    upstream). Strip those first, then flag a remaining #<digits> ending at a non-alphanumeric (so a
+#    hex colour like #0058A0 is not a false positive).
+stripped=$(echo "$msg" | sed -E 's@[A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+@@g')
+echo "$stripped" | grep -qE '#[0-9]+([^0-9A-Za-z]|$)' \
+  && errors+=("bare '#<number>' is ambiguous; use 'Roadmap N', or an explicit 'unseensnick/Reikai#N' / 'mihonapp/mihon#N'")
+
+if [ "${#errors[@]}" -gt 0 ]; then
+  {
+    echo ""
+    echo "x Commit rejected: message breaks the Reikai standard (.claude/rules/workflow.md):"
+    for e in "${errors[@]}"; do echo "    - $e"; done
+    echo ""
+    echo "  Subject: $subject"
+    echo ""
+  } >&2
+  exit 1
+fi
+exit 0
