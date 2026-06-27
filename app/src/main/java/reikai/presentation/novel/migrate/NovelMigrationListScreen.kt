@@ -10,22 +10,25 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -49,7 +52,7 @@ import eu.kanade.presentation.util.Screen
 import reikai.data.coil.NovelCover
 import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.novel.host.NovelItem
-import reikai.presentation.novel.browse.NovelBrowseListCell
+import reikai.presentation.novel.browse.NovelBrowseGridCell
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.globalsearch.SearchState
 import tachiyomi.i18n.MR
@@ -79,21 +82,35 @@ class NovelMigrationListScreen(
 
         Scaffold(
             topBar = { scrollBehavior ->
+                val total = state.rows.size
+                val matched = state.rows.count { it.chosenTarget != null || it.suggested != null }
                 AppBar(
                     title = stringResource(MR.strings.action_migrate),
+                    subtitle = if (total > 1) "$total novels · $matched matched" else null,
                     navigateUp = navigator::pop,
                     scrollBehavior = scrollBehavior,
                 )
             },
             bottomBar = {
                 if (state.chosenCount > 0) {
-                    Button(
-                        onClick = screenModel::showConfirm,
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(MaterialTheme.padding.medium),
+                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
                     ) {
-                        Text(text = "${stringResource(MR.strings.action_migrate)} (${state.chosenCount})")
+                        OutlinedButton(
+                            onClick = { screenModel.showConfirm(replace = false) },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(text = "${stringResource(MR.strings.copy)} (${state.chosenCount})")
+                        }
+                        Button(
+                            onClick = { screenModel.showConfirm(replace = true) },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(text = "${stringResource(MR.strings.migrate)} (${state.chosenCount})")
+                        }
                     }
                 }
             },
@@ -119,10 +136,11 @@ class NovelMigrationListScreen(
             MigrateConfirmDialog(
                 novelCount = state.chosenCount,
                 skipped = state.skippedCount,
+                replace = state.confirmReplace,
                 initialFlags = state.initialFlags,
                 applicableFlags = state.applicableFlags,
                 onDismissRequest = screenModel::dismissConfirm,
-                onConfirm = screenModel::migrate,
+                onConfirm = { flags -> screenModel.migrate(flags, state.confirmReplace) },
             )
         }
     }
@@ -165,8 +183,8 @@ private fun MigrationRow(
                 modifier = Modifier.padding(horizontal = 4.dp),
             )
             TargetSlot(row = row, modifier = Modifier.weight(1f))
+            RowActions(row = row, screenModel = screenModel)
         }
-        ActionRow(row = row, screenModel = screenModel)
         if (row.expanded) {
             OverrideSection(row = row, screenModel = screenModel)
         }
@@ -237,37 +255,42 @@ private fun TargetSlot(
     }
 }
 
-/** Per-row controls under the comparison: Accept a suggestion, Change (search manually), or clear. */
+/** Trailing actions for a row, manga-style: a one-tap Accept for a suggestion, plus an overflow menu
+ *  (Search manually, and Skip once a target is chosen). Hidden while a row is still fetching. */
 @Composable
-private fun ActionRow(
+private fun RowActions(
     row: NovelMigrationListScreenModel.Row,
     screenModel: NovelMigrationListScreenModel,
 ) {
+    if (row.resolving || row.searching) return
     val id = row.novel.id
     val chosen = row.chosenTarget
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        when {
-            row.resolving || row.searching -> Unit
-            chosen != null -> {
-                TextButton(onClick = { screenModel.toggleExpanded(id) }) {
-                    Text(text = stringResource(MR.strings.action_change))
-                }
-                IconButton(onClick = { screenModel.clearChoice(id) }) {
-                    Icon(imageVector = Icons.Filled.Close, contentDescription = null)
-                }
-            }
-            row.suggested != null -> {
-                Button(onClick = { screenModel.acceptSuggested(id) }) {
-                    Text(text = stringResource(MR.strings.action_accept))
-                }
-                ExpandToggle(row.expanded) { screenModel.toggleExpanded(id) }
-            }
-            else -> TextButton(onClick = { screenModel.toggleExpanded(id) }) {
-                Text(text = stringResource(MR.strings.action_change))
+    if (chosen == null && row.suggested != null) {
+        FilledTonalIconButton(onClick = { screenModel.acceptSuggested(id) }) {
+            Icon(imageVector = Icons.Filled.Check, contentDescription = stringResource(MR.strings.action_accept))
+        }
+    }
+    var menuExpanded by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { menuExpanded = true }) {
+            Icon(imageVector = Icons.Outlined.MoreVert, contentDescription = null)
+        }
+        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+            DropdownMenuItem(
+                text = { Text(text = stringResource(MR.strings.migrationListScreen_searchManuallyActionLabel)) },
+                onClick = {
+                    menuExpanded = false
+                    screenModel.toggleExpanded(id)
+                },
+            )
+            if (chosen != null) {
+                DropdownMenuItem(
+                    text = { Text(text = stringResource(MR.strings.migrationListScreen_skipActionLabel)) },
+                    onClick = {
+                        menuExpanded = false
+                        screenModel.clearChoice(id)
+                    },
+                )
             }
         }
     }
@@ -280,22 +303,18 @@ private fun Spinner(modifier: Modifier = Modifier) {
     }
 }
 
-@Composable
-private fun ExpandToggle(expanded: Boolean, onClick: () -> Unit) {
-    IconButton(onClick = onClick) {
-        Icon(
-            imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-            contentDescription = null,
-        )
-    }
-}
+/** Shared cover width across the migration row, so source and target thumbnails match. */
+private val MIGRATION_COVER_WIDTH = 48.dp
+
+/** Cover-cell width in the override picker grid, matching the novel global-search results row. */
+private val PICKER_CELL_WIDTH = 112.dp
 
 /** Cover for a search-result target ([NovelItem]); tap opens its details to verify before picking. */
 @Composable
 private fun ResultCover(item: NovelItem, site: String?, onClick: () -> Unit) {
     MangaCover.Book(
         data = NovelCover(url = item.cover, site = site, isNovelFavorite = false, lastModified = 0L),
-        modifier = Modifier.width(40.dp),
+        modifier = Modifier.width(MIGRATION_COVER_WIDTH),
         onClick = onClick,
     )
 }
@@ -305,7 +324,7 @@ private fun ResultCover(item: NovelItem, site: String?, onClick: () -> Unit) {
 private fun NovelThumb(url: String?, site: String?, lastModified: Long, novelId: Long, onClick: () -> Unit) {
     MangaCover.Book(
         data = NovelCover(url = url, site = site, isNovelFavorite = false, lastModified = lastModified, novelId = novelId),
-        modifier = Modifier.width(40.dp),
+        modifier = Modifier.width(MIGRATION_COVER_WIDTH),
         onClick = onClick,
     )
 }
@@ -369,14 +388,18 @@ private fun OverrideSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
             )
-            novels.forEach { item ->
-                NovelBrowseListCell(
-                    item = item,
-                    inLibrary = false,
-                    site = result.source.site,
-                    onClick = { screenModel.pick(id, result.source.id, item.path) },
-                    onLongClick = { navigator.push(NovelScreen(result.source.id, item.path)) },
-                )
+            LazyRow {
+                items(items = novels, key = { it.path }) { item ->
+                    Box(modifier = Modifier.width(PICKER_CELL_WIDTH).padding(horizontal = 4.dp)) {
+                        NovelBrowseGridCell(
+                            item = item,
+                            inLibrary = false,
+                            site = result.source.site,
+                            onClick = { screenModel.pick(id, result.source.id, item.path) },
+                            onLongClick = { navigator.push(NovelScreen(result.source.id, item.path)) },
+                        )
+                    }
+                }
             }
         }
     }
@@ -393,18 +416,21 @@ private fun OverrideSection(
 private fun MigrateConfirmDialog(
     novelCount: Int,
     skipped: Int,
+    replace: Boolean,
     initialFlags: Set<NovelMigrationFlag>,
     applicableFlags: Set<NovelMigrationFlag>,
     onDismissRequest: () -> Unit,
-    onConfirm: (flags: Set<NovelMigrationFlag>, replace: Boolean) -> Unit,
+    onConfirm: (flags: Set<NovelMigrationFlag>) -> Unit,
 ) {
     // selected keeps the full saved set; only applicable flags are shown, so a hidden flag's saved
     // state is preserved (and the use case no-ops it per-novel).
     var selected by remember { mutableStateOf(initialFlags) }
+    // Copy vs Migrate is already chosen on the bottom bar; the dialog only confirms what to carry over.
+    val actionLabel = stringResource(if (replace) MR.strings.migrate else MR.strings.copy)
     AlertDialog(
         onDismissRequest = onDismissRequest,
         title = {
-            val base = "${stringResource(MR.strings.action_migrate)} ($novelCount)"
+            val base = "$actionLabel ($novelCount)"
             Text(text = if (skipped > 0) "$base  •  $skipped skipped" else base)
         },
         text = {
@@ -422,10 +448,10 @@ private fun MigrateConfirmDialog(
             }
         },
         confirmButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall)) {
-                TextButton(onClick = { onConfirm(selected, false) }) { Text(text = stringResource(MR.strings.copy)) }
-                TextButton(onClick = { onConfirm(selected, true) }) { Text(text = stringResource(MR.strings.migrate)) }
-            }
+            TextButton(onClick = { onConfirm(selected) }) { Text(text = actionLabel) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) { Text(text = stringResource(MR.strings.action_cancel)) }
         },
     )
 }

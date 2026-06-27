@@ -155,7 +155,7 @@ class NovelMigrationListScreenModel(
     /** Show the confirm dialog, computing which flags are worth offering across the chosen rows: cover
      *  / notes only if at least one source novel actually has one (the novel twin of manga's
      *  applicable-flags). Chapter / category always apply. */
-    fun showConfirm() {
+    fun showConfirm(replace: Boolean) {
         val chosen = state.value.rows.mapNotNull { row -> row.novel.takeIf { row.chosenTarget != null } }
         val applicable = NovelMigrationFlag.ALL.filterTo(LinkedHashSet()) { flag ->
             when (flag) {
@@ -164,7 +164,7 @@ class NovelMigrationListScreenModel(
                 else -> true
             }
         }
-        mutableState.update { it.copy(showConfirm = true, applicableFlags = applicable) }
+        mutableState.update { it.copy(showConfirm = true, confirmReplace = replace, applicableFlags = applicable) }
     }
 
     fun dismissConfirm() = mutableState.update { it.copy(showConfirm = false) }
@@ -202,6 +202,8 @@ class NovelMigrationListScreenModel(
         val isMigrating: Boolean = false,
         val migrated: Boolean = false,
         val showConfirm: Boolean = false,
+        /** Whether the pending confirm will Migrate (replace the source) vs Copy (keep it). */
+        val confirmReplace: Boolean = true,
         val initialFlags: Set<NovelMigrationFlag> = NovelMigrationFlag.ALL,
         val applicableFlags: Set<NovelMigrationFlag> = NovelMigrationFlag.ALL,
     ) {
