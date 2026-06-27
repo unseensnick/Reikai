@@ -61,7 +61,11 @@ class NovelMigrationListScreenModel(
         mutableState.update { it.copy(initialFlags = savedFlags) }
         screenModelScope.launchIO {
             try { installer.ensureLoaded() } catch (_: Throwable) {}
-            val rows = novelIds.mapNotNull { id -> novelRepository.getById(id)?.let { Row(novel = it) } }
+            val rows = novelIds.mapNotNull { id ->
+                novelRepository.getById(id)?.let { novel ->
+                    Row(novel = novel, sourceChapterCount = chapterRepository.getByNovelId(novel.id).size)
+                }
+            }
             mutableState.update { it.copy(rows = rows) }
         }
     }
@@ -116,11 +120,24 @@ class NovelMigrationListScreenModel(
         setRow(novelId) { it.copy(resolving = true) }
         screenModelScope.launchIO {
             val target = runCatching { materialize(sourceId, url) }.getOrNull()
-            setRow(novelId) { it.copy(resolving = false, chosenTarget = target, expanded = false) }
+            // Target chapters were just fetched by materialize, so this count is a free local read.
+            val targetCount = target?.let { chapterRepository.getByNovelId(it.id).size }
+            val site = sourceManager.get(sourceId)?.site
+            setRow(novelId) {
+                it.copy(
+                    resolving = false,
+                    chosenTarget = target,
+                    chosenSite = site,
+                    targetChapterCount = targetCount,
+                    expanded = false,
+                )
+            }
         }
     }
 
-    fun clearChoice(novelId: Long) = setRow(novelId) { it.copy(chosenTarget = null) }
+    fun clearChoice(novelId: Long) = setRow(novelId) {
+        it.copy(chosenTarget = null, chosenSite = null, targetChapterCount = null)
+    }
 
     fun toggleExpanded(novelId: Long) = setRow(novelId) { it.copy(expanded = !it.expanded) }
 
@@ -187,6 +204,12 @@ class NovelMigrationListScreenModel(
         val results: List<SourceSearchResult> = emptyList(),
         val resolving: Boolean = false,
         val chosenTarget: Novel? = null,
+        /** The chosen target's source site, for the target cover's Referer. */
+        val chosenSite: String? = null,
+        /** The source novel's chapter count (free local read; shown always). */
+        val sourceChapterCount: Int = 0,
+        /** The chosen target's chapter count, read after [materialize] populates it; null until chosen. */
+        val targetChapterCount: Int? = null,
         val expanded: Boolean = false,
     ) {
         /** The suggested target: the first non-empty source result (sources are pinned-first, then name). */

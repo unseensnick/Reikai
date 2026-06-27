@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -42,8 +43,13 @@ import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
+import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
+import reikai.data.coil.NovelCover
+import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelMigrationFlag
+import reikai.novel.host.NovelItem
+import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -126,6 +132,7 @@ private fun MigrationRow(
     screenModel: NovelMigrationListScreenModel,
 ) {
     val id = row.novel.id
+    val navigator = LocalNavigator.currentOrThrow
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
         Text(
             text = row.novel.title,
@@ -134,18 +141,29 @@ private fun MigrationRow(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        Text(
+            text = "${row.sourceChapterCount} ch",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
         val chosen = row.chosenTarget
         when {
             row.resolving -> RowStatus { CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp) }
             chosen != null -> Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(imageVector = Icons.Filled.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Text(
-                    text = chosen.title,
-                    modifier = Modifier.weight(1f).padding(start = 8.dp),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                TargetCover(
+                    novel = chosen,
+                    site = row.chosenSite,
+                    onClick = { navigator.push(NovelScreen(chosen.source, chosen.url)) },
                 )
+                Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                    Text(
+                        text = chosen.title,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    TargetChapterCount(sourceCount = row.sourceChapterCount, targetCount = row.targetChapterCount)
+                }
                 TextButton(onClick = { screenModel.toggleExpanded(id) }) {
                     Text(text = stringResource(MR.strings.action_change))
                 }
@@ -156,9 +174,14 @@ private fun MigrationRow(
             row.suggested != null -> {
                 val (source, item) = row.suggested!!
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    ResultCover(
+                        item = item,
+                        site = source.site,
+                        onClick = { navigator.push(NovelScreen(source.id, item.path)) },
+                    )
                     Text(
                         text = "${source.name}: ${item.name}",
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).padding(start = 8.dp),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -201,12 +224,67 @@ private fun ExpandToggle(expanded: Boolean, onClick: () -> Unit) {
     }
 }
 
+/** Cover for a search-result target ([NovelItem]); tap opens its details to verify before picking. */
+@Composable
+private fun ResultCover(item: NovelItem, site: String?, onClick: () -> Unit) {
+    MangaCover.Book(
+        data = NovelCover(url = item.cover, site = site, isNovelFavorite = false, lastModified = 0L),
+        modifier = Modifier.width(40.dp),
+        onClick = onClick,
+    )
+}
+
+/** Cover for the chosen target ([Novel], already materialised); tap opens its details. */
+@Composable
+private fun TargetCover(novel: Novel, site: String?, onClick: () -> Unit) {
+    MangaCover.Book(
+        data = NovelCover(
+            url = novel.thumbnailUrl,
+            site = site,
+            isNovelFavorite = false,
+            lastModified = novel.coverLastModified,
+            novelId = novel.id,
+        ),
+        modifier = Modifier.width(40.dp),
+        onClick = onClick,
+    )
+}
+
+/** Target chapter count, with the shortfall vs the source in error colour when fewer (a migration
+ *  regression). A paged source can under-count until all pages load, so the flag is conservative;
+ *  the cover taps through to details to verify. */
+@Composable
+private fun TargetChapterCount(sourceCount: Int, targetCount: Int?) {
+    if (targetCount == null) return
+    val delta = targetCount - sourceCount
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = "$targetCount ch",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (delta < 0) {
+            Text(
+                text = " · ",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = "$delta",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+    }
+}
+
 @Composable
 private fun OverrideSection(
     row: NovelMigrationListScreenModel.Row,
     screenModel: NovelMigrationListScreenModel,
 ) {
     val id = row.novel.id
+    val navigator = LocalNavigator.currentOrThrow
     var query by remember(id) { mutableStateOf(row.novel.title) }
     OutlinedTextField(
         value = query,
@@ -221,16 +299,27 @@ private fun OverrideSection(
         },
     )
     // Flat candidate list (bounded: one page per source), no nested LazyColumn.
+    // Cover taps open the target's details to verify it; the title taps select it.
     row.candidates.forEach { (source, item) ->
-        Text(
-            text = "${source.name}: ${item.name}",
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { screenModel.pick(id, source.id, item.path) }
-                .padding(vertical = 10.dp),
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ResultCover(
+                item = item,
+                site = source.site,
+                onClick = { navigator.push(NovelScreen(source.id, item.path)) },
+            )
+            Text(
+                text = "${source.name}: ${item.name}",
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { screenModel.pick(id, source.id, item.path) }
+                    .padding(start = 8.dp, top = 10.dp, bottom = 10.dp),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
     if (row.candidates.isEmpty() && !row.searching) {
         Text(
