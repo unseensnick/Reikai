@@ -20,9 +20,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import exh.source.BlacklistedSources
+import exh.source.ExhPreferences
 import logcat.LogPriority
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
@@ -43,6 +46,8 @@ class ExtensionManager(
     private val context: Context,
     private val preferences: SourcePreferences = Injekt.get(),
     private val trustExtension: TrustExtension = Injekt.get(),
+    // RK: gates hiding the stock E-Hentai extension while built-in EH is active.
+    private val exhPreferences: ExhPreferences = Injekt.get(),
 ) {
 
     val scope = CoroutineScope(SupervisorJob())
@@ -380,6 +385,16 @@ class ExtensionManager(
     private operator fun <T : Extension> Map<String, T>.plus(extension: T) = plus(extension.pkgName to extension)
 
     private fun <T : Extension> StateFlow<Map<String, T>>.mapExtensions(scope: CoroutineScope): StateFlow<List<T>> {
-        return map { it.values.toList() }.stateIn(scope, SharingStarted.Lazily, value.values.toList())
+        // RK: hide the stock E-Hentai extension while built-in EH is active; it shares source ids
+        //     with our built-in EH and would shadow / duplicate it. Reactive on the hentai gate.
+        return combine(exhPreferences.isHentaiEnabled().changes()) { map, hentaiEnabled ->
+            map.values.filterNot { hentaiEnabled && it.pkgName in BlacklistedSources.BLACKLISTED_EXTENSIONS }
+        }.stateIn(scope, SharingStarted.Lazily, value.values.filterNotBlacklisted())
+    }
+
+    // RK: initial value for mapExtensions before the gate flow first emits.
+    private fun <T : Extension> Collection<T>.filterNotBlacklisted(): List<T> {
+        val hentaiEnabled = exhPreferences.isHentaiEnabled().get()
+        return filterNot { hentaiEnabled && it.pkgName in BlacklistedSources.BLACKLISTED_EXTENSIONS }
     }
 }

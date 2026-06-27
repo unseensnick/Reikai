@@ -104,6 +104,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Fixes
 - **Saved adult galleries no longer get re-fetched on every library update.** E-Hentai, ExHentai, Pururin, and nHentai galleries are now skipped by the regular library update (E-Hentai keeps its own dedicated gallery-update checker), so updates finish faster and stop needlessly hammering those servers.
+- **No more duplicate E-Hentai if you also install the stock extension.** With built-in adult sources enabled, the separate stock E-Hentai extension is now hidden and its sources skipped, so it can't shadow or double up the built-in E-Hentai.
 - **The E-Hentai settings category shows up the moment you enable adult sources.** Turning on Settings → Advanced → Enable adult sources now reveals (and turning it off hides) the E-Hentai category on the main Settings screen immediately, instead of only after leaving Settings and coming back.
 - **No more empty "Favorites backup" header in E-Hentai settings.** Its options all need an ExHentai login and were hidden when logged out, leaving just the header; the whole section now appears only once you're logged in.
 - **The restore screen opens reliably after you pick a backup file.** Choosing a backup (Settings → Data and storage → Restore, or from onboarding) sometimes needed a second tap before the "what to restore" options appeared; it now shows on its own.

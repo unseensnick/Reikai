@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.source.online.all.Lanraragi
 import eu.kanade.tachiyomi.source.online.all.NHentai
 import eu.kanade.tachiyomi.source.online.english.EightMuses
 import eu.kanade.tachiyomi.source.online.english.Pururin
+import exh.source.BlacklistedSources
 import exh.source.DelegatedHttpSource
 import exh.source.EHENTAI_EXT_SOURCES
 import exh.source.EIGHTMUSES_SOURCE_ID
@@ -117,6 +118,11 @@ class AndroidSourceManager(
                     currentDelegatedSources.clear()
                     extensions.forEach { extension ->
                         extension.sources.forEach {
+                            // RK: skip the stock E-Hentai extension's sources while built-in EH is on;
+                            //     they share ids with our built-in sources and would shadow them.
+                            if (isHentaiEnabled && it.id in BlacklistedSources.BLACKLISTED_EXT_SOURCES) {
+                                return@forEach
+                            }
                             // RK: wrap delegated adult sources so installed galleries gain metadata
                             mutableMap[it.id] = it.toEnhancedSource()
                             registerStubSource(StubSource.from(it))
