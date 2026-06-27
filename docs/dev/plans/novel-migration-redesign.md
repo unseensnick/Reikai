@@ -20,7 +20,9 @@ Three independent phases, each shippable on its own and ordered so value lands e
 
 Add cover thumbnails to every result in the existing row layout (the suggested hit, the override candidate list, the chosen target) via the existing novel cover pipeline (`NovelCover` + `MangaCover.Book`, exactly as `NovelBrowseListCell` and `DuplicateNovelDialog` already do). Surface the chapter count on each side, and flag a target with fewer chapters than the source with a quiet warning color (load-bearing color per the brand: it means a regression risk).
 
-Mostly view-layer. Two small `NovelMigrationListScreenModel` touches: carry the chosen source's `site` on the `Row` so the chosen-target cover loads with the right Referer, and expose chapter counts. Open question to resolve first: whether the search-result `NovelItem` carries a chapter count, or whether the count is only known after the target is materialised (the lazy `parseNovel` fetch). That decides whether the regression warning shows immediately or only after a target is picked.
+Mostly view-layer. Two small `NovelMigrationListScreenModel` touches: carry the chosen source's `site` on the `Row` so the chosen-target cover loads with the right Referer, and expose the chapter counts.
+
+Counts are split by cost. The source novel is already in the library, so its count is a free local read (`NovelChapterRepository.getByNovelId(...).size`) shown always. A search result (`NovelItem`) carries no count, and fetching one per result would mean a `parseNovel` detail hit for every candidate across every source: exactly the source hammering to avoid. So the target count, and the regression warning, appears only once a target is selected, where `materialize` already runs `refreshNovelFromSource` and populates the chapters; reading the count back is then free. Un-picked search results and the candidate picker show cover, title, and source only, never a count.
 
 ### Phase 2: source-selection pre-step
 
@@ -47,6 +49,7 @@ Planned (queued as Now in `ROADMAP.md`). No code yet.
 ## Decisions & tradeoffs
 
 - **Phased, not one rewrite.** Covers (Phase 1) are the most-wanted fix and ship first without waiting on the full row rebuild. The minor rework (Phase 1's cover code moves into Phase 3's new cells) is cheap because it is the same `NovelCover` calls.
+- **Chapter counts ride the materialise fetch, never a per-result fetch.** A count on every search result would need a `parseNovel` detail hit per candidate per source (source hammering). The target count instead reuses the fetch that already happens when a target is picked, so the regression signal costs nothing extra. The tradeoff: the count and warning appear after a target is selected, not on the result list. The source count is a free local read and is always shown.
 - **Reuse the cover pipeline, do not invent a layout.** Thumbnails go through `NovelCover` + `MangaCover.Book` like the rest of the novel UI, keeping cross-format cohesion with manga migration.
 - **A new pref, not reuse of `pinnedNovelSources`.** Pinned sources and migration-target sources are different intents; manga keeps them separate (`pinnedSources` vs `migrationSources`) and so should novels.
 - **Stays in Reikai files.** This is a `reikai.*` screen; the manga screens are read as reference only, never patched.
