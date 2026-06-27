@@ -20,11 +20,11 @@ Per-feature implementation and decision records live in [docs/dev/plans/](docs/d
 | Release | Signed release pipeline (AGP signing, preview/release workflows, in-app updater) | built; first-run verify pending (user) |
 | Round 2 | Manga↔novel parity backlog + revived adult-source subsystem | shipped (last standalone item parked) |
 
-The rebase is functionally complete: the core sequence and the manga↔novel parity backlog have shipped and are on-device verified. Active work is the **Now** item below (novel migration redesign); **Next** is the release-pipeline verify; the last standalone parity item is parked.
+The rebase is functionally complete: the core sequence and the manga↔novel parity backlog have shipped and are on-device verified. Active work is the **Now** item below (merge-aware migration); **Next** is the release-pipeline verify; the last standalone parity item is parked.
 
 ## Now
 
-- **Novel migration redesign** `[L]`: make novel migration (single + batch) usable, on par with the browse-source catalogue while clearly reading as a migration. Phased: (1) covers + a chapter-count regression signal on results, (2) a manga-style source-selection pre-step (Selected / Available, reorderable priority, new `novelMigrationSources` pref), (3) a source-to-target comparison row with a browse-style cover picker and per-row actions. See [novel-migration-redesign.md](docs/dev/plans/novel-migration-redesign.md).
+- **Merge-aware migration (manga + novel)** `[M]`: migration doesn't account for merge groups today, so migrating an entry that's part of a manual multi-source merge can mishandle the group (the sibling sources and the merge relationship). Make both the manga and novel migration paths merge-aware. Not yet investigated; size tentative.
 
 ## Next
 
@@ -98,6 +98,7 @@ Terse done-log, grouped by area. Full detail in the linked plan docs.
 - Surgical novel writes: favorite / cover / chapter-flag / orientation changes route through `UpdateNovel` / `SetNovelChapterFlags` / `SetNovelViewerFlags` interactors (the novel twins of Mihon's), writing one column instead of the whole row. See [novel-parity-backlog.md](docs/dev/plans/novel-parity-backlog.md).
 - Download-queue reorder + sort: drag-to-reorder the flat novel queue (persisted to `NovelDownloadStore`, survives restart) plus a Sort menu (upload date / chapter number); the unified queue's Sort hits manga and novels together. See [novel-parity-backlog.md](docs/dev/plans/novel-parity-backlog.md).
 - Batch / library migration: one unified migration screen for 1..N novels (single from a novel's overflow, batch from library multi-select). Each row auto-searches on scroll and suggests a target to accept or override; lazy-materialize on pick, then Copy / Migrate with flags. Replaces the old single-only migrate UI. See [novel-parity-backlog.md](docs/dev/plans/novel-parity-backlog.md).
+- Migration redesign: covers + a chapter-count regression signal, a source-selection pre-step (Selected / Available, reorderable priority, `novelMigrationSources` pref), a source-to-target comparison row with manga-style per-row actions (one-tap Accept + overflow menu), a browse-style cover-grid override picker, and Copy / Migrate as distinct bottom actions. See [novel-migration-redesign.md](docs/dev/plans/novel-migration-redesign.md) (`722db903a`, `ebe4684a7`, `e8a24d888`, `d202dfde4`, `15e947cb6`).
 - Download settings parity: keep-last-N-read (delete-after-read slots), don't-delete-bookmarked, exclude-categories-from-delete, and download-ahead, all under Settings → Downloads. See [novel-parity-backlog.md](docs/dev/plans/novel-parity-backlog.md).
 - Per-title novel update notifications: one grouped notification per updated novel, deep-linking into the novel via a new `SHORTCUT_NOVEL` intent. See [novel-parity-backlog.md](docs/dev/plans/novel-parity-backlog.md).
 - Novel tracking private listing: `private` column on `novel_tracks` (migration 25) threaded through `NovelTrack`, the mapper / insert, and the `DbTrack` conversion (plus backup proto), with `NovelTrackUpdater.setRemotePrivate` and `allowPrivate` so the shared Tracking sheet shows "Track privately" for capable trackers (Kitsu / AniList / Bangumi) (`9da2408c5`).
