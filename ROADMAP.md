@@ -20,11 +20,11 @@ Per-feature implementation and decision records live in [docs/dev/plans/](docs/d
 | Release | Signed release pipeline (AGP signing, preview/release workflows, in-app updater) | built; first-run verify pending (user) |
 | Round 2 | Manga↔novel parity backlog + revived adult-source subsystem | shipped (last standalone item parked) |
 
-The rebase is functionally complete: the core sequence and the manga↔novel parity backlog have shipped and are on-device verified. The parity & adult-system audit has run (report `PARITY-EXH-AUDIT.md`, local / gitignored); its EXH findings are filed into **Next**, **Later** (backlog parity), and **Parked** (two skips), with the manga↔novel catalog triage in progress. The high-severity finding (adult galleries in library updates) already shipped.
+The rebase is functionally complete: the core sequence and the manga↔novel parity backlog have shipped and are on-device verified. The parity & adult-system audit has run and is fully triaged (report `PARITY-EXH-AUDIT.md`, local / gitignored): its findings are filed into **Next**, **Later** (the manga↔novel and adult/EXH parity backlogs), and **Parked**. Both audit work items already shipped (adult galleries excluded from library updates, on-device verified; stock E-Hentai extension suppressed, regression-verified).
 
 ## Now
 
-Nothing actively in progress (the audit triage is filing work into Next / Later below).
+Nothing actively in progress.
 
 ## Next
 
