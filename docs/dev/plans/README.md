@@ -34,6 +34,7 @@ The format these follow, and the rule for what earns a doc here, live in [.claud
 - [Novel tracking](novel-tracking.md): bind novels to AniList / MyAnimeList / MangaUpdates / Kitsu and sync reading progress, reusing Mihon's trackers, group-aware across merged sources.
 - [Novel backup & restore](novel-backup.md): light novels ride the same backup file as manga (chapters, history, tracks, categories, id-remapped merges) plus an installed-sources record that reinstalls extensions and re-downloads plugins on restore.
 - [Novel parity backlog (shipped)](novel-parity-backlog.md): the manga↔novel parity features (history, migration, library modes, reader, stats, browse) that make novels feel native, with per-item commit SHAs and the deliberate trims.
+- [Novel migration redesign](novel-migration-redesign.md): covers and chapter-count signal on results, a manga-style source-selection pre-step, and a source-to-target comparison row. Planned, phased.
 
 ## Unified surfaces (manga + novel)
 

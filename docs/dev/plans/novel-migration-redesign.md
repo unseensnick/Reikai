@@ -1,0 +1,52 @@
+# Novel migration redesign
+
+## Goal
+
+Make novel migration (single and batch) genuinely usable: show covers so you can tell which result is the right book, surface the chapter count so you never migrate into a source with fewer chapters than you've read, and add the manga-style source-selection pre-step so you control which sources are searched and in what priority. The end state is on par with the browse-source catalogue for scanning results, while reading clearly as a migration tool (source to target), not a browse.
+
+## Why
+
+The current novel migration screen (`NovelMigrationListScreen`) renders every search result as a single line of text, `"SourceName: Title"`, with an expandable text list to override. Two concrete gaps make it hard to use:
+
+- **No covers.** With near-namesake novels (`Reverend Insanity` vs `Reverend Insanity: Dream Gu`), you cannot tell which result is correct without opening each one. Covers are the fastest match signal, and the data is already present (`NovelItem.cover`); the screen just never draws it.
+- **No chapter count.** Migration's real risk is moving to a source with fewer chapters than you've already read. Mihon's manga migration shows the chapter count on both sides precisely for this; the novel screen shows nothing, so a regression is invisible.
+- **No source pre-step.** Manga opens a source-selection screen first (`MigrationConfigScreen`): pick which sources to search and drag them into priority order. Novel migration silently searches every installed source with no control, and the suggested top hit is just the first source's first result rather than the user's preferred source.
+
+## Approach
+
+Three independent phases, each shippable on its own and ordered so value lands early and the largest rebuild is last. All work stays inside Reikai's own files under `reikai.presentation.novel.migrate` and `reikai.domain.source`; no Mihon files are patched.
+
+### Phase 1: covers + chapter-count signal
+
+Add cover thumbnails to every result in the existing row layout (the suggested hit, the override candidate list, the chosen target) via the existing novel cover pipeline (`NovelCover` + `MangaCover.Book`, exactly as `NovelBrowseListCell` and `DuplicateNovelDialog` already do). Surface the chapter count on each side, and flag a target with fewer chapters than the source with a quiet warning color (load-bearing color per the brand: it means a regression risk).
+
+Mostly view-layer. Two small `NovelMigrationListScreenModel` touches: carry the chosen source's `site` on the `Row` so the chosen-target cover loads with the right Referer, and expose chapter counts. Open question to resolve first: whether the search-result `NovelItem` carries a chapter count, or whether the count is only known after the target is materialised (the lazy `parseNovel` fetch). That decides whether the regression warning shows immediately or only after a target is picked.
+
+### Phase 2: source-selection pre-step
+
+Add `NovelMigrationConfigScreen`, the novel twin of Mihon's `MigrationConfigScreen`: all installed novel sources split into **Selected** (reorderable, priority order) and **Available**, with select all / none / pinned bulk actions and a Continue action. Persist the selection and order to a new `novelMigrationSources` preference on `ReikaiSourcePreferences` (an ordered list of string source ids, mirroring `pinnedNovelSources` / `ln_pinned_sources`). Route the Migrate entry points through this screen first.
+
+The migration list then searches only the selected sources, in the saved order, replacing the current search-all (`selectGlobalSearchSources(..., SourceFilter.All)` in `runSearch`). Because the suggested top hit is the first non-empty source result, honoring the saved order also makes the suggestion respect the user's source priority.
+
+### Phase 3: comparison-row redesign + per-row actions
+
+Restructure each row into a source-to-target comparison (the agreed mockup): both sides show cover, title, source, and chapter count, separated by an arrow that reads as "migrate". Replace the flat text override list with a browse-style cover grid grouped by source (the catalogue-parity picker; pick by tapping a cover, the selected target gets the in-library accent border). Keep the inline re-search field (a strength the novel screen already has over manga, which punts to a separate screen). Add per-row overflow actions (skip, search manually, migrate now, copy now) so a large batch is not all-or-nothing, and surface Copy vs Migrate as two distinct actions (Copy keeps the original, Migrate replaces it) instead of burying them in the confirm dialog. Phase 1's cover code relocates into the new cells here.
+
+## Key files
+
+- `reikai/presentation/novel/migrate/NovelMigrationListScreen.kt`, `NovelMigrationListScreenModel.kt`: the migration list (all three phases touch these).
+- `reikai/presentation/novel/migrate/NovelMigrationConfigScreen.kt`: new in Phase 2, the source-selection pre-step.
+- `reikai/domain/source/ReikaiSourcePreferences.kt`: new `novelMigrationSources` preference (Phase 2).
+- `reikai/presentation/novel/browse/NovelBrowseGridCell.kt`, `reikai/data/coil/NovelCover.kt`: the existing cover pipeline reused for result thumbnails.
+- Reference (Mihon, do not edit): `mihon/feature/migration/config/MigrationConfigScreen.kt` (pre-step), `mihon/feature/migration/list/MigrationListScreenContent.kt` (comparison row + per-row actions).
+
+## Status
+
+Planned (queued as Now in `ROADMAP.md`). No code yet.
+
+## Decisions & tradeoffs
+
+- **Phased, not one rewrite.** Covers (Phase 1) are the most-wanted fix and ship first without waiting on the full row rebuild. The minor rework (Phase 1's cover code moves into Phase 3's new cells) is cheap because it is the same `NovelCover` calls.
+- **Reuse the cover pipeline, do not invent a layout.** Thumbnails go through `NovelCover` + `MangaCover.Book` like the rest of the novel UI, keeping cross-format cohesion with manga migration.
+- **A new pref, not reuse of `pinnedNovelSources`.** Pinned sources and migration-target sources are different intents; manga keeps them separate (`pinnedSources` vs `migrationSources`) and so should novels.
+- **Stays in Reikai files.** This is a `reikai.*` screen; the manga screens are read as reference only, never patched.

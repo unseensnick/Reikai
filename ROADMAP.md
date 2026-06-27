@@ -18,13 +18,13 @@ Per-feature implementation and decision records live in [docs/dev/plans/](docs/d
 | P8 | Settings / shell carry | dropped (Mihon covers it; the tabbed shell shipped under P9) |
 | P9 | Category bulk-delete + unified Recents (folded into Updates + History) | done |
 | Release | Signed release pipeline (AGP signing, preview/release workflows, in-app updater) | built; first-run verify pending (user) |
-| Round 2 | Manga↔novel parity backlog + revived adult-source subsystem | shipped; only standalone items remain (below) |
+| Round 2 | Manga↔novel parity backlog + revived adult-source subsystem | shipped (last standalone item parked) |
 
-The rebase is functionally complete: the core sequence and the bulk of the manga↔novel parity backlog have shipped and are on-device verified. What remains is the **Next / Later** work below.
+The rebase is functionally complete: the core sequence and the manga↔novel parity backlog have shipped and are on-device verified. Active work is the **Now** item below (novel migration redesign); **Next** is the release-pipeline verify; the last standalone parity item is parked.
 
 ## Now
 
-Nothing actively in progress.
+- **Novel migration redesign** `[L]`: make novel migration (single + batch) usable, on par with the browse-source catalogue while clearly reading as a migration. Phased: (1) covers + a chapter-count regression signal on results, (2) a manga-style source-selection pre-step (Selected / Available, reorderable priority, new `novelMigrationSources` pref), (3) a source-to-target comparison row with a browse-style cover picker and per-row actions. See [novel-migration-redesign.md](docs/dev/plans/novel-migration-redesign.md).
 
 ## Next
 
@@ -32,13 +32,9 @@ Queued, roughly in priority order.
 
 - **Publish a fresh preview + release-pipeline first-run verify**  `[S]`: the preview prune bug is now FIXED (`f2a20eb67`, prune by build number not date), so kick a manual build, `gh workflow run preview.yml --ref design/mihon-rebase --repo unseensnick/Reikai`, and confirm r352 lands on `unseensnick/Reikai-preview` and sticks (the prune no longer eats the newest). Then the broader verify: a tag draft-publishes a release and the in-app updater prompts on both. The `PREVIEW_REPO_TOKEN` PAT already works; builds publish; this is now just the manual trigger + check.
 
-## Later
-
-Remaining standalone items from the manga-vs-novel feature audit (2026-06-25), each verified against current code. The batched parity sweep (A-D) has shipped (see Shipped); each item below carries its own migration / proto / subsystem and is best done alone. Sizes: `[S]` / `[M]`.
-
-- **Manga per-page chapter loading** `[M]`: manga loads the whole chapter list at once; novels page huge lists via `NovelPageSelectorSheet`. Low value (manga chapter lists are rarely huge) but a genuine gap.
-
 ## Parked / not building
+
+- **Manga per-page chapter loading** (parked 2026-06-27): give manga the paged chapter list novels already have (a "Page n / N" bar + `NovelPageSelectorSheet`, fetched lazily per page). Parked because no manga source would feed it. Novel paging is driven by the source plugin: an lnreader plugin can return chapters page-by-page and exposes its own opt-in toggle (e.g. NovelFire's "Page Mode", default off, which sets `totalPages > 1`); Reikai's details screen just reacts to that. Manga's source contract (`getChapterList` returning the full `List<SChapter>` in one call) is fixed and shared byte-for-byte with Mihon, so manga extensions never paginate and there is no toggle to add. The feature would page a list the source already returns complete, buying nothing, and page-scoping Mihon's manga path (sort, filter, mark-all-read, download-all, next-chapter, tracker sync) is real `[M]` work plus `// RK` patch surface for paper parity.
 
 - **Dedicated LN trackers** (NovelUpdates / MiraiList / Novel Trackr / RanobeDB / Hardcover): not viable as of June 2026 (no sanctioned read+write API for on-device use). Re-check Hardcover only if it leaves beta with OAuth + allowlisting. See [novel-tracking.md](docs/dev/plans/novel-tracking.md).
 - **Novel recommendations / related carousel**: gated on novel trackers (mainstream trackers track LNs unreliably) and LN sources expose no related-title metadata; not worth building unless novel tracking proves out.
