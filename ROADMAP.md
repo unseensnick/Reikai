@@ -30,8 +30,7 @@ Nothing actively in progress.
 
 Queued, roughly in priority order.
 
-- **Fix preview-build prune bug** `[S]`: previews stopped appearing on `unseensnick/Reikai-preview` after 2026-06-24 (stuck at r295). Builds publish fine, but `preview.yml`'s "Prune old previews (keep newest 28)" deletes the just-created release: the repo sits at the 28 cap so every build prunes one, and all releases share an identical `createdAt` (a history-rewrite force-push reset tag dates), so `sort_by(.createdAt) | reverse | .[28:]` drops the newest. Fix: prune by build number instead, `sort_by(.tagName | ltrimstr("r") | tonumber) | reverse | .[28:]`. One line in `.github/workflows/preview.yml`.
-- **Release pipeline first-run verify**  `[S]`: create the `PREVIEW_REPO_TOKEN` fine-grained PAT (Contents: write on `unseensnick/Reikai-preview`) as a secret on `unseensnick/Reikai`, then confirm a push publishes a preview, a tag draft-publishes a release, and the in-app updater prompts on both. User action; the workflows are built. (Note: the PAT itself works, previews build + publish; the prune bug above is the actual blocker.)
+- **Publish a fresh preview + release-pipeline first-run verify**  `[S]`: the preview prune bug is now FIXED (`f2a20eb67`, prune by build number not date), so kick a manual build, `gh workflow run preview.yml --ref design/mihon-rebase --repo unseensnick/Reikai`, and confirm r352 lands on `unseensnick/Reikai-preview` and sticks (the prune no longer eats the newest). Then the broader verify: a tag draft-publishes a release and the in-app updater prompts on both. The `PREVIEW_REPO_TOKEN` PAT already works; builds publish; this is now just the manual trigger + check.
 
 ## Later
 
@@ -66,9 +65,11 @@ Terse done-log, grouped by area. Full detail in the linked plan docs.
 - De-Mihon brand pass: Reikai logo, trimmed About links, donation/Support removed, trackers rebranded; repo meta + JDK 21. Icon design sources in `art/icon/`.
 - README header logo + animated showcase WebP + reproduction kit (`docs/dev/readme-showcase.md`).
 - Signed release pipeline: AGP-native signing, `release.yml` / `preview.yml`, in-app updater re-pointed at Reikai repos (`88ce9e674`, `dc695cefb`, `21bf270de`, `049645a41`).
+- Preview pipeline prune fix: previews had stopped publishing (stuck at r295) because the prune sorted by `createdAt` (all identical after a history-rewrite) and deleted the just-published release; now prunes by build number (`f2a20eb67`). Old Yōkai-era `r6xxx` nightlies on the main repo were also cleaned up.
+- Commit-standard enforcement: a `commit-msg` git hook (`.githooks/commit-msg`) rejects non-compliant messages; the standard now allows explicit `owner/repo#N` refs (`2801b2ae1`).
 - Minified-build startup-crash fix: the net-new `reikai.*` package added to the proguard keep list.
 - Tier 0 duplication cleanup, 3 tiers, no behavior change (`6c27c5923`, `85ff3326d`, `f783979b5`).
-- Mihon upstream syncs, caught up to `refs/mihon` `5f80403c5` (running ledger in the `upstream-sync` memory).
+- Mihon upstream syncs, caught up to `refs/mihon` `a82ccea6f` (incl. Voyager 1.x->2.x, Gradle 9.6.1; running ledger in the `upstream-sync` memory).
 
 ### Manga
 - Library screen carry: single-list + hopper, dynamic grouping, filter/sort, category sort order, opt-in update-errors screen (P2). See [library-screen-carry.md](docs/dev/plans/library-screen-carry.md).
