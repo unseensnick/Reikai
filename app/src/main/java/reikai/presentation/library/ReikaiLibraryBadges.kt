@@ -1,7 +1,10 @@
 package reikai.presentation.library
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
@@ -13,11 +16,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import eu.kanade.domain.source.model.icon
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import exh.assets.EhAssets
+import exh.assets.ehassets.EhLogo
+import exh.source.eHentaiSourceIds
 import reikai.data.coil.NovelCover
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.source.model.Source
@@ -96,10 +103,34 @@ fun SourceIconBadge(source: Source?) {
             color = MaterialTheme.colorScheme.tertiary,
             iconColor = MaterialTheme.colorScheme.onTertiary,
         )
+        // RK: built-in E-Hentai / ExHentai ship no extension icon, so draw the EH mark on a white
+        //     tile (same treatment as the browse SourceIcon) instead of the generic library glyph.
+        source.id in eHentaiSourceIds -> EhSourceIconBadge()
         else -> Badge(
             imageVector = Icons.Outlined.LocalLibrary,
             color = MaterialTheme.colorScheme.tertiary,
             iconColor = MaterialTheme.colorScheme.onTertiary,
+        )
+    }
+}
+
+/** Source-icon badge for the built-in E-Hentai / ExHentai sources. The brand mark (its own dark red)
+ *  is drawn untinted on a white tile so it reads on both themes, matching the browse [SourceIcon];
+ *  scaled to the same footprint as the bitmap source badge. */
+@Composable
+private fun EhSourceIconBadge() {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .clip(RectangleShape)
+            .background(Color.White)
+            .height(18.dp)
+            .aspectRatio(1f),
+    ) {
+        Image(
+            imageVector = EhAssets.EhLogo,
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(0.8f),
         )
     }
 }
