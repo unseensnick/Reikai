@@ -59,3 +59,12 @@ val EXHENTAI_EXT_SOURCES = mapOf(
 )
 
 val eHentaiSourceIds = EHENTAI_EXT_SOURCES.keys + EXHENTAI_EXT_SOURCES.keys
+
+// Source ids skipped by the normal library update sweep. E-Hentai / ExHentai / Pururin galleries
+// default to ALWAYS_UPDATE but never gain chapters the usual way: E-Hentai has its own version
+// checker (EHentaiUpdateWorker), and re-fetching a whole gallery on every library update wastes
+// requests and risks E-Hentai rate-limits / bans. We register a built-in E-Hentai source per
+// language, so a saved entry can carry any id in eHentaiSourceIds, not just the canonical EH/EXH
+// ones. nHentai is excluded too, but its id varies by extension version, so it is resolved at
+// runtime (AndroidSourceManager.nHentaiDelegatedSourceIds) rather than baked into this static list.
+val LIBRARY_UPDATE_EXCLUDED_SOURCES = eHentaiSourceIds + PURURIN_SOURCE_ID

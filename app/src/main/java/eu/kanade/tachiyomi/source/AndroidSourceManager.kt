@@ -42,6 +42,14 @@ import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 import java.util.concurrent.ConcurrentHashMap
 
+// RK -->
+// Source ids of installed nHentai instances, derived from currentDelegatedSources whenever the
+// source map is (re)built. nHentai is delegated, so its id varies by extension version; the library
+// updater reads this to skip nHentai galleries the same way LIBRARY_UPDATE_EXCLUDED_SOURCES skips
+// the built-in E-Hentai / ExHentai / Pururin sources.
+internal var nHentaiDelegatedSourceIds: List<Long> = emptyList()
+// RK <--
+
 class AndroidSourceManager(
     private val context: Context,
     private val extensionManager: ExtensionManager,
@@ -61,6 +69,13 @@ class AndroidSourceManager(
     private val sourcesMapFlow = MutableStateFlow(ConcurrentHashMap<Long, Source>())
 
     private val stubSourcesMap = ConcurrentHashMap<Long, StubSource>()
+
+    // RK: original-source-id -> matched delegate for every currently-wrapped delegated source,
+    //     rebuilt with the source map. The reusable basis for the delegated-source id lists; for now
+    //     only nHentai is derived (the library-update exclusion), but metadata / lanraragi lists can
+    //     derive from this the same way once they gain a consumer. Mirrors Komikku's
+    //     currentDelegatedSources / handleSourceLibrary.
+    private val currentDelegatedSources = ConcurrentHashMap<Long, DelegatedSource>()
 
     override val sources: Flow<List<Source>> = sourcesMapFlow.map { it.values.toList() }
 
@@ -98,6 +113,8 @@ class AndroidSourceManager(
                             }
                         }
                     }
+                    // RK: rebuilt fresh each pass so uninstalled sources drop out.
+                    currentDelegatedSources.clear()
                     extensions.forEach { extension ->
                         extension.sources.forEach {
                             // RK: wrap delegated adult sources so installed galleries gain metadata
@@ -105,6 +122,11 @@ class AndroidSourceManager(
                             registerStubSource(StubSource.from(it))
                         }
                     }
+                    // RK: derive nHentai's delegated source ids (id varies by extension version) so
+                    //     the library updater skips nHentai galleries too.
+                    nHentaiDelegatedSourceIds = currentDelegatedSources
+                        .filterValues { it.sourceName == "NHentai" }
+                        .keys.sorted()
                     sourcesMapFlow.value = mutableMap
                     _isInitialized.value = true
                 }
@@ -181,6 +203,9 @@ class AndroidSourceManager(
                     }
             }
         return if (delegate != null) {
+            // RK: record id -> delegate so the delegated-source id lists (nHentai today) can be
+            //     derived after the source map is built.
+            currentDelegatedSources[source.id] = delegate
             EnhancedHttpSource(source, delegate.newSourceFactory(source, context))
         } else {
             source

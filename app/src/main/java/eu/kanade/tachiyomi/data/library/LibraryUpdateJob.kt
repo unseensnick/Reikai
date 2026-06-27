@@ -46,6 +46,8 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.model.LibraryManga
+import eu.kanade.tachiyomi.source.nHentaiDelegatedSourceIds
+import exh.source.LIBRARY_UPDATE_EXCLUDED_SOURCES
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
 import reikai.domain.library.updateerror.UpsertLibraryUpdateError
@@ -178,6 +180,17 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
         val (_, fetchWindowUpperBound) = fetchInterval.getWindow(ZonedDateTime.now())
 
         mangaToUpdate = listToUpdate
+            // RK -->
+            // Adult galleries (E-Hentai / ExHentai / Pururin, plus delegated nHentai) are skipped
+            // here: they never gain chapters the usual way and E-Hentai has its own version checker
+            // (EHentaiUpdateWorker), so re-fetching whole galleries every update only burns requests
+            // and risks rate-limits. nHentai's id varies by extension version, so it is resolved at
+            // runtime (nHentaiDelegatedSourceIds) rather than baked into the static list.
+            .filterNot {
+                it.manga.source in LIBRARY_UPDATE_EXCLUDED_SOURCES ||
+                    it.manga.source in nHentaiDelegatedSourceIds
+            }
+            // RK <--
             .filter {
                 when {
                     it.manga.updateStrategy == UpdateStrategy.ONLY_FETCH_ONCE && it.totalChapters > 0L -> {
