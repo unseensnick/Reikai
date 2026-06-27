@@ -30,7 +30,8 @@ Nothing actively in progress.
 
 Queued, roughly in priority order.
 
-- **Release pipeline first-run verify**  `[S]`: create the `PREVIEW_REPO_TOKEN` fine-grained PAT (Contents: write on `unseensnick/Reikai-preview`) as a secret on `unseensnick/Reikai`, then confirm a push publishes a preview, a tag draft-publishes a release, and the in-app updater prompts on both. User action; the workflows are built.
+- **Fix preview-build prune bug** `[S]`: previews stopped appearing on `unseensnick/Reikai-preview` after 2026-06-24 (stuck at r295). Builds publish fine, but `preview.yml`'s "Prune old previews (keep newest 28)" deletes the just-created release: the repo sits at the 28 cap so every build prunes one, and all releases share an identical `createdAt` (a history-rewrite force-push reset tag dates), so `sort_by(.createdAt) | reverse | .[28:]` drops the newest. Fix: prune by build number instead, `sort_by(.tagName | ltrimstr("r") | tonumber) | reverse | .[28:]`. One line in `.github/workflows/preview.yml`.
+- **Release pipeline first-run verify**  `[S]`: create the `PREVIEW_REPO_TOKEN` fine-grained PAT (Contents: write on `unseensnick/Reikai-preview`) as a secret on `unseensnick/Reikai`, then confirm a push publishes a preview, a tag draft-publishes a release, and the in-app updater prompts on both. User action; the workflows are built. (Note: the PAT itself works, previews build + publish; the prune bug above is the actual blocker.)
 
 ## Later
 
