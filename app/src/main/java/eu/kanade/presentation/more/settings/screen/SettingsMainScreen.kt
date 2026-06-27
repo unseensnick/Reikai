@@ -25,6 +25,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -46,9 +47,13 @@ import eu.kanade.presentation.util.LocalBackPress
 import eu.kanade.presentation.util.Screen
 import exh.assets.EhAssets
 import exh.assets.ehassets.EhLogo
+import exh.source.ExhPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.collectAsState
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import cafe.adriel.voyager.core.screen.Screen as VoyagerScreen
 
 object SettingsMainScreen : Screen() {
@@ -105,7 +110,13 @@ object SettingsMainScreen : Screen() {
             content = { contentPadding ->
                 val state = rememberLazyListState()
                 // RK: hide screens that opt out (E-Hentai stays hidden until adult sources are enabled).
-                val items = items.filter { it.screen !is SearchableSettings || it.screen.isEnabled() }
+                //     isEnabled() is a plain pref read, so observe the gate here as state; without this
+                //     snapshot dependency the list stays stale until the screen is recreated (the bug:
+                //     toggling adult sources in Advanced didn't reveal the E-Hentai category live).
+                val adultEnabled by remember { Injekt.get<ExhPreferences>().isHentaiEnabled() }.collectAsState()
+                val items = remember(adultEnabled) {
+                    items.filter { it.screen !is SearchableSettings || it.screen.isEnabled() }
+                }
                 val indexSelected = if (twoPane) {
                     items.indexOfFirst { it.screen::class == navigator.items.first()::class }
                         .also {
