@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -498,6 +499,8 @@ private fun LabeledSlider(
         onValueChange = onChange,
         valueRange = range,
         steps = steps,
+        // Keep the thumb at the track ends out of the OS edge back-gesture zone.
+        modifier = Modifier.systemGestureExclusion(),
     )
 }
 

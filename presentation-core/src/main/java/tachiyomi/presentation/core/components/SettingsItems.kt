@@ -2,6 +2,7 @@ package tachiyomi.presentation.core.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -252,6 +253,8 @@ fun BaseSliderItem(
             },
             valueRange = valueRange,
             steps = steps,
+            // Keep the thumb at the track ends out of the OS edge back-gesture zone.
+            modifier = Modifier.systemGestureExclusion(),
         )
     }
 }
