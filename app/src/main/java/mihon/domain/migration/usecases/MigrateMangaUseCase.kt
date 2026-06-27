@@ -21,6 +21,11 @@ import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.interactor.InsertTrack
 import java.time.Instant
+// RK -->
+import reikai.domain.manga.MangaMergeManager
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
+// RK <--
 
 class MigrateMangaUseCase(
     private val sourcePreferences: SourcePreferences,
@@ -36,6 +41,8 @@ class MigrateMangaUseCase(
     private val insertTrack: InsertTrack,
     private val coverCache: CoverCache,
     private val updateMangaFromRemote: UpdateMangaFromRemote,
+    // RK: defaulted so DomainModule's positional factory stays unchanged; keeps migration merge-aware.
+    private val mangaMergeManager: MangaMergeManager = Injekt.get(),
 ) {
     private val enhancedServices by lazy { trackerManager.trackers.filterIsInstance<EnhancedTracker>() }
 
@@ -45,6 +52,10 @@ class MigrateMangaUseCase(
         val flags = sourcePreferences.migrationFlags.get()
 
         try {
+            // RK: capture the source's merge group before the target is favorited, so it's the source
+            // plus its existing siblings (not the target, which shares the title on a clean match).
+            val mergeGroup = mangaMergeManager.computeRelatedMangaIds(current.id, current.title).ids
+
             updateMangaFromRemote(target, fetchChapters = true).getOrThrow()
 
             // Update chapters read, bookmark and dateFetch
@@ -129,6 +140,19 @@ class MigrateMangaUseCase(
             )
 
             updateManga.awaitAll(listOfNotNull(currentMangaUpdate, targetMangaUpdate))
+
+            // RK --> keep the merge consistent: the target takes the source's place in the group on a
+            // replace (split the source out, merge the target in with the survivors), or joins it on a
+            // copy. Works for manual and same-title auto groups.
+            if (replace) {
+                if (mergeGroup.size > 1) {
+                    val survivors = mangaMergeManager.removeFromGroup(mergeGroup, listOf(current.id))
+                    mangaMergeManager.mergeManga(survivors.toList() + target.id)
+                }
+            } else if (mergeGroup.size > 1) {
+                mangaMergeManager.mergeManga(mergeGroup.toList() + target.id)
+            }
+            // RK <--
         } catch (e: Throwable) {
             if (e is CancellationException) {
                 throw e

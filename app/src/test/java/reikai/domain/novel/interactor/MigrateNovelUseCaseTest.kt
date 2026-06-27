@@ -11,9 +11,11 @@ import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelMigrationFlag
+import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.model.NovelUpdate
 import java.io.File
 
@@ -21,14 +23,34 @@ class MigrateNovelUseCaseTest {
 
     private fun novel(id: Long, notes: String = "") = Novel.create().copy(id = id, notes = notes)
 
-    private fun useCase(coverCache: CoverCache, updateNovel: UpdateNovel) = MigrateNovelUseCase(
+    private fun novelTrack(novelId: Long) = NovelTrack(
+        id = 0, novelId = novelId, trackerId = 1, remoteId = 1, libraryId = null, title = "t",
+        lastChapterRead = 0.0, totalChapters = 0, status = 0, score = 0.0, remoteUrl = "",
+        startDate = 0, finishDate = 0, private = false,
+    )
+
+    // Relaxed mockk can't synthesize a primitive LongArray return, so stub the always-called resolver
+    // to an empty group (no merge) by default; merge tests override it.
+    private fun defaultMerge() = mockk<NovelMergeManager>(relaxed = true) {
+        coEvery { computeRelatedNovelIds(any(), any(), any()) } returns longArrayOf()
+    }
+
+    private fun useCase(
+        coverCache: CoverCache = mockk(relaxed = true),
+        updateNovel: UpdateNovel = mockk(relaxed = true),
+        novelMergeManager: NovelMergeManager = defaultMerge(),
+        getNovelTracks: GetNovelTracks = mockk(relaxed = true),
+        insertNovelTrack: InsertNovelTrack = mockk(relaxed = true),
+    ) = MigrateNovelUseCase(
         novelChapterRepository = mockk(relaxed = true),
         getNovelCategories = mockk(relaxed = true),
         setNovelCategories = mockk(relaxed = true),
-        novelMergeManager = mockk(relaxed = true),
+        novelMergeManager = novelMergeManager,
         novelDownloadManager = mockk(relaxed = true),
         updateNovel = updateNovel,
         coverCache = coverCache,
+        getNovelTracks = getNovelTracks,
+        insertNovelTrack = insertNovelTrack,
     )
 
     @Test
@@ -68,6 +90,52 @@ class MigrateNovelUseCaseTest {
         update.captured.notes shouldBe null
         verify(exactly = 0) { coverCache.getCustomCoverFile(any()) }
         coVerify(exactly = 0) { updateNovel.awaitUpdateCoverLastModified(any()) }
+    }
+
+    @Test
+    fun `replace of a merged novel swaps the source out and the target into the group`() = runTest {
+        val merge = mockk<NovelMergeManager>(relaxed = true) {
+            coEvery { computeRelatedNovelIds(1L, any(), any()) } returns longArrayOf(1L, 3L)
+            every { removeFromGroup(match { it.contentEquals(longArrayOf(1L, 3L)) }, listOf(1L)) } returns longArrayOf(3L)
+        }
+
+        useCase(novelMergeManager = merge)(novel(1), novel(2), emptySet(), replace = true)
+
+        verify { merge.removeFromGroup(match { it.contentEquals(longArrayOf(1L, 3L)) }, listOf(1L)) }
+        verify { merge.mergeNovels(listOf(3L, 2L)) }
+    }
+
+    @Test
+    fun `copy of a merged novel adds the target alongside the source`() = runTest {
+        val merge = mockk<NovelMergeManager>(relaxed = true) {
+            coEvery { computeRelatedNovelIds(1L, any(), any()) } returns longArrayOf(1L, 3L)
+        }
+
+        useCase(novelMergeManager = merge)(novel(1), novel(2), emptySet(), replace = false)
+
+        verify { merge.mergeNovels(listOf(1L, 3L, 2L)) }
+        verify(exactly = 0) { merge.removeFromGroup(any(), any()) }
+    }
+
+    @Test
+    fun `an unmerged novel is never grouped on migration`() = runTest {
+        val merge = mockk<NovelMergeManager>(relaxed = true) {
+            coEvery { computeRelatedNovelIds(1L, any(), any()) } returns longArrayOf(1L)
+        }
+
+        useCase(novelMergeManager = merge)(novel(1), novel(2), emptySet(), replace = true)
+
+        verify(exactly = 0) { merge.mergeNovels(any()) }
+    }
+
+    @Test
+    fun `migration carries tracker links onto the target`() = runTest {
+        val getTracks = mockk<GetNovelTracks> { coEvery { await(1L) } returns listOf(novelTrack(novelId = 1L)) }
+        val insert = mockk<InsertNovelTrack>(relaxed = true)
+
+        useCase(getNovelTracks = getTracks, insertNovelTrack = insert)(novel(1), novel(2), emptySet(), replace = false)
+
+        coVerify { insert.await(match { it.novelId == 2L }) }
     }
 
     private fun chapter(

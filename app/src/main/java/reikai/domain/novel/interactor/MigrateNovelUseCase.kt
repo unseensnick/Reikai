@@ -19,9 +19,11 @@ import uy.kohesive.injekt.api.get
  *
  * The target is already materialised + chapter-synced by the picker, so this is mostly DB-only: it
  * copies per-chapter read / bookmark / scroll-progress (matched by chapter number), moves categories,
- * carries the custom cover + notes when their flags are set, favorites the target, and (when [replace])
- * unfavorites the old novel and splits it out of any merge group. History-tab rows and tracks are
- * intentionally not carried (parity with Mihon).
+ * carries the custom cover + notes when their flags are set, favorites the target, carries tracker
+ * links (re-pointed to the target, like manga), and keeps any merge group consistent: the target takes
+ * the source's place on [replace], or joins it on copy, for manual and same-title auto groups alike.
+ * History-tab rows are intentionally not carried (parity with Mihon, which carries tracks but not
+ * history).
  */
 class MigrateNovelUseCase(
     private val novelChapterRepository: NovelChapterRepository = Injekt.get(),
@@ -31,6 +33,8 @@ class MigrateNovelUseCase(
     private val novelDownloadManager: NovelDownloadManager = Injekt.get(),
     private val updateNovel: UpdateNovel = Injekt.get(),
     private val coverCache: CoverCache = Injekt.get(),
+    private val getNovelTracks: GetNovelTracks = Injekt.get(),
+    private val insertNovelTrack: InsertNovelTrack = Injekt.get(),
 ) {
 
     suspend operator fun invoke(
@@ -41,6 +45,10 @@ class MigrateNovelUseCase(
     ) {
         if (current.id == target.id) return
         try {
+            // Capture the source's merge group up front, before the target is favorited, so it's the
+            // source plus its existing siblings, not the target (which shares the title on a clean match).
+            val group = novelMergeManager.computeRelatedNovelIds(current.id, current.title, current.author)
+
             if (NovelMigrationFlag.CHAPTER in flags) {
                 val currentChapters = novelChapterRepository.getByNovelId(current.id)
                 val targetChapters = novelChapterRepository.getByNovelId(target.id)
@@ -77,12 +85,20 @@ class MigrateNovelUseCase(
                 ),
             )
 
+            // Carry tracker links onto the target, re-pointed to its id (matching manga migration). The
+            // source's own track rows are left intact, which is correct for a Copy.
+            getNovelTracks.await(current.id).forEach { insertNovelTrack.await(it.copy(novelId = target.id)) }
+
+            // Keep the merge consistent: the target takes the source's place in the group on a replace
+            // (split the source out, merge the target in with the survivors), or joins it on a copy.
             if (replace) {
-                // Resolve the old novel's merge group before unfavoriting it, then split it out so no
-                // dangling merge-pref pair lingers (harmless, but tidy).
-                val group = novelMergeManager.computeRelatedNovelIds(current.id, current.title, current.author)
                 updateNovel.await(NovelUpdate(id = current.id, favorite = false))
-                if (group.size > 1) novelMergeManager.removeFromGroup(group, listOf(current.id))
+                if (group.size > 1) {
+                    val survivors = novelMergeManager.removeFromGroup(group, listOf(current.id))
+                    novelMergeManager.mergeNovels(survivors.toList() + target.id)
+                }
+            } else if (group.size > 1) {
+                novelMergeManager.mergeNovels(group.toList() + target.id)
             }
         } catch (e: CancellationException) {
             throw e
