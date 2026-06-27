@@ -171,9 +171,11 @@ private fun MigrationRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "${row.sourceChapterCount} ch",
+                    text = listOfNotNull(row.sourceSourceName, "${row.sourceChapterCount} ch").joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
             Icon(
@@ -217,7 +219,11 @@ private fun TargetSlot(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                TargetChapterCount(sourceCount = row.sourceChapterCount, targetCount = row.targetChapterCount)
+                ChosenMeta(
+                    sourceName = row.chosenSourceName,
+                    sourceCount = row.sourceChapterCount,
+                    targetCount = row.targetChapterCount,
+                )
             }
         }
         row.suggested != null -> {
@@ -262,35 +268,41 @@ private fun RowActions(
     row: NovelMigrationListScreenModel.Row,
     screenModel: NovelMigrationListScreenModel,
 ) {
-    if (row.resolving || row.searching) return
     val id = row.novel.id
     val chosen = row.chosenTarget
-    if (chosen == null && row.suggested != null) {
-        FilledTonalIconButton(onClick = { screenModel.acceptSuggested(id) }) {
-            Icon(imageVector = Icons.Filled.Check, contentDescription = stringResource(MR.strings.action_accept))
+    val showActions = !row.resolving && !row.searching
+    var menuExpanded by remember { mutableStateOf(false) }
+    // Fixed-width Accept slot (empty unless a suggestion awaits acceptance) so the overflow icon and the
+    // target text stay aligned across every row, accepted or not.
+    Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+        if (showActions && chosen == null && row.suggested != null) {
+            FilledTonalIconButton(onClick = { screenModel.acceptSuggested(id) }) {
+                Icon(imageVector = Icons.Filled.Check, contentDescription = stringResource(MR.strings.action_accept))
+            }
         }
     }
-    var menuExpanded by remember { mutableStateOf(false) }
-    Box {
-        IconButton(onClick = { menuExpanded = true }) {
-            Icon(imageVector = Icons.Outlined.MoreVert, contentDescription = null)
-        }
-        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-            DropdownMenuItem(
-                text = { Text(text = stringResource(MR.strings.migrationListScreen_searchManuallyActionLabel)) },
-                onClick = {
-                    menuExpanded = false
-                    screenModel.toggleExpanded(id)
-                },
-            )
-            if (chosen != null) {
+    Box(modifier = Modifier.size(48.dp)) {
+        if (showActions) {
+            IconButton(onClick = { menuExpanded = true }) {
+                Icon(imageVector = Icons.Outlined.MoreVert, contentDescription = null)
+            }
+            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                 DropdownMenuItem(
-                    text = { Text(text = stringResource(MR.strings.migrationListScreen_skipActionLabel)) },
+                    text = { Text(text = stringResource(MR.strings.migrationListScreen_searchManuallyActionLabel)) },
                     onClick = {
                         menuExpanded = false
-                        screenModel.clearChoice(id)
+                        screenModel.toggleExpanded(id)
                     },
                 )
+                if (chosen != null) {
+                    DropdownMenuItem(
+                        text = { Text(text = stringResource(MR.strings.migrationListScreen_skipActionLabel)) },
+                        onClick = {
+                            menuExpanded = false
+                            screenModel.clearChoice(id)
+                        },
+                    )
+                }
             }
         }
     }
@@ -329,29 +341,28 @@ private fun NovelThumb(url: String?, site: String?, lastModified: Long, novelId:
     )
 }
 
-/** Target chapter count, with the shortfall vs the source in error colour when fewer (a migration
- *  regression). A paged source can under-count until all pages load, so the flag is conservative;
- *  the cover taps through to details to verify. */
+/** Secondary line for the chosen target: its source name and chapter count, with the shortfall vs the
+ *  source in error colour when fewer (a migration regression). Conservative for paged sources; the
+ *  cover taps through to details to verify. */
 @Composable
-private fun TargetChapterCount(sourceCount: Int, targetCount: Int?) {
-    if (targetCount == null) return
-    val delta = targetCount - sourceCount
+private fun ChosenMeta(sourceName: String?, sourceCount: Int, targetCount: Int?) {
+    val prefix = listOfNotNull(sourceName, targetCount?.let { "$it ch" }).joinToString(" · ")
+    val delta = targetCount?.minus(sourceCount)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
-            text = "$targetCount ch",
+            text = prefix,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
         )
-        if (delta < 0) {
+        if (delta != null && delta < 0) {
             Text(
-                text = " · ",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = "$delta",
+                text = " · $delta",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
+                maxLines = 1,
             )
         }
     }

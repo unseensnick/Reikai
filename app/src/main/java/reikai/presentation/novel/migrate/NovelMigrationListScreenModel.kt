@@ -63,9 +63,11 @@ class NovelMigrationListScreenModel(
             try { installer.ensureLoaded() } catch (_: Throwable) {}
             val rows = novelIds.mapNotNull { id ->
                 novelRepository.getById(id)?.let { novel ->
+                    val source = sourceManager.get(novel.source)
                     Row(
                         novel = novel,
-                        sourceSite = sourceManager.get(novel.source)?.site,
+                        sourceSite = source?.site,
+                        sourceSourceName = source?.name,
                         sourceChapterCount = chapterRepository.getByNovelId(novel.id).size,
                     )
                 }
@@ -133,12 +135,13 @@ class NovelMigrationListScreenModel(
             val target = runCatching { materialize(sourceId, url) }.getOrNull()
             // Target chapters were just fetched by materialize, so this count is a free local read.
             val targetCount = target?.let { chapterRepository.getByNovelId(it.id).size }
-            val site = sourceManager.get(sourceId)?.site
+            val source = sourceManager.get(sourceId)
             setRow(novelId) {
                 it.copy(
                     resolving = false,
                     chosenTarget = target,
-                    chosenSite = site,
+                    chosenSite = source?.site,
+                    chosenSourceName = source?.name,
                     targetChapterCount = targetCount,
                     expanded = false,
                 )
@@ -147,7 +150,7 @@ class NovelMigrationListScreenModel(
     }
 
     fun clearChoice(novelId: Long) = setRow(novelId) {
-        it.copy(chosenTarget = null, chosenSite = null, targetChapterCount = null)
+        it.copy(chosenTarget = null, chosenSite = null, chosenSourceName = null, targetChapterCount = null)
     }
 
     fun toggleExpanded(novelId: Long) = setRow(novelId) { it.copy(expanded = !it.expanded) }
@@ -219,8 +222,12 @@ class NovelMigrationListScreenModel(
         val chosenTarget: Novel? = null,
         /** The chosen target's source site, for the target cover's Referer. */
         val chosenSite: String? = null,
+        /** The chosen target's source display name, shown beside the accepted match. */
+        val chosenSourceName: String? = null,
         /** The source novel's own source site, for the source cover's Referer. */
         val sourceSite: String? = null,
+        /** The source novel's source display name (which source you're migrating from). */
+        val sourceSourceName: String? = null,
         /** The source novel's chapter count (free local read; shown always). */
         val sourceChapterCount: Int = 0,
         /** The chosen target's chapter count, read after [materialize] populates it; null until chosen. */
