@@ -164,8 +164,11 @@ jobs:
           GH_TOKEN: ${{ secrets.PREVIEW_REPO_TOKEN }}
         run: |
           set -e
-          gh release list --repo "$PREVIEW_REPO" --json tagName,createdAt --limit 100 \
-            | jq -r 'sort_by(.createdAt) | reverse | .[28:] | .[].tagName' \
+          # Keep the 28 highest build numbers (tags are r<commitCount>). Sorting by the numeric tag,
+          # not createdAt: a history-rewrite force-push can leave every release with the same createdAt,
+          # which made the old date sort delete the just-published release instead of the oldest.
+          gh release list --repo "$PREVIEW_REPO" --json tagName --limit 100 \
+            | jq -r 'sort_by(.tagName | ltrimstr("r") | tonumber) | reverse | .[28:] | .[].tagName' \
             | while read -r tag; do
                 [ -n "$tag" ] && gh release delete "$tag" --repo "$PREVIEW_REPO" --cleanup-tag --yes
               done
