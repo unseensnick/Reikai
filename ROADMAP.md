@@ -30,6 +30,7 @@ Nothing actively in progress.
 
 Queued, roughly in priority order.
 
+- **Parity & adult-system audit (deep research)** `[M]`: a grounded, end-to-end audit, follow the whole path per area, producing two catalogs. (1) Manga <-> Novel feature parity both ways: for each capability, does manga have it, does novel have it, and what's the gap in each direction (scoped to what each content type can actually do, e.g. novels have no page-split). (2) Adult/EXH subsystem vs its Komikku reference: does the re-typed port behave essentially the same despite divergence (delegation/enhanced sources, metadata + tag store, gallery update checker, favorites backup, search/filters). Output a short itemized gap list per catalog. Use `/deep-research` or `/scout` per area; do not fix in the same pass.
 - **Publish a fresh preview + release-pipeline first-run verify**  `[S]`: the preview prune bug is now FIXED (`f2a20eb67`, prune by build number not date), so kick a manual build, `gh workflow run preview.yml --ref design/mihon-rebase --repo unseensnick/Reikai`, and confirm r352 lands on `unseensnick/Reikai-preview` and sticks (the prune no longer eats the newest). Then the broader verify: a tag draft-publishes a release and the in-app updater prompts on both. The `PREVIEW_REPO_TOKEN` PAT already works; builds publish; this is now just the manual trigger + check.
 
 ## Parked / not building
