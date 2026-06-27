@@ -104,6 +104,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Extensions no longer tied to a repository are labeled "Orphaned"** instead of "Obsolete", with a clearer note that they won't receive updates.
 
 ### Fixes
+- **Changing E-Hentai update settings no longer crashes the app.** On optimized (preview / release) builds, changing the E-Hentai gallery update checker's "Automatic updates" schedule crashed the app; it now applies normally.
 - **Saved adult galleries no longer get re-fetched on every library update.** E-Hentai, ExHentai, Pururin, and nHentai galleries are now skipped by the regular library update (E-Hentai keeps its own dedicated gallery-update checker), so updates finish faster and stop needlessly hammering those servers.
 - **No more duplicate E-Hentai if you also install the stock extension.** With built-in adult sources enabled, the separate stock E-Hentai extension is now hidden and its sources skipped, so it can't shadow or double up the built-in E-Hentai.
 - **The E-Hentai settings category shows up the moment you enable adult sources.** Turning on Settings → Advanced → Enable adult sources now reveals (and turning it off hides) the E-Hentai category on the main Settings screen immediately, instead of only after leaving Settings and coming back.

@@ -8,6 +8,11 @@
 # with "TypeReference constructed without actual type information" (hit on startup by the novel-update
 # migration: SetupNovelUpdateMigration -> NovelUpdateJob.setupTask -> Injekt.get<NovelPreferences>()).
 -keep,allowoptimization class reikai.**
+# RK: ported adult/EXH subsystem (Komikku lineage). Same FullTypeReference issue as reikai.** above:
+# without this, toggling the E-Hentai gallery update checker (SettingsEhScreen -> EHentaiUpdateWorker
+# .setupTask -> Injekt.get<ExhPreferences>()) crashes minified builds with "TypeReference constructed
+# without actual type information". Debug builds aren't minified, so it is invisible there.
+-keep,allowoptimization class exh.**
 
 # Keep common dependencies used in extensions
 -keep,allowoptimization class androidx.preference.** { public protected *; }
