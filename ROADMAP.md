@@ -37,6 +37,8 @@ Queued, roughly in priority order.
 Backlog, unordered. The manga↔novel parity backlog (audit catalog A) is added here as it is triaged.
 
 ### Adult / EXH parity (from the 2026-06-27 audit)
+Reikai ships a lighter slice of Komikku's adult-source subsystem; the items below, plus the parked two-way favorites sync, are the gap to Komikku parity. Candidate **post-release-cut initiative**: widen the EXH port toward Komikku parity so it is on par (while still Reikai's lighter-by-default flavor), since the current trims may read as a dealbreaker to adult-source users. The user-facing scope and the gaps are documented in [docs/adult-sources.md](docs/adult-sources.md) ("What's not here yet").
+
 - **EXH library search engine** `[M]`: namespace / wildcard / exclude / exact / alias search over the library (`exh/search`: `SearchEngine`, `Namespace`, wildcards, `QueryComponent`). The browse-side `namespace:tag` autocomplete is already ported; this is the library-search half.
 - **Rich EXH metadata rendering** `[M]`: port `SourceTagsUtil` plus the three surfaces that depend on it: namespaced tappable tag chips on manga details, a per-source gallery info block above the description, and the EH-specific browse list row (language flag / rating / page count). Presentation only; the `*DescriptionAdapter` composables are live in Komikku, not dead.
 - **EXH gallery import entry points** `[S]`: `InterceptActivity` (share or open a gallery link to import it) and `BatchAddScreen` (paste many gallery URLs to bulk-import); both drive the already-ported `GalleryAdder`.

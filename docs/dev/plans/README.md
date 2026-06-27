@@ -22,6 +22,10 @@ The format these follow, and the rule for what earns a doc here, live in [.claud
 - [Merge-aware manga reader](merge-aware-manga-reader.md): read a merged manga straight through all its sources in the reader (unified list with per-source labels, cross-source prev/next, per-source side effects), via a thin Reikai layer over Mihon's reader.
 - [Recommendations & related carousel (P6)](recommendations.md): five suggestion streams merged, taste-reranked, tracker-gated cross-recs, and a See-all bulk-add grid.
 
+## Adult sources
+
+- [Adult-source (EXH) subsystem](exh-subsystem.md): built-in E-Hentai / ExHentai, enhanced-source metadata indexing + library tag search, metadata viewer, account uconfig sync, favorited-gallery update checker, and a one-way favorites backup. Ported from Komikku, re-typed onto Mihon, wired in via `// RK` islands; the lighter-slice descopes and the path to Komikku parity.
+
 ## Light novels
 
 - [Novel browse & sources](novel-browse.md): how LN plugins install, fold into the unified Browse, fan out across global search, and reach manga-browse parity per source.

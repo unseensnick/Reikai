@@ -36,6 +36,7 @@ It is built first for my own daily use, so development is sporadic and the featu
 
 - `Multi-source grouping` (manga and novels): fold same-title entries from different sources into one library card, with a per-source switcher that keeps progress and tracker links. Preference-based, so it's lightweight and reversible. ([docs](docs/multi-source.md))
 - `Manual merge / unmerge`: group entries by hand when their titles differ across sources, or split a group back apart. ([docs](docs/multi-source.md))
+- `Merge-aware reading`: read a merged series straight through every source in one sitting, with a unified chapter list and cross-source prev / next. ([docs](docs/multi-source.md#reading-a-merged-group))
 - `Tracker sync` across grouped sources: a tracker added on one source is shared across the group, and survives a split. ([docs](docs/tracker-sync.md))
 - `Category sort order` and `bulk delete`: order categories Off / A→Z / Z→A, and multi-select-delete with undo, for manga and novel categories. ([docs](docs/categories.md))
 - `Light novels`, first-class: a full Manga / Novels chip library with merge, tracker sync, history, downloads, background updates, tracking, notes, and backup. Sources and reader come from [LNReader](https://github.com/LNReader/lnreader); the headless QuickJS host (no WebView) and the integration are Reikai's.
@@ -48,6 +49,7 @@ It is built first for my own daily use, so development is sporadic and the featu
 <summary><strong>Adapted from Komikku</strong></summary>
 
 - `Related-mangas carousel` on manga details: similar titles below the description, pooled and deduplicated from three streams (the source's own related-manga API, a keyword-search fallback, and public tracker recommendations from AniList, MyAnimeList, MangaUpdates, and Shikimori). The carousel and these baseline streams come from [Komikku](https://github.com/komikku-app/komikku); Reikai's taste-profile layer on top is in the list above ([docs](docs/related-mangas.md)).
+- `Adult sources` (E-Hentai / ExHentai): built-in browsing with full gallery filters and tag autocomplete, library tag indexing and search, a gallery-metadata viewer, account login / settings, a favorited-gallery update checker, and one-way favorites backup. From [Komikku](https://github.com/komikku-app/komikku) (Tachiyomi-SY lineage); Reikai ships a lighter slice for now. Off by default. ([docs](docs/adult-sources.md))
 
 </details>
 
@@ -111,7 +113,7 @@ Reikai is a personal fork and stands on the work of the projects it builds on an
 - [Mihon](https://github.com/mihonapp/mihon): the base it is built on.
 - [Yōkai](https://github.com/null2264/yokai): the previous base, where several of the features were first built.
 - [TachiyomiJ2K](https://github.com/Jays2Kings/tachiyomiJ2K): the single-list library and dynamic-grouping experience.
-- [Komikku](https://github.com/komikku-app/komikku): the related-mangas carousel.
+- [Komikku](https://github.com/komikku-app/komikku): the related-mangas carousel and the E-Hentai / ExHentai adult-source subsystem.
 - [LNReader](https://github.com/LNReader/lnreader): the light-novel source format and reader.
 - [Tachiyomi](https://github.com/tachiyomiorg) and its wider community, where the lineage began.
 

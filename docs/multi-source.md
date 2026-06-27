@@ -26,6 +26,16 @@ Long-press a chip to split that source out of the group. A confirmation titled "
 
 The chip row refreshes automatically whenever you return to the manga details screen from another screen (for example, after adding a new same-title source via Global Search), so there's no need to back out to Library and come back.
 
+## Reading a merged group
+
+*Reader: open any chapter of a merged entry.*
+
+A merged entry reads as one continuous series. The in-reader chapter list shows every source's chapters in a single list, each labeled with the source it came from, and the previous / next controls span the whole group: reaching the end of one source's chapters flows straight into the next source's without leaving the reader.
+
+Each chapter's downloads, read state, and tracker updates still follow its own source underneath, so the group reads like one series while staying correct per source.
+
+This applies to both merged manga and merged novels.
+
 ## Manual merge & unmerge
 
 The auto-grouping is title-based; sometimes you want to merge entries that don't have identical titles (different romanizations, e.g. "Kaijuu 8-gou" vs. "Kaiju No. 8") or split a group apart.
