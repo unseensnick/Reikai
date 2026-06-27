@@ -91,7 +91,7 @@ Once the merged pool is assembled, source-origin candidates are reordered agains
 
 ### Anti-echo (governed by the status filters)
 
-Library entries can be hidden before scoring, controlled entirely by your [filter prefs](#filters-y2k). With every filter off (the default), nothing is hidden. The filter runs independently of the rerank toggle: turning *Rerank by taste* off keeps whatever filtering you've enabled active.
+Library entries can be hidden before scoring, controlled entirely by your [filter prefs](#filters-reikai). With every filter off (the default), nothing is hidden. The filter runs independently of the rerank toggle: turning *Rerank by taste* off keeps whatever filtering you've enabled active.
 
 ### Scoring
 

@@ -253,7 +253,7 @@ abstract class HttpSource : CatalogueSource {
      * out via [disableRelatedMangas]; extensions that ship overrides for [relatedMangaListRequest] /
      * [relatedMangaListParse] light up automatically via JVM virtual dispatch.
      *
-     * @since y2k/extensions-lib 1.6
+     * @since reikai/extensions-lib 1.6
      */
     override val supportsRelatedMangas: Boolean get() = true
 
@@ -262,7 +262,7 @@ abstract class HttpSource : CatalogueSource {
      * by default) and runs [relatedMangaListParse] on the response (which reuses
      * [popularMangaParse] by default). Override either hook to customize.
      *
-     * @since y2k/extensions-lib 1.6
+     * @since reikai/extensions-lib 1.6
      */
     override suspend fun fetchRelatedMangaList(manga: SManga): List<SManga> {
         return client.newCall(relatedMangaListRequest(manga))
@@ -274,7 +274,7 @@ abstract class HttpSource : CatalogueSource {
      * Request used by the default [fetchRelatedMangaList]. Override only if a different URL,
      * different headers, or a different HTTP method is needed.
      *
-     * @since y2k/extensions-lib 1.6
+     * @since reikai/extensions-lib 1.6
      */
     @Suppress("DEPRECATION")
     protected open fun relatedMangaListRequest(manga: SManga): Request {
@@ -286,7 +286,7 @@ abstract class HttpSource : CatalogueSource {
      * whose details page contains a parseable manga listing gets related-mangas for free; override
      * when a dedicated parser is needed.
      *
-     * @since y2k/extensions-lib 1.6
+     * @since reikai/extensions-lib 1.6
      */
     @Suppress("DEPRECATION")
     protected open fun relatedMangaListParse(response: Response): List<SManga> =

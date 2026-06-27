@@ -85,7 +85,7 @@ interface CatalogueSource : Source {
     /**
      * Whether parsing related mangas in manga page or extension provides a custom related-mangas request.
      * @default false
-     * @since y2k/extensions-lib 1.6
+     * @since reikai/extensions-lib 1.6
      */
     val supportsRelatedMangas: Boolean get() = false
 
@@ -93,14 +93,14 @@ interface CatalogueSource : Source {
      * Disable the app's keyword-search fallback for related mangas on this source.
      * Useful when a source returns junk for short or two-word queries.
      * @default false
-     * @since y2k/extensions-lib 1.6
+     * @since reikai/extensions-lib 1.6
      */
     val disableRelatedMangasBySearch: Boolean get() = false
 
     /**
      * Disable showing any related mangas for this source.
      * @default false
-     * @since y2k/extensions-lib 1.6
+     * @since reikai/extensions-lib 1.6
      */
     val disableRelatedMangas: Boolean get() = false
 
@@ -114,7 +114,7 @@ interface CatalogueSource : Source {
      * @param manga the current manga to get related mangas for.
      * @param exceptionHandler invoked for unrecoverable errors at the top level of the search graph.
      * @param pushResults called once per keyword bucket; `completed` is reserved for a future signal.
-     * @since y2k/extensions-lib 1.6
+     * @since reikai/extensions-lib 1.6
      */
     suspend fun getRelatedMangaList(
         manga: SManga,
@@ -134,7 +134,7 @@ interface CatalogueSource : Source {
      * Get related mangas provided by the extension. Wraps [fetchRelatedMangaList] in a
      * [runCatching] and routes failures through [exceptionHandler] rather than throwing.
      *
-     * @since y2k/extensions-lib 1.6
+     * @since reikai/extensions-lib 1.6
      */
     suspend fun getRelatedMangaListByExtension(
         manga: SManga,
@@ -150,7 +150,7 @@ interface CatalogueSource : Source {
      * Override this in an extension to provide native related-mangas. Default throws.
      * Only called when [supportsRelatedMangas] is `true`.
      *
-     * @since y2k/extensions-lib 1.6
+     * @since reikai/extensions-lib 1.6
      */
     suspend fun fetchRelatedMangaList(manga: SManga): List<SManga> =
         throw UnsupportedOperationException("Unsupported!")
@@ -159,7 +159,7 @@ interface CatalogueSource : Source {
      * Split and strip a manga title into searchable keywords for the search fallback.
      * Drops special characters, single-character tokens, and digit-only tokens.
      *
-     * @since y2k/extensions-lib 1.6
+     * @since reikai/extensions-lib 1.6
      */
     fun String.stripKeywordForRelatedMangas(): List<String> {
         val regexWhitespace = Regex("\\s+")
@@ -183,7 +183,7 @@ interface CatalogueSource : Source {
      * and push hits as they come in. Used when the source has no native related-mangas support
      * (and [disableRelatedMangasBySearch] is `false`).
      *
-     * @since y2k/extensions-lib 1.6
+     * @since reikai/extensions-lib 1.6
      */
     suspend fun getRelatedMangaListBySearch(
         manga: SManga,
