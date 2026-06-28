@@ -55,16 +55,6 @@ When the user asks to cut a release:
 1. Rename `## [Unreleased]` to the version.
 2. Add a new empty `## [Unreleased]` section above it for the next cycle.
 
-### Yōkai -> Reikai debrand (do at the release-cut)
-
-The fork was "Yōkai-Y2K" on the old Yōkai base; the Mihon-based release ships as **Reikai**. Sweep every lingering reference (`git grep -iE 'yōkai|yokai|y2k|null2264'`, ignoring `refs/`) and sort each into one of three buckets:
-
-- **Keep, load-bearing identity (NEVER touch):** the `.y2k` / `.debugY2k` `applicationId` suffix in `app/build.gradle.kts` (it is what upgrades existing installs in place), and the `yokai` / `y2k` / `ln_*` **preference key strings** (renaming them orphans user data; the comments beside them say why they are preserved).
-- **Keep as the historical record:** the old `Yōkai-Y2K v1.9.7.5.x` **releases on `unseensnick/Reikai`**, the CHANGELOG's `1.9.7.5.x` entries + its "earlier versions tracked Yōkai" header note, and the rebase/migration docs (`docs/dev/plans/rebase-overview.md`, `docs/backup-restore.md`). These are the record of where Reikai came from.
-- **Update / debrand:** user-facing + brand docs (`README.md`, `PRODUCT.md`, `DESIGN.md`), `docs/dev/development.md` (still describes the Yōkai base), and the icon art (`art/icon/*.svg`, any launcher webp carrying "Yōkai-Y2K" text). Reframe "Yōkai-era" code comments only when already editing that file (low priority, they are accurate history).
-
-**The old releases specifically:** do NOT delete the `v1.9.7.5.x` stable releases. They are the only migration path for existing `.yokai` users (back up -> install the new `.y2k` build -> restore, per `docs/backup-restore.md`). Edit the latest one's notes to point at that migration and the new Reikai release. The old `r6xxx` "Yōkai-Y2K Nightly" pre-releases were already removed (the nightly channel is now `unseensnick/Reikai-preview`); new stable releases are named `Reikai vX`.
-
 ## Commits & PRs
 
 After code changes, create a git commit (do not push unless asked).
