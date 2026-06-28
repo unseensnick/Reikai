@@ -1347,7 +1347,7 @@
     <string name="eh_batch_add_button">Add galleries</string>
     <string name="eh_batch_add_adding_galleries">Adding galleries…</string>
     <string name="eh_batch_add_finish">Finish</string>
-    <string name="batch_add_description">Supports: E-Hentai, ExHentai, NHentai, Pururin</string>
+    <string name="batch_add_description">Supports: E-Hentai, ExHentai, NHentai, 8Muses, Pururin</string>
     <string name="batch_add_no_valid_galleries">No galleries to add!</string>
     <string name="batch_add_no_valid_galleries_message">You must specify at least one gallery to add!</string>
     <string name="batch_add_ok">[OK]</string>
