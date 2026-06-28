@@ -2,23 +2,20 @@ package exh
 
 import android.content.Context
 import androidx.core.net.toUri
-import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
 import eu.kanade.domain.manga.interactor.UpdateManga
-import eu.kanade.domain.manga.model.copyFrom
-import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.UrlImportableSource
 import eu.kanade.tachiyomi.source.online.all.EHentai
 import exh.source.getMainSource
 import logcat.LogPriority
+import mihon.domain.source.interactor.UpdateMangaFromRemote
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChapter
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.manga.model.toMangaUpdate
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
@@ -28,32 +25,31 @@ import uy.kohesive.injekt.api.get
  * Resolves a gallery URL into a local manga (and its chapters) by routing it to the matching
  * enhanced source. Drives both the share/open intercept and the bulk batch-add surfaces.
  *
- * Re-typed from Komikku's GalleryAdder onto Reikai's combined getMangaUpdate API: Komikku's split
- * getMangaDetails + getChapterList collapse into one getMangaUpdate call, and the EHentai throttle
- * is internal to that call (no throttleFunc seam to thread through).
+ * Re-typed from Komikku's GalleryAdder onto Reikai's Mihon base: Komikku's awaitUpdateFromSource +
+ * getChapterList collapse into Mihon's [UpdateMangaFromRemote], which persists the title and cover
+ * (a bare copyFrom drops the title) and syncs chapters in one call.
  */
 class GalleryAdder(
     private val updateManga: UpdateManga = Injekt.get(),
+    private val updateMangaFromRemote: UpdateMangaFromRemote = Injekt.get(),
     private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
     private val getChapter: GetChapter = Injekt.get(),
-    private val syncChaptersWithSource: SyncChaptersWithSource = Injekt.get(),
     private val sourceManager: SourceManager = Injekt.get(),
     sourcePreferences: SourcePreferences = Injekt.get(),
 ) {
 
-    // Snapshot the visibility filters once: only sources in an enabled language and not hidden can
-    // claim a pasted URL, matching what the user sees in Browse.
     private val enabledLangs: Set<String> = sourcePreferences.enabledLanguages.get()
     private val disabledSources: Set<String> = sourcePreferences.disabledSources.get()
 
-    private fun UrlImportableSource.isUsable(): Boolean =
-        lang in enabledLangs && id.toString() !in disabledSources
-
     fun pickSource(url: String): List<UrlImportableSource> {
         val uri = url.toUri()
-        return sourceManager.getOnlineSources()
+        val matches = sourceManager.getOnlineSources()
             .mapNotNull { it.getMainSource<UrlImportableSource>() }
-            .filter { it.isUsable() && runCatching { it.matchesUri(uri) }.getOrDefault(false) }
+            .filter { it.id.toString() !in disabledSources && runCatching { it.matchesUri(uri) }.getOrDefault(false) }
+        // Prefer sources whose language is enabled (E-Hentai registers one per language, so this
+        // keeps the picker to the user's languages); fall back to every host match so an explicitly
+        // shared link still imports when that source's language isn't enabled in Browse.
+        return matches.filter { it.lang in enabledLangs }.ifEmpty { matches }
     }
 
     suspend fun addGallery(
@@ -90,30 +86,20 @@ class GalleryAdder(
 
             val httpSource = source as HttpSource
 
-            // Get-or-create the local manga first so it has an id, then fetch details + chapters in
-            // one call. Because the manga is now persisted, the enhanced source also captures and
-            // stores its gallery metadata during this fetch.
+            // Get-or-create the local manga first so it has an id, then fetch details + chapters and
+            // persist them. UpdateMangaFromRemote sets the title and refreshes the cover (a bare
+            // copyFrom would leave the title blank); run it before favoriting so the title write
+            // isn't skipped by the "don't rename a favorite" guard.
             var manga = networkToLocalManga(
                 Manga.create().copy(source = httpSource.id, url = cleanedMangaUrl),
             )
-            val update = retry(retry) {
-                httpSource.getMangaUpdate(
-                    manga.toSManga(),
-                    emptyList(),
-                    fetchDetails = true,
-                    fetchChapters = true,
-                )
-            }
-            manga = manga.copyFrom(update.manga)
-            updateManga.await(manga.toMangaUpdate())
+            manga = retry(retry) {
+                updateMangaFromRemote(httpSource, manga, fetchDetails = true, fetchChapters = true).getOrThrow()
+            }.manga
 
             if (fav) {
                 updateManga.awaitUpdateFavorite(manga.id, true)
                 manga = manga.copy(favorite = true)
-            }
-
-            if (update.chapters.isNotEmpty()) {
-                syncChaptersWithSource.await(update.chapters, manga, httpSource)
             }
 
             if (cleanedChapterUrl != null) {

@@ -16,6 +16,7 @@ import logcat.LogPriority
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -83,15 +84,14 @@ class BatchAddScreenModel(
                 } else {
                     failed.add(s)
                 }
+                val message = when (result) {
+                    is GalleryAddEvent.Success -> context.stringResource(MR.strings.batch_add_ok)
+                    is GalleryAddEvent.Fail -> context.stringResource(MR.strings.batch_add_error)
+                } + " " + result.logMessage
                 mutableState.update { state ->
                     state.copy(
                         progress = i + 1,
-                        events = state.events.plus(
-                            when (result) {
-                                is GalleryAddEvent.Success -> context.stringResource(MR.strings.batch_add_ok)
-                                is GalleryAddEvent.Fail -> context.stringResource(MR.strings.batch_add_error)
-                            } + " " + result.logMessage,
-                        ),
+                        events = state.events + BatchAddEvent(message, (result as? GalleryAddEvent.Success)?.manga),
                     )
                 }
             }
@@ -100,7 +100,7 @@ class BatchAddScreenModel(
             val summary = context.stringResource(MR.strings.batch_add_summary, succeeded.size, failed.size)
             mutableState.update { state ->
                 state.copy(
-                    events = state.events + summary,
+                    events = state.events + BatchAddEvent(summary),
                 )
             }
         }
@@ -140,11 +140,16 @@ class BatchAddScreenModel(
     }
 }
 
+data class BatchAddEvent(
+    val message: String,
+    val manga: Manga? = null,
+)
+
 data class BatchAddState(
     val progressTotal: Int = 0,
     val progress: Int = 0,
     val galleries: String = "",
     val state: BatchAddScreenModel.State = BatchAddScreenModel.State.INPUT,
-    val events: List<String> = emptyList(),
+    val events: List<BatchAddEvent> = emptyList(),
     val dialog: BatchAddScreenModel.Dialog? = null,
 )
