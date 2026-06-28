@@ -356,6 +356,9 @@ class MainActivity : BaseActivity() {
         }
     }
 
+    // RK: Mihon's donation campaign, dead in Reikai. Never called, and the More-tab "Support us"
+    // entry is disabled too (see MoreScreen). Kept for now; safe to delete entirely (with
+    // SupportUsScreen, the donationCampaignShown pref, and the unused onClickSupport plumbing) later.
     @Composable
     private fun ShowDonationCampaign() {
         val navigator = LocalNavigator.currentOrThrow

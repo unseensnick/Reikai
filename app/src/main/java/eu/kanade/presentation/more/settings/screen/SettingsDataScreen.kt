@@ -385,7 +385,7 @@ object SettingsDataScreen : SearchableSettings {
                 options = exportOptions,
                 onConfirm = { options ->
                     exportOptions = options
-                    saveFileLauncher.launch("mihon_library.csv")
+                    saveFileLauncher.launch("reikai_library.csv") // RK: Reikai-branded export name
                 },
                 onDismissRequest = { showDialog = false },
             )
