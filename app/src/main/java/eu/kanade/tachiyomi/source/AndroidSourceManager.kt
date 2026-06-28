@@ -112,6 +112,8 @@ class AndroidSourceManager(
                                     put(id, EHentai(id, true, context, lang))
                                 }
                             }
+                            // RK: built-in pururin.me (no extension needed, like E-Hentai).
+                            put(PURURIN_SOURCE_ID, Pururin(context))
                         }
                     }
                     // RK: rebuilt fresh each pass so uninstalled sources drop out.
@@ -224,12 +226,7 @@ class AndroidSourceManager(
         // Installed extensions that get wrapped in a metadata-enhancing EnhancedHttpSource.
         // factory = true matches by package prefix (multi-language factory extensions).
         private val DELEGATED_SOURCES = listOf(
-            DelegatedSource(
-                "Pururin",
-                PURURIN_SOURCE_ID,
-                "eu.kanade.tachiyomi.extension.en.pururin.Pururin",
-                ::Pururin,
-            ),
+            // RK: Pururin is now a built-in source (see the isHentaiEnabled block above), not delegated.
             DelegatedSource(
                 "8Muses",
                 EIGHTMUSES_SOURCE_ID,

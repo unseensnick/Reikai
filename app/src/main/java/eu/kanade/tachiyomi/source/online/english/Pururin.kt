@@ -3,9 +3,11 @@ package eu.kanade.tachiyomi.source.online.english
 import android.content.Context
 import android.net.Uri
 import androidx.core.net.toUri
+import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
+import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
@@ -17,30 +19,77 @@ import eu.kanade.tachiyomi.util.asJsoup
 import exh.metadata.metadata.PururinSearchMetadata
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.metadata.metadata.base.RaisedTag
-import exh.source.DelegatedHttpSource
-import exh.util.dropBlank
-import exh.util.trimAll
+import exh.source.PURURIN_SOURCE_ID
 import exh.util.urlImportFetchSearchMangaSuspend
+import okhttp3.Request
+import okhttp3.Response
 import org.jsoup.nodes.Document
 
-class Pururin(delegate: HttpSource, val context: Context) :
-    DelegatedHttpSource(delegate),
+/**
+ * Built-in pururin.me source (no extension needed), self-contained like the built-in E-Hentai.
+ * Was a delegated wrapper that relied on an installed extension; the canonical pururin extension
+ * isn't in Keiyoushi, so the parsing is shipped here.
+ */
+class Pururin(private val context: Context) :
+    HttpSource(),
     MetadataSource<PururinSearchMetadata, Document>,
     UrlImportableSource,
     NamespaceSource {
-    /**
-     * An ISO 639-1 compliant language code (two letters in lower case).
-     */
-    override val lang = "en"
 
-    /**
-     * The class of the metadata used by this source
-     */
+    override val id = PURURIN_SOURCE_ID
+    override val name = "Pururin"
+    override val lang = "en"
+    override val baseUrl = PururinSearchMetadata.BASE_URL
+    override val supportsLatest = true
+
     override val metaClass = PururinSearchMetadata::class
     override fun newMetaInstance() = PururinSearchMetadata()
 
-    // RK: capture gallery metadata on the details fetch, delegate chapters to the stock source.
-    // URL import (Komikku's fetchSearchManga override) is deferred with GalleryAdder.
+    // --- Browse / search ---
+
+    override fun popularMangaRequest(page: Int): Request =
+        GET("$baseUrl/browse?sort=most-popular&page=$page", headers)
+
+    override fun latestUpdatesRequest(page: Int): Request =
+        GET("$baseUrl/browse?page=$page", headers)
+
+    override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request =
+        GET("$baseUrl/search?q=${Uri.encode(query.trim())}&page=$page", headers)
+
+    override fun popularMangaParse(response: Response): MangasPage = galleryListParse(response)
+    override fun latestUpdatesParse(response: Response): MangasPage = galleryListParse(response)
+    override fun searchMangaParse(response: Response): MangasPage = galleryListParse(response)
+
+    private fun galleryListParse(response: Response): MangasPage {
+        val document = response.asJsoup()
+        val mangas = document.select("a.card-gallery").map { element ->
+            SManga.create().apply {
+                setUrlWithoutDomain(element.absUrl("href").ifBlank { element.attr("href") })
+                title = element.attr("title")
+                thumbnail_url = element.selectFirst("img.card-img-top")?.attr("abs:src")
+            }
+        }
+        // Pururin lists a fixed page size; a full page implies another may follow.
+        val hasNextPage = document.selectFirst("a[rel=next], .pagination a[aria-label=Next]") != null ||
+            mangas.size >= PAGE_SIZE
+        return MangasPage(mangas, hasNextPage)
+    }
+
+    // Support direct URL importing (paste a gallery URL or id:<n>); otherwise a normal search.
+    override suspend fun getSearchManga(page: Int, query: String, filters: FilterList): MangasPage {
+        val trimmedIdQuery = query.trim().removePrefix("id:")
+        val newQuery = if ((trimmedIdQuery.toIntOrNull() ?: -1) >= 0) {
+            "$baseUrl/gallery/$trimmedIdQuery/-"
+        } else {
+            query
+        }
+        return urlImportFetchSearchMangaSuspend(context, newQuery) {
+            super<HttpSource>.getSearchManga(page, query, filters)
+        }
+    }
+
+    // --- Details + chapters + pages ---
+
     override suspend fun getMangaUpdate(
         manga: SManga,
         chapters: List<SChapter>,
@@ -53,76 +102,71 @@ class Pururin(delegate: HttpSource, val context: Context) :
         } else {
             manga
         }
+        // A Pururin gallery is a single chapter; reading happens through the gallery page.
         val updatedChapters = if (fetchChapters) {
-            delegate.getMangaUpdate(manga, chapters, fetchDetails = false, fetchChapters = true).chapters
+            listOf(
+                SChapter.create().apply {
+                    url = manga.url
+                    name = "Chapter"
+                    chapter_number = 1f
+                },
+            )
         } else {
             chapters
         }
         return SMangaUpdate(updatedManga, updatedChapters)
     }
 
-    // RK: resolve a pasted Pururin gallery URL (or id:<n>) via GalleryAdder; otherwise normal search.
-    override suspend fun getSearchManga(page: Int, query: String, filters: FilterList): MangasPage {
-        val trimmedIdQuery = query.trim().removePrefix("id:")
-        val newQuery = if ((trimmedIdQuery.toIntOrNull() ?: -1) >= 0) {
-            "$baseUrl/gallery/$trimmedIdQuery/-"
-        } else {
-            query
-        }
-        return urlImportFetchSearchMangaSuspend(context, newQuery) {
-            super<DelegatedHttpSource>.getSearchManga(page, query, filters)
+    override fun pageListParse(response: Response): List<Page> {
+        val document = response.asJsoup()
+        // Cover is i.pururin.me/{folder}/cover.jpg; the reading pages share that folder as {n}.jpg.
+        val coverSrc = document.selectFirst(".cover-wrapper img")?.absUrl("src").orEmpty()
+        val folder = coverSrc.substringAfter("i.pururin.me/", "").substringBeforeLast("/", "")
+        val pageCount = document.selectFirst("[itemprop=numberOfPages]")?.text()?.trim()?.toIntOrNull() ?: 0
+        if (folder.isBlank() || pageCount == 0) return emptyList()
+        return (1..pageCount).map { index ->
+            Page(index - 1, imageUrl = "https://i.pururin.me/$folder/$index.jpg")
         }
     }
 
+    // --- Metadata + URL import ---
+
+    // pururin.me serves gallery details as microdata (itemprop=*) with tag links of the form
+    // /browse/tags/{namespace}/{id}/{slug}, so the namespace is read straight off each link.
     override suspend fun parseIntoMetadata(metadata: PururinSearchMetadata, input: Document) {
-        val selfLink = input.select("[itemprop=name]").last()!!.parent()
-        val parsedSelfLink = selfLink!!.attr("href").toUri().pathSegments
-
         with(metadata) {
-            prId = parsedSelfLink[parsedSelfLink.lastIndex - 1].toInt()
-            prShortLink = parsedSelfLink.last()
+            // Reading link is /read/{id}/{page}/{slug}: a reliable source for id + slug.
+            val readLink = input.selectFirst(".cover-wrapper a[href*=/read/]")?.attr("href")?.toUri()
+            prId = input.selectFirst(".content-wrapper .title .id")?.text()?.removePrefix("G")?.trim()?.toIntOrNull()
+                ?: readLink?.pathSegments?.getOrNull(1)?.toIntOrNull()
+            prShortLink = readLink?.lastPathSegment
 
-            val contentWrapper = input.selectFirst(".content-wrapper")
-            title = contentWrapper!!.selectFirst(".title h1")!!.text()
-            altTitle = contentWrapper.selectFirst(".alt-title")?.text()
+            title = input.selectFirst(".content-wrapper .title h1")?.text()
+            altTitle = input.selectFirst(".content-wrapper .alt-title")?.text()
 
-            thumbnailUrl = "https:" + input.selectFirst(".cover-wrapper v-lazy-image")!!.attr("src")
+            thumbnailUrl = input.selectFirst(".cover-wrapper img")?.absUrl("src")
+
+            pages = input.selectFirst("[itemprop=numberOfPages]")?.text()?.trim()?.toIntOrNull()
+            ratingCount = input.selectFirst("[itemprop=ratingCount]")
+                ?.let { it.attr("content").ifBlank { it.text() } }?.trim()?.toIntOrNull()
+            averageRating = input.selectFirst("[itemprop=ratingValue]")
+                ?.let { it.attr("content").ifBlank { it.text() } }?.trim()?.toDoubleOrNull()
 
             tags.clear()
-            contentWrapper.select(".table-gallery-info > tbody > tr").forEach { ele ->
-                val key = ele.child(0).text().lowercase()
-                val value = ele.child(1)
-                when (key) {
-                    "pages" -> {
-                        val split = value.text().split("(").trimAll().dropBlank()
-
-                        pages = split.first().toIntOrNull()
-                        fileSize = split.last().removeSuffix(")").trim()
-                    }
-                    "ratings" -> {
-                        ratingCount = value.selectFirst("[itemprop=ratingCount]")!!.attr("content").toIntOrNull()
-                        averageRating = value.selectFirst("[itemprop=ratingValue]")!!.attr("content").toDoubleOrNull()
-                    }
-                    "uploader" -> {
-                        uploaderDisp = value.text()
-                        uploader = value.child(0).attr("href").toUri().lastPathSegment
-                    }
-                    else -> {
-                        value.select("a").forEach { link ->
-                            val searchUrl = link.attr("href").toUri()
-                            val namespace = searchUrl.pathSegments[searchUrl.pathSegments.lastIndex - 2]
-                            tags += RaisedTag(
-                                namespace,
-                                searchUrl.lastPathSegment!!.substringBefore("."),
-                                if (namespace != PururinSearchMetadata.TAG_NAMESPACE_CATEGORY) {
-                                    PururinSearchMetadata.TAG_TYPE_DEFAULT
-                                } else {
-                                    RaisedSearchMetadata.TAG_TYPE_VIRTUAL
-                                },
-                            )
-                        }
-                    }
-                }
+            input.select(".content-wrapper a[href*=/browse/tags/]").forEach { link ->
+                val segments = link.attr("href").toUri().pathSegments
+                val namespace = segments.getOrNull(segments.indexOf("tags") + 1)
+                val name = link.text().trim()
+                if (namespace.isNullOrBlank() || name.isBlank()) return@forEach
+                tags += RaisedTag(
+                    namespace,
+                    name,
+                    if (namespace != PururinSearchMetadata.TAG_NAMESPACE_CATEGORY) {
+                        PururinSearchMetadata.TAG_TYPE_DEFAULT
+                    } else {
+                        RaisedSearchMetadata.TAG_TYPE_VIRTUAL
+                    },
+                )
             }
         }
     }
@@ -133,5 +177,9 @@ class Pururin(delegate: HttpSource, val context: Context) :
 
     override suspend fun mapUrlToMangaUrl(uri: Uri): String {
         return "${PururinSearchMetadata.BASE_URL}/gallery/${uri.pathSegments.getOrNull(1)}/${uri.lastPathSegment}"
+    }
+
+    companion object {
+        private const val PAGE_SIZE = 20
     }
 }
