@@ -55,17 +55,6 @@ When the user asks to cut a release:
 1. Rename `## [Unreleased]` to the version.
 2. Add a new empty `## [Unreleased]` section above it for the next cycle.
 
-### Deferred history cleanup (do at the release-cut that ships `design/mihon-rebase` as `main`)
-
-The goal: **the whole `design/mihon-rebase` history reads in the commit message standard below before it becomes `main`.** Many commits already on the branch predate the standard, and the Mihon-sync ones use broken reference forms (`Mihon PR #<digit>`, bare `#<digit>`) that GitHub auto-links to the wrong (Reikai) repo. They are pushed, so this is a history rewrite + force-push, only worth doing at the natural rewrite point: the cut that turns this branch into `main` (it replaces the old Yōkai-based `main`, so this is cleaning the branch's own history, not a squash-merge). The branch is single-owner, so the force-push is acceptable with the user's explicit OK.
-
-**Recommended method (condense to one clean commit per feature, not a single squash):**
-
-1. **Tag a backup** first (e.g. `pre-cleanup-<date>`).
-2. **Scripted reference fix across all commits** (`git filter-repo --message-callback`, or `git filter-branch --msg-filter`): `Mihon PR #<n>` / `Mihon Issue #<n>` / a bare upstream `#<n>` -> `mihonapp/mihon#<n>`; ROADMAP `(#8)` -> `Roadmap N`.
-3. **`git rebase -i`** to bring **every** commit to the standard: `fixup` the incremental WIP and the `docs: mark #X done` churn into their feature commit so each meaningful feature is one commit, then `reword` every surviving commit to comply, leaving none in the old style. Non-trivial commits get the lead + bullets body; for a trivial commit a clean conventional subject is itself full compliance (the standard omits the body there). Result: a fully standard-compliant, ~one-commit-per-feature history (navigable + bisectable), not one giant squash (which loses bisect).
-4. **Update the `upstream-sync` memory's ledger SHAs** afterward (the rewrite changes every SHA from the edit point forward), then `--force-with-lease` and point `main` at it.
-
 ### Yōkai -> Reikai debrand (do at the release-cut)
 
 The fork was "Yōkai-Y2K" on the old Yōkai base; the Mihon-based release ships as **Reikai**. Sweep every lingering reference (`git grep -iE 'yōkai|yokai|y2k|null2264'`, ignoring `refs/`) and sort each into one of three buckets:
