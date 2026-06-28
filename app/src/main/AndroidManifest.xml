@@ -183,6 +183,43 @@
             android:configChanges="uiMode|orientation|screenSize"
             android:exported="false" />
 
+        <!-- RK: import a gallery shared/opened from a browser. Hosts mirror each adult source's
+             matchingHosts: E-Hentai/ExHentai/NHentai use /g/, Pururin uses /gallery/. -->
+        <activity
+            android:name="exh.ui.intercept.InterceptActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Tachiyomi">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+
+                <data android:host="e-hentai.org" />
+                <data android:host="g.e-hentai.org" />
+                <data android:host="exhentai.org" />
+                <data android:host="nhentai.net" />
+
+                <data android:pathPattern="/g/.*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+
+                <data android:host="pururin.me" />
+
+                <data android:pathPattern="/gallery/.*" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".extension.util.ExtensionInstallActivity"
             android:exported="false"

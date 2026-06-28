@@ -43,6 +43,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 ### Additions
 
 - **Migrate light novels from Browse → Migration.** The Migration tab now has the same All / Manga / Novels switch as the rest of Browse: pick a novel source to see its saved novels, select the ones to move, and run them through the existing novel migration flow. A source still shows (with its last-known name and icon) even after its plugin is uninstalled, so you can always migrate away from it.
+- **Import adult galleries from a link.** Share or open an E-Hentai, ExHentai, NHentai or Pururin gallery link and pick Reikai to add it straight to your library, landing on its details page with chapters ready.
+- **Batch add galleries.** A new Batch add entry in the More menu (shown once adult sources are enabled) takes a pile of pasted gallery URLs, or an E-Hentai "visited" export, and imports them one by one with a live progress list.
 
 ### Fixes
 
