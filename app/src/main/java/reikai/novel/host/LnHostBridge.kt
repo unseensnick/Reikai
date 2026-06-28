@@ -129,7 +129,8 @@ class LnHostBridge(
      * string or FormData. The bridge accepts only the JSON-friendly subset; the runtime serializes
      * FormData to a urlencoded string before it reaches here.
      */
-    private fun parseFetchOpts(optsJson: String): FetchOpts {
+    // internal (not private) so the lenient parse fallback is unit-testable.
+    internal fun parseFetchOpts(optsJson: String): FetchOpts {
         if (optsJson.isBlank() || optsJson == "{}") return FetchOpts()
         return try {
             JSON.decodeFromString(FetchOpts.serializer(), optsJson)
@@ -148,7 +149,7 @@ class LnHostBridge(
     }
 
     @Serializable
-    private data class FetchOpts(
+    internal data class FetchOpts(
         val method: String? = null,
         val headers: Map<String, String>? = null,
         val body: String? = null,
