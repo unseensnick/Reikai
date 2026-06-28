@@ -812,7 +812,6 @@
     <string name="upcoming_calendar_next">अगला महीना</string>
     <string name="upcoming_calendar_prev">पिछला महीना</string>
     <string name="crash_screen_title">अरे!</string>
-    <string name="crash_screen_description">%s को एक अप्रत्याशित त्रुटि का सामना करना पड़ा। हम सुझाव देते हैं कि आप क्रैश लॉग्स हमारे Discord सपोर्ट चैनल में साझा करें।</string>
     <string name="crash_screen_restart_application">एप्लिकेशन पुनः प्रारंभ करें</string>
     <string name="label_overview_section">समीक्षा</string>
     <string name="label_completed_titles">पूर्ण किए गए प्रविष्टियाँ</string>

@@ -705,7 +705,6 @@
     <string name="not_installed">ইন্সটল কৰা নাই</string>
     <string name="crash_screen_title">ওপচ্!</string>
     <string name="crash_screen_restart_application">এপ্লিকেশ্বন পুনৰ আৰম্ভ কৰক</string>
-    <string name="crash_screen_description">%s এটা অনপেক্ষিত ত্ৰুটিৰ সন্মুখীন হৈছে। আমি Discord ত আমাৰ সহায় চেনেলত ক্ৰেশ লগ শ্বেয়াৰ কৰিবলৈ পৰামৰ্শ দিওঁ।</string>
     <string name="label_overview_section">সামগ্ৰিক দৃশ্য</string>
     <string name="label_completed_titles">সম্পূৰ্ণ প্ৰৱিষ্টি</string>
     <string name="label_read_duration">পঢ়াৰ সময়কাল</string>

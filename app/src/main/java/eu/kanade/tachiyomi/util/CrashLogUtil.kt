@@ -25,7 +25,7 @@ class CrashLogUtil(
 
     suspend fun dumpLogs(exception: Throwable? = null) = withNonCancellableContext {
         try {
-            val file = context.createFileInCacheDir("mihon_crash_logs.txt")
+            val file = context.createFileInCacheDir("reikai_crash_logs.txt") // RK: Reikai-branded crash dump name
 
             file.appendText(getDebugInfo() + "\n\n")
             getExtensionsInfo()?.let { file.appendText("$it\n\n") }

@@ -767,7 +767,6 @@
     <string name="empty_screen">Вой, нейкая няўвязка</string>
     <string name="not_installed">Не ўсталявана</string>
     <string name="crash_screen_title">Вой!</string>
-    <string name="crash_screen_description">У %s адбылася непрадбачаная памылка. Мы рэкамендуем падзяліцца журналам збояў у нашым канале падтрымкі ў Discord.</string>
     <string name="crash_screen_restart_application">Перазапусціць праграму</string>
     <string name="label_overview_section">Агляд</string>
     <string name="label_completed_titles">Завершаныя творы</string>

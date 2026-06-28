@@ -618,7 +618,6 @@
     <string name="action_apply">Käytä</string>
     <string name="action_ok">OK</string>
     <string name="action_revert_to_default">Palauta oletus</string>
-    <string name="crash_screen_description">%s kohtasi odottamattoman virheen. Ehdotamme että jaat kaatumisen lokitiedot tukikanavallemme Discordissa.</string>
     <string name="delete_downloaded">Poista ladatut</string>
     <string name="create_backup_file_error">Varmuuskopiotiedoston luonti epäonnistui</string>
     <string name="crash_screen_title">Hupsista!</string>

@@ -716,7 +716,6 @@
     <string name="clear_history_confirmation">நீங்கள் உறுதியாக இருக்கிறீர்களா? எல்லா வரலாற்றும் இழக்கப்படும்.</string>
     <string name="source_empty_screen">எந்த மூலமும் கிடைக்கவில்லை</string>
     <string name="crash_screen_title">அச்சச்சோ!</string>
-    <string name="crash_screen_description">%s எதிர்பாராத பிழையில் ஓடியது. மோதல் பதிவுகளை எங்கள் உதவி சேனலில் டிச்கார்டில் பகிர்ந்து கொள்ள பரிந்துரைக்கிறோம்.</string>
     <string name="crash_screen_restart_application">விண்ணப்பத்தை மறுதொடக்கம் செய்யுங்கள்</string>
     <string name="label_overview_section">கண்ணோட்டம்</string>
     <string name="source_filter_empty_screen">நிறுவப்பட்ட மூலமும் கிடைக்கவில்லை</string>

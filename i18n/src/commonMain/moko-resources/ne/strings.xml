@@ -601,7 +601,6 @@
     <string name="action_open_random_manga">जुनसुकै इन्ट्री खोल्नुहोस्</string>
     <string name="reading_list">पढिरहेको सूची</string>
     <string name="updates_last_update_info">पुस्तकालय पछिल्लो पटक अपडेट गरिएको: %s</string>
-    <string name="crash_screen_description">%s एक अप्रत्याशित त्रुटिमा पर्यो। समर्थन को लागि हामी तपाईंलाई हाम्रो Discord को #support च्यानलमा crash logs शेगर गर्न सुझाव दिन्छौं।</string>
     <string name="update_check_open">GitHub मा खोल्नुहोस्</string>
     <string name="pref_invalidate_download_cache_summary">डाउनलोड गरिएका अध्यायहरू पुन: जाँच गर्न एपलाई फोर्स गर्नुहोस्</string>
     <string name="pref_tracking_summary">एकतर्फी प्रगति सिंक, परिष्कृत सिंक</string>

@@ -728,7 +728,6 @@
     <string name="label_completed_titles">সম্পন্ন এন্ট্রি</string>
     <string name="label_overview_section">সারসংক্ষেপ</string>
     <string name="crash_screen_restart_application">অ্যাপ রিস্টার্ট করুন</string>
-    <string name="crash_screen_description">%s অপ্রত্যাশিত ত্রুটিতে পড়েছে। ক্র্যাশ লগগুলো আমাদের Discordএর support চ্যানেলে শেয়ার করুন।</string>
     <string name="crash_screen_title">উফ!</string>
     <string name="not_installed">ইনস্টল করা হয়নি</string>
     <string name="empty_screen">আরে, এখানে তো কিছুই নেই</string>

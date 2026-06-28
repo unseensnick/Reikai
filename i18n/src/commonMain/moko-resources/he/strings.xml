@@ -650,7 +650,6 @@
     <string name="last_used_source">שומש לאחרונה</string>
     <string name="myanimelist_relogin">בבקשה התחבר ל-MAL שוב</string>
     <string name="label_completed_titles">פריטים שהושלמו</string>
-    <string name="crash_screen_description">%s נתקל בשגיאה בלתי צפויה. אנו ממליצים שתשתף את דוחות השגיאה שלך בערוץ התמיכה שלנו בדיסקורד.</string>
     <string name="label_read_chapters">נקראו</string>
     <string name="label_titles_section">פריטים</string>
     <string name="seconds_short">%d שניות</string>

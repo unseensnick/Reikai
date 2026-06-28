@@ -780,7 +780,6 @@
     <string name="migration_selection_prompt">Elektu fonton el kiu migri</string>
     <string name="empty_screen">Nu, estas embarase</string>
     <string name="not_installed">Ne instalitaj</string>
-    <string name="crash_screen_description">%s trafis neatenditan eraron. Ni sugestas ke vi kunigu la prikolapsajn protokolojn ĉe nia subteneja kanalo ĉe Discord.</string>
     <string name="crash_screen_restart_application">Relanĉi la aplikaĵon</string>
     <string name="label_overview_section">Superrigardo</string>
     <string name="label_read_duration">Legada daŭro</string>

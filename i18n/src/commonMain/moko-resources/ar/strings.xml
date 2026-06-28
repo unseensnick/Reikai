@@ -620,7 +620,6 @@
     <string name="missing_storage_permission">لم يتم منح أذن التخزين</string>
     <string name="action_search_hint">بحث…</string>
     <string name="skipped_reason_not_always_update">تُخُطِّيت لأن السلسلة لا تتطلب تحديثات</string>
-    <string name="crash_screen_description">واجه %s خطأً غير متوقَّع. تنبغي لك مشاركة سجلَّات الانهيار في قناة الدعم في دسكورد.</string>
     <string name="crash_screen_title">عفوًا!</string>
     <string name="crash_screen_restart_application">أعد تشغيل التطبيق</string>
     <string name="pref_appearance_summary">مظهر، التاريخ والوقت</string>

@@ -632,7 +632,6 @@
     <string name="pref_security_summary">การล็อกแอป, หน้าจอความปลอดภัย</string>
     <string name="pref_advanced_summary">ดัมพ์บันทึกข้อขัดข้อง, การเพิ่มประสิทธิภาพแบตเตอรี่</string>
     <string name="crash_screen_title">เกิดความผิดพลาด!</string>
-    <string name="crash_screen_description">%s เกิดข้อผิดพลาดอย่างไม่คาดคิด ขอแนะนำให้คุณแบ่งปันบันทึกข้อขัดข้อง แล้วส่งลงไปในช่องสนับสนุนของเราใน Discord</string>
     <string name="invalid_location">ตำแหน่งไม่ถูกต้อง: %s</string>
     <string name="unknown_title">ไม่ทราบชื่อเรื่อง</string>
     <string name="crash_screen_restart_application">เริ่มแอปพลิเคชันใหม่</string>
