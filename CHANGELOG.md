@@ -12,6 +12,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+## [0.1.1]
+
 ### Other
 
 - Expanded automated test coverage for backup restore, novel chapter sync, and gallery metadata parsing, and fixed an internal cookie-removal helper that could miss cookies after the first.
