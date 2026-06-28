@@ -51,7 +51,7 @@ internal object ExtensionLoader {
     private const val METADATA_NSFW = "tachiyomi.extension.nsfw"
 
     private const val METADATA_NAME = "tachiyomix.name"
-    private const val METADATA_EXTENSION_LIB = "tachiyomix.extensionLib"
+    // RK: removed METADATA_EXTENSION_LIB read (lib version now derived from versionName); see loadExtension.
     private const val METADATA_CONTENT_WARNING = "tachiyomix.contentWarning"
 
     const val LIB_VERSION_MIN = 1.4
@@ -244,8 +244,10 @@ internal object ExtensionLoader {
         }
 
         // Validate lib version
-        val libVersion = appInfo.metaData.getDouble(METADATA_EXTENSION_LIB).takeUnless { it == 0.0 }
-            ?: versionName.substringBeforeLast('.').toDoubleOrNull()
+        // RK: the extensionLib manifest value is a float, so getDouble() always failed the cast
+        // (logging a full stack at every extension load) and we fell back to the versionName-derived
+        // value anyway. Derive it directly to silence that startup noise (matches Komikku).
+        val libVersion = versionName.substringBeforeLast('.').toDoubleOrNull()
         if (libVersion == null || (libVersion != LIB_VERSION_MIN && libVersion != LIB_VERSION_MAX)) {
             logcat(LogPriority.WARN) {
                 "Lib version is $libVersion, while only versions " +
