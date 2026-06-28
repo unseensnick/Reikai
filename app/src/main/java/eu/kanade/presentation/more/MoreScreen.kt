@@ -4,6 +4,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.automirrored.outlined.Label
+// RK -->
+import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
+// RK <--
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.GetApp
 import androidx.compose.material.icons.outlined.Info
@@ -38,6 +41,10 @@ fun MoreScreen(
     onClickCategories: () -> Unit,
     onClickStats: () -> Unit,
     onClickDataAndStorage: () -> Unit,
+    // RK -->
+    showBatchAdd: Boolean,
+    onClickBatchAdd: () -> Unit,
+    // RK <--
     onClickSettings: () -> Unit,
     onClickSupport: () -> Unit,
     onClickAbout: () -> Unit,
@@ -121,6 +128,17 @@ fun MoreScreen(
                     icon = Icons.Outlined.Storage,
                     onPreferenceClick = onClickDataAndStorage,
                 )
+            }
+            // RK: bulk-import adult-source galleries from pasted URLs. Shown only while adult
+            //     sources are enabled, reacting live to the toggle (showBatchAdd is state-backed).
+            if (showBatchAdd) {
+                item {
+                    TextPreferenceWidget(
+                        title = stringResource(MR.strings.batch_add),
+                        icon = Icons.AutoMirrored.Outlined.PlaylistAdd,
+                        onPreferenceClick = onClickBatchAdd,
+                    )
+                }
             }
 
             item { HorizontalDivider() }

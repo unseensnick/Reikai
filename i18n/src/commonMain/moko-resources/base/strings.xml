@@ -1340,4 +1340,26 @@
     <string name="eh_settings_uploading_to_server">Uploading settings to server</string>
     <string name="eh_settings_uploading_to_server_message">Please wait, this may take some time…</string>
     <string name="eh_settings_out_of_slots_error">You are out of profile slots on %1$s, please delete a profile!</string>
+    <!-- EXH gallery import: share/open a gallery link, and the batch-add screen -->
+    <string name="batch_add">Batch add</string>
+    <string name="eh_batch_add_title">Enter the galleries to add (separated by a new line):</string>
+    <string name="eh_batch_add_input_hint">Example:\n\nhttps://e-hentai.org/g/12345/1a2b3c4e\nhttps://exhentai.org/g/24680/2f4g6h8i\nhttps://nhentai.net/g/177013\nhttps://pururin.me/gallery/12345/title\n\nE-H Visited exported data is also supported</string>
+    <string name="eh_batch_add_button">Add galleries</string>
+    <string name="eh_batch_add_adding_galleries">Adding galleries…</string>
+    <string name="eh_batch_add_finish">Finish</string>
+    <string name="batch_add_description">Supports: E-Hentai, ExHentai, NHentai, Pururin</string>
+    <string name="batch_add_no_valid_galleries">No galleries to add!</string>
+    <string name="batch_add_no_valid_galleries_message">You must specify at least one gallery to add!</string>
+    <string name="batch_add_ok">[OK]</string>
+    <string name="batch_add_error">[ERROR]</string>
+    <string name="batch_add_summary">\nSummary:\nAdded: %1$d gallerie(s)\nFailed: %2$d gallerie(s)</string>
+    <string name="batch_add_success_log_message">Added gallery: %1$s</string>
+    <string name="batch_add_unknown_type_log_message">Unknown entry type for gallery: %1$s</string>
+    <string name="batch_add_unknown_source_log_message">Unknown source for gallery: %1$s</string>
+    <string name="batch_add_not_exist_log_message">Gallery does not exist: %1$s</string>
+    <string name="gallery_adder_could_not_identify_chapter">Could not identify chapter (url: %1$s)!</string>
+    <string name="loading_entry">Loading entry…</string>
+    <string name="launching_app">Launching app…</string>
+    <string name="error_with_reason">Error: %1$s</string>
+    <string name="could_not_open_entry">Could not open this entry:\n\n%1$s</string>
 </resources>

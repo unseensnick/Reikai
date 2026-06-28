@@ -25,6 +25,10 @@ import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.stats.StatsScreen
+// RK -->
+import exh.source.ExhPreferences
+import exh.ui.batchadd.BatchAddScreen
+// RK <--
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -70,6 +74,10 @@ data object MoreTab : Tab {
             onClickCategories = { navigator.push(CategoryScreen()) },
             onClickStats = { navigator.push(StatsScreen()) },
             onClickDataAndStorage = { navigator.push(SettingsScreen(SettingsScreen.Destination.DataAndStorage)) },
+            // RK -->
+            showBatchAdd = screenModel.isHentaiEnabled,
+            onClickBatchAdd = { navigator.push(BatchAddScreen()) },
+            // RK <--
             onClickSettings = { navigator.push(SettingsScreen()) },
             onClickSupport = { navigator.push(SupportUsScreen()) },
             onClickAbout = { navigator.push(SettingsScreen(SettingsScreen.Destination.About)) },
@@ -80,10 +88,16 @@ data object MoreTab : Tab {
 private class MoreScreenModel(
     private val downloadManager: DownloadManager = Injekt.get(),
     preferences: BasePreferences = Injekt.get(),
+    // RK -->
+    exhPreferences: ExhPreferences = Injekt.get(),
+    // RK <--
 ) : ScreenModel {
 
     var downloadedOnly by preferences.downloadedOnly.asState(screenModelScope)
     var incognitoMode by preferences.incognitoMode.asState(screenModelScope)
+
+    // RK: drives the reactive batch-add entry in the More tab; flips with the adult-sources toggle.
+    val isHentaiEnabled by exhPreferences.isHentaiEnabled().asState(screenModelScope)
 
     private var _downloadQueueState: MutableStateFlow<DownloadQueueState> = MutableStateFlow(DownloadQueueState.Stopped)
     val downloadQueueState: StateFlow<DownloadQueueState> = _downloadQueueState.asStateFlow()
