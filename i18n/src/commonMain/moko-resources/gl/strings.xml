@@ -612,7 +612,6 @@
     <string name="download_notifier_split_page_path_not_found">Non se atopou a ruta do ficheiro da páxina %d</string>
     <string name="channel_complete">Rematada</string>
     <string name="channel_new_chapters">Actualizacións de capítulos</string>
-    <string name="information_webview_required">Mihon necesita WebView</string>
     <string name="download_notifier_split_page_not_found">Non se atopou a páxina %d ao separar</string>
     <string name="channel_common">Xeral</string>
     <string name="crash_screen_title">Vaia!</string>

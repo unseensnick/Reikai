@@ -489,7 +489,6 @@
     <string name="repeating">Қайта оқылуда</string>
     <string name="reading_list">Оқылудағылар Тізімі</string>
     <string name="update_check_no_new_updates">Жаңалтулар жоқ</string>
-    <string name="information_webview_required">Mihon-ны қолдану үшін WebView керек</string>
     <string name="chapter_settings_updated">Әдепкі тарау параметрлері жаңартылды</string>
     <string name="download_notifier_no_network">Желі байланысы жоқ</string>
     <string name="information_empty_category_dialog">Сіздің кітапханаңызда санаттар жоқ.</string>

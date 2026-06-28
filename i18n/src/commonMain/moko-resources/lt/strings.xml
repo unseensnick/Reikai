@@ -350,7 +350,6 @@
     <string name="notification_first_add_to_library">Prieš atlikdami šį veiksmą, pridėkite įrašą į savo biblioteką</string>
     <string name="skipped_reason_not_started">Praleista, nes nėra perskaitytų skyrių</string>
     <string name="information_cloudflare_bypass_failure">Nepavyko apeiti \"Cloudflare\"</string>
-    <string name="information_webview_required">\"WebView\" reikalingas \"Mihon\"</string>
     <string name="loader_not_implemented_error">Šaltinis nerastas</string>
     <string name="migration_selection_prompt">Pasirinkite šaltinį, iš kurio norite perkelti</string>
     <string name="migrate">Perkelti</string>

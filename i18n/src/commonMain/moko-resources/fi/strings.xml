@@ -344,7 +344,6 @@
     <string name="action_pin">Kiinnitä</string>
     <string name="action_select_inverse">Valitse käänteinen</string>
     <string name="vertical_plus_viewer">Jatkuva pystysuora</string>
-    <string name="information_webview_required">WebView on pakollinen Mihonissa</string>
     <string name="restore_in_progress">Palautus on jo käynnissä</string>
     <string name="backup_in_progress">Varmuuskopiointi on jo käynnissä</string>
     <string name="pref_webtoon_side_padding">Sivuntäyttö</string>
