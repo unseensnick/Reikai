@@ -184,7 +184,8 @@
             android:exported="false" />
 
         <!-- RK: import a gallery shared/opened from a browser. Hosts mirror each adult source's
-             matchingHosts: E-Hentai/ExHentai/NHentai use /g/, Pururin uses /gallery/. -->
+             matchingHosts: E-Hentai/ExHentai/NHentai use /g/, Pururin uses /gallery/, 8Muses
+             uses /comics/. -->
         <activity
             android:name="exh.ui.intercept.InterceptActivity"
             android:exported="true"
@@ -217,6 +218,21 @@
                 <data android:host="pururin.me" />
 
                 <data android:pathPattern="/gallery/.*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+
+                <data android:host="8muses.com" />
+                <data android:host="www.8muses.com" />
+                <data android:host="comics.8muses.com" />
+
+                <data android:pathPattern="/comics/.*" />
             </intent-filter>
         </activity>
 
