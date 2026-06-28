@@ -62,6 +62,9 @@ jobs:
           mkdir -p ~/.gradle
           cp .github/runner-files/ci-gradle.properties ~/.gradle/gradle.properties
 
+      - name: Run unit tests
+        run: ./gradlew test
+
       - name: Build signed preview APKs
         run: ./gradlew assemblePreview -Penable-updater
         env:
