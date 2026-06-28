@@ -48,4 +48,16 @@ class LnPluginVersionTest {
     fun `major bump outranks minor or patch`() {
         assertTrue(LnPluginVersion.compare("2.0.0", "1.99.99") > 0)
     }
+
+    @Test
+    fun `a non-numeric segment falls back to string compare without crashing`() {
+        // "2.x" survives the digit/dot filter as "2." -> the empty segment can't parse, so the
+        // comparison degrades to a raw string compare ('x' > '0') instead of throwing.
+        assertTrue(LnPluginVersion.compare("2.x", "2.0") > 0)
+    }
+
+    @Test
+    fun `the non-numeric fallback is symmetric`() {
+        assertTrue(LnPluginVersion.compare("2.0", "2.x") < 0)
+    }
 }
