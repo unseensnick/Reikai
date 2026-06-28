@@ -37,6 +37,7 @@ class MangaMergeBackupRoundTripTest {
         insertTrack = mockk(relaxed = true),
         fetchInterval = mockk(relaxed = true),
         reikaiLibraryPreferences = prefs,
+        mangaMetadataRepository = mockk(relaxed = true),
     )
 
     @Test
