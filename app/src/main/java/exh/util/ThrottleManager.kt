@@ -14,13 +14,15 @@ import kotlin.time.Duration.Companion.seconds
 class ThrottleManager(
     private val max: Duration = THROTTLE_MAX,
     private val inc: Duration = THROTTLE_INC,
+    // Clock seam: defaults to the wall clock; tests inject a fixed source to assert the escalation.
+    private val now: () -> Duration = { System.currentTimeMillis().milliseconds },
 ) {
     private var lastThrottleTime = Duration.ZERO
     private var throttleTime = Duration.ZERO
 
     suspend fun throttle() {
-        val now = System.currentTimeMillis().milliseconds
-        val timeDiff = now - lastThrottleTime
+        val currentTime = now()
+        val timeDiff = currentTime - lastThrottleTime
         if (timeDiff < throttleTime) {
             delay(throttleTime - timeDiff)
         }
@@ -29,7 +31,7 @@ class ThrottleManager(
             throttleTime += inc
         }
 
-        lastThrottleTime = System.currentTimeMillis().milliseconds
+        lastThrottleTime = now()
     }
 
     companion object {
