@@ -17,12 +17,12 @@ import eu.kanade.presentation.components.TabbedScreen
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsScreenModel
-import eu.kanade.tachiyomi.ui.browse.migration.sources.migrateSourceTab
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.main.MainActivity
 // RK -->
 import reikai.presentation.browse.ReikaiBrowseScreenModel
 import reikai.presentation.browse.extension.reikaiExtensionsTab
+import reikai.presentation.browse.migrate.reikaiMigrateSourceTab
 import reikai.presentation.browse.source.reikaiSourcesTab
 // RK <--
 import kotlinx.coroutines.channels.BufferOverflow
@@ -70,7 +70,8 @@ data object BrowseTab : Tab {
             // RK: chip-switched manga + light-novel sources / extensions (P5 S3a).
             reikaiSourcesTab(browseScreenModel),
             reikaiExtensionsTab(extensionsScreenModel, browseScreenModel),
-            migrateSourceTab(),
+            // RK: chip-switched manga + light-novel migrate-source list.
+            reikaiMigrateSourceTab(browseScreenModel),
         )
 
         val state = rememberPagerState { tabs.size }

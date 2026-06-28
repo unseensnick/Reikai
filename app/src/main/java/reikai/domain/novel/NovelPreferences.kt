@@ -37,6 +37,21 @@ class NovelPreferences(
         },
     )
 
+    /**
+     * Last-known display identity (name, icon, lang) per plugin id, kept so the Browse migration list
+     * can render a source whose plugin is no longer installed (manga-stub parity). Written on every
+     * source load/install and deliberately NOT pruned on uninstall, so the row survives removal. A
+     * source never seen on this device (e.g. a backup restore) is absent and falls back to its raw id.
+     */
+    fun seenNovelSources() = preferenceStore.getObjectFromString(
+        key = "ln_seen_novel_sources",
+        defaultValue = emptyMap(),
+        serializer = { metadataJson.encodeToString(seenSourcesMapSerializer, it) },
+        deserializer = {
+            runCatching { metadataJson.decodeFromString(seenSourcesMapSerializer, it) }.getOrElse { emptyMap() }
+        },
+    )
+
     /** Most recently tapped LN source id (drives the Last Used section on the sources list). */
     fun lastUsedNovelSource() = preferenceStore.getString("last_used_novel_source", "")
 
@@ -272,6 +287,8 @@ class NovelPreferences(
     companion object {
         private val metadataMapSerializer =
             MapSerializer(String.serializer(), LnInstalledPluginMetadata.serializer())
+        private val seenSourcesMapSerializer =
+            MapSerializer(String.serializer(), LnSourceIdentity.serializer())
         private val metadataJson = Json { ignoreUnknownKeys = true }
     }
 }
