@@ -56,6 +56,9 @@ jobs:
             echo "VERSION_TAG=${{ github.ref_name }}" >> $GITHUB_ENV
           fi
 
+      - name: Run unit tests
+        run: ./gradlew test
+
       - name: Build signed release APKs
         run: ./gradlew assembleRelease -Penable-updater
         env:
