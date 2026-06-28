@@ -43,7 +43,7 @@ These are the Mihon-file edits that wire the subsystem in (grep `// RK`):
 
 ## Status
 
-Shipped on `design/mihon-rebase`, on-device verified on emulator-5554 (account push/remove and deep version-reconciliation are faithful ports verified by compile + non-account paths; live triggering needs an ExHentai login, user-side). Phase commits:
+Shipped on `main`, on-device verified on emulator-5554 (account push/remove and deep version-reconciliation are faithful ports verified by compile + non-account paths; live triggering needs an ExHentai login, user-side). Phase commits:
 
 - Phase 1 (delegation core + metadata store + 4 free enhanced sources + URL import): `08d9f2bfa`, `24a51cb03`, `87abe5245`.
 - Phase 2 (built-in EH/ExHentai, adult-sources toggle, ExHentai login, settings + uconfig): `41e85aac8`, `fc73b2adc`, `29d05b931`, `497b8d9f1`, `1f9ec4cab`, `692c98200`.

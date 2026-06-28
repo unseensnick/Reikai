@@ -11,8 +11,7 @@ the layout.
 
 ## Where things stand
 
-The LN host ships on the `design/mihon-rebase` branch (the branch that becomes `main` when the rebase
-lands). The vertical is complete and on-device verified: installing lnreader plugins from a repo,
+The LN host ships on `main` (the Mihon-based main). The vertical is complete and on-device verified: installing lnreader plugins from a repo,
 browsing/searching a source, saving novels to the library, reading chapters, downloading, multi-source
 merge, tracking, and backup are all wired. The host runs lnreader plugins unmodified in a headless
 QuickJS engine: no WebView and no Activity, so a source works the same on a screen or in a background

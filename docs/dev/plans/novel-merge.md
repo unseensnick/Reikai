@@ -69,7 +69,7 @@ The split-vs-dissolve decision is merge-engine semantics, so it lives in the man
 
 ## Key files
 
-Confirmed present on `design/mihon-rebase`:
+Confirmed present on `main`:
 
 - [`app/src/main/java/reikai/domain/MergeGroupAlgebra.kt`](../../../app/src/main/java/reikai/domain/MergeGroupAlgebra.kt): the pure group set-algebra + collapse parsers, shared with manga.
 - [`app/src/main/java/reikai/domain/novel/NovelMergeManager.kt`](../../../app/src/main/java/reikai/domain/novel/NovelMergeManager.kt): novel merge/split/dissolve, same-title resolution, the author guard, `splitOrDissolve`, `relatedNovelIdsFor`, and `seriesGroupKeys` for the Updates group-by-series.

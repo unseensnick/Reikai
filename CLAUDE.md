@@ -2,7 +2,7 @@
 
 Android manga + light-novel reader. Personal fork built on [Mihon](https://github.com/mihonapp/mihon) (Tachiyomi lineage), adding light novels, multi-source grouping, manual merge/unmerge, and category sort order.
 
-**Rebase onto Mihon (started 2026-06, functionally complete):** Reikai was previously a fork of [Yōkai](https://github.com/null2264/yokai); it has been rebased onto Mihon, with the core sequence and most of the manga-vs-novel parity backlog shipped (final low-value parity item + release cut remain). The Mihon-based foundation lives on the `design/mihon-rebase` branch (it becomes `main` at the release cut). The old Yōkai-based code (branch `design/library-compose`) is kept only as the porting reference. Full plan and feature list: [ROADMAP.md](ROADMAP.md) plus the per-feature records in [docs/dev/plans/](docs/dev/plans/); ongoing status: the `mihon-rebase` memory.
+**Rebase onto Mihon (shipped 2026-06 as v0.1.0):** Reikai was previously a fork of [Yōkai](https://github.com/null2264/yokai); it has been rebased onto Mihon. The rebase has shipped: `main` is now the Mihon-based main (the old `design/mihon-rebase` branch is gone). The old Yōkai-based code (branch `design/library-compose`) is kept only as the porting reference. Full plan and feature list: [ROADMAP.md](ROADMAP.md) plus the per-feature records in [docs/dev/plans/](docs/dev/plans/); ongoing status: the `mihon-rebase` memory.
 
 ## Working approach
 
@@ -98,6 +98,6 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 - `/scout` — investigate a non-trivial task before planning; produces a findings report grounded in `file:line` citations. Use before ports or cross-cutting changes.
 - `/tighten` — trim verbose prose, walls of text, journey narration, and WHAT comments from docs (and, on ask, code comments) without losing vital info. Always plans before editing.
 - `/port-audit` — audit a port for behavioral parity against the Reikai source on `design/library-compose`. Use after a phase ships.
-- `/ship` — scan, stage, commit, push, PR with Reikai conventions (no `Co-Authored-By`, no `## Test plan`; `--repo unseensnick/Reikai`). During the rebase, work targets `design/mihon-rebase`, not `main`.
+- `/ship` — scan, stage, commit, push, PR with Reikai conventions (no `Co-Authored-By`, no `## Test plan`; `--repo unseensnick/Reikai`). Work targets `main`.
 - `/debug-fix` — bug-hunt workflow (`--fast` for hotfixes).
 - `/pr-review`, `/refactor`, `/test-writer`, `/tdd`, `/explain`, `/context-budget`.
