@@ -98,7 +98,7 @@ Read-aloud (TTS) lives in its own files:
 
 ## Status
 
-Shipped (P5 core sequence, on-device verified). Live reading with typography and themes, scroll resume, prev/next with prefetch, cross-source reading on merged novels, auto-mark-read, history, tracker sync, incognito gating, keep-screen-on, orientation lock, and mark-read-on-skip are all in place. Read-aloud (TTS) shipped as the engine-extras round 2: foreground reading with the draggable puck and settings tab, plus background playback with a lock-screen / headset media notification (on-device verified on the Fold6). Round 3 (chrome + chapter-list parity: the chapters sheet, orientation picker, top-bar WebView + bookmark, seekbar percent labels, translucent chrome) shipped in `bc3d21ed2` / `762704ec1`; compiles, on-device verification of the chapter-list sheet pending.
+Shipped (P5 core sequence, on-device verified). Live reading with typography and themes, scroll resume, prev/next with prefetch, cross-source reading on merged novels, auto-mark-read, history, tracker sync, incognito gating, keep-screen-on, orientation lock, and mark-read-on-skip are all in place. Read-aloud (TTS) shipped as the engine-extras round 2: foreground reading with the draggable puck and settings tab, plus background playback with a lock-screen / headset media notification (on-device verified on the Fold6). Round 3 (chrome + chapter-list parity: the chapters sheet, orientation picker, top-bar WebView + bookmark, seekbar percent labels, translucent chrome) shipped in `23ed2a2e4` / `d8faad579`; compiles, on-device verification of the chapter-list sheet pending.
 
 ## Decisions & tradeoffs
 

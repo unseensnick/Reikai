@@ -32,7 +32,7 @@ Mechanism:
 
 ## Status
 
-Shipped, on-device verified on a Fold6 against a real same-title merge (cross-source navigation loads in place; per-source labels and download indicator correct; details screen unchanged). Commits: `4c811bae7` (loader seam), `977ddf8a0` (per-source side effects + boundary smoothness), `3ba35b67d` (per-source labels + the aggregate consolidation).
+Shipped, on-device verified on a Fold6 against a real same-title merge (cross-source navigation loads in place; per-source labels and download indicator correct; details screen unchanged). Commits: `d30cce03d` (loader seam), `4bd3ca823` (per-source side effects + boundary smoothness), `5b9f6d778` (per-source labels + the aggregate consolidation).
 
 ## Decisions & tradeoffs
 

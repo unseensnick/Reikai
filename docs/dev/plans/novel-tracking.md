@@ -61,11 +61,11 @@ UI / sync wiring:
 
 - `app/src/main/java/reikai/presentation/novel/details/NovelDetailsScreenModel.kt`: opens the sheet and drives mark-read auto-sync.
 
-(File list confirmed against the working tree and commit `5e8f53aca`; see `git show --stat 5e8f53aca`.)
+(File list confirmed against the working tree and commit `7c56e07eb`; see `git show --stat 7c56e07eb`.)
 
 ## Status
 
-Shipped in commit `5e8f53aca`, on-device verified (Z Fold). Roadmap Active item 8, done 2026-06-20. Unit-tested: conversion round-trip and updater state transitions.
+Shipped in commit `7c56e07eb`, on-device verified (Z Fold). Roadmap Active item 8, done 2026-06-20. Unit-tested: conversion round-trip and updater state transitions.
 
 ## Decisions & tradeoffs
 

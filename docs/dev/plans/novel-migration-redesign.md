@@ -44,7 +44,7 @@ Restructure each row into a source-to-target comparison (the agreed mockup): bot
 
 ## Status
 
-Shipped, on-device verified (`722db903a`, `ebe4684a7`, `e8a24d888`, `d202dfde4`, `15e947cb6`).
+Shipped, on-device verified (`bf5bd4f8f`, `94f7ef09d`, `8cb547a71`, `b66e3efd0`, `0ce7c95c1`).
 
 - **Phase 1: covers + chapter-count signal.** Shipped. Covers (tap to open details) on the suggested hit, candidate list, and chosen target; source chapter count always shown; target count with a red shortfall vs the source after selection. The cover tap opens details, which doubles as the verify path for the conservative paged-source count. Color choice: error on the delta only (count stays neutral).
 - **Phase 2: source-selection pre-step.** Shipped. New `NovelMigrationConfigScreen` (Selected / Available, drag-reorderable priority, select all / none / pinned / enabled), saved to the new `novelMigrationSources` pref (ordered, newline-joined). The migration list searches only the selected sources in saved order (fallback to all when none saved). Both entry points (novel details, library multi-select) route through it first. Rows reuse `NovelSourceRow`; the screen mirrors Mihon's `MigrationConfigScreen`.

@@ -62,9 +62,9 @@ Note: the original commit included a `NovelPluginRestorer.kt`; it has since been
 
 ## Status
 
-Shipped (commit `a6027edf2`), on-device verified (Z Fold): a real backup includes the novel library (titles absent from the pre-novel backup, about +1.9 MB decompressed) and restores it, with merge groups rebuilt so grouped novels stay grouped. Unit-tested via `NovelBackupRoundTripTest` (merge id-remap round-trip and proto mapping).
+Shipped (commit `3c52d4c97`), on-device verified (Z Fold): a real backup includes the novel library (titles absent from the pre-novel backup, about +1.9 MB decompressed) and restores it, with merge groups rebuilt so grouped novels stay grouped. Unit-tested via `NovelBackupRoundTripTest` (merge id-remap round-trip and proto mapping).
 
-Round-2 restore robustness fixes (on-device verified by the user, fresh install + personal backup): `29df060d2` (manga category-restore race + manga merge re-keying via `BackupMangaMerge`), `850b18dae` (extensions no longer show twice after a restore: the reinstall is awaited on the restore scope and a now-trusted extension clears any stale untrusted entry), `72e5be282` (the "what to restore" options screen no longer needs a second tap; the file-picker result is pushed from a `LaunchedEffect`).
+Round-2 restore robustness fixes (on-device verified by the user, fresh install + personal backup): `00d9469c0` (manga category-restore race + manga merge re-keying via `BackupMangaMerge`), `53cf34cd2` (extensions no longer show twice after a restore: the reinstall is awaited on the restore scope and a now-trusted extension clears any stale untrusted entry), `5e5a01b15` (the "what to restore" options screen no longer needs a second tap; the file-picker result is pushed from a `LaunchedEffect`).
 
 Deferred follow-up (round 2, "Restore-path onboarding"): today, sources a restore can't auto-bring-back (a manga extension whose repo or APK is missing, or a novel plugin that failed to re-download) only land in the restore log. The follow-up turns that passive log into a guided post-restore step that surfaces the unmatched extensions/plugins as an actionable list, grouped by repo, that walks the user through reinstalling them. It builds directly on the installed-sources backup shipped here.
 

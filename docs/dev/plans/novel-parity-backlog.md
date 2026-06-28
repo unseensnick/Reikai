@@ -105,23 +105,23 @@ All shipped and on-device verified (Z Fold / Fold6).
 
 | Item | Area | Commit |
 |---|---|---|
-| Novel History tab (Roadmap 5) | History | `bc0b78d37`..`2d2807015` |
-| Migrate a novel to another source (Roadmap 7) | Migration | `9756d2a76` (download re-queue follow-up `fc6dabb03`) |
-| Batch / library migration (unified 1..N screen) | Migration | `e80c66a0b` |
-| "Downloaded only" novel library mode | Library modes | `f7d85efcd` |
-| Incognito mode for novels | Library modes | `25d046329` |
-| Per-novel reader orientation lock | Reader | `37bfa661f` |
-| Keep screen on (novel reader) | Reader | `6a11e28af` |
-| Mark chapter read when skipping ahead | Reader | `045d60ab5` |
-| Download retry on failure | Reader / downloads | `f4dc3c8cc` |
-| Download only over Wi-Fi | Reader / downloads | `a8a21bdcf` (resume-when-back `05e0b2620`) |
-| Download-queue reorder + sort | Downloads | `f5f526094` |
-| Novels in the Stats screen | Stats | `5215e531e` |
-| Per-novel Notes | Cross-cutting | `9147b9f21` |
-| Long-press add-to-library in global search (manga + novel) | Browse | `1d2aa4b8a` |
-| Surgical novel writes via UpdateNovel / SetNovelChapterFlags / SetNovelViewerFlags | Cross-cutting | `b6b1429d6` |
-| Delete-after-read slots + bookmark/category guards + download-ahead | Downloads | `b441ff013` |
-| Per-title update notifications + SHORTCUT_NOVEL deep-link | Downloads | `8baa4120f` |
+| Novel History tab (Roadmap 5) | History | `89f0fe454`..`f3bbd0a4f` |
+| Migrate a novel to another source (Roadmap 7) | Migration | `d7f52c57f` (download re-queue follow-up `26e61fc7a`) |
+| Batch / library migration (unified 1..N screen) | Migration | `3dc8a9e72` |
+| "Downloaded only" novel library mode | Library modes | `e196c6f06` |
+| Incognito mode for novels | Library modes | `17a2a690f` |
+| Per-novel reader orientation lock | Reader | `3e4d5e9cd` |
+| Keep screen on (novel reader) | Reader | `54dc054d2` |
+| Mark chapter read when skipping ahead | Reader | `1444cbd0f` |
+| Download retry on failure | Reader / downloads | `6460e2fb9` |
+| Download only over Wi-Fi | Reader / downloads | `46fabf017` (resume-when-back `b9134ef1a`) |
+| Download-queue reorder + sort | Downloads | `7962483f2` |
+| Novels in the Stats screen | Stats | `f5998bd3c` |
+| Per-novel Notes | Cross-cutting | `f2f067f29` |
+| Long-press add-to-library in global search (manga + novel) | Browse | `0bb9457f1` |
+| Surgical novel writes via UpdateNovel / SetNovelChapterFlags / SetNovelViewerFlags | Cross-cutting | `bbcdcbcff` |
+| Delete-after-read slots + bookmark/category guards + download-ahead | Downloads | `a78ed713e` |
+| Per-title update notifications + SHORTCUT_NOVEL deep-link | Downloads | `41325f9d5` |
 
 ## Decisions & tradeoffs
 

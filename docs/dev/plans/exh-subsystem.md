@@ -45,14 +45,14 @@ These are the Mihon-file edits that wire the subsystem in (grep `// RK`):
 
 Shipped on `design/mihon-rebase`, on-device verified on emulator-5554 (account push/remove and deep version-reconciliation are faithful ports verified by compile + non-account paths; live triggering needs an ExHentai login, user-side). Phase commits:
 
-- Phase 1 (delegation core + metadata store + 4 free enhanced sources + URL import): `a105d5ab3`, `e6807a43f`, `10ef6caf7`.
-- Phase 2 (built-in EH/ExHentai, adult-sources toggle, ExHentai login, settings + uconfig): `1a072568f`, `c8d939d2b`, `ab6325aae`, `9868c4ae1`, `bc288cff1`, `add58456a`.
-- Phase 3 (tag autocomplete, library tag search, metadata viewer): `04467c276`, `52348af35`, `b6bbc417a`.
-- Phase 4 (HentaiFox / AsmHentai / Koharu wrappers + match-by-name fix): `896c440cc`, `db45bc176`, `4aa67b83e`.
+- Phase 1 (delegation core + metadata store + 4 free enhanced sources + URL import): `08d9f2bfa`, `24a51cb03`, `87abe5245`.
+- Phase 2 (built-in EH/ExHentai, adult-sources toggle, ExHentai login, settings + uconfig): `41e85aac8`, `fc73b2adc`, `29d05b931`, `497b8d9f1`, `1f9ec4cab`, `692c98200`.
+- Phase 3 (tag autocomplete, library tag search, metadata viewer): `2e3a1a892`, `15a3a4832`, `b6655ae08`.
+- Phase 4 (HentaiFox / AsmHentai / Koharu wrappers + match-by-name fix): `0633f75a2`, `01e027dab`, `846e7e85d`.
 - Phase 5a (favorited-gallery update checker): in the EXH commit range above.
 - Phase 5b (one-way favorites backup): in the EXH commit range above.
-- Settings + presentation polish: `398152600`, `bd1fa1c2f`, `35501c13e`.
-- Stock-EH suppression: `157e765f7`. Library-update exclusion of adult galleries: `35f5eb185`.
+- Settings + presentation polish: `f80cfc5b3`, `6a4422c23`, `90060670e`.
+- Stock-EH suppression: `4a4c7c0bb`. Library-update exclusion of adult galleries: `1a0c8b35e`.
 
 ## Decisions & tradeoffs
 
