@@ -692,6 +692,8 @@
     <string name="restoring_backup">Restoring backup</string>
     <string name="restoring_backup_error">Restoring backup failed</string>
     <string name="restoring_backup_canceled">Canceled restore</string>
+    <!-- RK: shown once on first launch after updating in place from the old Yōkai-based build -->
+    <string name="legacy_import_notice">Restoring your library from the previous version…</string>
     <string name="backup_info">You should keep copies of backups in other places as well. Backups may contain sensitive data including any stored passwords; be careful if sharing.</string>
     <string name="last_auto_backup_info">Last automatically backed up: %s</string>
     <string name="label_data">Data</string>

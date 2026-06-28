@@ -12,9 +12,15 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+## [0.1.2]
+
 ### Additions
 
 - **Migrate light novels from Browse → Migration.** The Migration tab now has the same All / Manga / Novels switch as the rest of Browse: pick a novel source to see its saved novels, select the ones to move, and run them through the existing novel migration flow. A source still shows (with its last-known name and icon) even after its plugin is uninstalled, so you can always migrate away from it.
+
+### Fixes
+
+- **Fixed the crash on launch after updating from an old Yōkai-Y2K build.** Updating in place from a pre-rebase (1.9.x) build left a database the new app couldn't open, so it crashed on startup. It now recovers your manga and novel libraries plus your extension repositories automatically on first launch (a brief notice shows while it restores), with your previous data kept safe. Merged series come back unmerged, so re-create any merges you want. ([#11](https://github.com/unseensnick/Reikai/issues/11))
 
 ## [0.1.1]
 

@@ -7,9 +7,11 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.Uri
 import android.os.Build
 import android.os.Looper
 import android.webkit.WebView
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -30,6 +32,8 @@ import eu.kanade.domain.ui.model.setAppCompatDelegateThemeMode
 import eu.kanade.tachiyomi.core.security.PrivacyPreferences
 import eu.kanade.tachiyomi.crash.CrashActivity
 import eu.kanade.tachiyomi.crash.GlobalExceptionHandler
+import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
+import eu.kanade.tachiyomi.data.backup.restore.RestoreOptions
 import eu.kanade.tachiyomi.data.coil.BufferedSourceFetcher
 import eu.kanade.tachiyomi.data.coil.MangaCoverFetcher
 import eu.kanade.tachiyomi.data.coil.MangaCoverKeyer
@@ -48,6 +52,7 @@ import eu.kanade.tachiyomi.util.system.WebViewUtil
 import eu.kanade.tachiyomi.util.system.animatorDurationScale
 import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.notify
+import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -60,6 +65,7 @@ import mihon.telemetry.TelemetryConfig
 import org.conscrypt.Conscrypt
 import reikai.data.coil.NovelCoverFetcher
 import reikai.data.coil.NovelCoverKeyer
+import reikai.data.legacy.LegacyYokaiDbImporter
 import reikai.presentation.widget.UnifiedUpdatesWidgetManager
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.Preference
@@ -103,6 +109,15 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         Injekt.importModule(PreferenceModule(this))
         Injekt.importModule(AppModule(this))
         Injekt.importModule(DomainModule())
+
+        // RK --> recover a library left behind by an in-place update from the old Yōkai-based build.
+        // The old DB shares tachiyomi.db's name but sits at a higher, incompatible schema version, so
+        // SQLDelight skips all migrations and crashes on the first query (no such table). Detect it,
+        // export the library to a backup, and move the old DB aside so a fresh DB is created. Runs
+        // before the DB is first opened (the factories above are lazy); the restore is enqueued at the
+        // end of onCreate once DI is ready. See docs/dev/plans/legacy-yokai-import.md.
+        val legacyImportFile = LegacyYokaiDbImporter.prepareIfLegacyDb(this)
+        // RK <--
 
         setupNotificationChannels()
 
@@ -178,6 +193,23 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         }
 
         initializeMigrator()
+
+        // RK --> restore the recovered legacy library once DI and a fresh DB are ready
+        legacyImportFile?.let { file ->
+            toast(MR.strings.legacy_import_notice, Toast.LENGTH_LONG)
+            BackupRestoreJob.start(
+                context = this,
+                uri = Uri.fromFile(file),
+                options = RestoreOptions(
+                    libraryEntries = true,
+                    categories = true,
+                    appSettings = false,
+                    extensionStores = true,
+                    sourceSettings = false,
+                ),
+            )
+        }
+        // RK <--
     }
 
     private fun initializeMigrator() {

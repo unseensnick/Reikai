@@ -9,6 +9,7 @@ The format these follow, and the rule for what earns a doc here, live in [.claud
 ## Foundation
 
 - [Reikai → Mihon rebase overview](rebase-overview.md): why Reikai moved off Yōkai onto Mihon, the phased structure (P0-P9), the `// RK` patch convention, and the decisions behind it.
+- [Legacy Yōkai database import](legacy-yokai-import.md): recovering a user's manga + novel library when they update in place from a pre-rebase Yōkai build, instead of crashing on the now-incompatible shared `tachiyomi.db`.
 
 ## Library & shell
 
