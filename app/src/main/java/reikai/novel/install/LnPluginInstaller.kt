@@ -11,6 +11,7 @@ import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import okhttp3.Request
 import reikai.domain.novel.LnInstalledPluginMetadata
+import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.host.LnPluginHost
 import reikai.novel.host.LnPluginLoader
@@ -66,6 +67,7 @@ class LnPluginInstaller(
         val info = host.loadPlugin(scopeIdFromUrl(canonical), src, metadata?.iconUrl, metadata?.lang)
         val source = LnPluginSource(host, info)
         manager.register(source)
+        rememberSeenSources(listOf(source))
 
         // A plugin's identity is [info.id], not its URL. Drop any prior install of the same plugin (the
         // same plugin from a different/old repo, or a URL carried in by a restore) so installing
@@ -127,7 +129,23 @@ class LnPluginInstaller(
         // Record successes on the single (mutex-holding) coroutine, after awaitAll, to avoid racing on
         // loadedUrls from the parallel children.
         loadedUrls += ok.map { it.first }
+        rememberSeenSources(ok.map { it.second })
         return ok.map { it.second }
+    }
+
+    /**
+     * Cache each loaded source's display identity (name / icon / lang) by plugin id, so the Browse
+     * migration list can render a source even after its plugin is uninstalled. Merged in (an install
+     * refreshes a renamed source) and never pruned by [uninstall], which is what makes the stub row
+     * survive removal.
+     */
+    private fun rememberSeenSources(sources: List<LnPluginSource>) {
+        if (sources.isEmpty()) return
+        val current = prefs.seenNovelSources().get()
+        val updated = current + sources.associate {
+            it.id to LnSourceIdentity(name = it.name, iconUrl = it.iconUrl, lang = it.lang)
+        }
+        if (updated != current) prefs.seenNovelSources().set(updated)
     }
 
     /**
