@@ -42,7 +42,8 @@ class AndroidCookieJar : CookieJar {
         }
 
         return cookies.split(";")
-            .map { it.substringBefore("=") }
+            // RK: trim so non-first cookies (" b=2") match the name filter
+            .map { it.substringBefore("=").trim() }
             .filterNames()
             .onEach { manager.setCookie(urlString, "$it=;Max-Age=$maxAge") }
             .count()
