@@ -12,7 +12,7 @@ The rebase swapped Reikai's Yōkai-era details screen (a View-based Conductor co
 
 ## Approach
 
-What landed and the mechanism behind each piece. This describes CURRENT behavior on `design/mihon-rebase`.
+What landed and the mechanism behind each piece. This describes CURRENT behavior on `main`.
 
 **Cover-accent backdrop.** Opening a manga tints the whole details screen with a color pulled from its cover art: a red cover gives a warm header, a blue cover a cool one. In Mihon this color is the `seedColor` field on the screen state, extracted from the cover bitmap (`MangaScreenModel.kt`, set inside `updateSeedColor`). Reikai's contribution is applying it as the live theme: a `// RK` block wraps the whole screen in `TachiyomiTheme(seedColor = ...)`, gated on a `themeCoverBased` preference so a user can turn it off (`MangaScreen.kt`). The blurred-cover backdrop and its vertical gradient live in the info header (`MangaInfoHeader.kt`).
 
@@ -48,7 +48,7 @@ Mihon presentation composables (native, confirmed present, no Reikai edits neede
 
 ## Status
 
-Shipped. P3 is done (Roadmap P3, status done): merge / Manage-sources UI, private tracking, two-finger range select, cover-accent backdrop, and the recommendations carousel are all on `design/mihon-rebase` and on-device verified.
+Shipped. P3 is done (Roadmap P3, status done): merge / Manage-sources UI, private tracking, two-finger range select, cover-accent backdrop, and the recommendations carousel are all on `main` and on-device verified.
 
 ## Decisions & tradeoffs
 

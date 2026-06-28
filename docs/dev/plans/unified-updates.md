@@ -63,7 +63,7 @@ Key files (app module): `reikai/presentation/widget/UnifiedUpdatesGlanceWidget.k
 
 ## Status
 
-Shipped and on-device verified (Z Fold / Fold6): all four pieces of the in-app feed (consolidation, novel filters, by-category, group-by-series) are live on `design/mihon-rebase`, plus the home-screen widget (`b2e4d1cb8`). The novel History tab is the History-side twin of this same consolidation pattern; see novel-parity-backlog.md.
+Shipped and on-device verified (Z Fold / Fold6): all four pieces of the in-app feed (consolidation, novel filters, by-category, group-by-series) are live on `main`, plus the home-screen widget (`b2e4d1cb8`). The novel History tab is the History-side twin of this same consolidation pattern; see novel-parity-backlog.md.
 
 ## Decisions & tradeoffs
 

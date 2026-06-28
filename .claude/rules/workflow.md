@@ -136,7 +136,7 @@ A small commit needs no headers, just the subject plus a sentence or two (see th
 
 **Conventional types:** `feat:` new feature, `fix:` bug fix, `docs:` documentation only, `chore:` build / tooling, `refactor:` / `test:` / `perf:` as named.
 
-During the Mihon rebase, all work lands on the **`design/mihon-rebase`** branch (it becomes the new `main` when the rebase ships). PRs target `design/mihon-rebase`, not `main`. Patches to Mihon's own files are fenced with `// RK -->` / `// RK <--`.
+Work lands on `main` (the Mihon-based main). PRs target `main`. Patches to Mihon's own files are fenced with `// RK -->` / `// RK <--`.
 
 For day-to-day commit / push / PR work, run **`/ship`** (or **`/debug-fix --fast`** for hotfixes). Those bake in the conventions: no `Co-Authored-By` lines in commits, no `## Test plan` section or `🤖 Generated with [Claude Code]` footer in PR bodies, and `--repo unseensnick/Reikai` (the repo otherwise targets the wrong remote).
 
@@ -149,7 +149,7 @@ Don't bump per-push; ship alpha cycles by branch/tag. At release-cut, bump both 
 
 ## Syncing with Mihon (the live base)
 
-Mihon upstream changes are **ported manually** from the local `refs/mihon/` clone. Never `git merge` Mihon into `design/mihon-rebase` (it would clobber Reikai patches and identity). When porting an upstream change that touches a file Reikai has patched, re-apply inside the `// RK` island.
+Mihon upstream changes are **ported manually** from the local `refs/mihon/` clone. Never `git merge` Mihon into `main` (it would clobber Reikai patches and identity). When porting an upstream change that touches a file Reikai has patched, re-apply inside the `// RK` island.
 
 **Commit-message reference convention (required):** in a Mihon-sync commit, reference an upstream pull request or issue as **`mihonapp/mihon#<num>`** (GitHub renders this as a link to the Mihon repo). Never a bare `#<num>` (it auto-links to a *Reikai* issue/PR) nor a bare `<num>`. Also cite the upstream short-SHA (e.g. `mihon 80541831b`). The full commit-message template, the porting method (verbatim copy for marker-free files, hand-merge inside `// RK` islands for patched ones), and the running synced-base ledger live in the **`upstream-sync` memory**.
 

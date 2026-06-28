@@ -1,6 +1,6 @@
 # Reikai Roadmap
 
-Forward-looking plan for the Mihon rebase (branch `design/mihon-rebase`, which becomes `main` when the rebase ships). This is the single backlog: what is left, in what order, and what already landed.
+Forward-looking plan for Reikai on the Mihon base (the rebase has shipped; `main` is the Mihon-based main). This is the single backlog: what is left, in what order, and what already landed.
 
 Per-feature implementation and decision records live in [docs/dev/plans/](docs/dev/plans/). The format this file follows is defined in [.claude/rules/workflow.md](.claude/rules/workflow.md) ("Roadmap & plans"). Day-to-day session state lives in `Handoff.md` (gitignored).
 
@@ -28,9 +28,7 @@ Nothing actively in progress.
 
 ## Next
 
-Queued, roughly in priority order.
-
-- **Publish a fresh preview + release-pipeline first-run verify**  `[S]`: the preview prune bug is now FIXED (`e1960e06e`, prune by build number not date), so kick a manual build, `gh workflow run preview.yml --ref design/mihon-rebase --repo unseensnick/Reikai`, and confirm r352 lands on `unseensnick/Reikai-preview` and sticks (the prune no longer eats the newest). Then the broader verify: a tag draft-publishes a release and the in-app updater prompts on both. The `PREVIEW_REPO_TOKEN` PAT already works; builds publish; this is now just the manual trigger + check.
+Nothing queued.
 
 ## Later
 
@@ -151,7 +149,7 @@ Terse done-log, grouped by area. Full detail in the linked plan docs.
 - Round 2 parity sweep: novel default-category for new novels (`db116e592`), add-to-library button on novel history rows (`658be0feb`), novel source enable/disable (`bf538dabf`), novel chapter "downloaded" filter (`143abf9cf`), and novel update-error tracking + per-category manual update (shared All / Manga / Novels Update-errors screen, fixes the Novels-chip refresh that fired the manga job) (`f28259d00`).
 
 ### Adult / EXH subsystem (phases 1-4 + 5a + 5b)
-Ported from `refs/komikku`, re-typed onto Mihon's models. Committed on `design/mihon-rebase`, not yet pushed; on-device verified on emulator-5554.
+Ported from `refs/komikku`, re-typed onto Mihon's models. On `main`; on-device verified on emulator-5554.
 - Phase 1: delegation core (`EnhancedHttpSource` / `DelegatedHttpSource`) + gallery-metadata store (`search_metadata` / `search_tags` / `search_titles`, migration 23) + the 4 free enhanced sources (nHentai, Pururin, 8Muses, LANraragi) + URL import (`08d9f2bfa`, `24a51cb03`, `87abe5245`).
 - Phase 2: built-in E-Hentai / ExHentai source (anonymous browse + read, full gallery filters, gallery-version chapters); Settings → Advanced "Enable adult sources" toggle; ExHentai WebView login; E-Hentai settings screen + server-profile sync (uconfig) (`41e85aac8`, `fc73b2adc`, `29d05b931`, `497b8d9f1`, `1f9ec4cab`, `692c98200`).
 - Phase 3: E-Hentai tag autocomplete (full EHTags catalogue), library search by gallery tags, Compose-native gallery metadata viewer (`2e3a1a892`, `15a3a4832`, `b6655ae08`).
@@ -169,4 +167,4 @@ Ported from `refs/komikku`, re-typed onto Mihon's models. Committed on `design/m
 
 ## Conventions
 
-Branch `design/mihon-rebase`; edits to Mihon files fenced with `// RK -->` / `// RK <--`; net-new code in `reikai.*`; Injekt DI (no Koin); immutable `tachiyomi.domain` models; SQLDelight migrations are additive. Upstream Mihon changes are ported by hand from `refs/mihon/` (never `git merge`). Full detail in [CLAUDE.md](CLAUDE.md), [.claude/rules/](.claude/rules/), the [plan docs](docs/dev/plans/), and the memories.
+Branch `main`; edits to Mihon files fenced with `// RK -->` / `// RK <--`; net-new code in `reikai.*`; Injekt DI (no Koin); immutable `tachiyomi.domain` models; SQLDelight migrations are additive. Upstream Mihon changes are ported by hand from `refs/mihon/` (never `git merge`). Full detail in [CLAUDE.md](CLAUDE.md), [.claude/rules/](.claude/rules/), the [plan docs](docs/dev/plans/), and the memories.

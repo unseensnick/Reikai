@@ -75,7 +75,7 @@ Tracker links mirror across the group via [`PropagateTrackerLinks`](../../../app
 
 ## Key files
 
-Confirmed present on `design/mihon-rebase`:
+Confirmed present on `main`:
 
 - [`app/src/main/java/reikai/domain/MergeGroupAlgebra.kt`](../../../app/src/main/java/reikai/domain/MergeGroupAlgebra.kt): the pure group set-algebra + collapse parsers, shared with novels.
 - [`app/src/main/java/reikai/domain/manga/MangaMergeManager.kt`](../../../app/src/main/java/reikai/domain/manga/MangaMergeManager.kt): manga merge/split/dissolve operations, same-title resolution, tracker healing.
