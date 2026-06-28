@@ -38,6 +38,7 @@ import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.util.ExtensionLoader
 import exh.assets.EhAssets
 import exh.assets.ehassets.EhLogo
+import exh.source.PURURIN_SOURCE_ID
 import exh.source.eHentaiSourceIds
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.source.model.Source
@@ -87,6 +88,24 @@ fun SourceIcon(
                     imageVector = EhAssets.EhLogo,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(0.72f),
+                )
+            }
+        }
+        // RK: the built-in Pururin source ships no extension icon; show its logo on the same tile
+        //     treatment as E-Hentai so the two built-in adult sources read consistently.
+        source.id == PURURIN_SOURCE_ID -> {
+            Box(
+                modifier = modifier
+                    .then(defaultModifier)
+                    .padding(5.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color.White),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.pururin_logo),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
         }
