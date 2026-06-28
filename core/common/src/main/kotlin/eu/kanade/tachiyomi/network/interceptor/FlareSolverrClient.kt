@@ -312,7 +312,8 @@ private data class FlareSolverrSolution(
 )
 
 @Serializable
-private data class FlareSolverrCookie(
+// RK: internal (was private) so toRawCookieString's leading-dot domain logic is unit-testable.
+internal data class FlareSolverrCookie(
     val name: String,
     val value: String,
     val domain: String = "",
