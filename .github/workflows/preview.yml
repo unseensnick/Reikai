@@ -8,7 +8,7 @@ name: Build & publish preview
 on:
   push:
     branches:
-      - design/mihon-rebase
+      - main
     paths-ignore:
       # Non-app changes that never affect the built APK: docs, this/other CI workflows, and Claude
       # tooling. A push is skipped only when every changed file matches (a mixed app+docs push builds).
