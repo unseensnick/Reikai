@@ -35,11 +35,12 @@ android {
 
     defaultConfig {
         // RK --> Reikai identity: keep eu.kanade.tachiyomi base + .y2k suffix so existing installs upgrade in place.
-        // versionName scheme for the Mihon era is a release-cut decision; carried over from the last Yokai-based build for continuity.
+        // versionName: Reikai's own SemVer for the Mihon era, starting at 0.1.0 (drops the old 5-segment Yokai scheme).
+        // versionCode must keep climbing and stay above the last Yokai-based build (168) so installs upgrade in place.
         applicationId = "eu.kanade.tachiyomi"
 
-        versionCode = 169
-        versionName = "1.9.7.5.10"
+        versionCode = 170
+        versionName = "0.1.0"
         // RK <--
 
         buildConfigField("String", "COMMIT_COUNT", "\"${getLatestCommitCount()}\"")
