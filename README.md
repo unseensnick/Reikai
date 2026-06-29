@@ -41,7 +41,7 @@ It is built first for my own daily use, so development is sporadic and the featu
 - `Category sort order` and `bulk delete`: order categories Off / A→Z / Z→A, and multi-select-delete with undo, for manga and novel categories. ([docs](docs/categories.md))
 - `Light novels`, first-class: a full Manga / Novels chip library with merge, tracker sync, history, downloads, background updates, tracking, notes, and backup. Sources and reader come from [LNReader](https://github.com/LNReader/lnreader); the headless QuickJS host (no WebView) and the integration are Reikai's.
 - `Taste-profile recommendations`: personalize the related row against your tracked-tag preferences, with status-aware hide filters and a full-screen *See all* browse. ([docs](docs/related-mangas.md#taste-profile))
-- `FlareSolverr` support: route a Cloudflare-blocked source through a [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) proxy when the WebView can't solve it. ([docs](docs/flaresolverr.md))
+- `FlareSolverr` / `Byparr` support: route a Cloudflare-blocked source through a [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) or [Byparr](https://github.com/ThePhaseless/Byparr) proxy when the WebView can't solve it. Byparr is recommended: it clears the newer managed / Turnstile challenges FlareSolverr sometimes can't. ([docs](docs/flaresolverr.md))
 - `Library update errors`: an opt-in, persistent list of entries that failed their last update.
 - `Single-list library`, `category hopper`, `dynamic grouping`, and `cover-color theming`: the [TachiyomiJ2K](https://github.com/Jays2Kings/tachiyomiJ2K)-lineage library experience, rebuilt on Mihon.
 
