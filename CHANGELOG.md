@@ -12,6 +12,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+## [0.1.4]
+
 ### Fixes
 
 - **Cloudflare bypass proxy handles JSON and sessionless solvers.** Pages fetched through a bypass proxy (FlareSolverr or Byparr) now load correctly when the response is JSON, and Byparr's sessionless mode is supported, instead of failing with a parse error or showing nothing.
