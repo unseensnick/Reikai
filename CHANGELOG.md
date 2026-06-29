@@ -12,6 +12,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+## [0.1.5]
+
 ### Fixes
 
 - **Merging a series' sources now takes one tap.** Selecting the cards for the same series from different sources and tapping Merge now combines all of them at once, including same-title copies that were auto-grouped, instead of needing several taps to fully coalesce. Most noticeable after restoring a backup. Applies to both the manga and novel libraries.
