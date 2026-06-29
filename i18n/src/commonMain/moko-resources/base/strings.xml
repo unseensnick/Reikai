@@ -472,6 +472,8 @@
 
     <!-- Extension store -->
     <string name="extensionStores">Extension stores</string>
+    <!-- RK: overflow action to re-scan installed extensions and re-evaluate trust against current repos -->
+    <string name="action_recheck_extensions">Re-check extensions</string>
     <!-- RK: the Repos screen counts manga + light-novel repositories -->
     <string name="extension_repos_subtitle">%1$d manga, %2$d light novel</string>
     <string name="action.addExtensionStore">Add extension store</string>

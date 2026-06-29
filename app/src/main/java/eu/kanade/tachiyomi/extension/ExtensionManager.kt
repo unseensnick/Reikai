@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.stateIn
 import exh.source.BlacklistedSources
 import exh.source.ExhPreferences
 import logcat.LogPriority
+import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.source.model.StubSource
@@ -135,6 +136,20 @@ class ExtensionManager(
 
         _isInitialized.value = true
     }
+
+    // RK -->
+    /**
+     * Re-runs the installed scan and trust evaluation against the current repos.
+     *
+     * Trust is otherwise only evaluated once, in [init], which fires before an async backup restore
+     * (or a manual repo add) can populate the repo list. Extensions installed at that point load
+     * Untrusted and never re-evaluate until the next launch. Call this once repos have changed so
+     * they re-trust without a restart.
+     */
+    fun reloadInstalledExtensions() {
+        scope.launchIO { initExtensions() }
+    }
+    // RK <--
 
     /**
      * Finds the available extensions in the [api] and updates [availableExtensionMapFlow].

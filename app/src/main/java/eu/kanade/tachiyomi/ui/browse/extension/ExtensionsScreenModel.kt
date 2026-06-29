@@ -207,6 +207,12 @@ class ExtensionsScreenModel(
         }
     }
 
+    // RK: manual lever to re-scan installed extensions and re-evaluate trust against the current
+    // repos (for the rare case an extension is stuck Untrusted after its repo was added).
+    fun reloadInstalledExtensions() {
+        extensionManager.reloadInstalledExtensions()
+    }
+
     @Immutable
     data class State(
         val isLoading: Boolean = true,

@@ -14,7 +14,11 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Additions
 
-- **Migrate failing entries from the update-errors screen.** Select entries that failed their last update (the update-errors list), tap Migrate, and they go straight into the migration flow to move them onto a working source. ([#15](https://github.com/unseensnick/Reikai/issues/15))
+- **Migrate failing entries from the update-errors screen.** Select entries that failed their last update (the update-errors list), tap Migrate, and they go straight into the migration flow to move them onto a working source. The list is opt-in: turn on Settings → Advanced → Track manga update errors and Track novel update errors first, then open it from the library overflow menu. ([#15](https://github.com/unseensnick/Reikai/issues/15))
+
+### Fixes
+
+- **Extensions re-trust themselves once their repository is present.** After updating from an old build, restoring a backup, or adding a repository by hand, installed extensions no longer stay "untrusted" until you restart the app: they re-check automatically as soon as the repository lands. A "Re-check extensions" action in the Browse → Extensions overflow menu can trigger the same re-check on demand. ([#14](https://github.com/unseensnick/Reikai/issues/14))
 
 ## [0.1.2]
 
