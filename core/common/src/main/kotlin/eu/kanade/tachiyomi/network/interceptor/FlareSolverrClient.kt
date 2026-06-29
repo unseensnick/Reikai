@@ -19,6 +19,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import okio.Buffer
+import org.jsoup.Jsoup
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -67,6 +68,11 @@ class FlareSolverrClient(
     // and most follow-up requests skip the JS challenge entirely.
     private val fsSessionLock = Any()
     @Volatile private var fsSessionId: String? = null
+
+    // Byparr (a Camoufox-based FlareSolverr-compatible solver) is sessionless: it has no
+    // sessions.create command and 500s on it. Once we see that, stop creating sessions and send
+    // sessionless request.get / request.post for the rest of this app session.
+    @Volatile private var fsSessionsSupported = true
 
     fun pinnedUserAgentFor(host: String): String? = fsPinByHost[host]
 
@@ -146,13 +152,27 @@ class FlareSolverrClient(
 
     private fun resolveWithFlareSolverr(flareSolverrUrl: String, request: Request): Response {
         val sessionId = ensureFlareSolverrSession(flareSolverrUrl)
-        return runFlareSolverrRequest(flareSolverrUrl, request, sessionId, allowRetry = true)
+        return runFlareSolverrRequest(flareSolverrUrl, request, sessionId, allowRetry = sessionId != null)
     }
 
-    private fun ensureFlareSolverrSession(flareSolverrUrl: String): String {
+    /**
+     * Returns the shared FlareSolverr session id, or null when the server is sessionless (Byparr) or
+     * sessions.create otherwise fails. A null result means "send requests without a session"; the
+     * solve still proceeds, just without the warm-cookie reuse a FlareSolverr session would give.
+     */
+    private fun ensureFlareSolverrSession(flareSolverrUrl: String): String? {
+        if (!fsSessionsSupported) return null
         fsSessionId?.let { return it }
         return synchronized(fsSessionLock) {
+            if (!fsSessionsSupported) return@synchronized null
             fsSessionId?.let { return@synchronized it }
+            // Only real FlareSolverr implements sessions. Byparr is sessionless and 500s on
+            // sessions.create (it has no url to navigate), spamming its console with a stack trace.
+            // Probe the root banner so we attempt sessions.create only on FlareSolverr.
+            if (!flareSolverrSupportsSessions(flareSolverrUrl)) {
+                fsSessionsSupported = false
+                return@synchronized null
+            }
             val newId = "reikai-${UUID.randomUUID()}"
             val body = """{"cmd":"sessions.create","session":"$newId"}"""
                 .toRequestBody(JSON_MEDIA_TYPE)
@@ -160,25 +180,40 @@ class FlareSolverrClient(
                 .url("${flareSolverrUrl.trimEnd('/')}/v1")
                 .post(body)
                 .build()
-            flareSolverrClient.newCall(req).execute().use { resp ->
-                val text = resp.body.string()
-                if (!resp.isSuccessful) {
-                    throw IOException("FlareSolverr sessions.create HTTP ${resp.code}")
+            val created = runCatching {
+                flareSolverrClient.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) return@runCatching false
+                    val parsed = json.decodeFromString(FlareSolverrResponse.serializer(), resp.body.string())
+                    parsed.status == "ok"
                 }
-                val parsed = json.decodeFromString(FlareSolverrResponse.serializer(), text)
-                if (parsed.status != "ok") {
-                    throw IOException("FlareSolverr sessions.create error: ${parsed.message}")
-                }
+            }.getOrDefault(false)
+            if (!created) {
+                // Sessionless solver (Byparr) or a transient error: fall back to sessionless requests
+                // rather than failing the solve. request.get still works without a session.
+                fsSessionsSupported = false
+                return@synchronized null
             }
             fsSessionId = newId
             newId
         }
     }
 
+    /**
+     * True only for real FlareSolverr, whose root endpoint returns a JSON banner containing
+     * "FlareSolverr". Byparr (and other sessionless solvers) return something else, so we skip the
+     * sessions.create command they can't handle. Failures default to false (go sessionless).
+     */
+    private fun flareSolverrSupportsSessions(flareSolverrUrl: String): Boolean = runCatching {
+        val req = Request.Builder().url("${flareSolverrUrl.trimEnd('/')}/").get().build()
+        flareSolverrClient.newCall(req).execute().use { resp ->
+            resp.isSuccessful && resp.body.string().contains("FlareSolverr", ignoreCase = true)
+        }
+    }.getOrDefault(false)
+
     private fun runFlareSolverrRequest(
         flareSolverrUrl: String,
         request: Request,
-        sessionId: String,
+        sessionId: String?,
         allowRetry: Boolean,
     ): Response {
         val targetUrl = request.url.toString()
@@ -200,7 +235,7 @@ class FlareSolverrClient(
             put("cmd", if (isPost) "request.post" else "request.get")
             put("url", targetUrl)
             if (isPost) put("postData", postData ?: "")
-            put("session", sessionId)
+            if (sessionId != null) put("session", sessionId)
             put("maxTimeout", 60000)
         }
         val body = json.encodeToString(JsonObject.serializer(), command)
@@ -222,7 +257,7 @@ class FlareSolverrClient(
 
         // FS restart, container reboot, or session GC invalidates the cached ID. Detect that
         // case via the error message ("Session ${id} not found.") and recreate once.
-        if (result.status != "ok" && allowRetry &&
+        if (result.status != "ok" && allowRetry && sessionId != null &&
             result.message.contains("session", ignoreCase = true)
         ) {
             synchronized(fsSessionLock) {
@@ -260,24 +295,35 @@ class FlareSolverrClient(
     }
 
     private fun buildResponseFromFlareSolverr(request: Request, solution: FlareSolverrSolution): Response {
-        val contentType = solution.headers
+        val reportedContentType = solution.headers
             .entries.firstOrNull { it.key.equals("content-type", ignoreCase = true) }
             ?.value
             ?: "text/html; charset=UTF-8"
 
-        val body = solution.response.toResponseBody(contentType.toMediaTypeOrNull())
+        // A browser-based solver (Byparr/Camoufox, FlareSolverr/Chrome) renders a JSON-API response
+        // inside its built-in JSON/plaintext viewer (<html>...<pre>{json}</pre>...), so a JSON source
+        // (or light-novel plugin) would receive HTML and fail to parse. Unwrap it back to the raw JSON
+        // the caller expects; HTML page sources are untouched (their <pre>, if any, isn't JSON).
+        val unwrappedJson = unwrapBrowserJsonViewer(solution.response)
+        val responseText = unwrappedJson ?: solution.response
+        val contentType = if (unwrappedJson != null) JSON_CONTENT_TYPE else reportedContentType
+
+        val body = responseText.toResponseBody(contentType.toMediaTypeOrNull())
 
         val headersBuilder = Headers.Builder()
         solution.headers.forEach { (name, value) ->
             // FlareSolverr returns the body already decoded, so passing through Content-Encoding
             // / Content-Length / Transfer-Encoding would make OkHttp try to re-decode and break.
-            // Set-Cookie was already applied to the cookie jar above; skip it here too.
+            // Set-Cookie was already applied to the cookie jar above; skip it here too. Content-Type
+            // is set from [contentType] below so it stays consistent with any JSON unwrap.
             if (name.equals("content-encoding", ignoreCase = true)) return@forEach
             if (name.equals("content-length", ignoreCase = true)) return@forEach
             if (name.equals("transfer-encoding", ignoreCase = true)) return@forEach
             if (name.equals("set-cookie", ignoreCase = true)) return@forEach
+            if (name.equals("content-type", ignoreCase = true)) return@forEach
             runCatching { headersBuilder.add(name, value) }
         }
+        headersBuilder.add("Content-Type", contentType)
 
         return Response.Builder()
             .request(request)
@@ -291,7 +337,26 @@ class FlareSolverrClient(
 }
 
 private val JSON_MEDIA_TYPE = "application/json".toMediaType()
+private const val JSON_CONTENT_TYPE = "application/json; charset=UTF-8"
 private val COOKIE_NAMES = listOf("cf_clearance")
+
+/**
+ * A browser-based Cloudflare solver renders a JSON-API response inside the browser's built-in
+ * JSON / plaintext viewer, e.g. `<html>...<body><pre>{json}</pre>...</body></html>`
+ * (Firefox / Camoufox, used by Byparr) or the same shape with a json-formatter div (Chrome, used by
+ * FlareSolverr). A JSON manga source or light-novel plugin then receives HTML and fails to parse.
+ *
+ * If [response] is such a wrapper, return the raw JSON it holds; otherwise null (serve as-is).
+ * Detection is browser-agnostic: the body is markup whose first `<pre>` (entity-decoded via Jsoup's
+ * [org.jsoup.nodes.Element.wholeText], so `&lt;` in string values is restored) is itself JSON.
+ */
+// RK: internal so the unwrap is unit-testable, like FlareSolverrCookie below.
+internal fun unwrapBrowserJsonViewer(response: String): String? {
+    if (!response.trimStart().startsWith('<')) return null
+    if (!response.contains("<pre", ignoreCase = true)) return null
+    val pre = Jsoup.parse(response).selectFirst("pre")?.wholeText()?.trim().orEmpty()
+    return pre.takeIf { it.startsWith('{') || it.startsWith('[') }
+}
 
 @Serializable
 private data class FlareSolverrResponse(
