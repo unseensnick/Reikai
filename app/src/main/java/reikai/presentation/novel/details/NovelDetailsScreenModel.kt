@@ -110,14 +110,13 @@ class NovelDetailsScreenModel(
     private val libraryPreferences: LibraryPreferences by injectLazy()
     private val context: Application by injectLazy()
 
-    // RK --> novel trackers (Active #8)
+    // novel trackers (Active #8)
     private val getNovelTracks: GetNovelTracks by injectLazy()
     private val refreshNovelTracks: RefreshNovelTracks by injectLazy()
     private val trackNovelChapter: TrackNovelChapter by injectLazy()
     private val trackerManager: TrackerManager by injectLazy()
     private val trackPreferences: TrackPreferences by injectLazy()
     private val propagateNovelTrackerLinks: PropagateNovelTrackerLinks by injectLazy()
-    // RK <--
 
     /** Hosts the merge split/remove Undo snackbars; wired into the details Scaffold. */
     val snackbarHostState = SnackbarHostState()
@@ -556,7 +555,7 @@ class NovelDetailsScreenModel(
         val prevMerges = reikaiLibraryPreferences.novelManualMerges.get()
         val prevUnmerges = reikaiLibraryPreferences.novelManualUnmerges.get()
         val prevRelated = relatedNovelIds.value
-        // RK: copy the group's trackers onto each member so a split source keeps them (Active #8).
+        // copy the group's trackers onto each member so a split source keeps them (Active #8).
         // Explicit ids (not a re-resolve), so it's race-free against the synchronous split below.
         screenModelScope.launchIO { propagateNovelTrackerLinks.distribute(prevRelated.toList()) }
         val newIds = mergeManager.splitOrDissolve(prevRelated, targetIds)
@@ -921,7 +920,7 @@ class NovelDetailsScreenModel(
         screenModelScope.launchIO { deleteNovelChaptersAfterRead.await(novelId, chapters) }
     }
 
-    // RK --> novel trackers (Active #8)
+    // novel trackers (Active #8)
     /** True if any tracker is logged in; gates the toolbar action (sheet vs Settings > Tracking). */
     fun hasLoggedInTrackers(): Boolean = trackerManager.loggedInTrackers().isNotEmpty()
 
@@ -959,7 +958,6 @@ class NovelDetailsScreenModel(
             }
         }
     }
-    // RK <--
 
     /** Row swipe, dispatched by the configured [LibraryPreferences.ChapterSwipeAction] (mirrors the
      *  manga path's `executeChapterSwipeAction`, with the same download-state to action mapping). */
@@ -1124,6 +1122,6 @@ sealed interface NovelDetailsDialog {
     data object FullCover : NovelDetailsDialog
     data class ManageSources(val sources: List<NovelMergeSourceInfo>) : NovelDetailsDialog
 
-    // RK: novel trackers (Active #8). Rendered as a NavigatorAdaptiveSheet, mirroring Mihon's manga sheet.
+    // novel trackers (Active #8). Rendered as a NavigatorAdaptiveSheet, mirroring Mihon's manga sheet.
     data object TrackSheet : NovelDetailsDialog
 }

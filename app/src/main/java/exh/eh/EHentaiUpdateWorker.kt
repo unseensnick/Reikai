@@ -196,7 +196,7 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
             ?: throw GalleryNotUpdatedException(false, IllegalStateException("Missing EH-based source (${manga.source})!"))
 
         try {
-            // RK: Komikku splits getMangaDetails + getChapterList; Reikai's source-api combines them.
+            // Komikku splits getMangaDetails + getChapterList; Reikai's source-api combines them.
             val update = source.getMangaUpdate(manga.toSManga(), emptyList(), fetchDetails = true, fetchChapters = true)
             updateManga.awaitAll(listOf(manga.copyFrom(update.manga).toMangaUpdate()))
 

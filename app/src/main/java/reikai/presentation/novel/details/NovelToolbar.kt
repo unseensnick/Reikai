@@ -46,7 +46,7 @@ fun NovelToolbar(
     onClickEditNotes: () -> Unit,
     onClickShare: (() -> Unit)?,
     onClickManageSources: (() -> Unit)?,
-    // RK: null unless the novel is favorited (migration only re-homes a library novel).
+    // null unless the novel is favorited (migration only re-homes a library novel).
     onClickMigrate: (() -> Unit)?,
     onClickDownload: ((DownloadAction) -> Unit)?,
     actionModeCounter: Int,

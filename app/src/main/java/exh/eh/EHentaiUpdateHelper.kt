@@ -123,7 +123,7 @@ class EHentaiUpdateHelper(context: Context) {
             )
 
             // Delete the duplicate history first
-            // RK: by-id batch reset (Komikku's removeHistory(List)); see RemoveHistory.await(List).
+            // by-id batch reset (Komikku's removeHistory(List)); see RemoveHistory.await(List).
             removeHistory.await(deleteHistory)
 
             // Insert new history
@@ -131,7 +131,7 @@ class EHentaiUpdateHelper(context: Context) {
                 upsertHistory.await(it)
             }
 
-            // RK: Komikku also upserts a FavoriteEntryAlternative here for its favorites two-way
+            // Komikku also upserts a FavoriteEntryAlternative here for its favorites two-way
             //     sync (5b). Omitted until that phase ships; reconciliation works without it.
 
             // Copy categories from all chains to accepted manga

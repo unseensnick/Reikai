@@ -32,7 +32,7 @@ import eu.kanade.presentation.manga.components.MangaCover
  */
 @Composable
 fun ReikaiComfortableGridPanoramaItem(
-    coverData: Any, // RK: Any (not MangaCover) so reikai.data.coil.NovelCover renders here too
+    coverData: Any, // Any (not MangaCover) so reikai.data.coil.NovelCover renders here too
     title: String,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
