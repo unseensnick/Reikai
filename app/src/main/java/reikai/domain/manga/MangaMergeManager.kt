@@ -151,6 +151,34 @@ class MangaMergeManager(
     }
 
     /**
+     * Merge the library selection into one group. Each selected id is first expanded to its full
+     * resolved group (manual-merge members + same-title favorites when auto-merge is on, minus
+     * existing unmerges), because the library shows one collapsed card per group and a selection only
+     * carries each card's representative id. Without this, merging two collapsed cards records only
+     * the two representatives and strands their hidden same-title members, forcing repeated merges.
+     * Migration calls [mergeManga] directly with an already-resolved id list, so it stays unexpanded.
+     */
+    suspend fun mergeSelectedManga(ids: List<Long>) {
+        val merges = preferences.mangaManualMerges.get()
+        val unmerges = preferences.mangaManualUnmerges.get()
+        val favorites = if (preferences.autoMergeSameTitle.get()) getFavorites.await() else emptyList()
+        val expanded = ids.distinct().flatMapTo(LinkedHashSet<Long>()) { id ->
+            val title = favorites.firstOrNull { it.id == id }?.title?.trim()?.lowercase().orEmpty()
+            MergeGroupAlgebra.computeGroupIds(id, merges, sameTitleIds(favorites, title), unmerges).toList()
+        }
+        mergeManga(expanded.toList())
+    }
+
+    /** Favorited manga ids sharing [title] (already lowercased/trimmed); empty for a blank title. */
+    private fun sameTitleIds(favorites: List<Manga>, title: String): Set<Long> {
+        if (title.isEmpty()) return emptySet()
+        return favorites.asSequence()
+            .filter { it.title.trim().equals(title, ignoreCase = true) }
+            .map { it.id }
+            .toSet()
+    }
+
+    /**
      * Fully dissolve the merge group of each of [targetIds] (the library bulk "Unmerge"): every
      * member of the group is separated in one pass, so the user does not have to unmerge a group
      * source-by-source. Each target's group is resolved against the CURRENT prefs (so dissolving one
@@ -169,15 +197,7 @@ class MangaMergeManager(
             val merges = preferences.mangaManualMerges.get()
             val unmerges = preferences.mangaManualUnmerges.get()
             val sameTitle = if (autoSameTitle) {
-                val title = favorites.firstOrNull { it.id == target }?.title?.trim()?.lowercase().orEmpty()
-                if (title.isEmpty()) {
-                    emptySet()
-                } else {
-                    favorites.asSequence()
-                        .filter { it.title.trim().equals(title, ignoreCase = true) }
-                        .map { it.id }
-                        .toSet()
-                }
+                sameTitleIds(favorites, favorites.firstOrNull { it.id == target }?.title?.trim()?.lowercase().orEmpty())
             } else {
                 emptySet()
             }
