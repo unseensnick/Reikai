@@ -487,7 +487,8 @@ class NovelLibraryScreenModel :
         val ids = state.value.selectedNovelIds
         if (ids.size < 2) return
         screenModelScope.launchIO {
-            mergeManager.mergeNovels(ids)
+            // expand each selected card to its full group first, so one merge coalesces every source
+            mergeManager.mergeSelectedNovels(ids)
             clearSelection()
         }
     }
@@ -497,7 +498,7 @@ class NovelLibraryScreenModel :
         val ids = state.value.selectedNovelIds
         if (ids.isEmpty()) return
         screenModelScope.launchIO {
-            // RK: copy each group's trackers onto its members before splitting, so each keeps them (Active #8).
+            // copy each group's trackers onto its members before splitting, so each keeps them (Active #8).
             ids.forEach { propagateNovelTrackerLinks.fromSeed(it) }
             mergeManager.unmergeNovels(ids)
             clearSelection()

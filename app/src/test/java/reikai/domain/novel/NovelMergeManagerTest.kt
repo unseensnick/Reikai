@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -99,5 +100,29 @@ class NovelMergeManagerTest {
         val favs = listOf(novel(1, "A", "X"), novel(2, "B", "Y"))
         val keys = manager(favs).seriesGroupKeys(favs)
         (keys[1L] == keys[2L]) shouldBe false
+    }
+
+    @Test
+    fun `mergeSelectedNovels expands same-title cards so one merge coalesces every source`() = runTest {
+        val mergesPref = mockk<Preference<Set<String>>>(relaxed = true)
+        val unmergesPref = mockk<Preference<Set<String>>>(relaxed = true)
+        every { mergesPref.get() } returns emptySet()
+        every { unmergesPref.get() } returns emptySet()
+        val preferences = mockk<ReikaiLibraryPreferences> {
+            every { novelManualMerges } returns mergesPref
+            every { novelManualUnmerges } returns unmergesPref
+            every { novelAutoMergeSameTitle } returns pref(true)
+            every { novelAutoMergeRequireAuthor } returns pref(true)
+        }
+        val repo = mockk<NovelRepository>()
+        coEvery { repo.getFavorites() } returns
+            listOf(novel(1, "A", "X"), novel(2, "A", "X"), novel(3, "B", "Y"), novel(4, "B", "Y"))
+        val manager = NovelMergeManager(preferences, repo)
+
+        // Select only the two collapsed cards' representatives (1 = card "A/X", 3 = card "B/Y").
+        manager.mergeSelectedNovels(listOf(1L, 3L))
+
+        // Both hidden same-title/author members (2, 4) are pulled in, so one merge records all four.
+        verify { mergesPref.set(setOf("1,2,3,4")) }
     }
 }

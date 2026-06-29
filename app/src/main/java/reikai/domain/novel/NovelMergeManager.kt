@@ -61,6 +61,26 @@ class NovelMergeManager(
     }
 
     /**
+     * Merge the library selection into one group. Each selected id is first expanded to its full
+     * resolved group (manual-merge members + author-guarded same-title favorites, minus existing
+     * unmerges), because the library shows one collapsed card per group and a selection only carries
+     * each card's representative id. Without this, merging two collapsed cards records only the two
+     * representatives and strands their hidden same-title members, forcing repeated merges. Migration
+     * calls [mergeNovels] directly with an already-resolved id list, so it stays unexpanded.
+     */
+    suspend fun mergeSelectedNovels(ids: List<Long>) {
+        val merges = preferences.novelManualMerges.get()
+        val unmerges = preferences.novelManualUnmerges.get()
+        val favorites = if (preferences.novelAutoMergeSameTitle.get()) novelRepository.getFavorites() else emptyList()
+        val expanded = ids.distinct().flatMapTo(LinkedHashSet<Long>()) { id ->
+            val novel = favorites.firstOrNull { it.id == id }
+            val sameTitle = sameTitleIds(favorites, novel?.title?.trim()?.lowercase().orEmpty(), novel?.author)
+            MergeGroupAlgebra.computeGroupIds(id, merges, sameTitle, unmerges).toList()
+        }
+        mergeNovels(expanded.toList())
+    }
+
+    /**
      * Fully dissolve the merge group of each of [targetIds] (the library bulk "Unmerge"): every member
      * is separated in one pass, including same-title auto-grouped members, so nothing regroups on the
      * next resolution. Targets not in a group are skipped.

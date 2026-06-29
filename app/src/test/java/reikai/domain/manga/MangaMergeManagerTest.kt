@@ -4,12 +4,15 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.core.common.preference.Preference
+import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.model.Manga
 
 class MangaMergeManagerTest {
@@ -156,5 +159,45 @@ class MangaMergeManagerTest {
         result.newMerges shouldContainExactly setOf("1,2")
         // The suspect is unmerged from every survivor so it can't regroup with either.
         result.newUnmerges shouldContainExactlyInAnyOrder setOf("1,3", "2,3")
+    }
+
+    @Test
+    fun `mergeSelectedManga expands same-title cards so one merge coalesces every source`() = runTest {
+        val mergesPref = mockk<Preference<Set<String>>>(relaxed = true)
+        val unmergesPref = mockk<Preference<Set<String>>>(relaxed = true)
+        every { mergesPref.get() } returns emptySet()
+        every { unmergesPref.get() } returns emptySet()
+        val preferences = mockk<ReikaiLibraryPreferences> {
+            every { mangaManualMerges } returns mergesPref
+            every { mangaManualUnmerges } returns unmergesPref
+            every { autoMergeSameTitle } returns mockk(relaxed = true) { every { get() } returns true }
+        }
+        val getFavorites = mockk<GetFavorites>()
+        coEvery { getFavorites.await() } returns listOf(manga(1, "A"), manga(2, "A"), manga(3, "B"), manga(4, "B"))
+        val manager = MangaMergeManager(preferences, getFavorites, mockk())
+
+        // Select only the two collapsed cards' representatives (1 = card "A", 3 = card "B").
+        manager.mergeSelectedManga(listOf(1L, 3L))
+
+        // Both hidden same-title members (2, 4) are pulled in, so one merge records all four.
+        verify { mergesPref.set(setOf("1,2,3,4")) }
+    }
+
+    @Test
+    fun `mergeSelectedManga with auto-merge off merges only the selected ids`() = runTest {
+        val mergesPref = mockk<Preference<Set<String>>>(relaxed = true)
+        val unmergesPref = mockk<Preference<Set<String>>>(relaxed = true)
+        every { mergesPref.get() } returns emptySet()
+        every { unmergesPref.get() } returns emptySet()
+        val preferences = mockk<ReikaiLibraryPreferences> {
+            every { mangaManualMerges } returns mergesPref
+            every { mangaManualUnmerges } returns unmergesPref
+            every { autoMergeSameTitle } returns mockk(relaxed = true) { every { get() } returns false }
+        }
+        val manager = MangaMergeManager(preferences, mockk(), mockk())
+
+        manager.mergeSelectedManga(listOf(1L, 3L))
+
+        verify { mergesPref.set(setOf("1,3")) }
     }
 }
