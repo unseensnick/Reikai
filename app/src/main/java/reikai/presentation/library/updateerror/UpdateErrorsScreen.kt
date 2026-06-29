@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SelectAll
+import androidx.compose.material.icons.outlined.SwapCalls
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,10 +33,12 @@ import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import mihon.feature.migration.config.MigrationConfigScreen
 import reikai.data.coil.NovelCover
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.novel.details.NovelScreen
+import reikai.presentation.novel.migrate.NovelMigrationConfigScreen
 import tachiyomi.domain.manga.model.MangaCover as MangaCoverData
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -76,6 +80,21 @@ class UpdateErrorsScreen(
                                     title = stringResource(MR.strings.action_select_all),
                                     icon = Icons.Outlined.SelectAll,
                                     onClick = screenModel::selectAll,
+                                ),
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.action_migrate),
+                                    icon = Icons.Outlined.SwapCalls,
+                                    enabled = successState.selectionIsSingleVertical,
+                                    onClick = {
+                                        val mangaIds = screenModel.selectedMangaIds()
+                                        val novelIds = screenModel.selectedNovelIds()
+                                        if (mangaIds.isNotEmpty()) {
+                                            navigator.push(MigrationConfigScreen(mangaIds))
+                                        } else if (novelIds.isNotEmpty()) {
+                                            navigator.push(NovelMigrationConfigScreen(novelIds))
+                                        }
+                                        screenModel.clearSelection()
+                                    },
                                 ),
                                 AppBar.Action(
                                     title = stringResource(MR.strings.action_delete),
@@ -187,6 +206,7 @@ private fun UpdateErrorRow(
     }
     Row(
         modifier = Modifier
+            .fillMaxWidth()
             .selectedBackground(isSelected)
             .height(56.dp)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
