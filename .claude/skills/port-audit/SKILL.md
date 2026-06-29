@@ -1,6 +1,6 @@
 ---
 name: port-audit
-description: Audit a slice of the legacy to Compose port for behavioral parity to legacy. Use when the user asks to audit, verify, or sanity-check a migrated screen, when they want to know whether a Compose port "really matches" the legacy version, or when they want a defect-fix pass on a recently-ported area. Takes a scope argument like "Library Phase 1-3" or "Settings → Security". Compares features and dispatch behavior only, NOT pixels or layout (the user often redesigns visuals on the way over).
+description: Audit a Reikai feature ported onto Mihon for behavioral parity against the Yōkai-era source on the `design/library-compose` branch. Use when the user asks to audit, verify, or sanity-check a ported feature, when they want to know whether a port "really matches" the original, or when they want a defect-fix pass on a recently-ported area. Takes a scope argument like "novel reader" or "Settings → Security". Compares features and behavior only, NOT pixels or layout (the user often redesigns visuals on the way over).
 argument-hint: "<scope> (e.g., 'Library Phase 1-3', 'Settings → Security', 'Reader')"
 disable-model-invocation: true
 allowed-tools:
@@ -10,7 +10,7 @@ allowed-tools:
   - Bash(JAVA_HOME=* ./gradlew *)
 ---
 
-Audit the migrated screen described by `$ARGUMENTS` for behavioral parity to the legacy Conductor + presenter implementation, surface real defects (not visual ones), plan and implement the fixes, but stop short of committing. The user runs `/ship` when they're happy.
+Audit the ported feature described by `$ARGUMENTS` for behavioral parity against the Yōkai-era source (the `design/library-compose` branch), surface real defects (not visual ones), plan and implement the fixes, but stop short of committing. The user runs `/ship` when they're happy.
 
 ## Mode
 
@@ -26,10 +26,10 @@ If the scope is vague (`Library`, `Settings`), ask the user to narrow it before 
 
 Cheap reads before delegating, so the audit subagent gets briefed properly:
 
-- Look for a `Handoff.md` in the project root (untracked is fine). It usually names the branch, what shipped, what was deferred, and which legacy files are off-limits per the parallel-implementation rule.
+- Look for a `Handoff.md` in the project root (untracked is fine). It usually names the branch, what shipped, and what was deferred.
 - Check `git log --oneline -20` for the recent shape of work in the scope.
 - If the scope mentions a phase, look in `C:\Users\<user>\.claude\plans\` for a matching plan file. Reikai stores plans there; the latest one often has the "what really shipped" rewrite after Phase 2/3.
-- Skim `.claude/rules/architecture.md` for the legacy / Compose split rules. Never propose touching legacy files when the architecture is parallel-implementation.
+- Skim `.claude/rules/architecture.md` for the Compose + Voyager conventions and the `// RK` patch rule on Mihon's own files.
 
 If a Handoff or plan explicitly defers features to a later phase, **write that deferred list down** for the audit subagent. The biggest failure mode is false-flagging deferred work as a defect.
 
@@ -38,8 +38,8 @@ If a Handoff or plan explicitly defers features to a later phase, **write that d
 One `Agent` call with `subagent_type: general-purpose` (or `Explore` if pure read). Brief it as a smart colleague who has not seen this conversation:
 
 - State the goal: behavioral parity, NOT visual parity. Visual / layout differences are EXPLICITLY out of scope.
-- Name the legacy entry point(s): `LibraryController.kt`, `LibraryPresenter.kt`, the sub-views (`FilterBottomSheet.kt`, etc.), the layout XMLs.
-- Name the Compose entry point(s): the Voyager screen, its content composable, the components folder, the screen model, any pure helpers.
+- Name the original entry point(s) on the `design/library-compose` branch (the Yōkai-era source for the feature): the screen / ScreenModel and any sub-components.
+- Name the Mihon-based entry point(s): the Voyager screen, its content composable, the components folder, the ScreenModel, any pure helpers.
 - Name the deferred list (verbatim, from Step 1).
 - Give it a per-surface checklist of legacy behaviors to mark off. Group by surface (data pipeline, each sheet, in-grid affordances, overflow menu, search, preferences observed). For each item, ask for one of:
   - ✅ ported faithfully
@@ -86,7 +86,7 @@ Use `EnterPlanMode`. The plan file structure that worked in this skill's home se
 3. **Per-defect implementation detail**: for each, cite legacy file:line + Compose file:line, name the param / signature changes, name the call sites.
 4. **Files touched**: flat list.
 5. **Commit cadence**: one logical change per commit, conventional-commits messages drafted, NO `Co-Authored-By`, NO em dashes.
-6. **Verification**: concrete on-device steps using user-facing setting names (look these up in `i18n/src/commonMain/moko-resources/base/strings.xml`, since internal pref keys do not always match the displayed label). Include the `JAVA_HOME=~/scoop/apps/temurin17-jdk/current ./gradlew :app:testStandardDebugUnitTest --tests "<class>"` command lines for any test runs.
+6. **Verification**: concrete on-device steps using user-facing setting names (look these up in `i18n/src/commonMain/moko-resources/base/strings.xml`, since internal pref keys do not always match the displayed label). Include the test command lines for any runs: `:domain:test --tests "<FQCN>"` (Gradle via PowerShell with `JAVA_HOME` set to Temurin 21, see workflow.md).
 
 Call `ExitPlanMode` when the plan is complete. Wait for approval.
 
@@ -101,8 +101,8 @@ After approval:
 
 After all defects are landed:
 
-- Run the relevant unit tests with `JAVA_HOME=~/scoop/apps/temurin17-jdk/current ./gradlew :app:testStandardDebugUnitTest --tests "<class>"` (one class at a time per the testing rules).
-- Run `JAVA_HOME=~/scoop/apps/temurin17-jdk/current ./gradlew :app:compileStandardDebugKotlin` to verify the main source set compiles. Warnings from deprecated APIs the project already uses (Manga interface, LocalRouter, Java statusBarColor) are fine; new errors are not.
+- Run the relevant unit tests one class at a time (per the testing rules): `:domain:test --tests "<FQCN>"`.
+- Run `:app:compileDebugKotlin` to verify the app compiles (Gradle via PowerShell, `JAVA_HOME` = Temurin 21, see workflow.md). Pre-existing deprecation warnings are fine; new errors are not.
 
 ## Step 7: CHANGELOG
 
@@ -125,9 +125,9 @@ Summarize for the user:
 
 ## Rules
 
-- Never propose touching legacy files when the architecture is parallel-implementation. The legacy Conductor controllers, presenters, sheet views, and XML layouts stay alive as fallback during the soak period.
+- Edit Mihon's own files only to attach a Reikai feature, fenced with `// RK` islands; net-new code lives in its own files. There is no Conductor / presenter / XML legacy on the Mihon base.
 - Never false-flag deferred features. Re-read the deferred list before each defect classification.
-- Never `git merge upstream/master`. Reikai ports upstream manually from `refs/yokai/`.
+- Reikai ports Mihon changes manually from `refs/mihon/`; Reikai-own features come from the `design/library-compose` branch.
 - Never commit without an explicit user ask. The user runs `/ship` separately.
 - No em dashes (—) in prose, plan files, comments, or commits. Commas, parentheses, periods, colons.
 - No `Co-Authored-By: Claude` or any AI-attribution footer in commits or PRs.
