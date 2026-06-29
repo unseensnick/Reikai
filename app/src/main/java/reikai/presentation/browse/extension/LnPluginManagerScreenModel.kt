@@ -94,6 +94,15 @@ class LnPluginManagerScreenModel(
         }
     }
 
+    /**
+     * Force a re-load of the installed novel plugins (retrying any that failed). The novel twin of
+     * manga's ExtensionManager.reloadInstalledExtensions(), wired into the shared "Re-check
+     * extensions" action on this tab so it re-checks both verticals.
+     */
+    fun reloadInstalled() {
+        screenModelScope.launchIO { installer.loadInstalled() }
+    }
+
     fun install(entry: LnRegistryEntry) {
         val key = canonicalizePluginUrl(entry.url)
         screenModelScope.launchIO {

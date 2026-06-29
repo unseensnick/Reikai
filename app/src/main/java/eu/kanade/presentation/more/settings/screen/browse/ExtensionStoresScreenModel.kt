@@ -80,6 +80,9 @@ class ExtensionStoresScreenModel(
             addExtensionStore(baseUrl)
                 .onSuccess {
                     extensionManager.findAvailableExtensions()
+                    // RK: re-trust installed extensions against the just-added repo, so any that were
+                    // loaded Untrusted (no matching repo at startup) become trusted without a restart.
+                    extensionManager.reloadInstalledExtensions()
                     dismissDialog()
                 }
                 .onFailure { throwable ->

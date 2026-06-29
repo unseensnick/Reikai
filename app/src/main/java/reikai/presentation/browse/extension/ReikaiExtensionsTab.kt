@@ -64,6 +64,17 @@ fun Screen.reikaiExtensionsTab(
                 title = stringResource(MR.strings.repos),
                 onClick = openRepos,
             ),
+            // Re-check both verticals on this unified tab: re-scan installed manga extensions and
+            // re-evaluate trust against the current repos (recovers extensions stuck Untrusted after
+            // their repo was added post-startup), and force-reload the installed novel plugins
+            // (retrying any that failed to load).
+            AppBar.OverflowAction(
+                title = stringResource(MR.strings.action_recheck_extensions),
+                onClick = {
+                    extensionsScreenModel.reloadInstalledExtensions()
+                    lnModel.reloadInstalled()
+                },
+            ),
         ),
         content = { contentPadding, snackbarHostState ->
             // The shared Browse search bar drives extensionsScreenModel (manga only); apply the same
