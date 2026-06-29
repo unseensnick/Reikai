@@ -22,7 +22,7 @@ Tooling: [Android Studio](https://developer.android.com/studio) (JDK 21), and an
 
 ## Upstream
 
-Reikai tracks Mihon as its base, but Mihon is not a git remote of this repo, so upstream changes are ported **by hand**: clone Mihon locally, diff, and apply the relevant changes, with edits to Mihon's own files fenced by `// RK` markers. Reikai's own pre-rebase features come from the `design/library-compose` branch. See [`docs/dev/development.md`](docs/dev/development.md) for the architecture.
+Reikai tracks Mihon as its base; upstream changes are ported **by hand**: clone Mihon locally, diff, and apply the relevant changes, with edits to Mihon's own files fenced by `// RK` markers. Reikai's own pre-rebase features come from the `design/library-compose` branch. See [`docs/dev/development.md`](docs/dev/development.md) for the architecture.
 
 ## License
 

@@ -14,8 +14,8 @@ Investigate the task described by `$ARGUMENTS` deeply enough that a plan grounde
 
 Use `/scout` for non-trivial work where shallow context is expensive:
 
-- Porting upstream changes from `refs/yokai/` (legacy file may not exist in Reikai, or may have been migrated to Compose).
-- Migrating a legacy Conductor screen to Compose + Voyager.
+- Porting an upstream change from Mihon (`refs/mihon/`), or a Reikai feature from the `design/library-compose` branch (the old Yōkai base) re-typed onto Mihon's models.
+- Adding or reworking a Compose + Voyager screen in an unfamiliar area.
 - Touching cross-cutting infrastructure (DI modules, preferences, theme bridges, coroutine helpers).
 - Working in modules the recent session hasn't touched.
 - Acting on a claim from memory or a Handoff that mentions specific files / functions / flags by name.
@@ -62,9 +62,9 @@ Decide which of these areas the task touches. Skip the ones that don't apply, br
 
 | Area | When relevant | What to brief |
 |---|---|---|
-| Current Reikai code | Always | Target files, callers, callees, related screen-model / presenter, tests. |
-| Upstream reference (`refs/yokai/`) | Ports, parity checks | The matching upstream file(s), the change history (`git -C refs/yokai log -- <path>`), API differences from Reikai's version. |
-| Framework bridges | Theme, Compose, Voyager, Koin | The bridge layer (e.g., `createMdc3Theme`, `Voyager` screen lifecycle, `PreferencesHelper`). Specifically: what's mapped, what isn't, what falls through. |
+| Current Reikai code | Always | Target files, callers, callees, related ScreenModel, tests. |
+| Reference source | Ports, parity checks | Upstream port: the matching Mihon file(s) + history (`git -C refs/mihon log -- <path>`). Reikai-feature port: the Yōkai-era source on `design/library-compose`. API differences from current code. |
+| Framework bridges | Theme, Compose, Voyager, Injekt | The relevant layer (e.g., Voyager screen lifecycle, `PreferenceStore`, Injekt DI). Specifically: what's mapped, what isn't, what falls through. |
 | Existing helpers (DRY) | New widget / utility tempting | Search for the project's existing equivalent before letting the plan invent one. |
 | Test coverage | Behavior changes, refactors | What's tested, what isn't, which test class to extend. |
 

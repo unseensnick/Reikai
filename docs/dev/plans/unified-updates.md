@@ -10,7 +10,7 @@ Give Reikai a single Updates surface where new manga chapters and new novel chap
 
 Reikai is a manga and light-novel reader, so "what's new in my library" has to cover both content types. The two libraries are separate (separate tables, separate sources, separate update jobs), so without consolidation the Updates tab would either show only manga (Mihon's stock behavior) or force the user to look in two places.
 
-The harder constraint is maintenance. Reikai tracks Mihon upstream by hand-porting from a local `refs/mihon` clone (there is no `git merge`), so the manga half of Updates must stay close to stock Mihon or every future upstream change becomes a painful manual reconciliation. The design therefore drives manga entirely through Mihon's own untouched screen model and reuses Mihon's row composables, while novels run on a parallel Reikai model, and a thin Reikai shell renders both. That way a new feature (filters, by-category, grouping) is built once in the shell and applies to both types, instead of being implemented twice or only on some chips.
+The harder constraint is maintenance. Reikai tracks Mihon upstream by hand-porting from a local `refs/mihon` clone, so the manga half of Updates must stay close to stock Mihon or every future upstream change becomes a painful manual reconciliation. The design therefore drives manga entirely through Mihon's own untouched screen model and reuses Mihon's row composables, while novels run on a parallel Reikai model, and a thin Reikai shell renders both. That way a new feature (filters, by-category, grouping) is built once in the shell and applies to both types, instead of being implemented twice or only on some chips.
 
 ## Approach
 

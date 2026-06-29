@@ -2,7 +2,7 @@
 
 ## Project overview
 
-**Reikai** is a personal Android manga + light-novel reader, **built on [Mihon](https://github.com/mihonapp/mihon)** (Tachiyomi lineage). It was previously a fork of [Yōkai](https://github.com/null2264/yokai) and is being **rebased onto Mihon** (started 2026-06). Reikai's differentiators (multi-source grouping, manual merge/unmerge, category sort order, and a light-novel subsystem) are layered on top of Mihon.
+**Reikai** is a personal Android manga + light-novel reader, **built on [Mihon](https://github.com/mihonapp/mihon)** (Tachiyomi lineage). It was previously a fork of [Yōkai](https://github.com/null2264/yokai) and was **rebased onto Mihon** (shipped 2026-06 as v0.1.0). Reikai's differentiators (multi-source grouping, manual merge/unmerge, category sort order, and a light-novel subsystem) are layered on top of Mihon.
 
 - GitHub: `https://github.com/unseensnick/Reikai`
 - Mihon upstream: `https://github.com/mihonapp/mihon`
@@ -59,7 +59,7 @@ Compose + Voyager (no Conductor), Injekt DI, SQLDelight, OkHttp, Coil 3, kotlinx
 Sibling read-only clones in `refs/` provide context:
 
 - `mihon` — the base; port upstream Mihon changes from here.
-- `yokai` — old upstream from the Yōkai era; historical reference.
+- `yokai` — the Yōkai-era base; historical reference only.
 - `komikku` — Komikku (SY/EH lineage); reference for merge and feature approaches.
 - `lnreader-main` / `lnreader-plugins` — LNReader; reference for the light-novel subsystem.
 - `keiyoushi-extensions` / `keiyoushi-extensions-source` — Keiyoushi extensions (distribution + source).
@@ -70,7 +70,7 @@ Reikai's own pre-rebase features are read from the `design/library-compose` bran
 
 ## Porting
 
-- **Mihon upstream:** port manually from `refs/mihon`; never `git merge`. Fence edits to Mihon's own files with `// RK -->` / `// RK <--`.
+- **Mihon upstream:** port manually from `refs/mihon`. Fence edits to Mihon's own files with `// RK -->` / `// RK <--`.
 - **Reikai features:** port from the `design/library-compose` branch, re-typed onto Mihon's immutable domain models. The rebase plan defines the phase order.
 
 ## Build gotcha

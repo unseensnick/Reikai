@@ -31,7 +31,7 @@ Reject the run early if any of these apply:
 
 - The path points inside a released CHANGELOG section. Tell the user; suggest pointing at the `[Unreleased]` block instead.
 - The path is a code file but the user didn't explicitly ask for comments/KDoc tightening. Ask before touching code.
-- The path is a generated file, vendored copy, or `refs/yokai/` (upstream reference clone, never edit).
+- The path is a generated file, vendored copy, or `refs/yokai/` (read-only reference clone, never edit).
 
 Pull `git log -10 -- <path>` for each target. If a file was just rewritten in the last few commits, ask the user whether it's really stale or just unfamiliar; tightening a freshly-written doc is often premature.
 

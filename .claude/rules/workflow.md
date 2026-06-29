@@ -128,7 +128,7 @@ Don't bump per-push; ship alpha cycles by branch/tag. At release-cut, bump both 
 
 ## Syncing with Mihon (the live base)
 
-Mihon upstream changes are **ported manually** from the local `refs/mihon/` clone. Never `git merge` Mihon into `main` (it would clobber Reikai patches and identity). When porting an upstream change that touches a file Reikai has patched, re-apply inside the `// RK` island.
+Mihon upstream changes are **ported manually** from the local `refs/mihon/` clone. When porting an upstream change that touches a file Reikai has patched, re-apply inside the `// RK` island.
 
 **Commit-message reference convention (required):** in a Mihon-sync commit, reference an upstream pull request or issue as **`mihonapp/mihon#<num>`** (GitHub renders this as a link to the Mihon repo). Never a bare `#<num>` (it auto-links to a *Reikai* issue/PR) nor a bare `<num>`. Also cite the upstream short-SHA (e.g. `mihon 80541831b`). The full commit-message template, the porting method (verbatim copy for marker-free files, hand-merge inside `// RK` islands for patched ones), and the running synced-base ledger live in the **`upstream-sync` memory**.
 
