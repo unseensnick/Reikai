@@ -91,7 +91,7 @@ class UpdateErrorsScreenModel(
 
     fun dismissSelected() {
         val state = state.value as? UpdateErrorsScreenState.Success ?: return
-        val selectedEntries = state.entries.filter { it.key in state.selected }
+        val selectedEntries = state.selectedEntries
         if (selectedEntries.isEmpty()) return
         val mangaIds = selectedEntries.filterIsInstance<UpdateErrorEntry.Manga>().map { it.error.errorId }
         val novelIds = selectedEntries.filterIsInstance<UpdateErrorEntry.Novel>().map { it.error.errorId }
@@ -99,6 +99,18 @@ class UpdateErrorsScreenModel(
             if (mangaIds.isNotEmpty()) deleteLibraryUpdateErrors.byErrorIds(mangaIds)
             if (novelIds.isNotEmpty()) deleteNovelUpdateErrors.byErrorIds(novelIds)
         }
+    }
+
+    /** The manga ids of the current selection (their library ids, for migration). */
+    fun selectedMangaIds(): List<Long> {
+        val state = state.value as? UpdateErrorsScreenState.Success ?: return emptyList()
+        return state.selectedEntries.filterIsInstance<UpdateErrorEntry.Manga>().map { it.error.mangaId }
+    }
+
+    /** The novel ids of the current selection (their library ids, for migration). */
+    fun selectedNovelIds(): List<Long> {
+        val state = state.value as? UpdateErrorsScreenState.Success ?: return emptyList()
+        return state.selectedEntries.filterIsInstance<UpdateErrorEntry.Novel>().map { it.error.novelId }
     }
 
     fun dismissAll() {
@@ -138,6 +150,15 @@ sealed interface UpdateErrorsScreenState {
             .map { (message, items) -> UpdateErrorGroup(message, items) }
         val isEmpty: Boolean get() = visibleEntries.isEmpty()
         val selectionMode: Boolean get() = selected.isNotEmpty()
+        val selectedEntries: List<UpdateErrorEntry> get() = entries.filter { it.key in selected }
+
+        /** True when the selection is non-empty and all one vertical. Migration runs one vertical
+         *  at a time, so a mixed manga + novel selection can't be migrated together. */
+        val selectionIsSingleVertical: Boolean get() {
+            val hasManga = selectedEntries.any { it is UpdateErrorEntry.Manga }
+            val hasNovel = selectedEntries.any { it is UpdateErrorEntry.Novel }
+            return hasManga != hasNovel
+        }
     }
 }
 
