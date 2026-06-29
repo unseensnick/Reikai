@@ -44,7 +44,7 @@ class LnPluginHost(
 
     private val appContext = context.applicationContext
 
-    // RK: the device's real WebView User-Agent (real model + Android + Chrome version), like LNReader.
+    // the device's real WebView User-Agent (real model + Android + Chrome version), like LNReader.
     // Mihon's network client otherwise defaults to a stripped generic "Android 10; K" UA that some LN
     // sources answer with a degraded page (e.g. Novel Bin serves 200x89 thumbnail covers to it).
     private val deviceUserAgent: String =

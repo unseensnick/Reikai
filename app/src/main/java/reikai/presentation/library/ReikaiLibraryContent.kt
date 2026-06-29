@@ -136,13 +136,13 @@ fun ReikaiLibraryContent(
     onToggleDefaultCollapse: (String) -> Unit,
     onToggleDynamicCollapse: (String) -> Unit,
     onGlobalSearchClicked: () -> Unit,
-    // RK: pull down at the top of the single-list to update the whole library (overflow Update library).
+    // pull down at the top of the single-list to update the whole library (overflow Update library).
     onRefresh: () -> Boolean,
-    // RK 4.6: per-category header affordances (real categories only; dynamic groups opt out)
+    // per-category header affordances (real categories only; dynamic groups opt out)
     onClickCategorySort: (Category) -> Unit,
     onRefreshCategory: (Category) -> Unit,
     onSelectAllInCategory: (Category) -> Unit,
-    // RK: continue-reading button on covers, single-list parity with the pager; null = hidden
+    // continue-reading button on covers, single-list parity with the pager; null = hidden
     onClickContinueReading: ((LibraryManga) -> Unit)? = null,
 ) {
     val isList = displayMode is LibraryDisplayMode.List
@@ -252,7 +252,7 @@ fun ReikaiLibraryContent(
                         ) { libraryItem ->
                             val manga = libraryItem.libraryManga.manga
                             val isSelected = manga.id in selection
-                            val coverData = libraryCoverModel(libraryItem) // RK: NovelCover for novels, else MangaCover
+                            val coverData = libraryCoverModel(libraryItem) // NovelCover for novels, else MangaCover
                             val onClick = { onClickManga(category, libraryItem.libraryManga) }
                             val onLongClick = { onLongClickManga(category, libraryItem.libraryManga) }
                             // Show the play button only when there's something unread (matches the pager).
@@ -276,7 +276,7 @@ fun ReikaiLibraryContent(
                                             isLocal = libraryItem.badges.isLocal,
                                             sourceLanguage = libraryItem.badges.sourceLanguage,
                                         )
-                                        LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
+                                        LibraryCoverEndBadge(libraryItem) // merge / novel-icon / manga-icon
                                     },
                                     isSelected = isSelected,
                                 )
@@ -296,7 +296,7 @@ fun ReikaiLibraryContent(
                                             isLocal = libraryItem.badges.isLocal,
                                             sourceLanguage = libraryItem.badges.sourceLanguage,
                                         )
-                                        LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
+                                        LibraryCoverEndBadge(libraryItem) // merge / novel-icon / manga-icon
                                     },
                                 )
                                 // Panorama: same uniform Book-height cell, wide covers shown whole (letterboxed).
@@ -316,7 +316,7 @@ fun ReikaiLibraryContent(
                                             isLocal = libraryItem.badges.isLocal,
                                             sourceLanguage = libraryItem.badges.sourceLanguage,
                                         )
-                                        LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
+                                        LibraryCoverEndBadge(libraryItem) // merge / novel-icon / manga-icon
                                     },
                                 )
                                 // Compact grid (with title) and cover-only grid (title null) share a cell.
@@ -338,7 +338,7 @@ fun ReikaiLibraryContent(
                                             isLocal = libraryItem.badges.isLocal,
                                             sourceLanguage = libraryItem.badges.sourceLanguage,
                                         )
-                                        LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
+                                        LibraryCoverEndBadge(libraryItem) // merge / novel-icon / manga-icon
                                     },
                                 )
                             }

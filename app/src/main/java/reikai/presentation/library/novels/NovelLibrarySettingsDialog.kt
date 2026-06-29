@@ -256,7 +256,7 @@ private fun ColumnScope.NovelDisplayPage(screenModel: LibrarySettingsScreenModel
         label = stringResource(MR.strings.action_display_source_badge),
         pref = screenModel.reikaiLibraryPreferences.sourceBadge,
     )
-    // RK --> novel merge toggles (P5 S8)
+    // novel merge toggles (P5 S8)
     CheckboxItem(
         label = stringResource(MR.strings.action_merge_same_title),
         pref = screenModel.reikaiLibraryPreferences.novelAutoMergeSameTitle,
@@ -272,7 +272,6 @@ private fun ColumnScope.NovelDisplayPage(screenModel: LibrarySettingsScreenModel
         label = stringResource(MR.strings.action_merge_source_icons),
         pref = screenModel.reikaiLibraryPreferences.showNovelMergeSourceIcons,
     )
-    // RK <--
     CheckboxItem(
         label = stringResource(MR.strings.action_display_show_continue_reading_button),
         pref = screenModel.libraryPreferences.showContinueReadingButton,

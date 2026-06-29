@@ -30,7 +30,7 @@ import tachiyomi.core.common.util.system.logcat
 class LnHostBridge(
     private val preferenceStore: PreferenceStore,
     private val client: OkHttpClient,
-    // RK: the device's real WebView User-Agent (see [LnPluginHost]); empty when unavailable.
+    // the device's real WebView User-Agent (see [LnPluginHost]); empty when unavailable.
     private val userAgent: String = "",
 ) {
 

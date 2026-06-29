@@ -103,7 +103,7 @@ fun SourceIconBadge(source: Source?) {
             color = MaterialTheme.colorScheme.tertiary,
             iconColor = MaterialTheme.colorScheme.onTertiary,
         )
-        // RK: built-in E-Hentai / ExHentai ship no extension icon, so draw the EH mark on a white
+        // built-in E-Hentai / ExHentai ship no extension icon, so draw the EH mark on a white
         //     tile (same treatment as the browse SourceIcon) instead of the generic library glyph.
         source.id in eHentaiSourceIds -> EhSourceIconBadge()
         else -> Badge(

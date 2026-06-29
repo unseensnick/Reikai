@@ -45,7 +45,7 @@ fun ReikaiLibraryComfortableGridPanorama(
             ReikaiComfortableGridPanoramaItem(
                 isSelected = manga.id in selection,
                 title = manga.title,
-                coverData = libraryCoverModel(libraryItem), // RK: NovelCover for novels, else MangaCover
+                coverData = libraryCoverModel(libraryItem), // NovelCover for novels, else MangaCover
                 coverBadgeStart = {
                     DownloadsBadge(count = libraryItem.badges.downloadCount)
                     UnreadBadge(count = libraryItem.badges.unreadCount)
@@ -55,7 +55,7 @@ fun ReikaiLibraryComfortableGridPanorama(
                         isLocal = libraryItem.badges.isLocal,
                         sourceLanguage = libraryItem.badges.sourceLanguage,
                     )
-                    LibraryCoverEndBadge(libraryItem) // RK: merge / novel-icon / manga-icon
+                    LibraryCoverEndBadge(libraryItem) // merge / novel-icon / manga-icon
                 },
                 onLongClick = { onLongClick(libraryItem.libraryManga) },
                 onClick = { onClick(libraryItem.libraryManga) },

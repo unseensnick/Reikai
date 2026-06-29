@@ -227,7 +227,7 @@ internal fun SourceSection(
     favoritedKeys: Set<Pair<String, String>>,
     onResultClick: (NovelItem) -> Unit,
     onResultLongClick: (NovelItem) -> Unit,
-    // RK: null in migrate mode, where opening the source's browse would be a dead-end.
+    // null in migrate mode, where opening the source's browse would be a dead-end.
     onClickSource: (() -> Unit)?,
 ) {
     val context = LocalContext.current

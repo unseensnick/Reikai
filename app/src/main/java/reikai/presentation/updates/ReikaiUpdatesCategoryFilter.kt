@@ -82,7 +82,7 @@ fun ColumnScope.ReikaiUpdatesCategoryFilter(
     )
 }
 
-/** "Group by series" switch for the Updates filter dialog (a // RK addition, like the category row). */
+/** "Group by series" switch for the Updates filter dialog (a Reikai addition, like the category row). */
 @Composable
 fun ColumnScope.ReikaiUpdatesGroupToggle(screenModel: UpdatesSettingsScreenModel) {
     val grouped by screenModel.reikaiSourcePreferences.updatesGroupBySeries.collectAsPrefState()

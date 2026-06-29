@@ -86,10 +86,9 @@ class NovelReaderScreenModel(
     private val getNovelCategories: GetNovelCategories by injectLazy()
     private val deleteNovelChaptersAfterRead: DeleteNovelChaptersAfterRead by injectLazy()
 
-    // RK --> novel trackers (Active #8): push read progress on chapter completion
+    // novel trackers (Active #8): push read progress on chapter completion
     private val trackNovelChapter: TrackNovelChapter by injectLazy()
     private val trackPreferences: TrackPreferences by injectLazy()
-    // RK <--
 
     private val getIncognitoState: GetIncognitoState by injectLazy()
 
@@ -351,16 +350,15 @@ class NovelReaderScreenModel(
         mutableState.value = NovelReaderState.Loading
         screenModelScope.launchIO {
             updateHistory()
-            // RK --> mark-read-on-skip: the departed chapter + its owning novel are still current here
+            // mark-read-on-skip: the departed chapter + its owning novel are still current here
             // (before the reassignment + loadCurrent below re-point them to the incoming chapter).
             if (markDepartedRead) markReadOnSkip(currentId, currentNovelId)
-            // RK <--
             currentId = id
             loadCurrent()
         }
     }
 
-    // RK --> mark-read-on-skip (opt-in): mark the chapter the user skipped away from as read (forward
+    // mark-read-on-skip (opt-in): mark the chapter the user skipped away from as read (forward
     // only), the novel twin of ReaderViewModel.markChapterReadOnSkip. Reuses saveProgress's tracker push.
     private suspend fun markReadOnSkip(departedId: Long, departedNovelId: Long) {
         if (incognitoMode || !novelPreferences.readerMarkReadOnSkip().get()) return
@@ -371,7 +369,6 @@ class NovelReaderScreenModel(
             trackNovelChapter.await(Injekt.get<Application>(), departedNovelId, chapter.chapterNumber)
         }
     }
-    // RK <--
 
     /** Stamp the current chapter into novel history and accumulate this session's read time. Called on
      *  chapter switch and on leaving the reader (the novel twin of ReaderViewModel.updateHistory). */
@@ -509,11 +506,10 @@ class NovelReaderScreenModel(
             if (clamped >= 97) {
                 chapterRepo.setReadBulk(listOf(id), true)
                 val chapter = chapterRepo.getById(id)
-                // RK --> push read progress to bound trackers, mirroring ReaderViewModel.updateTrackChapterRead (Active #8)
+                // push read progress to bound trackers, mirroring ReaderViewModel.updateTrackChapterRead (Active #8)
                 if (trackPreferences.autoUpdateTrack.get()) {
                     chapter?.let { trackNovelChapter.await(Injekt.get<Application>(), currentNovelId, it.chapterNumber) }
                 }
-                // RK <--
                 // The in-RAM htmlCache keeps the current view alive, so deleting the file is safe here.
                 // Finishing a chapter marks it read, so honor "delete after marked as read" too.
                 chapter?.let { deleteNovelChaptersAfterRead.await(currentNovelId, listOf(it)) }

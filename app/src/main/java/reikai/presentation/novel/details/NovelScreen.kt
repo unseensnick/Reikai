@@ -119,14 +119,14 @@ class NovelScreen(
                     }
                 }
                 val onSearch: (String) -> Unit = { query -> navigator.push(NovelGlobalSearchScreen(query)) }
-                // RK: migration only re-homes a library novel, so the action shows only when favorited.
+                // migration only re-homes a library novel, so the action shows only when favorited.
                 val onMigrate: (() -> Unit)? = if (s.novel.favorite) {
                     // displayNovel = the source you're viewing, so the picker pre-checks it for a merge.
                     { navigator.push(NovelMigrationSourcePickScreen(listOf(s.displayNovel.id))) }
                 } else {
                     null
                 }
-                // RK: tracking action; mirrors MangaScreen (no logged-in trackers -> Settings > Tracking).
+                // tracking action; mirrors MangaScreen (no logged-in trackers -> Settings > Tracking).
                 val onTracking: () -> Unit = {
                     if (screenModel.hasLoggedInTrackers()) {
                         screenModel.showTrackDialog()
@@ -134,7 +134,7 @@ class NovelScreen(
                         navigator.push(SettingsScreen(SettingsScreen.Destination.Tracking))
                     }
                 }
-                // RK: open the full-screen notes editor for the favorited (anchor) novel.
+                // open the full-screen notes editor for the favorited (anchor) novel.
                 val onEditNotes: () -> Unit = {
                     navigator.push(NovelNotesScreen(s.novel.id, s.novel.title, s.novel.notes))
                 }
@@ -426,7 +426,7 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: No
             onRemoveFromLibrary = screenModel::removeSourcesFromLibrary,
             onRemoveAll = screenModel::removeAllSourcesFromLibrary,
         )
-        // RK: tracking sheet (Active #8). Remember by novel id so the merge collectors' frequent
+        // tracking sheet (Active #8). Remember by novel id so the merge collectors' frequent
         // recompositions don't rebuild it and reset its navigator mid-write (the manga side hit an
         // InsertTrack JobCancellationException here).
         NovelDetailsDialog.TrackSheet -> {
@@ -502,7 +502,7 @@ private fun LazyListScope.novelInfoItems(
             isTabletUi = isTabletUi,
             appBarPadding = appBarPadding,
             novel = display,
-            // RK: a merged group viewed via the "All" chip shows the unified label, mirroring the
+            // a merged group viewed via the "All" chip shows the unified label, mirroring the
             // manga header. A specific source chip keeps that source's resolved name.
             sourceName = if (state.mergeSources.size > 1 && state.selectedSourceNovelId == null) {
                 stringResource(MR.strings.merge_unified)
@@ -530,7 +530,7 @@ private fun LazyListScope.novelInfoItems(
             defaultExpandState = false,
             description = display.description,
             tagsProvider = { display.genre },
-            // RK: notes are a user annotation on the favorited anchor row, not the viewed source's metadata.
+            // notes are a user annotation on the favorited anchor row, not the viewed source's metadata.
             notes = state.novel.notes,
             onTagSearch = onSearch,
             onCopyTagToClipboard = { onCopy(it) },
