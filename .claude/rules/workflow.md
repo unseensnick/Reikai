@@ -117,7 +117,7 @@ A small commit needs no headers, just the subject plus a sentence or two (see th
 
 Work lands on `main` (the Mihon-based main). PRs target `main`. Patches to Mihon's own files are fenced with `// RK -->` / `// RK <--`.
 
-For day-to-day commit / push / PR work, run **`/ship`** (or **`/debug-fix --fast`** for hotfixes). Those bake in the conventions: no `Co-Authored-By` lines in commits, no `## Test plan` section or `🤖 Generated with [Claude Code]` footer in PR bodies, and `--repo unseensnick/Reikai` (the repo otherwise targets the wrong remote).
+For day-to-day commit / push / PR work, run **`/ship`** (or **`/debug-fix --fast`** for hotfixes). Those bake in the conventions: no `Co-Authored-By` lines in commits, no `## Test plan` section or `🤖 Generated with [Claude Code]` footer in PR bodies, and `--repo unseensnick/Reikai` (kept explicit; the repo is standalone with `gh`'s default set to it, so this is optional now).
 
 ## Versioning (only at release-cut)
 

@@ -68,7 +68,7 @@ Ship the current changes through commit, push, and PR creation. Confirm with the
   gh pr create --repo unseensnick/Reikai --base main --title "…" --body "…"
   ```
 
-  The `--repo unseensnick/Reikai --base main` flags are required: this repo is a fork of `null2264/yokai`, and `gh pr create` otherwise targets the upstream parent.
+  The repo is standalone (not a fork) and `gh`'s default repo is set to `unseensnick/Reikai`, so `gh pr create` already targets it; the `--repo unseensnick/Reikai --base main` flags are kept for explicitness and remain safe to pass.
 - Show the PR URL when done
 
 ## Rules
