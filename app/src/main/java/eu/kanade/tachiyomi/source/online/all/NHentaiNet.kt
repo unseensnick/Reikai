@@ -47,7 +47,7 @@ class NHentaiNet(private val context: Context) :
     PagePreviewSource {
 
     override val id = NHENTAI_NET_SOURCE_ID
-    override val name = "NHentai"
+    override val name = "NHentai.net"
     override val lang = "all"
     override val baseUrl = NHentaiSearchMetadata.BASE_URL
     override val supportsLatest = true
