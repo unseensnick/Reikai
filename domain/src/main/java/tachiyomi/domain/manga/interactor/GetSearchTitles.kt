@@ -10,4 +10,8 @@ class GetSearchTitles(
     suspend fun await(mangaId: Long): List<SearchTitle> {
         return mangaMetadataRepository.getTitlesById(mangaId)
     }
+
+    suspend fun awaitAll(): List<SearchTitle> {
+        return mangaMetadataRepository.getAllTitles()
+    }
 }

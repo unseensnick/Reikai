@@ -16,6 +16,9 @@ selectByMangaId:
 SELECT * FROM search_titles
 WHERE manga_id = ?;
 
+selectAll:
+SELECT * FROM search_titles;
+
 deleteByManga:
 DELETE FROM search_titles WHERE manga_id = ?;
 
