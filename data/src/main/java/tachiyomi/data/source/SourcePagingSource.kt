@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.MetadataMangasPage
+import exh.metadata.metadata.RaisedSearchMetadata
 import mihon.domain.manga.model.toDomainManga
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
@@ -44,7 +45,10 @@ abstract class BaseSourcePagingSource(
 
     abstract suspend fun requestNextPage(currentPage: Int): MangasPage
 
-    override suspend fun load(params: LoadParams<Long>): LoadResult<Long, Manga> {
+    // RK: element type is Pair<Manga, RaisedSearchMetadata?> so a metadata source (E-Hentai) can
+    //     pair each gallery with its parsed metadata for the rich browse rows; other sources pair
+    //     with null.
+    override suspend fun load(params: LoadParams<Long>): LoadResult<Long, Pair<Manga, RaisedSearchMetadata?>> {
         val page = params.key ?: 1
 
         return try {
@@ -54,10 +58,13 @@ abstract class BaseSourcePagingSource(
                     ?: throw NoResultsException()
             }
 
+            // RK: pair each manga with its metadata by index before the dedup filter, then re-zip
+            //     after networkToLocalManga (which preserves order). Non-metadata pages -> null.
+            val metadata = (mangasPage as? MetadataMangasPage)?.mangasMetadata ?: emptyList()
             val manga = mangasPage.mangas
-                .map { it.toDomainManga(source.id) }
-                .filter { seenManga.add(it.url) }
-                .let { networkToLocalManga(it) }
+                .mapIndexed { index, sManga -> sManga.toDomainManga(source.id) to metadata.getOrNull(index) }
+                .filter { seenManga.add(it.first.url) }
+                .let { pairs -> networkToLocalManga(pairs.map { it.first }).zip(pairs.map { it.second }) }
 
             LoadResult.Page(
                 data = manga,
@@ -73,7 +80,7 @@ abstract class BaseSourcePagingSource(
         }
     }
 
-    override fun getRefreshKey(state: PagingState<Long, Manga>): Long? {
+    override fun getRefreshKey(state: PagingState<Long, Pair<Manga, RaisedSearchMetadata?>>): Long? {
         return state.anchorPosition?.let { anchorPosition ->
             val anchorPage = state.closestPageToPosition(anchorPosition)
             anchorPage?.prevKey ?: anchorPage?.nextKey

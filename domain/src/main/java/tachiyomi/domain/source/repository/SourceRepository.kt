@@ -2,12 +2,14 @@ package tachiyomi.domain.source.repository
 
 import androidx.paging.PagingSource
 import eu.kanade.tachiyomi.source.model.FilterList
+import exh.metadata.metadata.RaisedSearchMetadata
 import kotlinx.coroutines.flow.Flow
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.model.Source
 import tachiyomi.domain.source.model.SourceWithCount
 
-typealias SourcePagingSource = PagingSource<Long, Manga>
+// RK: browse paging carries (manga, metadata) so adult sources can render rich rows.
+typealias SourcePagingSource = PagingSource<Long, Pair<Manga, RaisedSearchMetadata?>>
 
 interface SourceRepository {
 
