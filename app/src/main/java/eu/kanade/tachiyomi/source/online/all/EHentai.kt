@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.await
 import eu.kanade.tachiyomi.network.awaitSuccess
+import eu.kanade.tachiyomi.network.interceptor.rateLimitHost
 import eu.kanade.tachiyomi.network.newCachelessCallWithProgress
 import eu.kanade.tachiyomi.source.PagePreviewInfo
 import eu.kanade.tachiyomi.source.PagePreviewPage
@@ -878,6 +879,12 @@ class EHentai(
 
     override val client =
         network.client.newBuilder()
+            // E-Hentai bans aggressively on rapid requests, so throttle its gallery / API hosts
+            // harder than the other adult sources. Images come from varied H@H hosts (and ehgt.org
+            // thumbnails) and are left unthrottled so reading stays fast.
+            .rateLimitHost("https://e-hentai.org", 3)
+            .rateLimitHost("https://exhentai.org", 3)
+            .rateLimitHost("https://api.e-hentai.org", 3)
             .addNetworkInterceptor { chain ->
                 // Keep only Cloudflare cookies from incoming cookies
                 val cfCookies = chain.request().header("Cookie")?.split("; ")
