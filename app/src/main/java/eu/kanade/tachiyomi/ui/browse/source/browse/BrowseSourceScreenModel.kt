@@ -18,9 +18,15 @@ import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.util.ioCoroutineScope
 import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.online.MetadataSource
+import exh.metadata.metadata.RaisedSearchMetadata
+import exh.source.getMainSource
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -31,6 +37,7 @@ import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetFlatMetadataById
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaWithChapterCount
@@ -51,6 +58,9 @@ class BrowseSourceScreenModel(
     getIncognitoState: GetIncognitoState = Injekt.get(),
     // RK --> favorite / category / duplicate orchestration extracted to the shared MangaLibraryAdder
     private val mangaLibraryAdder: MangaLibraryAdder = Injekt.get(),
+    // RK <--
+    // RK --> metadata DB-join for adult-source rich browse rows
+    private val getFlatMetadataById: GetFlatMetadataById = Injekt.get(),
     // RK <--
 ) : StateScreenModel<BrowseSourceScreenModel.State>(State(Listing.valueOf(listingQuery))) {
 
@@ -90,16 +100,38 @@ class BrowseSourceScreenModel(
             Pager(PagingConfig(pageSize = 25)) {
                 getRemoteManga(sourceId, listing.query ?: "", listing.filters)
             }.flow.map { pagingData ->
-                pagingData.map { manga ->
+                // RK --> carry each manga's metadata alongside it for the rich browse rows
+                pagingData.map { (manga, metadata) ->
                     getManga.subscribe(manga.url, manga.source)
                         .map { it ?: manga }
+                        .combineMetadata(metadata)
                         .stateIn(ioCoroutineScope)
                 }
-                    .filter { !hideInLibraryItems || !it.value.favorite }
+                    .filter { !hideInLibraryItems || !it.value.first.favorite }
+                // RK <--
             }
                 .cachedIn(ioCoroutineScope)
         }
         .stateIn(ioCoroutineScope, SharingStarted.Lazily, emptyFlow())
+
+    // RK --> DB-join each manga with its persisted metadata (falling back to the metadata carried
+    //        from paging) so adult-source browse rows can render rating / tags / pages. Ported from
+    //        Komikku's combineMetadata; mirrors MetadataViewScreenModel's getMainSource + raise().
+    private fun Flow<Manga>.combineMetadata(
+        metadata: RaisedSearchMetadata?,
+    ): Flow<Pair<Manga, RaisedSearchMetadata?>> {
+        val metadataSource = source.getMainSource<MetadataSource<*, *>>()
+        return flatMapLatest { manga ->
+            if (metadataSource != null) {
+                getFlatMetadataById.subscribe(manga.id).map { flat ->
+                    manga to (flat?.raise(metadataSource.metaClass) ?: metadata)
+                }
+            } else {
+                flowOf(manga to null)
+            }
+        }
+    }
+    // RK <--
 
     fun getColumnsPreference(orientation: Int): GridCells {
         val isLandscape = orientation == Configuration.ORIENTATION_LANDSCAPE
