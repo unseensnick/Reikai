@@ -77,3 +77,5 @@ Reikai currently ships a lighter slice of Komikku's adult-source subsystem. The 
 - **Two-way favorites sync.** Today's favorites feature is a one-way backup (library → account). Full sync (pull the account's favorites into the library, mirror removals both ways, reconcile conflicts) is not built.
 - **Bulk gallery import.** Pasting many gallery URLs at once, or sharing / opening a gallery link straight into the app, is not wired up yet. You add galleries by browsing the source.
 - **Library tag-search engine.** Library tag search matches recorded tags, but the richer query language (wildcards, exclusions, exact match, namespace aliases) that the browse-side autocomplete understands is not yet available over your saved library.
+- **Full browse pagination.** Browsing the built-in source currently loads only the first page of results (then stops with "No results found"); paging through the rest is being reworked.
+- **Rich browse rows.** The browse list shows a cover and title only; the per-row rating, category, page count, language, uploader, and date the source returns are not shown there yet (the full details are still available from an entry's Gallery info).

@@ -26,6 +26,7 @@ The format these follow, and the rule for what earns a doc here, live in [.claud
 ## Adult sources
 
 - [Adult-source (EXH) subsystem](exh-subsystem.md): built-in E-Hentai / ExHentai, enhanced-source metadata indexing + library tag search, metadata viewer, account uconfig sync, favorited-gallery update checker, and a one-way favorites backup. Ported from Komikku, re-typed onto Mihon, wired in via `// RK` islands; the lighter-slice descopes and the path to Komikku parity.
+- [Adult-source browse parity](adult-browse-parity.md): why the built-in EH browse only loads its first page and shows bare rows, traced to the dropped `MetadataMangasPage` carrier + `EHentaiPagingSource` cursor + metadata rendering, and the planned two-piece port to reach Komikku parity. Planned.
 
 ## Light novels
 
