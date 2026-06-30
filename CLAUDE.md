@@ -62,6 +62,8 @@ EVERY commit on the branch (including `docs` / `chore` / one-line fixes, not jus
 - No em dashes; no AI watermark.
 - Non-trivial commits get a body that leads with 1-2 plain-language sentences, then benefit-first bullets. A trivial commit is just the compliant subject.
 
+**Branch names and PR titles are public: keep them purely technical.** No content-source names or aggregation vocabulary (`ehentai`, `source`, `gallery`, ...); name the change (`fix/paging-crash`), not the domain. Same caution that keeps source names out of the CHANGELOG (don't let the project read as a piracy tool). Full rule: [.claude/rules/workflow.md](.claude/rules/workflow.md) "Branch naming".
+
 ## Identity (load-bearing, preserve through the rebase)
 
 `applicationId = "eu.kanade.tachiyomi"` with release suffix `.y2k` (and debug `.debugY2k`), so existing installs upgrade in place. Mihon's own `applicationId` is `app.mihon`; the namespace `eu.kanade.tachiyomi` is shared by both, so source classes resolve either way. App name string `Reikai` lives in `i18n/src/commonMain/moko-resources/base/strings.xml`. Keep the `.y2k` suffix and app name; take Mihon for everything else.
