@@ -12,6 +12,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+### Fixes
+
+- **Browsing adult content sources now loads past the first page.** The built-in adult-source browse stopped after the first set of results; it now pages all the way through.
+
 ### Other
 
 - Build the app and publish previews only when an app-affecting file changes; docs and other repo-only updates no longer trigger a build.
