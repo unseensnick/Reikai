@@ -45,7 +45,7 @@ class ExhPreferences(
 
     fun logLevel() = preferenceStore.getInt("eh_log_level", 0)
 
-    // RK: default Daily. The worker only re-checks each gallery once per day anyway, so a tighter
+    // default Daily. The worker only re-checks each gallery once per day anyway, so a tighter
     // schedule just wakes up to skip; 24 also keeps the value within the settings frequency options.
     fun exhAutoUpdateFrequency() = preferenceStore.getInt("eh_auto_update_frequency", 24)
 
@@ -53,7 +53,7 @@ class ExhPreferences(
 
     fun exhAutoUpdateStats() = preferenceStore.getString(Preference.appStateKey("eh_auto_update_stats"), "")
 
-    // RK: one-way favorites backup to the E-Hentai account (push add, opt-in remote remove).
+    // one-way favorites backup to the E-Hentai account (push add, opt-in remote remove).
     fun exhBackupFavoritesToAccount() = preferenceStore.getBoolean("eh_backup_favorites_to_account", false)
 
     fun exhFavoritesBackupSlot() = preferenceStore.getInt("eh_favorites_backup_slot", 0)

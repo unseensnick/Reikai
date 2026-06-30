@@ -23,7 +23,7 @@ class HentaiFox(delegate: HttpSource, context: Context) :
     override fun newMetaInstance() = HentaiFoxSearchMetadata()
     override val lang = delegate.lang
 
-    // RK: capture gallery metadata on the details fetch, delegate chapters to the stock source.
+    // capture gallery metadata on the details fetch, delegate chapters to the stock source.
     override suspend fun getMangaUpdate(
         manga: SManga,
         chapters: List<SChapter>,

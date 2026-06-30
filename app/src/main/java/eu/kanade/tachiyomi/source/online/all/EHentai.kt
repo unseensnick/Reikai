@@ -571,7 +571,7 @@ class EHentai(
         }
     }
 
-    // RK: E-Hentai account favorites backup. fetchFavorites reads the account's list (for dedup +
+    // E-Hentai account favorites backup. fetchFavorites reads the account's list (for dedup +
     // slot names); addFavorite / removeFavorites are the account writes. All authenticated via the
     // EH login cookies already on `headers`.
     suspend fun fetchFavorites(): Pair<List<ParsedManga>, List<String>> {
@@ -1328,7 +1328,7 @@ class EHentai(
         private const val TR_SUFFIX = "TR"
         private const val REVERSE_PARAM = "TEH_REVERSE"
 
-        // RK: favorites account-write retry (see retryFavoritesRequest).
+        // favorites account-write retry (see retryFavoritesRequest).
         private const val FAVORITES_RETRY_ATTEMPTS = 3
         private const val FAVORITES_RETRY_DELAY_MS = 2000L
         private val PAGE_COUNT_REGEX = "[0-9]*".toRegex()

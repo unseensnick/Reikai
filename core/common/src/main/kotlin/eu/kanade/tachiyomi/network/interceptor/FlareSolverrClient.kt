@@ -350,7 +350,7 @@ private val COOKIE_NAMES = listOf("cf_clearance")
  * Detection is browser-agnostic: the body is markup whose first `<pre>` (entity-decoded via Jsoup's
  * [org.jsoup.nodes.Element.wholeText], so `&lt;` in string values is restored) is itself JSON.
  */
-// RK: internal so the unwrap is unit-testable, like FlareSolverrCookie below.
+// internal so the unwrap is unit-testable, like FlareSolverrCookie below.
 internal fun unwrapBrowserJsonViewer(response: String): String? {
     if (!response.trimStart().startsWith('<')) return null
     if (!response.contains("<pre", ignoreCase = true)) return null
@@ -377,7 +377,7 @@ private data class FlareSolverrSolution(
 )
 
 @Serializable
-// RK: internal (was private) so toRawCookieString's leading-dot domain logic is unit-testable.
+// internal (was private) so toRawCookieString's leading-dot domain logic is unit-testable.
 internal data class FlareSolverrCookie(
     val name: String,
     val value: String,
