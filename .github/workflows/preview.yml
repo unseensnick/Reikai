@@ -109,12 +109,17 @@ jobs:
           fi
 
           new_lines=$(grep -vxF -f /tmp/prev.txt /tmp/cur.txt 2>/dev/null | sed '/^[[:space:]]*$/d' || true)
+          # Reduce each entry to its one-line bold headline, matching the stable release notes.
+          new_lines=$(printf '%s\n' "$new_lines" | sed -E -e 's/^- \*\*([^*]+)\*\*.*/- \1/' -e 's/^\*\*([^*]+)\*\*$/#### \1/')
+          repo="${{ github.server_url }}/${{ github.repository }}"
           {
             echo "RELEASE_BODY<<__EOF__"
             if [ -n "$new_lines" ]; then
               echo "### New since the last preview"
               echo ""
               echo "$new_lines"
+              echo ""
+              printf '**Full changelog:** %s/blob/main/CHANGELOG.md\n' "$repo"
             else
               commits=""
               if [ -n "$prev_ref" ]; then
