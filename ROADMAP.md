@@ -17,14 +17,15 @@ Per-feature implementation and decision records live in [docs/dev/plans/](docs/d
 | P7 | Reader tweaks: configurable bottom bar, chapters sheet, cover tint, mark-read-on-skip, resume/preload | done |
 | P8 | Settings / shell carry | dropped (Mihon covers it; the tabbed shell shipped under P9) |
 | P9 | Category bulk-delete + unified Recents (folded into Updates + History) | done |
-| Release | Signed release pipeline (AGP signing, preview/release workflows, in-app updater) | built; first-run verify pending (user) |
+| Release | Signed release pipeline (AGP signing, preview/release workflows, in-app updater) | shipped; 0.1.0-0.1.5 cut + tagged |
 | Round 2 | Manga↔novel parity backlog + revived adult-source subsystem | shipped (last standalone item parked) |
 
 The rebase is functionally complete: the core sequence and the manga↔novel parity backlog have shipped and are on-device verified. The parity & adult-system audit has run and is fully triaged (report `PARITY-EXH-AUDIT.md`, local / gitignored): its findings are filed into **Next**, **Later** (the manga↔novel and adult/EXH parity backlogs), and **Parked**. Both audit work items already shipped (adult galleries excluded from library updates, on-device verified; stock E-Hentai extension suppressed, regression-verified).
 
 ## Now
 
-Nothing actively in progress.
+- **Fix E-Hentai Popular pagination crash** `[S]` (branch `fix/ehentai-popular-pagination`): the Popular grid's second-page load fails with a `NullPointerException` and the "load more" error snackbar. Root cause is a `!!` non-null assertion in `EHentai.extendedGenericMangaParse` that returns null on a page-2 row; in a minified build R8 lowers `!!` into a bare `obj.getClass()` null-check, hence the `getClass() on a null object reference` message. Fix: make the row parser tolerant (skip un-parseable rows) instead of crashing the whole page. Reported in unseensnick/Reikai#20.
+- **EXH parity round 2** (branch `feat/exh-parity`, rebased onto the 0.1.5 main tip, not yet PR'd): gallery import entry points (InterceptActivity + BatchAddScreen), the built-in Pururin source, and 8Muses gallery import have shipped on the branch; next is the built-in nhentai.net rewrite against its v2 API (the old API is dead). Remaining original EXH backlog is under Later.
 
 ## Next
 
@@ -39,7 +40,7 @@ Reikai ships a lighter slice of Komikku's adult-source subsystem; the items belo
 
 - **EXH library search engine** `[M]`: namespace / wildcard / exclude / exact / alias search over the library (`exh/search`: `SearchEngine`, `Namespace`, wildcards, `QueryComponent`). The browse-side `namespace:tag` autocomplete is already ported; this is the library-search half.
 - **Rich EXH metadata rendering** `[M]`: port `SourceTagsUtil` plus the three surfaces that depend on it: namespaced tappable tag chips on manga details, a per-source gallery info block above the description, and the EH-specific browse list row (language flag / rating / page count). Presentation only; the `*DescriptionAdapter` composables are live in Komikku, not dead.
-- **EXH gallery import entry points** `[S]`: `InterceptActivity` (share or open a gallery link to import it) and `BatchAddScreen` (paste many gallery URLs to bulk-import); both drive the already-ported `GalleryAdder`.
+- **EXH gallery import entry points** `[S]` - **done on `feat/exh-parity`, not yet merged**: `InterceptActivity` (share or open a gallery link to import it) and `BatchAddScreen` (paste many gallery URLs to bulk-import), both driving the `GalleryAdder`; 8Muses import and a fuller add path (title/cover on import) landed alongside. Built-in Pururin source also shipped on that branch.
 - **Fuller GalleryAdder add path** `[S]`: chapter fetch / sync, the retry + NotFound loop, and `pickSource` filtering by enabled languages / disabled sources (our add path is currently trimmed).
 - **EXH gallery-update progress notification** `[S]`: richer content / styling to match Komikku's update-checker notification.
 
@@ -100,6 +101,7 @@ Terse done-log, grouped by area. Full detail in the linked plan docs.
 - De-Mihon brand pass: Reikai logo, trimmed About links, donation/Support removed, trackers rebranded; repo meta + JDK 21. Icon design sources in `art/icon/`.
 - README header logo + animated showcase WebP + reproduction kit (`docs/dev/readme-showcase.md`).
 - Signed release pipeline: AGP-native signing, `release.yml` / `preview.yml`, in-app updater re-pointed at Reikai repos (`a4ee2c401`, `1f7aecac4`, `09d04cd0b`, `1c68490da`).
+- Releases cut + tagged `v0.1.0`-`v0.1.5` (each builds a signed `release.yml` draft): 0.1.3 = extension re-trust + migrate-from-update-errors; 0.1.4 = Cloudflare-bypass JSON/Byparr fix; 0.1.5 = one-tap merge coalescing. (Stale inherited Yōkai `v*` tags were pruned so a plain `git tag vX.Y.Z origin/main` no longer collides; see the `stale-yokai-release-tags` memory.)
 - Preview pipeline prune fix: previews had stopped publishing (stuck at r295) because the prune sorted by `createdAt` (all identical after a history-rewrite) and deleted the just-published release; now prunes by build number (`e1960e06e`). Old Yōkai-era `r6xxx` nightlies on the main repo were also cleaned up.
 - Commit-standard enforcement: a `commit-msg` git hook (`.githooks/commit-msg`) rejects non-compliant messages; the standard now allows explicit `owner/repo#N` refs (`7f4649d65`).
 - Minified-build startup-crash fix: the net-new `reikai.*` package added to the proguard keep list.
@@ -110,6 +112,8 @@ Terse done-log, grouped by area. Full detail in the linked plan docs.
 - Library screen carry: single-list + hopper, dynamic grouping, filter/sort, category sort order, opt-in update-errors screen (P2). See [library-screen-carry.md](docs/dev/plans/library-screen-carry.md).
 - Manga details parity: cover-accent backdrop, two-finger range select, swipe-to-refresh, unified Display sheet (P3). See [manga-details-parity.md](docs/dev/plans/manga-details-parity.md).
 - Pref-based multi-source merge engine + preferred-source ranking + tracker-link mirroring + FlareSolverr (P4). See [manga-merge-engine.md](docs/dev/plans/manga-merge-engine.md).
+- Cloudflare bypass robustness (0.1.4): unwrap a browser-based solver's JSON-viewer back to raw JSON (so JSON-API sources and LN plugins parse), and support sessionless solvers by detecting them from the server banner and skipping `sessions.create`. Docs recommend [Byparr](https://github.com/ThePhaseless/Byparr) over FlareSolverr for the newer managed / Turnstile challenges. See [flaresolverr.md](docs/flaresolverr.md).
+- Merge coalescing fix (0.1.5): one tap merges every source of a series, the selection is expanded to each card's full resolved group (manual + same-title) before recording, so collapsed cards no longer need repeated merges (manga + novels).
 - Recommendations / related carousel: five streams, taste rerank, tracker cross-recs, See-all browse (P6). See [recommendations.md](docs/dev/plans/recommendations.md).
 - Reader tweaks: configurable bottom bar, chapters sheet, cover tint, mark-read-on-skip, resume/preload (P7).
 - Merge-aware reader: read a merged manga through all its sources (unified list + per-source labels, cross-source prev/next, per-source side effects) via a thin Reikai layer over Mihon's reader (`d30cce03d`, `4bd3ca823`, `5b9f6d778`). See [merge-aware-manga-reader.md](docs/dev/plans/merge-aware-manga-reader.md).
