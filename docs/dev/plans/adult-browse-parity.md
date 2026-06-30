@@ -109,11 +109,25 @@ B gets its own scout/plan before implementation.
 
 ## Status
 
-Planned. Investigation done (code-research + scout vs `refs/komikku`, 2026-06-30); no code
-written yet. Both A and B land on **`feat/exh-parity`** (the umbrella branch for bringing the
-adult subsystem to Komikku parity); that branch does not open a PR until the whole subsystem is
-on par. A prior band-aid (skip un-parseable rows in the parser) was reverted: it hid the crash
-but left pagination dead after page 1.
+Shipped on **`feat/exh-parity`** (the umbrella branch for bringing the adult subsystem to
+Komikku parity; the branch does not open a PR until the whole subsystem is on par). Investigation
+done via code-research + scout vs `refs/komikku` (2026-06-30).
+
+- **A (pagination + metadata carrier):** done. `MetadataMangasPage` carries the gallery-id
+  cursor; the built-in browse pages all the way through.
+- **B1 (metadata plumbing):** done. Browse pages `Pair<Manga, RaisedSearchMetadata?>`;
+  `BrowseSourceScreenModel.combineMetadata` DB-joins the persisted metadata and falls back to the
+  carried paging metadata.
+- **B2 (rich EH rows):** done, on-device verified. A dedicated `BrowseSourceEHentaiList` row
+  (cover, title, uploader, rating stars, category badge, language flag + page count, post date)
+  renders for EH/ExH sources when the `enableEnhancedEhView` pref is on (default true). The badge
+  text color is contrast-derived from the badge background (readable on every genre color, in
+  either theme) rather than Komikku's hardcoded per-genre black/white; the rating uses a custom
+  Compose star composable instead of the `com.gowtham.ratingbar` dependency. Other adult sources
+  (nhentai, pururin, ...) keep the standard grid/list, exactly as in Komikku.
+
+A prior band-aid (skip un-parseable rows in the parser) was reverted during A: the cursor fix
+makes malformed-page rows a non-event.
 
 ## Decisions & tradeoffs
 

@@ -20,6 +20,7 @@ import eu.kanade.presentation.util.ioCoroutineScope
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import exh.metadata.metadata.RaisedSearchMetadata
+import exh.source.eHentaiSourceIds
 import exh.source.getMainSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -67,6 +68,9 @@ class BrowseSourceScreenModel(
     var displayMode by sourcePreferences.sourceDisplayMode.asState(screenModelScope)
 
     val source = sourceManager.getOrStub(sourceId)
+
+    // RK: gate the rich adult-source browse rows on the EH/ExH source set + the enhanced-view pref
+    val useEhentaiView = source.id in eHentaiSourceIds && sourcePreferences.enableEnhancedEhView.get()
 
     init {
         mutableState.update {

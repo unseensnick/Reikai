@@ -104,6 +104,8 @@ data class MigrateSourceSearchScreen(
                 mangaList = screenModel.mangaPagerFlowFlow.collectAsLazyPagingItems(),
                 columns = screenModel.getColumnsPreference(LocalConfiguration.current.orientation),
                 displayMode = screenModel.displayMode,
+                // RK: migration target picker keeps the plain grid/list; enhanced rows are a browse-only surface
+                useEhentaiView = false,
                 snackbarHostState = snackbarHostState,
                 contentPadding = paddingValues,
                 onWebViewClick = {

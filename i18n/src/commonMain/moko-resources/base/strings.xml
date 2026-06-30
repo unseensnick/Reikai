@@ -1287,6 +1287,16 @@
     <string name="eh_favorites_slot">Favorites %d</string>
     <string name="eh_back_up_favorites_now">Back up all favorites now</string>
     <string name="ehentai_prefs_account_settings">E-Hentai Website Account Settings</string>
+    <!-- RK: E-Hentai gallery category badges in enhanced browse rows (Phase B2). "Manga" reuses content_type_manga. -->
+    <string name="doujinshi">Doujinshi</string>
+    <string name="artist_cg">Artist CG</string>
+    <string name="game_cg">Game CG</string>
+    <string name="western">Western</string>
+    <string name="non_h">Non-H</string>
+    <string name="image_set">Image Set</string>
+    <string name="cosplay">Cosplay</string>
+    <string name="asian_porn">Asian Porn</string>
+    <string name="misc">Misc</string>
     <!-- RK: language filter, front-page categories, updater statistics (Batch D, ported from Komikku) -->
     <string name="language_filtering">Language Filtering</string>
     <string name="language_filtering_summary">If you wish to hide galleries in certain languages from the gallery list and searches, select them in the dialog that will popup.\nNote that matching galleries will never appear regardless of your search query.\nTldr checkmarked = exclude</string>
