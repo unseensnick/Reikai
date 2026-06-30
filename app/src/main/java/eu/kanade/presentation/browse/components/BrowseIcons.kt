@@ -38,6 +38,7 @@ import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.util.ExtensionLoader
 import exh.assets.EhAssets
 import exh.assets.ehassets.EhLogo
+import exh.source.NHENTAI_NET_SOURCE_ID
 import exh.source.PURURIN_SOURCE_ID
 import exh.source.eHentaiSourceIds
 import tachiyomi.core.common.util.lang.withIOContext
@@ -108,6 +109,19 @@ fun SourceIcon(
                     modifier = Modifier.fillMaxSize(),
                 )
             }
+        }
+        // RK: the built-in nhentai source ships no extension icon; its logo already has a black
+        //     backdrop, so draw it as its own tile. The 5dp inset matches the transparent safe-zone
+        //     margin baked into extension launcher icons so it reads the same size as its neighbours.
+        source.id == NHENTAI_NET_SOURCE_ID -> {
+            Image(
+                painter = painterResource(R.drawable.nhentai_logo),
+                contentDescription = null,
+                modifier = modifier
+                    .then(defaultModifier)
+                    .padding(5.dp)
+                    .clip(RoundedCornerShape(2.dp)),
+            )
         }
         source.isLocal() -> {
             Image(
