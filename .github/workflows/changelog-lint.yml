@@ -1,0 +1,57 @@
+name: Changelog lint
+
+# Enforces the CHANGELOG conventions (see .claude/rules/workflow.md: "After completing any code
+# change" + "Public-facing naming"). Mirrors the local .githooks/pre-commit so PRs are checked even
+# when the hook isn't installed: no content-source names anywhere, and every [Unreleased] entry
+# under Additions / Changes / Fixes leads with a self-contained bold headline (Other is exempt).
+
+on:
+  pull_request:
+    paths: ['CHANGELOG.md']
+  push:
+    branches: [main]
+    paths: ['CHANGELOG.md']
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint CHANGELOG
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Lint CHANGELOG.md
+        run: |
+          set -u
+          deny='e-hentai|ehentai|exhentai|nhentai|pururin|8muses|hentaifox|asmhentai|koharu|schalenetwork'
+          fail=0
+
+          if names=$(grep -inE "$deny" CHANGELOG.md); then
+            echo "::error::CHANGELOG.md names a content source; genericize it (see Public-facing naming)."
+            echo "$names"
+            fail=1
+          fi
+
+          issues=$(awk '
+            /^## \[Unreleased\]/ { u=1; next }
+            /^## \[/             { u=0 }
+            !u                  { next }
+            /^### /             { sec=$0; sub(/^### /,"",sec); next }
+            /^\*\*/             { next }
+            /^- / {
+              if (length($0) > 320)
+                print "  - over the length cap (>320 chars): " $0
+              if (sec != "Other" && $0 !~ /^- \*\*[^*]+[.!?]\*\*/)
+                print "  - needs a self-contained bold headline ending in . ! or ? (Other is exempt): " $0
+            }
+          ' CHANGELOG.md)
+          if [ -n "$issues" ]; then
+            echo "::error::CHANGELOG [Unreleased] entry issues:"
+            echo "$issues"
+            fail=1
+          fi
+
+          [ "$fail" -eq 0 ]

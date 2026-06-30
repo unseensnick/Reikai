@@ -83,13 +83,24 @@ jobs:
             echo "::error::CHANGELOG.md has no [$version] section. Rename [Unreleased] to [$version] (and add a fresh empty [Unreleased]) before cutting v$version."
             exit 1
           fi
+          # The release note is the one-line bold headline of each entry (kept scannable, like
+          # Mihon / LNReader); the full sentences stay in CHANGELOG.md, linked below. The sed reduces
+          # "- **Headline.** detail" -> "- Headline." and a "**Sub-header**" line -> "#### Sub-header".
+          highlights="$(printf '%s\n' "$changelog" \
+            | sed -E -e 's/^- \*\*([^*]+)\*\*.*/- \1/' -e 's/^\*\*([^*]+)\*\*$/#### \1/')"
+          # Previous tag (linear main), for a "changes since" compare link. Empty on the first release.
+          prev="$(git describe --tags --abbrev=0 "${VERSION_TAG}^" 2>/dev/null || true)"
+          repo="${{ github.server_url }}/${{ github.repository }}"
           {
             echo "RELEASE_BODY<<__EOF__"
             if [ -n "$MESSAGE" ]; then
-              echo "$MESSAGE"
-              echo ""
+              printf '%s\n\n' "$MESSAGE"
             fi
-            echo "$changelog"
+            printf '%s\n\n' "$highlights"
+            printf '**Full changelog:** %s/blob/main/CHANGELOG.md\n' "$repo"
+            if [ -n "$prev" ]; then
+              printf '**Changes since %s:** %s/compare/%s...%s\n' "$prev" "$repo" "$prev" "$VERSION_TAG"
+            fi
             echo "__EOF__"
           } >> "$GITHUB_ENV"
 
