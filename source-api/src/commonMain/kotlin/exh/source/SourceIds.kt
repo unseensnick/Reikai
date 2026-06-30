@@ -2,7 +2,6 @@ package exh.source
 
 // Delegated lewd source IDs. Trimmed from Komikku's SourceIds to the sources Reikai enhances
 // in Phase 1; MangaDex / Comick ids come with their later phases.
-const val NHENTAI_SOURCE_ID = 7309872737163460316L
 const val PURURIN_SOURCE_ID = 2221515250486218861L
 const val EIGHTMUSES_SOURCE_ID = 1802675169972965535L
 
@@ -11,6 +10,10 @@ const val EIGHTMUSES_SOURCE_ID = 1802675169972965535L
 // extension's per-language sources so installs carrying them resolve to the enhanced source.
 const val EH_SOURCE_ID = 1713178126840476467L // LEWD_SOURCE_SERIES + 1
 const val EXH_SOURCE_ID = 6225928719850211219L // LEWD_SOURCE_SERIES + 2
+
+// Built-in nhentai.net source (no extension needed, talks to nhentai's v2 API). Its own fixed id,
+// independent of the legacy delegated nHentai wrapper (which keeps enhancing installed extensions).
+const val NHENTAI_NET_SOURCE_ID = 1713178126840476469L // LEWD_SOURCE_SERIES + 3
 
 // The stock E-Hentai extension package. The built-in EH sources have no installed extension, so this
 // is the synthetic key used to mark them incognito (see GetIncognitoState's // RK island).
@@ -65,6 +68,7 @@ val eHentaiSourceIds = EHENTAI_EXT_SOURCES.keys + EXHENTAI_EXT_SOURCES.keys
 // checker (EHentaiUpdateWorker), and re-fetching a whole gallery on every library update wastes
 // requests and risks E-Hentai rate-limits / bans. We register a built-in E-Hentai source per
 // language, so a saved entry can carry any id in eHentaiSourceIds, not just the canonical EH/EXH
-// ones. nHentai is excluded too, but its id varies by extension version, so it is resolved at
-// runtime (AndroidSourceManager.nHentaiDelegatedSourceIds) rather than baked into this static list.
-val LIBRARY_UPDATE_EXCLUDED_SOURCES = eHentaiSourceIds + PURURIN_SOURCE_ID
+// ones. The built-in nhentai.net source is excluded by its fixed id; nHentai entries from an
+// installed extension are excluded separately at runtime (AndroidSourceManager.nHentaiDelegatedSourceIds),
+// since that id varies by extension version.
+val LIBRARY_UPDATE_EXCLUDED_SOURCES = eHentaiSourceIds + PURURIN_SOURCE_ID + NHENTAI_NET_SOURCE_ID

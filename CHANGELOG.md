@@ -17,6 +17,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Import adult galleries from a link.** Share or open a supported adult-source gallery link and pick Reikai to add it straight to your library, landing on its details page with chapters ready.
 - **Batch add galleries.** A new Batch add entry in the More menu (shown once adult sources are enabled) takes a pile of pasted gallery URLs, or a visited-galleries export, and imports them one by one with a live progress list.
 - **Another adult source is now built in.** It works like the existing built-in ones (browse, read, and import with no extension to install) once adult sources are enabled.
+- **A major adult source works again as a built-in, no extension needed.** It connects to the site's current API directly, so it keeps working even though its old extension stopped, browse, read, and import once adult sources are enabled.
 - **Adult-source browse shows a rating, category, page count and more on each result.** Browsing the built-in adult sources now lays out each result's rating, category, page count, language, uploader and date instead of a bare cover and title.
 
 ### Fixes

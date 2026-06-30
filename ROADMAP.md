@@ -24,7 +24,7 @@ The rebase is functionally complete: the core sequence and the manga↔novel par
 
 ## Now
 
-- **Adult-source parity round 2** (branch `feat/exh-parity`, rebased onto the 0.1.5 main tip, not yet PR'd; held until the subsystem is at parity): gallery import entry points, a new built-in adult source, another source's gallery import, and the adult-source browse parity (full pagination + rich metadata rows) have all shipped on the branch. **Active item:** a built-in rewrite of a further source against its new API (the old one is dead). Remaining backlog is under Later.
+- **Adult-source parity round 2** (branch `feat/exh-parity`, rebased onto the 0.1.5 main tip, not yet PR'd; held until the subsystem is at parity): gallery import entry points, two built-in adult sources, another source's gallery import, the adult-source browse parity (full pagination + rich metadata rows), and a built-in rewrite of a further source against its new API (the old one was dead) have all shipped on the branch. Remaining adult/EXH parity backlog (library tag-search engine, rich details metadata, gallery-update notification, two-way favorites sync) is under Later.
 
 ## Next
 

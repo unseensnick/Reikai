@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.source.online.all.HentaiFox
 import eu.kanade.tachiyomi.source.online.all.Koharu
 import eu.kanade.tachiyomi.source.online.all.Lanraragi
 import eu.kanade.tachiyomi.source.online.all.NHentai
+import eu.kanade.tachiyomi.source.online.all.NHentaiNet
 import eu.kanade.tachiyomi.source.online.english.EightMuses
 import eu.kanade.tachiyomi.source.online.english.Pururin
 import exh.source.BlacklistedSources
@@ -20,6 +21,7 @@ import exh.source.EIGHTMUSES_SOURCE_ID
 import exh.source.EXHENTAI_EXT_SOURCES
 import exh.source.EnhancedHttpSource
 import exh.source.ExhPreferences
+import exh.source.NHENTAI_NET_SOURCE_ID
 import exh.source.PURURIN_SOURCE_ID
 // RK <--
 import kotlinx.coroutines.CoroutineScope
@@ -114,6 +116,8 @@ class AndroidSourceManager(
                             }
                             // RK: built-in pururin.me (no extension needed, like E-Hentai).
                             put(PURURIN_SOURCE_ID, Pururin(context))
+                            // RK: built-in nhentai.net (no extension needed; talks to nhentai's v2 API).
+                            put(NHENTAI_NET_SOURCE_ID, NHentaiNet(context))
                         }
                     }
                     // RK: rebuilt fresh each pass so uninstalled sources drop out.
