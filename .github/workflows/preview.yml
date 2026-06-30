@@ -9,13 +9,18 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      # Non-app changes that never affect the built APK: docs, this/other CI workflows, and Claude
-      # tooling. A push is skipped only when every changed file matches (a mixed app+docs push builds).
-      - '**.md'
-      - '.github/**'
-      - '.claude/**'
-      - 'docs/**'
+    paths:
+      # Allow-list of app-affecting inputs: only a change to one of these can alter the built APK,
+      # so only these trigger a preview. Anything else (docs, .github, .githooks, .claude, repo
+      # meta) is repo-only and skipped. Whitelisting means new non-app content is excluded by
+      # default, and a new module / gradle file is covered automatically.
+      - '**/src/**'        # all module sources: Kotlin/Java, AndroidManifest, res, sqldelight, moko-resources
+      - '**.kts'           # gradle build scripts (root, modules, build-logic)
+      - '**.pro'           # proguard / R8 rules
+      - 'gradle/**'        # version catalogs, build-logic, wrapper
+      - 'gradle.properties'
+      - 'gradlew'
+      - 'gradlew.bat'
   workflow_dispatch:
     inputs:
       dry-run:
