@@ -8,13 +8,16 @@ correctly (load page after page, not just the first), and render each row's capt
 
 ## Why
 
-Reikai's Mihon-rebase port of the adult-source subsystem dropped Komikku's EH-specific paging
-and metadata-carrier layer. The user-visible result: browsing the built-in source loads only
-the first page (then "No results found"), occasionally crashes the page on an odd row, and
-shows none of the rich per-row info Komikku surfaces. A deep comparison against `refs/komikku`
-(2026-06-30) traced this to three dropped pieces, not a parser bug.
+The adult-source subsystem is a **post-rebase addition**, ported from Komikku onto the Mihon
+base after the core rebase shipped (see [exh-subsystem.md](exh-subsystem.md)). That port is a
+lighter slice of Komikku's, and the **browse paging + metadata layer was not fully ported**:
+the EH-specific paging path was collapsed into Mihon's generic paging. The user-visible result:
+browsing the built-in source loads only the first page (then "No results found"), occasionally
+crashes the page on an odd row, and shows none of the rich per-row info Komikku surfaces. A
+deep comparison against `refs/komikku` (2026-06-30) traced this to three missing pieces, not a
+parser bug.
 
-## Findings (what the port dropped)
+## Findings (what the port left out)
 
 Komikku carries browse results through a dedicated chain that our port collapsed into Mihon's
 generic one:
@@ -22,78 +25,104 @@ generic one:
 1. **`MetadataMangasPage` carrier (source-api).** Komikku's `genericMangaParse` returns
    `MetadataMangasPage(mangas, hasNextPage, metadata, nextKey)`, carrying both the per-gallery
    metadata list and an explicit next-page cursor (`nextKey: Long?`, the last gallery's id).
-   Reikai's `source-api` has no `MetadataMangasPage`; our `EHentai.genericMangaParse` returns
-   a plain `MangasPage(mangas, hasNextPage)`, discarding both the metadata and the cursor (the
+   Our `source-api` has no `MetadataMangasPage`; our `EHentai.genericMangaParse` returns a
+   plain `MangasPage(mangas, hasNextPage)`, discarding both the metadata and the cursor (the
    parser still builds the metadata, it is thrown away at the return).
 
-2. **`EHentaiPagingSource` + routing (data).** Komikku's `SourceRepositoryImpl` routes
-   `isEhBasedSource()` to a dedicated `EHentaiPagingSource` whose `getPageLoadResult` sets
-   `nextKey = mangasPage.nextKey` (the gallery-id cursor) and pairs each `Manga` with its
-   metadata (`LoadResult.Page<Long, Pair<Manga, RaisedSearchMetadata?>>`). Reikai has no
-   `EHentaiPagingSource` and no such routing; every source uses the generic
-   `SourcePagingSource`, whose base sets `nextKey = page + 1`.
-
-   This is the pagination bug. The site's `next=` request parameter is a **gallery-id
-   cursor**, not a page offset (both apps build the request as `exGet(url, next = page)`).
-   Komikku feeds it the last gallery's id, so page 2 = `next=<lastId>` and it paginates
-   correctly. Reikai feeds it `page + 1`, so page 2 = `next=2` (galleries older than id 2 =
-   none), which returns an empty / malformed page: hence "No results found" after page 1, and
-   that odd page is what tripped the `selectFirst(...)!!` NullPointerException surfacing as
-   the "browse crash".
+2. **The cursor.** The site's `next=` request parameter is a **gallery-id cursor**, not a page
+   offset (both apps build the request as `exGet(url, next = page)`). Komikku feeds it the last
+   gallery's id, so page 2 = `next=<lastId>` and it paginates correctly. Our generic
+   `SourcePagingSource` sets `nextKey = page + 1`, so page 2 = `next=2` (galleries older than
+   id 2 = none), which returns an empty / malformed page: hence "No results found" after page
+   1, and that odd page is what tripped the `selectFirst(...)!!` NullPointerException surfacing
+   as the "browse crash".
 
 3. **Metadata browse rendering (presentation).** Komikku pages
-   `Pair<Manga, RaisedSearchMetadata?>`, joins stored metadata in
-   `BrowseSourceScreenModel.combineMetadata()`, and renders a dedicated
-   `BrowseSourceEHentaiList` row (rating stars, genre/category badge, language flag, page
-   count, uploader, date), gated behind an enhanced-view preference. Reikai pages bare
-   `Manga`, has no `combineMetadata`, and renders only `MangaListItem(title, cover, badge)`,
-   so even the metadata it does parse can never reach the row.
+   `Pair<Manga, RaisedSearchMetadata?>`, enriches it in `BrowseSourceScreenModel.combineMetadata`
+   (which DB-joins via `getFlatMetadataById.subscribe(manga.id)`, preferring persisted metadata
+   and falling back to the paging metadata: `flatMetadata?.raise(metaClass) ?: metadata`), and
+   renders a dedicated `BrowseSourceEHentaiList` row (rating stars, genre/category badge,
+   language flag, page count, uploader, date), gated behind an enhanced-view preference. We page
+   bare `Manga`, have no `combineMetadata`, and render only `MangaListItem(title, cover, badge)`.
 
 What is NOT the gap: the request / cookie building (`sl=dm_2`, `nw`, domain) is identical; the
 gallery-list parser selectors are byte-identical to Komikku's; and the full filter set
 (Toplists, Tags, Watched List, Genres, Advanced Options, Reverse, Jump/Seek) is already at
 parity.
 
-## Approach (planned, not yet built)
+## Approach (two pieces, both on `feat/exh-parity`)
 
-Two independently shippable pieces, pagination first.
+Key insight: pagination depends only on the **cursor** (the `Long` key), which is independent
+of the paging *element* type. So the pagination fix (A) is small and isolated; the element-type
+change that the rich rows need (B) is separate.
 
-- **A. Pagination + metadata carrier** (fixes "loads way more content" and removes the crash
-  at its source). Add `MetadataMangasPage` to `source-api`; return it from
-  `EHentai.genericMangaParse` with the metadata list and `nextKey`; add `EHentaiPagingSource`
-  (plus the `isEhBasedSource()` routing in `SourceRepositoryImpl`) that reads `nextKey` as the
-  cursor. Blast radius to weigh: changing the paging `LoadResult` element type to
-  `Pair<Manga, RaisedSearchMetadata?>` touches the shared paging contract used by every
-  source, as it does in Komikku (fenced `// SY` / `// KMK` there, `// RK` for us).
-- **B. Rich browse rendering** (restores the visible per-row info). Port the `combineMetadata`
-  join into `BrowseSourceScreenModel` and the `BrowseSourceEHentaiList` row composable, behind
-  an enhanced-view preference, re-typed onto Mihon's immutable models.
+### A. Pagination + metadata carrier (small, no blast radius)
+
+Element type stays `Manga`; the browse UI is untouched. ~3 files:
+
+- `source-api/.../model/MangasPage.kt`: make `MangasPage` `open` (open vals) and add a
+  `MetadataMangasPage(mangas, hasNextPage, mangasMetadata: List<RaisedSearchMetadata>, nextKey: Long?)`
+  subclass. `RaisedSearchMetadata` is already in `source-api/commonMain`, so this is in-module.
+  Fenced `// RK`.
+- `app/.../source/online/all/EHentai.kt` (`genericMangaParse`): return `MetadataMangasPage`
+  carrying `nextPage` (the gallery-id cursor it already computes) and `parsedManga.map { it.metadata }`
+  (`EHentaiSearchMetadata : RaisedSearchMetadata`; `List` is covariant, so no cast).
+- `data/.../source/SourcePagingSource.kt` (base `load`): read the cursor off the carrier,
+  `nextKey = (mangasPage as? MetadataMangasPage)?.nextKey ?: if (mangasPage.hasNextPage) page + 1 else null`.
+  Fenced `// RK`. Only EH returns a `MetadataMangasPage`, so every other source is unchanged.
+
+A fixes the "loads only page 1" bug and removes the crash at its root (the malformed `next=2`
+page never loads). A does NOT need a dedicated `EHentaiPagingSource` or `isEhBasedSource()`
+routing, those are only needed for B's metadata pairing. The metadata rides along in the
+carrier, unused until B.
+
+### B. Rich browse rendering (the element-type change)
+
+- Change `typealias SourcePagingSource = PagingSource<Long, Manga>` to
+  `PagingSource<Long, Pair<Manga, RaisedSearchMetadata?>>`
+  ([SourceRepository.kt](../../../domain/src/main/java/tachiyomi/domain/source/repository/SourceRepository.kt)),
+  and pair items in the base `load` (or a dedicated `EHentaiPagingSource` + `isEhBasedSource()`
+  routing in `SourceRepositoryImpl`, which we'd add here since `isEhBasedSource()` does not exist
+  yet, only `Manga.isEhBasedManga()`).
+- Port `combineMetadata` into `BrowseSourceScreenModel` (DB-join via `GetFlatMetadataById`,
+  falling back to the carried paging metadata) and destructure the pair at its
+  `pagingData.map { manga -> ... }`.
+- Thread the pair through the browse composables and add a `BrowseSourceEHentaiList` row
+  (rating, category badge, language flag, page count, uploader, date), gated behind an
+  enhanced-view preference.
+
+Blast radius (B only): the type alias, base `load`, `BrowseSourceScreenModel`, the browse
+composables (`BrowseSourceList` / `…ComfortableGrid` / `…CompactGrid`); `GetRemoteManga` and
+`SourceRepositoryImpl` inherit the alias. Novels are unaffected (separate, non-paging browse).
+B gets its own scout/plan before implementation.
 
 ## Key files
 
 - Reference (Komikku): `refs/komikku/source-api/.../source/model/MangasPage.kt`
-  (`MetadataMangasPage`); `refs/komikku/data/.../source/EHentaiPagingSource.kt`;
-  `refs/komikku/data/.../source/SourceRepositoryImpl.kt` (routing);
-  `refs/komikku/.../presentation/browse/components/BrowseSourceEHentaiList.kt`; the
-  `combineMetadata` join in `BrowseSourceScreenModel`.
-- Ours (to change): `source-api/.../source/model/MangasPage.kt`;
-  `app/.../source/online/all/EHentai.kt` (`genericMangaParse`);
-  `data/.../source/SourceRepositoryImpl.kt` plus a new `EHentaiPagingSource.kt`;
-  `app/.../presentation/browse/` (screen model + list composable).
+  (`MetadataMangasPage`); `refs/komikku/data/.../source/EHentaiPagingSource.kt` +
+  `SourceRepositoryImpl.kt` (routing); `BrowseSourceScreenModel.combineMetadata`;
+  `.../presentation/browse/components/BrowseSourceEHentaiList.kt`.
+- Ours: `source-api/.../source/model/MangasPage.kt`; `app/.../source/online/all/EHentai.kt`
+  (`genericMangaParse`); `data/.../source/SourcePagingSource.kt` (+ a new `EHentaiPagingSource.kt`
+  for B); `domain/.../source/repository/SourceRepository.kt` (alias, B); `app/.../ui/browse/source/browse/BrowseSourceScreenModel.kt`
+  and `app/.../presentation/browse/` (B).
 
 ## Status
 
-Planned. Investigation done (code-research vs `refs/komikku`, 2026-06-30); no code written. A
-prior band-aid (skip un-parseable rows in the parser) was reverted: it hid the crash but left
-pagination dead after page 1 and the metadata unrendered, so it did not address the real
-defect.
+Planned. Investigation done (code-research + scout vs `refs/komikku`, 2026-06-30); no code
+written yet. Both A and B land on **`feat/exh-parity`** (the umbrella branch for bringing the
+adult subsystem to Komikku parity); that branch does not open a PR until the whole subsystem is
+on par. A prior band-aid (skip un-parseable rows in the parser) was reverted: it hid the crash
+but left pagination dead after page 1.
 
 ## Decisions & tradeoffs
 
-- Ship A before B: A is the higher-value, more contained fix and removes the crash at its
-  root; B is presentation-only on top of it.
-- The band-aid was deliberately not kept: the real cursor fix makes malformed-page rows a
-  non-event, so the defensive skip is redundant once A lands (revisit only if a genuinely
-  malformed row recurs under correct pagination).
-- This is the browse half of the [adult-source (EXH) subsystem](exh-subsystem.md); the
-  user-facing scope lives in [docs/adult-sources.md](../../adult-sources.md).
+- Ship A before B: A is the small, isolated cursor fix that removes the crash and restores
+  "loads more content"; B is the larger element-type + presentation change on top.
+- The band-aid was deliberately not kept: the cursor fix makes malformed-page rows a non-event,
+  so a defensive skip is redundant once A lands (revisit only if a genuinely malformed row
+  recurs under correct pagination).
+- B obtains row metadata both ways, as Komikku does: carried from paging (immediate, for
+  galleries not yet persisted) and DB-joined via `combineMetadata` (persisted takes precedence).
+- This is the browse half of the [adult-source (EXH) subsystem](exh-subsystem.md); user-facing
+  scope is in [docs/adult-sources.md](../../adult-sources.md).
