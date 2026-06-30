@@ -16,6 +16,7 @@ import eu.kanade.tachiyomi.source.PagePreviewSource
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
+import eu.kanade.tachiyomi.source.model.MetadataMangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
@@ -325,13 +326,18 @@ class EHentai(
     }
 
     /**
-     * Parse a list of galleries. The per-gallery metadata parsed here is dropped for the browse
-     * list (Reikai has no MetadataMangasPage carrier); the authoritative metadata is captured and
-     * persisted on the details fetch via [parseIntoMetadata].
+     * Parse a list of galleries into a [MetadataMangasPage]: it carries the gallery-id paging
+     * cursor (so browse loads past the first page) and the per-gallery metadata (used for the
+     * rich browse rows). The metadata is also persisted on the details fetch via [parseIntoMetadata].
      */
     private fun genericMangaParse(response: Response): MangasPage =
         extendedGenericMangaParse(response.asJsoup()).let { (parsedManga, nextPage) ->
-            MangasPage(parsedManga.map { it.manga }, nextPage != null)
+            MetadataMangasPage(
+                parsedManga.map { it.manga },
+                nextPage != null,
+                parsedManga.map { it.metadata },
+                nextPage,
+            )
         }
 
     private suspend fun getChapterList(manga: SManga): List<SChapter> {

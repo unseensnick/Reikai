@@ -4,6 +4,7 @@ import androidx.paging.PagingState
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
+import eu.kanade.tachiyomi.source.model.MetadataMangasPage
 import mihon.domain.manga.model.toDomainManga
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
@@ -61,7 +62,11 @@ abstract class BaseSourcePagingSource(
             LoadResult.Page(
                 data = manga,
                 prevKey = null,
-                nextKey = if (mangasPage.hasNextPage) page + 1 else null,
+                // RK: a metadata source (E-Hentai) supplies its own paging cursor (the gallery id);
+                //     use it instead of a page-number increment so browse loads past the first page.
+                //     Other sources have no carrier and fall through to the page + 1 behaviour.
+                nextKey = (mangasPage as? MetadataMangasPage)?.nextKey
+                    ?: if (mangasPage.hasNextPage) page + 1 else null,
             )
         } catch (e: Exception) {
             LoadResult.Error(e)
