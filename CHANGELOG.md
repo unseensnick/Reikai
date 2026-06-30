@@ -26,6 +26,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Other
 
+- Built-in adult sources now throttle their requests to stay within each site's rate limits and avoid bans.
 - Build the app and publish previews only when an app-affecting file changes; docs and other repo-only updates no longer trigger a build.
 
 ## [0.1.5]

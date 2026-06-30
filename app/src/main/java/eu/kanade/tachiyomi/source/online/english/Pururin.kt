@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.core.net.toUri
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.awaitSuccess
+import eu.kanade.tachiyomi.network.interceptor.rateLimitHost
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
@@ -44,6 +45,11 @@ class Pururin(private val context: Context) :
 
     override val metaClass = PururinSearchMetadata::class
     override fun newMetaInstance() = PururinSearchMetadata()
+
+    // Throttle calls to pururin.me; the image host (i.pururin.me) is left unthrottled for reading.
+    override val client = network.client.newBuilder()
+        .rateLimitHost(PururinSearchMetadata.BASE_URL, 5)
+        .build()
 
     // --- Browse / search ---
 

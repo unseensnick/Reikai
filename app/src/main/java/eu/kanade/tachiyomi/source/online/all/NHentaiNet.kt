@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.net.Uri
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.awaitSuccess
+import eu.kanade.tachiyomi.network.interceptor.rateLimitHost
 import eu.kanade.tachiyomi.network.newCachelessCallWithProgress
 import eu.kanade.tachiyomi.source.PagePreviewInfo
 import eu.kanade.tachiyomi.source.PagePreviewPage
@@ -54,6 +55,12 @@ class NHentaiNet(private val context: Context) :
 
     override val metaClass = NHentaiSearchMetadata::class
     override fun newMetaInstance() = NHentaiSearchMetadata()
+
+    // Throttle calls to the API host to stay well under nhentai's rate limits; the image CDNs
+    // (i*.nhentai.net) are left unthrottled so reading stays fast.
+    override val client = network.client.newBuilder()
+        .rateLimitHost(NHentaiSearchMetadata.BASE_URL, 5)
+        .build()
 
     private val sourcePreferences: SharedPreferences by lazy {
         context.getSharedPreferences("source_$id", 0x0000)
