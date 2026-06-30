@@ -48,7 +48,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Other
 
-- Expanded automated test coverage for backup restore, novel chapter sync, and gallery metadata parsing, and fixed an internal cookie-removal helper that could miss cookies after the first.
+- Expanded automated test coverage for backup restore, novel chapter sync, and metadata parsing, and fixed an internal cookie-removal helper that could miss cookies after the first.
 - Stopped logging a harmless cast error for every installed extension at startup (the extension lib version is now read without the failing conversion).
 
 ## [0.1.0]
