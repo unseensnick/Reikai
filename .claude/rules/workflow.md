@@ -59,9 +59,13 @@ When the user asks to cut a release:
 
 After code changes, create a git commit (do not push unless asked).
 
-### Branch naming
+### Public-facing naming (keep content sources out of marketing surfaces)
 
-Branch names are public: they get pushed and show up in PR URLs and the repo's branch list. Keep them **purely technical**, naming the change, never the content domain. Do not put a content-source name (`ehentai`, `nhentai`, `pururin`, ...) or even generic content-aggregation vocabulary (`source`, `gallery`, `scanlator`) in a branch name. Name the fix or feature itself: `fix/paging-crash`, not `fix/ehentai-popular-pagination` or `fix/source-browse-pagination`. This is the same caution that keeps source names out of the CHANGELOG: avoid anything that makes the project read as a piracy tool (the kind of attention that hit Tachiyomi). **PR titles and bodies follow the same rule.**
+Public, indexed, marketing-facing surfaces stay generic about content sources: no specific source names (especially adult: `ehentai`, `nhentai`, `pururin`, `8muses`, ...) and no content-aggregation vocabulary (`source`, `gallery`, `scanlator`) used as a label. This covers the **repo description + topics, the README, GitHub release notes (and the CHANGELOG version sections that feed them), and branch / PR names**. Describe the capability generically ("adult content sources", "a Cloudflare-blocked source") and link to the detailed docs instead of listing sites. Branch example: `fix/paging-crash`, not `fix/ehentai-popular-pagination` or `fix/source-browse-pagination`.
+
+Exceptions that are fine: the **detailed feature docs** (e.g. `docs/adult-sources.md`) MAY name specific sources, they are reference, not marketing, and stay linked from a generic README bullet. **In-app strings and source code** name sources as the actual feature requires (don't break functionality). **Commit history** is left as-is (rewriting it is destructive).
+
+Why: avoid the project reading as a piracy tool (the attention that hit Tachiyomi). Calibration: Komikku (same lineage, healthy) names adult sources openly in its README and release notes while keeping its repo description + topics generic. **Reikai stays a notch tighter:** generic in every marketing surface too, with specific names only in the linked docs.
 
 ### Commit message standard
 
