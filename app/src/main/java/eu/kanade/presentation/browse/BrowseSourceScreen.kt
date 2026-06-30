@@ -18,6 +18,7 @@ import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import eu.kanade.presentation.browse.components.BrowseSourceComfortableGrid
 import eu.kanade.presentation.browse.components.BrowseSourceCompactGrid
+import eu.kanade.presentation.browse.components.BrowseSourceEHentaiList
 import eu.kanade.presentation.browse.components.BrowseSourceList
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.formattedMessage
@@ -43,6 +44,8 @@ fun BrowseSourceContent(
     mangaList: LazyPagingItems<StateFlow<Pair<Manga, RaisedSearchMetadata?>>>,
     columns: GridCells,
     displayMode: LibraryDisplayMode,
+    // RK: render the rich E-Hentai rows (rating/category/pages/language/uploader/date) when enabled.
+    useEhentaiView: Boolean,
     snackbarHostState: SnackbarHostState,
     contentPadding: PaddingValues,
     onWebViewClick: () -> Unit,
@@ -115,6 +118,17 @@ fun BrowseSourceContent(
             },
         )
 
+        return
+    }
+
+    // RK: adult-source enhanced rows bypass the display-mode toggle entirely.
+    if (useEhentaiView) {
+        BrowseSourceEHentaiList(
+            mangaList = mangaList,
+            contentPadding = contentPadding,
+            onMangaClick = onMangaClick,
+            onMangaLongClick = onMangaLongClick,
+        )
         return
     }
 

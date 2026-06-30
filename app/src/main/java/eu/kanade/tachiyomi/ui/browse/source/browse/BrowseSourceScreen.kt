@@ -214,6 +214,8 @@ data class BrowseSourceScreen(
                 mangaList = screenModel.mangaPagerFlowFlow.collectAsLazyPagingItems(),
                 columns = screenModel.getColumnsPreference(LocalConfiguration.current.orientation),
                 displayMode = screenModel.displayMode,
+                // RK: enhanced adult-source rows when the source is EH/ExH and the pref is on
+                useEhentaiView = screenModel.useEhentaiView,
                 snackbarHostState = snackbarHostState,
                 contentPadding = paddingValues,
                 onWebViewClick = onWebViewClick,

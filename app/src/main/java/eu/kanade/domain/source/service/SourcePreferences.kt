@@ -50,6 +50,9 @@ class SourcePreferences(
 
     val hideInLibraryItems: Preference<Boolean> = preferenceStore.getBoolean("browse_hide_in_library_items", false)
 
+    // RK: render rich E-Hentai browse rows (rating, category, pages, language, uploader, date) by default
+    val enableEnhancedEhView: Preference<Boolean> = preferenceStore.getBoolean("enable_enhanced_eh_view", true)
+
     val extensionRepos: Preference<Set<String>> = preferenceStore.getStringSet("extension_repos", emptySet())
 
     val extensionUpdatesCount: Preference<Int> = preferenceStore.getInt("ext_updates_count", 0)

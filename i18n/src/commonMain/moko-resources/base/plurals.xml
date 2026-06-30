@@ -1,5 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- RK: page count + language/page count for E-Hentai enhanced browse rows (Phase B2) -->
+    <plurals name="num_pages">
+        <item quantity="one">%1$d page</item>
+        <item quantity="other">%1$d pages</item>
+    </plurals>
+
+    <plurals name="browse_language_and_pages">
+        <item quantity="one">%2$s %1$d page</item>
+        <item quantity="other">%2$s %1$d pages</item>
+    </plurals>
+
     <plurals name="lock_after_mins">
         <item quantity="one">After %1$s minute</item>
         <item quantity="other">After %1$s minutes</item>
