@@ -62,7 +62,7 @@ EVERY commit on the branch (including `docs` / `chore` / one-line fixes, not jus
 - No em dashes; no AI watermark.
 - Non-trivial commits get a body that leads with 1-2 plain-language sentences, then benefit-first bullets. A trivial commit is just the compliant subject.
 
-**Branch names and PR titles are public: keep them purely technical.** No content-source names or aggregation vocabulary (`ehentai`, `source`, `gallery`, ...); name the change (`fix/paging-crash`), not the domain. Same caution that keeps source names out of the CHANGELOG (don't let the project read as a piracy tool). Full rule: [.claude/rules/workflow.md](.claude/rules/workflow.md) "Branch naming".
+**Public-facing surfaces stay generic about content sources.** No specific source names (especially adult) or aggregation vocab in the repo description / topics, README, release notes (and the CHANGELOG sections feeding them), or branch / PR names: use generic wording ("adult content sources", "a Cloudflare-blocked source") and link to the detailed docs (which may name them). Branch example `fix/paging-crash`. In-app strings / code name sources as the feature needs; commit history is left as-is. Stay a notch tighter than Komikku (which names sources in its README / releases). Full rule: [.claude/rules/workflow.md](.claude/rules/workflow.md) "Public-facing naming".
 
 ## Identity (load-bearing, preserve through the rebase)
 
