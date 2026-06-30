@@ -12,6 +12,12 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+### Additions
+
+- **Import adult galleries from a link.** Share or open a supported adult-source gallery link and pick Reikai to add it straight to your library, landing on its details page with chapters ready.
+- **Batch add galleries.** A new Batch add entry in the More menu (shown once adult sources are enabled) takes a pile of pasted gallery URLs, or a visited-galleries export, and imports them one by one with a live progress list.
+- **Another adult source is now built in.** It works like the existing built-in ones (browse, read, and import with no extension to install) once adult sources are enabled.
+
 ### Fixes
 
 - **Browsing adult content sources now loads past the first page.** The built-in adult-source browse stopped after the first set of results; it now pages all the way through.
@@ -47,9 +53,6 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 ### Additions
 
 - **Migrate light novels from Browse → Migration.** The Migration tab now has the same All / Manga / Novels switch as the rest of Browse: pick a novel source to see its saved novels, select the ones to move, and run them through the existing novel migration flow. A source still shows (with its last-known name and icon) even after its plugin is uninstalled, so you can always migrate away from it.
-- **Import adult galleries from a link.** Share or open an E-Hentai, ExHentai, NHentai or Pururin gallery link and pick Reikai to add it straight to your library, landing on its details page with chapters ready.
-- **Batch add galleries.** A new Batch add entry in the More menu (shown once adult sources are enabled) takes a pile of pasted gallery URLs, or an E-Hentai "visited" export, and imports them one by one with a live progress list.
-- **Pururin built in.** Pururin is now a built-in source (like E-Hentai): browse, read, and import from pururin.me with no extension to install, once adult sources are enabled.
 
 ### Fixes
 
