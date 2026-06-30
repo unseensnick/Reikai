@@ -24,8 +24,8 @@ The rebase is functionally complete: the core sequence and the manga↔novel par
 
 ## Now
 
-- **Fix E-Hentai Popular pagination crash** `[S]` (branch `fix/ehentai-popular-pagination`): the Popular grid's second-page load fails with a `NullPointerException` and the "load more" error snackbar. Root cause is a `!!` non-null assertion in `EHentai.extendedGenericMangaParse` that returns null on a page-2 row; in a minified build R8 lowers `!!` into a bare `obj.getClass()` null-check, hence the `getClass() on a null object reference` message. Fix: make the row parser tolerant (skip un-parseable rows) instead of crashing the whole page. Reported in unseensnick/Reikai#20.
-- **EXH parity round 2** (branch `feat/exh-parity`, rebased onto the 0.1.5 main tip, not yet PR'd): gallery import entry points (InterceptActivity + BatchAddScreen), the built-in Pururin source, and 8Muses gallery import have shipped on the branch; next is the built-in nhentai.net rewrite against its v2 API (the old API is dead). Remaining original EXH backlog is under Later.
+- **Fix adult-source browse pagination crash** `[S]` (branch `fix/paging-crash`): the Popular grid's second-page load fails with a `NullPointerException` and the "load more" error snackbar. A `!!` non-null assertion in the source's browse-list parser returns null on a page-2 row, and in a minified build R8 lowers `!!` into a bare `getClass()` null-check (hence the `getClass() on a null object reference` message). Fix: make the row parser tolerant (skip un-parseable rows) instead of crashing the whole page. Reported in unseensnick/Reikai#20.
+- **Adult-source parity round 2** (branch `feat/exh-parity`, rebased onto the 0.1.5 main tip, not yet PR'd): gallery import entry points, a new built-in adult source, and another source's gallery import have shipped on the branch; next is a built-in rewrite of a further source against its new API (the old one is dead). Remaining backlog is under Later.
 
 ## Next
 
