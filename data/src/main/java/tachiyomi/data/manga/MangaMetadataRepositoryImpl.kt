@@ -44,6 +44,10 @@ class MangaMetadataRepositoryImpl(
         return database.search_titlesQueries.selectByMangaId(id, ::searchTitleMapper).subscribeToList()
     }
 
+    override suspend fun getAllTitles(): List<SearchTitle> {
+        return database.search_titlesQueries.selectAll(::searchTitleMapper).awaitAsList()
+    }
+
     override suspend fun insertFlatMetadata(flatMetadata: FlatMetadata) {
         require(flatMetadata.metadata.mangaId != -1L)
 

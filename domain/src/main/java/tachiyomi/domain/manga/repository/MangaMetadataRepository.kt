@@ -24,12 +24,15 @@ interface MangaMetadataRepository {
 
     fun subscribeTagsById(id: Long): Flow<List<SearchTag>>
 
-    // RK: batch-load every gallery's tags in one query (library inverted tag search).
+    // Batch-load every gallery's tags in one query (library inverted tag search).
     suspend fun getAllTags(): List<SearchTag>
 
     suspend fun getTitlesById(id: Long): List<SearchTitle>
 
     fun subscribeTitlesById(id: Long): Flow<List<SearchTitle>>
+
+    // Batch-load every gallery's titles in one query (library tag search alt-title match).
+    suspend fun getAllTitles(): List<SearchTitle>
 
     suspend fun insertFlatMetadata(flatMetadata: FlatMetadata)
 

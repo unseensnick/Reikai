@@ -18,6 +18,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Batch add galleries.** A new Batch add entry in the More menu (shown once adult sources are enabled) takes a pile of pasted gallery URLs, or a visited-galleries export, and imports them one by one with a live progress list.
 - **More adult sources are now built in, no extension to install.** They browse, read, and import directly once adult sources are enabled, including one that previously needed an extension that no longer works.
 - **Adult-source browse shows a rating, category, page count and more on each result.** Browsing the built-in adult sources now lays out each result's rating, category, page count, language, uploader and date instead of a bare cover and title.
+- **Search your library by tag, with namespaces, wildcards and exclusions.** For adult-source entries you can now type queries like `artist:name`, `parody:*hero*`, or `-language:japanese` to filter your library by its captured tags; plain title search is unchanged.
 
 ### Fixes
 

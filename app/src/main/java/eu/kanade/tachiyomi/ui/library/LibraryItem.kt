@@ -1,7 +1,13 @@
 package eu.kanade.tachiyomi.ui.library
 
 import eu.kanade.tachiyomi.source.getNameForMangaInfo
+import eu.kanade.tachiyomi.source.online.MetadataSource
 import exh.metadata.sql.models.SearchTag
+import exh.metadata.sql.models.SearchTitle
+import exh.search.Namespace
+import exh.search.QueryComponent
+import exh.search.Text
+import exh.source.getMainSource
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.source.model.Source
 import tachiyomi.domain.source.service.SourceManager
@@ -21,6 +27,9 @@ data class LibraryItem(
     // RK: the gallery's indexed EXH tags (E-Hentai/nHentai/etc.), for library tag search. Null for
     // ordinary manga that have no captured metadata.
     val searchTags: List<SearchTag>? = null,
+    // RK: the gallery's indexed alt-titles (japanese / english / short), so a tag-search term can
+    // match a title variant other than the displayed one. Null for ordinary manga.
+    val searchTitles: List<SearchTitle>? = null,
 ) {
     val id: Long = libraryManga.id
 
@@ -30,7 +39,13 @@ data class LibraryItem(
      * @param constraint the query to check.
      * @return true if the manga matches the query, false otherwise.
      */
-    fun matches(constraint: String, sourceManager: SourceManager): Boolean {
+    fun matches(
+        constraint: String,
+        // RK: query pre-parsed once per search (in LibraryScreenModel); used for metadata-source
+        // entries so the structured grammar (namespace:tag, wildcards, exclusion, exact) applies.
+        parsedQuery: List<QueryComponent>,
+        sourceManager: SourceManager,
+    ): Boolean {
         val source = sourceManager.getOrStub(libraryManga.manga.source)
         val sourceName by lazy { source.getNameForMangaInfo() }
         if (constraint.startsWith("id:", true)) {
@@ -43,6 +58,13 @@ data class LibraryItem(
                 source.id == querySource.toLongOrNull()
             }
         }
+        // RK --> tag-search engine for adult/metadata sources: every parsed component must match
+        //        (implicit AND). namespace:tag matches the gallery's indexed tags; plain text
+        //        matches title / author / tags / alt-titles; wildcards honoured via Text.asRegex.
+        if (source.getMainSource<MetadataSource<*, *>>() != null) {
+            return parsedQuery.all { matchesComponent(it, sourceName) }
+        }
+        // RK <--
         return libraryManga.manga.title.contains(constraint, true) ||
             (libraryManga.manga.author?.contains(constraint, true) ?: false) ||
             (libraryManga.manga.artist?.contains(constraint, true) ?: false) ||
@@ -58,6 +80,36 @@ data class LibraryItem(
                 }
             }
     }
+
+    // RK --> match one parsed query component against this entry, honouring its excluded flag. A
+    // Namespace checks the indexed tags (namespace + optional tag pattern); a Text matches across
+    // the entry's title, author, artist, description, source name, genres, tags and alt-titles.
+    private fun matchesComponent(component: QueryComponent, sourceName: String): Boolean {
+        val manga = libraryManga.manga
+        val matched = when (component) {
+            is Namespace -> {
+                val tag = component.tag
+                searchTags?.any {
+                    it.namespace.equals(component.namespace, true) &&
+                        (tag == null || tag.asRegex(component.exact).containsMatchIn(it.name))
+                } ?: false
+            }
+            is Text -> {
+                val regex = component.asRegex(component.exact)
+                regex.containsMatchIn(manga.title) ||
+                    (manga.author?.let { regex.containsMatchIn(it) } ?: false) ||
+                    (manga.artist?.let { regex.containsMatchIn(it) } ?: false) ||
+                    (manga.description?.let { regex.containsMatchIn(it) } ?: false) ||
+                    regex.containsMatchIn(sourceName) ||
+                    (manga.genre?.any { regex.containsMatchIn(it) } ?: false) ||
+                    (searchTags?.any { regex.containsMatchIn(it.name) } ?: false) ||
+                    (searchTitles?.any { regex.containsMatchIn(it.title) } ?: false)
+            }
+            else -> true
+        }
+        return matched != component.excluded
+    }
+    // RK <--
 
     /**
      * Checks a predicate on a negatable constraint. If the constraint starts with a minus character,
