@@ -7,15 +7,28 @@ concurrency:
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - '**.md'
-      - '.github/**'
-      - '.claude/**'
-      - 'docs/**'
+    # Allow-list of app-affecting inputs (see preview.yml): only these can change the built APK,
+    # so only these run the build/test. Repo-only content (docs, .github, .githooks, .claude) is
+    # skipped, and new non-app content is excluded by default.
+    paths:
+      - '**/src/**'
+      - '**.kts'
+      - '**.pro'
+      - 'gradle/**'
+      - 'gradle.properties'
+      - 'gradlew'
+      - 'gradlew.bat'
   pull_request:
     paths:
-      - '**'
-      - '!**.md'
+      - '**/src/**'
+      - '**.kts'
+      - '**.pro'
+      - 'gradle/**'
+      - 'gradle.properties'
+      - 'gradlew'
+      - 'gradlew.bat'
+      # Per-locale translations compile fine on their own, so they don't need a build; only the
+      # base strings/plurals do.
       - '!i18n/src/commonMain/moko-resources/**/strings.xml'
       - '!i18n/src/commonMain/moko-resources/**/plurals.xml'
       - 'i18n/src/commonMain/moko-resources/base/strings.xml'

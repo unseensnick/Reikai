@@ -12,6 +12,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+### Other
+
+- Build the app and publish previews only when an app-affecting file changes; docs and other repo-only updates no longer trigger a build.
+
 ## [0.1.5]
 
 ### Fixes
