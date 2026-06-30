@@ -59,6 +59,10 @@ When the user asks to cut a release:
 
 After code changes, create a git commit (do not push unless asked).
 
+### Branch naming
+
+Branch names are public: they get pushed and show up in PR URLs and the repo's branch list. Keep them **purely technical**, naming the change, never the content domain. Do not put a content-source name (`ehentai`, `nhentai`, `pururin`, ...) or even generic content-aggregation vocabulary (`source`, `gallery`, `scanlator`) in a branch name. Name the fix or feature itself: `fix/paging-crash`, not `fix/ehentai-popular-pagination` or `fix/source-browse-pagination`. This is the same caution that keeps source names out of the CHANGELOG: avoid anything that makes the project read as a piracy tool (the kind of attention that hit Tachiyomi). **PR titles and bodies follow the same rule.**
+
 ### Commit message standard
 
 Write commits a user could skim and a contributor could read on. Scale the structure to the change: a typo is one line; a feature gets a body.
