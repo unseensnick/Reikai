@@ -11,8 +11,9 @@ This subsystem is ported from [Komikku](https://github.com/komikku-app/komikku) 
 With it on:
 
 - **E-Hentai** is added to Browse as a built-in source (no extension to install), in every language E-Hentai offers.
+- **nHentai** and **Pururin** are added to Browse as built-in sources too (no extension to install); nHentai talks to the site's current API directly.
 - A dedicated **E-Hentai** settings category appears (see below).
-- Adult sources you install as extensions (nHentai, HentaiFox, AsmHentai, Koharu / SchaleNetwork, Pururin, 8Muses, LANraragi) get the extra tag handling described under [Tags in your library](#tags-in-your-library).
+- Adult sources you install as extensions (HentaiFox, AsmHentai, Koharu / SchaleNetwork, 8Muses, LANraragi) get the extra tag handling described under [Tags in your library](#tags-in-your-library).
 
 Turning it back off hides all of the above again.
 
@@ -75,7 +76,4 @@ This is intentionally one-directional: your library is the source of truth, and 
 Reikai currently ships a lighter slice of Komikku's adult-source subsystem. The notable gaps, any of which may be widened toward Komikku parity in a later release:
 
 - **Two-way favorites sync.** Today's favorites feature is a one-way backup (library → account). Full sync (pull the account's favorites into the library, mirror removals both ways, reconcile conflicts) is not built.
-- **Bulk gallery import.** Pasting many gallery URLs at once, or sharing / opening a gallery link straight into the app, is not wired up yet. You add galleries by browsing the source.
 - **Library tag-search engine.** Library tag search matches recorded tags, but the richer query language (wildcards, exclusions, exact match, namespace aliases) that the browse-side autocomplete understands is not yet available over your saved library.
-- **Full browse pagination.** Browsing the built-in source currently loads only the first page of results (then stops with "No results found"); paging through the rest is being reworked.
-- **Rich browse rows.** The browse list shows a cover and title only; the per-row rating, category, page count, language, uploader, and date the source returns are not shown there yet (the full details are still available from an entry's Gallery info).
