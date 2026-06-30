@@ -61,7 +61,7 @@ import tachiyomi.domain.manga.model.MangaCover as MangaCoverData
 
 @Composable
 fun BrowseSourceEHentaiList(
-    // RK: pair carries the gallery metadata; the row renders rating / category / pages from .second.
+    // pair carries the gallery metadata; the row renders rating / category / pages from .second.
     mangaList: LazyPagingItems<StateFlow<Pair<Manga, RaisedSearchMetadata?>>>,
     contentPadding: PaddingValues,
     onMangaClick: (Manga) -> Unit,
@@ -226,7 +226,7 @@ private fun BrowseSourceEHentaiListItem(
                     RatingStars(rating = rating)
 
                     val badgeColor = genre?.first?.color?.let { Color(it) }
-                    // RK: contrast-derive the label color from the badge background so it stays
+                    // contrast-derive the label color from the badge background so it stays
                     // readable on every genre color, in either app theme.
                     val textColor = badgeColor
                         ?.let { if (it.luminance() > 0.5f) Color.Black else Color.White }

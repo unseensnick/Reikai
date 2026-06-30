@@ -86,7 +86,7 @@ object SettingsEhScreen : SearchableSettings {
     @Composable
     override fun getTitleRes() = MR.strings.pref_category_eh
 
-    // RK: top-level category, hidden until adult sources are enabled (the gate lives in Advanced).
+    // top-level category, hidden until adult sources are enabled (the gate lives in Advanced).
     override fun isEnabled(): Boolean = Injekt.get<ExhPreferences>().isHentaiEnabled().get()
 
     /**
@@ -138,7 +138,7 @@ object SettingsEhScreen : SearchableSettings {
         ConfigureExhDialog(run = runConfigureDialog, onRunning = { runConfigureDialog = false })
 
         return listOf(
-            // RK: source-level options (incognito) at the top, matching Komikku's layout.
+            // source-level options (incognito) at the top, matching Komikku's layout.
             Preference.PreferenceGroup(
                 title = stringResource(MR.strings.source_settings),
                 preferenceItems = listOf(
@@ -167,7 +167,7 @@ object SettingsEhScreen : SearchableSettings {
         )
     }
 
-    // RK: incognito for the built-in E-Hentai sources. The pref drives the switch state; the actual
+    // incognito for the built-in E-Hentai sources. The pref drives the switch state; the actual
     //     effect lives in the shared incognitoExtensions set (see GetIncognitoState's // RK island).
     @Composable
     private fun ehIncognitoMode(
@@ -542,7 +542,7 @@ object SettingsEhScreen : SearchableSettings {
         )
     }
 
-    // RK: language filter + front-page categories + updater statistics, ported from Komikku's
+    // language filter + front-page categories + updater statistics, ported from Komikku's
     //     SettingsEhScreen. Both stored encodings already feed the server profile (EhUConfigBuilder).
 
     private class LanguageDialogState(preference: String) {

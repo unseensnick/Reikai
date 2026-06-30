@@ -30,7 +30,7 @@ class EightMuses(delegate: HttpSource, val context: Context) :
     override fun newMetaInstance() = EightMusesSearchMetadata()
     override val lang = "en"
 
-    // RK: capture gallery metadata on the details fetch, delegate chapters to the stock source.
+    // capture gallery metadata on the details fetch, delegate chapters to the stock source.
     // URL import (Komikku's fetchSearchManga override) is deferred with GalleryAdder.
     override suspend fun getMangaUpdate(
         manga: SManga,
@@ -52,7 +52,7 @@ class EightMuses(delegate: HttpSource, val context: Context) :
         return SMangaUpdate(updatedManga, updatedChapters)
     }
 
-    // RK: resolve a pasted 8muses gallery URL via GalleryAdder; otherwise run a normal search.
+    // resolve a pasted 8muses gallery URL via GalleryAdder; otherwise run a normal search.
     override suspend fun getSearchManga(page: Int, query: String, filters: FilterList): MangasPage {
         return urlImportFetchSearchMangaSuspend(context, query) {
             super<DelegatedHttpSource>.getSearchManga(page, query, filters)
