@@ -20,6 +20,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Adult-source browse shows a rating, category, page count and more on each result.** Browsing the built-in adult sources now lays out each result's rating, category, page count, language, uploader and date instead of a bare cover and title.
 - **Search your library by tag, with namespaces, wildcards and exclusions.** For adult-source entries you can now type queries like `artist:name`, `parody:*hero*`, or `-language:japanese` to filter your library by its captured tags; plain title search is unchanged.
 
+### Changes
+
+- **Interrupted downloads now resume instead of restarting, on sources that support it.** A page cut off mid-download continues from the partial file rather than re-fetching the whole image.
+
 ### Fixes
 
 - **Browsing adult content sources now loads past the first page.** The built-in adult-source browse stopped after the first set of results; it now pages all the way through.
