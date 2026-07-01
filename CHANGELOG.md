@@ -19,6 +19,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **More adult sources are now built in, no extension to install.** They browse, read, and import directly once adult sources are enabled, including one that previously needed an extension that no longer works.
 - **Adult-source browse shows a rating, category, page count and more on each result.** Browsing the built-in adult sources now lays out each result's rating, category, page count, language, uploader and date instead of a bare cover and title.
 - **Search your library by tag, with namespaces, wildcards and exclusions.** For adult-source entries you can now type queries like `artist:name`, `parody:*hero*`, or `-language:japanese` to filter your library by its captured tags; plain title search is unchanged.
+- **Adult-gallery details now show grouped, tappable tags and a full info panel.** Tags appear grouped by namespace (tap one to search it), and a panel above the description lists the rating, uploader, page count, size, language and upload date.
 
 ### Changes
 

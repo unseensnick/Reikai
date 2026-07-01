@@ -43,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAll
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastMap
@@ -50,6 +51,7 @@ import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.manga.components.ChapterHeader
 import eu.kanade.presentation.manga.components.ExpandableMangaDescription
+import eu.kanade.presentation.manga.components.GalleryInfoBox // RK
 import eu.kanade.presentation.manga.components.MangaActionRow
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.manga.components.MangaChapterListItem
@@ -59,6 +61,7 @@ import reikai.presentation.manga.MergeSourceChips // RK
 import reikai.presentation.recommendation.RelatedMangaCarousel // RK
 import eu.kanade.presentation.manga.components.MangaToolbar
 import eu.kanade.presentation.manga.components.MissingChapterCountListItem
+import eu.kanade.presentation.manga.components.SearchMetadataChips // RK
 import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.source.getNameForMangaInfo
@@ -445,6 +448,17 @@ private fun MangaScreenSmallImpl(
                         )
                     }
 
+                    // RK: per-source gallery-info card for adult/metadata sources, above the description
+                    state.galleryMetadata?.let { meta ->
+                        item(key = "rk-gallery-info") {
+                            GalleryInfoBox(
+                                metadata = meta,
+                                onMoreInfoClick = onMetadataViewerClicked,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                        }
+                    }
+
                     item(
                         key = MangaScreenItem.DESCRIPTION_WITH_TAG,
                         contentType = MangaScreenItem.DESCRIPTION_WITH_TAG,
@@ -457,8 +471,15 @@ private fun MangaScreenSmallImpl(
                             tagsProvider = { state.manga.genre },
                             notes = state.manga.notes,
                             onTagSearch = onTagSearch,
+                            onGlobalSearch = { onSearch(it, true) },
                             onCopyTagToClipboard = onCopyTagToClipboard,
                             onEditNotes = onEditNotesClicked,
+                            // RK: namespaced, color-weighted chips for the active source's gallery metadata
+                            searchMetadataChips = SearchMetadataChips(
+                                state.galleryMetadata,
+                                (state.mergeDisplaySource ?: state.source).id,
+                                state.manga.genre,
+                            ),
                         )
                     }
 
@@ -716,14 +737,29 @@ fun MangaScreenLargeImpl(
                             onEditIntervalClicked = onEditIntervalClicked,
                             onEditCategory = onEditCategoryClicked,
                         )
+                        // RK: per-source gallery-info card for adult/metadata sources
+                        state.galleryMetadata?.let { meta ->
+                            GalleryInfoBox(
+                                metadata = meta,
+                                onMoreInfoClick = onMetadataViewerClicked,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                        }
                         ExpandableMangaDescription(
                             defaultExpandState = true,
                             description = state.manga.description,
                             tagsProvider = { state.manga.genre },
                             notes = state.manga.notes,
                             onTagSearch = onTagSearch,
+                            onGlobalSearch = { onSearch(it, true) },
                             onCopyTagToClipboard = onCopyTagToClipboard,
                             onEditNotes = onEditNotesClicked,
+                            // RK: namespaced, color-weighted chips for the active source's gallery metadata
+                            searchMetadataChips = SearchMetadataChips(
+                                state.galleryMetadata,
+                                (state.mergeDisplaySource ?: state.source).id,
+                                state.manga.genre,
+                            ),
                         )
                     }
                 },

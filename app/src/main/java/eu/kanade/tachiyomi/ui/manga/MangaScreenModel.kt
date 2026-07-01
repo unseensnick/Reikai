@@ -98,6 +98,7 @@ import tachiyomi.domain.chapter.service.getChapterSort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetDuplicateLibraryManga
 import tachiyomi.domain.manga.interactor.GetFavorites
+import tachiyomi.domain.manga.interactor.GetFlatMetadataById
 import tachiyomi.domain.manga.interactor.GetMangaWithChapters
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.interactor.SetMangaChapterFlags
@@ -114,6 +115,8 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 import exh.metadata.metadata.EHentaiSearchMetadata
+import exh.metadata.metadata.RaisedSearchMetadata
+import exh.metadata.metadata.base.FlatMetadata
 import exh.source.ExhPreferences
 import exh.source.getMainSource
 import exh.source.isEhBasedManga
@@ -165,6 +168,7 @@ class MangaScreenModel(
     private val getFavorites: GetFavorites = Injekt.get(),
     private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
     private val uiPreferences: UiPreferences = Injekt.get(),
+    private val getFlatMetadataById: GetFlatMetadataById = Injekt.get(),
     // RK <--
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : StateScreenModel<MangaScreenModel.State>(State.Loading) {
@@ -311,6 +315,22 @@ class MangaScreenModel(
                 updateSuccessState { it.copy(selectedSourceMangaId = selected) }
             }
         }
+        // Reactively load the active source's gallery metadata (primary when unified) so the tag
+        // chips + info box stay in sync. Crucial on a first open: the source fetch stores the
+        // metadata AFTER State.Success is built, and this upgrades the flat view to the rich one
+        // without needing to back out and re-enter. Also refreshes on a source-chip switch or when
+        // a gallery-update rewrites the metadata.
+        screenModelScope.launchIO {
+            selectedSourceMangaId
+                .flatMapLatest { selected ->
+                    val targetId = selected ?: mangaId
+                    getFlatMetadataById.subscribe(targetId).map { flat -> targetId to flat }
+                }
+                .flowWithLifecycle(lifecycle)
+                .collectLatest { (targetId, flat) ->
+                    updateSuccessState { it.copy(galleryMetadata = raiseMetadata(flat, targetId)) }
+                }
+        }
         // RK <--
 
         screenModelScope.launchIO {
@@ -340,6 +360,8 @@ class MangaScreenModel(
             val needRefreshChapter = chapters.isEmpty()
 
             // Show what we have earlier
+            // RK: seed the primary source's gallery metadata too; same first-render race as the chips.
+            val galleryMetadata = loadGalleryMetadata(mangaId)
             mutableState.update {
                 State.Success(
                     manga = manga,
@@ -354,6 +376,7 @@ class MangaScreenModel(
                     // RK: seed the merge chips so they show on first render (avoids a race where the
                     // chip collector fired before State.Success existed)
                     mergeSources = mergeChips,
+                    galleryMetadata = galleryMetadata,
                 )
             }
 
@@ -805,6 +828,22 @@ class MangaScreenModel(
             }
         }
         return result
+    }
+
+    /** Raise the stored gallery metadata for a source's manga, mirroring MetadataViewScreenModel.
+     *  Returns null when the source has no metadata support or nothing is stored. */
+    private suspend fun loadGalleryMetadata(targetMangaId: Long): RaisedSearchMetadata? {
+        return raiseMetadata(getFlatMetadataById.await(targetMangaId), targetMangaId)
+    }
+
+    /** Raise a [FlatMetadata] row into its source's typed metadata; null when the source isn't a
+     *  MetadataSource or nothing was stored. Shared by the seed and the reactive metadata flow. */
+    private suspend fun raiseMetadata(flatMetadata: FlatMetadata?, targetMangaId: Long): RaisedSearchMetadata? {
+        if (flatMetadata == null) return null
+        val targetManga = getMangaAndChapters.awaitManga(targetMangaId)
+        val metadataSource = Injekt.get<SourceManager>().get(targetManga.source)
+            ?.getMainSource<MetadataSource<*, *>>() ?: return null
+        return flatMetadata.raise(metadataSource.metaClass)
     }
 
     /** Resolve the source-switcher chips for the full group (empty when not merged). */
@@ -1571,6 +1610,9 @@ class MangaScreenModel(
             // RK: per-source metadata for the info box when a chip is active (null = unified -> primary).
             val mergeDisplayManga: Manga? = null,
             val mergeDisplaySource: Source? = null,
+            // RK: the active source's raised gallery metadata (adult/metadata sources), drives the
+            // namespaced tag chips + gallery-info block; null when the source has no metadata.
+            val galleryMetadata: RaisedSearchMetadata? = null,
             // RK: related-mangas carousel (recommendations), loaded lazily when the screen opens.
             // relatedItems is capped to CAROUSEL_CAP; relatedTotalCount is the full filtered pool size
             // behind the "See all (N)" affordance.
