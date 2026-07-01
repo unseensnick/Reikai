@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.source.sourcePreferences
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.novel.NovelPreferences
 import tachiyomi.core.common.preference.AndroidPreferenceStore
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.plusAssign
@@ -70,6 +71,12 @@ class PreferenceRestorer(
                 key == ReikaiLibraryPreferences.NOVEL_MANUAL_UNMERGES_KEY
             ) {
                 return@forEach
+            }
+            // RK: a restored ln_installed_plugin_urls set can auto-load arbitrary plugin .js URLs that
+            // the QuickJS host evaluates. Flag it so LnPluginInstaller validates the restored URLs
+            // against the restored repos before loading any; the value itself is still restored below.
+            if (key == NovelPreferences.INSTALLED_PLUGIN_URLS_KEY) {
+                preferenceStore.getBoolean(NovelPreferences.PLUGINS_NEED_REVALIDATION_KEY).set(true)
             }
             try {
                 when (value) {
