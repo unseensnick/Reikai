@@ -32,6 +32,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Downloads interrupted by closing the app now resume on reopen.** A download that was mid-flight when the app was killed could get stuck looking active without progressing until you restarted it by hand; it now continues on its own.
 - **Resuming a partly-downloaded chapter no longer re-downloads finished pages or stalls forever.** An interrupted download used to re-fetch every page it had already saved, pile up duplicate files, and then never register as complete; it now picks up only the missing pages and finishes.
 - **Browsing adult content sources now loads past the first page.** The built-in adult-source browse stopped after the first set of results; it now pages all the way through.
+- **Built-in adult sources show their own icon on library covers.** The sources that ship without an installable extension no longer fall back to a generic icon on a cover's source badge, matching how they already appear in Browse.
 
 ### Other
 
