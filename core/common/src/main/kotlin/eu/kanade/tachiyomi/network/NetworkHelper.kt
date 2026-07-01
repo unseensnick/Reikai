@@ -42,6 +42,11 @@ class NetworkHelper(
         if (preferences.verboseLogging.get()) {
             val httpLoggingInterceptor = HttpLoggingInterceptor().apply {
                 level = HttpLoggingInterceptor.Level.HEADERS
+                // RK: keep session secrets out of the verbose-logging dump (logcat / bug reports) so
+                //     enabling the diagnostic toggle can't leak source cookies or tracker OAuth tokens.
+                redactHeader("Authorization")
+                redactHeader("Cookie")
+                redactHeader("Set-Cookie")
             }
             builder.addNetworkInterceptor(httpLoggingInterceptor)
         }

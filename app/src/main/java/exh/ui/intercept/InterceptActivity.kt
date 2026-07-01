@@ -121,11 +121,14 @@ class InterceptActivity : BaseActivity() {
     }
 
     private fun processLink() {
-        if (Intent.ACTION_VIEW == intent.action) {
+        // Guard the data URI: this is an exported activity, so any app can launch it with a
+        // data-less ACTION_VIEW intent; dataString!! would then NPE and crash the process.
+        val url = intent.takeIf { it.action == Intent.ACTION_VIEW }?.dataString
+        if (url != null) {
             lifecycleScope.launchIO {
                 // wait for sources to load
                 Injekt.get<SourceManager>().isInitialized.first { it }
-                loadGallery(intent.dataString!!)
+                loadGallery(url)
             }
         }
     }

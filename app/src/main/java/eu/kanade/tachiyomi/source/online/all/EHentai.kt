@@ -1167,10 +1167,16 @@ class EHentai(
             ).execute().body.string(),
         )
 
-        val obj = outJson["tokenlist"]!!.jsonArray.first().jsonObject
-        return "${uri.scheme}://${uri.host}/g/${obj["gid"]!!.jsonPrimitive.int}/${
-            obj["token"]!!.jsonPrimitive.content
-        }/"
+        // The gtoken API returns an error object (no "tokenlist") when rate-limited or given a bad
+        // token, so guard the chain and surface a clear failure instead of an NPE on import.
+        val obj = outJson["tokenlist"]?.jsonArray?.firstOrNull()?.jsonObject
+            ?: throw Exception("E-Hentai gtoken API returned no tokenlist for $uri")
+        val gid = obj["gid"]?.jsonPrimitive?.int
+        val token = obj["token"]?.jsonPrimitive?.content
+        if (gid == null || token == null) {
+            throw Exception("E-Hentai gtoken API response missing gid/token for $uri")
+        }
+        return "${uri.scheme}://${uri.host}/g/$gid/$token/"
     }
 
     override suspend fun getPagePreviewList(

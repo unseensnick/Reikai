@@ -151,7 +151,11 @@ fun NovelReaderWebView(
     }
 
     LaunchedEffect(document, baseUrl) {
-        webView.loadDataWithBaseURL(baseUrl, document, "text/html", "UTF-8", null)
+        // Only trust an http(s) base URL. src.site is plugin-controlled, and with allowFileAccess on
+        // a file:// base would give the chapter document a file origin; pin the scheme so the safety
+        // doesn't rest solely on the file-from-file WebView flags staying default-off.
+        val safeBaseUrl = baseUrl?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+        webView.loadDataWithBaseURL(safeBaseUrl, document, "text/html", "UTF-8", null)
     }
 
     // Push settings live once the page is up (guarded so it no-ops before the reader exists). The

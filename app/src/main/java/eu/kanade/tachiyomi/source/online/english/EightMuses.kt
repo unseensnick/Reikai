@@ -78,7 +78,9 @@ class EightMuses(delegate: HttpSource, val context: Context) :
 
             val breadcrumbs = input.selectFirst(".top-menu-breadcrumb > ol")
 
-            title = breadcrumbs!!.selectFirst("li:nth-last-child(1) > a")!!.text()
+            // Guard the breadcrumb chain: a single-level album (or a markup change) leaves some
+            // segments absent, so skip the field rather than NPE and abort the whole details parse.
+            breadcrumbs?.selectFirst("li:nth-last-child(1) > a")?.text()?.let { title = it }
 
             thumbnailUrl = parseSelf(input).let { it.albums + it.images }.firstOrNull()
                 ?.selectFirst(".lazyload")
@@ -87,11 +89,13 @@ class EightMuses(delegate: HttpSource, val context: Context) :
                 }
 
             tags.clear()
-            tags += RaisedTag(
-                EightMusesSearchMetadata.ARTIST_NAMESPACE,
-                breadcrumbs.selectFirst("li:nth-child(2) > a")!!.text(),
-                EightMusesSearchMetadata.TAG_TYPE_DEFAULT,
-            )
+            breadcrumbs?.selectFirst("li:nth-child(2) > a")?.text()?.let { artist ->
+                tags += RaisedTag(
+                    EightMusesSearchMetadata.ARTIST_NAMESPACE,
+                    artist,
+                    EightMusesSearchMetadata.TAG_TYPE_DEFAULT,
+                )
+            }
             tags += input.select(".album-tags a").map {
                 RaisedTag(
                     EightMusesSearchMetadata.TAGS_NAMESPACE,
