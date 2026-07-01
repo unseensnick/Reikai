@@ -1343,11 +1343,10 @@
     <string name="eh_image_quality_summary">The quality of the downloaded images</string>
     <string name="eh_image_quality">Image quality</string>
     <string name="eh_image_quality_auto">Auto</string>
-    <string name="eh_image_quality_2400">2400x</string>
-    <string name="eh_image_quality_1600">1600x</string>
+    <string name="eh_image_quality_2560">2560x</string>
+    <string name="eh_image_quality_1920">1920x</string>
     <string name="eh_image_quality_1280">1280x</string>
-    <string name="eh_image_quality_980">980x</string>
-    <string name="eh_image_quality_780">780x</string>
+    <string name="eh_image_quality_800">800x</string>
     <string name="pref_enhanced_e_hentai_view">Enhanced E/ExHentai browse</string>
     <string name="pref_enhanced_e_hentai_view_summary">Enable/Disable the enhanced browse menu made for E/ExHentai</string>
     <string name="settings_profile_note">Settings profile note</string>

@@ -16,11 +16,10 @@ class EhUConfigBuilder {
                 .get()
                 .lowercase(Locale.getDefault())
         ) {
-            "ovrs_2400" -> Entry.ImageSize.`2400`
-            "ovrs_1600" -> Entry.ImageSize.`1600`
+            "ovrs_2400" -> Entry.ImageSize.`2560`
+            "ovrs_1600" -> Entry.ImageSize.`1920`
             "high" -> Entry.ImageSize.`1280`
-            "med" -> Entry.ImageSize.`980`
-            "low" -> Entry.ImageSize.`780`
+            "low" -> Entry.ImageSize.`800`
             "auto" -> Entry.ImageSize.AUTO
             else -> Entry.ImageSize.AUTO
         }
@@ -92,14 +91,15 @@ object Entry {
         override val key = "uh"
     }
 
+    // xr tiers mirror E-Hentai's current uconfig image-size options; the old 980x (xr=2)
+    // tier was retired by the site, and 1920x/2560x require a hath perk on the account.
     @Suppress("EnumEntryName")
     enum class ImageSize(override val value: String) : ConfigItem {
         AUTO("0"),
-        `2400`("5"),
-        `1600`("4"),
+        `2560`("5"),
+        `1920`("4"),
         `1280`("3"),
-        `980`("2"),
-        `780`("1"),
+        `800`("1"),
         ;
 
         override val key = "xr"
