@@ -46,6 +46,7 @@ import eu.kanade.tachiyomi.source.isLocalOrStub
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import exh.source.getMainSource
+import exh.pagepreview.PagePreviewScreen
 import exh.ui.metadata.MetadataViewScreen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
@@ -205,6 +206,8 @@ class MangaScreen(
                         page,
                     )
                 },
+                // RK: open the full-screen page-preview gallery
+                onMorePreviewsClicked = { navigator.push(PagePreviewScreen(successState.manga.id)) },
                 // RK: source-switcher chips
                 onSelectSource = screenModel::selectSource,
                 onSplitSource = { screenModel.splitSources(listOf(it)) },

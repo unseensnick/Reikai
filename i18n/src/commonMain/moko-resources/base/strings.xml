@@ -356,6 +356,9 @@
     <!-- RK: adult-source gallery page previews -->
     <string name="pref_previews_row_count">Page preview rows</string>
     <string name="pref_previews_row_count_summary">Rows of gallery page thumbnails on the details screen for adult sources (0 to hide)</string>
+    <string name="more_previews">More previews</string>
+    <string name="page_previews">Page previews</string>
+    <string name="page_preview_page_go_to">Go to page</string>
 
     <string name="pref_manage_notifications">Manage notifications</string>
     <string name="pref_app_language">App language</string>
