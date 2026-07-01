@@ -125,6 +125,8 @@ fun MangaScreen(
     onMetadataViewerClicked: (() -> Unit)? = null,
     // RK: tap a page-preview thumbnail -> open the reader at that page
     onOpenPagePreview: (Int) -> Unit = {},
+    // RK: open the full-screen page-preview gallery
+    onMorePreviewsClicked: () -> Unit = {},
     onSelectSource: (Long?) -> Unit = {},
     onSplitSource: (Long) -> Unit = {},
     // RK: related-mangas carousel card tap
@@ -183,6 +185,7 @@ fun MangaScreen(
             onManageSourcesClicked = onManageSourcesClicked,
             onMetadataViewerClicked = onMetadataViewerClicked,
             onOpenPagePreview = onOpenPagePreview,
+            onMorePreviewsClicked = onMorePreviewsClicked,
             onSelectSource = onSelectSource,
             onSplitSource = onSplitSource,
             onRelatedClick = onRelatedClick,
@@ -226,6 +229,7 @@ fun MangaScreen(
             onManageSourcesClicked = onManageSourcesClicked,
             onMetadataViewerClicked = onMetadataViewerClicked,
             onOpenPagePreview = onOpenPagePreview,
+            onMorePreviewsClicked = onMorePreviewsClicked,
             onSelectSource = onSelectSource,
             onSplitSource = onSplitSource,
             onRelatedClick = onRelatedClick,
@@ -282,6 +286,8 @@ private fun MangaScreenSmallImpl(
     onMetadataViewerClicked: (() -> Unit)? = null,
     // RK: tap a page-preview thumbnail -> open the reader at that page
     onOpenPagePreview: (Int) -> Unit = {},
+    // RK: open the full-screen page-preview gallery
+    onMorePreviewsClicked: () -> Unit = {},
     onSelectSource: (Long?) -> Unit = {},
     onSplitSource: (Long) -> Unit = {},
     // RK: related-mangas carousel card tap
@@ -491,17 +497,6 @@ private fun MangaScreenSmallImpl(
                         )
                     }
 
-                    // RK: page-preview thumbnails for adult sources (0 rows = off)
-                    if (state.pagePreviewsState !is PagePreviewState.Unused && state.previewsRowCount > 0) {
-                        item(key = "rk-page-previews") {
-                            PagePreviews(
-                                pagePreviewState = state.pagePreviewsState,
-                                onOpenPage = onOpenPagePreview,
-                                rowCount = state.previewsRowCount,
-                            )
-                        }
-                    }
-
                     // RK: source-switcher chips for a merged group
                     if (state.mergeSources.size > 1) {
                         item(key = "rk-merge-source-chips") {
@@ -524,6 +519,19 @@ private fun MangaScreenSmallImpl(
                             onSeeAll = onRelatedSeeAll,
                             topDivider = true,
                         )
+                    }
+
+                    // RK: page-preview thumbnails for adult sources (0 rows = off);
+                    // on phone this sits below the related carousel
+                    if (state.pagePreviewsState !is PagePreviewState.Unused && state.previewsRowCount > 0) {
+                        item(key = "rk-page-previews") {
+                            PagePreviews(
+                                pagePreviewState = state.pagePreviewsState,
+                                onOpenPage = onOpenPagePreview,
+                                onMorePreviewsClicked = onMorePreviewsClicked,
+                                rowCount = state.previewsRowCount,
+                            )
+                        }
                     }
 
                     item(
@@ -598,6 +606,8 @@ fun MangaScreenLargeImpl(
     onMetadataViewerClicked: (() -> Unit)? = null,
     // RK: tap a page-preview thumbnail -> open the reader at that page
     onOpenPagePreview: (Int) -> Unit = {},
+    // RK: open the full-screen page-preview gallery
+    onMorePreviewsClicked: () -> Unit = {},
     onSelectSource: (Long?) -> Unit = {},
     onSplitSource: (Long) -> Unit = {},
     // RK: related-mangas carousel card tap
@@ -787,6 +797,7 @@ fun MangaScreenLargeImpl(
                             PagePreviews(
                                 pagePreviewState = state.pagePreviewsState,
                                 onOpenPage = onOpenPagePreview,
+                                onMorePreviewsClicked = onMorePreviewsClicked,
                                 rowCount = state.previewsRowCount,
                             )
                         }

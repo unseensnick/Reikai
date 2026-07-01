@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -35,7 +36,9 @@ import eu.kanade.domain.manga.model.PagePreview
 import eu.kanade.tachiyomi.ui.manga.PagePreviewState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
+import tachiyomi.presentation.core.i18n.stringResource
 
 @Composable
 private fun PagePreviewLoading(
@@ -78,9 +81,24 @@ private fun PagePreviewRow(
 }
 
 @Composable
+private fun PagePreviewMore(
+    onMorePreviewsClicked: () -> Unit,
+) {
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center,
+    ) {
+        TextButton(onClick = onMorePreviewsClicked) {
+            Text(stringResource(MR.strings.more_previews))
+        }
+    }
+}
+
+@Composable
 fun PagePreviews(
     pagePreviewState: PagePreviewState,
     onOpenPage: (Int) -> Unit,
+    onMorePreviewsClicked: () -> Unit,
     rowCount: Int,
 ) {
     Column(Modifier.fillMaxWidth()) {
@@ -99,6 +117,8 @@ fun PagePreviews(
                         items = remember(it) { it.toImmutableList() },
                     )
                 }
+
+                PagePreviewMore(onMorePreviewsClicked)
             }
             else -> {}
         }
