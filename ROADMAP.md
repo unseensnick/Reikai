@@ -42,10 +42,6 @@ Opportunistic polish: Browse (Latest shortcut, global-search progress, Last-used
 
 - **MangaDex enhanced source** `[L]` - port the `exh/md` subsystem: a `DelegatedHttpSource` wrapping the installed MangaDex extension with OAuth login, follows sync, the MDList tracker, a Settings hub, and the metadata model + info adapter. A general MangaDex feature (under `exh/` for historical reasons), so its own branch + plan doc. Unblocks the MangaDex similarity carousel (above) and the adult tag-chip MangaDex branch. Wanted: MangaDex is an actively-used source.
 
-### Adult sources
-
-- **Merged gallery sources drop chapters in the unified list** `[S-M]` - `ChapterAggregation` dedups by chapter number, so gallery sources (each numbering its primary chapter 1) collapse to one; scope it to skip gallery / EH-based sources.
-
 ## Parked / not building
 
 One line each; revive note where relevant.
