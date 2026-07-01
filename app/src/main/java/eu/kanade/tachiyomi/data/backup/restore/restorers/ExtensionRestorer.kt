@@ -1,4 +1,4 @@
-// RK: installed-extensions backup (ROADMAP #9 follow-on). Net-new Reikai file: reinstalls the manga
+// RK: installed-extensions backup (Roadmap 9 follow-on). Net-new Reikai file: reinstalls the manga
 // extensions a backup recorded. Must run after the extension repos are restored, since the available
 // list is fetched from them. Installs are fired on the ExtensionManager's own scope (the standard
 // installer, respecting the user's installer mode) so the restore job doesn't block on downloads or

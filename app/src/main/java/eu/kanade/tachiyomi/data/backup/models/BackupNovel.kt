@@ -1,4 +1,4 @@
-// RK: novel backup (ROADMAP #9). Net-new Reikai file: the light-novel twin of BackupManga, re-typed
+// RK: novel backup (Roadmap 9). Net-new Reikai file: the light-novel twin of BackupManga, re-typed
 // to the novel domain model (String source id, text-reader fields, no viewer/scanlator fields).
 package eu.kanade.tachiyomi.data.backup.models
 

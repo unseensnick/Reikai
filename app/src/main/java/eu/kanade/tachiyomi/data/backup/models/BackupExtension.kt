@@ -1,4 +1,4 @@
-// RK: installed-extensions backup (ROADMAP #9 follow-on). Net-new Reikai file. Mihon backs up only the
+// RK: installed-extensions backup (Roadmap 9 follow-on). Net-new Reikai file. Mihon backs up only the
 // extension REPOS, not which extensions are installed. This records the installed manga extensions so a
 // restore can re-fetch and reinstall them (and surface any whose repo is missing). pkgName is the match
 // key; the rest powers the actionable "couldn't reinstall" list (see the restore-path onboarding item).

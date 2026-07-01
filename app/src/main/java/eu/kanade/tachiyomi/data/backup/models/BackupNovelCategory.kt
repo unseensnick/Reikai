@@ -1,4 +1,4 @@
-// RK: novel backup (ROADMAP #9). Net-new Reikai file: novel-category twin of BackupCategory. Novel
+// RK: novel backup (Roadmap 9). Net-new Reikai file: novel-category twin of BackupCategory. Novel
 // categories live in their own table, so they back up separately from manga categories. The per-
 // category drag order (novel_order) is not carried, mirroring how BackupCategory omits manga_order;
 // new categories restore with an empty order.

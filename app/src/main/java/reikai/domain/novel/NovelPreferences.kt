@@ -279,7 +279,7 @@ class NovelPreferences(
     fun novelUpdateCategoriesExclude() =
         preferenceStore.getStringSet("novel_library_update_categories_exclude", emptySet())
 
-    // Source migration (#7).
+    // Source migration (Roadmap 7).
 
     /** Last selection in the migrate dialog, as a [NovelMigrationFlag] bitmask. Defaults to all on. */
     fun novelMigrationFlags() = preferenceStore.getInt("novel_migration_flags", NovelMigrationFlag.DEFAULT_BITS)

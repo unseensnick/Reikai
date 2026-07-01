@@ -1,4 +1,4 @@
-// RK: novel backup (ROADMAP #9). Net-new Reikai file: the light-novel twin of MangaRestorer. Matches
+// RK: novel backup (Roadmap 9). Net-new Reikai file: the light-novel twin of MangaRestorer. Matches
 // or inserts each novel by url+source, re-links its chapters (by url), categories (by name), tracks
 // (by tracker id) and history (chapter url -> new chapter id), then rebuilds the merge/unmerge prefs
 // from the backup's {url, source} refs once every novel has its fresh id.
