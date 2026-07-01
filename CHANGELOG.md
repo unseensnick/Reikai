@@ -21,6 +21,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Search your library by tag, with namespaces, wildcards and exclusions.** For adult-source entries you can now type queries like `artist:name`, `parody:*hero*`, or `-language:japanese` to filter your library by its captured tags; plain title search is unchanged.
 - **Adult-gallery details now show grouped, tappable tags and a full info panel.** Tags appear grouped by namespace (tap one to search it), and a panel above the description lists the rating, uploader, page count, size, language and upload date.
 - **Preview an adult gallery's pages from its details screen.** A grid of page thumbnails sits above the description; tap one to open the reader at that page, tap More previews for the full gallery with page-to-page navigation, and set how many rows show (0 hides it) in Appearance settings.
+- **Remove every source of a merged series in one step.** Deleting a merged library entry now offers an "All grouped sources" option that clears the whole group at once instead of leaving the other sources behind, for both manga and novels.
 
 ### Changes
 
