@@ -168,11 +168,17 @@ fun ReikaiLibraryContent(
             }
         }
 
+        // Resolve each category's items once per pass and share it: the row-index math needs the
+        // sizes and the grid builder needs the lists, so calling getItemsForCategory in both spots
+        // walked every category's items twice per recomposition. Not remembered across recompositions
+        // on purpose, the lambda reads live library state, so a cached map could serve stale badges.
+        val itemsByCategory = categories.associateWith(getItemsForCategory)
+
         val rowStartIndices = reikaiRowStartIndices(
             categories = categories,
             hasSearchItem = !searchQuery.isNullOrEmpty(),
             isCollapsed = { reikaiIsCollapsed(it, collapsedCategories, collapsedDynamicCategories) },
-            itemCount = { getItemsForCategory(it).size },
+            itemCount = { itemsByCategory[it]?.size ?: 0 },
             columns = columnCount,
         )
 
@@ -218,7 +224,7 @@ fun ReikaiLibraryContent(
                     val dynamic = ReikaiDynamicCategory.isDynamic(category)
                     val headerKey = if (dynamic) ReikaiDynamicCategory.headerKey(category) else category.id.toString()
                     val collapsed = reikaiIsCollapsed(category, collapsedCategories, collapsedDynamicCategories)
-                    val items = getItemsForCategory(category)
+                    val items = itemsByCategory[category].orEmpty()
 
                     item(
                         span = { GridItemSpan(maxLineSpan) },
