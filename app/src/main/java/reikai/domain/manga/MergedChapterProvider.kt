@@ -1,5 +1,7 @@
 package reikai.domain.manga
 
+import eu.kanade.tachiyomi.source.online.MetadataSource
+import exh.source.getMainSource
 import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.interactor.GetMangaWithChapters
@@ -55,10 +57,21 @@ class MergedChapterProvider(
 
     /** Aggregate + reading order: stitch the sources into one list, then restamp source order so a
      *  "by source order" sort reads top to bottom instead of interleaving sources. */
-    fun aggregate(chaptersBySource: Map<Long, List<Chapter>>, sourceIdByManga: Map<Long, Long>): List<Chapter> =
-        ChapterAggregation
-            .aggregate(chaptersBySource, sourceIdByManga, reikaiLibraryPreferences.preferredMangaSources.get())
+    fun aggregate(chaptersBySource: Map<Long, List<Chapter>>, sourceIdByManga: Map<Long, Long>): List<Chapter> {
+        // Gallery / metadata sources (adult) treat each chapter as a whole standalone gallery, so exempt
+        // them from cross-source number dedup: merging two of them keeps both instead of collapsing on 1.
+        val gallerySourceMangaIds = sourceIdByManga
+            .filterValues { sourceManager.get(it)?.getMainSource<MetadataSource<*, *>>() != null }
+            .keys
+        return ChapterAggregation
+            .aggregate(
+                chaptersBySource,
+                sourceIdByManga,
+                reikaiLibraryPreferences.preferredMangaSources.get(),
+                gallerySourceMangaIds,
+            )
             .let(::restampReadingOrder)
+    }
 
     private fun restampReadingOrder(chapters: List<Chapter>): List<Chapter> =
         chapters.sortedByDescending { it.chapterNumber }

@@ -6,6 +6,7 @@ import io.mockk.mockk
 import org.junit.jupiter.api.Test
 import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.source.service.SourceManager
 
 /**
  * Covers the reading-order policy [MergedChapterProvider.aggregate] adds on top of
@@ -23,7 +24,10 @@ class MergedChapterProviderTest {
         val preferences = mockk<ReikaiLibraryPreferences> {
             every { preferredMangaSources } returns mockk(relaxed = true) { every { get() } returns preferred }
         }
-        return MergedChapterProvider(mockk(), mockk(), mockk(), preferences)
+        // Non-gallery sources: a relaxed mock returns null from get(), so these serial-manga cases keep
+        // the normal cross-source number dedup.
+        val sourceManager = mockk<SourceManager>(relaxed = true)
+        return MergedChapterProvider(mockk(), mockk(), sourceManager, preferences)
     }
 
     @Test

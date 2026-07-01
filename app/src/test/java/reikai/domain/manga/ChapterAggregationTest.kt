@@ -197,4 +197,34 @@ class ChapterAggregationTest {
 
         withEmptyPrefs shouldBe withDefaults
     }
+
+    @Test
+    fun `gallery sources are kept whole and never collapsed across sources by number`() {
+        // Two gallery sources of the same one-shot. Each numbers its primary chapter 1; the first also
+        // lists older versions 2 and 3. Without the exemption they'd collide on 1 and one source drops.
+        val galleryA = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0))
+        val galleryB = listOf(chapter(2L, 1.0))
+
+        val unified = ChapterAggregation.aggregate(
+            chaptersBySource = mapOf(1L to galleryA, 2L to galleryB),
+            gallerySourceMangaIds = setOf(1L, 2L),
+        )
+
+        // Every gallery chapter survives: A's 3 plus B's 1, including both number-1 rows.
+        unified.size shouldBe 4
+        unified.count { it.chapterNumber == 1.0 } shouldBe 2
+        unified.map { it.mangaId }.toSet() shouldBe setOf(1L, 2L)
+    }
+
+    @Test
+    fun `without the gallery exemption same-numbered galleries still collapse`() {
+        // The pre-fix behavior: serial-manga dedup drops the second source's number-1 gallery.
+        val galleryA = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0))
+        val galleryB = listOf(chapter(2L, 1.0))
+
+        val unified = ChapterAggregation.aggregate(mapOf(1L to galleryA, 2L to galleryB))
+
+        unified.size shouldBe 3
+        unified.count { it.chapterNumber == 1.0 } shouldBe 1
+    }
 }

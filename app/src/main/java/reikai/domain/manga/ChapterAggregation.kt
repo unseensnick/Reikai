@@ -39,12 +39,16 @@ object ChapterAggregation {
      * @param preferredSourceIds the global preferred-source ranking, highest priority first. A source
      *   on this list wins the trunk over distinct-count; unranked sources fall back to distinct-count
      *   among themselves.
+     * @param gallerySourceMangaIds manga ids whose source treats each chapter as a whole standalone
+     *   gallery (adult / metadata sources). Their chapters bypass the cross-source number dedup, since
+     *   every gallery source numbers its primary chapter 1 and would otherwise collide across sources.
      * @return the unified chapter list (unsorted). For 0 or 1 source, returns the input unchanged.
      */
     fun aggregate(
         chaptersBySource: Map<Long, List<Chapter>>,
         sourceIdByManga: Map<Long, Long> = emptyMap(),
         preferredSourceIds: List<Long> = emptyList(),
+        gallerySourceMangaIds: Set<Long> = emptySet(),
     ): List<Chapter> {
         if (chaptersBySource.size <= 1) return chaptersBySource.values.firstOrNull().orEmpty()
 
@@ -69,8 +73,13 @@ object ChapterAggregation {
         val seenNumbers = HashSet<Float>()
         ranked.forEachIndexed { index, source ->
             val isTrunk = index == 0
+            val isGallery = source.mangaId in gallerySourceMangaIds
             for (chapter in source.chapters) {
                 when {
+                    // A gallery source's chapters are each a whole standalone gallery / version, and
+                    // every gallery source numbers its primary chapter 1, so cross-source number dedup
+                    // would drop one source's gallery. Keep every gallery chapter instead of collapsing.
+                    isGallery -> unified.add(chapter)
                     // One row per recognized number across the whole group: add() returns false when
                     // the number is already covered, collapsing scanlator variants and any number an
                     // earlier source already supplied. Narrowed to Float so a float-origin and a
