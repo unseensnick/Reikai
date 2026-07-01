@@ -1,51 +1,83 @@
 #!/usr/bin/env bash
-# Reikai CHANGELOG enforcement (see .claude/rules/workflow.md: "After completing any code change"
-# and "Public-facing naming"). Lints a staged CHANGELOG.md so the changelog stays scannable and
-# name-safe:
-#   1. no content-source names in any newly added line;
-#   2. every new [Unreleased] entry under Additions / Changes / Fixes leads with a self-contained
-#      bold headline ending in . ! or ? (Other is exempt), and stays under a length cap.
+# Reikai docs enforcement (see .claude/rules/workflow.md: "After completing any code change",
+# "Public-facing naming", and "Roadmap & plans"). Lints staged CHANGELOG.md and ROADMAP.md:
+#   CHANGELOG.md - no content-source names in newly added lines; every new [Unreleased] entry under
+#     Additions / Changes / Fixes leads with a self-contained bold headline ending in . ! or ?
+#     (Other is exempt), under a length cap.
+#   ROADMAP.md - forward-only backlog stays name-clean: no content-source names, no em dash, no
+#     bare #N (use "Roadmap N" or owner/repo#N). Shipped detail lives in docs/dev/shipped.md.
 # Tracked here as the source of truth; activate on a clone with:
 #   cp .githooks/pre-commit .git/hooks/ && chmod +x .git/hooks/pre-commit
 set -u
 
-git diff --cached --name-only | grep -qx 'CHANGELOG.md' || exit 0
-
+staged() { git diff --cached --name-only | grep -qx "$1"; }
 deny='e-hentai|ehentai|exhentai|nhentai|pururin|8muses|hentaifox|asmhentai|koharu|schalenetwork'
 fail=0
 
-# 1) No content-source names in any newly added CHANGELOG line.
-bad_names=$(git diff --cached -U0 -- CHANGELOG.md | grep -E '^\+[^+]' | grep -inE "$deny" || true)
-if [ -n "$bad_names" ]; then
-  echo "CHANGELOG: a new line names a content source, genericize it (see Public-facing naming):"
-  echo "$bad_names"
-  fail=1
+# ===== CHANGELOG.md =====
+if staged CHANGELOG.md; then
+  # 1) No content-source names in any newly added CHANGELOG line.
+  bad_names=$(git diff --cached -U0 -- CHANGELOG.md | grep -E '^\+[^+]' | grep -inE "$deny" || true)
+  if [ -n "$bad_names" ]; then
+    echo "CHANGELOG: a new line names a content source, genericize it (see Public-facing naming):"
+    echo "$bad_names"
+    fail=1
+  fi
+
+  # 2) Structure of the staged [Unreleased] section (only [Unreleased] is checked).
+  issues=$(git show :CHANGELOG.md | awk '
+    /^## \[Unreleased\]/ { u=1; next }
+    /^## \[/             { u=0 }
+    !u                  { next }
+    /^### /             { sec=$0; sub(/^### /,"",sec); next }
+    /^\*\*/             { next }
+    /^- / {
+      if (length($0) > 320)
+        print "  - over the length cap (>320 chars); trim to a bold headline + one sentence:\n    " $0
+      if (sec != "Other" && $0 !~ /^- \*\*[^*]+[.!?]\*\*/)
+        print "  - needs a self-contained bold headline ending in . ! or ? (Other is exempt):\n    " $0
+    }
+  ')
+  if [ -n "$issues" ]; then
+    echo "CHANGELOG [Unreleased] entry issues:"
+    echo "$issues"
+    fail=1
+  fi
 fi
 
-# 2) Structure of the staged [Unreleased] section. Only [Unreleased] is checked, so already-released
-#    sections are never re-flagged.
-issues=$(git show :CHANGELOG.md | awk '
-  /^## \[Unreleased\]/ { u=1; next }
-  /^## \[/             { u=0 }
-  !u                  { next }
-  /^### /             { sec=$0; sub(/^### /,"",sec); next }
-  /^\*\*/             { next }                       # bold sub-header line
-  /^- / {
-    if (length($0) > 320)
-      print "  - over the length cap (>320 chars); trim to a bold headline + one sentence:\n    " $0
-    if (sec != "Other" && $0 !~ /^- \*\*[^*]+[.!?]\*\*/)
-      print "  - needs a self-contained bold headline ending in . ! or ? (Other is exempt):\n    " $0
-  }
-')
-if [ -n "$issues" ]; then
-  echo "CHANGELOG [Unreleased] entry issues:"
-  echo "$issues"
-  fail=1
+# ===== ROADMAP.md =====
+if staged ROADMAP.md; then
+  road=$(git show :ROADMAP.md)
+
+  # 1) No content-source names anywhere (use EH / ExH shorthand or generic wording).
+  rn=$(printf '%s\n' "$road" | grep -inE "$deny" || true)
+  if [ -n "$rn" ]; then
+    echo "ROADMAP: names a content source, use EH / ExH shorthand or generic wording (specific source"
+    echo "names belong in docs/dev/shipped.md, not the forward roadmap):"
+    echo "$rn"
+    fail=1
+  fi
+
+  # 2) No em dash.
+  em=$(printf '%s\n' "$road" | grep -n '—' || true)
+  if [ -n "$em" ]; then
+    echo "ROADMAP: contains an em dash; use commas, parentheses, periods or colons:"
+    echo "$em"
+    fail=1
+  fi
+
+  # 3) No bare #N (a '#' + digits not preceded by an alphanumeric; owner/repo#N is fine).
+  hn=$(printf '%s\n' "$road" | grep -nE '(^|[^A-Za-z0-9])#[0-9]' || true)
+  if [ -n "$hn" ]; then
+    echo "ROADMAP: bare '#N' auto-links to a Reikai issue, use 'Roadmap N' or owner/repo#N:"
+    echo "$hn"
+    fail=1
+  fi
 fi
 
 if [ "$fail" -ne 0 ]; then
   echo
-  echo "Fix CHANGELOG.md, or use 'git commit --no-verify' if this is intentional."
+  echo "Fix the file, or use 'git commit --no-verify' if this is intentional."
   exit 1
 fi
 exit 0
