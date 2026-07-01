@@ -54,8 +54,45 @@ class LnPluginInstaller(
      *  failed ones on each call, so navigating to a novel screen self-heals a transient load failure. */
     suspend fun ensureLoaded() {
         loadMutex.withLock {
+            // Plugin URLs from a restored backup are untrusted until a currently-added repo vouches
+            // for them; if a repo is unreachable, load nothing this pass so an injected URL can't slip
+            // through, and retry on the next open.
+            if (prefs.pluginsNeedRevalidation().get() && !revalidateInstalledAgainstReposLocked()) {
+                return
+            }
             loadUrlsLocked(prefs.installedPluginUrls().get() - loadedUrls)
         }
+    }
+
+    /**
+     * After a backup restore, keep only installed plugin URLs that a currently-added repo lists in its
+     * registry, and drop the rest. A restored backup can inject arbitrary plugin .js URLs that the
+     * host would auto-load and evaluate, so this is the trust gate: a plugin is trusted only because
+     * it came from a repo the user added. Returns true when validation completed (safe to load); false
+     * when a repo was unreachable, in which case nothing is dropped or loaded and the caller retries
+     * on the next open (fail-closed). Caller must hold [loadMutex].
+     */
+    private suspend fun revalidateInstalledAgainstReposLocked(): Boolean {
+        val trusted = HashSet<String>()
+        for (repo in prefs.addedRepoUrls().get()) {
+            try {
+                fetchRepo(repo).forEach { trusted += canonicalizePluginUrl(it.url) }
+            } catch (e: Exception) {
+                logcat(LogPriority.WARN, e) { "plugin revalidation: repo unreachable, retrying next open: $repo" }
+                return false
+            }
+        }
+        val installed = prefs.installedPluginUrls().get()
+        val validated = installed.filterTo(HashSet()) { it in trusted }
+        if (validated.size != installed.size) {
+            prefs.installedPluginUrls().set(validated)
+            prefs.installedPluginMetadata().set(prefs.installedPluginMetadata().get().filterKeys { it in validated })
+            logcat(LogPriority.WARN) {
+                "plugin revalidation: dropped ${installed.size - validated.size} url(s) not vouched by any added repo"
+            }
+        }
+        prefs.pluginsNeedRevalidation().set(false)
+        return true
     }
 
     suspend fun installFromUrl(
@@ -90,8 +127,12 @@ class LnPluginInstaller(
      * the rest. Prefer [ensureLoaded] for the lazy on-open path.
      */
     suspend fun loadInstalled(): List<LnPluginSource> = loadMutex.withLock {
-        loadedUrls.clear()
-        loadUrlsLocked(prefs.installedPluginUrls().get())
+        if (prefs.pluginsNeedRevalidation().get() && !revalidateInstalledAgainstReposLocked()) {
+            emptyList()
+        } else {
+            loadedUrls.clear()
+            loadUrlsLocked(prefs.installedPluginUrls().get())
+        }
     }
 
     /**
