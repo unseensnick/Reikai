@@ -91,8 +91,8 @@ import kotlin.time.Duration.Companion.days
 // Re-typed from TachiyomiSY/Komikku onto Reikai's combined getMangaUpdate API: the split
 // getMangaDetails/getChapterList collapse into getMangaUpdate, the RxJava fetch* overrides are
 // dropped, and SManga/SChapter use the no-arg copy()/create() builders. Gallery-version tracking
-// uses an in-session parent cache (EHentaiUpdateHelper stub); the disk-backed worker and the tag
-// autocomplete catalogue land in later EXH phases.
+// runs through the disk-backed EHentaiUpdateHelper + EHentaiUpdateWorker, and the namespace:tag
+// autocomplete catalogue is wired via the AutoCompleteTags filter (EHTags).
 @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 class EHentai(
     override val id: Long,

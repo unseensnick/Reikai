@@ -42,6 +42,10 @@ Opportunistic polish: Browse (Latest shortcut, global-search progress, Last-used
 
 - **MangaDex enhanced source** `[L]` - port the `exh/md` subsystem: a `DelegatedHttpSource` wrapping the installed MangaDex extension with OAuth login, follows sync, the MDList tracker, a Settings hub, and the metadata model + info adapter. A general MangaDex feature (under `exh/` for historical reasons), so its own branch + plan doc. Unblocks the MangaDex similarity carousel (above) and the adult tag-chip MangaDex branch. Wanted: MangaDex is an actively-used source.
 
+### Adult sources
+
+- **Merged gallery sources drop chapters in the unified list** `[S-M]` - `ChapterAggregation` dedups by chapter number, so gallery sources (each numbering its primary chapter 1) collapse to one; scope it to skip gallery / EH-based sources.
+
 ## Parked / not building
 
 One line each; revive note where relevant.
@@ -64,3 +68,6 @@ One line each; revive note where relevant.
 - **Further adult-source wrappers** - the remaining candidate sites either need a base extension written first or expose too little structured metadata to justify a wrapper. Specifics in [adult-sources.md](docs/adult-sources.md).
 - **isLewd metadata-id rewire** - the name/genre heuristic already recognizes the common adult sources; the delegated-id sets have no other consumer.
 - **Backup source-ID remapper** - not needed; the built-in adult sources already register under every stock-extension id.
+- **EH smart-search merge** (pick source, auto-find match, merge) - the pref-based merge already covers this; revive only for auto-match-on-source-pick.
+- **Source image-compression proxy** `[M]` - the SY/Komikku `DataSaver` image resize/compress proxy, not a Mihon built-in; revive for cellular data-saving.
+- **EXH developer tooling** - file logs, debug overlay, hidden debug menu; Mihon's logcat suffices, revive for deep on-device EXH debugging.
