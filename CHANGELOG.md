@@ -25,6 +25,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 ### Changes
 
 - **Interrupted downloads now resume instead of restarting, on sources that support it.** A page cut off mid-download continues from the partial file rather than re-fetching the whole image.
+- **The adult-gallery update checker shows a clearer notification.** Its progress now carries the app icon and gallery title, and any galleries that fail to update raise a notification you can tap to see exactly which ones, instead of failing silently.
 
 ### Fixes
 
