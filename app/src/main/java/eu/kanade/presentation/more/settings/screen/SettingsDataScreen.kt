@@ -52,6 +52,7 @@ import eu.kanade.presentation.util.relativeTimeSpanString
 import eu.kanade.tachiyomi.data.backup.create.BackupCreateJob
 import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
 import eu.kanade.tachiyomi.data.cache.ChapterCache
+import eu.kanade.tachiyomi.data.cache.PagePreviewCache
 import eu.kanade.tachiyomi.data.export.LibraryExporter
 import eu.kanade.tachiyomi.data.export.LibraryExporter.ExportOptions
 import eu.kanade.tachiyomi.util.system.DeviceUtil
@@ -297,6 +298,10 @@ object SettingsDataScreen : SearchableSettings {
         val chapterCache = remember { Injekt.get<ChapterCache>() }
         var cacheReadableSizeSema by remember { mutableIntStateOf(0) }
         val cacheReadableSize = remember(cacheReadableSizeSema) { chapterCache.readableSize }
+        // RK: adult-source page-preview thumbnail cache
+        val pagePreviewCache = remember { Injekt.get<PagePreviewCache>() }
+        var pagePreviewCacheSizeSema by remember { mutableIntStateOf(0) }
+        val pagePreviewCacheSize = remember(pagePreviewCacheSizeSema) { pagePreviewCache.readableSize }
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_storage_usage),
@@ -334,6 +339,25 @@ object SettingsDataScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = libraryPreferences.autoClearChapterCache,
                     title = stringResource(MR.strings.pref_auto_clear_chapter_cache),
+                ),
+                // RK: clear the adult-source page-preview thumbnail cache
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.pref_clear_page_preview_cache),
+                    subtitle = stringResource(MR.strings.used_cache, pagePreviewCacheSize),
+                    onClick = {
+                        scope.launchNonCancellable {
+                            try {
+                                val deletedFiles = pagePreviewCache.clear()
+                                withUIContext {
+                                    context.toast(context.stringResource(MR.strings.cache_deleted, deletedFiles))
+                                    pagePreviewCacheSizeSema++
+                                }
+                            } catch (e: Throwable) {
+                                logcat(LogPriority.ERROR, e)
+                                withUIContext { context.toast(MR.strings.cache_delete_error) }
+                            }
+                        }
+                    },
                 ),
             ),
         )

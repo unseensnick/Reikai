@@ -353,6 +353,9 @@
     <string name="pref_relative_format_summary">\"%1$s\" instead of \"%2$s\"</string>
     <string name="pref_date_format">Date format</string>
     <string name="pref_display_images_description">Render images in manga descriptions</string>
+    <!-- RK: adult-source gallery page previews -->
+    <string name="pref_previews_row_count">Page preview rows</string>
+    <string name="pref_previews_row_count_summary">Rows of gallery page thumbnails on the details screen for adult sources (0 to hide)</string>
 
     <string name="pref_manage_notifications">Manage notifications</string>
     <string name="pref_app_language">App language</string>
@@ -702,6 +705,8 @@
     <string name="pref_storage_usage">Storage usage</string>
     <string name="available_disk_space_info">Available: %1$s / Total: %2$s</string>
     <string name="pref_clear_chapter_cache">Clear chapter cache</string>
+    <!-- RK: adult-source page-preview thumbnail cache -->
+    <string name="pref_clear_page_preview_cache">Clear page preview cache</string>
     <string name="used_cache">Used: %1$s</string>
     <string name="cache_deleted">Cache cleared, %1$d files deleted</string>
     <string name="cache_delete_error">Error occurred while clearing</string>

@@ -10,6 +10,7 @@ import eu.kanade.domain.extension.interactor.GetExtensionSources
 import eu.kanade.domain.extension.interactor.GetExtensionsByType
 import eu.kanade.domain.extension.interactor.TrustExtension
 import eu.kanade.domain.manga.interactor.GetExcludedScanlators
+import eu.kanade.domain.manga.interactor.GetPagePreviews
 import eu.kanade.domain.manga.interactor.SetExcludedScanlators
 import eu.kanade.domain.manga.interactor.SetMangaViewerFlags
 import eu.kanade.domain.manga.interactor.UpdateManga
@@ -270,6 +271,7 @@ class DomainModule : InjektModule {
         // RK <--
         addSingletonFactory<CategoryRepository> { CategoryRepositoryImpl(get()) }
         addFactory { GetCategories(get()) }
+        addFactory { GetPagePreviews(get(), get()) } // RK: adult-source page previews
         addFactory { ResetCategoryFlags(get(), get()) }
         addFactory { SetDisplayMode(get()) }
         addFactory { SetSortModeForCategory(get(), get()) }

@@ -18,10 +18,12 @@ import eu.kanade.core.util.insertSeparators
 import eu.kanade.domain.chapter.interactor.GetAvailableScanlators
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.domain.manga.interactor.GetExcludedScanlators
+import eu.kanade.domain.manga.interactor.GetPagePreviews
 import eu.kanade.domain.manga.interactor.SetExcludedScanlators
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.manga.model.chaptersFiltered
 import eu.kanade.domain.manga.model.downloadedFilter
+import eu.kanade.domain.manga.model.PagePreview
 import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.domain.track.interactor.RefreshTracks
@@ -39,6 +41,7 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.CatalogueSource
+import eu.kanade.tachiyomi.source.PagePreviewSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.all.EHentai
@@ -169,6 +172,7 @@ class MangaScreenModel(
     private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
     private val uiPreferences: UiPreferences = Injekt.get(),
     private val getFlatMetadataById: GetFlatMetadataById = Injekt.get(),
+    private val getPagePreviews: GetPagePreviews = Injekt.get(),
     // RK <--
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : StateScreenModel<MangaScreenModel.State>(State.Loading) {
@@ -362,10 +366,16 @@ class MangaScreenModel(
             // Show what we have earlier
             // RK: seed the primary source's gallery metadata too; same first-render race as the chips.
             val galleryMetadata = loadGalleryMetadata(mangaId)
+            val source = Injekt.get<SourceManager>().getOrStub(manga.source)
+            // RK: kick off the page-preview fetch for supporting sources before building state.
+            val supportsPagePreview = source.getMainSource<PagePreviewSource>() != null
+            if (supportsPagePreview) {
+                getPagePreviews(manga, source)
+            }
             mutableState.update {
                 State.Success(
                     manga = manga,
-                    source = Injekt.get<SourceManager>().getOrStub(manga.source),
+                    source = source,
                     isFromSource = isFromSource,
                     chapters = chapters,
                     availableScanlators = getAvailableScanlators.await(mangaId),
@@ -377,6 +387,13 @@ class MangaScreenModel(
                     // chip collector fired before State.Success existed)
                     mergeSources = mergeChips,
                     galleryMetadata = galleryMetadata,
+                    // RK: page-preview thumbnails + row count (0 = off) for adult sources.
+                    pagePreviewsState = if (supportsPagePreview) {
+                        PagePreviewState.Loading
+                    } else {
+                        PagePreviewState.Unused
+                    },
+                    previewsRowCount = uiPreferences.previewsRowCount.get(),
                 )
             }
 
@@ -396,6 +413,24 @@ class MangaScreenModel(
             updateSuccessState { it.copy(isRefreshingData = false) }
         }
     }
+
+    // RK --> load the first page of gallery page previews for sources that support it.
+    private fun getPagePreviews(manga: Manga, source: Source) {
+        screenModelScope.launchIO {
+            when (val result = getPagePreviews.await(manga, source, 1)) {
+                is GetPagePreviews.Result.Error -> updateSuccessState {
+                    it.copy(pagePreviewsState = PagePreviewState.Error(result.error))
+                }
+                is GetPagePreviews.Result.Success -> updateSuccessState {
+                    it.copy(pagePreviewsState = PagePreviewState.Success(result.pagePreviews))
+                }
+                GetPagePreviews.Result.Unused -> updateSuccessState {
+                    it.copy(pagePreviewsState = PagePreviewState.Unused)
+                }
+            }
+        }
+    }
+    // RK <--
 
     fun fetchAllFromSource(manualFetch: Boolean = true) {
         screenModelScope.launch {
@@ -1629,6 +1664,9 @@ class MangaScreenModel(
             val hideMissingChapters: Boolean = false,
             // RK: cover-derived theming color (Y11), null when off or not yet extracted.
             val seedColor: Color? = null,
+            // RK: page-preview thumbnails (adult sources) + how many rows to show (0 = off).
+            val pagePreviewsState: PagePreviewState = PagePreviewState.Unused,
+            val previewsRowCount: Int = 0,
         ) : State {
             // RK -->
             // EH/EXH galleries are tags-as-content with no description, so default the info box
@@ -1719,4 +1757,12 @@ sealed class ChapterList {
         val id = chapter.id
         val isDownloaded = downloadState == Download.State.DOWNLOADED
     }
+}
+
+// RK: page-preview thumbnail state for the details screen (adult/EXH sources).
+sealed interface PagePreviewState {
+    data object Unused : PagePreviewState
+    data object Loading : PagePreviewState
+    data class Success(val pagePreviews: List<PagePreview>) : PagePreviewState
+    data class Error(val error: Throwable) : PagePreviewState
 }

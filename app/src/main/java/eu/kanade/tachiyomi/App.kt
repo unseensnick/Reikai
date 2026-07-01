@@ -39,6 +39,8 @@ import eu.kanade.tachiyomi.data.coil.MangaCoverFetcher
 import eu.kanade.tachiyomi.data.coil.MangaCoverKeyer
 import eu.kanade.tachiyomi.data.coil.MangaCoverMetadata
 import eu.kanade.tachiyomi.data.coil.MangaKeyer
+import eu.kanade.tachiyomi.data.coil.PagePreviewFetcher
+import eu.kanade.tachiyomi.data.coil.PagePreviewKeyer
 import eu.kanade.tachiyomi.data.coil.TachiyomiImageDecoder
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.di.AppModule
@@ -242,10 +244,13 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
                 // RK: light-novel cover pipeline (carries the source site as Referer; shares the
                 // network client, so it inherits Cloudflare + FlareSolverr)
                 add(NovelCoverFetcher.Factory(callFactoryLazy))
+                // RK: adult-source gallery page-preview thumbnails
+                add(PagePreviewFetcher.Factory(callFactoryLazy))
                 // Keyer
                 add(MangaCoverKeyer())
                 add(MangaKeyer())
                 add(NovelCoverKeyer()) // RK
+                add(PagePreviewKeyer()) // RK
             }
 
             memoryCache(
