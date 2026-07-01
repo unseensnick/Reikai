@@ -91,7 +91,7 @@ The report goes into the conversation. Do not write it to a file unless the user
 - [other.kt:88](path/to/other.kt:88): ...
 
 ## Upstream / reference equivalent
-- [refs/yokai/.../file.kt:N](refs/yokai/.../file.kt:N): what differs from Reikai's version
+- [design/library-compose/.../file.kt:N](design/library-compose/.../file.kt:N): what differs from Reikai's version
 
 ## Framework / bridge constraints
 - e.g., `createMdc3Theme` does NOT surface `?attr/background`; reading the legacy attr directly is required.
