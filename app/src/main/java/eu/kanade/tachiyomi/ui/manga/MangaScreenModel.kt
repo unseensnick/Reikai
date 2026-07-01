@@ -450,20 +450,43 @@ class MangaScreenModel(
         fetchChapters: Boolean,
     ) {
         val state = successState ?: return
+        // RK: refresh every source in a merged group, not just the primary. A source merged in via
+        //     long-press "add from another source" never fetched at add time, so without this its
+        //     chip stays stale on refresh; each member goes through its own source's fetch (the same
+        //     path Browse uses), populating details, chapters and gallery metadata. Just the primary
+        //     when not merged, so non-grouped entries behave exactly as before.
+        val groupIds = relatedMangaIds.value
         try {
             withUIContext {
-                val update = updateMangaFromRemote(
-                    source = state.source,
-                    manga = state.manga,
-                    fetchDetails = fetchDetails,
-                    fetchChapters = fetchChapters,
-                    manualFetch = manualFetch,
-                )
-                    .getOrThrow()
+                val newChapters = mutableListOf<Chapter>()
+                var firstError: Exception? = null
+                for (id in groupIds) {
+                    val result = if (id == state.manga.id) {
+                        updateMangaFromRemote(
+                            source = state.source,
+                            manga = state.manga,
+                            fetchDetails = fetchDetails,
+                            fetchChapters = fetchChapters,
+                            manualFetch = manualFetch,
+                        )
+                    } else {
+                        updateMangaFromRemote(
+                            manga = getMangaAndChapters.awaitManga(id),
+                            fetchDetails = fetchDetails,
+                            fetchChapters = fetchChapters,
+                            manualFetch = manualFetch,
+                        )
+                    }
+                    result.fold(
+                        onSuccess = { newChapters += it.newChapters },
+                        onFailure = { if (firstError == null && it is Exception) firstError = it },
+                    )
+                }
 
                 if (manualFetch) {
-                    downloadNewChapters(update.newChapters)
+                    downloadNewChapters(newChapters)
                 }
+                firstError?.let { throw it }
             }
         } catch (_: CancellationException) {
             // ignore

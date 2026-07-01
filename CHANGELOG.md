@@ -33,6 +33,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Resuming a partly-downloaded chapter no longer re-downloads finished pages or stalls forever.** An interrupted download used to re-fetch every page it had already saved, pile up duplicate files, and then never register as complete; it now picks up only the missing pages and finishes.
 - **Browsing adult content sources now loads past the first page.** The built-in adult-source browse stopped after the first set of results; it now pages all the way through.
 - **Built-in adult sources show their own icon on library covers.** The sources that ship without an installable extension no longer fall back to a generic icon on a cover's source badge, matching how they already appear in Browse.
+- **Merged galleries update when you refresh from their details.** A source merged into an entry from elsewhere used to stay stale until you reopened it from Browse; refreshing the details now fetches every merged source at once.
 
 ### Other
 
