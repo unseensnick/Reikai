@@ -5,6 +5,7 @@ import com.dokar.quickjs.QuickJs
 import com.dokar.quickjs.binding.asyncFunction
 import com.dokar.quickjs.binding.function
 import java.util.concurrent.Executors
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -25,6 +26,8 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import logcat.LogPriority
+import tachiyomi.core.common.util.system.logcat
 import okhttp3.OkHttpClient
 import tachiyomi.core.common.preference.PreferenceStore
 
@@ -134,7 +137,12 @@ class LnPluginHost(
         val raw = callMethod(pluginId, "parsePage", listOf(JsonPrimitive(novelPath), JsonPrimitive(page)))
         val parsed = JSON.decodeFromJsonElement(SourcePage.serializer(), raw)
         SourceNovel(path = novelPath, chapters = parsed.chapters)
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
+        // A thrown error here reads to the caller as "no more pages" and silently truncates the
+        // chapter list, so at least leave a trace instead of swallowing it blind.
+        logcat(LogPriority.DEBUG, e) { "parsePage failed or unsupported for $pluginId" }
         null
     }
 
@@ -143,6 +151,8 @@ class LnPluginHost(
     suspend fun resolveUrl(pluginId: String, path: String, isNovel: Boolean): String? = try {
         val raw = callMethod(pluginId, "resolveUrl", listOf(JsonPrimitive(path), JsonPrimitive(isNovel)))
         raw.jsonPrimitive.contentOrNull
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         null
     }

@@ -18,6 +18,7 @@ import exh.source.EXH_SOURCE_ID
 import exh.source.ExhPreferences
 import exh.source.isEhBasedManga
 import exh.util.ThrottleManager
+import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.repository.MangaRepository
@@ -64,9 +65,16 @@ class EhFavoritesBackupJob(private val context: Context, workerParams: WorkerPar
                         EHentaiSearchMetadata.galleryToken(manga.url),
                         slot,
                     )
-                }.onFailure { logcat(LogPriority.ERROR, it) { "Failed to back up gallery ${manga.id}" } }
+                }.onFailure {
+                    // runCatching also catches CancellationException; rethrow it so a cancelled job
+                    // stops issuing account writes instead of logging cancellation as a failure.
+                    if (it is CancellationException) throw it
+                    logcat(LogPriority.ERROR, it) { "Failed to back up gallery ${manga.id}" }
+                }
             }
             Result.success()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "E-Hentai favorites backup failed" }
             Result.success()

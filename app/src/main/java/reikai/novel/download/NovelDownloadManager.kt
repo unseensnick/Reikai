@@ -126,7 +126,9 @@ class NovelDownloadManager(private val context: Context) {
      *  so a cold restart drains in the new order. The active drain re-reads the queue each step, so a
      *  reorder takes effect on the next pick and the in-flight chapter is left alone. */
     fun reorderQueue(downloads: List<NovelDownload>) {
-        _queueState.value = downloads
+        // update{} (not value=) so this composes with the active drain's atomic removals instead of
+        // overwriting them, which could otherwise re-add a chapter the drain just completed.
+        _queueState.update { downloads }
         scope.launch { store.replaceAll(downloads) }
         if (downloads.any { it.state == NovelDownload.State.QUEUE }) NovelDownloadJob.start(context)
     }
