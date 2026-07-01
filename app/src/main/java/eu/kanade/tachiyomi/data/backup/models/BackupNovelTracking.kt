@@ -1,4 +1,4 @@
-// RK: novel backup (ROADMAP #9). Net-new Reikai file: novel-track twin of BackupTracking. Uses the
+// RK: novel backup (Roadmap 9). Net-new Reikai file: novel-track twin of BackupTracking. Uses the
 // novel domain types directly (Long ids, Double progress/score).
 package eu.kanade.tachiyomi.data.backup.models
 

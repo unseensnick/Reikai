@@ -1,4 +1,4 @@
-// RK: novel backup (ROADMAP #9). Net-new Reikai file: novel-chapter twin of BackupChapter.
+// RK: novel backup (Roadmap 9). Net-new Reikai file: novel-chapter twin of BackupChapter.
 package eu.kanade.tachiyomi.data.backup.models
 
 import kotlinx.serialization.Serializable

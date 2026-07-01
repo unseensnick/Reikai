@@ -241,7 +241,7 @@ class DomainModule : InjektModule {
         addSingletonFactory { PropagateTrackerLinks(get(), get(), get(), get(), get()) }
         addSingletonFactory { NovelMergeManager(get(), get()) }
         // RK <--
-        // RK --> novel source migration (#7)
+        // RK --> novel source migration (Roadmap 7)
         addFactory { MigrateNovelUseCase(get(), get(), get(), get(), get(), get()) }
         // RK <--
         // RK --> recommendations (engine core)

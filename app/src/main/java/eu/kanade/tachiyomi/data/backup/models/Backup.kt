@@ -12,7 +12,7 @@ data class Backup(
     @ProtoNumber(104) var backupPreferences: List<BackupPreference> = emptyList(),
     @ProtoNumber(105) var backupSourcePreferences: List<BackupSourcePreferences> = emptyList(),
     @ProtoNumber(106) var backupExtensionStores: List<BackupExtensionStore> = emptyList(),
-    // RK: light-novel library (ROADMAP #9). Proto numbers in the 700 range stay clear of Mihon's
+    // RK: light-novel library (Roadmap 9). Proto numbers in the 700 range stay clear of Mihon's
     // (1-106) and Komikku's fork additions (600/610). Merge/unmerge groups carry stable {url,source}
     // refs (see BackupNovelMerge) since the live merge prefs store IDs that change on restore.
     @ProtoNumber(700) var backupNovels: List<BackupNovel> = emptyList(),

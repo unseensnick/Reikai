@@ -1,4 +1,4 @@
-// RK: novel backup (ROADMAP #9). Net-new Reikai file. Novel merge/unmerge groups are stored in
+// RK: novel backup (Roadmap 9). Net-new Reikai file. Novel merge/unmerge groups are stored in
 // preferences as comma-joined novel IDs, which change on restore. So instead of backing up the raw
 // ID strings (the generic preference backup is told to skip them), each group is serialized here as a
 // list of stable {url, source} refs and rebuilt into fresh IDs after the novels are restored.

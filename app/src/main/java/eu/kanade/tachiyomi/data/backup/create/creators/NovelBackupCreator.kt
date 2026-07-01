@@ -1,4 +1,4 @@
-// RK: novel backup (ROADMAP #9). Net-new Reikai file: the light-novel twin of MangaBackupCreator,
+// RK: novel backup (Roadmap 9). Net-new Reikai file: the light-novel twin of MangaBackupCreator,
 // plus the novel categories and the merge/unmerge groups (the latter re-keyed from preference IDs to
 // stable {url, source} refs so they survive restore). Gated by the same BackupOptions toggles as
 // manga (novels are first-class library content, no separate UI toggle).
