@@ -35,12 +35,20 @@ Nothing queued.
 Backlog, unordered. The manga↔novel parity backlog (audit catalog A) is added here as it is triaged.
 
 ### Adult / EXH parity (from the 2026-06-27 audit)
-Reikai ships a lighter slice of Komikku's adult-source subsystem; the items below, plus the parked two-way favorites sync, are the gap to Komikku parity. Candidate **post-release-cut initiative**: widen the EXH port toward Komikku parity so it is on par (while still Reikai's lighter-by-default flavor), since the current trims may read as a dealbreaker to adult-source users. The user-facing scope and the gaps are documented in [docs/adult-sources.md](docs/adult-sources.md) ("What's not here yet").
+Reikai ships a lighter slice of Komikku's adult-source subsystem; the items below, plus the parked two-way favorites sync, are the gap to Komikku parity. User-facing scope and gaps: [docs/adult-sources.md](docs/adult-sources.md) ("What's not here yet").
 
-- **Rich EXH metadata rendering (details surfaces)** `[M]`: port `SourceTagsUtil` plus the two manga-details surfaces that depend on it: namespaced tappable tag chips, and a per-source gallery info block above the description. Presentation only; the `*DescriptionAdapter` composables are live in Komikku, not dead. (The third surface, the EH-specific browse list row, shipped with the adult-source browse parity, B2.)
+- **Rich EXH metadata rendering (details surfaces)** `[M]`: port `SourceTagsUtil` plus the two details surfaces it feeds: namespaced tappable tag chips, and a per-source gallery info block above the description. Presentation only, the metadata models are already populated (the `*DescriptionAdapter` composables are live in Komikku, not dead).
 - **EXH gallery import entry points** `[S]` - **done on `feat/exh-parity`, not yet merged**: `InterceptActivity` (share or open a gallery link to import it) and `BatchAddScreen` (paste many gallery URLs to bulk-import), both driving the `GalleryAdder`; 8Muses import and a fuller add path (title/cover on import) landed alongside. Built-in Pururin source also shipped on that branch.
-- **Fuller GalleryAdder add path** `[S]`: chapter fetch / sync, the retry + NotFound loop, and `pickSource` filtering by enabled languages / disabled sources (our add path is currently trimmed).
-- **EXH gallery-update progress notification** `[S]`: richer content / styling to match Komikku's update-checker notification.
+- **EH add-path per-page throttle** `[S]`: wire EH's per-page `throttleFunc` into the gallery add path so bulk imports rate-limit between page fetches. Low value: the rest of the old "Fuller GalleryAdder" item already shipped, and only the parked favorites bulk-sync exercises the throttle.
+- **EXH gallery-update progress notification** `[S]`: match Komikku's update-checker notification (large icon, BigTextStyle, tap-to-view error log; currently a bare progress bar).
+
+### Recommendations parity (from the 2026-07-01 Komikku audit)
+
+Reikai's carousel ported Komikku's tracker-recs + source-native + keyword baseline and added a taste layer; the audit found untracked gaps in the streams.
+
+- **MangaUpdates similar-titles recommendations** `[S]`: also read MangaUpdates' `category_recommendations` (algorithmic similar titles) bucket, not just the human `recommendations` one, so each manga gets MangaUpdates' full recommendation contribution instead of roughly half. Parse the extra array in the MangaUpdates recommendation DTO/fetcher; no UI change.
+- **Comick source-native recommendations** `[S-M]`: when the current source is Comick-based, feed Comick's own `recommendations` API into the related carousel instead of falling back to keyword + tracker recs. Restore the Comick id set (trimmed as unused during the port) and port Komikku's `ComickPagingSource`. Self-contained, no subsystem dependency.
+- **MangaDex source-native similarity** `[L, gated]`: use MangaDex's `/manga/{id}/related` graph for the carousel when on a MangaDex source. Blocked on porting Komikku's whole `exh/md` subsystem, a `DelegatedHttpSource` wrapping the installed MangaDex extension that adds OAuth login, follows sync, MDList tracker, and the More -> Settings -> MangaDex hub; the similarity call is a small consumer. A future MangaDex-enhanced-source initiative, not a standalone recs fix.
 
 ### Manga ↔ novel parity (from the 2026-06-27 audit)
 
@@ -55,7 +63,7 @@ Ready to build, the infrastructure already exists (good candidates to promote to
 - **Tracker-based merge-group healing for novels** `[S-M]`: port `computeHealing` to `NovelMergeManager` to auto-separate mistaken same-title merges, now that novel tracking provides the keys.
 
 Larger initiatives:
-- **Global novel reader-defaults settings screen** `[M]`: novels expose typography / theme / gestures only inside the per-novel reader sheet; add a `SearchableSettings` novel-reader page the sheet falls back to, and localize its hardcoded labels (which also blocks settings search). The single biggest catalog-A gap and the audit's only high-severity parity item.
+- **Global novel reader-defaults settings screen** `[M]`: novels expose typography / theme / gestures only inside the per-novel reader sheet; add a `SearchableSettings` novel-reader page the sheet falls back to, and localize its hardcoded labels (which also blocks settings search). The biggest catalog-A gap.
 - **Novel library Behaviour settings** `[M]`: novels have no Behaviour surface; add swipe actions (bookmark / mark-read / download) and missing-chapter indicators for the novel library list.
 
 Low-value polish, do opportunistically:
@@ -72,6 +80,7 @@ Low-value polish, do opportunistically:
 
 - **Dedicated LN trackers** (NovelUpdates / MiraiList / Novel Trackr / RanobeDB / Hardcover): not viable as of June 2026 (no sanctioned read+write API for on-device use). Re-check Hardcover only if it leaves beta with OAuth + allowlisting. See [novel-tracking.md](docs/dev/plans/novel-tracking.md).
 - **Novel recommendations / related carousel** (revisit after the 2026-06-27 audit): originally gated on novel trackers, which have since shipped, so the tracker-recs + taste-rerank path is now feasible (drive `RecommendationsFetcher` off `GetNovelTracks`; novels carry the same `trackerId` / `remoteId`). The source-native related path stays infeasible (the LN plugin contract has no `getRelatedMangaList` equivalent). A `[M]` build worth reconsidering if novel recs are wanted; was parked only because trackers were missing.
+- **Batch recommendation search** (parked 2026-07-01, from the Komikku audit): Komikku's `exh/recs/batch/*` lets you multi-select several library titles and get one pooled, occurrence-ranked recommendation list (a throttled background job + progress dialog + results screen). Parked because it largely overlaps Reikai's own taste-profile layer, which already personalizes the carousel automatically from your whole tracked library; an explicit "recommend from exactly these" flow adds little on top for `[M]` of new UI. Revive if manual multi-title discovery is specifically wanted.
 - **Upcoming / release calendar for novels**: LN sources rarely expose a reliable release cadence, so the feed would be mostly empty; the calendar stays manga-only.
 - **Source filtering for novels** (dropped 2026-06-21): per-source browse filters and settings already exist; only a sources-list language filter was missing, low value with so few LN sources.
 - **Novel sources enable/disable filter screen**: novels can disable a source (it dims in the Sources list and drops out of global search, re-enable by long-press), but unlike manga there is no dedicated sources-filter screen to bulk-toggle enable/disable. Add one (reached from the Sources filter icon on the Novels chip) if managing many LN sources gets painful.

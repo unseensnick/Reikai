@@ -42,7 +42,7 @@ When you save an adult-source gallery, its **namespaced tags** (artist, group, p
 
 Those tags feed two things:
 
-- **Library search by tag.** Typing a tag name in library search surfaces every saved gallery carrying it.
+- **Library search by tag.** Type queries like `artist:name`, `parody:*hero*`, or `-language:japanese` to filter your library by its saved tags and alternate titles. Supports namespace aliases, `*`/`?` wildcards, `-` exclusion, `$` exact match, and quoted phrases; plain title search is unchanged.
 - **Gallery info** (below), which lists them.
 
 Tags also ride along in app backups, so restoring a backup brings them straight back without re-opening each gallery.
@@ -76,4 +76,3 @@ This is intentionally one-directional: your library is the source of truth, and 
 Reikai currently ships a lighter slice of Komikku's adult-source subsystem. The notable gaps, any of which may be widened toward Komikku parity in a later release:
 
 - **Two-way favorites sync.** Today's favorites feature is a one-way backup (library → account). Full sync (pull the account's favorites into the library, mirror removals both ways, reconcile conflicts) is not built.
-- **Library tag-search engine.** Library tag search matches recorded tags, but the richer query language (wildcards, exclusions, exact match, namespace aliases) that the browse-side autocomplete understands is not yet available over your saved library.
