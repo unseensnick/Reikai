@@ -18,7 +18,7 @@ Only *missing* trackers are filled in:
 
 ## Merge: shared trackers spread to the group
 
-*Library → long-press to multi-select → tap "Merge selected".*
+*Library → long-press to multi-select → tap "Merge".*
 
 When you merge entries into a group, the same simple sharing runs: each tracker that some members already have is copied onto the other in-library members that are missing it. Existing bindings are never overwritten, and a tracker is skipped if members disagree on which remote entry it points to.
 
@@ -32,7 +32,7 @@ Removing a tracker affects only the source you're viewing. Other sources in the 
 
 ## Split a source out of the group: trackers untouched
 
-*Manage Sources sheet → check a source → "Split selected".*
+*Manage Sources sheet → check a source → "Split".*
 
 Each source ends up with its own copy of the tracker binding, so trackers survive a split. Both the split-off source and the remaining group keep their tracker chips exactly as-is. There's nothing to clean up.
 
@@ -43,9 +43,9 @@ For a merged light novel this is the same: while merged it shares one tracker bi
 Removing an entry from the library, by *any* path, clears its tracker rows. Sources still in the library keep their own trackers.
 
 - *Manage Sources sheet → "Remove from library"*: just the entries you ticked.
-- *Details → heart button → "Remove from library"*: just the entry you're viewing.
-- *Details → heart button → "Remove all sources from library"*: every source in the merged group.
-- *Library multi-select → delete*: every selected entry.
+- *Manage Sources sheet → "Remove all from library"*: every source in the merged group.
+- *Details → heart button*: just the entry you're viewing (no group-wide option here).
+- *Library multi-select → delete*: the selected entries, or every grouped source if you tick **All N grouped sources** in the Remove dialog.
 
 Once an entry isn't in your library, its tracker association is stale, so cleaning it up avoids leaving orphaned rows behind. This cleanup always runs, regardless of the sharing setting below.
 

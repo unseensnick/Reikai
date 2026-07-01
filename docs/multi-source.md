@@ -73,9 +73,9 @@ Split and remove actions show an Undo snackbar, so an accidental tap can be reve
 
 The favorite (heart) button on the manga details screen adds or removes only the one entry you're viewing. It does not offer a group-wide removal.
 
-A library multi-select delete (long-press to multi-select, then delete) removes only the entries you actually selected.
+A library multi-select delete (long-press to multi-select, then delete) removes the entries you selected. When the selection includes a merged cover, the Remove dialog offers an **All N grouped sources** checkbox that widens the delete to every source in the group at once (manga and novels).
 
-To remove an entire merged group in one step, use **Remove all from library** in the Manage sources dialog (above).
+You can also remove an entire merged group from the details screen with **Remove all from library** in the Manage sources dialog (above).
 
 ## Settings
 

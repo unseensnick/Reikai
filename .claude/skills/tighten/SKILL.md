@@ -97,7 +97,7 @@ Do NOT commit. Per `CLAUDE.md`: "NEVER commit changes unless the user explicitly
 - Never widen scope mid-run. If the file in scope references a sibling that also needs tightening, surface it as a follow-up; do not pull it in.
 - Vital info is sacred. If you can't tell whether a sentence is vital, ask the user; do not cut on a hunch.
 - WHY not WHAT, every time. A comment that restates the code is dead weight; a comment that explains why the obvious approach was rejected is gold.
-- Module-boundary KDoc (public APIs of `source/api`, repository interfaces) gets more room than internal helpers. Don't over-trim documentation that serves as the public contract.
+- Module-boundary KDoc (public APIs of `source-api`, repository interfaces) gets more room than internal helpers. Don't over-trim documentation that serves as the public contract.
 - No em dashes in the rewritten prose. Commas, parentheses, periods, colons.
 - No AI watermarks anywhere.
 - One file per Edit call when feasible; do not batch unrelated tightenings.

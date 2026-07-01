@@ -189,8 +189,8 @@ table above).
 
 Novel tables parallel the manga tables: `novels.sq`, `novel_chapters.sq`, `novel_history.sq`,
 `novel_tracks.sq`, `novel_categories.sq`, `novels_categories.sq`. Migrations live in
-`data/src/main/sqldelight/tachiyomi/migrations/`; the highest present migration is `21.sqm`. A new
-table or view must ship its own `.sqm` migration (an existing install does not pick up a new
+`data/src/main/sqldelight/tachiyomi/migrations/` (the numbering climbs over time). A new table or
+view must ship its own `.sqm` migration (an existing install does not pick up a new
 `CREATE TABLE`/`CREATE VIEW` otherwise).
 
 ### DI registration (Injekt `addSingletonFactory`, never Koin)
