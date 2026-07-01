@@ -22,7 +22,11 @@ class NovelDownloadStore(context: Context) {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    private var counter = 0
+    // Seed from the highest persisted order so a new enqueue after a process restart can't reuse
+    // order values that collide with the restored queue (which would make the resume order arbitrary).
+    private var counter = preferences.all.values
+        .mapNotNull { (it as? String)?.let(::deserialize)?.order }
+        .maxOrNull()?.plus(1) ?: 0
 
     val isEmpty: Boolean get() = preferences.all.isEmpty()
 

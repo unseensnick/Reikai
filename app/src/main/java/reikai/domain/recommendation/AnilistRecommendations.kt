@@ -81,9 +81,11 @@ class AnilistRecommendations(
         mapNotNull { it.node?.mediaRecommendation }
             .mapNotNull { rec ->
                 val url = rec.siteUrl ?: return@mapNotNull null
+                // Drop a recommendation with no usable title rather than surface a placeholder card.
+                val title = rec.pickTitle() ?: return@mapNotNull null
                 candidate(
                     url = url,
-                    title = rec.pickTitle(),
+                    title = title,
                     thumbnailUrl = rec.coverImage?.large,
                     remoteId = rec.id,
                     altTitles = rec.altTitles(),
@@ -100,7 +102,7 @@ class AnilistRecommendations(
             english?.contains(query, ignoreCase = true) == true ||
             native?.contains(query, ignoreCase = true) == true
 
-    private fun ALRecsMediaRecommendation.pickTitle(): String {
+    private fun ALRecsMediaRecommendation.pickTitle(): String? {
         val english = title?.english
         val romaji = title?.romaji
         val native = title?.native
@@ -112,7 +114,7 @@ class AnilistRecommendations(
             isJp && !romaji.isNullOrBlank() -> romaji
             !synonym.isNullOrBlank() -> synonym
             !isJp && !romaji.isNullOrBlank() -> romaji
-            else -> native ?: "NO NAME FOUND"
+            else -> native?.takeIf { it.isNotBlank() }
         }
     }
 

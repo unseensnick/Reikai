@@ -13,9 +13,12 @@ import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.notify
 import eu.kanade.tachiyomi.util.system.workManager
+import kotlinx.coroutines.CancellationException
+import logcat.LogPriority
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.update.LnPluginUpdateChecker
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -57,7 +60,12 @@ class LnPluginUpdateJob(
                 }
             }
             Result.success()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
+            // Log before retrying so a permanent failure (e.g. a malformed registry) leaves a trail
+            // instead of retrying invisibly on WorkManager backoff forever.
+            logcat(LogPriority.ERROR, e) { "LN plugin update check failed" }
             Result.retry()
         }
     }

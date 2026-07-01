@@ -25,16 +25,6 @@ class RelatedMangaCache {
 
     private val entries = ConcurrentHashMap<Long, Entry>()
 
-    // Unified merged-group pools, keyed by anchor manga id. Namespaced separately so a group's
-    // pooled carousel doesn't collide with that same anchor manga's own single-source entry.
-    private val pooledEntries = ConcurrentHashMap<Long, Entry>()
-
-    // Per-source chip-view pools for a merged title, keyed by that source's manga id. Namespaced
-    // apart from `entries` (which fetches trackers live) because a chip view replays the unified
-    // view's tracker seeds rather than refetching; caching here stops every chip switch from
-    // re-running the source's rate-limited related-mangas fetch.
-    private val sourceEntries = ConcurrentHashMap<Long, Entry>()
-
     fun get(mangaId: Long): Entry? = entries[mangaId]
 
     fun put(
@@ -44,18 +34,6 @@ class RelatedMangaCache {
         isComplete: Boolean = true,
     ) {
         entries[mangaId] = Entry(carousel, fullPool, System.currentTimeMillis(), isComplete)
-    }
-
-    fun getPooled(anchorId: Long): Entry? = pooledEntries[anchorId]
-
-    fun putPooled(anchorId: Long, carousel: List<RelatedMangaCandidate>, fullPool: List<RelatedMangaCandidate>) {
-        pooledEntries[anchorId] = Entry(carousel, fullPool, System.currentTimeMillis())
-    }
-
-    fun getSource(mangaId: Long): Entry? = sourceEntries[mangaId]
-
-    fun putSource(mangaId: Long, carousel: List<RelatedMangaCandidate>, fullPool: List<RelatedMangaCandidate>) {
-        sourceEntries[mangaId] = Entry(carousel, fullPool, System.currentTimeMillis())
     }
 
     /** True while [entry] is within the freshness window and can be served without a refresh. */
