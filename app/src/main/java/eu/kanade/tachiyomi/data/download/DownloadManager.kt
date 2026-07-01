@@ -62,6 +62,10 @@ class DownloadManager(
     fun downloaderStart() = downloader.start()
     fun downloaderStop(reason: String? = null) = downloader.stop(reason)
 
+    // RK: lets DownloadJob wait for the startup queue restore before resuming, so downloads that
+    // were active when the app was killed aren't left stuck in the queue on the next launch.
+    suspend fun awaitQueueRestored() = downloader.awaitQueueRestored()
+
     val isDownloaderRunning
         get() = DownloadJob.isRunningFlow(context)
 
