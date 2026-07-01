@@ -136,6 +136,11 @@
         <item quantity="one">%1$d update failed</item>
         <item quantity="other">%1$d updates failed</item>
     </plurals>
+    <!-- RK: opt-in on the library Remove dialog to remove every source in a merged group -->
+    <plurals name="action_remove_grouped_sources">
+        <item quantity="one">All %1$d grouped source</item>
+        <item quantity="other">All %1$d grouped sources</item>
+    </plurals>
     <!-- RK: relative-time strings for the E-Hentai updater statistics (Batch D, ported from Komikku) -->
     <plurals name="humanize_year">
         <item quantity="one">%1$d year ago</item>

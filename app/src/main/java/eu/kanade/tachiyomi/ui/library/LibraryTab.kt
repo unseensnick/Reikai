@@ -685,9 +685,11 @@ data object LibraryTab : Tab {
             is LibraryScreenModel.Dialog.DeleteManga -> {
                 DeleteLibraryMangaDialog(
                     containsLocalManga = dialog.manga.any(Manga::isLocal),
+                    // RK: offer removing every grouped source when a merged cover is selected
+                    groupedSourceCount = dialog.groupedSourceCount,
                     onDismissRequest = onDismissRequest,
-                    onConfirm = { deleteManga, deleteChapter ->
-                        screenModel.removeMangas(dialog.manga, deleteManga, deleteChapter)
+                    onConfirm = { deleteManga, deleteChapter, removeGrouped ->
+                        screenModel.removeMangas(dialog.manga, deleteManga, deleteChapter, removeGrouped)
                         screenModel.clearSelection()
                     },
                 )
@@ -713,9 +715,11 @@ data object LibraryTab : Tab {
             is NovelLibraryScreenModel.Dialog.Delete -> {
                 DeleteLibraryMangaDialog(
                     containsLocalManga = false,
+                    // RK: offer removing every grouped source when a merged novel cover is selected
+                    groupedSourceCount = novelDialog.groupedSourceCount,
                     onDismissRequest = novelModel::dismissDialog,
-                    onConfirm = { deleteFromLibrary, deleteDownloads ->
-                        novelModel.removeNovels(novelDialog.novelIds, deleteFromLibrary, deleteDownloads)
+                    onConfirm = { deleteFromLibrary, deleteDownloads, removeGrouped ->
+                        novelModel.removeNovels(novelDialog.novelIds, deleteFromLibrary, deleteDownloads, removeGrouped)
                     },
                 )
             }

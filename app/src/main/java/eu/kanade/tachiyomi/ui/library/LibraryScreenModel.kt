@@ -76,6 +76,7 @@ import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.model.sort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetLibraryManga
+import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.GetSearchTags
 import tachiyomi.domain.manga.interactor.GetSearchTitles
 import tachiyomi.domain.manga.model.Manga
@@ -93,6 +94,8 @@ import kotlin.time.Duration.Companion.seconds
 
 class LibraryScreenModel(
     private val getLibraryManga: GetLibraryManga = Injekt.get(),
+    // RK: resolve merged-away group members by id for the "remove all grouped sources" delete option
+    private val getManga: GetManga = Injekt.get(),
     private val getCategories: GetCategories = Injekt.get(),
     // RK: gallery tags + alt-titles for the library tag-search engine
     private val getSearchTags: GetSearchTags = Injekt.get(),
@@ -901,10 +904,28 @@ class LibraryScreenModel(
      * @param deleteFromLibrary whether to delete manga from library.
      * @param deleteChapters whether to delete downloaded chapters.
      */
-    fun removeMangas(mangas: List<Manga>, deleteFromLibrary: Boolean, deleteChapters: Boolean) {
+    fun removeMangas(
+        mangas: List<Manga>,
+        deleteFromLibrary: Boolean,
+        deleteChapters: Boolean,
+        // RK: expand merged covers to every grouped source, so the whole series leaves the library
+        //     instead of just the primary. Scopes both the library removal and the download deletion.
+        removeGroupedSources: Boolean = false,
+    ) {
+        // RK: capture the group member ids now, on the caller thread. LibraryTab clears the selection
+        //     right after this returns, so reading selectedMemberIds inside the coroutine would race
+        //     it and come back empty.
+        val memberIds = if (removeGroupedSources) state.value.selectedMemberIds else emptyList()
         screenModelScope.launchNonCancellable {
+            // RK: the merged-away group members are collapsed out of the library state, so resolve
+            //     them from the DB by id; falls back to the passed-in mangas when not expanding.
+            val targets = if (removeGroupedSources) {
+                memberIds.mapNotNull { getManga.await(it) }
+            } else {
+                mangas
+            }
             if (deleteFromLibrary) {
-                val toDelete = mangas.map {
+                val toDelete = targets.map {
                     it.removeCovers(coverCache)
                     MangaUpdate(
                         favorite = false,
@@ -915,7 +936,7 @@ class LibraryScreenModel(
             }
 
             if (deleteChapters) {
-                mangas.forEach { manga ->
+                targets.forEach { manga ->
                     val source = sourceManager.get(manga.source) as? HttpSource
                     if (source != null) {
                         downloadManager.deleteManga(manga, source)
@@ -1113,7 +1134,10 @@ class LibraryScreenModel(
     }
 
     fun openDeleteMangaDialog() {
-        mutableState.update { it.copy(dialog = Dialog.DeleteManga(state.value.selectedManga)) }
+        val current = state.value
+        // RK: N grouped sources to offer removing, when the selection includes a merged cover (else 0).
+        val groupedCount = if (current.selectionContainsMerged) current.selectedMemberIds.size else 0
+        mutableState.update { it.copy(dialog = Dialog.DeleteManga(current.selectedManga, groupedCount)) }
     }
 
     fun closeDialog() {
@@ -1127,7 +1151,8 @@ class LibraryScreenModel(
             val manga: List<Manga>,
             val initialSelection: List<CheckboxState<Category>>,
         ) : Dialog
-        data class DeleteManga(val manga: List<Manga>) : Dialog
+        // RK: groupedSourceCount = N grouped sources behind the selection (0 = none merged, no extra option)
+        data class DeleteManga(val manga: List<Manga>, val groupedSourceCount: Int = 0) : Dialog
     }
 
     @Immutable
@@ -1213,6 +1238,17 @@ class LibraryScreenModel(
         // RK: any selected manga is part of a merge group (drives the bulk Unmerge action)
         val selectionContainsMerged: Boolean by lazy {
             selection.any { (libraryData.favoritesById[it]?.relatedMangaIds?.size ?: 0) > 1 }
+        }
+
+        // RK: ids of every grouped source-manga behind the current selection. A merged cover is a
+        //     single selected id standing for its whole group (LibraryItem.relatedMangaIds); the
+        //     merged-away members are collapsed out of favoritesById, so we keep their ids here and
+        //     resolve the manga from the DB at delete time. Equals the selection when nothing merged.
+        val selectedMemberIds: List<Long> by lazy {
+            selection.flatMap { id ->
+                val item = libraryData.favoritesById[id] ?: return@flatMap emptyList<Long>()
+                item.relatedMangaIds.ifEmpty { listOf(id) }
+            }.distinct()
         }
 
         fun getItemsForCategoryId(categoryId: Long?): List<LibraryItem> {

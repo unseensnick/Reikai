@@ -13,13 +13,17 @@ import dev.icerock.moko.resources.StringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.LabeledCheckbox
+import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 
 @Composable
 fun DeleteLibraryMangaDialog(
     containsLocalManga: Boolean,
+    // RK: total grouped sources behind the selection when it contains a merged cover (else 0). When
+    //     set, an opt-in checkbox widens the removal from the primary to all N grouped sources.
+    groupedSourceCount: Int = 0,
     onDismissRequest: () -> Unit,
-    onConfirm: (Boolean, Boolean) -> Unit,
+    onConfirm: (Boolean, Boolean, Boolean) -> Unit,
 ) {
     var list by remember {
         mutableStateOf(
@@ -31,6 +35,9 @@ fun DeleteLibraryMangaDialog(
             },
         )
     }
+    // RK: opt-in to apply the removal to every source in a merged group, not just the primary cover
+    var removeGrouped by remember { mutableStateOf(false) }
+    val showGroupedOption = groupedSourceCount > 0
     AlertDialog(
         onDismissRequest = onDismissRequest,
         dismissButton = {
@@ -46,6 +53,7 @@ fun DeleteLibraryMangaDialog(
                     onConfirm(
                         list[0].isChecked,
                         list.getOrElse(1) { CheckboxState.State.None(0) }.isChecked,
+                        showGroupedOption && removeGrouped,
                     )
                 },
             ) {
@@ -71,6 +79,19 @@ fun DeleteLibraryMangaDialog(
                         },
                     )
                 }
+                // RK -->
+                if (showGroupedOption) {
+                    LabeledCheckbox(
+                        label = pluralStringResource(
+                            MR.plurals.action_remove_grouped_sources,
+                            groupedSourceCount,
+                            groupedSourceCount,
+                        ),
+                        checked = removeGrouped,
+                        onCheckedChange = { removeGrouped = it },
+                    )
+                }
+                // RK <--
             }
         },
     )

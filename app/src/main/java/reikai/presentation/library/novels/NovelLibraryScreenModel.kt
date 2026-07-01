@@ -561,12 +561,22 @@ class NovelLibraryScreenModel :
     }
 
     fun openDeleteDialog() {
-        mutableDialog.value = Dialog.Delete(state.value.selectedNovelIds)
+        val current = state.value
+        // N grouped sources to offer removing, when the selection includes a merged cover (else 0).
+        val groupedCount = if (current.selectionContainsMerged) current.selectedNovelIdsExpanded.size else 0
+        mutableDialog.value = Dialog.Delete(current.selectedNovelIds, groupedCount)
     }
 
-    fun removeNovels(novelIds: List<Long>, deleteFromLibrary: Boolean, deleteDownloads: Boolean) {
+    fun removeNovels(
+        novelIds: List<Long>,
+        deleteFromLibrary: Boolean,
+        deleteDownloads: Boolean,
+        // Expand merged covers to every grouped source, so the whole series leaves the library.
+        removeGroupedSources: Boolean = false,
+    ) {
         screenModelScope.launchIO {
-            novelIds.forEach { novelId ->
+            val targets = if (removeGroupedSources) state.value.selectedNovelIdsExpanded else novelIds
+            targets.forEach { novelId ->
                 if (deleteFromLibrary) {
                     updateNovel.awaitUpdateFavorite(novelId, favorite = false)
                 }
@@ -749,7 +759,8 @@ class NovelLibraryScreenModel :
 
     sealed interface Dialog {
         data class ChangeCategory(val novelIds: List<Long>, val preselected: List<CheckboxState<Category>>) : Dialog
-        data class Delete(val novelIds: List<Long>) : Dialog
+        // groupedSourceCount = N grouped sources behind the selection (0 = none merged, no extra option)
+        data class Delete(val novelIds: List<Long>, val groupedSourceCount: Int = 0) : Dialog
         data class Settings(val categoryId: Long, val initialTab: Int) : Dialog
     }
 
@@ -789,6 +800,16 @@ class NovelLibraryScreenModel :
         /** Any selected entry is a merge group (drives the bulk Unmerge action). */
         val selectionContainsMerged: Boolean by lazy {
             selection.any { (favoritesById[it]?.relatedMangaIds?.size ?: 0) > 1 }
+        }
+
+        /** Every grouped source-novel behind the selection, as real novel ids. A merged cover is one
+         *  selected synthetic id standing for its whole group (relatedMangaIds, in synthetic ids);
+         *  this expands each to all members. Equals selectedNovelIds when nothing is merged. */
+        val selectedNovelIdsExpanded: List<Long> by lazy {
+            selection.flatMap { id ->
+                val item = favoritesById[id] ?: return@flatMap emptyList<Long>()
+                item.relatedMangaIds.ifEmpty { listOf(id) }
+            }.distinct().map { -it }
         }
 
         fun getItemsForCategory(category: Category): List<LibraryItem> =
