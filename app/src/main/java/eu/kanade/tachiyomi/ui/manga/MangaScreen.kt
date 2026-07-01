@@ -197,6 +197,14 @@ class MangaScreen(
                         ),
                     )
                 }.takeIf { successState.source.getMainSource<MetadataSource<*, *>>() != null },
+                // RK: tap a page-preview thumbnail -> open the reader at that page
+                onOpenPagePreview = { page ->
+                    openPagePreview(
+                        context,
+                        successState.chapters.minByOrNull { it.chapter.sourceOrder }?.chapter,
+                        page,
+                    )
+                },
                 // RK: source-switcher chips
                 onSelectSource = screenModel::selectSource,
                 onSplitSource = { screenModel.splitSources(listOf(it)) },
@@ -370,6 +378,12 @@ class MangaScreen(
 
     private fun openChapter(context: Context, chapter: Chapter) {
         context.startActivity(ReaderActivity.newIntent(context, chapter.mangaId, chapter.id))
+    }
+
+    // RK: open the reader at a specific page from a gallery page preview.
+    private fun openPagePreview(context: Context, chapter: Chapter?, page: Int) {
+        chapter ?: return
+        context.startActivity(ReaderActivity.newIntent(context, chapter.mangaId, chapter.id, page))
     }
 
     private fun getMangaUrl(manga_: Manga?, source_: Source?): String? {

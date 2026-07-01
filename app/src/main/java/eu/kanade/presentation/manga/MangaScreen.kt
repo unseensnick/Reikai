@@ -53,6 +53,7 @@ import eu.kanade.presentation.manga.components.ChapterHeader
 import eu.kanade.presentation.manga.components.ExpandableMangaDescription
 import eu.kanade.presentation.manga.components.GalleryInfoBox // RK
 import eu.kanade.presentation.manga.components.MangaActionRow
+import eu.kanade.presentation.manga.components.PagePreviews // RK
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.manga.components.MangaChapterListItem
 import eu.kanade.presentation.manga.components.MangaInfoBox
@@ -67,6 +68,7 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.ui.manga.ChapterList
 import eu.kanade.tachiyomi.ui.manga.MangaScreenModel
+import eu.kanade.tachiyomi.ui.manga.PagePreviewState // RK
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.service.missingChaptersCount
@@ -121,6 +123,8 @@ fun MangaScreen(
     onManageSourcesClicked: (() -> Unit)? = null,
     // RK: opens the gallery metadata viewer (adult/metadata sources only)
     onMetadataViewerClicked: (() -> Unit)? = null,
+    // RK: tap a page-preview thumbnail -> open the reader at that page
+    onOpenPagePreview: (Int) -> Unit = {},
     onSelectSource: (Long?) -> Unit = {},
     onSplitSource: (Long) -> Unit = {},
     // RK: related-mangas carousel card tap
@@ -178,6 +182,7 @@ fun MangaScreen(
             onEditNotesClicked = onEditNotesClicked,
             onManageSourcesClicked = onManageSourcesClicked,
             onMetadataViewerClicked = onMetadataViewerClicked,
+            onOpenPagePreview = onOpenPagePreview,
             onSelectSource = onSelectSource,
             onSplitSource = onSplitSource,
             onRelatedClick = onRelatedClick,
@@ -220,6 +225,7 @@ fun MangaScreen(
             onEditNotesClicked = onEditNotesClicked,
             onManageSourcesClicked = onManageSourcesClicked,
             onMetadataViewerClicked = onMetadataViewerClicked,
+            onOpenPagePreview = onOpenPagePreview,
             onSelectSource = onSelectSource,
             onSplitSource = onSplitSource,
             onRelatedClick = onRelatedClick,
@@ -274,6 +280,8 @@ private fun MangaScreenSmallImpl(
     onManageSourcesClicked: (() -> Unit)? = null,
     // RK: opens the gallery metadata viewer (adult/metadata sources only)
     onMetadataViewerClicked: (() -> Unit)? = null,
+    // RK: tap a page-preview thumbnail -> open the reader at that page
+    onOpenPagePreview: (Int) -> Unit = {},
     onSelectSource: (Long?) -> Unit = {},
     onSplitSource: (Long) -> Unit = {},
     // RK: related-mangas carousel card tap
@@ -483,6 +491,17 @@ private fun MangaScreenSmallImpl(
                         )
                     }
 
+                    // RK: page-preview thumbnails for adult sources (0 rows = off)
+                    if (state.pagePreviewsState !is PagePreviewState.Unused && state.previewsRowCount > 0) {
+                        item(key = "rk-page-previews") {
+                            PagePreviews(
+                                pagePreviewState = state.pagePreviewsState,
+                                onOpenPage = onOpenPagePreview,
+                                rowCount = state.previewsRowCount,
+                            )
+                        }
+                    }
+
                     // RK: source-switcher chips for a merged group
                     if (state.mergeSources.size > 1) {
                         item(key = "rk-merge-source-chips") {
@@ -577,6 +596,8 @@ fun MangaScreenLargeImpl(
     onManageSourcesClicked: (() -> Unit)? = null,
     // RK: opens the gallery metadata viewer (adult/metadata sources only)
     onMetadataViewerClicked: (() -> Unit)? = null,
+    // RK: tap a page-preview thumbnail -> open the reader at that page
+    onOpenPagePreview: (Int) -> Unit = {},
     onSelectSource: (Long?) -> Unit = {},
     onSplitSource: (Long) -> Unit = {},
     // RK: related-mangas carousel card tap
@@ -761,6 +782,14 @@ fun MangaScreenLargeImpl(
                                 state.manga.genre,
                             ),
                         )
+                        // RK: page-preview thumbnails for adult sources (0 rows = off)
+                        if (state.pagePreviewsState !is PagePreviewState.Unused && state.previewsRowCount > 0) {
+                            PagePreviews(
+                                pagePreviewState = state.pagePreviewsState,
+                                onOpenPage = onOpenPagePreview,
+                                rowCount = state.previewsRowCount,
+                            )
+                        }
                     }
                 },
                 endContent = {

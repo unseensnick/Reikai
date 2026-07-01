@@ -45,6 +45,9 @@ class UiPreferences(
         preferenceStore.getEnum("pref_theme_cover_based_style_key", PaletteStyle.Vibrant)
 
     val coverVibrantColors: Preference<Set<String>> = preferenceStore.getStringSet("cover_vibrant_colors", emptySet())
+
+    // How many rows of adult-source page-preview thumbnails to show on details (0 = off).
+    val previewsRowCount: Preference<Int> = preferenceStore.getInt("pref_previews_row_count", 4)
     // RK <--
 
     companion object {

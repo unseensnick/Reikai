@@ -116,10 +116,13 @@ import androidx.compose.ui.graphics.Color as ComposeColor
 class ReaderActivity : BaseActivity() {
 
     companion object {
-        fun newIntent(context: Context, mangaId: Long?, chapterId: Long?): Intent {
+        // RK: optional page param jumps the reader to a specific page (gallery page previews);
+        // the ViewModel reads it from the "page_index" extra. Null keeps Mihon's default behavior.
+        fun newIntent(context: Context, mangaId: Long?, chapterId: Long?, page: Int? = null): Intent {
             return Intent(context, ReaderActivity::class.java).apply {
                 putExtra("manga", mangaId)
                 putExtra("chapter", chapterId)
+                if (page != null) putExtra("page_index", page)
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
         }
