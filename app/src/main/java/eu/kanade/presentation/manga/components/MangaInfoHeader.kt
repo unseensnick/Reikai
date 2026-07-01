@@ -253,6 +253,11 @@ fun ExpandableMangaDescription(
     onTagSearch: (String) -> Unit,
     onCopyTagToClipboard: (tag: String) -> Unit,
     onEditNotes: () -> Unit,
+    // RK: global search across sources for the tapped tag (Komikku's tag menu); null hides the item
+    //     for callers with no cross-source global search from a tag (e.g. novels).
+    onGlobalSearch: ((String) -> Unit)? = null,
+    // RK: namespaced, color-weighted tag chips for adult-gallery metadata sources; null = flat genre tags.
+    searchMetadataChips: SearchMetadataChips? = null,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
@@ -294,6 +299,17 @@ fun ExpandableMangaDescription(
                             showMenu = false
                         },
                     )
+                    // RK: global search across sources for the tag (Komikku parity); shown only when
+                    // the caller supplies a global-search action.
+                    if (onGlobalSearch != null) {
+                        DropdownMenuItem(
+                            text = { Text(text = stringResource(MR.strings.action_global_search)) },
+                            onClick = {
+                                onGlobalSearch(tagSelected)
+                                showMenu = false
+                            },
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text(text = stringResource(MR.strings.action_copy_to_clipboard)) },
                         onClick = {
@@ -303,21 +319,34 @@ fun ExpandableMangaDescription(
                     )
                 }
                 if (expanded) {
-                    FlowRow(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
-                    ) {
-                        tags.forEach {
-                            TagsChip(
-                                modifier = DefaultTagChipModifier,
-                                text = it,
-                                onClick = {
-                                    tagSelected = it
-                                    showMenu = true
-                                },
-                            )
+                    // RK --> namespaced, color-weighted chips for adult-gallery metadata; tapping one
+                    // reuses the same search/copy dropdown as the flat tags. Falls back when absent.
+                    if (searchMetadataChips != null) {
+                        NamespaceTags(
+                            tags = searchMetadataChips,
+                            onClick = {
+                                tagSelected = it
+                                showMenu = true
+                            },
+                        )
+                    } else {
+                        // RK <--
+                        FlowRow(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
+                        ) {
+                            tags.forEach {
+                                TagsChip(
+                                    modifier = DefaultTagChipModifier,
+                                    text = it,
+                                    onClick = {
+                                        tagSelected = it
+                                        showMenu = true
+                                    },
+                                )
+                            }
                         }
-                    }
+                    } // RK: end flat-tags fallback
                 } else {
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = MaterialTheme.padding.medium),
