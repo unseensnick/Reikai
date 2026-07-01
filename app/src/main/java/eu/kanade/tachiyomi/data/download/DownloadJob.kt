@@ -58,6 +58,9 @@ class DownloadJob(context: Context, workerParams: WorkerParameters) : CoroutineW
             applicationContext.activeNetworkState(),
             downloadPreferences.downloadOnlyOverWifi.get(),
         )
+        // RK: wait for the persisted queue to finish restoring so a resume after a force-kill sees
+        // the pending downloads instead of an empty queue and gives up (leaving them stuck).
+        downloadManager.awaitQueueRestored()
         var active = networkCheck && downloadManager.downloaderStart()
 
         if (!active) {

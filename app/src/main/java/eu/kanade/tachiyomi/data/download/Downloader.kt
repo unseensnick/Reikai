@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.storage.DiskUtil.NOMEDIA_FILE
 import eu.kanade.tachiyomi.util.storage.saveTo
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -111,12 +112,24 @@ class Downloader(
     @Volatile
     var isPaused: Boolean = false
 
+    // RK: completes once the persisted queue has been restored on startup. A resume triggered by
+    // WorkManager after a force-kill awaits this, so it doesn't check the still-empty queue before
+    // the async restore lands and give up, which left downloads stuck in QUEUE but not running.
+    private val queueRestored = CompletableDeferred<Unit>()
+
     init {
         launchNow {
-            val chapters = async { store.restore() }
-            addAllToQueue(chapters.await())
+            try {
+                val chapters = async { store.restore() }
+                addAllToQueue(chapters.await())
+            } finally {
+                queueRestored.complete(Unit)
+            }
         }
     }
+
+    // RK: suspends until the startup queue restore has finished.
+    suspend fun awaitQueueRestored() = queueRestored.await()
 
     /**
      * Starts the downloader. It doesn't do anything if it's already running or there isn't anything
@@ -438,10 +451,14 @@ class Downloader(
         val filename = "%0${digitCount}d".format(Locale.ENGLISH, page.number)
 
         // Try to find the image file
+        // RK: don't shadow `filename` (the page's expected prefix) with the candidate file's own
+        // name. Upstream reuses `filename` here, so the check reads name.startsWith(name + ".") and
+        // never matches, meaning every resume re-downloads already-finished pages and the collision
+        // rename produces "001 (1).webp" duplicates that then break the completion count.
         val imageFile = tmpDir.listFiles()?.firstOrNull {
-            val filename = it.name
-            if (filename == null || filename.endsWith(".tmp")) return@firstOrNull false
-            filename.startsWith("$filename.") || filename.startsWith("${filename}__001")
+            val existing = it.name
+            if (existing == null || existing.endsWith(".tmp")) return@firstOrNull false
+            existing.startsWith("$filename.") || existing.startsWith("${filename}__001")
         }
 
         try {
