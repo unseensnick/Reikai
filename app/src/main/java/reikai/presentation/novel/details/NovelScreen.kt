@@ -1,6 +1,7 @@
 package reikai.presentation.novel.details
 
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
@@ -100,6 +101,8 @@ class NovelScreen(
                 topBar = { AppBar(title = null, navigateUp = navigator::pop, scrollBehavior = it) },
             ) { padding -> EmptyScreen(message = s.message, modifier = Modifier.padding(padding)) }
             is NovelDetailsState.Loaded -> TachiyomiTheme(seedColor = s.seedColor) {
+                // Back clears an active chapter selection before popping the screen (mirrors MangaScreen).
+                BackHandler(enabled = s.selectionMode) { screenModel.clearSelection() }
                 val onWebView: () -> Unit = {
                     s.novelWebUrl?.takeIf { it.isNotBlank() }?.let { url ->
                         navigator.push(WebViewScreen(url = url, initialTitle = s.sourceName, sourceId = null))
