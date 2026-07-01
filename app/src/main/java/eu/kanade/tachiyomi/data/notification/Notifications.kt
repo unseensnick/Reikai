@@ -41,6 +41,7 @@ object Notifications {
     // RK: E-Hentai favorited-gallery update checker, grouped with the library updater.
     const val CHANNEL_LIBRARY_EHENTAI = "library_ehentai_channel"
     const val ID_EHENTAI_PROGRESS = -106
+    const val ID_EHENTAI_ERROR = -107
 
     /**
      * Notification channel and ids used by the downloader.

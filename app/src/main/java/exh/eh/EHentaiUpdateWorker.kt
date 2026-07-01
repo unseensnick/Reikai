@@ -21,6 +21,8 @@ import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.tachiyomi.data.library.LibraryUpdateNotifier
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.source.online.all.EHentai
+import eu.kanade.tachiyomi.util.storage.getUriCompat
+import eu.kanade.tachiyomi.util.system.createFileInCacheDir
 import eu.kanade.tachiyomi.util.system.isConnectedToWifi
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
@@ -46,6 +48,7 @@ import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
+import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.days
 
@@ -121,6 +124,7 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
         var failuresThisIteration = 0
         var updatedThisIteration = 0
         val updatedManga = mutableListOf<Pair<Manga, Array<Chapter>>>()
+        val failedUpdates = mutableListOf<Pair<Manga, String?>>()
         val modifiedThisIteration = mutableSetOf<Long>()
 
         try {
@@ -147,6 +151,7 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
                 } catch (e: GalleryNotUpdatedException) {
                     if (e.network) {
                         failuresThisIteration++
+                        failedUpdates += manga to (e.cause?.message ?: e.message)
                         logcat(LogPriority.ERROR, e) { "Network error while updating EHentai gallery ${manga.id}" }
                     }
                     continue
@@ -188,7 +193,32 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
             if (updatedManga.isNotEmpty()) {
                 libraryUpdateNotifier.showUpdateNotifications(updatedManga)
             }
+            if (failedUpdates.isNotEmpty()) {
+                val errorFile = writeErrorFile(failedUpdates)
+                updateNotifier.showUpdateErrorNotification(failedUpdates.size, errorFile.getUriCompat(context))
+            }
         }
+    }
+
+    /**
+     * Dumps the galleries that failed to update into a cache file, one line per gallery grouped by
+     * error, so the error notification can open a readable log (mirrors LibraryUpdateJob's format).
+     */
+    private fun writeErrorFile(errors: List<Pair<Manga, String?>>): File {
+        try {
+            if (errors.isNotEmpty()) {
+                val file = context.createFileInCacheDir("reikai_ehentai_update_errors.txt")
+                file.bufferedWriter().use { out ->
+                    errors.groupBy({ it.second }, { it.first }).forEach { (error, mangas) ->
+                        out.write("! $error\n")
+                        mangas.forEach { out.write("  - ${it.title}\n") }
+                        out.write("\n")
+                    }
+                }
+                return file
+            }
+        } catch (_: Exception) {}
+        return File("")
     }
 
     private suspend fun updateEntryAndGetChapters(manga: Manga): Pair<List<Chapter>, List<Chapter>> {
