@@ -29,6 +29,10 @@ skills-lock.json
 # Session handoff (local, transient)
 Handoff.md
 
+# Audit reports: local snapshots; only the folder's README is tracked (see docs/dev/audits/README.md)
+docs/dev/audits/*
+!docs/dev/audits/README.md
+
 # README showcase: local scratch + regenerated intermediates (the reproducible kit lives in
 # .github/readme-images/showcase/ ; see docs/dev/readme-showcase.md)
 .github/readme-images/_capture/

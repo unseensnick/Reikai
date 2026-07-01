@@ -20,16 +20,20 @@ Check `README.md` and `docs/*.md` for stale references when behavior or fork-spe
 
 Two artifacts hold the forward plan. Keep them separate: the roadmap is the terse what-and-when; the plan docs are the how-and-why.
 
-### `ROADMAP.md` (tracked, the single backlog)
+### `ROADMAP.md` (tracked, the single forward backlog)
 
-Forward-looking only. Structure, top to bottom:
+**Forward-looking only.** It holds what is *left* to build, never what already shipped. Structure, top to bottom:
 
-1. **Status table** at the top: one row per phase / area, a one-line "what", and a status cell. Terse.
-2. **Now** (in progress), **Next** (queued, in priority order), **Later** (backlog, unordered). Each item is **one line**: a bold title, a size tag (`[S]` / `[M]` / `[L]`), a one-sentence "what", and a link to its plan doc in `docs/dev/plans/` when one exists. No inline plans: the detail lives in the plan doc.
-3. **Parked / not building**: one line per item with a one-line reason.
-4. **Shipped**: a terse done-log, grouped by area, each line ending with the commit short-SHA(s). This stays in `ROADMAP.md` so the roadmap keeps a record of what landed without the detail; full per-feature detail lives in the plan doc.
+1. **Intro**: two lines pointing to `docs/dev/shipped.md` (done-log), `docs/dev/plans/` (detail), `Handoff.md` (session state), and this file (format).
+2. **Now** (in progress), **Next** (queued, in priority order), **Later** (backlog). Each item is **one line**: a bold title, a size tag (`[S]` / `[M]` / `[L]`), a one-sentence "what", and a link to its plan doc when one exists. No inline plans: the detail lives in the plan doc.
+3. **Later is grouped by stable area** (Library, Reader, Novels, Recommendations, adult sources, ...), never by phase. Phases are a plan artifact and rot; areas are durable. Only include areas that have open items.
+4. **Parked / not building**: one line per item, a one-line reason, a link if there's a plan/decision doc. Verbose rationale goes in the plan doc, not here.
 
-Rules: never paste an implementation plan into the roadmap (that is the failure mode this format fixes); convert relative dates to absolute; `Roadmap N` not `#N` in any prose that GitHub might auto-link.
+**No Status table, no Shipped section, no audit prose in this file.** Shipped work moves to [docs/dev/shipped.md](../../docs/dev/shipped.md) (a terse done-log, grouped by area, each line ending in the commit short-SHA(s); a dev record, so it *may* name sources). Audit reports live in `docs/dev/audits/` (local / gitignored; only their action items become roadmap lines). Decisions and rationale live in `docs/dev/plans/`.
+
+**Naming (enforced):** `ROADMAP.md` is a semi-public surface, so it stays generic about content sources, use `EH` / `ExH` shorthand and collective phrasing ("the built-in adult sources"), never a specific source name (`nhentai`, `pururin`, ...). The dev-record files (`docs/dev/shipped.md`, `docs/dev/plans/`, local `docs/dev/audits/`) may name sources freely. This mirrors the CHANGELOG rule (see "Public-facing naming").
+
+**Other rules:** never paste an implementation plan into the roadmap; convert relative dates to absolute; no em dashes; `Roadmap N` (never a bare `#N`), a real issue/PR uses `owner/repo#N`. A `pre-commit` hook + the `docs-lint` CI enforce the three hard rules on `ROADMAP.md`: no content-source names, no em dash, no bare `#N`. Structural rules (one-line items, size tags, area grouping) are convention, not linted; review catches them.
 
 ### `docs/dev/plans/` (tracked, implementation & decision records)
 
