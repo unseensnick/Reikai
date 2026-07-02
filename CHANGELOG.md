@@ -15,30 +15,31 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 ### Additions
 
 - **Import adult galleries from a link.** Share or open a supported adult-source gallery link and pick Reikai to add it straight to your library, landing on its details page with chapters ready.
-- **Batch add galleries.** A new Batch add entry in the More menu (shown once adult sources are enabled) takes a pile of pasted gallery URLs, or a visited-galleries export, and imports them one by one with a live progress list.
+- **Batch add galleries from the More menu (once adult sources are enabled).** It takes a pile of pasted gallery URLs, or a visited-galleries export, and imports them one by one with a live progress list.
 - **More adult sources are now built in, no extension to install.** They browse, read, and import directly once adult sources are enabled, including one that previously needed an extension that no longer works.
 - **Adult-source browse shows a rating, category, page count and more on each result.** Browsing the built-in adult sources now lays out each result's rating, category, page count, language, uploader and date instead of a bare cover and title.
-- **Search your library by tag, with namespaces, wildcards and exclusions.** For adult-source entries you can now type queries like `artist:name`, `parody:*hero*`, or `-language:japanese` to filter your library by its captured tags; plain title search is unchanged.
+- **Search adult-source library entries by tag, with namespaces, wildcards and exclusions.** Type queries like `artist:name`, `parody:*hero*`, or `-language:japanese` to filter by captured tags; plain title search is unchanged.
 - **Adult-gallery details now show grouped, tappable tags and a full info panel.** Tags appear grouped by namespace (tap one to search it), and a panel above the description lists the rating, uploader, page count, size, language and upload date.
 - **Preview an adult gallery's pages from its details screen.** A grid of page thumbnails sits above the description; tap one to open the reader at that page, tap More previews for the full gallery with page-to-page navigation, and set how many rows show (0 hides it) in Appearance settings.
-- **Remove every source of a merged series in one step.** Deleting a merged library entry now offers an "All grouped sources" option that clears the whole group at once instead of leaving the other sources behind, for both manga and novels.
+- **Remove every source of a merged series in one step (manga and novels).** Deleting a merged library entry now offers an "All grouped sources" option that clears the whole group at once instead of leaving the other sources behind.
+- **Keep adult content off your lock screen (Security and privacy, on by default).** The new "Hide adult content in notifications" setting strips adult titles and covers from notifications across all adult sources; your normal library notifications are unaffected.
 
 ### Changes
 
-- **Interrupted downloads now resume instead of restarting, on sources that support it.** A page cut off mid-download continues from the partial file rather than re-fetching the whole image.
-- **The adult-gallery update checker shows a clearer notification.** Its progress now carries the app icon and gallery title, and any galleries that fail to update raise a notification you can tap to see exactly which ones, instead of failing silently.
+- **Interrupted downloads now resume instead of restarting, on sources that support it.** A download cut off mid-page, or by the app closing, continues from where it stopped instead of re-fetching finished pages, piling up duplicates, stalling, or needing a manual restart.
+- **The adult-gallery update checker shows a clearer notification.** Its progress matches the library updater, and any galleries that fail to update raise a notification you can tap to see exactly which ones, instead of failing silently.
 
 ### Fixes
 
-- **Downloads interrupted by closing the app now resume on reopen.** A download that was mid-flight when the app was killed could get stuck looking active without progressing until you restarted it by hand; it now continues on its own.
-- **Resuming a partly-downloaded chapter no longer re-downloads finished pages or stalls forever.** An interrupted download used to re-fetch every page it had already saved, pile up duplicate files, and then never register as complete; it now picks up only the missing pages and finishes.
 - **Browsing adult content sources now loads past the first page.** The built-in adult-source browse stopped after the first set of results; it now pages all the way through.
 - **Built-in adult sources show their own icon on library covers.** The sources that ship without an installable extension no longer fall back to a generic icon on a cover's source badge, matching how they already appear in Browse.
 - **Merged galleries update when you refresh from their details.** A source merged into an entry from elsewhere used to stay stale until you reopened it from Browse; refreshing the details now fetches every merged source at once.
+- **Adult-source image-quality options now take effect.** The account image-quality picker listed outdated resolutions, so most choices silently did nothing; it now matches the site's current tiers.
+- **Merged adult galleries now show every source's chapters.** Combining the same gallery across two adult sources no longer drops one from the unified chapter list.
+- **Built-in adult sources no longer trip site rate limits.** They throttle their requests to stay within each site's limits, avoiding bans.
 
 ### Other
 
-- Built-in adult sources now throttle their requests to stay within each site's rate limits and avoid bans.
 - Build the app and publish previews only when an app-affecting file changes; docs and other repo-only updates no longer trigger a build.
 
 ## [0.1.5]

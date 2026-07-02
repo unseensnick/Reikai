@@ -43,13 +43,23 @@ It is built first for my own daily use, so development is sporadic and the featu
 - `Taste-profile recommendations`: rank the related row by your tracked-tag preferences. ([docs](docs/related-mangas.md#taste-profile))
 - `Cloudflare bypass` support: route a blocked source through a self-hosted proxy ([Byparr](https://github.com/ThePhaseless/Byparr) recommended, or FlareSolverr). ([docs](docs/flaresolverr.md))
 - `Library update errors`: an opt-in list of entries that failed their last update.
-- `Single-list library`, `category hopper`, `dynamic grouping`, `cover-color theming`: the [TachiyomiJ2K](https://github.com/Jays2Kings/tachiyomiJ2K)-lineage experience on Mihon.
+
+<details>
+<summary><strong>From Yōkai</strong></summary>
+
+Carried over from [Yōkai](https://github.com/null2264/yokai) (Reikai's previous base, a [TachiyomiJ2K](https://github.com/Jays2Kings/tachiyomiJ2K)-lineage fork), re-typed onto Mihon:
+
+- `Single-list library` + `category hopper`: a flat library layout with quick category jumping.
+- `Dynamic grouping`: regroup the library on the fly by tag, author, source, status and more.
+- `Cover-color theming`: tint the details screen from the cover art.
+
+</details>
 
 <details>
 <summary><strong>Adapted from Komikku</strong></summary>
 
 - `Related-mangas carousel`: similar titles below the description, from the source's related API, a keyword fallback, and tracker recs (AniList, MyAnimeList, MangaUpdates, Shikimori). From [Komikku](https://github.com/komikku-app/komikku); Reikai's taste layer is above. ([docs](docs/related-mangas.md))
-- `Adult content sources`: optional built-in support, browse, tag search, metadata, account settings, backup. From [Komikku](https://github.com/komikku-app/komikku); off by default. ([docs](docs/adult-sources.md))
+- `Adult content sources`: [Komikku](https://github.com/komikku-app/komikku)'s adult-source subsystem, ported wholesale, built-in support, browse, tag search, metadata, account settings and backup, with some ported pieces tweaked and a few extra built-in sources added. Off by default. ([docs](docs/adult-sources.md))
 
 </details>
 

@@ -4,7 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-- **Adult-source parity round 2** `[L]` - shipped on branch `feat/exh-parity`, held for PR. Brings the adult-source subsystem to Komikku parity (import entry points, built-in sources, browse parity, rich details, page previews, update notification, badges, merged-group refresh). Parity is complete; the branch just needs to merge.
+Nothing in progress.
 
 ## Next
 
