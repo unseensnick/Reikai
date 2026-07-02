@@ -2,6 +2,15 @@ name: 🐞 Issue report
 description: Report an issue in Reikai
 labels: [bug]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        **Bug in a built-in source?** A few sources ship inside Reikai, and bugs in
+        those are fine to report here. Keep the title generalized (for example
+        "Error opening a built-in gallery source") and name the source by its
+        shorthand in the body ([shorthand list](https://github.com/unseensnick/Reikai/blob/main/docs/adult-sources.md#shorthands)).
+        Third-party **extension** problems are out of scope.
+
   - type: textarea
     id: reproduce-steps
     attributes:

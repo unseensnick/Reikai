@@ -76,3 +76,19 @@ This is intentionally one-directional: your library is the source of truth, and 
 Reikai currently ships a lighter slice of Komikku's adult-source subsystem. The notable gaps, any of which may be widened toward Komikku parity in a later release:
 
 - **Two-way favorites sync.** Today's favorites feature is a one-way backup (library → account). Full sync (pull the account's favorites into the library, mirror removals both ways, reconcile conflicts) is not built.
+
+## Shorthands
+
+For built-in-source bug reports: keep the issue title generalized and use these in the body.
+
+| Shorthand | Source |
+| --------- | ------ |
+| EH  | E-Hentai |
+| ExH | ExHentai |
+| NH  | nHentai |
+| Pu  | Pururin |
+| HF  | HentaiFox |
+| Asm | AsmHentai |
+| SN  | SchaleNetwork (Koharu) |
+| 8M  | 8Muses |
+| LRR | LANraragi |

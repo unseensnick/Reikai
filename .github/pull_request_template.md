@@ -1,12 +1,19 @@
-<!--
-  Please include a summary of the change and which issue is fixed.
-  Also make sure you've tested your code and also done a self-review of it.
-  Don't forget to check all base themes and tablet mode for relevant changes.
-  
-  If your changes are visual, please provide images below:
+## Summary
 
-### Images
-| Image 1 | Image 2 |
-| ------- | ------- |
-| ![](https://github.githubassets.com/images/modules/logos_page/Octocat.png) | ![](https://github.githubassets.com/images/modules/logos_page/Octocat.png) |
+<!-- What does this change, and why? Link the issue or discussion it addresses. -->
+
+Closes #
+
+## Checklist
+
+- [ ] Tested on a device or emulator
+- [ ] Updated `CHANGELOG.md` under `[Unreleased]` (for user-facing changes)
+- [ ] Edits to Mihon's own files are fenced with `// RK -->` / `// RK <--`
+- [ ] Commits follow `type(scope): summary` (no bare `#N`, no em dashes)
+- [ ] UI changes include screenshots below (light + dark; tablet if relevant)
+
+<!-- ### Screenshots
+| Before | After |
+| ------ | ----- |
+|        |       |
 -->

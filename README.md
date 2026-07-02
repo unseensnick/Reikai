@@ -87,6 +87,8 @@ The core manga experience is Mihon's (Tachiyomi lineage):
 
 This is a personal fork: pull requests are welcome, but a PR may take a while and might not be merged if it doesn't fit the fork's direction. For anything beyond a small fix, raise it first.
 
+**New here? Start with the [FAQ](https://github.com/unseensnick/Reikai/discussions/categories/q-a)** (pinned in Q&A).
+
 <details><summary><strong>Bugs</strong></summary>
 
 * Include your Reikai version (More → About → Version), Android version, and device.
