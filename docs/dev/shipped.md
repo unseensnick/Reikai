@@ -13,7 +13,7 @@ Terse done-log of what has landed, grouped by area. This is a developer record: 
 - Minified-build startup-crash fix: `reikai.*` added to the proguard keep list.
 - Duplication cleanup, 3 tiers, no behavior change (`6c27c5923`, `85ff3326d`, `f783979b5`).
 - Mihon upstream syncs, caught up to `refs/mihon` `a82ccea6f` (Voyager 1.x->2.x, Gradle 9.6.1); ledger in the `upstream-sync` memory.
-- App-wide hardening pass (`c8b5a46b6`, `78c4b478f`, `18a6d2a33`): source-parsing null guards, LN host / download-queue / recommendation edge cases, per-category resolve-once, redacted verbose logging.
+- App-wide hardening pass (`1762bb0ab`, `53bfdbde8`, `beb643fd3`): source-parsing null guards, LN host / download-queue / recommendation edge cases, per-category resolve-once, redacted verbose logging.
 
 ## Manga
 - Library screen carry: single-list + hopper, dynamic grouping, filter/sort, category sort order, opt-in update-errors screen (P2). See [library-screen-carry.md](plans/library-screen-carry.md).
@@ -25,11 +25,11 @@ Terse done-log of what has landed, grouped by area. This is a developer record: 
 - Reader tweaks: configurable bottom bar, chapters sheet, cover tint, mark-read-on-skip, resume/preload (P7).
 - Merge-aware reader: read a merged manga through all its sources (`d30cce03d`, `4bd3ca823`, `5b9f6d778`). See [merge-aware-manga-reader.md](plans/merge-aware-manga-reader.md).
 - Category bulk-delete with deferred-undo (`9a320598e`).
-- Downloads resume reliably after a kill or interruption (`37b7bf22c`; Mihon sync `e3740fc3d`): in-flight downloads re-queue instead of being dropped.
+- Downloads resume reliably after a kill or interruption (`3b1d34759`; Mihon sync `77c4b0842`): in-flight downloads re-queue instead of being dropped.
 
 ## Library shell (manga + novels)
 - Tabbed shell hosting a Manga tab and a Novels tab + repo / install / browse unification (P8/P9). See [library-tabbed-shell.md](plans/library-tabbed-shell.md).
-- Remove every source of a merged series in one delete: an "All N grouped sources" opt-in on the library Remove dialog, for manga + novels (`1c7621dec`).
+- Remove every source of a merged series in one delete: an "All N grouped sources" opt-in on the library Remove dialog, for manga + novels (`30b3f0b09`).
 
 ## Light novels (P5 vertical)
 - Headless QuickJS plugin host for background-capable novel sources. See [novel-plugin-host.md](plans/novel-plugin-host.md), handbook [ln-plugin-host.md](ln-plugin-host.md).
@@ -44,7 +44,7 @@ Terse done-log of what has landed, grouped by area. This is a developer record: 
 - Cross-source merge + dynamic grouping. See [novel-merge.md](plans/novel-merge.md).
 - Tracking on AniList / MyAnimeList / MangaUpdates / Kitsu, group-aware (`7c56e07eb`). See [novel-tracking.md](plans/novel-tracking.md).
 - Backup proto + installed-sources backup (`3c52d4c97`). See [novel-backup.md](plans/novel-backup.md).
-- Restored-plugin security gate (`38298260a`): a crafted backup could inject plugin URLs the QuickJS host would auto-load and run; restored URLs are now revalidated against the added repos before loading (fail-closed if a repo is unreachable).
+- Restored-plugin security gate (`d3c80729c`): a crafted backup could inject plugin URLs the QuickJS host would auto-load and run; restored URLs are now revalidated against the added repos before loading (fail-closed if a repo is unreachable).
 
 ## Novel parity backlog
 Per-item SHAs in [novel-parity-backlog.md](plans/novel-parity-backlog.md) unless noted.
@@ -74,20 +74,20 @@ Ported from `refs/komikku`, re-typed onto Mihon's models; all shipped in 0.1.6 (
 - Phase 5b (scoped): E-Hentai favorites account backup (one-way push + opt-in remote remove), not full two-way sync (`EhFavoritesBackupJob`, `// RK` island in `MangaScreenModel`). Account paths need a live login to verify; non-account paths verified.
 - EXH settings + presentation polish: EH promoted to its own Settings category with the `EhAssets.EhLogo` icon (`f80cfc5b3`), source rows show the logo (`6a4422c23`), and Incognito / Language / Front-page categories / updater-stats surfaced in `SettingsEhScreen` (`90060670e`).
 - Hide the stock E-Hentai extension while built-in EH is on (`4a4c7c0bb`): `BlacklistedSources` + reactive `AndroidSourceManager` / `ExtensionManager` filtering. Defensive (that extension isn't in Keiyoushi); regression-verified.
-- Browse parity: built-in EH / ExHentai browse pages all the way through + rich rows (cover, uploader, rating, category badge, language, page count, date) (`247e1de01`, `888305ab1`, `1c7888b07`). See [adult-browse-parity.md](plans/adult-browse-parity.md).
+- Browse parity: built-in EH / ExHentai browse pages all the way through + rich rows (cover, uploader, rating, category badge, language, page count, date) (`f19fb422a`, `8e619e09a`, `57a020968`). See [adult-browse-parity.md](plans/adult-browse-parity.md).
 - Rich gallery metadata on details: namespaced tappable tag chips + a per-source gallery-info card (EH gets a rich card); net-new `NamespaceTags` + `GalleryInfoBox`. MangaDex branch deferred to the MangaDex initiative.
 - Library tag-search engine: structured `namespace:tag` query language (aliases, `*`/`?` wildcards, `-` exclusion, `$` exact, quotes), matched in memory; `Text.asRegex` added. See [library-tag-search.md](plans/library-tag-search.md).
-- Built-in nhentai.net source (`920b766b1`, `b535a3093`): standalone `NHentaiNet` HttpSource against nhentai's v2 JSON API (no extension needed), behind the adult-sources gate, excluded from the update sweep by fixed id.
-- Built-in pururin.me source (`c25b07150`, `92dd8f390`): standalone Pururin HttpSource (no extension needed) with its own logo, behind the adult-sources gate.
-- Rate-limit the built-in adult sources (`ed2f09e6a`): throttle requests to avoid bans.
-- Gallery URL import + batch-add (`ed59dd780`, `1a4592847`, `f0924164f`): add a gallery by opening its link (InterceptActivity) or paste many URLs (BatchAdd); 8Muses supported; imports get their title and cover.
+- Built-in nhentai.net source (`3a13d7453`, `1838f1b87`): standalone `NHentaiNet` HttpSource against nhentai's v2 JSON API (no extension needed), behind the adult-sources gate, excluded from the update sweep by fixed id.
+- Built-in pururin.me source (`0f1de324f`, `02b9f497a`): standalone Pururin HttpSource (no extension needed) with its own logo, behind the adult-sources gate.
+- Rate-limit the built-in adult sources (`c6b23a8d1`): throttle requests to avoid bans.
+- Gallery URL import + batch-add (`f49d68cd9`, `0961decfa`, `897bf422d`): add a gallery by opening its link (InterceptActivity) or paste many URLs (BatchAdd); 8Muses supported; imports get their title and cover.
 - Skip adult galleries in the library update sweep (`1a0c8b35e`): EH / ExH / Pururin / nHentai default to `ALWAYS_UPDATE`; `LIBRARY_UPDATE_EXCLUDED_SOURCES` + a `// RK` `filterNot`, nHentai derived at runtime.
-- Gallery page previews: details thumbnail grid (`954644d06`) + full-screen paginated browser with go-to-page slider (`0b0e31db0`); disk-cached via a Coil fetcher/keyer; Appearance "Page preview rows" slider.
-- EH gallery-update notification (`6dbeed5bb`): progress notification matches the library updater + a tap-to-view error-log notification (`ID_EHENTAI_ERROR`, `writeErrorFile`).
-- Built-in adult source library badges (`7503e5ce5`): nhentai.net + Pururin show their own logo on the cover source badge.
-- Merged-group refresh (`07c1d3d1a`): a details Refresh now fetches every grouped source through its own path, not just the primary.
-- E-Hentai image-quality options realigned (`e99c0fcbb`): the picker tiers were stale versus the site's current `xr` set, so most options silently no-op'd on the account profile; now Auto / 800 / 1280 / 1920 / 2560 each apply. Verified on-device.
-- Keep every gallery source's chapters in a merged group (`a255588cf`): the cross-source `ChapterAggregation` deduped the "All" list by chapter number and dropped one source when two gallery sources both number their primary chapter 1; gallery / metadata sources now bypass that dedup. Serial-manga merges unchanged. Unit-tested + on-device verified.
+- Gallery page previews: details thumbnail grid (`488cda526`) + full-screen paginated browser with go-to-page slider (`823b9bb1e`); disk-cached via a Coil fetcher/keyer; Appearance "Page preview rows" slider.
+- EH gallery-update notification (`3d250cfa8`): progress notification matches the library updater + a tap-to-view error-log notification (`ID_EHENTAI_ERROR`, `writeErrorFile`).
+- Built-in adult source library badges (`9249d6d71`): nhentai.net + Pururin show their own logo on the cover source badge.
+- Merged-group refresh (`ba292438e`): a details Refresh now fetches every grouped source through its own path, not just the primary.
+- E-Hentai image-quality options realigned (`e3341d2aa`): the picker tiers were stale versus the site's current `xr` set, so most options silently no-op'd on the account profile; now Auto / 800 / 1280 / 1920 / 2560 each apply. Verified on-device.
+- Keep every gallery source's chapters in a merged group (`94d19fd19`): the cross-source `ChapterAggregation` deduped the "All" list by chapter number and dropped one source when two gallery sources both number their primary chapter 1; gallery / metadata sources now bypass that dedup. Serial-manga merges unchanged. Unit-tested + on-device verified.
 
 ## Unified surfaces
 - Unified Updates tab: manga + novel interleaved, filters, by-category, group-by-series. See [unified-updates.md](plans/unified-updates.md).
