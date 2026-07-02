@@ -57,7 +57,10 @@ class EHentaiUpdateNotifier(private val context: Context) {
                 ),
             )
 
-        if (!securityPreferences.hideNotificationContent.get()) {
+        // Drop the gallery title too when adult-content notifications are hidden (EH is always adult).
+        if (!securityPreferences.hideNotificationContent.get() &&
+            !securityPreferences.hideAdultNotificationContent.get()
+        ) {
             progressNotificationBuilder.setStyle(
                 NotificationCompat.BigTextStyle().bigText(manga.title.chop(40)),
             )

@@ -21,6 +21,10 @@ class SecurityPreferences(
 
     val hideNotificationContent: Preference<Boolean> = preferenceStore.getBoolean("hide_notification_content", false)
 
+    // RK: hide adult (NSFW-source) titles + covers from notifications and the lock screen. Default on.
+    val hideAdultNotificationContent: Preference<Boolean> =
+        preferenceStore.getBoolean("hide_adult_notification_content", true)
+
     /**
      * For app lock. Will be set when there is a pending timed lock.
      * Otherwise, this pref should be deleted.
