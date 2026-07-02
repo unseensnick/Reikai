@@ -372,6 +372,8 @@
     <string name="lock_always">Always</string>
     <string name="lock_never">Never</string>
     <string name="hide_notification_content">Hide notification content</string>
+    <string name="hide_adult_notification_content">Hide adult content in notifications</string>
+    <string name="hide_adult_notification_content_summary">Keep adult titles and covers off notifications and the lock screen. Normal library notifications are unaffected.</string>
     <string name="secure_screen">Secure screen</string>
     <string name="secure_screen_summary">Secure screen hides app contents when switching apps and block screenshots</string>
     <string name="firebase_summary">Sending crash logs and analytics will allow us to identify and fix issues, improve performance, and make future updates more relevant to your needs</string>

@@ -28,6 +28,7 @@ import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
+import reikai.domain.manga.AdultContentChecker
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
@@ -52,6 +53,12 @@ class LibraryUpdateNotifier(
         roundingMode = RoundingMode.DOWN
         maximumFractionDigits = 0
     }
+
+    // RK: hide adult titles + covers from the "new chapters" notification (lock-screen privacy).
+    private val adultChecker by lazy { AdultContentChecker() }
+    private fun hideContent(manga: Manga): Boolean =
+        securityPreferences.hideNotificationContent.get() ||
+            (securityPreferences.hideAdultNotificationContent.get() && adultChecker.isAdult(manga))
 
     /**
      * Pending intent of action that cancels the library update
@@ -172,7 +179,7 @@ class LibraryUpdateNotifier(
             Notifications.CHANNEL_NEW_CHAPTERS,
         ) {
             setContentTitle(context.stringResource(MR.strings.notification_new_chapters))
-            if (updates.size == 1 && !securityPreferences.hideNotificationContent.get()) {
+            if (updates.size == 1 && !hideContent(updates.first().first)) {
                 setContentText(updates.first().first.title.chop(NOTIF_TITLE_MAX_LEN))
             } else {
                 setContentText(
@@ -187,7 +194,12 @@ class LibraryUpdateNotifier(
                     setStyle(
                         NotificationCompat.BigTextStyle().bigText(
                             updates.joinToString("\n") {
-                                it.first.title.chop(NOTIF_TITLE_MAX_LEN)
+                                // RK: generic line for adult titles so they don't leak to the lock screen
+                                if (hideContent(it.first)) {
+                                    context.stringResource(MR.strings.notification_new_chapters)
+                                } else {
+                                    it.first.title.chop(NOTIF_TITLE_MAX_LEN)
+                                }
                             },
                         ),
                     )
@@ -213,7 +225,8 @@ class LibraryUpdateNotifier(
                     updates.map { (manga, chapters) ->
                         NotificationManagerCompat.NotificationWithIdAndTag(
                             manga.id.hashCode(),
-                            createNewChaptersNotification(manga, chapters),
+                            // RK: hide the title + cover for adult manga
+                            createNewChaptersNotification(manga, chapters, hideContent(manga)),
                         )
                     },
                 )
@@ -221,12 +234,23 @@ class LibraryUpdateNotifier(
         }
     }
 
-    private suspend fun createNewChaptersNotification(manga: Manga, chapters: Array<Chapter>): Notification {
-        val icon = getMangaIcon(manga)
+    private suspend fun createNewChaptersNotification(
+        manga: Manga,
+        chapters: Array<Chapter>,
+        // RK: when true, show a generic title + count and no cover (adult / hidden content)
+        hideContent: Boolean = false,
+    ): Notification {
+        val icon = if (hideContent) null else getMangaIcon(manga)
         return context.notificationBuilder(Notifications.CHANNEL_NEW_CHAPTERS) {
-            setContentTitle(manga.title)
+            setContentTitle(
+                if (hideContent) context.stringResource(MR.strings.notification_new_chapters) else manga.title,
+            )
 
-            val description = getNewChaptersDescription(chapters)
+            val description = if (hideContent) {
+                context.pluralStringResource(MR.plurals.notification_chapters_generic, chapters.size, chapters.size)
+            } else {
+                getNewChaptersDescription(chapters)
+            }
             setContentText(description)
             setStyle(NotificationCompat.BigTextStyle().bigText(description))
 

@@ -82,6 +82,13 @@ object SettingsSecurityScreen : SearchableSettings {
                     preference = securityPreferences.hideNotificationContent,
                     title = stringResource(MR.strings.hide_notification_content),
                 ),
+                // RK -->
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = securityPreferences.hideAdultNotificationContent,
+                    title = stringResource(MR.strings.hide_adult_notification_content),
+                    subtitle = stringResource(MR.strings.hide_adult_notification_content_summary),
+                ),
+                // RK <--
                 Preference.PreferenceItem.ListPreference(
                     preference = securityPreferences.secureScreen,
                     entries = SecurityPreferences.SecureScreenMode.entries
