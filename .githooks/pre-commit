@@ -75,6 +75,27 @@ if staged ROADMAP.md; then
   fi
 fi
 
+# ===== docs/dev/upstream-sync.md (content-source names allowed here: it is a dev record) =====
+if staged docs/dev/upstream-sync.md; then
+  sync=$(git show :docs/dev/upstream-sync.md)
+
+  # No em dash.
+  em=$(printf '%s\n' "$sync" | grep -n '—' || true)
+  if [ -n "$em" ]; then
+    echo "upstream-sync: contains an em dash; use commas, parentheses, periods or colons:"
+    echo "$em"
+    fail=1
+  fi
+
+  # No bare #N (reference upstream as mihonapp/mihon#N; owner/repo#N is fine).
+  hn=$(printf '%s\n' "$sync" | grep -nE '(^|[^A-Za-z0-9])#[0-9]' || true)
+  if [ -n "$hn" ]; then
+    echo "upstream-sync: bare '#N' auto-links to a Reikai issue, use mihonapp/mihon#N:"
+    echo "$hn"
+    fail=1
+  fi
+fi
+
 if [ "$fail" -ne 0 ]; then
   echo
   echo "Fix the file, or use 'git commit --no-verify' if this is intentional."
