@@ -3,6 +3,7 @@ package reikai.novel.host
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import app.cash.quickjs.QuickJs
 import eu.kanade.tachiyomi.network.JavaScriptEngine
 import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.runBlocking
@@ -156,6 +157,28 @@ class HeadlessJsIntegrationTest {
         // Number marshalling: tolerate Int/Long/Double across the JNI boundary.
         val product = js.evaluate<Any?>("6 * 7").toString()
         assertTrue("expected 42, got '$product'", product == "42" || product == "42.0")
+    }
+
+    /**
+     * The `app.cash.quickjs.QuickJs` compat class, used directly by extensions like Mangago
+     * (issue #26). Covers plain evaluate plus the cross-instance compile -> execute -> evaluate
+     * roundtrip those extensions rely on. Synchronous, exactly as extensions call it.
+     */
+    @Test
+    fun appCashQuickJsCompatShimWorks() {
+        QuickJs.create().use { qjs ->
+            assertEquals("ab", qjs.evaluate("'a' + 'b'"))
+            assertEquals("HELLO", qjs.evaluate("'hello'.toUpperCase()"))
+            assertEquals("42", qjs.evaluate("String(6 * 7)"))
+        }
+        // Mangago compiles a helper on one (throwaway) engine, then executes that "bytecode" on the
+        // engine that actually runs the page-descrambling code.
+        val bytecode = QuickJs.create().use { it.compile("function add(a, b) { return a + b; }", "?") }
+        val result = QuickJs.create().use { qjs ->
+            qjs.execute(bytecode)
+            qjs.evaluate("String(add(2, 3))")
+        }
+        assertEquals("5", result)
     }
 
     private var searchAttempts = 0
