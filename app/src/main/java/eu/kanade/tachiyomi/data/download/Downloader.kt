@@ -450,16 +450,8 @@ class Downloader(
         val digitCount = (download.pages?.size ?: 0).toString().length.coerceAtLeast(3)
         val filename = "%0${digitCount}d".format(Locale.ENGLISH, page.number)
 
-        // Try to find the image file
-        // RK: don't shadow `filename` (the page's expected prefix) with the candidate file's own
-        // name. Upstream reuses `filename` here, so the check reads name.startsWith(name + ".") and
-        // never matches, meaning every resume re-downloads already-finished pages and the collision
-        // rename produces "001 (1).webp" duplicates that then break the completion count.
-        val imageFile = tmpDir.listFiles()?.firstOrNull {
-            val existing = it.name
-            if (existing == null || existing.endsWith(".tmp")) return@firstOrNull false
-            existing.startsWith("$filename.") || existing.startsWith("${filename}__001")
-        }
+        // Try to find the image already downloaded for this page.
+        val imageFile = tmpDir.listFiles()?.firstOrNull { isDownloadedPageImage(it.name, filename) }
 
         try {
             // If the image is already downloaded, do nothing. Otherwise download from network
@@ -484,6 +476,17 @@ class Downloader(
             page.status = Page.State.Error(e)
             notifier.onError(e.message, download.chapter.name, download.manga.title, download.manga.id)
         }
+    }
+
+    // RK: match a finished page image by the page's expected prefix ("001"), never the candidate
+    // file's own name. Upstream reused `filename` here, so the check read name.startsWith(name + "."),
+    // never matched, and every resume re-downloaded finished pages, producing "001 (1).webp"
+    // duplicates that broke the completion count. Upstream mihonapp/mihon#3504 later extracted the same
+    // helper but with `!tmp || match`, which is true for any non-tmp file (wrong page); the guard must
+    // stay `!tmp && match`.
+    private fun isDownloadedPageImage(fileName: String?, pagePrefix: String): Boolean {
+        if (fileName == null || fileName.endsWith(".tmp")) return false
+        return fileName.startsWith("$pagePrefix.") || fileName.startsWith("${pagePrefix}__001")
     }
 
     /**
