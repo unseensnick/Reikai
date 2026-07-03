@@ -37,3 +37,7 @@ docs/dev/audits/*
 # .github/readme-images/showcase/ ; see docs/dev/readme-showcase.md)
 .github/readme-images/_capture/
 .github/readme-images/showcase/framed/
+
+# local dev tooling
+.sweep-report.txt
+scripts/plugin-sweep.ps1

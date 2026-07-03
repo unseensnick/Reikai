@@ -13,6 +13,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import reikai.novel.registry.LnRegistry
+import reikai.presentation.novel.browse.buildOptions
+import reikai.presentation.novel.browse.defaultFilterValues
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -131,6 +133,96 @@ class HeadlessJsIntegrationTest {
         // End-to-end proof: at least one source completed search -> parseNovel -> parseChapter
         // entirely off-thread. The anchors make this reliable; Cloudflare blocks elsewhere are tolerated.
         assertTrue("No plugin completed the full search->parse chain headlessly.\n$report", fullChain > 0)
+    }
+
+    /**
+     * Whole-registry health sweep, parameterized so no source edit is needed per run:
+     * `am instrument -e class <fqcn>#lnPluginRegistrySweep -e registryUrl <url> [-e anchorIds a,b]`.
+     * Probes every plugin in the registry via popularNovels(1) built from the plugin's own default
+     * filters (Cloudflare solved through the app's configured FlareSolverr), logging one
+     * `RESULT <id> [<lang>] <STATUS> ...` line per plugin under tag "HeadlessJsTest". Anchors also run
+     * a full parseNovel + parseChapter chain. With no registryUrl arg it skips, so a normal test run
+     * never triggers a network sweep. The driver is scripts/plugin-sweep.ps1.
+     */
+    @Test
+    fun lnPluginRegistrySweep() = runBlocking {
+        val args = InstrumentationRegistry.getArguments()
+        val registryUrl = args.getString("registryUrl")
+        if (registryUrl.isNullOrBlank()) {
+            Log.i(TAG, "lnPluginRegistrySweep skipped: pass -e registryUrl <url> to run a sweep.")
+            return@runBlocking
+        }
+        val anchorIds = args.getString("anchorIds")
+            ?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }?.toSet().orEmpty()
+
+        val client = Injekt.get<NetworkHelper>().client
+        val host = LnPluginHost(context, client, Injekt.get())
+        val loader = LnPluginLoader(context, client)
+
+        val entries = runCatching {
+            client.newCall(Request.Builder().url(registryUrl).build()).execute().use { res ->
+                check(res.isSuccessful) { "registry HTTP ${res.code}" }
+                LnRegistry.parse(res.body.string())
+            }
+        }.getOrElse {
+            Log.i(TAG, "registry fetch FAILED ($registryUrl): ${it.message}")
+            assertTrue("Could not fetch the registry at $registryUrl.", false)
+            return@runBlocking
+        }
+        Log.i(TAG, "===== sweep: ${entries.size} plugins from $registryUrl via popularNovels(1) =====")
+
+        var fetchOk = 0
+        var loadOk = 0
+        var popularOk = 0
+        var fullChain = 0
+        try {
+            for (entry in entries) {
+                val tag = "${entry.id} [${entry.lang}]"
+                val source = runCatching { loader.fetchSource(entry.url, forceRefresh = false) }
+                    .getOrElse { Log.i(TAG, "RESULT $tag FETCH_FAIL ${it.message?.take(160)}"); continue }
+                fetchOk++
+
+                val info = runCatching { host.loadPlugin(entry.id, source, entry.iconUrl, entry.lang) }
+                    .getOrElse { Log.i(TAG, "RESULT $tag LOAD_FAIL ${it.message?.take(160)}"); continue }
+                loadOk++
+
+                val opts = buildOptions(info.filters, defaultFilterValues(info.filters), showLatest = false)
+                val popular = runCatching { host.popularNovels(info.id, 1, opts) }
+                    .getOrElse { Log.i(TAG, "RESULT $tag POPULAR_ERROR ${it.message?.take(160)}"); continue }
+                if (popular.isEmpty()) {
+                    Log.i(TAG, "RESULT $tag POPULAR_EMPTY 0")
+                    continue
+                }
+                popularOk++
+
+                if (entry.id in anchorIds) {
+                    var chapters = 0
+                    var chars = 0
+                    var chainErr: String? = null
+                    runCatching {
+                        val novel = host.parseNovel(info.id, popular.first().path)
+                        chapters = novel.chapters?.size ?: 0
+                        novel.chapters?.firstOrNull()?.path?.let { chars = host.parseChapter(info.id, it).length }
+                    }.onFailure { chainErr = it.message?.take(120) }
+                    if (chars > 0) fullChain++
+                    Log.i(
+                        TAG,
+                        "RESULT $tag OK popular=${popular.size} chain{chapters=$chapters chars=$chars" +
+                            (chainErr?.let { " ERR $it" } ?: "") + "}",
+                    )
+                } else {
+                    Log.i(TAG, "RESULT $tag OK popular=${popular.size} first='${popular.first().name.take(40)}'")
+                }
+            }
+        } finally {
+            host.destroy()
+        }
+        Log.i(
+            TAG,
+            "===== sweep summary: fetched=$fetchOk loaded=$loadOk popularOk=$popularOk fullChain=$fullChain " +
+                "of ${entries.size} =====",
+        )
+        assertTrue("No plugin sources fetched from $registryUrl.", fetchOk > 0)
     }
 
     /** Migrated extensions-lib JS engine (dokar-backed). Covers the manga-source path. */
