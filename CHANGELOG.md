@@ -19,6 +19,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Chapters now open again on sources that run their own JavaScript.** Some sources decode their page list with an in-app JavaScript engine; a missing engine class made those chapters fail to open, and it is restored.
 - **Uninstalling a light-novel source works right after installing it.** The trash button used to do nothing until you closed and reopened the app.
 
+### Other
+
+- Synced upstream Mihon changes: dependency and tooling updates, the Shikimori tracker's new domain, and compatibility fixes for a newer XML library and Material components.
+
 ## [0.1.6]
 
 ### Additions
