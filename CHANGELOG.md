@@ -12,6 +12,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+## [0.1.7]
+
 ### Fixes
 
 - **Chapters now open again on sources that run their own JavaScript.** Some sources decode their page list with an in-app JavaScript engine; a missing engine class made those chapters fail to open, and it is restored.
