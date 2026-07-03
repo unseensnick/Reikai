@@ -238,9 +238,13 @@ class LnPluginInstaller(
      * next launch. The loaded plugin instance stays in the host until the host is destroyed; that's
      * fine because the source is no longer reachable through the manager.
      */
-    suspend fun uninstall(pluginId: String, pluginJsUrl: String) {
+    suspend fun uninstall(pluginId: String, pluginJsUrl: String? = null) {
+        // Resolve the URL(s) to drop from the plugin id against FRESH metadata, not a caller-cached
+        // snapshot: [installFromUrl] registers the source before persisting its metadata, so a UI map
+        // built off manager.sources lags a same-session install and would strand the plugin.
         val metadata = prefs.installedPluginMetadata().get()
-        val urlsToRemove = metadata.filterValues { it.pluginId == pluginId }.keys + canonicalizePluginUrl(pluginJsUrl)
+        val urlsToRemove = metadata.filterValues { it.pluginId == pluginId }.keys +
+            (pluginJsUrl?.let { setOf(canonicalizePluginUrl(it)) } ?: emptySet())
         prefs.installedPluginUrls().set(prefs.installedPluginUrls().get() - urlsToRemove)
         prefs.installedPluginMetadata().set(metadata - urlsToRemove)
         loadedUrls.removeAll(urlsToRemove)

@@ -38,9 +38,7 @@ class LnPluginManagerScreenModel(
         screenModelScope.launchIO {
             installer.ensureLoaded()
             manager.sources.collectLatest { sources ->
-                val idToUrl = prefs.installedPluginMetadata().get()
-                    .entries.associate { (url, meta) -> meta.pluginId to url }
-                mutableState.update { it.copy(installed = sources, idToUrl = idToUrl) }
+                mutableState.update { it.copy(installed = sources) }
             }
         }
         // Re-fetch when the added-repos set changes (e.g. a backup restore or adding a repo on another
@@ -126,9 +124,11 @@ class LnPluginManagerScreenModel(
     }
 
     fun uninstall(source: NovelSource) {
-        val url = state.value.idToUrl[source.id] ?: return
         screenModelScope.launchIO {
-            installer.uninstall(source.id, url)
+            // Uninstall by plugin id; the installer resolves the URL(s) from fresh metadata. A cached
+            // id->url map lags a same-session install (install registers the source before persisting
+            // metadata), which silently no-op'd the trash button until an app restart.
+            installer.uninstall(source.id)
             refresh()
         }
     }
@@ -150,8 +150,6 @@ class LnPluginManagerScreenModel(
         val installed: List<NovelSource> = emptyList(),
         val available: List<LnRegistryEntry> = emptyList(),
         val updates: List<LnPluginUpdate> = emptyList(),
-        /** plugin id -> canonical install URL, for uninstall (a [NovelSource] doesn't carry its URL). */
-        val idToUrl: Map<String, String> = emptyMap(),
         /** Canonical URLs with an install/update in flight. */
         val inProgress: Set<String> = emptySet(),
         /** Canonical URL -> last install error, shown inline. */
