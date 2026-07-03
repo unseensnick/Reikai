@@ -7,12 +7,12 @@ Terse done-log of what has landed, grouped by area. This is a developer record: 
 - De-Mihon brand pass: logo, trimmed About links, donation removed, trackers rebranded, repo meta + JDK 21. Icon sources in `art/icon/`.
 - README header logo + animated showcase WebP + reproduction kit. See [readme-showcase.md](readme-showcase.md).
 - Signed release pipeline: AGP-native signing, `release.yml` / `preview.yml`, in-app updater re-pointed at Reikai repos (`a4ee2c401`, `1f7aecac4`, `09d04cd0b`, `1c68490da`).
-- Releases cut + tagged `v0.1.0`-`v0.1.6` (0.1.3 = extension re-trust + migrate-from-update-errors; 0.1.4 = Cloudflare-bypass JSON/Byparr fix; 0.1.5 = one-tap merge coalescing; 0.1.6 = adult-source parity round 2 + notification-privacy). Stale inherited Yokai `v*` tags pruned; see the `stale-yokai-release-tags` memory.
+- Releases cut + tagged `v0.1.0`-`v0.1.7` (0.1.3 = extension re-trust + migrate-from-update-errors; 0.1.4 = Cloudflare-bypass JSON/Byparr fix; 0.1.5 = one-tap merge coalescing; 0.1.6 = adult-source parity round 2 + notification-privacy; 0.1.7 = JS-source chapter fix + novel-uninstall fix + Mihon sync). Stale inherited Yokai `v*` tags pruned; see the `stale-yokai-release-tags` memory.
 - Preview pipeline prune fix: prune by build number, not identical `createdAt`, so previews publish again (`e1960e06e`).
 - Commit-standard enforcement: `commit-msg` hook (`.githooks/commit-msg`), explicit `owner/repo#N` refs allowed (`7f4649d65`).
 - Minified-build startup-crash fix: `reikai.*` added to the proguard keep list.
 - Duplication cleanup, 3 tiers, no behavior change (`6c27c5923`, `85ff3326d`, `f783979b5`).
-- Mihon upstream syncs, caught up to `refs/mihon` `a82ccea6f` (Voyager 1.x->2.x, Gradle 9.6.1); ledger in the `upstream-sync` memory.
+- Mihon upstream syncs, caught up to `refs/mihon` `0772f7202` (latest: deps + Shikimori `.io` + xmlutil v1 / Compose deprecations, `d0cb409f7`); process + ledger in [upstream-sync.md](upstream-sync.md).
 - App-wide hardening pass (`1762bb0ab`, `53bfdbde8`, `beb643fd3`): source-parsing null guards, LN host / download-queue / recommendation edge cases, per-category resolve-once, redacted verbose logging.
 
 ## Manga
@@ -26,6 +26,7 @@ Terse done-log of what has landed, grouped by area. This is a developer record: 
 - Merge-aware reader: read a merged manga through all its sources (`d30cce03d`, `4bd3ca823`, `5b9f6d778`). See [merge-aware-manga-reader.md](plans/merge-aware-manga-reader.md).
 - Category bulk-delete with deferred-undo (`9a320598e`).
 - Downloads resume reliably after a kill or interruption (`3b1d34759`; Mihon sync `77c4b0842`): in-flight downloads re-queue instead of being dropped.
+- Chapters open again on sources that build their page list with their own JavaScript: a compat `app.cash.quickjs.QuickJs` over the shared engine (0.1.7, `7d73d80e6`).
 
 ## Library shell (manga + novels)
 - Tabbed shell hosting a Manga tab and a Novels tab + repo / install / browse unification (P8/P9). See [library-tabbed-shell.md](plans/library-tabbed-shell.md).
@@ -45,6 +46,7 @@ Terse done-log of what has landed, grouped by area. This is a developer record: 
 - Tracking on AniList / MyAnimeList / MangaUpdates / Kitsu, group-aware (`7c56e07eb`). See [novel-tracking.md](plans/novel-tracking.md).
 - Backup proto + installed-sources backup (`3c52d4c97`). See [novel-backup.md](plans/novel-backup.md).
 - Restored-plugin security gate (`d3c80729c`): a crafted backup could inject plugin URLs the QuickJS host would auto-load and run; restored URLs are now revalidated against the added repos before loading (fail-closed if a repo is unreachable).
+- Uninstalling a novel source works right after installing it, no app restart needed (0.1.7, `af45a81a0`).
 
 ## Novel parity backlog
 Per-item SHAs in [novel-parity-backlog.md](plans/novel-parity-backlog.md) unless noted.
