@@ -192,7 +192,7 @@ class ShikimoriApi(
     )
 
     companion object {
-        const val BASE_URL = "https://shikimori.one"
+        const val BASE_URL = "https://shikimori.io"
         private const val API_URL = "$BASE_URL/api"
 
         // RK: Shikimori GraphQL caps userRates at 50 per page.
