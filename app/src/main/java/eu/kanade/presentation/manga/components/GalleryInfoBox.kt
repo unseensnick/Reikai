@@ -51,6 +51,14 @@ fun GalleryInfoBox(
     onMoreInfoClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    // Skip the card when there is nothing to show. A metadata source whose getExtraInfoPairs is still
+    // a stub (e.g. MangaDex, whose curated rows land in a later phase) would otherwise render empty;
+    // its namespaced tags already render as chips in the description block.
+    val hasInfo = metadata is EHentaiSearchMetadata ||
+        remember(metadata) { metadata.getExtraInfoPairs(context).any { !it.second.startsWith("http") } }
+    if (!hasInfo) return
+
     OutlinedCard(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Column(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
