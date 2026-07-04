@@ -38,6 +38,26 @@ Opportunistic polish: Browse (Latest shortcut, global-search progress, Last-used
 
 MangaUpdates similar-titles shipped (see CHANGELOG `[Unreleased]`); Comick source-native recs is blocked (see Parked).
 
+### Details
+
+From the 2026-07-04 Komikku parity audit (missing features + gestures on the details screen).
+
+- **Header long-press menus + tap-source-to-browse** `[M]` - long-press the title / author / source for library search, global search and copy (today it only copies); tap the source name to open its browse. Flagship parity gap.
+- **Edit entry info** `[L]` - a local editor for title / author / description / tags / status / cover (a TachiyomiSY/Komikku feature; base Mihon has custom-cover editing only).
+- **Per-chapter source label on merged entries** `[M]` - show which source each chapter came from in a merged series.
+- **Per-group Preferred-sources override** `[S-M]` - override the global Preferred-sources ranking for a single merge group (decides which source's version of shared-numbered chapters wins), via a reorder in Manage sources. Low priority; `ChapterAggregation.aggregate` already takes the ranking as a parameter, so only a per-group order pref plus the reorder UI are new. The global ranking still covers the common case.
+- **Details overflow polish** `[S]` - per-entry disable-auto-update, clear-data (downloads + cached chapters), open folder, jump to source settings.
+- **AMOLED-aware adult tag-chip borders** `[S]` - weighted / pure-black-dark-mode borders on the adult gallery-info tag chips (copying metadata already works via the metadata viewer).
+
+### Browse & sources
+
+From the same audit.
+
+- **Bulk multi-select in browse and global search** `[M]` - long-press to select many results and add them to the library at once. The select + batch-add UI already exists in the related-mangas "See all" grid; this wires it into the main source browse and global search. Biggest browse gesture gap.
+- **Find-a-source search box** `[M]` - filter the sources list by name or extension when you have many.
+- **Custom source categories** `[M]` - group installed sources under your own headers (assign each source to one or more categories) in the Sources list, beyond the default language grouping. Needs source-category storage.
+- **Source-list & row polish** `[S]` - row badges (language flag / NSFW / extension name), a browse-toolbar incognito toggle, an NSFW-only filter, per-source data-saver exclude, a browse panorama toggle (the library already has panorama), hide latest / pin.
+
 ## Parked / not building
 
 One line each; revive note where relevant.
@@ -52,7 +72,8 @@ One line each; revive note where relevant.
 - **Upcoming / release calendar for novels** - LN sources rarely expose a reliable cadence; stays manga-only.
 - **Novel sources enable/disable filter screen** - add a bulk-toggle screen if managing many LN sources gets painful.
 - **Novel missing-chapter gap separators** - novel numbers are title-recognition-derived and source-order-sorted, so computed gaps would be mostly false.
-- **Saved searches** (browse filter presets) - low value; the DB + serializer layer survives on `design/library-compose`.
+- **Saved searches** (browse filter presets) - low value; the DB + serializer layer survives on `design/library-compose`. The 2026-07-04 Komikku parity audit rates it the top browse gap, but the "low value" call stands unless reopened.
+- **Per-source Feed** (latest / popular / saved-search rows as a source home) - depends on saved searches (parked above); parked together.
 - **Restore-path onboarding** - the restore log already lists what couldn't reinstall. See [novel-backup.md](docs/dev/plans/novel-backup.md).
 - **Auto-refresh-metadata toggle for novels** - no-op; novels return metadata + chapters in one call.
 - **Dynamic launcher shortcuts** - cosmetic; Mihon ships a static `shortcuts.xml`.
