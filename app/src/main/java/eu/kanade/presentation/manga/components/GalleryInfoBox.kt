@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
 import exh.metadata.MetadataUtil
 import exh.metadata.metadata.EHentaiSearchMetadata
+import exh.metadata.metadata.MangaDexSearchMetadata
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.util.SourceTagsUtil
 import exh.util.SourceTagsUtil.GenreColor
@@ -38,12 +39,14 @@ import tachiyomi.presentation.core.icons.FlagEmoji.Companion.getEmojiLangFlag
 import java.time.Instant
 import java.time.ZoneId
 import kotlin.math.floor
+import kotlin.math.roundToInt
 
 /**
  * Per-source gallery-info card shown above the description on adult/metadata galleries (Reikai's
  * Compose-native take on Komikku's *DescriptionAdapter cards). E-Hentai gets a curated rich layout
- * reusing the browse-row rendering (rating stars, colored genre badge, uploader, pages, language
- * flag, size, date); other metadata sources fall back to their [RaisedSearchMetadata.getExtraInfoPairs].
+ * (rating stars, colored genre badge, uploader, pages, language flag, size, date); MangaDex gets a
+ * curated rating widget (stars + score + descriptor); other metadata sources fall back to their
+ * [RaisedSearchMetadata.getExtraInfoPairs]. The full field dump is always behind the More-info button.
  */
 @Composable
 fun GalleryInfoBox(
@@ -52,10 +55,9 @@ fun GalleryInfoBox(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    // Skip the card when there is nothing to show. A metadata source whose getExtraInfoPairs is still
-    // a stub (e.g. MangaDex, whose curated rows land in a later phase) would otherwise render empty;
-    // its namespaced tags already render as chips in the description block.
-    val hasInfo = metadata is EHentaiSearchMetadata ||
+    // Skip the card when a source has nothing curated and no non-URL info pairs to list; its
+    // namespaced tags still render as chips in the description block regardless.
+    val hasInfo = metadata is EHentaiSearchMetadata || metadata is MangaDexSearchMetadata ||
         remember(metadata) { metadata.getExtraInfoPairs(context).any { !it.second.startsWith("http") } }
     if (!hasInfo) return
 
@@ -64,10 +66,10 @@ fun GalleryInfoBox(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            if (metadata is EHentaiSearchMetadata) {
-                EHentaiGalleryInfo(metadata)
-            } else {
-                GenericGalleryInfo(metadata)
+            when (metadata) {
+                is EHentaiSearchMetadata -> EHentaiGalleryInfo(metadata)
+                is MangaDexSearchMetadata -> MangaDexGalleryInfo(metadata)
+                else -> GenericGalleryInfo(metadata)
             }
             if (onMoreInfoClick != null) {
                 TextButton(onClick = onMoreInfoClick, modifier = Modifier.align(Alignment.End)) {
@@ -114,6 +116,22 @@ private fun EHentaiGalleryInfo(metadata: EHentaiSearchMetadata) {
     metadata.size?.let { InfoRow(stringResource(MR.strings.gallery_size), MetadataUtil.humanReadableByteCount(it, true)) }
     metadata.favorites?.let { InfoRow(stringResource(MR.strings.total_favorites), it.toString()) }
     date?.let { InfoRow(stringResource(MR.strings.date_posted), it) }
+}
+
+@Composable
+private fun MangaDexGalleryInfo(metadata: MangaDexSearchMetadata) {
+    val rating = metadata.rating ?: return
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RatingStars(rating / 2f)
+        Text(
+            text = "%.2f - %s".format(rating, stringResource(mdRatingLabel(rating))),
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
 }
 
 @Composable
@@ -170,6 +188,22 @@ private fun RatingStars(rating: Float) {
             )
         }
     }
+}
+
+// MangaDex's 0-10 rating mapped to Komikku's descriptor buckets (9 = Amazing, 10 = Masterpiece).
+private fun mdRatingLabel(rating: Float): StringResource = when (rating.roundToInt()) {
+    0 -> MR.strings.rating0
+    1 -> MR.strings.rating1
+    2 -> MR.strings.rating2
+    3 -> MR.strings.rating3
+    4 -> MR.strings.rating4
+    5 -> MR.strings.rating5
+    6 -> MR.strings.rating6
+    7 -> MR.strings.rating7
+    8 -> MR.strings.rating8
+    9 -> MR.strings.rating9
+    10 -> MR.strings.rating10
+    else -> MR.strings.no_rating
 }
 
 private fun ehGenre(genre: String?): Pair<GenreColor, StringResource>? = when (genre) {

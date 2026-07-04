@@ -1285,6 +1285,19 @@
     <string name="mal_id">Mal id</string>
     <string name="manga_updates_id">Manga updates id</string>
     <string name="anime_planet_id">Anime planet id</string>
+    <!-- RK: MangaDex rating descriptors (Phase 2 details card) -->
+    <string name="rating10">Masterpiece</string>
+    <string name="rating9">Amazing</string>
+    <string name="rating8">Great</string>
+    <string name="rating7">Good</string>
+    <string name="rating6">Okay</string>
+    <string name="rating5">Mediocre</string>
+    <string name="rating4">Bad</string>
+    <string name="rating3">Awful</string>
+    <string name="rating2">Painful</string>
+    <string name="rating1">Unbearable</string>
+    <string name="rating0">Disaster</string>
+    <string name="no_rating">No rating</string>
     <string name="pref_enable_adult_sources">Enable adult sources (E-Hentai)</string>
     <string name="pref_enable_adult_sources_summary">Adds the built-in E-Hentai sources to Browse. ExHentai also requires you to log in.</string>
     <string name="recheck_login_status">Recheck login status</string>
