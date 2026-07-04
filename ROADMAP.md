@@ -4,7 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-- **MangaDex enhanced source** `[L]` (in progress, branch `feat/mangadex-source`) - port the `exh/md` subsystem to wrap the installed MangaDex extension. Phase 0-1 shipped and on-device verified (delegated wrap + metadata-enriched details: author, status, description, namespaced Demographic / Content Rating / Tags). Remaining: details-rendering UI (2), OAuth + MDList tracker (3), follows sync (4), settings hub (5), similar + aggregators (6). [plan](docs/dev/plans/mangadex-enhanced-source.md).
+- **MangaDex enhanced source** `[L]` (in progress, branch `feat/enhanced-source`) - port the `exh/md` subsystem to wrap the installed MangaDex extension. Phases 0-2 shipped and on-device verified (delegated wrap + metadata-enriched details + the reference-matched gallery-info card: author, status, description, star rating, namespaced Demographic / Content Rating / Tags). Remaining: OAuth + MDList tracker (3), follows sync (4), settings hub (5), similar + aggregators (6). [plan](docs/dev/plans/md-enhanced-source.md).
 
 ## Next
 

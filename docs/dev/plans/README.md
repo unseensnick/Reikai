@@ -22,7 +22,7 @@ The format these follow, and the rule for what earns a doc here, live in [.claud
 - [Manga merge engine (P4)](manga-merge-engine.md): pref-based multi-source manga merge (group algebra, distinct-count trunk + float-keyed chapter pooling, copy-on-write tracker mirroring) plus the FlareSolverr Cloudflare escape hatch.
 - [Merge-aware manga reader](merge-aware-manga-reader.md): read a merged manga straight through all its sources in the reader (unified list with per-source labels, cross-source prev/next, per-source side effects), via a thin Reikai layer over Mihon's reader.
 - [Recommendations & related carousel (P6)](recommendations.md): five suggestion streams merged, taste-reranked, tracker-gated cross-recs, and a See-all bulk-add grid.
-- [MangaDex enhanced source](mangadex-enhanced-source.md): wrap the installed MangaDex extension with metadata, OAuth login, an MDList tracker, follows sync, and a settings hub, reusing the EXH enhancement machinery. Phased forward plan, not started.
+- [MangaDex enhanced source](md-enhanced-source.md): wrap the installed MangaDex extension with metadata, OAuth login, an MDList tracker, follows sync, and a settings hub, reusing the EXH enhancement machinery. Phased plan; Phases 0-2 shipped (delegated wrap + enriched details), 3-6 remain.
 
 ## Adult sources
 
