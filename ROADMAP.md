@@ -4,7 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-Nothing in progress.
+- **MangaDex enhanced source** `[L]` (in progress, branch `feat/mangadex-source`) - port the `exh/md` subsystem to wrap the installed MangaDex extension. Phase 0-1 shipped and on-device verified (delegated wrap + metadata-enriched details: author, status, description, namespaced Demographic / Content Rating / Tags). Remaining: details-rendering UI (2), OAuth + MDList tracker (3), follows sync (4), settings hub (5), similar + aggregators (6). [plan](docs/dev/plans/mangadex-enhanced-source.md).
 
 ## Next
 
@@ -36,11 +36,7 @@ Opportunistic polish: Browse (Latest shortcut, global-search progress, Last-used
 
 - **MangaUpdates similar-titles** `[S]` - also read the `category_recommendations` bucket, not just the human one; no UI change.
 - **Comick source-native recommendations** `[S-M]` - feed Comick's own recs API into the carousel; restore the Comick id set + port `ComickPagingSource`. Self-contained.
-- **MangaDex source-native similarity** `[L, gated]` - use MangaDex's `/manga/{id}/related` graph. A consumer of the MangaDex enhanced-source initiative below; lands when that does.
-
-### MangaDex enhanced source
-
-- **MangaDex enhanced source** `[L]` - port the `exh/md` subsystem: a `DelegatedHttpSource` wrapping the installed MangaDex extension with OAuth login, follows sync, the MDList tracker, a Settings hub, and the metadata model + info adapter. A general MangaDex feature (under `exh/` for historical reasons), so its own branch + plan doc. Unblocks the MangaDex similarity carousel (above) and the adult tag-chip MangaDex branch. Wanted: MangaDex is an actively-used source.
+- **MangaDex source-native similarity** `[L, gated]` - use MangaDex's `/manga/{id}/related` graph. A consumer of the MangaDex enhanced source (in Now); lands with its Phase 6 (similar + aggregators).
 
 ## Parked / not building
 
