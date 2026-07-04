@@ -4,7 +4,10 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-Nothing in progress.
+Recommendations sweep: the self-contained Recommendations items pulled up from Later.
+
+- **MangaUpdates similar-titles** `[S]` - also read the `category_recommendations` bucket, not just the human one; no UI change.
+- **Comick source-native recommendations** `[S-M]` - feed Comick's own recs API into the carousel; restore the Comick id set + port `ComickPagingSource`. Self-contained.
 
 ## Next
 
@@ -34,9 +37,9 @@ Opportunistic polish: Browse (Latest shortcut, global-search progress, Last-used
 
 ### Recommendations
 
-- **MangaUpdates similar-titles** `[S]` - also read the `category_recommendations` bucket, not just the human one; no UI change.
-- **Comick source-native recommendations** `[S-M]` - feed Comick's own recs API into the carousel; restore the Comick id set + port `ComickPagingSource`. Self-contained.
 - **MangaDex source-native similarity** `[L, gated]` - use MangaDex's `/manga/{id}/related` graph. A consumer of the MangaDex enhanced-source initiative below; lands when that does.
+
+The self-contained items (MangaUpdates similar-titles, Comick source-native recs) are now in **Now**.
 
 ### MangaDex enhanced source
 
