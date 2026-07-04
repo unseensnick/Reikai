@@ -19,6 +19,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Fixes
 
+- **Shikimori recommendations work again after the site's domain change.** They were still pointed at the old address, so they had stopped showing up.
 - **The notes editor no longer crashes when you background the app or select text.** Editing a title's notes is stable again.
 - **Restored downloads appear right after a backup restore.** The download state no longer waits for an app restart to catch up.
 
