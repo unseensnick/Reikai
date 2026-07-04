@@ -12,6 +12,15 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+### Changes
+
+- **Shikimori tracker search now shows authors, artists and a description.** Looking up a title to track also makes fewer network requests than before.
+
+### Fixes
+
+- **The notes editor no longer crashes when you background the app or select text.** Editing a title's notes is stable again.
+- **Restored downloads appear right after a backup restore.** The download state no longer waits for an app restart to catch up.
+
 ## [0.1.7]
 
 ### Fixes
