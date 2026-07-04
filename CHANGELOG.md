@@ -14,6 +14,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Changes
 
+- **Recommendations now include MangaUpdates similar titles, not just its community picks.** A title's related-series list pulls from both MangaUpdates buckets.
 - **Shikimori tracker search now shows authors, artists and a description.** Looking up a title to track also makes fewer network requests than before.
 
 ### Fixes

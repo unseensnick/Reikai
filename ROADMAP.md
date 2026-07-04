@@ -4,9 +4,8 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-Recommendations sweep: the self-contained Recommendations items pulled up from Later.
+Recommendations sweep (MangaUpdates similar-titles shipped, see CHANGELOG `[Unreleased]`).
 
-- **MangaUpdates similar-titles** `[S]` - also read the `category_recommendations` bucket, not just the human one; no UI change.
 - **Comick source-native recommendations** `[S-M]` - feed Comick's own recs API into the carousel; restore the Comick id set + port `ComickPagingSource`. Self-contained.
 
 ## Next
