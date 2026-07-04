@@ -64,7 +64,7 @@ class ShikimoriRecommendations(
     )
 
     companion object {
-        private const val BASE_URL = "https://shikimori.one"
+        private const val BASE_URL = "https://shikimori.io"
         private const val API_URL = "$BASE_URL/api"
 
         // Shikimori requires the registered app name as User-Agent (a browser UA risks an IP ban);
