@@ -63,7 +63,26 @@ Deferred by design (dependencies do not exist yet, or YAGNI until their phase):
 
 **Verified:** `:app:compileDebugKotlin` clean (no warnings from the new files). Minified `:app:assemblePreview` intentionally deferred to Phase 1: Phase 0 has no `Injekt.get<T>()` (the one such call, `getEnabledMangaDex`, is deferred), so the R8/`FullTypeReference` failure mode cannot occur yet, and the package is already under the `exh.**` keep.
 
-**Phase 1, MVP delegated source (browse/search/details/chapters/pages).** Port `MangaDexService` (native endpoints), `MangaHandler`, `PageHandler` (MangaDex at-home path only, skip external aggregators), `ApiMangaParser` (details + chapter parse), `FilterHandler`. Write `MangaDex.kt` as `DelegatedHttpSource` and register it in `DELEGATED_SOURCES` (`::MangaDex`, `factory = true`, package `eu.kanade.tachiyomi.extension.all.mangadex`). **Re-type the big delta here:** Komikku's split `getMangaDetails` + `getChapterList` collapse into Reikai's combined `getMangaUpdate`; no `SManga.copy(args)`; DTO title/description are language maps, not strings (see EXH port memory). Acceptance: install the MangaDex extension on-device, toggle delegate on, browse/search/open details/read a chapter through the enhanced source; confirm it matches the raw extension plus MangaDex metadata parsing. Verify the delegate id lands in `MANGADEX_IDS` (dump the installed MangaDex source id, like the Comick lesson) or the wrap never activates.
+**Phase 1, MVP delegated source (browse/search/details/chapters/pages).** Scoped from reading the payload; **bigger than first written**, because Komikku's details parser IS a metadata parser: `ApiMangaParser.parseToManga` populates a `MangaDexSearchMetadata`, stores it via `InsertFlatMetadata`, and returns `metadata.createMangaInfo(manga)`. Details-parsing and metadata-parsing are inseparable, so the metadata *class* comes forward into Phase 1. Only the *UI* rendering (GalleryInfoBox namespaced chips) stays in Phase 2; the metadata is parsed and stored from Phase 1, just not specially displayed yet.
+
+Files (build-new, re-typed onto current source-api):
+
+- `exh/md/service/MangaDexService.kt` (native GET/POST endpoints; uses Reikai `network.GET/POST/parseAs/awaitSuccess`, `exh.util.dropEmpty`/`trimAll` which both exist).
+- `exh/md/handlers/ApiMangaParser.kt` (details + chapter parse into `MangaDexSearchMetadata`).
+- `exh/md/handlers/MangaHandler.kt`, `exh/md/handlers/PageHandler.kt` (at-home only), `exh/md/handlers/FilterHandler.kt`.
+- `source-api` `exh/metadata/metadata/MangaDexSearchMetadata.kt` : `RaisedSearchMetadata` (**pulled forward from Phase 2**; template `EHentaiSearchMetadata`, which also shows `createMangaInfo`).
+- `MdUtil`: un-defer `getEnabledMangaDex(s)` (its first Injekt-generics use; needs a net-new `preferredMangaDexId` source pref + `getMainSource<MangaDex>` + a `nullIfZero`, which is absent so inline `takeIf { it != 0L }`).
+- `MangaDex.kt` as `DelegatedHttpSource` only for MVP (defer `MetadataSource`->P2, `Login`/`Follows`/`Random`->P3/4, external aggregators + `Similar` + `Namespace`->P6, `UrlImportable`->later). Register in `DELEGATED_SOURCES` (`::MangaDex`, `factory = true`, package `eu.kanade.tachiyomi.extension.all.mangadex.MangaDex`); keep the `source_$id` SharedPreferences block + the per-language pref-key helpers (defaults work with no settings UI until Phase 5).
+
+Re-typing deltas confirmed by reading the payload:
+
+- **Combined `getMangaUpdate`** collapses Komikku's split `getMangaDetails` + `getChapterList` (both via `MangaHandler`), mirroring `EightMuses.getMangaUpdate`.
+- **`SManga.create().apply {}` and `SChapter.create().apply {}`** (both are interfaces with `create()`); no Komikku `SManga(...)` / `SChapter(...)` constructors.
+- **Absent Komikku helpers:** `exh.log.xLogE`/`xLogD` -> Reikai `logcat`; `exh.util.floor` -> `kotlin.math.floor`.
+- **Description-augmentation deferred to Phase 5.** `ApiMangaParser` drops the `altTitlesInDesc`/`finalChapterInDesc` branches (and their params) in Phase 1: they are only reachable via prefs whose UI is Phase 5, and they need i18n strings (`alt_titles`, `final_chapter`) Reikai does not have. The `MdUtil` i18n desc helpers stay deferred to **Phase 5** (not Phase 2).
+- **`PageHandler` external aggregators stripped** (MangaPlus/Comikey/Bilibili/Azuki/MangaHot/Namicomi -> Phase 6); at-home path only. Its `updateExtensionVariable` reflection into the stock extension's `helper.tokenTracker` is kept but is defensive (returns on any missing member); flag as an on-device risk.
+
+Acceptance: install the MangaDex extension on-device, toggle delegate on, browse/search/open details/read a chapter through the enhanced source; confirm parity with the raw extension. **Dump the installed MangaDex source id and confirm it is in `MANGADEX_IDS`** (the Comick lesson) and that the wrap activates by name. Run a minified `:app:assemblePreview` here (this phase adds the first `Injekt.get<T>()` via `getEnabledMangaDex`).
 
 **Phase 2, metadata + details rendering.** `MangaDexSearchMetadata : RaisedSearchMetadata`; wire `MangaDex : MetadataSource<MangaDexSearchMetadata, Triple<MangaDto, List<String>, StatisticsMangaDto>>`; `ApiMangaParser.parseIntoMetadata` populates it (tags with `Demographic`/`Content Rating`/`Tags` namespaces, cross-tracker ids from `manga.attributes.links`, rating from statistics). Store via the existing `search_metadata` tables. Add a MangaDex branch to `GalleryInfoBox` (E-Hentai's curated layout is the template; generic `getExtraInfoPairs` is the fallback). Acceptance: details show MangaDex tags/rating/namespaced chips; metadata persists and reloads from DB.
 
@@ -85,7 +104,9 @@ Once a phase's files are ported, audit the Reikai port against the Komikku sourc
 - **`SManga.create().apply {}`** in place of Komikku's `SManga(...)` constructor; no `copy(args)`.
 - **`MdUtil` incremental.** Methods absent in an early phase are deferred by design (source-discovery -> Phase 1, OAuth -> Phase 3, i18n desc helpers -> Phase 2), not missing.
 - **Reikai i18n.** `SYMR.strings.*` (Komikku moko) re-pointed to Reikai's i18n resources; string keys/values may be renamed.
-- **`exh.util.under` / `nullIfZero`** ported or inlined rather than imported.
+- **Absent Komikku helpers substituted:** `exh.util.under` / `nullIfZero` inlined; `exh.log.xLogE`/`xLogD` -> Reikai `logcat`; `exh.util.floor` -> `kotlin.math.floor`.
+- **`SManga.create().apply {}` / `SChapter.create().apply {}`** for both models (interfaces with `create()`).
+- **Phase 1 drops the `altTitlesInDesc` / `finalChapterInDesc` description branches and params** (deferred to Phase 5 with their settings UI and i18n). Not a lost feature.
 - **Injekt, not Koin.** DI wiring uses Reikai's Injekt registration; no Koin.
 - **`// RK` islands** on any edit to a Mihon-owned file (registry, prefs), where Komikku uses `// SY` / `// KMK`.
 - **MVP scope cuts (Phase 1).** No external-aggregator page handlers (MangaPlus, Bilibili, Comikey, Azuki, MangaHot, Namicomi), no login/follows/similar; MangaDex at-home path only. These arrive in later phases (or Phase 6, deferred).
