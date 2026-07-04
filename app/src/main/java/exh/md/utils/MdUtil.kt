@@ -3,15 +3,19 @@ package exh.md.utils
 import eu.kanade.tachiyomi.source.model.SManga
 import exh.md.dto.MangaAttributesDto
 import exh.md.dto.MangaDataDto
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.jsoup.parser.Parser
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
 
-// Phase 0 lands only the pure parsing/URL helpers. The source-discovery (getEnabledMangaDex),
-// OAuth (saveOAuth/refreshTokenRequest), POST-body (encodeToBody) and i18n description helpers
-// arrive with their phases (1, 3 and 2 respectively), when their dependencies exist.
+// The source-discovery (getEnabledMangaDex), OAuth (saveOAuth/refreshTokenRequest) and i18n
+// description helpers arrive with their phases (1, 3 and 5 respectively), when their
+// dependencies exist. Phase 1 adds the pure JSON POST-body helper (encodeToBody).
 class MdUtil {
 
     companion object {
@@ -126,6 +130,11 @@ class MdUtil {
 
         fun cdnCoverUrl(dexId: String, fileName: String): String {
             return "$cdnUrl/covers/$dexId/$fileName"
+        }
+
+        inline fun <reified T> encodeToBody(body: T): RequestBody {
+            return jsonParser.encodeToString(body)
+                .toRequestBody("application/json".toMediaType())
         }
     }
 }
