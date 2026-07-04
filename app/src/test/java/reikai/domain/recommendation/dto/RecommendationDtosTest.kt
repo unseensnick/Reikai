@@ -79,6 +79,24 @@ class RecommendationDtosTest {
     }
 
     @Test
+    fun `MangaUpdates series payload maps the category_recommendations bucket too`() {
+        // The similar-titles bucket carries the same item shape as the human recommendations one.
+        val payload = """
+            {"recommendations":[
+              {"series_name":"Vinland Saga","series_url":"https://mangaupdates.com/series/abc"}
+            ],
+            "category_recommendations":[
+              {"series_name":"Vagabond","series_url":"https://mangaupdates.com/series/xyz",
+               "series_image":{"url":{"original":"https://img/similar.jpg"}}}
+            ]}
+        """.trimIndent()
+
+        val rec = json.decodeFromString<MUSeriesResponse>(payload).categoryRecommendations.single()
+        rec.seriesName shouldBe "Vagabond"
+        rec.seriesImage?.url?.original shouldBe "https://img/similar.jpg"
+    }
+
+    @Test
     fun `MangaUpdates search payload maps the first series id`() {
         val payload = """{"results":[{"record":{"series_id":12345}},{"record":{"series_id":67890}}]}"""
         val id = json.decodeFromString<MUSearchResponse>(payload).results.first().record.seriesId

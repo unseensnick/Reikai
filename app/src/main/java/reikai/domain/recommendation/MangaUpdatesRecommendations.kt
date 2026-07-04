@@ -14,9 +14,10 @@ import reikai.domain.recommendation.dto.MUSearchResponse
 import reikai.domain.recommendation.dto.MUSeriesResponse
 
 /**
- * MangaUpdates community recommendations via the public v1 API (`series/{id}` recommendations).
- * Public, no auth. No alternative titles parsed here, so candidates dedup on primary title only
- * (synonym parsing deferred, see docs/dev/development.md).
+ * MangaUpdates recommendations via the public v1 API (`series/{id}`): both the community
+ * `recommendations` and the `category_recommendations` (similar-titles) buckets. Public, no auth.
+ * No alternative titles parsed here, so candidates dedup on primary title only (synonym parsing
+ * deferred, see docs/dev/development.md).
  */
 class MangaUpdatesRecommendations(
     private val client: OkHttpClient,
@@ -43,7 +44,7 @@ class MangaUpdatesRecommendations(
     }
 
     private fun MUSeriesResponse.toCandidates(): List<RelatedMangaCandidate> =
-        recommendations.map { rec ->
+        (recommendations + categoryRecommendations).map { rec ->
             candidate(
                 url = rec.seriesUrl,
                 title = rec.seriesName,
