@@ -40,12 +40,19 @@ Reference upstream PRs/issues as **`mihonapp/mihon#<n>`** (a cross-repo link). A
 - **CI-action bumps go to Reikai's own workflows:** Reikai owns `build_check.yml` / `preview.yml` / `release.yml`; apply an action bump there, not to a Mihon `build.yml` Reikai lacks.
 - **Coupled bumps land together:** a major dependency bump and its deprecation-fix commit must ride one commit (e.g. xmlutil 1.0.0 with its `XML.v1` migration), or the first commit will not compile.
 
+## Deliberate divergences from upstream
+
+Cases where Reikai knowingly does not match `refs/mihon`, so a future syncer does not "fix" them back. Revisit each when upstream settles.
+
+- **Notes background-crash fix (`mihonapp/mihon#3515`): Reikai keeps it, Mihon reverted it.** Upstream reverted `mihonapp/mihon#3515` on 2026-07-04 (`94b3b5eaa`), returning the notes Voyager screen to taking a whole `Manga`, with no stated reason; it kept the sibling `mihonapp/mihon#3516` (text-select crash). Reikai keeps its ported fix (serializable `mangaId` / `mangaTitle` / `mangaNotes` args in `MangaNotesScreen`) because it fixes a background crash we reproduced and verified fixed on-device, and matches Reikai's own convention that Voyager `Screen` args stay serializable. **Do not port the revert.** Watch what Mihon does next (re-land, an alternative fix, or leave it reverted) and reconcile then. Tracked in [CLAUDE.md](../../CLAUDE.md) "Active upstream-sync watch".
+
 ## Synced-base ledger
 
 Newest first. "Base" is the `refs/mihon` SHA Reikai is synced through; "Reikai" is the sync commit. For syncs older than the table, run `git log --oneline --grep="sync Mihon" -i`.
 
 | Base (mihon) | Reikai | Date | Ported | Skipped / N/A |
 |---|---|---|---|---|
+| `94b3b5eaa` | `<this commit, finalize post-merge>` | 2026-07-04 | None (divergence review only) | `94b3b5eaa` revert of `mihonapp/mihon#3515`: Reikai deliberately keeps its port (see "Deliberate divergences") |
 | `27284a40a` | `f538e8d34` | 2026-07-04 | 4: notes background-crash serializable args (mihonapp/mihon#3515), notes text-select crash / composeRichEditor rc13 (mihonapp/mihon#3516), Shikimori GraphQL search+lookup+currentUser with a `// RK` not-in-list bind fix (mihonapp/mihon#3499), download-cache invalidation after restore (mihonapp/mihon#3096) | `mihonapp/mihon#3514` download wrong-file-check: Reikai already ships the correct logic (`3b1d34759`) |
 | `0772f7202` | `d0cb409f7` | 2026-07-03 | 9: 7 dependency bumps, Shikimori `.io` (mihonapp/mihon#3497), xmlutil v1 + Compose ListItem deprecations (mihonapp/mihon#3507) | `mihonapp/mihon#3504` duplicate-images-on-resume: already fixed by Reikai `3b1d34759`, and upstream's helper logic is inverted |
 | `d8c3440d3` | `77c4b0842` | 2026-07-01 | 1: resumable image downloads (mihonapp/mihon#3167) | None |
