@@ -79,16 +79,17 @@ Reikai currently ships a lighter slice of Komikku's adult-source subsystem. The 
 
 ## Shorthands
 
-For built-in-source bug reports: keep the issue title generalized and use these in the body.
+For source bug reports, keep the issue title generalized and use these shorthands in the body. **Type** is what Reikai owns: **Built-in** = shipped by Reikai, no extension to install; **Enhanced** = a third-party extension you install that Reikai wraps to enrich, so report Reikai's wrapper behaviour, not the extension itself. **Content** flags the adult subsystem (behind the Enable-adult-sources toggle) versus a mainstream source.
 
-| Shorthand | Source |
-| --------- | ------ |
-| EH  | E-Hentai |
-| ExH | ExHentai |
-| NH  | nHentai |
-| Pu  | Pururin |
-| HF  | HentaiFox |
-| Asm | AsmHentai |
-| SN  | SchaleNetwork (Koharu) |
-| 8M  | 8Muses |
-| LRR | LANraragi |
+| Shorthand | Source | Type | Content |
+| --------- | ------ | ---- | ------- |
+| EH  | E-Hentai | Built-in | Adult |
+| ExH | ExHentai | Built-in | Adult |
+| NH  | nHentai | Built-in + Enhanced | Adult |
+| Pu  | Pururin | Built-in | Adult |
+| HF  | HentaiFox | Enhanced | Adult |
+| Asm | AsmHentai | Enhanced | Adult |
+| SN  | SchaleNetwork (Koharu) | Enhanced | Adult |
+| 8M  | 8Muses | Enhanced | Adult |
+| LRR | LANraragi | Enhanced | Adult |
+| MD  | MangaDex | Enhanced | Mainstream |

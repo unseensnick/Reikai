@@ -4,7 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-- **MangaDex enhanced source** `[L]` (in progress, branch `feat/enhanced-source`) - port the `exh/md` subsystem to wrap the installed MangaDex extension. Phases 0-2 shipped and on-device verified (delegated wrap + metadata-enriched details + the reference-matched gallery-info card: author, status, description, star rating, namespaced Demographic / Content Rating / Tags). Remaining: OAuth + MDList tracker (3), follows sync (4), settings hub (5), similar + aggregators (6). [plan](docs/dev/plans/md-enhanced-source.md).
+- **MD enhanced source** `[L]` (in progress, branch `feat/enhanced-source`) - port the `exh/md` subsystem to wrap the installed MD extension. Phases 0-2 shipped and on-device verified (delegated wrap + metadata-enriched details + the reference-matched gallery-info card: author, status, description, star rating, namespaced Demographic / Content Rating / Tags). Remaining: OAuth + MDList tracker (3), follows sync (4), settings hub (5), similar + aggregators (6). [plan](docs/dev/plans/md-enhanced-source.md).
 
 ## Next
 
@@ -34,9 +34,9 @@ Opportunistic polish: Browse (Latest shortcut, global-search progress, Last-used
 
 ### Recommendations
 
-- **MangaDex source-native similarity** `[L, gated]` - use MangaDex's `/manga/{id}/related` graph. A consumer of the MangaDex enhanced source (in Now); lands with its Phase 6 (similar + aggregators).
+- **MD source-native similarity** `[L, gated]` - use MD's `/manga/{id}/related` graph. A consumer of the MD enhanced source (in Now); lands with its Phase 6 (similar + aggregators).
 
-MangaUpdates similar-titles shipped (see CHANGELOG `[Unreleased]`); Comick source-native recs is blocked (see Parked).
+MangaUpdates similar-titles shipped (see CHANGELOG `[Unreleased]`); CMK source-native recs is blocked (see Parked).
 
 ### Details
 
@@ -68,7 +68,7 @@ One line each; revive note where relevant.
 - **Dedicated LN trackers** (NovelUpdates / MiraiList / RanobeDB / Hardcover) - no sanctioned read+write API as of June 2026; recheck Hardcover if it leaves beta. See [novel-tracking.md](docs/dev/plans/novel-tracking.md).
 - **Novel recommendations / related carousel** - now feasible (trackers shipped) as an `[M]`; the source-native path stays infeasible (no plugin `getRelated`). Reconsider if wanted.
 - **Batch recommendation search** - overlaps the existing taste-profile layer. Revive if manual multi-title discovery is wanted.
-- **Comick source-native recommendations (+ id-graph)** - Komikku's `ComickPagingSource` port targets stock Comick's `api.comick.fun` API, but stock Comick was pulled from the extension repos; only clones (`comick.live`, `comickfan.com`) with different APIs and source ids remain, so the `COMICK_IDS` gate never fires. Revive if a stable `api.comick.fun`-backed Comick source returns; the id-graph idea (auto-bind trackers from `comic.links`, as a "suggested" not silent binding) rides the same API.
+- **CMK source-native recommendations (+ id-graph)** - the upstream recs port targets CMK's own API, but stock CMK was pulled from the extension repos; only clones with different APIs and source ids remain, so the id-set gate never fires. Revive if a stable first-party CMK source returns; the id-graph idea (auto-bind trackers from the entry's cross-links, as a "suggested" not silent binding) rides the same API.
 - **Upcoming / release calendar for novels** - LN sources rarely expose a reliable cadence; stays manga-only.
 - **Novel sources enable/disable filter screen** - add a bulk-toggle screen if managing many LN sources gets painful.
 - **Novel missing-chapter gap separators** - novel numbers are title-recognition-derived and source-order-sorted, so computed gaps would be mostly false.
