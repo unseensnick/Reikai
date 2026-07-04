@@ -34,7 +34,7 @@ class MangaDex(delegate: HttpSource, val context: Context) :
         MdLang.fromExt(lang) ?: MdLang.ENGLISH
     }
 
-    private val mangadexService by lazy { MangaDexService(client) }
+    private val mangadexService by lazy { MangaDexService(client, headers) }
     private val apiMangaParser by lazy { ApiMangaParser(mdLang.lang) }
     private val mangaHandler by lazy { MangaHandler(mdLang.lang, mangadexService) }
 

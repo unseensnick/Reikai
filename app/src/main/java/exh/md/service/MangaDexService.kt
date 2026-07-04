@@ -25,8 +25,12 @@ import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 
+// The MangaDex API rejects browser User-Agents (400 with an HTML body). Reikai's network client
+// injects a browser UA by default (for Cloudflare bypass), so every request carries the delegate's
+// headers, which set the extension's "Tachiyomi ..." UA, the same way the stock extension does.
 class MangaDexService(
     private val client: OkHttpClient,
+    private val headers: Headers,
 ) {
 
     suspend fun viewMangas(
@@ -45,6 +49,7 @@ class MangaDexService(
                             }
                         }
                         .build(),
+                    headers = headers,
                     cache = CacheControl.FORCE_NETWORK,
                 ),
             ).awaitSuccess().parseAs()
@@ -66,6 +71,7 @@ class MangaDexService(
                             addQueryParameter("includes[]", MdConstants.Types.artist)
                         }
                         .build(),
+                    headers = headers,
                     cache = CacheControl.FORCE_NETWORK,
                 ),
             ).awaitSuccess().parseAs()
@@ -86,6 +92,7 @@ class MangaDexService(
                             }
                         }
                         .build(),
+                    headers = headers,
                     cache = CacheControl.FORCE_NETWORK,
                 ),
             ).awaitSuccess().parseAs()
@@ -107,6 +114,7 @@ class MangaDexService(
                             addQueryParameter("translatedLanguage[]", translatedLanguage)
                         }
                         .build(),
+                    headers = headers,
                     cache = CacheControl.FORCE_NETWORK,
                 ),
             ).awaitSuccess().parseAs()
@@ -150,6 +158,7 @@ class MangaDexService(
             client.newCall(
                 GET(
                     url,
+                    headers = headers,
                     cache = CacheControl.FORCE_NETWORK,
                 ),
             ).awaitSuccess().parseAs()
@@ -158,7 +167,7 @@ class MangaDexService(
 
     suspend fun viewChapter(id: String): ChapterDto {
         return with(MdUtil.jsonParser) {
-            client.newCall(GET("${MdApi.chapter}/$id", cache = CacheControl.FORCE_NETWORK))
+            client.newCall(GET("${MdApi.chapter}/$id", headers = headers, cache = CacheControl.FORCE_NETWORK))
                 .awaitSuccess()
                 .parseAs()
         }
@@ -166,7 +175,7 @@ class MangaDexService(
 
     suspend fun randomManga(): MangaDto {
         return with(MdUtil.jsonParser) {
-            client.newCall(GET("${MdApi.manga}/random", cache = CacheControl.FORCE_NETWORK))
+            client.newCall(GET("${MdApi.manga}/random", headers = headers, cache = CacheControl.FORCE_NETWORK))
                 .awaitSuccess()
                 .parseAs()
         }
@@ -177,6 +186,7 @@ class MangaDexService(
             client.newCall(
                 POST(
                     MdConstants.atHomeReportUrl,
+                    headers = headers,
                     body = MdUtil.encodeToBody(atHomeImageReportDto),
                     cache = CacheControl.FORCE_NETWORK,
                 ),
@@ -186,7 +196,6 @@ class MangaDexService(
 
     suspend fun getAtHomeServer(
         atHomeRequestUrl: String,
-        headers: Headers,
     ): AtHomeDto {
         return with(MdUtil.jsonParser) {
             client.newCall(GET(atHomeRequestUrl, headers, CacheControl.FORCE_NETWORK))
@@ -205,6 +214,7 @@ class MangaDexService(
                             addPathSegment("relation")
                         }
                         .build(),
+                    headers = headers,
                     cache = CacheControl.FORCE_NETWORK,
                 ),
             ).awaitSuccess().parseAs()
@@ -224,6 +234,7 @@ class MangaDexService(
                             addQueryParameter("limit", "1")
                         }
                         .build(),
+                    headers = headers,
                 ),
             ).awaitSuccess().parseAs()
         }
