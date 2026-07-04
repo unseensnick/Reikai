@@ -1277,6 +1277,14 @@
     <string name="translated">Translated</string>
     <string name="aged">Aged</string>
     <string name="last_update_check">Last update check</string>
+    <!-- RK: MangaDex enhanced-source gallery metadata field labels (Phase 2) -->
+    <string name="last_chapter_number">Last chapter number</string>
+    <string name="follow_status">Follow status</string>
+    <string name="anilist_id">Anilist id</string>
+    <string name="kitsu_id">Kitsu id</string>
+    <string name="mal_id">Mal id</string>
+    <string name="manga_updates_id">Manga updates id</string>
+    <string name="anime_planet_id">Anime planet id</string>
     <string name="pref_enable_adult_sources">Enable adult sources (E-Hentai)</string>
     <string name="pref_enable_adult_sources_summary">Adds the built-in E-Hentai sources to Browse. ExHentai also requires you to log in.</string>
     <string name="recheck_login_status">Recheck login status</string>
