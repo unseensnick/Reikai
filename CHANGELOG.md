@@ -12,6 +12,17 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+### Changes
+
+- **Recommendations now include MangaUpdates similar titles, not just its community picks.** A title's related-series list pulls from both MangaUpdates buckets.
+- **Shikimori tracker search now shows authors, artists and a description.** Looking up a title to track also makes fewer network requests than before.
+
+### Fixes
+
+- **Shikimori recommendations work again after the site's domain change.** They were still pointed at the old address, so they had stopped showing up.
+- **The notes editor no longer crashes when you background the app or select text.** Editing a title's notes is stable again.
+- **Restored downloads appear right after a backup restore.** The download state no longer waits for an app restart to catch up.
+
 ## [0.1.7]
 
 ### Fixes

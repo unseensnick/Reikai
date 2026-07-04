@@ -29,8 +29,8 @@ object RecommendationProviders {
             .rateLimitHost("https://api.jikan.moe", permits = 3, period = 1.seconds)
             .rateLimitHost("https://api.jikan.moe", permits = 58, period = 1.minutes)
             .rateLimitHost("https://api.mangaupdates.com", permits = 30, period = 1.minutes)
-            .rateLimitHost("https://shikimori.one", permits = 2, period = 1.seconds)
-            .rateLimitHost("https://shikimori.one", permits = 60, period = 1.minutes)
+            .rateLimitHost("https://shikimori.io", permits = 2, period = 1.seconds)
+            .rateLimitHost("https://shikimori.io", permits = 60, period = 1.minutes)
             .build()
     }
 
