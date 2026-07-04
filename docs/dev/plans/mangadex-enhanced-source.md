@@ -72,12 +72,13 @@ Deferred by design (dependencies do not exist yet, or YAGNI until their phase):
 Files (build-new, re-typed onto current source-api):
 
 - `MangaDex.kt` implements `DelegatedHttpSource + MetadataSource<MangaDexSearchMetadata, Triple<MangaDto, List<String>, StatisticsMangaDto>> + NamespaceSource` (all three interfaces exist in Reikai; `MetadataSource` is **core, not deferred**). Register in `DELEGATED_SOURCES` (`::MangaDex`, `factory = true`, sourceId `fillInSourceId`, package `eu.kanade.tachiyomi.extension.all.mangadex.MangaDex`). Keep the `source_$id` SharedPreferences block + per-language pref-key helpers (defaults work with no settings UI until Phase 5).
-- `exh/md/handlers/ApiMangaParser.kt` is **parse-only**: `parseIntoMetadata` (DTO -> metadata fill) + `chapterListParse` + `mapChapter` + `parseStatus`. **Drop** Komikku's `parseToManga`, its three `injectLazy` interactors, and `newMetaInstance` (the `MetadataSource` interface owns all of that). This deletes the interactor coupling entirely.
-- `exh/md/handlers/MangaHandler.kt` (fetch the details `Triple`: viewManga + simple chapters + statistics; and the chapter list), `exh/md/handlers/PageHandler.kt` (at-home only), `exh/md/service/MangaDexService.kt` (shipped).
+- **MVP enhances details only; chapters + pages + browse + search delegate to the stock extension**, exactly as `EightMuses` does (`EightMuses.getMangaUpdate` delegates chapters). The stock MangaDex extension already parses chapters and serves at-home pages; the custom chapter/page handlers only add pref-gated behaviour (blocked groups, data-saver: Phase 5) and aggregator routing (Phase 6), so `PageHandler` and `MangaHandler.getChapterList`/`ApiMangaParser.chapterListParse` are **deferred**.
+- `exh/md/handlers/ApiMangaParser.kt` is **parse-only, details subset**: `parseIntoMetadata` (DTO -> metadata fill) + `parseStatus`. **Drop** Komikku's `parseToManga`, its three `injectLazy` interactors, and `newMetaInstance` (the `MetadataSource` interface owns all of that); the chapter-parse methods wait for their phase.
+- `exh/md/handlers/MangaHandler.kt`: `getMangaDetailsInput` (the `Triple`: viewManga + simple chapters + statistics) + `getSimpleChapters`. `MangaDexService.kt` (shipped).
 - `source-api` `MangaDexSearchMetadata.kt` (shipped; `getExtraInfoPairs` stubbed until Phase 2).
 - `MdUtil`: un-defer `getEnabledMangaDex(s)` (first Injekt-generics use; needs a net-new `preferredMangaDexId` source pref + `getMainSource<MangaDex>`; inline the absent `nullIfZero` as `takeIf { it != 0L }`).
 
-`getMangaUpdate`: `fetchDetails` -> build the `Triple` via `MangaHandler`, call the interface `parseToManga(manga, triple)`; `fetchChapters` -> `MangaHandler.getChapterList` -> `ApiMangaParser.chapterListParse`.
+`getMangaUpdate` (mirrors `EightMuses`): `fetchDetails` -> build the `Triple` via `MangaHandler`, call the interface `parseToManga(manga, triple)`; `fetchChapters` -> `delegate.getMangaUpdate(manga, chapters, fetchDetails = false, fetchChapters = true).chapters`.
 
 Re-typing deltas confirmed:
 
