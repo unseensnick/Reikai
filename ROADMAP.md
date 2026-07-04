@@ -4,9 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-Recommendations sweep (MangaUpdates similar-titles shipped, see CHANGELOG `[Unreleased]`).
-
-- **Comick source-native recommendations** `[S-M]` - feed Comick's own recs API into the carousel; restore the Comick id set + port `ComickPagingSource`. Self-contained.
+Nothing in progress. MangaUpdates similar-titles shipped; Comick source-native recs is blocked (stock Comick was pulled from the extension repos), see Parked.
 
 ## Next
 
@@ -38,7 +36,7 @@ Opportunistic polish: Browse (Latest shortcut, global-search progress, Last-used
 
 - **MangaDex source-native similarity** `[L, gated]` - use MangaDex's `/manga/{id}/related` graph. A consumer of the MangaDex enhanced-source initiative below; lands when that does.
 
-The self-contained items (MangaUpdates similar-titles, Comick source-native recs) are now in **Now**.
+MangaUpdates similar-titles shipped (see CHANGELOG `[Unreleased]`); Comick source-native recs is blocked (see Parked).
 
 ### MangaDex enhanced source
 
@@ -54,6 +52,7 @@ One line each; revive note where relevant.
 - **Dedicated LN trackers** (NovelUpdates / MiraiList / RanobeDB / Hardcover) - no sanctioned read+write API as of June 2026; recheck Hardcover if it leaves beta. See [novel-tracking.md](docs/dev/plans/novel-tracking.md).
 - **Novel recommendations / related carousel** - now feasible (trackers shipped) as an `[M]`; the source-native path stays infeasible (no plugin `getRelated`). Reconsider if wanted.
 - **Batch recommendation search** - overlaps the existing taste-profile layer. Revive if manual multi-title discovery is wanted.
+- **Comick source-native recommendations (+ id-graph)** - Komikku's `ComickPagingSource` port targets stock Comick's `api.comick.fun` API, but stock Comick was pulled from the extension repos; only clones (`comick.live`, `comickfan.com`) with different APIs and source ids remain, so the `COMICK_IDS` gate never fires. Revive if a stable `api.comick.fun`-backed Comick source returns; the id-graph idea (auto-bind trackers from `comic.links`, as a "suggested" not silent binding) rides the same API.
 - **Upcoming / release calendar for novels** - LN sources rarely expose a reliable cadence; stays manga-only.
 - **Novel sources enable/disable filter screen** - add a bulk-toggle screen if managing many LN sources gets painful.
 - **Novel missing-chapter gap separators** - novel numbers are title-recognition-derived and source-order-sorted, so computed gaps would be mostly false.
