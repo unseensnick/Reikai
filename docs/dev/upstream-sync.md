@@ -46,6 +46,7 @@ Newest first. "Base" is the `refs/mihon` SHA Reikai is synced through; "Reikai" 
 
 | Base (mihon) | Reikai | Date | Ported | Skipped / N/A |
 |---|---|---|---|---|
+| `27284a40a` | `f538e8d34` | 2026-07-04 | 4: notes background-crash serializable args (mihonapp/mihon#3515), notes text-select crash / composeRichEditor rc13 (mihonapp/mihon#3516), Shikimori GraphQL search+lookup+currentUser with a `// RK` not-in-list bind fix (mihonapp/mihon#3499), download-cache invalidation after restore (mihonapp/mihon#3096) | `mihonapp/mihon#3514` download wrong-file-check: Reikai already ships the correct logic (`3b1d34759`) |
 | `0772f7202` | `d0cb409f7` | 2026-07-03 | 9: 7 dependency bumps, Shikimori `.io` (mihonapp/mihon#3497), xmlutil v1 + Compose ListItem deprecations (mihonapp/mihon#3507) | `mihonapp/mihon#3504` duplicate-images-on-resume: already fixed by Reikai `3b1d34759`, and upstream's helper logic is inverted |
 | `d8c3440d3` | `77c4b0842` | 2026-07-01 | 1: resumable image downloads (mihonapp/mihon#3167) | None |
 | `a82ccea6f` | `a5ebecd5b` | 2026-06-27 | 2: Gradle 9.6.1 (mihonapp/mihon#3475), Voyager 2.x (mihonapp/mihon#3466) | `19f1d00fc` Mihon v0.20.0 release |
