@@ -28,6 +28,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The notes editor no longer crashes when you background the app or select text.** Editing a title's notes is stable again.
 - **Restored downloads appear right after a backup restore.** The download state no longer waits for an app restart to catch up.
 
+### Other
+
+- Synced an upstream Mihon fix that hardens the app against backgrounding crashes, replacing Reikai's earlier local workaround for the notes screen.
+
 ## [0.1.7]
 
 ### Fixes
