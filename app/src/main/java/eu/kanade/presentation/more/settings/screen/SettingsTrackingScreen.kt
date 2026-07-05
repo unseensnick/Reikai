@@ -55,6 +55,10 @@ import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeListApi
 import eu.kanade.tachiyomi.data.track.shikimori.ShikimoriApi
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toast
+// RK -->
+import exh.md.utils.MdConstants
+import exh.md.utils.MdUtil
+// RK <--
 import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
@@ -173,6 +177,18 @@ object SettingsTrackingScreen : SearchableSettings {
                         tracker = trackerManager.bangumi,
                         login = { context.openInBrowser(BangumiApi.authUrl(), forceDefaultBrowser = true) },
                         logout = { dialog = LogoutDialog(trackerManager.bangumi) },
+                    ),
+                    // RK: MangaDex MDList tracker. Browser OAuth (PKCE), callback lands in
+                    // MangaDexLoginActivity; needs the MangaDex source installed + enabled to bind.
+                    Preference.PreferenceItem.TrackerPreference(
+                        tracker = trackerManager.mdList,
+                        login = {
+                            context.openInBrowser(
+                                MdConstants.Login.authUrl(MdUtil.getPkceChallengeCode()),
+                                forceDefaultBrowser = true,
+                            )
+                        },
+                        logout = { dialog = LogoutDialog(trackerManager.mdList) },
                     ),
                     Preference.PreferenceItem.InfoPreference(stringResource(MR.strings.tracking_info)),
                 ),

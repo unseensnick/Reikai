@@ -1,21 +1,36 @@
 package exh.md.utils
 
+import eu.kanade.domain.source.service.SourcePreferences
+import eu.kanade.domain.track.service.TrackPreferences
+import eu.kanade.tachiyomi.data.track.mdlist.MdList
+import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALOAuth
+import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.online.all.MangaDex
+import eu.kanade.tachiyomi.util.PkceUtil
 import exh.md.dto.MangaAttributesDto
 import exh.md.dto.MangaDataDto
+import exh.source.getMainSource
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import okhttp3.FormBody
+import okhttp3.Headers
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.jsoup.parser.Parser
+import tachiyomi.domain.source.service.SourceManager
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
 
-// The source-discovery (getEnabledMangaDex), OAuth (saveOAuth/refreshTokenRequest) and i18n
-// description helpers arrive with their phases (1, 3 and 5 respectively), when their
-// dependencies exist. Phase 1 adds the pure JSON POST-body helper (encodeToBody).
+// Source-discovery (getEnabledMangaDex) and OAuth (saveOAuth/refreshTokenRequest) land here for the
+// login + MDList tracker. The i18n description helpers (addAltTitleToDesc/addFinalChapterToDesc)
+// arrive with the Phase 5 settings UI and its strings.
 class MdUtil {
 
     companion object {
@@ -135,6 +150,70 @@ class MdUtil {
         inline fun <reified T> encodeToBody(body: T): RequestBody {
             return jsonParser.encodeToString(body)
                 .toRequestBody("application/json".toMediaType())
+        }
+
+        fun saveOAuth(preferences: TrackPreferences, mdList: MdList, oAuth: MALOAuth?) {
+            if (oAuth == null) {
+                preferences.trackToken(mdList).delete()
+            } else {
+                preferences.trackToken(mdList).set(jsonParser.encodeToString(oAuth))
+            }
+        }
+
+        fun loadOAuth(preferences: TrackPreferences, mdList: MdList): MALOAuth? {
+            return try {
+                jsonParser.decodeFromString<MALOAuth>(preferences.trackToken(mdList).get())
+            } catch (_: Exception) {
+                null
+            }
+        }
+
+        private var codeVerifier: String? = null
+
+        fun refreshTokenRequest(oauth: MALOAuth): Request {
+            val formBody = FormBody.Builder()
+                .add("client_id", MdConstants.Login.clientId)
+                .add("grant_type", MdConstants.Login.refreshToken)
+                .add("refresh_token", oauth.refreshToken)
+                .add("code_verifier", getPkceChallengeCode())
+                .add("redirect_uri", MdConstants.Login.redirectUri)
+                .build()
+
+            // The interceptor calls this itself, so it never reaches the point where the token is
+            // added automatically. Add the Authorization header manually.
+            val headers = Headers.Builder()
+                .add("Authorization", "Bearer ${oauth.accessToken}")
+                .build()
+
+            return POST(MdApi.baseAuthUrl + MdApi.token, body = formBody, headers = headers)
+        }
+
+        fun getPkceChallengeCode(): String {
+            return codeVerifier ?: PkceUtil.generateCodeVerifier().also { codeVerifier = it }
+        }
+
+        // Picks the MangaDex enhanced source that drives login and the MDList tracker. Phase 3 uses
+        // the first enabled one; a preferred-language picker arrives with the Phase 5 settings hub.
+        fun getEnabledMangaDex(
+            sourcePreferences: SourcePreferences = Injekt.get(),
+            sourceManager: SourceManager = Injekt.get(),
+        ): MangaDex? {
+            return getEnabledMangaDexs(sourcePreferences, sourceManager).firstOrNull()
+        }
+
+        fun getEnabledMangaDexs(
+            preferences: SourcePreferences,
+            sourceManager: SourceManager = Injekt.get(),
+        ): List<MangaDex> {
+            val languages = preferences.enabledLanguages.get()
+            val disabledSourceIds = preferences.disabledSources.get()
+
+            return sourceManager.getOnlineSources()
+                .asSequence()
+                .mapNotNull { it.getMainSource<MangaDex>() }
+                .filter { it.lang in languages }
+                .filterNot { it.id.toString() in disabledSourceIds }
+                .toList()
         }
     }
 }

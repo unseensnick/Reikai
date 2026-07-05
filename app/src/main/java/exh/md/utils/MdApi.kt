@@ -2,7 +2,6 @@
 
 package exh.md.utils
 
-// Auth endpoints (baseAuthUrl, login, logout, token, userInfo) arrive with OAuth in Phase 3.
 object MdApi {
     const val baseUrl = "https://api.mangadex.org"
     const val manga = "$baseUrl/manga"
@@ -18,4 +17,11 @@ object MdApi {
     const val atHomeServer = "$baseUrl/at-home/server"
 
     const val legacyMapping = "$baseUrl/legacy/mapping"
+
+    const val baseAuthUrl = "https://auth.mangadex.org"
+    private const val auth = "/realms/mangadex/protocol/openid-connect"
+    const val login = "$auth/auth"
+    const val logout = "$auth/logout"
+    const val token = "$auth/token"
+    const val userInfo = "$auth/userinfo"
 }

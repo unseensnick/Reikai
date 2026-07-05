@@ -966,6 +966,8 @@
     <string name="paused">Paused</string>
     <string name="plan_to_read">Plan to read</string>
     <string name="repeating">Rereading</string>
+    <!-- RK: MangaDex MDList tracker "unfollowed" status -->
+    <string name="md_follows_unfollowed">Unfollowed</string>
     <string name="reading_list">Reading List</string>
     <string name="wish_list">Wish List</string>
     <string name="complete_list">Complete List</string>
