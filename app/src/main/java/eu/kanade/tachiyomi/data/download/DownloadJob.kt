@@ -75,7 +75,18 @@ class DownloadJob(context: Context, workerParams: WorkerParameters) : CoroutineW
                 downloadPreferences.downloadOnlyOverWifi.changes(),
                 transform = { a, b -> emit(checkNetworkState(a, b)) },
             )
-                .onEach { networkCheck = it }
+                // RK: checkNetworkState pauses the queue (resumably) when connectivity is lost;
+                // when it returns, auto-resume the paused downloads instead of waiting for a
+                // manual resume, so a dropped connection recovers on its own.
+                .onEach { online ->
+                    networkCheck = online
+                    if (online &&
+                        !downloadManager.isRunning &&
+                        downloadManager.queueState.value.isNotEmpty()
+                    ) {
+                        downloadManager.downloaderStart()
+                    }
+                }
                 .launchIn(this)
         }
 
