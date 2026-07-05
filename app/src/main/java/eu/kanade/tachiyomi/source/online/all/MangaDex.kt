@@ -7,8 +7,10 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.mdlist.MdList
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.source.model.SChapter
+import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
+import eu.kanade.tachiyomi.source.online.FollowsSource
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.LoginSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
@@ -49,6 +51,7 @@ class MangaDex(delegate: HttpSource, val context: Context) :
     DelegatedHttpSource(delegate),
     MetadataSource<MangaDexSearchMetadata, Triple<MangaDto, List<String>, StatisticsMangaDto?>>,
     LoginSource,
+    FollowsSource,
     NamespaceSource {
 
     override val lang: String = delegate.lang
@@ -77,7 +80,7 @@ class MangaDex(delegate: HttpSource, val context: Context) :
     private val mangadexAuthService by lazy { MangaDexAuthService(authClient, headers) }
     private val apiMangaParser by lazy { ApiMangaParser(mdLang.lang) }
     private val mangaHandler by lazy { MangaHandler(mdLang.lang, mangadexService) }
-    private val followsHandler by lazy { FollowsHandler(mangadexAuthService) }
+    private val followsHandler by lazy { FollowsHandler(mdLang.lang, mangadexAuthService) }
 
     override val metaClass: KClass<MangaDexSearchMetadata> = MangaDexSearchMetadata::class
 
@@ -134,6 +137,13 @@ class MangaDex(delegate: HttpSource, val context: Context) :
     override suspend fun login(authCode: String): Boolean = loginHelper.login(authCode)
 
     override suspend fun logout(): Boolean = loginHelper.logout()
+
+    // FollowsSource: the signed-in user's follow list, paged for the follows browse screen and
+    // walked in full for the bulk "Sync Follows to Library" action.
+    override suspend fun fetchFollows(page: Int): MangasPage = followsHandler.fetchFollows(page)
+
+    override suspend fun fetchAllFollows(): List<Pair<SManga, MangaDexSearchMetadata>> =
+        followsHandler.fetchAllFollows()
 
     // MDList tracker round-trip (per-title follow status + rating), called by MdList.
     suspend fun fetchTrackingInfo(url: String): Track = followsHandler.fetchTrackingInfo(url)

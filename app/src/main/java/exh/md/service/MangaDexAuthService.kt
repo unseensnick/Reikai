@@ -4,11 +4,14 @@ import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.parseAs
+import exh.md.dto.MangaListDto
 import exh.md.dto.RatingDto
 import exh.md.dto.RatingResponseDto
 import exh.md.dto.ReadingStatusDto
+import exh.md.dto.ReadingStatusMapDto
 import exh.md.dto.ResultDto
 import exh.md.utils.MdApi
+import exh.md.utils.MdConstants
 import exh.md.utils.MdUtil
 import okhttp3.CacheControl
 import okhttp3.Headers
@@ -16,14 +19,39 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
-// Authenticated MangaDex API used by the MDList tracker: per-title follow status and rating. The
-// follows-listing calls (userFollowList, readingStatusAllManga, chapter read-markers) arrive with
-// Phase 4 (library follows sync). Every call carries the OAuth bearer via the interceptor on the
-// client plus the extension headers, which the MangaDex API requires (a browser UA gets a 400).
+// Authenticated MangaDex API used by the MDList tracker (per-title follow status and rating) and the
+// library follows sync (userFollowList, readingStatusAllManga). Chapter read-markers stay deferred.
+// Every call carries the OAuth bearer via the interceptor on the client plus the extension headers,
+// which the MangaDex API requires (a browser UA gets a 400).
 class MangaDexAuthService(
     private val client: OkHttpClient,
     private val headers: Headers,
 ) {
+
+    suspend fun userFollowList(offset: Int): MangaListDto {
+        return with(MdUtil.jsonParser) {
+            client.newCall(
+                GET(
+                    "${MdApi.userFollows}?limit=${MdConstants.followsPageLimit}&offset=$offset" +
+                        "&includes[]=${MdConstants.Types.coverArt}",
+                    headers,
+                    CacheControl.FORCE_NETWORK,
+                ),
+            ).awaitSuccess().parseAs()
+        }
+    }
+
+    suspend fun readingStatusAllManga(): ReadingStatusMapDto {
+        return with(MdUtil.jsonParser) {
+            client.newCall(
+                GET(
+                    MdApi.readingStatusForAllManga,
+                    headers,
+                    CacheControl.FORCE_NETWORK,
+                ),
+            ).awaitSuccess().parseAs()
+        }
+    }
 
     suspend fun readingStatusForManga(mangaId: String): ReadingStatusDto {
         return with(MdUtil.jsonParser) {

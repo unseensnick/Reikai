@@ -1,9 +1,11 @@
 package eu.kanade.tachiyomi.ui.browse.source.browse
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -38,6 +40,8 @@ fun SourceFilterDialog(
     onReset: () -> Unit,
     onFilter: () -> Unit,
     onUpdate: (FilterList) -> Unit,
+    // RK: non-null only for a MangaDex source; opens the follows browse screen. (Phase 4)
+    onMangaDexFollowsClicked: (() -> Unit)? = null,
 ) {
     val updateFilters = { onUpdate(filters) }
 
@@ -68,6 +72,20 @@ fun SourceFilterDialog(
                     }
                 }
                 HorizontalDivider()
+            }
+
+            // RK: MangaDex follows entry (the Phase 6 "Random" button will join this row).
+            if (onMangaDexFollowsClicked != null) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(onClick = onMangaDexFollowsClicked) {
+                            Text(stringResource(MR.strings.mangadex_follows))
+                        }
+                    }
+                }
             }
 
             items(filters) {

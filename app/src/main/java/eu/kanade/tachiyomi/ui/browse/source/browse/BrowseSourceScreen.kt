@@ -45,6 +45,9 @@ import eu.kanade.presentation.manga.DuplicateMangaDialog
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.source.online.all.MangaDex
+import exh.md.follows.MangaDexFollowsScreen
+import exh.source.getMainSource
 import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreenModel.Listing
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
@@ -247,6 +250,12 @@ data class BrowseSourceScreen(
                     onReset = screenModel::resetFilters,
                     onFilter = { screenModel.search(filters = state.filters) },
                     onUpdate = screenModel::setFilters,
+                    // RK: Follows entry, only for a MangaDex source (Phase 4)
+                    onMangaDexFollowsClicked = if (screenModel.source.getMainSource<MangaDex>() != null) {
+                        { navigator.push(MangaDexFollowsScreen(sourceId)) }
+                    } else {
+                        null
+                    },
                 )
             }
             is BrowseSourceScreenModel.Dialog.AddDuplicateManga -> {

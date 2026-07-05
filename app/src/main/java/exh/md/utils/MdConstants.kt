@@ -12,6 +12,10 @@ object MdConstants {
     const val cdnUrl = "https://uploads.mangadex.org"
     const val atHomeReportUrl = "https://api.mangadex.network/report"
 
+    // Page size for the follows listing. The request limit and the paging offset step must match, so
+    // fetchFollows uses this for both (unlike Komikku, which requested 100 but stepped by 20).
+    const val followsPageLimit = 100
+
     object Types {
         const val author = "author"
         const val artist = "artist"

@@ -43,12 +43,16 @@ import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.source.interactor.GetRemoteManga
+import tachiyomi.domain.source.repository.SourcePagingSource
 import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import eu.kanade.tachiyomi.source.model.Filter as SourceModelFilter
 
-class BrowseSourceScreenModel(
+// RK: open, with createSourcePagingSource / combineMetadata as overridable hooks and a `filterable`
+// state flag, so the MangaDex follows screen can subclass this and swap in its own paging source
+// (mirrors Komikku's BrowseSourceScreenModel extension surface).
+open class BrowseSourceScreenModel(
     private val sourceId: Long,
     listingQuery: String?,
     sourceManager: SourceManager = Injekt.get(),
@@ -102,7 +106,8 @@ class BrowseSourceScreenModel(
         .distinctUntilChanged()
         .map { listing ->
             Pager(PagingConfig(pageSize = 25)) {
-                getRemoteManga(sourceId, listing.query ?: "", listing.filters)
+                // RK: overridable so subclasses (MangaDex follows) can supply their own paging source
+                createSourcePagingSource(listing.query ?: "", listing.filters)
             }.flow.map { pagingData ->
                 // RK --> carry each manga's metadata alongside it for the rich browse rows
                 pagingData.map { (manga, metadata) ->
@@ -121,7 +126,8 @@ class BrowseSourceScreenModel(
     // RK --> DB-join each manga with its persisted metadata (falling back to the metadata carried
     //        from paging) so adult-source browse rows can render rating / tags / pages. Ported from
     //        Komikku's combineMetadata; mirrors MetadataViewScreenModel's getMainSource + raise().
-    private fun Flow<Manga>.combineMetadata(
+    //        `open` so the follows screen can pass the metadata straight through.
+    open fun Flow<Manga>.combineMetadata(
         metadata: RaisedSearchMetadata?,
     ): Flow<Pair<Manga, RaisedSearchMetadata?>> {
         val metadataSource = source.getMainSource<MetadataSource<*, *>>()
@@ -134,6 +140,12 @@ class BrowseSourceScreenModel(
                 flowOf(manga to null)
             }
         }
+    }
+
+    // RK: overridable paging-source factory. The default browses the source; the follows screen
+    //     overrides it to page the signed-in user's MangaDex follow list.
+    open fun createSourcePagingSource(query: String, filters: FilterList): SourcePagingSource {
+        return getRemoteManga(sourceId, query, filters)
     }
     // RK <--
 
