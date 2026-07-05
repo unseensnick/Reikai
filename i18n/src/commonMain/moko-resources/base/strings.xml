@@ -1289,6 +1289,8 @@
     <string name="anime_planet_id">Anime planet id</string>
     <!-- RK: MangaDex follows sync (Phase 4) -->
     <string name="mangadex_follows">MangaDex follows</string>
+    <!-- RK: browse bulk multi-select (Phase 4): action to enter selection mode -->
+    <string name="action_bulk_select">Select</string>
     <!-- RK: gallery-info card (metadata details) -->
     <string name="more_info">More info</string>
     <!-- RK: MangaDex rating descriptors (Phase 2 details card) -->

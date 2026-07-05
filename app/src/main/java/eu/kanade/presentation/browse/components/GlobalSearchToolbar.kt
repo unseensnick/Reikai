@@ -24,10 +24,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import eu.kanade.presentation.components.AppBar
+import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SourceFilter
+import reikai.presentation.browse.components.BulkSelectionToolbar
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -46,17 +50,49 @@ fun GlobalSearchToolbar(
     onlyShowHasResults: Boolean,
     onToggleResults: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
+    // RK: bulk-selection (Phase 4). onToggleSelectionMode present -> show the Select action.
+    onToggleSelectionMode: (() -> Unit)? = null,
+    selectionMode: Boolean = false,
+    selectedCount: Int = 0,
+    onClickClearSelection: () -> Unit = {},
+    onChangeCategoryClick: () -> Unit = {},
 ) {
     Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
         Box {
-            SearchToolbar(
-                searchQuery = searchQuery,
-                onChangeSearchQuery = onChangeSearchQuery,
-                onSearch = onSearch,
-                onClickCloseSearch = navigateUp,
-                navigateUp = navigateUp,
-                scrollBehavior = scrollBehavior,
-            )
+            // RK: selection bar replaces the search field while bulk-selecting; the filter chips
+            //     below stay put (consistent with the per-source browse screen).
+            if (selectionMode) {
+                BulkSelectionToolbar(
+                    selectedCount = selectedCount,
+                    onClickClearSelection = onClickClearSelection,
+                    onChangeCategoryClick = onChangeCategoryClick,
+                )
+            } else {
+                SearchToolbar(
+                    searchQuery = searchQuery,
+                    onChangeSearchQuery = onChangeSearchQuery,
+                    onSearch = onSearch,
+                    onClickCloseSearch = navigateUp,
+                    navigateUp = navigateUp,
+                    scrollBehavior = scrollBehavior,
+                    // RK: bulk-select entry (Phase 4)
+                    actions = {
+                        if (onToggleSelectionMode != null) {
+                            AppBarActions(
+                                buildList {
+                                    add(
+                                        AppBar.Action(
+                                            title = stringResource(MR.strings.action_bulk_select),
+                                            icon = Icons.Outlined.Checklist,
+                                            onClick = onToggleSelectionMode,
+                                        ),
+                                    )
+                                },
+                            )
+                        }
+                    },
+                )
+            }
             if (progress in 1..<total) {
                 LinearProgressIndicator(
                     progress = { progress / total.toFloat() },

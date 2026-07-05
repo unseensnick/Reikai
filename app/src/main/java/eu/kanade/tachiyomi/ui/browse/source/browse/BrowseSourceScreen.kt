@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.browse.source.browse
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -58,6 +59,9 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import mihon.feature.migration.dialog.MigrateMangaDialog
 import mihon.presentation.core.util.collectAsLazyPagingItems
+import reikai.presentation.browse.BulkFavoriteScreenModel
+import reikai.presentation.browse.components.BulkFavoriteDialogs
+import reikai.presentation.browse.components.BulkSelectionToolbar
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.source.model.StubSource
@@ -108,6 +112,15 @@ data class BrowseSourceScreen(
         val uriHandler = LocalUriHandler.current
         val snackbarHostState = remember { SnackbarHostState() }
 
+        // RK: shared bulk-selection (Phase 4)
+        val bulkFavoriteScreenModel = rememberScreenModel { BulkFavoriteScreenModel() }
+        val bulkFavoriteState by bulkFavoriteScreenModel.state.collectAsState()
+        val mangaList = screenModel.mangaPagerFlowFlow.collectAsLazyPagingItems()
+
+        BackHandler(enabled = bulkFavoriteState.selectionMode) {
+            bulkFavoriteScreenModel.backHandler()
+        }
+
         val onHelpClick = { uriHandler.openUri(LocalSource.HELP_URL) }
         val onWebViewClick = f@{
             val source = screenModel.source as? HttpSource ?: return@f
@@ -131,18 +144,40 @@ data class BrowseSourceScreen(
                         .background(MaterialTheme.colorScheme.surface)
                         .pointerInput(Unit) {},
                 ) {
-                    BrowseSourceToolbar(
-                        searchQuery = state.toolbarQuery,
-                        onSearchQueryChange = screenModel::setToolbarQuery,
-                        source = screenModel.source,
-                        displayMode = screenModel.displayMode,
-                        onDisplayModeChange = { screenModel.displayMode = it },
-                        navigateUp = navigateUp,
-                        onWebViewClick = onWebViewClick,
-                        onHelpClick = onHelpClick,
-                        onSettingsClick = { navigator.push(SourcePreferencesScreen(sourceId)) },
-                        onSearch = screenModel::search,
-                    )
+                    // RK: while bulk-selecting, the selection bar replaces the search toolbar; the
+                    //     Popular / Latest / Filter chips below stay put (matches Komikku).
+                    if (bulkFavoriteState.selectionMode) {
+                        BulkSelectionToolbar(
+                            selectedCount = bulkFavoriteState.selection.size,
+                            onClickClearSelection = bulkFavoriteScreenModel::toggleSelectionMode,
+                            onChangeCategoryClick = bulkFavoriteScreenModel::addFavorite,
+                            onSelectAll = {
+                                mangaList.itemSnapshotList.items
+                                    .map { it.value.first }
+                                    .forEach(bulkFavoriteScreenModel::select)
+                            },
+                            onReverseSelection = {
+                                bulkFavoriteScreenModel.reverseSelection(
+                                    mangaList.itemSnapshotList.items.map { it.value.first },
+                                )
+                            },
+                        )
+                    } else {
+                        BrowseSourceToolbar(
+                            searchQuery = state.toolbarQuery,
+                            onSearchQueryChange = screenModel::setToolbarQuery,
+                            source = screenModel.source,
+                            displayMode = screenModel.displayMode,
+                            onDisplayModeChange = { screenModel.displayMode = it },
+                            navigateUp = navigateUp,
+                            onWebViewClick = onWebViewClick,
+                            onHelpClick = onHelpClick,
+                            onSettingsClick = { navigator.push(SourcePreferencesScreen(sourceId)) },
+                            onSearch = screenModel::search,
+                            // RK: bulk-select entry (Phase 4)
+                            onToggleSelectionMode = bulkFavoriteScreenModel::toggleSelectionMode,
+                        )
+                    }
 
                     Row(
                         modifier = Modifier
@@ -214,7 +249,7 @@ data class BrowseSourceScreen(
         ) { paddingValues ->
             BrowseSourceContent(
                 source = screenModel.source,
-                mangaList = screenModel.mangaPagerFlowFlow.collectAsLazyPagingItems(),
+                mangaList = mangaList,
                 columns = screenModel.getColumnsPreference(LocalConfiguration.current.orientation),
                 displayMode = screenModel.displayMode,
                 // RK: enhanced adult-source rows when the source is EH/ExH and the pref is on
@@ -224,20 +259,34 @@ data class BrowseSourceScreen(
                 onWebViewClick = onWebViewClick,
                 onHelpClick = { uriHandler.openUri(Constants.URL_HELP) },
                 onLocalSourceHelpClick = onHelpClick,
-                onMangaClick = { navigator.push((MangaScreen(it.id, true))) },
-                onMangaLongClick = { manga ->
-                    scope.launchIO {
-                        val duplicates = screenModel.getDuplicateLibraryManga(manga)
-                        when {
-                            manga.favorite -> screenModel.setDialog(BrowseSourceScreenModel.Dialog.RemoveManga(manga))
-                            duplicates.isNotEmpty() -> screenModel.setDialog(
-                                BrowseSourceScreenModel.Dialog.AddDuplicateManga(manga, duplicates),
-                            )
-                            else -> screenModel.addFavorite(manga)
-                        }
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onMangaClick = { manga ->
+                    // RK: tap toggles selection while bulk-selecting
+                    if (bulkFavoriteState.selectionMode) {
+                        bulkFavoriteScreenModel.toggleSelection(manga)
+                    } else {
+                        navigator.push(MangaScreen(manga.id, true))
                     }
                 },
+                onMangaLongClick = { manga ->
+                    // RK: long-press opens while bulk-selecting, otherwise the add/remove flow
+                    if (bulkFavoriteState.selectionMode) {
+                        navigator.push(MangaScreen(manga.id, true))
+                    } else {
+                        scope.launchIO {
+                            val duplicates = screenModel.getDuplicateLibraryManga(manga)
+                            when {
+                                manga.favorite -> screenModel.setDialog(BrowseSourceScreenModel.Dialog.RemoveManga(manga))
+                                duplicates.isNotEmpty() -> screenModel.setDialog(
+                                    BrowseSourceScreenModel.Dialog.AddDuplicateManga(manga, duplicates),
+                                )
+                                else -> screenModel.addFavorite(manga)
+                            }
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                    }
+                },
+                // RK: highlight selected entries (Phase 4)
+                selection = bulkFavoriteState.selection,
             )
         }
 
@@ -299,6 +348,12 @@ data class BrowseSourceScreen(
             }
             else -> {}
         }
+
+        // RK: bulk-selection dialogs (Phase 4)
+        BulkFavoriteDialogs(
+            bulkFavoriteScreenModel = bulkFavoriteScreenModel,
+            dialog = bulkFavoriteState.dialog,
+        )
 
         LaunchedEffect(Unit) {
             queryEvent.receiveAsFlow()

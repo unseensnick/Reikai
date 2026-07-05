@@ -81,6 +81,9 @@ class RelatedMangasBrowseScreenModel(
 
     fun toggleGrouping() = mutableState.update { it.copy(grouped = !it.grouped) }
 
+    /** Enter selection mode from the toolbar Select button (long-press is the other entry point). */
+    fun enterSelectionMode() = mutableState.update { it.copy(selectionMode = true) }
+
     fun toggleSelection(url: String) = mutableState.update { st ->
         val selection = st.selectedUrls.toMutableSet()
         if (!selection.add(url)) selection.remove(url)
@@ -101,7 +104,7 @@ class RelatedMangasBrowseScreenModel(
             range.forEach { selection.add(urls[it]) }
         }
         lastSelectedUrl = url
-        st.copy(selectedUrls = selection)
+        st.copy(selectedUrls = selection, selectionMode = true)
     }
 
     fun selectAll() = mutableState.update { st ->
@@ -110,7 +113,7 @@ class RelatedMangasBrowseScreenModel(
 
     fun clearSelection() = mutableState.update {
         lastSelectedUrl = null
-        it.copy(selectedUrls = emptySet())
+        it.copy(selectedUrls = emptySet(), selectionMode = false)
     }
 
     fun dismissDialog() = mutableState.update { it.copy(dialog = null) }
@@ -180,6 +183,7 @@ class RelatedMangasBrowseScreenModel(
             st.copy(
                 items = st.items.map { it.copy(inLibrary = (it.candidate.manga.url to it.candidate.sourceId) in favoriteKeys) },
                 selectedUrls = emptySet(),
+                selectionMode = false,
                 dialog = null,
             )
         }
@@ -207,8 +211,9 @@ class RelatedMangasBrowseScreenModel(
         val showHidden: Boolean = false,
         val dialog: Dialog? = null,
         val loading: Boolean = true,
+        // RK: explicit so the toolbar Select button can enter selection with nothing selected yet
+        val selectionMode: Boolean = false,
     ) {
-        val selectionMode: Boolean get() = selectedUrls.isNotEmpty()
         val hasHidden: Boolean get() = items.any { it.hidden }
 
         /** Grouping only makes sense with more than one origin (else it's a single "From this source"). */

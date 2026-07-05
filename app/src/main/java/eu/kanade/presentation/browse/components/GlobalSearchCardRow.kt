@@ -14,6 +14,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.fastAny
 import eu.kanade.presentation.library.components.CommonMangaItemDefaults
 import eu.kanade.presentation.library.components.MangaComfortableGridItem
 import tachiyomi.domain.manga.model.Manga
@@ -29,6 +30,8 @@ fun GlobalSearchCardRow(
     getManga: @Composable (Manga) -> State<Manga>,
     onClick: (Manga) -> Unit,
     onLongClick: (Manga) -> Unit,
+    // RK: highlighted when in bulk-selection mode
+    selection: List<Manga> = emptyList(),
 ) {
     if (titles.isEmpty()) {
         EmptyResultItem()
@@ -45,6 +48,7 @@ fun GlobalSearchCardRow(
                 title = title.title,
                 cover = title.asMangaCover(),
                 isFavorite = title.favorite,
+                isSelected = selection.fastAny { selected -> selected.id == title.id },
                 onClick = { onClick(title) },
                 onLongClick = { onLongClick(title) },
             )
@@ -57,11 +61,13 @@ private fun MangaItem(
     title: String,
     cover: MangaCover,
     isFavorite: Boolean,
+    isSelected: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
     Box(modifier = Modifier.width(96.dp)) {
         MangaComfortableGridItem(
+            isSelected = isSelected,
             title = title,
             titleMaxLines = 3,
             coverData = cover,
