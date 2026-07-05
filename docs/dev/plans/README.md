@@ -48,3 +48,4 @@ The format these follow, and the rule for what earns a doc here, live in [.claud
 
 - [Unified Updates tab](unified-updates.md): one Updates feed interleaving manga + novel behind an All / Manga / Novels chip, with shared filters, by-category, and merge-aware group-by-series.
 - [Unified reader (shared chrome)](unified-reader.md): manga and novel readers share one Compose chrome layer; `ReaderActivity` stays the View-based manga host (Option F), with the single-Compose-shell approach (Option A) explored and reverted.
+- [Unified content UI (manga + novels + adult)](unified-content-ui.md): collapse the three near-duplicate presentation stacks into one Reikai-owned pixel layer rendering a content-agnostic UI model, killing the manga↔novel duplication and giving one place to move off stock Material 3. Planned.

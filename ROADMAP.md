@@ -58,6 +58,10 @@ From the same audit.
 - **Custom source categories** `[M]` - group installed sources under your own headers (assign each source to one or more categories) in the Sources list, beyond the default language grouping. Needs source-category storage.
 - **Source-list & row polish** `[S]` - row badges (language flag / NSFW / extension name), a browse-toolbar incognito toggle, an NSFW-only filter, per-source data-saver exclude, a browse panorama toggle (the library already has panorama), hide latest / pin.
 
+### UI & design
+
+- **Unified content UI + design refresh** `[L]` - collapse the three near-duplicate presentation stacks (manga, novels, adult) into one Reikai-owned pixel layer over a content-agnostic UI model, killing the manga↔novel duplication and giving one place to move off stock Material 3. Domain models and ScreenModels stay per-type; readers stay separate. [Plan](docs/dev/plans/unified-content-ui.md).
+
 ## Parked / not building
 
 One line each; revive note where relevant.
