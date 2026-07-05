@@ -53,7 +53,6 @@ From the 2026-07-04 Komikku parity audit (missing features + gestures on the det
 
 From the same audit.
 
-- **Bulk multi-select in browse and global search** `[M]` - long-press to select many results and add them to the library at once. The select + batch-add UI already exists in the related-mangas "See all" grid; this wires it into the main source browse and global search. Biggest browse gesture gap.
 - **Find-a-source search box** `[M]` - filter the sources list by name or extension when you have many.
 - **Custom source categories** `[M]` - group installed sources under your own headers (assign each source to one or more categories) in the Sources list, beyond the default language grouping. Needs source-category storage.
 - **Source-list & row polish** `[S]` - row badges (language flag / NSFW / extension name), a browse-toolbar incognito toggle, an NSFW-only filter, per-source data-saver exclude, a browse panorama toggle (the library already has panorama), hide latest / pin.
