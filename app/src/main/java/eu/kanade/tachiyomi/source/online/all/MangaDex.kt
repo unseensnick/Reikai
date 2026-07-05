@@ -5,6 +5,7 @@ import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.mdlist.MdList
+import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
@@ -12,6 +13,7 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.LoginSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.NamespaceSource
+import exh.md.dto.MangaDataDto
 import exh.md.dto.MangaDto
 import exh.md.dto.StatisticsMangaDto
 import exh.md.handlers.ApiMangaParser
@@ -21,13 +23,19 @@ import exh.md.network.MangaDexLoginHelper
 import exh.md.service.MangaDexAuthService
 import exh.md.service.MangaDexService
 import exh.md.utils.FollowStatus
+import exh.md.utils.MdConstants
 import exh.md.utils.MdLang
+import exh.md.utils.MdUtil
+import exh.md.utils.asMdMap
 import exh.metadata.metadata.MangaDexSearchMetadata
 import exh.source.DelegatedHttpSource
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import okhttp3.OkHttpClient
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
+import kotlin.math.round
 import kotlin.reflect.KClass
 
 /**
@@ -134,4 +142,50 @@ class MangaDex(delegate: HttpSource, val context: Context) :
         followsHandler.updateFollowStatus(mangaId, followStatus)
 
     suspend fun updateRating(track: Track): Boolean = followsHandler.updateRating(track)
+
+    // MDList tracker search. One search call for the hits, then two batched calls (full details +
+    // ratings) so the bind sheet is as rich as the other trackers without N per-result round-trips.
+    suspend fun searchTracker(query: String): List<TrackSearch> {
+        val ids = getSearchManga(1, query, getFilterList()).mangas
+            .map { MdUtil.getMangaId(it.url) }
+            .distinct()
+            // MangaDex caps ids[] batch calls (viewMangas / mangasRating) at 100.
+            .take(100)
+        if (ids.isEmpty()) return emptyList()
+
+        return coroutineScope {
+            val details = async { mangadexService.viewMangas(ids) }
+            val ratings = async {
+                runCatching { mangadexService.mangasRating(*ids.toTypedArray()).statistics }.getOrElse { emptyMap() }
+            }
+            val byId = details.await().data.associateBy { it.id }
+            val ratingById = ratings.await()
+            // Preserve the search's relevance order.
+            ids.mapNotNull { id -> byId[id]?.let { toTrackSearch(it, ratingById[id]?.rating?.bayesian) } }
+        }
+    }
+
+    private fun toTrackSearch(data: MangaDataDto, rating: Double?): TrackSearch = TrackSearch.create(mdList.id).apply {
+        val attrs = data.attributes
+        // MangaDex ids are UUIDs; hash to a Long so distinct results don't collapse (TrackSearch
+        // dedupes on remote_id).
+        remote_id = data.id.hashCode().toLong()
+        title = MdUtil.getTitleFromManga(attrs, mdLang.lang, true)
+        tracking_url = MdUtil.baseUrl + MdUtil.buildMangaUrl(data.id)
+        cover_url = data.relationships
+            .firstOrNull { it.type == MdConstants.Types.coverArt }
+            ?.attributes?.fileName
+            ?.let { MdUtil.cdnCoverUrl(data.id, it) }
+            .orEmpty()
+        summary = MdUtil.getFromLangMap(attrs.description.asMdMap<String>(), mdLang.lang, attrs.originalLanguage)
+            ?.let { MdUtil.cleanDescription(it) }
+            .orEmpty()
+        authors = data.relationships.filter { it.type == MdConstants.Types.author }.mapNotNull { it.attributes?.name }
+        artists = data.relationships.filter { it.type == MdConstants.Types.artist }.mapNotNull { it.attributes?.name }
+        publishing_status = attrs.status.orEmpty()
+        publishing_type = data.type
+        start_date = attrs.year?.toString().orEmpty()
+        // MangaDex's bayesian rating has many decimals; show it to 2 (e.g. 9.19).
+        score = rating?.let { round(it * 100) / 100 } ?: -1.0
+    }
 }

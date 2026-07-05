@@ -43,6 +43,8 @@ class MangaDexService(
                         .newBuilder()
                         .apply {
                             addQueryParameter("includes[]", MdConstants.Types.coverArt)
+                            addQueryParameter("includes[]", MdConstants.Types.author)
+                            addQueryParameter("includes[]", MdConstants.Types.artist)
                             addQueryParameter("limit", ids.size.toString())
                             ids.forEach {
                                 addQueryParameter("ids[]", it)

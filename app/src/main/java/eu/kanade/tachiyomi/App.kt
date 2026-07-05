@@ -55,6 +55,8 @@ import eu.kanade.tachiyomi.util.system.animatorDurationScale
 import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.notify
 import eu.kanade.tachiyomi.util.system.toast
+import exh.md.MangaDexTrackCoverFetcher
+import exh.md.MangaDexTrackCoverKeyer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -246,11 +248,15 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
                 add(NovelCoverFetcher.Factory(callFactoryLazy))
                 // RK: adult-source gallery page-preview thumbnails
                 add(PagePreviewFetcher.Factory(callFactoryLazy))
+                // RK: MDList tracker-search covers, fetched via the MangaDex source client so the
+                // cover CDN doesn't 400 the app's browser User-Agent
+                add(MangaDexTrackCoverFetcher.Factory(callFactoryLazy))
                 // Keyer
                 add(MangaCoverKeyer())
                 add(MangaKeyer())
                 add(NovelCoverKeyer()) // RK
                 add(PagePreviewKeyer()) // RK
+                add(MangaDexTrackCoverKeyer()) // RK
             }
 
             memoryCache(

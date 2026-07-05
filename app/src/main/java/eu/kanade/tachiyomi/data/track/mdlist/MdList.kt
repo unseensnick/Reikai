@@ -5,7 +5,6 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
-import eu.kanade.tachiyomi.source.model.SManga
 import exh.md.network.MangaDexAuthInterceptor
 import exh.md.utils.FollowStatus
 import exh.md.utils.MdUtil
@@ -103,22 +102,8 @@ class MdList(id: Long) : BaseTracker(id, "MDList") {
     override suspend fun search(query: String): List<TrackSearch> {
         return withIOContext {
             val mdex = mdex ?: throw MangaDexNotFoundException()
-            mdex.getSearchManga(1, query, mdex.getFilterList())
-                .mangas
-                .map {
-                    // Reikai merged getMangaDetails into getMangaUpdate; enrich each hit so the bind
-                    // sheet gets the full cover + description, matching Komikku's getMangaDetails path.
-                    toTrackSearch(mdex.getMangaUpdate(it, emptyList(), fetchDetails = true, fetchChapters = false).manga)
-                }
-                .distinct()
+            mdex.searchTracker(query)
         }
-    }
-
-    private fun toTrackSearch(mangaInfo: SManga): TrackSearch = TrackSearch.create(id).apply {
-        tracking_url = MdUtil.baseUrl + mangaInfo.url
-        title = mangaInfo.title
-        cover_url = mangaInfo.thumbnail_url.orEmpty()
-        summary = mangaInfo.description.orEmpty()
     }
 
     override suspend fun login(username: String, password: String): Unit = throw Exception("not used")

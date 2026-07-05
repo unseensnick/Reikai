@@ -75,6 +75,10 @@ import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.util.system.openInBrowser
+// RK -->
+import exh.md.MangaDexTrackCover
+import exh.md.utils.MdConstants
+// RK <--
 import kotlinx.coroutines.launch
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
@@ -283,7 +287,11 @@ private fun SearchResultItem(
         Column {
             Row {
                 MangaCover.Book(
-                    data = trackSearch.cover_url,
+                    // RK: MangaDex's cover CDN 400s the app's browser UA; route those covers through
+                    // the source client so MDList search results show covers like the other trackers.
+                    data = trackSearch.cover_url.takeIf { it.startsWith(MdConstants.cdnUrl) }
+                        ?.let(::MangaDexTrackCover)
+                        ?: trackSearch.cover_url,
                     modifier = Modifier.height(96.dp),
                 )
                 Spacer(modifier = Modifier.width(12.dp))
