@@ -79,6 +79,9 @@ class CloudflareInterceptor(
                     resolveWithWebView(request, oldCookie)
                 } catch (e: CloudflareBypassException) {
                     if (!fsActive) throw e
+                    // Don't re-pay the 30s WebView timeout on later requests to a host the WebView
+                    // can't clear: mark it so subsequent requests go straight to FlareSolverr.
+                    flareSolverr.markWebViewUnsolvable(host)
                     flareSolverr.resolve(flareSolverrUrl, request)?.let { return it }
                 }
             }

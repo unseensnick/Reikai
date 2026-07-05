@@ -79,6 +79,18 @@ class FlareSolverrClient(
     fun shouldSkipWebView(host: String): Boolean = fsRequiredHosts.contains(host)
 
     /**
+     * Mark a host as WebView-unsolvable so later requests skip the WebView pre-attempt and go
+     * straight to FlareSolverr. Called when the WebView solve fails: without this the 30s WebView
+     * timeout is re-paid on every request to a host the WebView can't clear (browsing, details,
+     * chapter and image loads), serialising 30s blocks on the main thread and hanging access to
+     * that host. [fsRequiredHosts] is otherwise only populated on an FS success, which never
+     * happens for a host FS also can't clear.
+     */
+    fun markWebViewUnsolvable(host: String) {
+        fsRequiredHosts.add(host)
+    }
+
+    /**
      * Solve the challenge for [request] through the FlareSolverr server at [flareSolverrUrl] and
      * return its fully-fetched response. Returns null when a sibling thread is already solving for
      * the same host (the caller should then fall through to a normal retry with the cookie jar).
