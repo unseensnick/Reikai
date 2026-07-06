@@ -27,8 +27,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Other
 
-- Synced an upstream Mihon fix that hardens the app against backgrounding crashes, replacing Reikai's earlier local workaround for the notes screen.
-- Synced an upstream Mihon fix so picking a storage folder served by a non-system file provider (some cloud-storage and file-manager apps) works again.
+- Synced two upstream Mihon fixes: the app no longer crashes when sent to the background (replacing Reikai's earlier local notes-screen workaround), and storage folders served by non-system file providers (some cloud-storage and file-manager apps) work again.
 
 ## [0.1.8]
 
