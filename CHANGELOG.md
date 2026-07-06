@@ -12,6 +12,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+## [0.2.0]
+
 ### Additions
 
 - **Track your reading with MDList.** Sign in from Settings > Tracking, then bind a title and its follow status and rating stay in sync with your account, the same way the other trackers work.
