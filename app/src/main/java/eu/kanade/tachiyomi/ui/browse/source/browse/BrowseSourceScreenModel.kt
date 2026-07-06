@@ -23,6 +23,7 @@ import eu.kanade.tachiyomi.source.online.RandomMangaSource
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.source.eHentaiSourceIds
 import exh.source.getMainSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -281,7 +282,12 @@ open class BrowseSourceScreenModel(
     // click (pushing from an async callback can fail to render). (Phase 6)
     fun onMangaDexRandom() {
         screenModelScope.launchIO {
-            val id = source.getMainSource<RandomMangaSource>()?.fetchRandomMangaUrl() ?: return@launchIO
+            // A random-endpoint error (rate limit, transient 5xx, dropped connection) must not crash
+            // the app; the button just does nothing on failure.
+            val id = runCatching { source.getMainSource<RandomMangaSource>()?.fetchRandomMangaUrl() }
+                .onFailure { if (it is CancellationException) throw it }
+                .getOrNull()
+                ?: return@launchIO
             mutableState.update { it.copy(randomMangaTarget = "id:$id") }
         }
     }
