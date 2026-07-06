@@ -7,12 +7,13 @@ Terse done-log of what has landed, grouped by area. This is a developer record: 
 - De-Mihon brand pass: logo, trimmed About links, donation removed, trackers rebranded, repo meta + JDK 21. Icon sources in `art/icon/`.
 - README header logo + animated showcase WebP + reproduction kit. See [readme-showcase.md](readme-showcase.md).
 - Signed release pipeline: AGP-native signing, `release.yml` / `preview.yml`, in-app updater re-pointed at Reikai repos (`a4ee2c401`, `1f7aecac4`, `09d04cd0b`, `1c68490da`).
-- Releases cut + tagged `v0.1.0`-`v0.1.7` (0.1.3 = extension re-trust + migrate-from-update-errors; 0.1.4 = Cloudflare-bypass JSON/Byparr fix; 0.1.5 = one-tap merge coalescing; 0.1.6 = adult-source parity round 2 + notification-privacy; 0.1.7 = JS-source chapter fix + novel-uninstall fix + Mihon sync). Stale inherited Yokai `v*` tags pruned; see the `stale-yokai-release-tags` memory.
+- Releases cut + tagged `v0.1.0`-`v0.2.0` (0.1.3 = extension re-trust + migrate-from-update-errors; 0.1.4 = Cloudflare-bypass JSON/Byparr fix; 0.1.5 = one-tap merge coalescing; 0.1.6 = adult-source parity round 2 + notification-privacy; 0.1.7 = JS-source chapter fix + novel-uninstall fix + Mihon sync; 0.1.8 = download connection-loss recovery + Mihon syncs; 0.2.0 = MangaDex enhanced source + MDList tracking + contributor themed-icon fix). Stale inherited Yokai `v*` tags pruned; see the `stale-yokai-release-tags` memory. A long branch that absorbed `main` via merge commits cannot use GitHub "Rebase and merge"; use "Create a merge commit" (`rebase-merge-fails-on-merge-commits` memory).
 - Preview pipeline prune fix: prune by build number, not identical `createdAt`, so previews publish again (`e1960e06e`).
 - Commit-standard enforcement: `commit-msg` hook (`.githooks/commit-msg`), explicit `owner/repo#N` refs allowed (`7f4649d65`).
 - Minified-build startup-crash fix: `reikai.*` added to the proguard keep list.
 - Duplication cleanup, 3 tiers, no behavior change (`6c27c5923`, `85ff3326d`, `f783979b5`).
-- Mihon upstream syncs, caught up to `refs/mihon` `0772f7202` (latest: deps + Shikimori `.io` + xmlutil v1 / Compose deprecations, `d0cb409f7`); process + ledger in [upstream-sync.md](upstream-sync.md).
+- Mihon upstream syncs, caught up to `refs/mihon` `3b078331a` (latest: non-system SAF provider fix / unifile bump, `mihonapp/mihon#3530`; earlier: `Manga`-model serialization for safe backgrounding, notes-screen crash fixes, Shikimori GraphQL); process + ledger in [upstream-sync.md](upstream-sync.md).
+- 0.2.0 housekeeping: contributor themed-icon fix for Material You (Orifarius, `unseensnick/Reikai#34`), cover-accent theming on first open (manga + novels), CI redundancy trim (build_check PR-only, preview/release own their R8 mappings) + `upload-artifact` bumped to Node 24, Gradle root project + Android Studio icon rebranded Reikai.
 - App-wide hardening pass (`1762bb0ab`, `53bfdbde8`, `beb643fd3`): source-parsing null guards, LN host / download-queue / recommendation edge cases, per-category resolve-once, redacted verbose logging.
 
 ## Manga
@@ -90,6 +91,13 @@ Ported from `refs/komikku`, re-typed onto Mihon's models; all shipped in 0.1.6 (
 - Merged-group refresh (`ba292438e`): a details Refresh now fetches every grouped source through its own path, not just the primary.
 - E-Hentai image-quality options realigned (`e3341d2aa`): the picker tiers were stale versus the site's current `xr` set, so most options silently no-op'd on the account profile; now Auto / 800 / 1280 / 1920 / 2560 each apply. Verified on-device.
 - Keep every gallery source's chapters in a merged group (`94d19fd19`): the cross-source `ChapterAggregation` deduped the "All" list by chapter number and dropped one source when two gallery sources both number their primary chapter 1; gallery / metadata sources now bypass that dedup. Serial-manga merges unchanged. Unit-tested + on-device verified.
+
+## MangaDex enhanced source (0.2.0)
+Wraps the installed MangaDex extension in a Reikai delegated source; ported from `refs/komikku`, re-typed onto Mihon's models. See [md-enhanced-source.md](plans/md-enhanced-source.md).
+- Delegated wrap + metadata-enriched details (author, artist, status, description, a curated star-rating card, namespaced Demographic / Content Rating / Tags) via the `MetadataSource` round-trip; `ApiMangaParser` is parse-only. Every API + auth call threads the extension "Tachiyomi" UA, since the MangaDex API 400s a browser UA (`28ba52d7b`).
+- OAuth2 PKCE login + the `MdList` tracker (id `60L`): bind / refresh / update follow-status + rating, merge-group-aware; Compose-native login via `MangaDexLoginActivity` (`75578aa87`).
+- Follows browse + browse bulk multi-select add (`ed9c4a313`, `4ed99e78e`); settings hub + two-way follows sync (`MangaDexSyncJob`, with a skipped/failed completion notification, `b16b2cad6`, `db27abf85`, `b4823d5a1`); Browse "Random" button (`c6ad2ada7`, crash-guarded `12152aa55`).
+- Post-port audit vs current Komikku (`code-research`): its three live bugs (details 400, Random crash, follows 401) are all fixed here, one root cause (the extension UA). Similar carousel / external-aggregator handlers / cover-quality niceties deliberately dropped, see the plan doc "Phase 6".
 
 ## Unified surfaces
 - Unified Updates tab: manga + novel interleaved, filters, by-category, group-by-series. See [unified-updates.md](plans/unified-updates.md).

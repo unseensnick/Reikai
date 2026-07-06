@@ -4,11 +4,11 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-- **MD enhanced source** `[L]` (in progress, branch `feat/enhanced-source`) - port the `exh/md` subsystem to wrap the installed MD extension. Phases 0-2 shipped and on-device verified (delegated wrap + metadata-enriched details + the reference-matched gallery-info card: author, status, description, star rating, namespaced Demographic / Content Rating / Tags). Remaining: OAuth + MDList tracker (3), follows sync (4), settings hub (5), similar + aggregators (6). [plan](docs/dev/plans/md-enhanced-source.md).
+Nothing in progress. The MD enhanced source completed and shipped in 0.2.0 ([plan](docs/dev/plans/md-enhanced-source.md)).
 
 ## Next
 
-Nothing queued. The `[S]` items under Later -> Novels are the best promote candidates.
+Nothing formally queued. Largest option: the unified content UI + design refresh `[L]` (under Later -> UI & design). Quick wins: the `[S]` items under Later -> Novels.
 
 ## Later
 
@@ -32,12 +32,6 @@ Larger:
 - **Novel library Behaviour settings** `[M]` - swipe actions + missing-chapter indicators for the novel list.
 
 Opportunistic polish: Browse (Latest shortcut, global-search progress, Last-used, hide-in-library, per-row language, genre-tap-search); Reader (Share + open-in-browser, always-on progress %); Downloads queue (pause/resume, per-row retry, move-to-top/bottom, per-series move/cancel); Tracking (start-date backfill, create-private-at-bind, hide trackers lacking novel search); Updates/history (Novels-chip last-updated line, fast-scroll animation); Details (long-press-copy WebView URL, per-source scanlator filter for merged novels, per-category novel display settings `[M]`).
-
-### Recommendations
-
-- **MD source-native similarity** `[L, gated]` - use MD's `/manga/{id}/related` graph. A consumer of the MD enhanced source (in Now); lands with its Phase 6 (similar + aggregators).
-
-MangaUpdates similar-titles shipped (see CHANGELOG `[Unreleased]`); CMK source-native recs is blocked (see Parked).
 
 ### Details
 
@@ -74,6 +68,7 @@ One line each; revive note where relevant.
 - **Novel recommendations / related carousel** - now feasible (trackers shipped) as an `[M]`; the source-native path stays infeasible (no plugin `getRelated`). Reconsider if wanted.
 - **Batch recommendation search** - overlaps the existing taste-profile layer. Revive if manual multi-title discovery is wanted.
 - **CMK source-native recommendations (+ id-graph)** - stock CMK was pulled from the extension repos, so the recs port's id-set gate never fires (only clones with different ids remain). Revive if a first-party CMK source returns; the id-graph idea (suggest tracker binds from an entry's cross-links) rides the same API.
+- **MD source-native similarity carousel** - its only data source (`api.similarmanga.com`, the TF-IDF `similar-manga` project) is frozen at 2025-05-27 and unmaintained; MD's official `/relation` endpoint returns exact relations (doujinshi / colored), not discovery, and tracker recs already cover popular titles. Dropped with the MD enhanced source (0.2.0); see [md-enhanced-source.md](docs/dev/plans/md-enhanced-source.md).
 - **Serialize track-sheet edits (rapid edits clobber each other)** `[M]` - each field edit runs in its own coroutine (`TrackInfoDialog.kt`), so two quick edits (e.g. chapter then score) race on the same track row and the second wins, losing the first. A Mihon-wide race, worst on MDList. Parked: the per-track mutex fix touches shared tracker code, so it needs its own scoped pass. Revive standalone.
 - **Upcoming / release calendar for novels** - LN sources rarely expose a reliable cadence; stays manga-only.
 - **Novel sources enable/disable filter screen** - add a bulk-toggle screen if managing many LN sources gets painful.
