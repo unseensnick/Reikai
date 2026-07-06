@@ -92,6 +92,7 @@ object SettingsMangaDexScreen : SearchableSettings {
     private fun startSync(context: Context, trackerManager: TrackerManager, target: MangaDexSyncJob.Target) {
         if (trackerManager.mdList.isLoggedIn) {
             MangaDexSyncJob.startNow(context, target)
+            context.toast(MR.strings.pref_mangadex_sync_started)
         } else {
             context.toast(MR.strings.pref_mangadex_sign_in_required)
         }

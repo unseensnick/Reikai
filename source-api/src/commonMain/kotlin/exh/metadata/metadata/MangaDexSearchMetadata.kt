@@ -36,8 +36,6 @@ class MangaDexSearchMetadata : RaisedSearchMetadata(), TrackerIdMetadata {
 
     var followStatus: Int? = null
 
-    // `relation: MangaDexRelation?` arrives in Phase 6 with the similar/relations feature.
-
     override fun createMangaInfo(manga: SManga): SManga {
         val key = mdUuid?.let { "/manga/$it" }
         val title = title

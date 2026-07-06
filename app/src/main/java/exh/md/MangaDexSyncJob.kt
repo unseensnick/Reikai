@@ -18,6 +18,7 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notificationManager
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
+import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.system.workManager
 import exh.md.utils.FollowStatus
 import exh.md.utils.MdUtil
@@ -29,10 +30,10 @@ import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
-import tachiyomi.domain.manga.interactor.InsertFlatMetadata
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.interactor.InsertTrack
@@ -51,7 +52,6 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
     private val networkToLocalManga: NetworkToLocalManga by injectLazy()
     private val updateMangaFromRemote: UpdateMangaFromRemote by injectLazy()
     private val updateManga: UpdateManga by injectLazy()
-    private val insertFlatMetadata: InsertFlatMetadata by injectLazy()
     private val getLibraryManga: GetLibraryManga by injectLazy()
     private val getTracks: GetTracks by injectLazy()
     private val insertTrack: InsertTrack by injectLazy()
@@ -73,10 +73,17 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
         val target = inputData.getString(KEY_TARGET)?.let { Target.valueOf(it) } ?: return Result.failure()
         return try {
             setForegroundSafely()
-            when (target) {
+            val count = when (target) {
                 Target.SYNC_FOLLOWS -> syncFollows()
                 Target.PUSH_FAVORITES -> pushFavorites()
             }
+            val resultText = when (target) {
+                Target.SYNC_FOLLOWS -> context.stringResource(MR.strings.pref_mangadex_sync_follows_result, count)
+                Target.PUSH_FAVORITES -> context.stringResource(MR.strings.pref_mangadex_push_favorites_result, count)
+            }
+            showComplete(resultText)
+            // Toast for immediate confirmation while the app is open; the notification covers the rest.
+            withUIContext { context.toast(resultText) }
             Result.success()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "MangaDex sync job failed ($target)" }
@@ -109,38 +116,56 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
         )
     }
 
+    // A persistent completion notification with the count, so a fast sync still gives feedback.
+    private fun showComplete(text: String) {
+        context.notificationManager.notify(
+            Notifications.ID_MANGADEX_COMPLETE,
+            context.notificationBuilder(Notifications.CHANNEL_MANGADEX) {
+                setContentTitle(context.stringResource(MR.strings.app_name))
+                setContentText(text)
+                setSmallIcon(android.R.drawable.stat_notify_sync)
+                setAutoCancel(true)
+            }.build(),
+        )
+    }
+
     // Import the account's follows whose status is selected, adding each to the library as a favorite.
-    private suspend fun syncFollows() {
-        val mangaDex = MdUtil.getEnabledMangaDex() ?: return
+    // Returns the number of follows processed.
+    private suspend fun syncFollows(): Int {
+        val mangaDex = MdUtil.getEnabledMangaDex() ?: return 0
         val statuses = reikaiSourcePreferences.mangadexSyncToLibraryIndexes.get()
             .mapNotNull { it.toIntOrNull() }
             .toSet()
         val follows = mangaDex.fetchAllFollows().filter { (_, meta) -> meta.followStatus in statuses }
 
-        follows.forEachIndexed { i, (sManga, metadata) ->
+        follows.forEachIndexed { i, (sManga, _) ->
             currentCoroutineContext().ensureActive()
             showProgress(sManga.title, i, follows.size)
 
             var local = getManga.await(sManga.url, mangaDex.id)
                 ?: networkToLocalManga(sManga.toDomainManga(mangaDex.id))
+            // UpdateMangaFromRemote runs the enhanced metadata round-trip, so it persists the rich
+            // flat metadata (rating, tags). Do NOT insert the follows-list metadata afterwards: it
+            // only carries followStatus and would blank the rating until a manual refresh.
             local = updateMangaFromRemote(mangaDex, local, fetchDetails = true, fetchChapters = true)
                 .getOrThrow().manga
             if (!local.favorite) {
                 updateManga.awaitUpdateFavorite(local.id, true)
             }
-            metadata.mangaId = local.id
-            insertFlatMetadata.await(metadata)
         }
+        return follows.size
     }
 
     // Push each library MangaDex favorite that is UNFOLLOWED on the account up as a READING follow.
-    private suspend fun pushFavorites() {
-        if (!trackerManager.mdList.isLoggedIn) return
+    // Returns the number of favorites newly followed.
+    private suspend fun pushFavorites(): Int {
+        if (!trackerManager.mdList.isLoggedIn) return 0
         val favourites = getLibraryManga.await()
             .map { it.manga }
             .filter { it.source in MANGADEX_IDS }
             .distinctBy { it.id }
 
+        var pushed = 0
         favourites.forEachIndexed { i, manga ->
             currentCoroutineContext().ensureActive()
             showProgress(manga.title, i, favourites.size)
@@ -153,8 +178,10 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
                 tracker = tracker.copy(status = FollowStatus.READING.long)
                 val updated = trackerManager.mdList.update(tracker.toDbTrack())
                 insertTrack.await(updated.toDomainTrack(idRequired = false)!!)
+                pushed++
             }
         }
+        return pushed
     }
 
     companion object {
