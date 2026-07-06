@@ -157,14 +157,25 @@ class Downloader(
      */
     fun stop(reason: String? = null) {
         cancelDownloaderJob()
+
+        // RK -->
+        // A transient failure (no network, or wifi-only while on mobile data) shouldn't error the
+        // in-flight chapter and strand the progress notification. Re-queue it and show the
+        // resumable Paused notification instead of a dead-end warning, matching Yokai's graceful
+        // pause. DownloadJob keeps its network monitor alive and resumes when connectivity returns.
+        if (reason != null) {
+            queueState.value
+                .filter { it.status == Download.State.DOWNLOADING }
+                .forEach { it.status = Download.State.QUEUE }
+            isPaused = true
+            notifier.onPaused()
+            return
+        }
+        // RK <--
+
         queueState.value
             .filter { it.status == Download.State.DOWNLOADING }
             .forEach { it.status = Download.State.ERROR }
-
-        if (reason != null) {
-            notifier.onWarning(reason)
-            return
-        }
 
         if (isPaused && queueState.value.isNotEmpty()) {
             notifier.onPaused()
@@ -324,6 +335,11 @@ class Downloader(
                         NotificationHandler.openUrl(context, LibraryUpdateNotifier.HELP_WARNING_URL),
                     )
                 }
+            }
+            // RK: (re)start whenever the downloader isn't already running, not only on a fresh
+            // (previously-empty) queue, so a leftover errored or paused download at the head of
+            // the queue no longer leaves newly-added chapters stuck until a manual resume.
+            if (autoStart && !isRunning) {
                 DownloadJob.start(context)
             }
         }

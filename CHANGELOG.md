@@ -19,6 +19,12 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Browse the manga you follow on MDList and add them to your library.** Once you're signed into MDList, tap the new Follows button in that source's Browse filter to see your follows and add them, one or many at once.
 - **Add many titles to your library at once.** Tap Select in Browse, global search, or a recommendations "See all" grid to pick several and add them together; long-press still adds one.
 
+### Other
+
+- Synced an upstream Mihon fix that hardens the app against backgrounding crashes, replacing Reikai's earlier local workaround for the notes screen.
+
+## [0.1.8]
+
 ### Changes
 
 - **Recommendations now include MangaUpdates similar titles, not just its community picks.** A title's related-series list pulls from both MangaUpdates buckets.
@@ -26,13 +32,12 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Fixes
 
+- **A dropped connection now pauses downloads and picks back up on its own.** Losing network mid-download shows a resumable Paused notification and resumes automatically once you're back online, instead of failing the chapter and freezing on a stuck progress bar.
+- **A stuck or failed download no longer holds up the ones you queue next.** Adding chapters while a failed download sits in the queue starts them right away instead of staying paused until you manually resume.
+- **Cloudflare-protected sources that rely on FlareSolverr respond faster instead of hanging.** Once the in-app browser can't clear a site's challenge, browsing it, opening a title, and loading chapters hand off to FlareSolverr straight away instead of re-waiting 30 seconds on each request.
 - **Shikimori recommendations work again after the site's domain change.** They were still pointed at the old address, so they had stopped showing up.
 - **The notes editor no longer crashes when you background the app or select text.** Editing a title's notes is stable again.
 - **Restored downloads appear right after a backup restore.** The download state no longer waits for an app restart to catch up.
-
-### Other
-
-- Synced an upstream Mihon fix that hardens the app against backgrounding crashes, replacing Reikai's earlier local workaround for the notes screen.
 
 ## [0.1.7]
 
