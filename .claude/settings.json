@@ -12,7 +12,9 @@
       "E:\\code\\yokai-y2k\\refs\\Yōkai-Y2K-New-Icons",
       "E:\\code\\yokai-y2k\\refs\\lnreader-main",
       "E:\\code\\yokai-y2k\\refs\\lnreader-2.0.3-Pre-release",
-      "E:\\code\\yokai-y2k\\refs\\lnreader-plugins"
+      "E:\\code\\yokai-y2k\\refs\\lnreader-plugins",
+      "E:\\code\\yokai-y2k\\refs\\tsundoku",
+      "E:\\code\\yokai-y2k\\refs\\IReader"
     ],
     "allow": [
       "Bash(./gradlew :domain:test)",
