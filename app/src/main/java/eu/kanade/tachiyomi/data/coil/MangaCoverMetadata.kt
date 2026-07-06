@@ -71,7 +71,7 @@ object MangaCoverMetadata {
  * Picks the most representative color from a cover's [Palette], favoring colorful swatches while
  * falling back to a sizeable muted swatch. Ported from Komikku (Jays2Kings, cuong-tran).
  */
-private fun Palette.getBestColor(): Int? {
+internal fun Palette.getBestColor(): Int? {
     val vibPopulation = vibrantSwatch?.population ?: -1
     val domSat = dominantSwatch?.hsl?.get(1) ?: 0f
     val domLum = dominantSwatch?.hsl?.get(2) ?: -1f

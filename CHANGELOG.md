@@ -19,6 +19,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Browse the manga you follow on MDList and add them to your library.** Once you're signed into MDList, tap the new Follows button in that source's Browse filter to see your follows and add them, one or many at once.
 - **Add many titles to your library at once.** Tap Select in Browse, global search, or a recommendations "See all" grid to pick several and add them together; long-press still adds one.
 
+### Fixes
+
+- **Cover-based theming now tints a title the first time you open it.** Previously the cover's accent color only appeared after a title was in your library and the app had been reopened; now it shows on first open when browsing, for both manga and novels.
+
 ### Other
 
 - Synced an upstream Mihon fix that hardens the app against backgrounding crashes, replacing Reikai's earlier local workaround for the notes screen.

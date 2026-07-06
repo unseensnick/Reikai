@@ -132,6 +132,13 @@ class MangaCoverFetcher(
                 }
 
                 // Read from snapshot
+                // RK --> extract the theming color on the browse/non-library path too, so a
+                // non-favorited manga's cover tints on first open (Komikku parity, Y11)
+                val snap = snapshot
+                mangaCover?.let {
+                    MangaCoverMetadata.setVibrantColorAsync(it, bufferedSource = snap.toImageSource().source())
+                }
+                // RK <--
                 return SourceFetchResult(
                     source = snapshot.toImageSource(),
                     mimeType = "image/*",
@@ -152,6 +159,12 @@ class MangaCoverFetcher(
                 // Read from disk cache
                 snapshot = writeToDiskCache(response)
                 if (snapshot != null) {
+                    // RK --> Komikku parity: warm the theming color on the network path too (Y11)
+                    val snap = snapshot
+                    mangaCover?.let {
+                        MangaCoverMetadata.setVibrantColorAsync(it, bufferedSource = snap.toImageSource().source())
+                    }
+                    // RK <--
                     return SourceFetchResult(
                         source = snapshot.toImageSource(),
                         mimeType = "image/*",
@@ -159,6 +172,12 @@ class MangaCoverFetcher(
                     )
                 }
 
+                // RK --> Komikku parity: warm the theming color when serving straight from the
+                // response body; peekBody so the returned stream isn't consumed (Y11)
+                mangaCover?.let {
+                    MangaCoverMetadata.setVibrantColorAsync(it, bufferedSource = response.peekBody(Long.MAX_VALUE).source())
+                }
+                // RK <--
                 // Read from response if cache is unused or unusable
                 return SourceFetchResult(
                     source = ImageSource(source = responseBody.source(), fileSystem = FileSystem.SYSTEM),

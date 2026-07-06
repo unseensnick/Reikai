@@ -6,16 +6,22 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
+import androidx.palette.graphics.Palette
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import coil3.asDrawable
+import coil3.imageLoader
+import coil3.request.ImageRequest
+import coil3.request.allowHardware
 import eu.kanade.domain.track.model.AutoTrackState
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
-import eu.kanade.tachiyomi.data.coil.MangaCoverMetadata
+import eu.kanade.tachiyomi.data.coil.getBestColor
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -27,6 +33,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import reikai.data.coil.NovelCover
 import reikai.data.novel.NovelStatusCode
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.syncChaptersWithNovelSource
@@ -444,18 +451,39 @@ class NovelDetailsScreenModel(
         val url = novel.thumbnailUrl?.takeIf { it.isNotBlank() } ?: return
         if (novel.id <= 0L) return
         seedExtracted = true
+        // Color cache keyed by the negated id so a novel never collides with a same-id manga's color.
+        val cover = MangaCover(
+            mangaId = -novel.id,
+            sourceId = 0L,
+            isMangaFavorite = false,
+            url = url,
+            lastModified = novel.coverLastModified,
+        )
+        cover.vibrantCoverColor?.let { color ->
+            mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(seedColor = Color(color)) ?: it }
+            return
+        }
         screenModelScope.launchIO {
-            val cover = MangaCover(
-                mangaId = -novel.id,
-                sourceId = 0L,
-                isMangaFavorite = false,
-                url = url,
-                lastModified = novel.coverLastModified,
-            )
-            MangaCoverMetadata.setVibrantColor(cover)
-            cover.vibrantCoverColor?.let { color ->
-                mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(seedColor = Color(color)) ?: it }
-            }
+            // Load through NovelCoverFetcher (it sends the site Referer some LN cover hosts require) so a
+            // non-library novel opened from browsing still tints on first open. Mirrors the manga re-extract.
+            val request = ImageRequest.Builder(context)
+                .data(
+                    NovelCover(
+                        url = url,
+                        site = source?.site,
+                        isNovelFavorite = novel.favorite,
+                        lastModified = novel.coverLastModified,
+                        novelId = novel.id,
+                    ),
+                )
+                .allowHardware(false) // Palette can't read hardware bitmaps
+                .build()
+            val bitmap = context.imageLoader.execute(request).image
+                ?.asDrawable(context.resources)
+                ?.getBitmapOrNull() ?: return@launchIO
+            val color = Palette.from(bitmap).generate().getBestColor() ?: return@launchIO
+            cover.vibrantCoverColor = color
+            mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(seedColor = Color(color)) ?: it }
         }
     }
 
