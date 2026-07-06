@@ -11,7 +11,10 @@
 set -u
 
 staged() { git diff --cached --name-only | grep -qx "$1"; }
-deny='e-hentai|ehentai|exhentai|nhentai|pururin|8muses|hentaifox|asmhentai|koharu|schalenetwork'
+# Content-source names (adult + mainstream) that must be genericized or use an approved shorthand
+# (EH / ExH / MD / CMK) in the public-facing docs. Trackers (MangaUpdates, Shikimori, AniList, ...) are NOT
+# sources and stay allowed. Extend this list as new sources get named in the repo.
+deny='e-hentai|ehentai|exhentai|nhentai|pururin|8muses|hentaifox|asmhentai|koharu|schalenetwork|mangadex|comick'
 fail=0
 
 # ===== CHANGELOG.md =====
@@ -52,8 +55,8 @@ if staged ROADMAP.md; then
   # 1) No content-source names anywhere (use EH / ExH shorthand or generic wording).
   rn=$(printf '%s\n' "$road" | grep -inE "$deny" || true)
   if [ -n "$rn" ]; then
-    echo "ROADMAP: names a content source, use EH / ExH shorthand or generic wording (specific source"
-    echo "names belong in docs/dev/shipped.md, not the forward roadmap):"
+    echo "ROADMAP: names a content source, use an approved shorthand (EH / ExH / MD / CMK) or generic wording"
+    echo "(specific source names belong in docs/dev/shipped.md and the plan docs, not the forward roadmap):"
     echo "$rn"
     fail=1
   fi

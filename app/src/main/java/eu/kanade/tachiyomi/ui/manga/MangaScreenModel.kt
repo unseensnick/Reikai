@@ -10,8 +10,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.util.fastAny
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle
+import androidx.palette.graphics.Palette
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import coil3.asDrawable
+import coil3.imageLoader
+import coil3.request.ImageRequest
+import coil3.request.allowHardware
 import eu.kanade.core.preference.asState
 import eu.kanade.core.util.addOrRemove
 import eu.kanade.core.util.insertSeparators
@@ -34,7 +39,7 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.util.formattedMessage
-import eu.kanade.tachiyomi.data.coil.MangaCoverMetadata
+import eu.kanade.tachiyomi.data.coil.getBestColor
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
@@ -48,6 +53,7 @@ import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import eu.kanade.tachiyomi.util.removeCovers
+import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -230,16 +236,29 @@ class MangaScreenModel(
     // RK --> cover-based theming (Y11)
     val themeCoverBased = uiPreferences.themeCoverBased.get()
 
-    /** Extract the cover's vibrant color and seed the details theme with it. */
+    /**
+     * Seed the details theme from the cover's vibrant color. Reuses the color a prior Library/Browse
+     * load already cached; otherwise loads the cover through Coil and extracts it, so a non-library
+     * manga opened straight from browsing still tints on first open (mirrors Komikku setPaletteColor).
+     */
     fun updateSeedColor() {
         if (!themeCoverBased) return
-        val manga = manga ?: return
+        val cover = manga?.asMangaCover() ?: return
+        cover.vibrantCoverColor?.let { color ->
+            updateSuccessState { it.copy(seedColor = Color(color)) }
+            return
+        }
         screenModelScope.launchIO {
-            val cover = manga.asMangaCover()
-            MangaCoverMetadata.setVibrantColor(cover)
-            cover.vibrantCoverColor?.let { color ->
-                updateSuccessState { it.copy(seedColor = Color(color)) }
-            }
+            val request = ImageRequest.Builder(context)
+                .data(cover)
+                .allowHardware(false) // Palette can't read hardware bitmaps
+                .build()
+            val bitmap = context.imageLoader.execute(request).image
+                ?.asDrawable(context.resources)
+                ?.getBitmapOrNull() ?: return@launchIO
+            val color = Palette.from(bitmap).generate().getBestColor() ?: return@launchIO
+            cover.vibrantCoverColor = color
+            updateSuccessState { it.copy(seedColor = Color(color)) }
         }
     }
     // RK <--

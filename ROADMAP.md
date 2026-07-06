@@ -4,7 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-Nothing in progress. MangaUpdates similar-titles shipped; Comick source-native recs is blocked (stock Comick was pulled from the extension repos), see Parked.
+- **MD enhanced source** `[L]` (in progress, branch `feat/enhanced-source`) - port the `exh/md` subsystem to wrap the installed MD extension. Phases 0-2 shipped and on-device verified (delegated wrap + metadata-enriched details + the reference-matched gallery-info card: author, status, description, star rating, namespaced Demographic / Content Rating / Tags). Remaining: OAuth + MDList tracker (3), follows sync (4), settings hub (5), similar + aggregators (6). [plan](docs/dev/plans/md-enhanced-source.md).
 
 ## Next
 
@@ -25,6 +25,7 @@ Ready to build (infrastructure exists):
 - **Failed novel download error notification** `[S]` - mirror `DownloadNotifier.onError` in `NovelDownloadNotifier`.
 - **Novel updates refresh polish** `[S]` - started / already-running snackbar; update-row cover opens details.
 - **Tracker-based merge-group healing for novels** `[S-M]` - port `computeHealing` to `NovelMergeManager`.
+- **Skeleton loading on the novel details page** `[S]` - show placeholder skeletons while the first load resolves (like LNReader), instead of a bare spinner when opening a new non-library novel.
 
 Larger:
 - **Global novel reader-defaults settings screen** `[M]` - a `SearchableSettings` novel-reader page the per-novel sheet falls back to; also unblocks settings search.
@@ -34,13 +35,32 @@ Opportunistic polish: Browse (Latest shortcut, global-search progress, Last-used
 
 ### Recommendations
 
-- **MangaDex source-native similarity** `[L, gated]` - use MangaDex's `/manga/{id}/related` graph. A consumer of the MangaDex enhanced-source initiative below; lands when that does.
+- **MD source-native similarity** `[L, gated]` - use MD's `/manga/{id}/related` graph. A consumer of the MD enhanced source (in Now); lands with its Phase 6 (similar + aggregators).
 
-MangaUpdates similar-titles shipped (see CHANGELOG `[Unreleased]`); Comick source-native recs is blocked (see Parked).
+MangaUpdates similar-titles shipped (see CHANGELOG `[Unreleased]`); CMK source-native recs is blocked (see Parked).
 
-### MangaDex enhanced source
+### Details
 
-- **MangaDex enhanced source** `[L]` - port the `exh/md` subsystem: a `DelegatedHttpSource` wrapping the installed MangaDex extension with OAuth login, follows sync, the MDList tracker, a Settings hub, and the metadata model + info adapter. A general MangaDex feature (under `exh/` for historical reasons), so its own branch. Phased plan (scouted against Komikku): [mangadex-enhanced-source.md](docs/dev/plans/mangadex-enhanced-source.md). Unblocks the MangaDex similarity carousel (above) and the adult tag-chip MangaDex branch. Wanted: MangaDex is an actively-used source.
+From the 2026-07-04 Komikku parity audit (missing features + gestures on the details screen).
+
+- **Header long-press menus + tap-source-to-browse** `[M]` - long-press the title / author / source for library search, global search and copy (today it only copies); tap the source name to open its browse. Flagship parity gap.
+- **Edit entry info** `[L]` - a local editor for title / author / description / tags / status / cover (a TachiyomiSY/Komikku feature; base Mihon has custom-cover editing only).
+- **Per-chapter source label on merged entries** `[M]` - show which source each chapter came from in a merged series.
+- **Per-group Preferred-sources override** `[S-M]` - override the global Preferred-sources ranking for a single merge group (decides which source's version of shared-numbered chapters wins), via a reorder in Manage sources. Low priority; `ChapterAggregation.aggregate` already takes the ranking as a parameter, so only a per-group order pref plus the reorder UI are new. The global ranking still covers the common case.
+- **Details overflow polish** `[S]` - per-entry disable-auto-update, clear-data (downloads + cached chapters), open folder, jump to source settings.
+- **AMOLED-aware adult tag-chip borders** `[S]` - weighted / pure-black-dark-mode borders on the adult gallery-info tag chips (copying metadata already works via the metadata viewer).
+
+### Browse & sources
+
+From the same audit.
+
+- **Find-a-source search box** `[M]` - filter the sources list by name or extension when you have many.
+- **Custom source categories** `[M]` - group installed sources under your own headers (assign each source to one or more categories) in the Sources list, beyond the default language grouping. Needs source-category storage.
+- **Source-list & row polish** `[S]` - row badges (language flag / NSFW / extension name), a browse-toolbar incognito toggle, an NSFW-only filter, per-source data-saver exclude, a browse panorama toggle (the library already has panorama), hide latest / pin.
+
+### UI & design
+
+- **Unified content UI + design refresh** `[L]` - collapse the three near-duplicate presentation stacks (manga, novels, adult) into one Reikai-owned pixel layer over a content-agnostic UI model, killing the manga↔novel duplication and giving one place to move off stock Material 3. Domain models and ScreenModels stay per-type; readers stay separate. [Plan](docs/dev/plans/unified-content-ui.md).
 
 ## Parked / not building
 
@@ -49,15 +69,17 @@ One line each; revive note where relevant.
 - **Full two-way EH favorites sync** (pull account -> library) - the only feature that would mutate the library from a remote source; the scoped one-way backup shipped instead. Revive only if account -> library mirroring is wanted.
   - **EH per-page add-path throttle** `[S]` bundles here - redundant with the shipped 3/sec rate limit for normal imports; only this feature's sustained walk exercises it.
 - **Manga per-page chapter loading** - no manga source would feed a paged chapter list (the contract returns the full list in one call).
-- **Auto-error a chapter stuck mid-download** `[S]` - a per-chapter stall timeout that fails a chapter whose image download stops progressing, so one hanging page gives up faster than today's `callTimeout` x3 retries (~8 min worst case). Parked: the graceful download pause/resume fix handles the reported stuck-queue bug, and a stalled chapter still self-resolves via `callTimeout`; the diagnostic stall watchdog already logs these (`Download stalled ...`). Revive if a permanent image-stage stall (callTimeout never firing) turns up.
+- **Auto-error a chapter stuck mid-download** `[S]` - a per-chapter stall timeout so a hung image download gives up faster than `callTimeout` x3 (~8 min worst case). Parked: the pause/resume fix covers the reported bug and stalls still self-resolve via `callTimeout`. Revive if a permanent stall (callTimeout never fires) turns up.
 - **Dedicated LN trackers** (NovelUpdates / MiraiList / RanobeDB / Hardcover) - no sanctioned read+write API as of June 2026; recheck Hardcover if it leaves beta. See [novel-tracking.md](docs/dev/plans/novel-tracking.md).
 - **Novel recommendations / related carousel** - now feasible (trackers shipped) as an `[M]`; the source-native path stays infeasible (no plugin `getRelated`). Reconsider if wanted.
 - **Batch recommendation search** - overlaps the existing taste-profile layer. Revive if manual multi-title discovery is wanted.
-- **Comick source-native recommendations (+ id-graph)** - Komikku's `ComickPagingSource` port targets stock Comick's `api.comick.fun` API, but stock Comick was pulled from the extension repos; only clones (`comick.live`, `comickfan.com`) with different APIs and source ids remain, so the `COMICK_IDS` gate never fires. Revive if a stable `api.comick.fun`-backed Comick source returns; the id-graph idea (auto-bind trackers from `comic.links`, as a "suggested" not silent binding) rides the same API.
+- **CMK source-native recommendations (+ id-graph)** - stock CMK was pulled from the extension repos, so the recs port's id-set gate never fires (only clones with different ids remain). Revive if a first-party CMK source returns; the id-graph idea (suggest tracker binds from an entry's cross-links) rides the same API.
+- **Serialize track-sheet edits (rapid edits clobber each other)** `[M]` - each field edit runs in its own coroutine (`TrackInfoDialog.kt`), so two quick edits (e.g. chapter then score) race on the same track row and the second wins, losing the first. A Mihon-wide race, worst on MDList. Parked: the per-track mutex fix touches shared tracker code, so it needs its own scoped pass. Revive standalone.
 - **Upcoming / release calendar for novels** - LN sources rarely expose a reliable cadence; stays manga-only.
 - **Novel sources enable/disable filter screen** - add a bulk-toggle screen if managing many LN sources gets painful.
 - **Novel missing-chapter gap separators** - novel numbers are title-recognition-derived and source-order-sorted, so computed gaps would be mostly false.
-- **Saved searches** (browse filter presets) - low value; the DB + serializer layer survives on `design/library-compose`.
+- **Saved searches** (browse filter presets) - low value; the DB + serializer layer survives on `design/library-compose`. The 2026-07-04 Komikku parity audit rates it the top browse gap, but the "low value" call stands unless reopened.
+- **Per-source Feed** (latest / popular / saved-search rows as a source home) - depends on saved searches (parked above); parked together.
 - **Restore-path onboarding** - the restore log already lists what couldn't reinstall. See [novel-backup.md](docs/dev/plans/novel-backup.md).
 - **Auto-refresh-metadata toggle for novels** - no-op; novels return metadata + chapters in one call.
 - **Dynamic launcher shortcuts** - cosmetic; Mihon ships a static `shortcuts.xml`.

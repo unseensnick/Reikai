@@ -74,6 +74,11 @@ object Notifications {
     const val ID_BACKUP_COMPLETE = -502
     const val ID_RESTORE_COMPLETE = -504
 
+    // RK: MangaDex follow/library sync worker progress + completion channel.
+    const val CHANNEL_MANGADEX = "mangadex_sync_channel"
+    const val ID_MANGADEX_PROGRESS = -601
+    const val ID_MANGADEX_COMPLETE = -602
+
     /**
      * Notification channel used for Incognito Mode
      */
@@ -167,6 +172,11 @@ object Notifications {
                     setGroup(GROUP_LIBRARY)
                 },
                 buildNotificationChannel(CHANNEL_LIBRARY_EHENTAI, IMPORTANCE_LOW) {
+                    setName(context.stringResource(MR.strings.channel_progress))
+                    setGroup(GROUP_LIBRARY)
+                    setShowBadge(false)
+                },
+                buildNotificationChannel(CHANNEL_MANGADEX, IMPORTANCE_LOW) {
                     setName(context.stringResource(MR.strings.channel_progress))
                     setGroup(GROUP_LIBRARY)
                     setShowBadge(false)

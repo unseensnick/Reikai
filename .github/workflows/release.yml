@@ -17,6 +17,12 @@ on:
         description: 'Optional note shown at the top of the release body'
         required: false
 
+# A tag push racing a manual dispatch (or a re-tag) must not launch two signed builds; never cancel a
+# release mid-flight, so it can finish publishing.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -67,6 +73,13 @@ jobs:
           storePassword: ${{ secrets.KEY_STORE_PASSWORD }}
           keyAlias: ${{ secrets.ALIAS }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
+
+      # Stable builds ship to users, so keep their R8 mapping to deobfuscate crash stacks.
+      - name: Upload R8 mapping
+        uses: actions/upload-artifact@v4
+        with:
+          name: mapping-${{ env.VERSION_TAG }}
+          path: app/build/outputs/mapping/release
 
       - name: Install parse-changelog
         uses: taiki-e/install-action@parse-changelog

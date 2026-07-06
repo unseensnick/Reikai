@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.unit.sp
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
@@ -52,6 +53,7 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.BadgeGroup
 import tachiyomi.presentation.core.components.material.padding
+import tachiyomi.presentation.core.util.selectedBackground
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.icons.FlagEmoji.Companion.getEmojiLangFlag
 import java.time.Instant
@@ -66,6 +68,8 @@ fun BrowseSourceEHentaiList(
     contentPadding: PaddingValues,
     onMangaClick: (Manga) -> Unit,
     onMangaLongClick: (Manga) -> Unit,
+    // RK: highlighted when in bulk-selection mode
+    selection: List<Manga> = emptyList(),
 ) {
     LazyColumn(
         contentPadding = contentPadding,
@@ -86,6 +90,7 @@ fun BrowseSourceEHentaiList(
                 metadata = metadata,
                 onClick = { onMangaClick(manga) },
                 onLongClick = { onMangaLongClick(manga) },
+                isSelected = selection.fastAny { it.id == manga.id },
             )
         }
 
@@ -103,6 +108,7 @@ private fun BrowseSourceEHentaiListItem(
     metadata: RaisedSearchMetadata?,
     onClick: () -> Unit = {},
     onLongClick: () -> Unit = onClick,
+    isSelected: Boolean = false,
 ) {
     if (metadata !is EHentaiSearchMetadata) return
 
@@ -167,6 +173,8 @@ private fun BrowseSourceEHentaiListItem(
                 onClick = onClick,
                 onLongClick = onLongClick,
             )
+            // RK: highlight the row while bulk-selecting (Phase 4)
+            .selectedBackground(isSelected)
             .padding(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

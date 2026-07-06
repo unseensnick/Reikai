@@ -70,10 +70,6 @@ EVERY commit on the branch (including `docs` / `chore` / one-line fixes, not jus
 
 **Reikai patches on Mihon files** are fenced with `// RK -->` / `// RK <--` comment islands (grep `// RK` to find every active patch), mirroring how Komikku marks its `// SY` / `// KMK` patches. Everything that can live in its own file/module should, rather than editing Mihon's files.
 
-## Active upstream-sync watch (revisit, don't let this get lost)
-
-- **Notes background-crash fix (`mihonapp/mihon#3515`): Reikai deliberately diverges.** We keep our ported `mihonapp/mihon#3515` fix (serializable notes-screen args) because it fixes a crash we reproduced and verified on-device; Mihon reverted `mihonapp/mihon#3515` upstream on 2026-07-04 (`94b3b5eaa`) with no stated reason, keeping the sibling `mihonapp/mihon#3516`. **Watch what Mihon does next** (re-land, ship an alternative fix, or leave it reverted) and reconcile our port then, do not silently follow the revert. Full reasoning + ledger: [docs/dev/upstream-sync.md](docs/dev/upstream-sync.md) "Deliberate divergences". Remove this note once upstream settles.
-
 ## Build
 
 Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java-version`), formatting via Spotless (`./gradlew spotlessApply`), version catalogs `libs` and `mihonx`, build-logic via `gradle/build-logic` (`includeBuild`). Domain tests: `./gradlew :domain:test`. No `lintKotlin` / `formatKotlin` tasks exist (Kotlinter only installs a pre-push hook); use `spotlessApply` to format and `compileDebugKotlin` to check. (CLI Gradle is intermittent on this machine; build/test on-device in Android Studio when CLI fails.)

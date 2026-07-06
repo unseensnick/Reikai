@@ -12,9 +12,25 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+## [0.2.0]
+
+### Additions
+
+- **Track your reading with MDList.** Sign in from Settings > Tracking, then bind a title and its follow status and rating stay in sync with your account, the same way the other trackers work.
+- **One of the most-used manga sources now shows full details on its entries.** Author, artist, status, description, a star rating with its score, and namespaced tags (demographic, content rating, genres) now come from the source's own data instead of a bare listing.
+- **Browse the manga you follow on MDList and add them to your library.** Once you're signed into MDList, tap the new Follows button in that source's Browse filter to see your follows and add them, one or many at once.
+- **Add many titles to your library at once.** Tap Select in Browse, global search, or a recommendations "See all" grid to pick several and add them together; long-press still adds one.
+- **Sync your MDList library both ways from one screen.** A new settings screen imports every title you follow on MDList into your library, filtered by follow status, and pushes your library titles back to your account as reading.
+- **Jump to a random title on one of the most-used manga sources.** Open that source's Browse filter and tap Random for a surprise pick.
+
 ### Fixes
 
-- **The themed app icon now shows the logo instead of a shapeless blob.** With Material You themed icons enabled, the home screen icon keeps the letter and flame detail in your wallpaper's colors.
+- **Cover-based theming now tints a title the first time you open it.** Previously the cover's accent color only appeared after a title was in your library and the app had been reopened; now it shows on first open when browsing, for both manga and novels.
+- **The themed app icon now shows the logo instead of a shapeless blob (thanks [@Orifarius](https://github.com/Orifarius)).** With Material You themed icons enabled, the home screen icon keeps the letter and flame detail in your wallpaper's colors.
+
+### Other
+
+- Synced two upstream Mihon fixes: the app no longer crashes when sent to the background (replacing Reikai's earlier local notes-screen workaround), and storage folders served by non-system file providers (some cloud-storage and file-manager apps) work again.
 
 ## [0.1.8]
 

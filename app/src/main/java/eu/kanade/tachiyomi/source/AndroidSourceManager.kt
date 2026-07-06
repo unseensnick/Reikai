@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.source.online.all.HentaiFox
 import eu.kanade.tachiyomi.source.online.all.Koharu
 import eu.kanade.tachiyomi.source.online.all.Lanraragi
+import eu.kanade.tachiyomi.source.online.all.MangaDex
 import eu.kanade.tachiyomi.source.online.all.NHentai
 import eu.kanade.tachiyomi.source.online.all.NHentaiNet
 import eu.kanade.tachiyomi.source.online.english.EightMuses
@@ -236,6 +237,13 @@ class AndroidSourceManager(
                 EIGHTMUSES_SOURCE_ID,
                 "eu.kanade.tachiyomi.extension.en.eightmuses.EightMuses",
                 ::EightMuses,
+            ),
+            DelegatedSource(
+                "MangaDex",
+                fillInSourceId,
+                "eu.kanade.tachiyomi.extension.all.mangadex.MangaDex",
+                ::MangaDex,
+                factory = true,
             ),
             DelegatedSource(
                 "NHentai",

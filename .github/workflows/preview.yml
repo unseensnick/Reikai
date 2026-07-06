@@ -79,6 +79,13 @@ jobs:
           keyAlias: ${{ secrets.ALIAS }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
 
+      # Preview builds are distributed to testers, so keep their R8 mapping to deobfuscate crash stacks.
+      - name: Upload R8 mapping
+        uses: actions/upload-artifact@v4
+        with:
+          name: mapping-preview-${{ github.sha }}
+          path: app/build/outputs/mapping/preview
+
       - name: Install parse-changelog
         uses: taiki-e/install-action@parse-changelog
 

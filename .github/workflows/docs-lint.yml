@@ -26,7 +26,9 @@ jobs:
       - name: Lint CHANGELOG.md, ROADMAP.md and upstream-sync.md
         run: |
           set -u
-          deny='e-hentai|ehentai|exhentai|nhentai|pururin|8muses|hentaifox|asmhentai|koharu|schalenetwork'
+          # Content-source names (adult + mainstream); genericize or use an approved shorthand
+          # (EH / ExH / MD / CMK). Trackers (MangaUpdates, Shikimori, ...) are not sources; keep them.
+          deny='e-hentai|ehentai|exhentai|nhentai|pururin|8muses|hentaifox|asmhentai|koharu|schalenetwork|mangadex|comick'
           fail=0
 
           # ===== CHANGELOG.md =====
@@ -56,7 +58,7 @@ jobs:
 
           # ===== ROADMAP.md =====
           if names=$(grep -inE "$deny" ROADMAP.md); then
-            echo "::error::ROADMAP.md names a content source; use EH / ExH shorthand or generic wording."
+            echo "::error::ROADMAP.md names a content source; use an approved shorthand (EH / ExH / MD / CMK) or generic wording."
             echo "$names"
             fail=1
           fi

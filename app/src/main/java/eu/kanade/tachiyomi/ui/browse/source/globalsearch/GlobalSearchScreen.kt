@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.browse.source.globalsearch
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -23,6 +24,8 @@ import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import mihon.feature.migration.dialog.MigrateMangaDialog
+import reikai.presentation.browse.BulkFavoriteScreenModel
+import reikai.presentation.browse.components.BulkFavoriteDialogs
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.presentation.core.screens.LoadingScreen
 
@@ -49,6 +52,14 @@ class GlobalSearchScreen(
             )
         }
         val state by screenModel.state.collectAsState()
+
+        // RK: shared bulk-selection (Phase 4)
+        val bulkFavoriteScreenModel = rememberScreenModel { BulkFavoriteScreenModel() }
+        val bulkFavoriteState by bulkFavoriteScreenModel.state.collectAsState()
+        BackHandler(enabled = bulkFavoriteState.selectionMode) {
+            bulkFavoriteScreenModel.backHandler()
+        }
+
         var showSingleLoadingScreen by remember {
             mutableStateOf(searchQuery.isNotEmpty() && !extensionFilter.isNullOrEmpty() && state.total == 1)
         }
@@ -83,23 +94,39 @@ class GlobalSearchScreen(
                 onClickSource = {
                     navigator.push(BrowseSourceScreen(it.id, state.searchQuery))
                 },
-                onClickItem = { navigator.push(MangaScreen(it.id, true)) },
-                // RK: long-press adds to / removes from the library, matching the Browse screen.
-                onLongClickItem = { manga ->
-                    scope.launchIO {
-                        val duplicates = screenModel.getDuplicateLibraryManga(manga)
-                        when {
-                            manga.favorite ->
-                                screenModel.setDialog(SearchScreenModel.Dialog.RemoveManga(manga))
-                            duplicates.isNotEmpty() ->
-                                screenModel.setDialog(
-                                    SearchScreenModel.Dialog.AddDuplicateManga(manga, duplicates),
-                                )
-                            else -> screenModel.addFavorite(manga)
-                        }
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onClickItem = { manga ->
+                    // RK: tap toggles selection while bulk-selecting
+                    if (bulkFavoriteState.selectionMode) {
+                        bulkFavoriteScreenModel.toggleSelection(manga)
+                    } else {
+                        navigator.push(MangaScreen(manga.id, true))
                     }
                 },
+                // RK: long-press opens while bulk-selecting, otherwise adds to / removes from library.
+                onLongClickItem = { manga ->
+                    if (bulkFavoriteState.selectionMode) {
+                        navigator.push(MangaScreen(manga.id, true))
+                    } else {
+                        scope.launchIO {
+                            val duplicates = screenModel.getDuplicateLibraryManga(manga)
+                            when {
+                                manga.favorite ->
+                                    screenModel.setDialog(SearchScreenModel.Dialog.RemoveManga(manga))
+                                duplicates.isNotEmpty() ->
+                                    screenModel.setDialog(
+                                        SearchScreenModel.Dialog.AddDuplicateManga(manga, duplicates),
+                                    )
+                                else -> screenModel.addFavorite(manga)
+                            }
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                    }
+                },
+                // RK: bulk-selection (Phase 4)
+                selectionMode = bulkFavoriteState.selectionMode,
+                selection = bulkFavoriteState.selection,
+                onToggleSelectionMode = bulkFavoriteScreenModel::toggleSelectionMode,
+                onClickAddToLibrary = bulkFavoriteScreenModel::addFavorite,
             )
         }
 
@@ -145,5 +172,11 @@ class GlobalSearchScreen(
             else -> {}
         }
         // RK <--
+
+        // RK: bulk-selection dialogs (Phase 4)
+        BulkFavoriteDialogs(
+            bulkFavoriteScreenModel = bulkFavoriteScreenModel,
+            dialog = bulkFavoriteState.dialog,
+        )
     }
 }

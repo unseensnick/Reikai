@@ -75,7 +75,9 @@ if [ -n "$MATCHES" ]; then
   # Use "ask" not "deny". Warn the user but let them override (could be test fixtures)
   REASON="Possible secret detected in content:$MATCHES Review carefully before allowing."
   echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"$REASON\"}}"
-  exit 2
+  # The "ask" decision only takes effect on exit 0; exit 2 hard-blocks and discards the JSON,
+  # so a false positive (public constant, test fixture) could never be overridden.
+  exit 0
 fi
 
 exit 0

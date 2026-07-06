@@ -56,9 +56,11 @@ import kotlin.time.Duration.Companion.seconds
 
 @Composable
 fun MangaNotesTextArea(
-    // RK: decoupled from MangaNotesScreen.State to a plain `notes` String so the novel notes editor
-    // (reikai NovelNotesScreen) reuses this exact markdown editor instead of duplicating it.
+    // RK --> decoupled from MangaNotesScreen.State (upstream: `state: MangaNotesScreen.State`) to a
+    // plain `notes` String, so the novel notes editor (reikai NovelNotesScreen) reuses this exact
+    // markdown editor instead of duplicating it. Body reads `notes` where upstream reads `state.notes`.
     notes: String,
+    // RK <--
     onUpdate: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {

@@ -19,9 +19,11 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.util.ioCoroutineScope
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.online.MetadataSource
+import eu.kanade.tachiyomi.source.online.RandomMangaSource
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.source.eHentaiSourceIds
 import exh.source.getMainSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -43,12 +45,16 @@ import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.source.interactor.GetRemoteManga
+import tachiyomi.domain.source.repository.SourcePagingSource
 import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import eu.kanade.tachiyomi.source.model.Filter as SourceModelFilter
 
-class BrowseSourceScreenModel(
+// RK: open, with createSourcePagingSource / combineMetadata as overridable hooks and a `filterable`
+// state flag, so the MangaDex follows screen can subclass this and swap in its own paging source
+// (mirrors Komikku's BrowseSourceScreenModel extension surface).
+open class BrowseSourceScreenModel(
     private val sourceId: Long,
     listingQuery: String?,
     sourceManager: SourceManager = Injekt.get(),
@@ -102,7 +108,8 @@ class BrowseSourceScreenModel(
         .distinctUntilChanged()
         .map { listing ->
             Pager(PagingConfig(pageSize = 25)) {
-                getRemoteManga(sourceId, listing.query ?: "", listing.filters)
+                // RK: overridable so subclasses (MangaDex follows) can supply their own paging source
+                createSourcePagingSource(listing.query ?: "", listing.filters)
             }.flow.map { pagingData ->
                 // RK --> carry each manga's metadata alongside it for the rich browse rows
                 pagingData.map { (manga, metadata) ->
@@ -121,7 +128,8 @@ class BrowseSourceScreenModel(
     // RK --> DB-join each manga with its persisted metadata (falling back to the metadata carried
     //        from paging) so adult-source browse rows can render rating / tags / pages. Ported from
     //        Komikku's combineMetadata; mirrors MetadataViewScreenModel's getMainSource + raise().
-    private fun Flow<Manga>.combineMetadata(
+    //        `open` so the follows screen can pass the metadata straight through.
+    open fun Flow<Manga>.combineMetadata(
         metadata: RaisedSearchMetadata?,
     ): Flow<Pair<Manga, RaisedSearchMetadata?>> {
         val metadataSource = source.getMainSource<MetadataSource<*, *>>()
@@ -134,6 +142,12 @@ class BrowseSourceScreenModel(
                 flowOf(manga to null)
             }
         }
+    }
+
+    // RK: overridable paging-source factory. The default browses the source; the follows screen
+    //     overrides it to page the signed-in user's MangaDex follow list.
+    open fun createSourcePagingSource(query: String, filters: FilterList): SourcePagingSource {
+        return getRemoteManga(sourceId, query, filters)
     }
     // RK <--
 
@@ -262,6 +276,27 @@ class BrowseSourceScreenModel(
         mutableState.update { it.copy(toolbarQuery = query) }
     }
 
+    // RK -->
+    // Fetch a random MangaDex title id, then expose it as a one-shot nav target. The fetch is async,
+    // so the screen navigates from a LaunchedEffect on the state rather than a direct push in the
+    // click (pushing from an async callback can fail to render). (Phase 6)
+    fun onMangaDexRandom() {
+        screenModelScope.launchIO {
+            // A random-endpoint error (rate limit, transient 5xx, dropped connection) must not crash
+            // the app; the button just does nothing on failure.
+            val id = runCatching { source.getMainSource<RandomMangaSource>()?.fetchRandomMangaUrl() }
+                .onFailure { if (it is CancellationException) throw it }
+                .getOrNull()
+                ?: return@launchIO
+            mutableState.update { it.copy(randomMangaTarget = "id:$id") }
+        }
+    }
+
+    fun consumeRandomTarget() {
+        mutableState.update { it.copy(randomMangaTarget = null) }
+    }
+    // RK <--
+
     sealed class Listing(open val query: String?, open val filters: FilterList) {
         data object Popular : Listing(query = GetRemoteManga.QUERY_POPULAR, filters = FilterList())
         data object Latest : Listing(query = GetRemoteManga.QUERY_LATEST, filters = FilterList())
@@ -298,6 +333,8 @@ class BrowseSourceScreenModel(
         val filters: FilterList = FilterList(),
         val toolbarQuery: String? = null,
         val dialog: Dialog? = null,
+        // RK: one-shot nav target for the MangaDex "Random" button (an "id:<uuid>" search). (Phase 6)
+        val randomMangaTarget: String? = null,
     ) {
         val isUserQuery get() = listing is Listing.Search && !listing.query.isNullOrEmpty()
     }

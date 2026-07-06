@@ -260,6 +260,24 @@
             </intent-filter>
         </activity>
 
+        <!-- RK: MangaDex OAuth callback. Separate from TrackLoginActivity because MangaDex's OAuth
+             client only whitelists the tachiyomisy:// redirect (a mihon:// client can't be registered). -->
+        <activity
+            android:name="exh.md.MangaDexLoginActivity"
+            android:exported="true"
+            android:label="MangaDexLogin">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="mangadex-auth"
+                    android:scheme="tachiyomisy" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".data.notification.NotificationReceiver"
             android:exported="false" />

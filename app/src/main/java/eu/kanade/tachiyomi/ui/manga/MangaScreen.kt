@@ -183,15 +183,7 @@ class MangaScreen(
                     // RK: source picker first, so a merged manga can pick which source to migrate.
                     navigator.push(MangaMigrationSourcePickScreen(listOf(successState.manga.id)))
                 }.takeIf { successState.manga.favorite },
-                onEditNotesClicked = {
-                    navigator.push(
-                        MangaNotesScreen(
-                            mangaId = successState.manga.id,
-                            mangaTitle = successState.manga.title,
-                            mangaNotes = successState.manga.notes,
-                        ),
-                    )
-                },
+                onEditNotesClicked = { navigator.push(MangaNotesScreen(manga = successState.manga)) },
                 // RK: source management only when this manga is part of a merge group (full group, so it
                 // stays available while viewing a single source chip)
                 onManageSourcesClicked = screenModel::showManageSourcesDialog

@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -38,6 +39,10 @@ fun SourceFilterDialog(
     onReset: () -> Unit,
     onFilter: () -> Unit,
     onUpdate: (FilterList) -> Unit,
+    // RK: non-null only for a MangaDex source; opens the follows browse screen. (Phase 4)
+    onMangaDexFollowsClicked: (() -> Unit)? = null,
+    // RK: non-null only for a MangaDex source; opens a random title. (Phase 6)
+    onMangaDexRandomClicked: (() -> Unit)? = null,
 ) {
     val updateFilters = { onUpdate(filters) }
 
@@ -68,6 +73,28 @@ fun SourceFilterDialog(
                     }
                 }
                 HorizontalDivider()
+            }
+
+            // RK: MangaDex browse entries, Random on the left, Follows on the right, only for a
+            // MangaDex source. (Phase 4 + 6)
+            if (onMangaDexRandomClicked != null || onMangaDexFollowsClicked != null) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    ) {
+                        if (onMangaDexRandomClicked != null) {
+                            TextButton(onClick = onMangaDexRandomClicked) {
+                                Text(stringResource(MR.strings.mangadex_random))
+                            }
+                        }
+                        Spacer(modifier = Modifier.weight(1f))
+                        if (onMangaDexFollowsClicked != null) {
+                            TextButton(onClick = onMangaDexFollowsClicked) {
+                                Text(stringResource(MR.strings.mangadex_follows))
+                            }
+                        }
+                    }
+                }
             }
 
             items(filters) {

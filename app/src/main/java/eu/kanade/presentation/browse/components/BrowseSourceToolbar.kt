@@ -3,6 +3,7 @@ package eu.kanade.presentation.browse.components
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.ViewModule
+import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
@@ -36,6 +37,8 @@ fun BrowseSourceToolbar(
     onSettingsClick: () -> Unit,
     onSearch: (String) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior? = null,
+    // RK: enters bulk-selection mode when provided (Phase 4)
+    onToggleSelectionMode: (() -> Unit)? = null,
 ) {
     // Avoid capturing unstable source in actions lambda
     val title = source?.name
@@ -65,6 +68,16 @@ fun BrowseSourceToolbar(
                             onClick = { selectingDisplayMode = true },
                         ),
                     )
+                    // RK: bulk-select entry (Phase 4)
+                    if (onToggleSelectionMode != null) {
+                        add(
+                            AppBar.Action(
+                                title = stringResource(MR.strings.action_bulk_select),
+                                icon = Icons.Outlined.Checklist,
+                                onClick = onToggleSelectionMode,
+                            ),
+                        )
+                    }
                     if (isLocalSource) {
                         add(
                             AppBar.OverflowAction(

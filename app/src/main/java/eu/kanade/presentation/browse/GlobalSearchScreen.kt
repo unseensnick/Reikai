@@ -30,6 +30,11 @@ fun GlobalSearchScreen(
     onClickSource: (Source) -> Unit,
     onClickItem: (Manga) -> Unit,
     onLongClickItem: (Manga) -> Unit,
+    // RK: bulk-selection state + actions (Phase 4)
+    selectionMode: Boolean = false,
+    selection: List<Manga> = emptyList(),
+    onToggleSelectionMode: (() -> Unit)? = null,
+    onClickAddToLibrary: () -> Unit = {},
 ) {
     Scaffold(
         topBar = { scrollBehavior ->
@@ -46,6 +51,12 @@ fun GlobalSearchScreen(
                 onlyShowHasResults = state.onlyShowHasResults,
                 onToggleResults = onToggleResults,
                 scrollBehavior = scrollBehavior,
+                // RK: bulk-selection (Phase 4); the toolbar swaps internally, keeping its chips
+                onToggleSelectionMode = onToggleSelectionMode,
+                selectionMode = selectionMode,
+                selectedCount = selection.size,
+                onClickClearSelection = { onToggleSelectionMode?.invoke() },
+                onChangeCategoryClick = onClickAddToLibrary,
             )
         },
     ) { paddingValues ->
@@ -56,6 +67,7 @@ fun GlobalSearchScreen(
             onClickSource = onClickSource,
             onClickItem = onClickItem,
             onLongClickItem = onLongClickItem,
+            selection = selection,
         )
     }
 }
@@ -69,6 +81,8 @@ internal fun GlobalSearchContent(
     onClickItem: (Manga) -> Unit,
     onLongClickItem: (Manga) -> Unit,
     fromSourceId: Long? = null,
+    // RK: highlighted entries during bulk-selection
+    selection: List<Manga> = emptyList(),
 ) {
     LazyColumn(
         contentPadding = contentPadding,
@@ -93,6 +107,7 @@ internal fun GlobalSearchContent(
                                 getManga = getManga,
                                 onClick = onClickItem,
                                 onLongClick = onLongClickItem,
+                                selection = selection,
                             )
                         }
                         is SearchItemResult.Error -> {

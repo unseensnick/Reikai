@@ -22,7 +22,7 @@ The format these follow, and the rule for what earns a doc here, live in [.claud
 - [Manga merge engine (P4)](manga-merge-engine.md): pref-based multi-source manga merge (group algebra, distinct-count trunk + float-keyed chapter pooling, copy-on-write tracker mirroring) plus the FlareSolverr Cloudflare escape hatch.
 - [Merge-aware manga reader](merge-aware-manga-reader.md): read a merged manga straight through all its sources in the reader (unified list with per-source labels, cross-source prev/next, per-source side effects), via a thin Reikai layer over Mihon's reader.
 - [Recommendations & related carousel (P6)](recommendations.md): five suggestion streams merged, taste-reranked, tracker-gated cross-recs, and a See-all bulk-add grid.
-- [MangaDex enhanced source](mangadex-enhanced-source.md): wrap the installed MangaDex extension with metadata, OAuth login, an MDList tracker, follows sync, and a settings hub, reusing the EXH enhancement machinery. Phased forward plan, not started.
+- [MangaDex enhanced source](md-enhanced-source.md): wrap the installed MangaDex extension with metadata, OAuth login, an MDList tracker, follows sync, and a settings hub, reusing the EXH enhancement machinery. Phased plan; Phases 0-2 shipped (delegated wrap + enriched details), 3-6 remain.
 
 ## Adult sources
 
@@ -48,3 +48,4 @@ The format these follow, and the rule for what earns a doc here, live in [.claud
 
 - [Unified Updates tab](unified-updates.md): one Updates feed interleaving manga + novel behind an All / Manga / Novels chip, with shared filters, by-category, and merge-aware group-by-series.
 - [Unified reader (shared chrome)](unified-reader.md): manga and novel readers share one Compose chrome layer; `ReaderActivity` stays the View-based manga host (Option F), with the single-Compose-shell approach (Option A) explored and reverted.
+- [Unified content UI (manga + novels + adult)](unified-content-ui.md): collapse the three near-duplicate presentation stacks into one Reikai-owned pixel layer rendering a content-agnostic UI model, killing the manga↔novel duplication and giving one place to move off stock Material 3. Planned.

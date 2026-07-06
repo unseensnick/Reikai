@@ -966,6 +966,8 @@
     <string name="paused">Paused</string>
     <string name="plan_to_read">Plan to read</string>
     <string name="repeating">Rereading</string>
+    <!-- RK: MangaDex MDList tracker "unfollowed" status -->
+    <string name="md_follows_unfollowed">Unfollowed</string>
     <string name="reading_list">Reading List</string>
     <string name="wish_list">Wish List</string>
     <string name="complete_list">Complete List</string>
@@ -1277,6 +1279,35 @@
     <string name="translated">Translated</string>
     <string name="aged">Aged</string>
     <string name="last_update_check">Last update check</string>
+    <!-- RK: MangaDex enhanced-source gallery metadata field labels (Phase 2) -->
+    <string name="last_chapter_number">Last chapter number</string>
+    <string name="follow_status">Follow status</string>
+    <string name="anilist_id">Anilist id</string>
+    <string name="kitsu_id">Kitsu id</string>
+    <string name="mal_id">Mal id</string>
+    <string name="manga_updates_id">Manga updates id</string>
+    <string name="anime_planet_id">Anime planet id</string>
+    <!-- RK: MangaDex follows sync (Phase 4) -->
+    <string name="mangadex_follows">MangaDex follows</string>
+    <!-- RK: MangaDex browse Random button (Phase 6) -->
+    <string name="mangadex_random">Random</string>
+    <!-- RK: browse bulk multi-select (Phase 4): action to enter selection mode -->
+    <string name="action_bulk_select">Select</string>
+    <!-- RK: gallery-info card (metadata details) -->
+    <string name="more_info">More info</string>
+    <!-- RK: MangaDex rating descriptors (Phase 2 details card) -->
+    <string name="rating10">Masterpiece</string>
+    <string name="rating9">Amazing</string>
+    <string name="rating8">Great</string>
+    <string name="rating7">Good</string>
+    <string name="rating6">Okay</string>
+    <string name="rating5">Mediocre</string>
+    <string name="rating4">Bad</string>
+    <string name="rating3">Awful</string>
+    <string name="rating2">Painful</string>
+    <string name="rating1">Unbearable</string>
+    <string name="rating0">Disaster</string>
+    <string name="no_rating">No rating</string>
     <string name="pref_enable_adult_sources">Enable adult sources (E-Hentai)</string>
     <string name="pref_enable_adult_sources_summary">Adds the built-in E-Hentai sources to Browse. ExHentai also requires you to log in.</string>
     <string name="recheck_login_status">Recheck login status</string>
@@ -1284,6 +1315,29 @@
     <string name="skip_page_restyling">Skip page restyling</string>
     <string name="custom_igneous_cookie">Custom igneous cookie</string>
     <string name="custom_igneous_cookie_message">Some users cannot access ExHentai the normal way, and have to pass in a specific igneous cookie value, this option is for those users.</string>
+    <!-- RK: MangaDex enhanced-source settings screen (Phase 5) -->
+    <string name="pref_category_mangadex">MangaDex</string>
+    <string name="pref_mangadex_summary">Language, follow sync, library sync</string>
+    <string name="pref_mangadex_account">Account</string>
+    <string name="pref_mangadex_account_summary">Manage sign-in under Tracking</string>
+    <string name="pref_mangadex_preferred_source">Preferred MangaDex source</string>
+    <string name="md_first_enabled_source">First enabled</string>
+    <string name="pref_mangadex_sync_follow_statuses">Follow statuses to sync</string>
+    <string name="pref_mangadex_sync_follows_to_library">Sync MangaDex entries to your library</string>
+    <string name="pref_mangadex_sync_follows_to_library_summary">Pulls entries from MangaDex into your library if they are not already added.</string>
+    <string name="pref_mangadex_push_favorites_to_mangadex">Sync library entries to MangaDex</string>
+    <string name="pref_mangadex_push_favorites_to_mangadex_summary">Syncs any non-MDList tracked entries to MangaDex as reading.</string>
+    <string name="pref_mangadex_sign_in_required">Sign in to MangaDex under Tracking first</string>
+    <string name="pref_mangadex_sync_started">Sync started</string>
+    <string name="pref_mangadex_sync_follows_result">Follows synced to your library</string>
+    <string name="pref_mangadex_push_favorites_result">Library synced to MangaDex</string>
+    <string name="pref_mangadex_count_added">%1$d added</string>
+    <string name="pref_mangadex_count_updated">%1$d updated</string>
+    <string name="pref_mangadex_count_skipped">%1$d skipped</string>
+    <string name="pref_mangadex_count_failed">%1$d failed</string>
+    <string name="pref_mangadex_skipped_header">Skipped:</string>
+    <string name="pref_mangadex_failed_header">Failed:</string>
+
     <!-- RK: E-Hentai settings screen + server profile config (Phase B2) -->
     <string name="pref_category_eh">E-Hentai</string>
     <string name="pref_ehentai_summary">Login, image quality, gallery updates, favorites backup</string>
