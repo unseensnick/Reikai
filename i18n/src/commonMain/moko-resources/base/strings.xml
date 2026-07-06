@@ -1329,8 +1329,14 @@
     <string name="pref_mangadex_push_favorites_to_mangadex_summary">Syncs any non-MDList tracked entries to MangaDex as reading.</string>
     <string name="pref_mangadex_sign_in_required">Sign in to MangaDex under Tracking first</string>
     <string name="pref_mangadex_sync_started">Sync started</string>
-    <string name="pref_mangadex_sync_follows_result">Follows synced to your library (%1$d added)</string>
-    <string name="pref_mangadex_push_favorites_result">Library synced to MangaDex (%1$d updated)</string>
+    <string name="pref_mangadex_sync_follows_result">Follows synced to your library</string>
+    <string name="pref_mangadex_push_favorites_result">Library synced to MangaDex</string>
+    <string name="pref_mangadex_count_added">%1$d added</string>
+    <string name="pref_mangadex_count_updated">%1$d updated</string>
+    <string name="pref_mangadex_count_skipped">%1$d skipped</string>
+    <string name="pref_mangadex_count_failed">%1$d failed</string>
+    <string name="pref_mangadex_skipped_header">Skipped:</string>
+    <string name="pref_mangadex_failed_header">Failed:</string>
 
     <!-- RK: E-Hentai settings screen + server profile config (Phase B2) -->
     <string name="pref_category_eh">E-Hentai</string>

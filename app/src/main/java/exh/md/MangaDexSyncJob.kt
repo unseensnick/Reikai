@@ -1,6 +1,8 @@
 package exh.md
 
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.core.app.NotificationCompat
@@ -13,8 +15,10 @@ import androidx.work.workDataOf
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.track.model.toDbTrack
 import eu.kanade.domain.track.model.toDomainTrack
+import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notificationManager
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
@@ -33,6 +37,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
@@ -64,7 +69,7 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
     private val progressNotificationBuilder by lazy {
         context.notificationBuilder(Notifications.CHANNEL_MANGADEX) {
             setContentTitle(context.stringResource(MR.strings.app_name))
-            setSmallIcon(android.R.drawable.stat_notify_sync)
+            setSmallIcon(R.drawable.ic_refresh_24dp)
             setOngoing(true)
             setOnlyAlertOnce(true)
         }
@@ -74,17 +79,14 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
         val target = inputData.getString(KEY_TARGET)?.let { Target.valueOf(it) } ?: return Result.failure()
         return try {
             setForegroundSafely()
-            val count = when (target) {
+            val result = when (target) {
                 Target.SYNC_FOLLOWS -> syncFollows()
                 Target.PUSH_FAVORITES -> pushFavorites()
             }
-            val resultText = when (target) {
-                Target.SYNC_FOLLOWS -> context.stringResource(MR.strings.pref_mangadex_sync_follows_result, count)
-                Target.PUSH_FAVORITES -> context.stringResource(MR.strings.pref_mangadex_push_favorites_result, count)
-            }
-            showComplete(resultText)
-            // Toast for immediate confirmation while the app is open; the notification covers the rest.
-            withUIContext { context.toast(resultText) }
+            showComplete(target, result)
+            // Toast for immediate confirmation while the app is open; the notification carries the
+            // detail (which titles were skipped/failed) in its expanded view.
+            withUIContext { context.toast("${syncTitle(target)} (${buildSummary(target, result)})") }
             Result.success()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "MangaDex sync job failed ($target)" }
@@ -117,29 +119,91 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
         )
     }
 
-    // A persistent completion notification with the count, so a fast sync still gives feedback.
-    private fun showComplete(text: String) {
+    // A persistent, expandable completion notification, styled like the library-update one: the action
+    // as the title, the count summary as the content, and the skipped/failed title lists in the
+    // expanded (big text) view so the user can see what did not sync. Tapping it opens the app.
+    private fun showComplete(target: Target, result: SyncResult) {
+        val summary = buildSummary(target, result)
+        val detail = buildString {
+            append(summary)
+            if (result.skipped.isNotEmpty()) {
+                append("\n\n")
+                append(context.stringResource(MR.strings.pref_mangadex_skipped_header))
+                append("\n")
+                append(result.skipped.joinToString("\n"))
+            }
+            if (result.failed.isNotEmpty()) {
+                append("\n\n")
+                append(context.stringResource(MR.strings.pref_mangadex_failed_header))
+                append("\n")
+                append(result.failed.joinToString("\n"))
+            }
+        }
         context.notificationManager.notify(
             Notifications.ID_MANGADEX_COMPLETE,
             context.notificationBuilder(Notifications.CHANNEL_MANGADEX) {
-                setContentTitle(context.stringResource(MR.strings.app_name))
-                setContentText(text)
-                setSmallIcon(android.R.drawable.stat_notify_sync)
+                setContentTitle(syncTitle(target))
+                setContentText(summary)
+                setStyle(NotificationCompat.BigTextStyle().bigText(detail))
+                setSmallIcon(R.drawable.ic_reikai)
+                setContentIntent(openAppIntent())
                 setAutoCancel(true)
             }.build(),
         )
     }
 
+    private fun openAppIntent(): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        return PendingIntent.getActivity(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    // done = imported/updated; skipped = benign (no chapters in the chosen language); failed = errors.
+    private data class SyncResult(
+        val done: Int,
+        val skipped: List<String> = emptyList(),
+        val failed: List<String> = emptyList(),
+    )
+
+    // The notification/toast title, e.g. "Follows synced to your library".
+    private fun syncTitle(target: Target): String = when (target) {
+        Target.SYNC_FOLLOWS -> context.stringResource(MR.strings.pref_mangadex_sync_follows_result)
+        Target.PUSH_FAVORITES -> context.stringResource(MR.strings.pref_mangadex_push_favorites_result)
+    }
+
+    // The count summary, e.g. "14 added, 1 skipped".
+    private fun buildSummary(target: Target, result: SyncResult): String = buildList {
+        add(
+            when (target) {
+                Target.SYNC_FOLLOWS -> context.stringResource(MR.strings.pref_mangadex_count_added, result.done)
+                Target.PUSH_FAVORITES -> context.stringResource(MR.strings.pref_mangadex_count_updated, result.done)
+            },
+        )
+        if (result.skipped.isNotEmpty()) {
+            add(context.stringResource(MR.strings.pref_mangadex_count_skipped, result.skipped.size))
+        }
+        if (result.failed.isNotEmpty()) {
+            add(context.stringResource(MR.strings.pref_mangadex_count_failed, result.failed.size))
+        }
+    }.joinToString(", ")
+
     // Import the account's follows whose status is selected, adding each to the library as a favorite.
-    // Returns the number of follows processed.
-    private suspend fun syncFollows(): Int {
-        val mangaDex = MdUtil.getEnabledMangaDex() ?: return 0
+    private suspend fun syncFollows(): SyncResult {
+        val mangaDex = MdUtil.getEnabledMangaDex() ?: return SyncResult(0)
         val statuses = reikaiSourcePreferences.mangadexSyncToLibraryIndexes.get()
             .mapNotNull { it.toIntOrNull() }
             .toSet()
         val follows = mangaDex.fetchAllFollows().filter { (_, meta) -> meta.followStatus in statuses }
 
         var imported = 0
+        val skipped = mutableListOf<String>()
+        val failed = mutableListOf<String>()
         follows.forEachIndexed { i, (sManga, _) ->
             currentCoroutineContext().ensureActive()
             showProgress(sManga.title, i, follows.size)
@@ -157,24 +221,28 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
                 imported++
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: NoChaptersException) {
+                // Benign: nothing to read in the chosen language, so there is nothing to import.
+                skipped += sManga.title
+                logcat(LogPriority.DEBUG) { "MangaDex follows sync: skipped ${sManga.title} (no chapters)" }
             } catch (e: Exception) {
-                // Skip a failed or rate-limited entry rather than aborting the whole sync.
-                logcat(LogPriority.WARN, e) { "MangaDex follows sync: skipped ${sManga.title}" }
+                failed += sManga.title
+                logcat(LogPriority.WARN, e) { "MangaDex follows sync: failed ${sManga.title}" }
             }
         }
-        return imported
+        return SyncResult(imported, skipped, failed)
     }
 
     // Push each library MangaDex favorite that is UNFOLLOWED on the account up as a READING follow.
-    // Returns the number of favorites newly followed.
-    private suspend fun pushFavorites(): Int {
-        if (!trackerManager.mdList.isLoggedIn) return 0
+    private suspend fun pushFavorites(): SyncResult {
+        if (!trackerManager.mdList.isLoggedIn) return SyncResult(0)
         val favourites = getLibraryManga.await()
             .map { it.manga }
             .filter { it.source in MANGADEX_IDS }
             .distinctBy { it.id }
 
         var pushed = 0
+        val failed = mutableListOf<String>()
         favourites.forEachIndexed { i, manga ->
             currentCoroutineContext().ensureActive()
             showProgress(manga.title, i, favourites.size)
@@ -192,11 +260,11 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                // Skip a failed entry rather than aborting the whole push.
-                logcat(LogPriority.WARN, e) { "MangaDex library sync: skipped ${manga.title}" }
+                failed += manga.title
+                logcat(LogPriority.WARN, e) { "MangaDex library sync: failed ${manga.title}" }
             }
         }
-        return pushed
+        return SyncResult(pushed, failed = failed)
     }
 
     companion object {
