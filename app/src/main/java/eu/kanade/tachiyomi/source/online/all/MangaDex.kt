@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.LoginSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.NamespaceSource
+import eu.kanade.tachiyomi.source.online.RandomMangaSource
 import exh.md.dto.MangaDataDto
 import exh.md.dto.MangaDto
 import exh.md.dto.StatisticsMangaDto
@@ -52,6 +53,7 @@ class MangaDex(delegate: HttpSource, val context: Context) :
     MetadataSource<MangaDexSearchMetadata, Triple<MangaDto, List<String>, StatisticsMangaDto?>>,
     LoginSource,
     FollowsSource,
+    RandomMangaSource,
     NamespaceSource {
 
     override val lang: String = delegate.lang
@@ -144,6 +146,9 @@ class MangaDex(delegate: HttpSource, val context: Context) :
 
     override suspend fun fetchAllFollows(): List<Pair<SManga, MangaDexSearchMetadata>> =
         followsHandler.fetchAllFollows()
+
+    // RandomMangaSource: a random title id for the Browse "Random" button.
+    override suspend fun fetchRandomMangaUrl(): String = mangaHandler.fetchRandomMangaId()
 
     // MDList tracker round-trip (per-title follow status + rating), called by MdList.
     suspend fun fetchTrackingInfo(url: String): Track = followsHandler.fetchTrackingInfo(url)

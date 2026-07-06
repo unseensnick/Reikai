@@ -107,6 +107,13 @@ data class BrowseSourceScreen(
             return
         }
 
+        // RK: navigate to the random MangaDex title once its id has been fetched (async). (Phase 6)
+        LaunchedEffect(state.randomMangaTarget) {
+            val target = state.randomMangaTarget ?: return@LaunchedEffect
+            screenModel.consumeRandomTarget()
+            navigator.push(BrowseSourceScreen(sourceId, target))
+        }
+
         val scope = rememberCoroutineScope()
         val haptic = LocalHapticFeedback.current
         val uriHandler = LocalUriHandler.current
@@ -302,6 +309,16 @@ data class BrowseSourceScreen(
                     // RK: Follows entry, only for a MangaDex source (Phase 4)
                     onMangaDexFollowsClicked = if (screenModel.source.getMainSource<MangaDex>() != null) {
                         { navigator.push(MangaDexFollowsScreen(sourceId)) }
+                    } else {
+                        null
+                    },
+                    // RK: Random entry, only for a MangaDex source (Phase 6). The fetch is async, so
+                    // the click only kicks it off; navigation happens in the LaunchedEffect below.
+                    onMangaDexRandomClicked = if (screenModel.source.getMainSource<MangaDex>() != null) {
+                        {
+                            screenModel.onMangaDexRandom()
+                            onDismissRequest()
+                        }
                     } else {
                         null
                     },

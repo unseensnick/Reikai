@@ -28,6 +28,9 @@ class MangaHandler(
         }
     }
 
+    // Random-manga id for the Browse "Random" button; the caller opens it via an id: search.
+    suspend fun fetchRandomMangaId(): String = service.randomManga().data.id
+
     private suspend fun getSimpleChapters(manga: SManga): List<String> {
         return runCatching { service.aggregateChapters(MdUtil.getMangaId(manga.url), lang) }
             .onFailure {

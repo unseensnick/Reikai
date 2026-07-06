@@ -19,6 +19,7 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.util.ioCoroutineScope
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.online.MetadataSource
+import eu.kanade.tachiyomi.source.online.RandomMangaSource
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.source.eHentaiSourceIds
 import exh.source.getMainSource
@@ -274,6 +275,22 @@ open class BrowseSourceScreenModel(
         mutableState.update { it.copy(toolbarQuery = query) }
     }
 
+    // RK -->
+    // Fetch a random MangaDex title id, then expose it as a one-shot nav target. The fetch is async,
+    // so the screen navigates from a LaunchedEffect on the state rather than a direct push in the
+    // click (pushing from an async callback can fail to render). (Phase 6)
+    fun onMangaDexRandom() {
+        screenModelScope.launchIO {
+            val id = source.getMainSource<RandomMangaSource>()?.fetchRandomMangaUrl() ?: return@launchIO
+            mutableState.update { it.copy(randomMangaTarget = "id:$id") }
+        }
+    }
+
+    fun consumeRandomTarget() {
+        mutableState.update { it.copy(randomMangaTarget = null) }
+    }
+    // RK <--
+
     sealed class Listing(open val query: String?, open val filters: FilterList) {
         data object Popular : Listing(query = GetRemoteManga.QUERY_POPULAR, filters = FilterList())
         data object Latest : Listing(query = GetRemoteManga.QUERY_LATEST, filters = FilterList())
@@ -310,6 +327,8 @@ open class BrowseSourceScreenModel(
         val filters: FilterList = FilterList(),
         val toolbarQuery: String? = null,
         val dialog: Dialog? = null,
+        // RK: one-shot nav target for the MangaDex "Random" button (an "id:<uuid>" search). (Phase 6)
+        val randomMangaTarget: String? = null,
     ) {
         val isUserQuery get() = listing is Listing.Search && !listing.query.isNullOrEmpty()
     }
