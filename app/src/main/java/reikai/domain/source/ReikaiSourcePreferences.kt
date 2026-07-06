@@ -110,4 +110,24 @@ class ReikaiSourcePreferences(
         preferenceStore.getBoolean("updates_group_by_series", false)
 
     // endregion
+
+    // region MangaDex enhanced source
+
+    /**
+     * Which enabled MangaDex language source the enhanced-source settings and sync actions target when
+     * several are enabled, stored as the source id string ("0" = first enabled). Reikai twin of
+     * Komikku's SourcePreferences.preferredMangaDexId.
+     */
+    val preferredMangaDexId: Preference<String> =
+        preferenceStore.getString("preferred_mangadex_id", "0")
+
+    /**
+     * Follow statuses the "Sync Follows to Library" action imports, stored as FollowStatus int values
+     * (0..6). Defaults to reading + re-reading, matching Komikku's "only add reading or rereading"
+     * intent. Reikai twin of Komikku's SourcePreferences.mangadexSyncToLibraryIndexes.
+     */
+    val mangadexSyncToLibraryIndexes: Preference<Set<String>> =
+        preferenceStore.getStringSet("mangadex_sync_to_library_indexes", setOf("1", "6"))
+
+    // endregion
 }

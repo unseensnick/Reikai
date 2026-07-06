@@ -1313,6 +1313,20 @@
     <string name="skip_page_restyling">Skip page restyling</string>
     <string name="custom_igneous_cookie">Custom igneous cookie</string>
     <string name="custom_igneous_cookie_message">Some users cannot access ExHentai the normal way, and have to pass in a specific igneous cookie value, this option is for those users.</string>
+    <!-- RK: MangaDex enhanced-source settings screen (Phase 5) -->
+    <string name="pref_category_mangadex">MangaDex</string>
+    <string name="pref_mangadex_summary">Language, follow sync, library sync</string>
+    <string name="pref_mangadex_account">Account</string>
+    <string name="pref_mangadex_account_summary">Manage sign-in under Tracking</string>
+    <string name="pref_mangadex_preferred_source">Preferred MangaDex source</string>
+    <string name="md_first_enabled_source">First enabled</string>
+    <string name="pref_mangadex_sync_follow_statuses">Follow statuses to sync</string>
+    <string name="pref_mangadex_sync_follows_to_library">Sync MangaDex entries to your library</string>
+    <string name="pref_mangadex_sync_follows_to_library_summary">Pulls entries from MangaDex into your library if they are not already added.</string>
+    <string name="pref_mangadex_push_favorites_to_mangadex">Sync library entries to MangaDex</string>
+    <string name="pref_mangadex_push_favorites_to_mangadex_summary">Syncs any non-MDList tracked entries to MangaDex as reading.</string>
+    <string name="pref_mangadex_sign_in_required">Sign in to MangaDex under Tracking first</string>
+
     <!-- RK: E-Hentai settings screen + server profile config (Phase B2) -->
     <string name="pref_category_eh">E-Hentai</string>
     <string name="pref_ehentai_summary">Login, image quality, gallery updates, favorites backup</string>

@@ -297,6 +297,8 @@ private val settingScreens = listOf(
     SettingsDataScreen,
     SettingsSecurityScreen,
     SettingsEhScreen,
+    // RK: MangaDex enhanced-source hub (gated by isEnabled, filtered in getIndex).
+    SettingsMangaDexScreen,
     SettingsAdvancedScreen,
 )
 

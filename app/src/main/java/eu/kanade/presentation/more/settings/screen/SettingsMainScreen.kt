@@ -47,6 +47,7 @@ import eu.kanade.presentation.util.LocalBackPress
 import eu.kanade.presentation.util.Screen
 import exh.assets.EhAssets
 import exh.assets.ehassets.EhLogo
+import exh.md.MangaDexLogo
 import exh.source.ExhPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -242,6 +243,14 @@ object SettingsMainScreen : Screen() {
             icon = EhAssets.EhLogo,
             screen = SettingsEhScreen,
         ),
+        // RK: MangaDex enhanced-source hub as its own top-level category (gated by isEnabled).
+        Item(
+            titleRes = MR.strings.pref_category_mangadex,
+            subtitleRes = MR.strings.pref_mangadex_summary,
+            icon = MangaDexLogo,
+            screen = SettingsMangaDexScreen,
+        ),
+        // RK <--
         Item(
             titleRes = MR.strings.pref_category_advanced,
             subtitleRes = MR.strings.pref_advanced_summary,

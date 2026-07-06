@@ -4,6 +4,7 @@ import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import exh.md.network.MangaDexAuthInterceptor
 import exh.md.utils.FollowStatus
@@ -12,6 +13,7 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import tachiyomi.core.common.util.lang.withIOContext
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.domain.track.model.Track as DomainTrack
 
@@ -103,6 +105,17 @@ class MdList(id: Long) : BaseTracker(id, "MDList") {
         return withIOContext {
             val mdex = mdex ?: throw MangaDexNotFoundException()
             mdex.searchTracker(query)
+        }
+    }
+
+    // Seeds an UNFOLLOWED tracker for a library manga so pushFavorites can flip it to READING and
+    // create the MDList follow. mdManga supplies the display title/url when it differs from the local row.
+    fun createInitialTracker(dbManga: Manga, mdManga: Manga = dbManga): Track {
+        return Track.create(TrackerManager.MDLIST).apply {
+            manga_id = dbManga.id
+            status = FollowStatus.UNFOLLOWED.long
+            tracking_url = MdUtil.baseUrl + mdManga.url
+            title = mdManga.title
         }
     }
 
