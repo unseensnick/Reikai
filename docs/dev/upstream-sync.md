@@ -52,6 +52,7 @@ Newest first. "Base" is the `refs/mihon` SHA Reikai is synced through; "Reikai" 
 
 | Base (mihon) | Reikai | Date | Ported | Skipped / N/A |
 |---|---|---|---|---|
+| `3b078331a` | `4acf0a54f` | 2026-07-06 | 1: unifile bump to Mihon's own fork (`com.github.tachiyomiorg` -> `com.github.mihon`, `e0def6b3dc` -> `08f224c8f9`) fixing non-system SAF provider support (mihonapp/mihon#3530). Hand-merged the two `gradle/libs.versions.toml` lines; no RK island. | None |
 | `b8e5f22c0` | `414af9e9e` | 2026-07-06 | 1: proguard keep for `Serializable` `writeReplace`/`readResolve` (mihon b8e5f22c0), so the mihonapp/mihon#3523 backgrounding fix survives R8 in Reikai's minified preview/release builds. Verbatim copy, no RK island at the insert. | None |
 | `c3bf7a78c` | `71b2a026a` | 2026-07-05 | 1: `Manga`-model serialization for safe backgrounding (mihonapp/mihon#3523). Reconciled the `mihonapp/mihon#3515` divergence: adopted the model-level fix and reverted Reikai's serializable-args notes screen back to upstream's whole-`Manga` `MangaNotesScreen`. | None |
 | `94b3b5eaa` | `3e49c63f3` | 2026-07-04 | None (divergence review only) | `94b3b5eaa` revert of `mihonapp/mihon#3515`: Reikai deliberately kept its port at the time (reconciled 2026-07-05, see the row above) |
