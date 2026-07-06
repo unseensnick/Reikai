@@ -23,6 +23,7 @@ import eu.kanade.tachiyomi.util.system.workManager
 import exh.md.utils.FollowStatus
 import exh.md.utils.MdUtil
 import exh.source.MANGADEX_IDS
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import logcat.LogPriority
@@ -138,22 +139,30 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
             .toSet()
         val follows = mangaDex.fetchAllFollows().filter { (_, meta) -> meta.followStatus in statuses }
 
+        var imported = 0
         follows.forEachIndexed { i, (sManga, _) ->
             currentCoroutineContext().ensureActive()
             showProgress(sManga.title, i, follows.size)
-
-            var local = getManga.await(sManga.url, mangaDex.id)
-                ?: networkToLocalManga(sManga.toDomainManga(mangaDex.id))
-            // UpdateMangaFromRemote runs the enhanced metadata round-trip, so it persists the rich
-            // flat metadata (rating, tags). Do NOT insert the follows-list metadata afterwards: it
-            // only carries followStatus and would blank the rating until a manual refresh.
-            local = updateMangaFromRemote(mangaDex, local, fetchDetails = true, fetchChapters = true)
-                .getOrThrow().manga
-            if (!local.favorite) {
-                updateManga.awaitUpdateFavorite(local.id, true)
+            try {
+                var local = getManga.await(sManga.url, mangaDex.id)
+                    ?: networkToLocalManga(sManga.toDomainManga(mangaDex.id))
+                // UpdateMangaFromRemote runs the enhanced metadata round-trip, so it persists the rich
+                // flat metadata (rating, tags). Do NOT insert the follows-list metadata afterwards: it
+                // only carries followStatus and would blank the rating until a manual refresh.
+                local = updateMangaFromRemote(mangaDex, local, fetchDetails = true, fetchChapters = true)
+                    .getOrThrow().manga
+                if (!local.favorite) {
+                    updateManga.awaitUpdateFavorite(local.id, true)
+                }
+                imported++
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Skip a failed or rate-limited entry rather than aborting the whole sync.
+                logcat(LogPriority.WARN, e) { "MangaDex follows sync: skipped ${sManga.title}" }
             }
         }
-        return follows.size
+        return imported
     }
 
     // Push each library MangaDex favorite that is UNFOLLOWED on the account up as a READING follow.
@@ -169,16 +178,22 @@ class MangaDexSyncJob(private val context: Context, workerParams: WorkerParamete
         favourites.forEachIndexed { i, manga ->
             currentCoroutineContext().ensureActive()
             showProgress(manga.title, i, favourites.size)
+            try {
+                val tracks = getTracks.await(manga.id)
+                var tracker = tracks.firstOrNull { it.trackerId == TrackerManager.MDLIST }
+                    ?: trackerManager.mdList.createInitialTracker(manga).toDomainTrack(idRequired = false)
 
-            val tracks = getTracks.await(manga.id)
-            var tracker = tracks.firstOrNull { it.trackerId == TrackerManager.MDLIST }
-                ?: trackerManager.mdList.createInitialTracker(manga).toDomainTrack(idRequired = false)
-
-            if (tracker?.status == FollowStatus.UNFOLLOWED.long) {
-                tracker = tracker.copy(status = FollowStatus.READING.long)
-                val updated = trackerManager.mdList.update(tracker.toDbTrack())
-                insertTrack.await(updated.toDomainTrack(idRequired = false)!!)
-                pushed++
+                if (tracker?.status == FollowStatus.UNFOLLOWED.long) {
+                    tracker = tracker.copy(status = FollowStatus.READING.long)
+                    val updated = trackerManager.mdList.update(tracker.toDbTrack())
+                    insertTrack.await(updated.toDomainTrack(idRequired = false)!!)
+                    pushed++
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Skip a failed entry rather than aborting the whole push.
+                logcat(LogPriority.WARN, e) { "MangaDex library sync: skipped ${manga.title}" }
             }
         }
         return pushed
