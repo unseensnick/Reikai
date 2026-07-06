@@ -12,6 +12,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+### Fixes
+
+- **The themed app icon now shows the logo instead of a shapeless blob.** With Material You themed icons enabled, the home screen icon keeps the letter and flame detail in your wallpaper's colors.
+
 ## [0.1.8]
 
 ### Changes
