@@ -52,6 +52,7 @@ Newest first. "Base" is the `refs/mihon` SHA Reikai is synced through; "Reikai" 
 
 | Base (mihon) | Reikai | Date | Ported | Skipped / N/A |
 |---|---|---|---|---|
+| `b8e5f22c0` | `414af9e9e` | 2026-07-06 | 1: proguard keep for `Serializable` `writeReplace`/`readResolve` (mihon b8e5f22c0), so the mihonapp/mihon#3523 backgrounding fix survives R8 in Reikai's minified preview/release builds. Verbatim copy, no RK island at the insert. | None |
 | `c3bf7a78c` | `71b2a026a` | 2026-07-05 | 1: `Manga`-model serialization for safe backgrounding (mihonapp/mihon#3523). Reconciled the `mihonapp/mihon#3515` divergence: adopted the model-level fix and reverted Reikai's serializable-args notes screen back to upstream's whole-`Manga` `MangaNotesScreen`. | None |
 | `94b3b5eaa` | `3e49c63f3` | 2026-07-04 | None (divergence review only) | `94b3b5eaa` revert of `mihonapp/mihon#3515`: Reikai deliberately kept its port at the time (reconciled 2026-07-05, see the row above) |
 | `27284a40a` | `f538e8d34` | 2026-07-04 | 4: notes background-crash serializable args (mihonapp/mihon#3515), notes text-select crash / composeRichEditor rc13 (mihonapp/mihon#3516), Shikimori GraphQL search+lookup+currentUser with a `// RK` not-in-list bind fix (mihonapp/mihon#3499), download-cache invalidation after restore (mihonapp/mihon#3096) | `mihonapp/mihon#3514` download wrong-file-check: Reikai already ships the correct logic (`3b1d34759`) |
