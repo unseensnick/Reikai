@@ -5,19 +5,8 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  push:
-    branches: [main]
-    # Allow-list of app-affecting inputs (see preview.yml): only these can change the built APK,
-    # so only these run the build/test. Repo-only content (docs, .github, .githooks, .claude) is
-    # skipped, and new non-app content is excluded by default.
-    paths:
-      - '**/src/**'
-      - '**.kts'
-      - '**.pro'
-      - 'gradle/**'
-      - 'gradle.properties'
-      - 'gradlew'
-      - 'gradlew.bat'
+  # PR-only. Every change reaches main through a PR (gated here), and preview.yml rebuilds and tests
+  # every app-affecting push to main, so a second build/test on the merge itself would be redundant.
   pull_request:
     paths:
       - '**/src/**'
