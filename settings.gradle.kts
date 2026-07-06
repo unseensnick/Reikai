@@ -27,7 +27,7 @@ dependencyResolutionManagement {
 
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
-rootProject.name = "Mihon"
+rootProject.name = "Reikai" // RK: build/scan display label (was "Mihon"); app name lives in i18n
 include(":app")
 include(":baseline-profile")
 include(":core-metadata")
