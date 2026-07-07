@@ -23,22 +23,25 @@ Ready to build (infrastructure exists):
 - **Expose novel tracking in library filter / sort / group** `[S]` - tracker-status filter, tracker-score sort, group-by-track-status.
 - **Mark same-numbered duplicate chapters read on novel completion** `[S]` - parity for merged novels.
 - **Failed novel download error notification** `[S]` - mirror `DownloadNotifier.onError` in `NovelDownloadNotifier`.
-- **Novel updates refresh polish** `[S]` - started / already-running snackbar; update-row cover opens details.
+- **Novel updates refresh polish** `[S]` - started / already-running snackbar (manga shows one, novel refresh is silent); a delete-chapters confirmation dialog (manga confirms, novel deletes immediately).
+- **Sort the manga library by download count** `[S]` - the novel library has a Downloaded sort; add the same key to the manga library (2026-07-07 parity audit).
 - **Tracker-based merge-group healing for novels** `[S-M]` - port `computeHealing` to `NovelMergeManager`.
 - **Skeleton loading on the novel details page** `[S]` - show placeholder skeletons while the first load resolves (like LNReader), instead of a bare spinner when opening a new non-library novel.
 
 Larger:
 - **Global novel reader-defaults settings screen** `[M]` - a `SearchableSettings` novel-reader page the per-novel sheet falls back to; also unblocks settings search.
 - **Novel library Behaviour settings** `[M]` - swipe actions + missing-chapter indicators for the novel list.
+- **Bulk multi-select in novel browse + global search** `[M]` - a selection toolbar with bulk add-to-library, matching manga (which uses `BulkFavoriteScreenModel`); novel browse only single-adds today (2026-07-07 parity audit).
 
-Opportunistic polish: Browse (Latest shortcut, global-search progress, Last-used, hide-in-library, per-row language, genre-tap-search); Reader (Share + open-in-browser, always-on progress %); Downloads queue (pause/resume, per-row retry, move-to-top/bottom, per-series move/cancel); Tracking (start-date backfill, create-private-at-bind, hide trackers lacking novel search); Updates/history (Novels-chip last-updated line, fast-scroll animation); Details (long-press-copy WebView URL, per-source scanlator filter for merged novels, per-category novel display settings `[M]`).
+Opportunistic polish: Browse (Latest shortcut, Latest capability-guard so an unsupported source hides the chip, global-search progress, Last-used, hide-in-library, per-row language, genre-tap-search); Reader (Share + open-in-browser, always-on progress %); Downloads queue (pause/resume, per-row retry, move-to-top/bottom, per-series move/cancel); Tracking (start-date backfill, create-private-at-bind, hide trackers lacking novel search); Updates/history (Novels-chip last-updated line, fast-scroll animation); Details (long-press-copy WebView URL, per-source scanlator filter for merged novels, per-category novel display settings `[M]`, novel tag-tap global search, novel long-press-favorite category shortcut).
 
 ### Details
 
 From the 2026-07-04 Komikku parity audit (missing features + gestures on the details screen).
 
 - **Header long-press menus + tap-source-to-browse** `[M]` - long-press the title / author / source for library search, global search and copy (today it only copies); tap the source name to open its browse. Flagship parity gap.
-- **Edit entry info** `[L]` - a local editor for title / author / description / tags / status / cover (a TachiyomiSY/Komikku feature; base Mihon has custom-cover editing only).
+- **Edit entry info** `[L]` - a local editor for title / author / description / tags / status / cover (a TachiyomiSY/Komikku feature; base Mihon has custom-cover editing only). Novel details already has this editor, so this also brings manga to parity; Komikku is the reference.
+- **Show/hide hidden chapters on manga** `[M]` - novel details can hide/unhide chapters and toggle showing hidden ones; bring the manga details screen to the same (2026-07-07 parity audit).
 - **Per-chapter source label on merged entries** `[M]` - show which source each chapter came from in a merged series.
 - **Per-group Preferred-sources override** `[S-M]` - override the global Preferred-sources ranking for a single merge group (decides which source's version of shared-numbered chapters wins), via a reorder in Manage sources. Low priority; `ChapterAggregation.aggregate` already takes the ranking as a parameter, so only a per-group order pref plus the reorder UI are new. The global ranking still covers the common case.
 - **Details overflow polish** `[S]` - per-entry disable-auto-update, clear-data (downloads + cached chapters), open folder, jump to source settings.
@@ -54,7 +57,7 @@ From the same audit.
 
 ### UI & design
 
-- **Unified content UI + design refresh** `[L]` - collapse the three near-duplicate presentation stacks (manga, novels, adult) into one Reikai-owned pixel layer over a content-agnostic UI model, killing the manga↔novel duplication and giving one place to move off stock Material 3. Domain models and ScreenModels stay per-type; readers stay separate. [Plan](docs/dev/plans/unified-content-ui.md).
+- **Unified content UI + design refresh** `[L]` - collapse the three near-duplicate presentation stacks (manga, novels, adult) into one Reikai-owned pixel layer over a content-agnostic UI model. The main goal is manga↔novel feature parity and anti-divergence (a UI change to one type reaches the other), with de-duplication the mechanism; it also gives one place to move off stock Material 3. Domain models and ScreenModels stay per-type; readers stay separate. History + Updates rows shipped; cover dialog next. Small parity closes surfaced by the 2026-07-07 audit are folded into each surface as it is collapsed; the larger parity items are the standalone entries under Novels and Details above. [Plan](docs/dev/plans/unified-content-ui.md).
 
 ## Parked / not building
 
