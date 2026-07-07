@@ -68,8 +68,8 @@ deliberate), via the `impeccable` skill.
 Updates each merge the manga and novel feeds into a shared row model (`HistoryRow` / `UpdateRow`)
 and route around Mihon's screen via a `// RK` redirect in the tab (built during the light-novel
 port), so only the leaf row needed unifying; both shipped (`EntryHistoryRow`, `EntryUpdatesRow`).
-Next is the cover dialog (small, two near-identical copies to collapse), then the details screen
-(the large, highest-impact surface). Reader stays separate.
+The cover dialog shipped next (`EntryCoverDialog`, replacing the two near-identical copies). The
+details screen (the large, highest-impact surface) is next. Reader stays separate.
 
 ## Key files
 
@@ -84,7 +84,7 @@ Next is the cover dialog (small, two near-identical copies to collapse), then th
 
 ## Status
 
-**In progress. Two increments shipped.** Captured from a design discussion (2026-07-05) while
+**In progress. Three increments shipped.** Captured from a design discussion (2026-07-05) while
 finishing the MD enhanced-source port; a code-research pass (2026-07-07) confirmed the list
 surfaces already carried the merge half of the seam (History and Updates each merge the manga and
 novel feeds into a shared row model and route around Mihon's screen via a `// RK` redirect in the
@@ -92,13 +92,13 @@ tab, built during the light-novel port), so only the leaf row remained.
 
 Shipped: the History and Updates screens each collapsed their twin manga/novel row composables into
 one shared `Entry*Row` fed by per-type mappers/slots (`EntryHistoryRow` `0628f5f43`; `EntryUpdatesRow`
-plus the grouped-row cover-tap `43fff525e`), the first proofs of the shared-composable seam,
-verified on-device (debug and minified).
+plus the grouped-row cover-tap `43fff525e`), then the full-cover dialog into one shared
+`EntryCoverDialog` (`78e8d8825`). All verified on-device (debug and minified).
 
-Next: the cover dialog (`MangaCoverDialog` / `NovelCoverDialog` are near-identical 204-line copies)
-into one shared `EntryCoverDialog`, then the details screen (the largest surface, its
-`EntryDetailsUiState` seam). Mapper work is best done right after an upstream sync, since it depends
-on current State shapes.
+Next: the details screen (the largest surface, its `EntryDetailsUiState` seam). A 2026-07-07 parity
+audit ruled the manga/novel feature divergences (close vs gate); the small closes fold into each
+surface as it is collapsed, the larger ones are standalone ROADMAP items. Mapper work is best done
+right after an upstream sync, since it depends on current State shapes.
 
 ## Decisions & tradeoffs
 

@@ -4,11 +4,11 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-Nothing in progress. 0.2.1 shipped: the Hikka tracker, per-tracker usernames in settings, the "Tracker recommendations" toggle fix (`unseensnick/Reikai#37`), two Komikku ports (extension-installer fixes, AniList error parsing), and this cycle's Mihon syncs. Details in [docs/dev/shipped.md](docs/dev/shipped.md).
+**Unified content UI** in progress on `feat/unified-content-ui` (unmerged): the History + Updates rows and the full-cover dialog are collapsed onto shared `Entry*` components (verified device + minified); the **details screen** is the next surface. Goal and rulings: Later -> UI & design and [the plan](docs/dev/plans/unified-content-ui.md).
 
 ## Next
 
-Nothing formally queued. Largest option: the unified content UI + design refresh `[L]` (under Later -> UI & design). Quick wins: the `[S]` items under Later -> Novels.
+After the details-screen collapse: the standalone manga/novel parity closes from the 2026-07-07 audit (bulk multi-select in novel browse, library tracker sort/filter/group, edit-info to manga, show/hide hidden chapters on manga), and the `[S]` quick wins under Later -> Novels.
 
 ## Later
 
@@ -57,7 +57,7 @@ From the same audit.
 
 ### UI & design
 
-- **Unified content UI + design refresh** `[L]` - collapse the three near-duplicate presentation stacks (manga, novels, adult) into one Reikai-owned pixel layer over a content-agnostic UI model. The main goal is manga↔novel feature parity and anti-divergence (a UI change to one type reaches the other), with de-duplication the mechanism; it also gives one place to move off stock Material 3. Domain models and ScreenModels stay per-type; readers stay separate. History + Updates rows shipped; cover dialog next. Small parity closes surfaced by the 2026-07-07 audit are folded into each surface as it is collapsed; the larger parity items are the standalone entries under Novels and Details above. [Plan](docs/dev/plans/unified-content-ui.md).
+- **Unified content UI + design refresh** `[L]` - collapse the three near-duplicate presentation stacks (manga, novels, adult) into one Reikai-owned pixel layer over a content-agnostic UI model. The main goal is manga↔novel feature parity and anti-divergence (a UI change to one type reaches the other), with de-duplication the mechanism; it also gives one place to move off stock Material 3. Domain models and ScreenModels stay per-type; readers stay separate. History + Updates rows and the cover dialog shipped; the details screen is next (the large one). Small parity closes surfaced by the 2026-07-07 audit are folded into each surface as it is collapsed; the larger parity items are the standalone entries under Novels and Details above. [Plan](docs/dev/plans/unified-content-ui.md).
 
 ## Parked / not building
 
