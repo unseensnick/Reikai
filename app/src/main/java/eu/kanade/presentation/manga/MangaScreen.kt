@@ -52,12 +52,12 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.manga.components.ChapterHeader
 import eu.kanade.presentation.manga.components.ExpandableMangaDescription
 import eu.kanade.presentation.manga.components.GalleryInfoBox // RK
-import eu.kanade.presentation.manga.components.MangaActionRow
 import eu.kanade.presentation.manga.components.PagePreviews // RK
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.manga.components.MangaChapterListItem
 import eu.kanade.presentation.manga.components.MangaInfoBox
 import reikai.domain.recommendation.RelatedMangaCandidate // RK
+import reikai.presentation.details.EntryActionRow // RK
 import reikai.presentation.manga.MergeSourceChips // RK
 import reikai.presentation.recommendation.RelatedMangaCarousel // RK
 import eu.kanade.presentation.manga.components.MangaToolbar
@@ -448,17 +448,20 @@ private fun MangaScreenSmallImpl(
                         key = MangaScreenItem.ACTION_ROW,
                         contentType = MangaScreenItem.ACTION_ROW,
                     ) {
-                        MangaActionRow(
+                        // RK: shared action row for manga + novels (replaces MangaActionRow)
+                        EntryActionRow(
                             favorite = state.manga.favorite,
                             trackingCount = state.trackingCount,
+                            onAddToLibraryClicked = onAddToLibraryClicked,
+                            onTrackingClicked = onTrackingClicked,
+                            onEditCategory = onEditCategoryClicked,
+                            showIntervalButton = true,
                             nextUpdate = nextUpdate,
                             isUserIntervalMode = state.manga.fetchInterval < 0,
-                            onAddToLibraryClicked = onAddToLibraryClicked,
+                            onEditIntervalClicked = onEditIntervalClicked,
                             onWebViewClicked = onWebViewClicked,
                             onWebViewLongClicked = onWebViewLongClicked,
-                            onTrackingClicked = onTrackingClicked,
-                            onEditIntervalClicked = onEditIntervalClicked,
-                            onEditCategory = onEditCategoryClicked,
+                            onShareClicked = null,
                         )
                     }
 
@@ -756,17 +759,20 @@ fun MangaScreenLargeImpl(
                             onCoverClick = onCoverClicked,
                             doSearch = onSearch,
                         )
-                        MangaActionRow(
+                        // RK: shared action row for manga + novels (replaces MangaActionRow)
+                        EntryActionRow(
                             favorite = state.manga.favorite,
                             trackingCount = state.trackingCount,
+                            onAddToLibraryClicked = onAddToLibraryClicked,
+                            onTrackingClicked = onTrackingClicked,
+                            onEditCategory = onEditCategoryClicked,
+                            showIntervalButton = true,
                             nextUpdate = nextUpdate,
                             isUserIntervalMode = state.manga.fetchInterval < 0,
-                            onAddToLibraryClicked = onAddToLibraryClicked,
+                            onEditIntervalClicked = onEditIntervalClicked,
                             onWebViewClicked = onWebViewClicked,
                             onWebViewLongClicked = onWebViewLongClicked,
-                            onTrackingClicked = onTrackingClicked,
-                            onEditIntervalClicked = onEditIntervalClicked,
-                            onEditCategory = onEditCategoryClicked,
+                            onShareClicked = null,
                         )
                         // RK: per-source gallery-info card for adult/metadata sources
                         state.galleryMetadata?.let { meta ->

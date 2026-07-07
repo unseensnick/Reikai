@@ -12,13 +12,17 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+### Additions
+
+- **On a novel's details screen, long-press the In-library button to edit its categories.** It opens the same category picker manga details already had on long-press.
+
 ### Changes
 
 - **Novel and grouped covers in the Updates list now open the title's details.** Novel rows did nothing on cover-tap before and grouped rows just expanded; both now open details, while the rest of the row still opens the chapter or expands the group.
 
 ### Other
 
-- The manga and novel History/Updates rows and the full-cover dialog now each render through one shared component instead of near-identical copies. No visible change; groundwork for the unified content UI and design refresh.
+- The manga and novel History/Updates rows, the full-cover dialog, and the details action row now each render through one shared component instead of near-identical copies. Groundwork for the unified content UI and design refresh.
 
 ## [0.2.1]
 

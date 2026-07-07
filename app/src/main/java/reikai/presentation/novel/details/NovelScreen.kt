@@ -64,6 +64,7 @@ import eu.kanade.tachiyomi.util.system.copyToClipboard
 import reikai.data.coil.NovelCover
 import reikai.domain.novel.model.NovelChapter
 import reikai.presentation.components.EntryCoverDialog
+import reikai.presentation.details.EntryActionRow
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
 import reikai.presentation.novel.migrate.NovelMigrationSourcePickScreen
 import reikai.presentation.novel.notes.NovelNotesScreen
@@ -519,13 +520,20 @@ private fun LazyListScope.novelInfoItems(
         )
     }
     item(key = "actions") {
-        NovelActionRow(
+        EntryActionRow(
             favorite = state.novel.favorite,
             trackingCount = state.trackingCount,
             onAddToLibraryClicked = screenModel::toggleFavorite,
-            onWebViewClicked = state.novelWebUrl?.let { { onWebView() } },
-            onShareClicked = state.novelWebUrl?.let { { onShare() } },
             onTrackingClicked = onTracking,
+            // long-press favorite -> categories, only while in library (parity with manga)
+            onEditCategory = screenModel::showChangeCategoryDialog.takeIf { state.novel.favorite },
+            showIntervalButton = false,
+            nextUpdate = null,
+            isUserIntervalMode = false,
+            onEditIntervalClicked = null,
+            onWebViewClicked = state.novelWebUrl?.let { { onWebView() } },
+            onWebViewLongClicked = null,
+            onShareClicked = state.novelWebUrl?.let { { onShare() } },
         )
     }
     item(key = "description") {

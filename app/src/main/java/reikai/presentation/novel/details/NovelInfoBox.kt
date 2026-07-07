@@ -1,6 +1,5 @@
 package reikai.presentation.novel.details
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,13 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.PersonOutline
-import androidx.compose.material.icons.outlined.Done
-import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.Public
-import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -48,7 +41,6 @@ import reikai.data.coil.NovelCover
 import reikai.data.novel.NovelStatusCode
 import reikai.domain.novel.model.Novel
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
@@ -189,80 +181,3 @@ private fun InfoRow(
 
 @Composable
 private fun novelStatusText(status: Long): String = stringResource(NovelStatusCode.toStringRes(status))
-
-/**
- * Add-to-library / Tracking / WebView / Share row. The novel twin of `MangaActionRow`, dropping the
- * fetch-interval button novels don't use. Tracking mirrors the manga button: label + icon flip once a
- * novel is bound to a tracker.
- */
-@Composable
-fun NovelActionRow(
-    favorite: Boolean,
-    trackingCount: Int,
-    onAddToLibraryClicked: () -> Unit,
-    onWebViewClicked: (() -> Unit)?,
-    onShareClicked: (() -> Unit)?,
-    onTrackingClicked: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(modifier = modifier.padding(start = 16.dp, top = 8.dp, end = 16.dp)) {
-        NovelActionButton(
-            title = if (favorite) stringResource(MR.strings.in_library) else stringResource(MR.strings.add_to_library),
-            icon = if (favorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-            color = if (favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            onClick = onAddToLibraryClicked,
-        )
-        NovelActionButton(
-            title = if (trackingCount == 0) {
-                stringResource(MR.strings.manga_tracking_tab)
-            } else {
-                pluralStringResource(MR.plurals.num_trackers, count = trackingCount, trackingCount)
-            },
-            icon = if (trackingCount == 0) Icons.Outlined.Sync else Icons.Outlined.Done,
-            color = if (trackingCount == 0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
-            onClick = onTrackingClicked,
-        )
-        if (onWebViewClicked != null) {
-            NovelActionButton(
-                title = stringResource(MR.strings.action_web_view),
-                icon = Icons.Outlined.Public,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                onClick = onWebViewClicked,
-            )
-        }
-        if (onShareClicked != null) {
-            NovelActionButton(
-                title = stringResource(MR.strings.action_share),
-                icon = Icons.Outlined.Share,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                onClick = onShareClicked,
-            )
-        }
-    }
-}
-
-@Composable
-private fun RowScope.NovelActionButton(
-    title: String,
-    icon: ImageVector,
-    color: Color,
-    onClick: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .weight(1f)
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Icon(imageVector = icon, contentDescription = title, tint = color, modifier = Modifier.size(24.dp))
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = title,
-            color = color,
-            style = MaterialTheme.typography.labelMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
