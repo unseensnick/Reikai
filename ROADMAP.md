@@ -10,6 +10,9 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 After the details-screen collapse: the standalone manga/novel parity closes from the 2026-07-07 audit (bulk multi-select in novel browse, library tracker sort/filter/group, edit-info to manga, show/hide hidden chapters on manga), and the `[S]` quick wins under Later -> Novels.
 
+- **Independent library scroll position per content type** `[S]` - the manga and novel library views share one scroll offset (scrolling one moves the other); each should keep its own remembered scroll state. Reikai-specific (upstream is manga-only), so the fix is entirely on our side.
+- **Sync the latest Mihon upstream** `[M]` - port the accumulated upstream changes (likely several releases) since the last synced base by hand from `refs/mihon`, per [upstream-sync.md](docs/dev/upstream-sync.md).
+
 ## Later
 
 Backlog, grouped by area. Unordered within an area.
