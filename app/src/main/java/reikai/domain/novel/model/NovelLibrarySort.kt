@@ -5,8 +5,9 @@ import kotlin.random.Random
 /**
  * Per-category novel library sort. Mirrors Mihon's [tachiyomi.domain.library.model.LibrarySort] bit
  * layout (type in bits 2-5, ascending in bit 6) so it serializes into [NovelCategory.flags] the same
- * way the manga side serializes into `Category.flags`. Trackers do not apply to novels, so Mihon's
- * TrackerMean slot is reused for a Downloaded-count sort.
+ * way the manga side serializes into `Category.flags`. Mihon's TrackerMean slot is reused for a
+ * Downloaded-count sort (the reuse predates novel tracking); a novel tracker-mean sort, a roadmap
+ * parity item, would need a free slot.
  *
  * One addition over Mihon: a [CUSTOMIZED] sentinel bit (bit 0). A category uses its own flags only
  * once a sort has been explicitly set; until then it follows the library default. This is what lets a

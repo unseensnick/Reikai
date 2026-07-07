@@ -35,6 +35,14 @@ Every Reikai screen ported onto or added to Mihon follows Mihon's existing Voyag
 7. Business logic out of `@Composable`. Side-effects in `LaunchedEffect` or the ScreenModel.
 8. Re-typed to Mihon's immutable domain models; in-place edits to Mihon's own files fenced with `// RK -->` / `// RK <--` markers (see below). Net-new code lives in its own files/modules.
 
+## Unified content UI (active initiative)
+
+Reikai is collapsing the near-duplicate manga and novel presentation into one Reikai-owned UI layer, one surface at a time (History + Updates rows shipped; cover dialog next; the details screen is the large one). Detail and sequencing: [docs/dev/plans/unified-content-ui.md](docs/dev/plans/unified-content-ui.md).
+
+**The main goal is manga/novel feature parity and anti-divergence, not just deduplication.** The purpose is that a UI change to one content type automatically reaches the other, so the two can't silently drift and features stay at parity, unless a difference is deliberately gated (the content type genuinely can't support it, or it wouldn't benefit them). Merging two near-duplicate composables into one shared composable is an important sub-goal (one shared composable makes future divergence structurally impossible), but it is the mechanism, not the goal.
+
+**Practical rule when unifying a surface:** don't just merge the composables. Also flag every manga/novel feature gap you notice on that surface (an action, badge, or behavior one type has and the other lacks) and let the user rule on each: bring it to parity by leveling the lagging side up, or keep it deliberately gated. Never fake a feature a content type cannot actually support. Example shipped this way: the Updates novel cover-tap.
+
 ## Code change defaults
 
 - **DRY**: Before adding a helper, search the codebase (or run an Explore agent in plan mode) for an existing equivalent.

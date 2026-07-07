@@ -86,13 +86,11 @@ import tachiyomi.domain.manga.model.MangaCover
 import uy.kohesive.injekt.injectLazy
 
 /**
- * Single-source light-novel details state holder, the B1 port of Yōkai's `NovelDetailsScreenModel`
- * re-typed onto the S1 repos. DB-first: the stored novel + its chapters drive the screen; the source
- * is hit only on first open (no local chapters) or an explicit [refresh]. Owns favorite, categories,
- * edit-info, chapter sort/filter/display, multi-select read/bookmark, and the cover-tint seed.
- *
- * Merge (the [NovelDetailsState.Loaded.displayNovel] seam), the reader (chapter tap), and downloads
- * are stubbed here and wired at S8 / S4 / S5.
+ * Light-novel details state holder, re-typed from Yōkai's `NovelDetailsScreenModel` onto the Mihon
+ * repos. DB-first: the stored novel + its chapters drive the screen; the source is hit only on first
+ * open (no local chapters) or an explicit [refresh]. Owns favorite, categories, edit-info, chapter
+ * sort/filter/display, multi-select read/bookmark, and the cover-tint seed. A merged series is
+ * surfaced through the [NovelDetailsState.Loaded.displayNovel] seam.
  */
 class NovelDetailsScreenModel(
     private val sourceId: String,

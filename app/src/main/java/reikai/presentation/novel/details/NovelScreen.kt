@@ -78,10 +78,9 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.shouldExpandFAB
 
 /**
- * Light-novel details screen, the novel twin of `MangaScreen` (single-source for now). Mirrors the
- * manga small/large layouts: the phone toolbar fades its title + background as you scroll past the
- * cover; the tablet keeps a two-pane split with the bottom action menu anchored to the chapter pane.
- * Reader, downloads, and merge are stubbed (S4 / S5 / S8).
+ * Light-novel details screen, the novel twin of `MangaScreen`. Mirrors the manga small/large
+ * layouts: the phone toolbar fades its title + background as you scroll past the cover; the tablet
+ * keeps a two-pane split with the bottom action menu anchored to the chapter pane.
  */
 class NovelScreen(
     private val sourceId: String,
