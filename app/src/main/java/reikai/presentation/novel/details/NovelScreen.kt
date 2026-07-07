@@ -65,6 +65,8 @@ import reikai.data.coil.NovelCover
 import reikai.domain.novel.model.NovelChapter
 import reikai.presentation.components.EntryCoverDialog
 import reikai.presentation.details.EntryActionRow
+import reikai.presentation.details.EntryInfoBox
+import reikai.presentation.details.toEntryHeader
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
 import reikai.presentation.novel.migrate.NovelMigrationSourcePickScreen
 import reikai.presentation.novel.notes.NovelNotesScreen
@@ -502,21 +504,21 @@ private fun LazyListScope.novelInfoItems(
 ) {
     val display = state.displayNovel
     item(key = "info") {
-        NovelInfoBox(
+        EntryInfoBox(
             isTabletUi = isTabletUi,
             appBarPadding = appBarPadding,
-            novel = display,
             // a merged group viewed via the "All" chip shows the unified label, mirroring the
             // manga header. A specific source chip keeps that source's resolved name.
-            sourceName = if (state.mergeSources.size > 1 && state.selectedSourceNovelId == null) {
-                stringResource(MR.strings.merge_unified)
-            } else {
-                state.sourceName
-            },
-            sourceSite = state.sourceUrl,
+            header = display.toEntryHeader(
+                sourceName = if (state.mergeSources.size > 1 && state.selectedSourceNovelId == null) {
+                    stringResource(MR.strings.merge_unified)
+                } else {
+                    state.sourceName
+                },
+                sourceSite = state.sourceUrl,
+            ),
             onCoverClick = screenModel::showCoverDialog,
-            onSearch = onSearch,
-            onCopy = onCopy,
+            doSearch = { query, _ -> onSearch(query) },
         )
     }
     item(key = "actions") {

@@ -55,9 +55,10 @@ import eu.kanade.presentation.manga.components.GalleryInfoBox // RK
 import eu.kanade.presentation.manga.components.PagePreviews // RK
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.manga.components.MangaChapterListItem
-import eu.kanade.presentation.manga.components.MangaInfoBox
 import reikai.domain.recommendation.RelatedMangaCandidate // RK
 import reikai.presentation.details.EntryActionRow // RK
+import reikai.presentation.details.EntryInfoBox // RK
+import reikai.presentation.details.toEntryHeader // RK
 import reikai.presentation.manga.MergeSourceChips // RK
 import reikai.presentation.recommendation.RelatedMangaCarousel // RK
 import eu.kanade.presentation.manga.components.MangaToolbar
@@ -428,17 +429,19 @@ private fun MangaScreenSmallImpl(
                         key = MangaScreenItem.INFO_BOX,
                         contentType = MangaScreenItem.INFO_BOX,
                     ) {
-                        MangaInfoBox(
+                        // RK: shared info box for manga + novels (replaces MangaInfoBox)
+                        EntryInfoBox(
                             isTabletUi = false,
                             appBarPadding = topPadding,
                             // RK: show the active source's metadata; "Unified" label for the merged view
-                            manga = state.mergeDisplayManga ?: state.manga,
-                            sourceName = if (state.mergeSources.size > 1 && state.selectedSourceMangaId == null) {
-                                stringResource(MR.strings.merge_unified)
-                            } else {
-                                (state.mergeDisplaySource ?: state.source).getNameForMangaInfo()
-                            },
-                            isStubSource = (state.mergeDisplaySource ?: state.source) is StubSource,
+                            header = (state.mergeDisplayManga ?: state.manga).toEntryHeader(
+                                sourceName = if (state.mergeSources.size > 1 && state.selectedSourceMangaId == null) {
+                                    stringResource(MR.strings.merge_unified)
+                                } else {
+                                    (state.mergeDisplaySource ?: state.source).getNameForMangaInfo()
+                                },
+                                isStubSource = (state.mergeDisplaySource ?: state.source) is StubSource,
+                            ),
                             onCoverClick = onCoverClicked,
                             doSearch = onSearch,
                         )
@@ -745,17 +748,19 @@ fun MangaScreenLargeImpl(
                             .verticalScroll(rememberScrollState())
                             .padding(bottom = contentPadding.calculateBottomPadding()),
                     ) {
-                        MangaInfoBox(
+                        // RK: shared info box for manga + novels (replaces MangaInfoBox)
+                        EntryInfoBox(
                             isTabletUi = true,
                             appBarPadding = contentPadding.calculateTopPadding(),
                             // RK: show the active source's metadata; "Unified" label for the merged view
-                            manga = state.mergeDisplayManga ?: state.manga,
-                            sourceName = if (state.mergeSources.size > 1 && state.selectedSourceMangaId == null) {
-                                stringResource(MR.strings.merge_unified)
-                            } else {
-                                (state.mergeDisplaySource ?: state.source).getNameForMangaInfo()
-                            },
-                            isStubSource = (state.mergeDisplaySource ?: state.source) is StubSource,
+                            header = (state.mergeDisplayManga ?: state.manga).toEntryHeader(
+                                sourceName = if (state.mergeSources.size > 1 && state.selectedSourceMangaId == null) {
+                                    stringResource(MR.strings.merge_unified)
+                                } else {
+                                    (state.mergeDisplaySource ?: state.source).getNameForMangaInfo()
+                                },
+                                isStubSource = (state.mergeDisplaySource ?: state.source) is StubSource,
+                            ),
                             onCoverClick = onCoverClicked,
                             doSearch = onSearch,
                         )
