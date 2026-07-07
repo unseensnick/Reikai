@@ -23,7 +23,6 @@ import eu.kanade.presentation.components.AppBarTitle
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.history.HistoryUiModel
-import eu.kanade.presentation.history.components.HistoryItem
 import eu.kanade.tachiyomi.ui.history.HistoryScreenModel
 import eu.kanade.tachiyomi.util.lang.toLocalDate
 import reikai.domain.library.ContentType
@@ -40,9 +39,9 @@ import java.time.LocalDate
 
 /**
  * The single History screen for all three content-type chips, the History twin of [ReikaiUpdatesScreen].
- * Manga rows are driven by Mihon's untouched [HistoryScreenModel] (and rendered with its own
- * [HistoryItem]); novels by [NovelHistoryScreenModel]. One search box and one clear-all action drive
- * both feeds; the rows interleave by read time (newest first) with shared date headers.
+ * Manga rows are driven by Mihon's untouched [HistoryScreenModel], novels by [NovelHistoryScreenModel];
+ * both render through the shared [EntryHistoryRow]. One search box and one clear-all action drive both
+ * feeds; the rows interleave by read time (newest first) with shared date headers.
  */
 @Composable
 fun ReikaiHistoryScreen(
@@ -166,8 +165,8 @@ private fun LazyListScope.historyRows(
             is HistoryRow.Header -> ListGroupHeader(text = relativeDateText(row.date))
             is HistoryRow.Manga -> {
                 val value = row.item
-                HistoryItem(
-                    history = value,
+                EntryHistoryRow(
+                    ui = value.toEntryHistoryRowUi(),
                     onClickCover = { onClickMangaCover(value.mangaId) },
                     onClickResume = { onClickMangaResume(value.mangaId, value.chapterId) },
                     onClickDelete = { mangaModel.setDialog(HistoryScreenModel.Dialog.Delete(value)) },
@@ -176,8 +175,8 @@ private fun LazyListScope.historyRows(
             }
             is HistoryRow.Novel -> {
                 val value = row.item
-                NovelHistoryUiItem(
-                    history = value,
+                EntryHistoryRow(
+                    ui = value.toEntryHistoryRowUi(),
                     onClickCover = { onClickNovelCover(value.novelId) },
                     onClickResume = { onClickNovelResume(value) },
                     onClickDelete = { novelModel.setDialog(NovelHistoryScreenModel.Dialog.Delete(value)) },

@@ -12,6 +12,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+### Other
+
+- History rows for manga and novels now render through one shared component, replacing the two near-identical copies. No visible change; first step toward the unified content UI and design refresh.
+
 ## [0.2.1]
 
 ### Additions
