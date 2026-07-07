@@ -40,7 +40,7 @@ All under `E:\Code\yokai-y2k\app\app\src\main\java\reikai\presentation\novel\det
 - `NovelToolbar.kt`: the `MangaToolbar` twin: filter action, overflow, download dropdown, action-mode controls, scroll-driven title/background fade.
 - `NovelInfoBox.kt`: net-new cover, backdrop, title, source, status header (Mihon's `MangaInfoBox` is `Manga`-typed), plus the `NovelActionRow` (favorite / tracking / web-view actions).
 - `NovelDetailsDialogs.kt`: `NovelCategoryDialog`, `EditNovelInfoDialog`, and `NovelChapterSettingsDialog`.
-- `NovelCoverDialog.kt` / `NovelCoverScreenModel.kt`: full-cover viewer with save/share/edit.
+- `NovelCoverScreenModel.kt`: drives the full-cover viewer (save/share/edit); the viewer itself is the shared `reikai/presentation/components/EntryCoverDialog.kt`, hosted here by `NovelCoverDialogHost`.
 - `NovelMergeSourceChips.kt` / `NovelManageSourcesDialog.kt`: the merge source switcher and Manage-sources sheet (see novel-merge.md).
 - `NovelPageSelectorSheet.kt`: the paged-source page picker.
 

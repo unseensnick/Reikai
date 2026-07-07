@@ -34,7 +34,6 @@ import eu.kanade.presentation.manga.DuplicateMangaDialog
 import eu.kanade.presentation.manga.EditCoverAction
 import eu.kanade.presentation.manga.MangaScreen
 import eu.kanade.presentation.manga.components.DeleteChaptersDialog
-import eu.kanade.presentation.manga.components.MangaCoverDialog
 import eu.kanade.presentation.manga.components.ScanlatorFilterDialog
 import eu.kanade.presentation.manga.components.SetIntervalDialog
 import eu.kanade.presentation.theme.TachiyomiTheme
@@ -62,6 +61,7 @@ import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import reikai.presentation.components.EntryCoverDialog
 import reikai.presentation.manga.MangaMigrationSourcePickScreen
 import mihon.feature.migration.dialog.MigrateMangaDialog
 import reikai.presentation.manga.EhRemoveFavoriteDialog
@@ -319,8 +319,9 @@ class MangaScreen(
                         if (it == null) return@rememberLauncherForActivityResult
                         sm.editCover(context, it)
                     }
-                    MangaCoverDialog(
-                        manga = manga!!,
+                    // RK: shared cover dialog for manga + novels (replaces MangaCoverDialog)
+                    EntryCoverDialog(
+                        cover = manga!!,
                         snackbarHostState = sm.snackbarHostState,
                         isCustomCover = remember(manga) { manga!!.hasCustomCover() },
                         onShareClick = { sm.shareCover(context) },

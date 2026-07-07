@@ -18,7 +18,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Other
 
-- History and Updates rows for manga and novels now render through shared components instead of near-identical copies. No visible change from the shared rows themselves; groundwork for the unified content UI and design refresh.
+- The manga and novel History/Updates rows and the full-cover dialog now each render through one shared component instead of near-identical copies. No visible change; groundwork for the unified content UI and design refresh.
 
 ## [0.2.1]
 

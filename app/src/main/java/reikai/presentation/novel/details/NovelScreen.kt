@@ -63,6 +63,7 @@ import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import reikai.data.coil.NovelCover
 import reikai.domain.novel.model.NovelChapter
+import reikai.presentation.components.EntryCoverDialog
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
 import reikai.presentation.novel.migrate.NovelMigrationSourcePickScreen
 import reikai.presentation.novel.notes.NovelNotesScreen
@@ -460,7 +461,7 @@ private fun Screen.NovelCoverDialogHost(state: NovelDetailsState.Loaded, onDismi
         val getContent = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             if (uri != null) coverScreenModel.editCover(context, uri)
         }
-        NovelCoverDialog(
+        EntryCoverDialog(
             cover = NovelCover(
                 url = n.thumbnailUrl,
                 site = state.sourceUrl,

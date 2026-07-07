@@ -1,4 +1,4 @@
-package reikai.presentation.novel.details
+package reikai.presentation.components
 
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
@@ -48,20 +48,21 @@ import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.presentation.manga.EditCoverAction
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderPageImageView
-import reikai.data.coil.NovelCover
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.clickableNoIndication
 
 /**
- * Full-cover dialog for a novel, the novel twin of
- * [eu.kanade.presentation.manga.components.MangaCoverDialog]. Identical zoom + share/save/edit chrome;
- * only the coil model differs ([NovelCover] instead of `Manga`).
+ * Full-cover dialog shared by manga and novels: a zoomable full-resolution cover with share / save /
+ * set-custom-cover / delete-custom-cover actions. [cover] is a coil model (a `Manga` or a
+ * `reikai.data.coil.NovelCover`), so each content type feeds its own object; [onEditClick] is null when
+ * the entry isn't in the library (hides edit/delete). Replaces the twin `MangaCoverDialog` /
+ * `NovelCoverDialog`.
  */
 @Composable
-fun NovelCoverDialog(
-    cover: NovelCover,
+fun EntryCoverDialog(
+    cover: Any,
     isCustomCover: Boolean,
     snackbarHostState: SnackbarHostState,
     onShareClick: () -> Unit,
@@ -73,7 +74,7 @@ fun NovelCoverDialog(
         onDismissRequest = onDismissRequest,
         properties = DialogProperties(
             usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false,
+            decorFitsSystemWindows = false, // Doesn't work https://issuetracker.google.com/issues/246909281
         ),
     ) {
         Scaffold(
@@ -115,7 +116,11 @@ fun NovelCoverDialog(
                                 var expanded by remember { mutableStateOf(false) }
                                 IconButton(
                                     onClick = {
-                                        if (isCustomCover) expanded = true else onEditClick(EditCoverAction.EDIT)
+                                        if (isCustomCover) {
+                                            expanded = true
+                                        } else {
+                                            onEditClick(EditCoverAction.EDIT)
+                                        }
                                     },
                                 ) {
                                     Icon(
@@ -172,7 +177,8 @@ fun NovelCoverDialog(
                             .memoryCachePolicy(CachePolicy.DISABLED)
                             .target { image ->
                                 val drawable = image.asDrawable(view.context.resources)
-                                // Copy bitmap in case it came from memory cache (SSIV reads it thoroughly).
+                                // Copy bitmap in case it came from memory cache
+                                // Because SSIV needs to thoroughly read the image
                                 val copy = (drawable as? BitmapDrawable)
                                     ?.bitmap
                                     ?.copy(Bitmap.Config.HARDWARE, false)
