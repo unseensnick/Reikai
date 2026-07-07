@@ -44,6 +44,7 @@ class MangaDexLoginHelper(
                 ).awaitSuccess().parseAs<MALOAuth>()
             }
             mangaDexAuthInterceptor.setAuth(data)
+            MdUtil.usernameFromToken(data.accessToken)?.let { mdList.saveDisplayUsername(it) }
         }.exceptionOrNull()
 
         return when (error == null) {

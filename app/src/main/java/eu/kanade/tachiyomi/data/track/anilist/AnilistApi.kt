@@ -5,11 +5,13 @@ import androidx.core.net.toUri
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALAddMangaResult
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALCurrentUserResult
+import eu.kanade.tachiyomi.data.track.anilist.dto.ALError
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALLibraryEntry
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALOAuth
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALUserLibraryResult
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALSearchResult
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALUserListMangaQueryResult
+import eu.kanade.tachiyomi.data.track.anilist.dto.ALUserViewerData
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.awaitSuccess
@@ -24,6 +26,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import tachiyomi.core.common.util.lang.withIOContext
 import uy.kohesive.injekt.injectLazy
 import java.time.Instant
@@ -40,6 +43,24 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
         .addInterceptor(interceptor)
         .rateLimit(permits = 85, period = 1.minutes)
         .build()
+
+    // RK: surface AniList GraphQL errors (downtime, expired token) with a clear message instead of a
+    // generic failure (from Komikku ca26501aef).
+    private fun Response.parseALError() {
+        val bodyString = peekBody(1024 * 1024).string()
+        val errorObj = try {
+            json.decodeFromString<ALError>(bodyString)
+        } catch (_: Exception) {
+            null
+        }
+        errorObj?.errors?.firstOrNull()?.let {
+            val msg = it.message
+            if (msg.contains("Invalid token") || it.status == 401) {
+                throw Exception("AniList token expired, please login again")
+            }
+            throw Exception(msg)
+        }
+    }
 
     suspend fun addLibManga(track: Track): Track {
         return withIOContext {
@@ -69,6 +90,7 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
                     ),
                 )
                     .awaitSuccess()
+                    .also { it.parseALError() } // RK
                     .parseAs<ALAddMangaResult>()
                     .let {
                         track.library_id = it.data.entry.id
@@ -110,6 +132,7 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
             }
             authClient.newCall(POST(API_URL, body = payload.toString().toRequestBody(jsonMime)))
                 .awaitSuccess()
+                .use { it.parseALError() } // RK
             track
         }
     }
@@ -132,6 +155,7 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
             }
             authClient.newCall(POST(API_URL, body = payload.toString().toRequestBody(jsonMime)))
                 .awaitSuccess()
+                .use { it.parseALError() } // RK
         }
     }
 
@@ -194,6 +218,7 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
                     ),
                 )
                     .awaitSuccess()
+                    .also { it.parseALError() } // RK
                     .parseAs<ALSearchResult>()
                     .data.page.media
                     .map { it.toALManga().toTrack() }
@@ -273,6 +298,7 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
                     ),
                 )
                     .awaitSuccess()
+                    .also { it.parseALError() } // RK
                     .parseAs<ALUserListMangaQueryResult>()
                     .data.page.mediaList
                     .map { it.toALUserManga() }
@@ -290,12 +316,13 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
         return ALOAuth(token, "Bearer", System.currentTimeMillis() + 31536000000, 31536000000)
     }
 
-    suspend fun getCurrentUser(): Pair<Int, String> {
+    suspend fun getCurrentUser(): ALUserViewerData {
         return withIOContext {
             val query = """
             |query User {
                 |Viewer {
                     |id
+                    |name
                     |mediaListOptions {
                         |scoreFormat
                     |}
@@ -314,11 +341,9 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
                     ),
                 )
                     .awaitSuccess()
+                    .also { it.parseALError() } // RK
                     .parseAs<ALCurrentUserResult>()
-                    .let {
-                        val viewer = it.data.viewer
-                        Pair(viewer.id, viewer.mediaListOptions.scoreFormat)
-                    }
+                    .data.viewer
             }
         }
     }
@@ -356,6 +381,7 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
             with(json) {
                 authClient.newCall(POST(API_URL, body = payload.toString().toRequestBody(jsonMime)))
                     .awaitSuccess()
+                    .also { it.parseALError() } // RK
                     .parseAs<ALUserLibraryResult>()
                     .data.mediaListCollection.lists
                     .flatMap { it.entries }

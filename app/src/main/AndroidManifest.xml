@@ -257,6 +257,7 @@
                 <data android:host="bangumi-auth" />
                 <data android:host="myanimelist-auth" />
                 <data android:host="shikimori-auth" />
+                <data android:host="hikka-auth" />
             </intent-filter>
         </activity>
 
@@ -300,7 +301,7 @@
         <service
             android:name=".extension.util.ExtensionInstallService"
             android:exported="false"
-            android:foregroundServiceType="shortService" />
+            android:foregroundServiceType="dataSync" /><!-- RK: was shortService, whose ~3-min timeout ANRs multi-extension installs (Komikku 9a7d1b6143) -->
 
         <!-- RK: novel read-aloud (TTS) keep-alive + media notification -->
         <service

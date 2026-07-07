@@ -12,6 +12,21 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+## [0.2.1]
+
+### Additions
+
+- **Track your reading on Hikka, a new tracker synced from Mihon (mihonapp/mihon#1386).** Sign in from Settings > Tracking, then bind a title and your progress stays in sync with your Hikka account, just like the other trackers.
+- **Settings > Tracking now shows which account you're signed in to (synced from Mihon, mihonapp/mihon#3533).** Each connected tracker displays its username under its name, so it's clear at a glance which account is linked.
+
+### Fixes
+
+- **Turning off "Tracker recommendations" now gives a source-only Related carousel.** The switch previously still showed tracker suggestions for titles you track; now it hides every tracker-derived suggestion (direct recommendations and the taste-based ones), so off leaves only the source's own related titles.
+- **Installing several extensions at once no longer freezes the app partway through (ported from Komikku, komikku-app/komikku#1652).** The installer no longer runs under Android's short-service time limit, which could kill it while it waited on the system's install prompts.
+- **Canceling one extension install no longer cancels an unrelated one (ported from Komikku, komikku-app/komikku#1649).** The installer now matches a cancel to the right download and won't queue the same extension twice.
+- **AniList tracking now shows a clear message when it's down or your login expired (ported from Komikku, komikku-app/komikku#1591).** Instead of a generic failure it surfaces AniList's own error, and points you to re-login when the token has expired.
+- **The library's "Jump to category" picker now shows the Default category.** Its row was blank before; it now reads "Default" like the other categories.
+
 ## [0.2.0]
 
 ### Additions

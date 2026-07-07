@@ -39,7 +39,7 @@ It is built first for my own daily use, so development is sporadic and the featu
 - `Merge-aware reading`: read a merged series through every source, one unified chapter list. ([docs](docs/multi-source.md#reading-a-merged-group))
 - `Tracker sync` across grouped sources: a tracker on one source is shared across the group. ([docs](docs/tracker-sync.md))
 - `Category sort order` + `bulk delete`: order categories, and multi-delete with undo. ([docs](docs/categories.md))
-- `Light novels`, first-class: a full Novels library equal to manga; sources + reader from [LNReader](https://github.com/LNReader/lnreader) on a headless QuickJS host.
+- `Light novels`, first-class: a full Novels library equal to manga; sources + reader from [LNReader](https://github.com/LNReader/lnreader) on a headless QuickJS host; and track novels on AniList, MyAnimeList, MangaUpdates and Kitsu.
 - `Taste-profile recommendations`: rank the related row by your tracked-tag preferences. ([docs](docs/related-mangas.md#taste-profile))
 - `Cloudflare bypass` support: route a blocked source through a self-hosted proxy ([Byparr](https://github.com/ThePhaseless/Byparr) recommended, or FlareSolverr). ([docs](docs/flaresolverr.md))
 - `Library update errors`: an opt-in list of entries that failed their last update.
@@ -60,6 +60,7 @@ Carried over from [Yōkai](https://github.com/null2264/yokai) (Reikai's previous
 
 - `Related-mangas carousel`: similar titles below the description, from the source's related API, a keyword fallback, and tracker recs (AniList, MyAnimeList, MangaUpdates, Shikimori). From [Komikku](https://github.com/komikku-app/komikku); Reikai's taste layer is above. ([docs](docs/related-mangas.md))
 - `Adult content sources`: [Komikku](https://github.com/komikku-app/komikku)'s adult-source subsystem, ported wholesale, built-in support, browse, tag search, metadata, account settings and backup, with some ported pieces tweaked and a few extra built-in sources added. Off by default. ([docs](docs/adult-sources.md))
+- `Enhanced source support`: deep integration with one of the most-used manga sources, ported from [Komikku](https://github.com/komikku-app/komikku), sign in for source-native full details (author, status, description, star rating, namespaced tags), browse and bulk-add the titles you follow, track them with the built-in `MDList` tracker (two-way follow-status and rating sync), sync your library both ways, and open a random title.
 
 </details>
 
@@ -70,7 +71,7 @@ The core manga experience is Mihon's (Tachiyomi lineage):
 
 - Local reading of downloaded content.
 - A configurable reader with multiple viewers, reading directions, and settings.
-- Tracker support: [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://www.mangaupdates.com/), [Shikimori](https://shikimori.one), and [Bangumi](https://bgm.tv/).
+- Tracker support: [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://www.mangaupdates.com/), [Shikimori](https://shikimori.one), [Bangumi](https://bgm.tv/), and [Hikka](https://hikka.io/).
 - Categories to organize your library.
 - Light and dark themes.
 - Scheduled library updates.

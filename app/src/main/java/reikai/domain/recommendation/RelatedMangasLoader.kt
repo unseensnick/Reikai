@@ -39,6 +39,7 @@ class RelatedMangasLoader(
     private val fetcher: RecommendationsFetcher = Injekt.get(),
     private val tasteCandidateFetcher: TasteCandidateFetcher = Injekt.get(),
     private val trackerManager: TrackerManager = Injekt.get(),
+    private val preferences: ReikaiRecommendationPreferences = Injekt.get(),
 ) {
 
     suspend fun load(
@@ -84,8 +85,16 @@ class RelatedMangasLoader(
                 .map { it.trackerId }
                 .toSet()
             launch {
+                // The master "Tracker recommendations" toggle gates every tracker-derived stream: the
+                // direct recs below AND the taste injection. Off means a source-native-only carousel,
+                // so skip the whole media-context fetch. Per-tracker sub-toggles still filter the
+                // direct recs (by the map's tracker-id key) when the master is on.
+                if (!preferences.includeTrackerRecommendations.get()) return@launch
                 val contexts = fetchMediaContexts(tracks)
-                contexts.values.forEach { ctx -> accumulator.add(ctx.recommendations)?.let { onUpdate(it) } }
+                val enabledTrackerIds = preferences.enabledRecommendationTrackerIds(trackerManager)
+                contexts.forEach { (trackerId, ctx) ->
+                    if (trackerId in enabledTrackerIds) accumulator.add(ctx.recommendations)?.let { onUpdate(it) }
+                }
                 tasteCandidateFetcher.fetch(
                     source = source,
                     mediaContexts = contexts,

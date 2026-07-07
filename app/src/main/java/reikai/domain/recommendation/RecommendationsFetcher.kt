@@ -35,7 +35,8 @@ class RecommendationsFetcher(
         exceptionHandler: (Throwable) -> Unit,
         pushResults: suspend (List<RelatedMangaCandidate>) -> Unit,
     ) {
-        if (!preferences.includeTrackerRecommendations.get()) return
+        val enabledTrackerIds = preferences.enabledRecommendationTrackerIds(trackerManager)
+        if (enabledTrackerIds.isEmpty()) return
 
         fun remoteId(trackerId: Long): Long? =
             tracks.firstOrNull { it.trackerId == trackerId }?.remoteId
@@ -49,10 +50,7 @@ class RecommendationsFetcher(
         }
 
         coroutineScope {
-            if (preferences.anilistRecommendations.get()) launch { run(trackerManager.aniList.id) }
-            if (preferences.myAnimeListRecommendations.get()) launch { run(trackerManager.myAnimeList.id) }
-            if (preferences.mangaUpdatesRecommendations.get()) launch { run(trackerManager.mangaUpdates.id) }
-            if (preferences.shikimoriRecommendations.get()) launch { run(trackerManager.shikimori.id) }
+            enabledTrackerIds.forEach { trackerId -> launch { run(trackerId) } }
         }
     }
 

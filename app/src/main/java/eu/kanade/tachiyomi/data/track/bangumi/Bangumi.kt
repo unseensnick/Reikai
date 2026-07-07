@@ -21,7 +21,7 @@ class Bangumi(id: Long) : BaseTracker(id, "Bangumi") {
     private val api by lazy { BangumiApi(id, client, interceptor) }
 
     // RK: full library pull for the recommendation taste profile.
-    suspend fun getUserLibrary(): List<BGMCollectionItem> = api.getUserLibrary(api.getUsername())
+    suspend fun getUserLibrary(): List<BGMCollectionItem> = api.getUserLibrary(api.getCurrentUser().username)
 
     override val supportsPrivateTracking: Boolean = true
 
@@ -110,8 +110,9 @@ class Bangumi(id: Long) : BaseTracker(id, "Bangumi") {
             // Users can set a 'username' (not nickname) once which effectively
             // replaces the stringified ID in certain queries.
             // If no username is set, the API returns the user ID as a strings
-            val username = api.getUsername()
-            saveCredentials(username, oauth.accessToken)
+            val currentUser = api.getCurrentUser()
+            saveDisplayUsername(currentUser.nickname?.takeIf { it.isNotBlank() } ?: currentUser.username)
+            saveCredentials(currentUser.username, oauth.accessToken)
         } catch (_: Throwable) {
             logout()
         }
