@@ -4,7 +4,6 @@ import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,14 +32,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.animateFloatingActionButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
@@ -65,7 +62,10 @@ import reikai.data.coil.NovelCover
 import reikai.domain.novel.model.NovelChapter
 import reikai.presentation.components.EntryCoverDialog
 import reikai.presentation.details.EntryActionRow
+import reikai.presentation.details.EntryDetailsScaffold
+import reikai.presentation.details.EntryDetailsUiState
 import reikai.presentation.details.EntryInfoBox
+import reikai.presentation.details.entryInfoItems
 import reikai.presentation.details.toEntryHeader
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
 import reikai.presentation.novel.migrate.NovelMigrationSourcePickScreen
@@ -187,13 +187,41 @@ private fun NovelDetailsSmallImpl(
     onChapterClick: (NovelChapter) -> Unit,
 ) {
     val listState = rememberLazyListState()
-    val isFirstItemVisible by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
-    val isFirstItemScrolled by remember { derivedStateOf { listState.firstVisibleItemScrollOffset > 0 } }
-    val titleAlpha by animateFloatAsState(if (!isFirstItemVisible) 1f else 0f, label = "title")
-    val backgroundAlpha by animateFloatAsState(if (!isFirstItemVisible || isFirstItemScrolled) 1f else 0f, label = "bg")
+    val display = state.displayNovel
 
-    Scaffold(
-        topBar = {
+    // Build the shared header/description state in composable scope so the merge-unified label resolves
+    // via stringResource before the shell emits the info group. Metadata follows the viewed source (the
+    // selected chip, else the anchor); favorite + library actions stay on the anchor novel.
+    val entrySourceName = if (state.mergeSources.size > 1 && state.selectedSourceNovelId == null) {
+        stringResource(MR.strings.merge_unified)
+    } else {
+        state.sourceName
+    }
+    val entryState = EntryDetailsUiState(
+        header = display.toEntryHeader(sourceName = entrySourceName, sourceSite = state.sourceUrl),
+        favorite = state.novel.favorite,
+        trackingCount = state.trackingCount,
+        showIntervalButton = false,
+        nextUpdate = null,
+        isUserIntervalMode = false,
+        description = display.description,
+        tags = display.genre,
+        // notes are a user annotation on the favorited anchor row, not the viewed source's metadata.
+        notes = state.novel.notes,
+        descriptionDefaultExpanded = false,
+    )
+
+    EntryDetailsScaffold(
+        listState = listState,
+        snackbarHostState = screenModel.snackbarHostState,
+        isAnySelected = state.selectionMode,
+        isRefreshing = state.isRefreshing,
+        onRefresh = screenModel::refresh,
+        onCancelSelection = screenModel::clearSelection,
+        fabVisible = state.resumeChapter != null && !state.selectionMode,
+        fabIsResume = state.hasStarted,
+        onFabClick = { state.resumeChapter?.let(onChapterClick) },
+        topBar = { titleAlpha, backgroundAlpha ->
             NovelDetailsToolbar(
                 state = state,
                 screenModel = screenModel,
@@ -201,40 +229,33 @@ private fun NovelDetailsSmallImpl(
                 onShare = onShare,
                 onMigrate = onMigrate,
                 onEditNotes = onEditNotes,
-                titleAlphaProvider = { titleAlpha },
-                backgroundAlphaProvider = { backgroundAlpha },
+                titleAlphaProvider = titleAlpha,
+                backgroundAlphaProvider = backgroundAlpha,
             )
         },
-        bottomBar = { NovelSelectionBar(state, screenModel, Modifier.fillMaxWidth()) },
-        snackbarHost = { SnackbarHost(screenModel.snackbarHostState) },
-        floatingActionButton = { NovelResumeFab(state, listState, onChapterClick) },
-    ) { contentPadding ->
-        val layoutDirection = LocalLayoutDirection.current
-        PullRefresh(
-            refreshing = state.isRefreshing,
-            onRefresh = screenModel::refresh,
-            enabled = !state.selectionMode,
-            indicatorPadding = PaddingValues(top = contentPadding.calculateTopPadding()),
-        ) {
-            // Drop the top inset so the info-box backdrop bleeds edge-to-edge behind the toolbar (matches
-            // the manga detail). The info box itself offsets its content by the app-bar padding instead.
-            LazyColumn(
-                state = listState,
-                contentPadding = PaddingValues(
-                    start = contentPadding.calculateStartPadding(layoutDirection),
-                    end = contentPadding.calculateEndPadding(layoutDirection),
-                    bottom = contentPadding.calculateBottomPadding(),
-                ),
-            ) {
-                novelInfoItems(
-                    state, screenModel, onWebView, onShare, onTracking, onEditNotes, onSearch, onCopy,
-                    isTabletUi = false,
-                    appBarPadding = contentPadding.calculateTopPadding(),
-                )
-                novelChapterHeaderItems(state, screenModel)
-                novelChapterItems(state, screenModel, onChapterClick)
-            }
-        }
+        bottomActionMenu = { NovelSelectionBar(state, screenModel, Modifier.fillMaxWidth()) },
+    ) { appBarPadding ->
+        entryInfoItems(
+            isTabletUi = false,
+            appBarPadding = appBarPadding,
+            state = entryState,
+            onCoverClick = screenModel::showCoverDialog,
+            doSearch = { query, _ -> onSearch(query) },
+            onAddToLibraryClicked = screenModel::toggleFavorite,
+            onTrackingClicked = onTracking,
+            // long-press favorite -> categories, only while in library (parity with manga)
+            onEditCategory = screenModel::showChangeCategoryDialog.takeIf { state.novel.favorite },
+            onEditIntervalClicked = null,
+            onWebViewClicked = state.novelWebUrl?.let { { onWebView() } },
+            onWebViewLongClicked = null,
+            onShareClicked = state.novelWebUrl?.let { { onShare() } },
+            onTagSearch = onSearch,
+            onGlobalSearch = null,
+            onCopyTagToClipboard = { onCopy(it) },
+            onEditNotes = onEditNotes,
+        )
+        novelChapterHeaderItems(state, screenModel)
+        novelChapterItems(state, screenModel, onChapterClick)
     }
 }
 

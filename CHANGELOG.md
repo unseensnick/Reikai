@@ -14,6 +14,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Additions
 
+- **The novel chapter list now has a fast-scroll thumb, like manga.** Drag it down the right edge to jump through a long list of chapters.
 - **On a novel's details screen, long-press the In-library button to edit its categories.** It opens the same category picker manga details already had on long-press.
 - **Long-press a manga's source name on its details screen to copy it.** Its title and author already copied on long-press; now the source does too.
 
@@ -24,7 +25,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Other
 
-- The manga and novel History/Updates rows, the full-cover dialog, the details action row, and the details info header now each render through one shared component instead of near-identical copies. Groundwork for the unified content UI and design refresh.
+- The manga and novel History/Updates rows, the full-cover dialog, the details action row, the details info header, and the phone details screen shell now each render through one shared component instead of near-identical copies. Groundwork for the unified content UI and design refresh.
 
 ## [0.2.1]
 

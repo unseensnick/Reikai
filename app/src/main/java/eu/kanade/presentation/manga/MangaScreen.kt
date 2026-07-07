@@ -57,7 +57,10 @@ import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.manga.components.MangaChapterListItem
 import reikai.domain.recommendation.RelatedMangaCandidate // RK
 import reikai.presentation.details.EntryActionRow // RK
+import reikai.presentation.details.EntryDetailsScaffold // RK
+import reikai.presentation.details.EntryDetailsUiState // RK
 import reikai.presentation.details.EntryInfoBox // RK
+import reikai.presentation.details.entryInfoItems // RK
 import reikai.presentation.details.toEntryHeader // RK
 import reikai.presentation.manga.MergeSourceChips // RK
 import reikai.presentation.recommendation.RelatedMangaCarousel // RK
@@ -320,29 +323,42 @@ private fun MangaScreenSmallImpl(
         )
     }
 
-    BackHandler(enabled = isAnySelected) {
-        onAllChapterSelected(false)
+    // RK: build the shared neutral header/description state in composable scope so the merge-unified
+    //     label resolves via stringResource before the shell emits the info group.
+    val entrySourceName = if (state.mergeSources.size > 1 && state.selectedSourceMangaId == null) {
+        stringResource(MR.strings.merge_unified)
+    } else {
+        (state.mergeDisplaySource ?: state.source).getNameForMangaInfo()
     }
+    val entryState = EntryDetailsUiState(
+        header = (state.mergeDisplayManga ?: state.manga).toEntryHeader(
+            sourceName = entrySourceName,
+            isStubSource = (state.mergeDisplaySource ?: state.source) is StubSource,
+        ),
+        favorite = state.manga.favorite,
+        trackingCount = state.trackingCount,
+        showIntervalButton = true,
+        nextUpdate = nextUpdate,
+        isUserIntervalMode = state.manga.fetchInterval < 0,
+        description = state.manga.description,
+        tags = state.manga.genre,
+        notes = state.manga.notes,
+        // expand by default for EH/EXH galleries (tags are the content, no description)
+        descriptionDefaultExpanded = state.isFromSource || state.isMetadataSource,
+    )
 
-    Scaffold(
-        topBar = {
-            val selectedChapterCount: Int = remember(chapters) {
-                chapters.count { it.selected }
-            }
-            val isFirstItemVisible by remember {
-                derivedStateOf { chapterListState.firstVisibleItemIndex == 0 }
-            }
-            val isFirstItemScrolled by remember {
-                derivedStateOf { chapterListState.firstVisibleItemScrollOffset > 0 }
-            }
-            val titleAlpha by animateFloatAsState(
-                if (!isFirstItemVisible) 1f else 0f,
-                label = "Top Bar Title",
-            )
-            val backgroundAlpha by animateFloatAsState(
-                if (!isFirstItemVisible || isFirstItemScrolled) 1f else 0f,
-                label = "Top Bar Background",
-            )
+    // RK: shared details shell for manga + novels (replaces the per-type Scaffold + FAB + pull-refresh)
+    EntryDetailsScaffold(
+        listState = chapterListState,
+        snackbarHostState = snackbarHostState,
+        isAnySelected = isAnySelected,
+        isRefreshing = state.isRefreshingData,
+        onRefresh = onRefresh,
+        onCancelSelection = { onAllChapterSelected(false) },
+        fabVisible = chapters.fastAny { !it.chapter.read } && !isAnySelected,
+        fabIsResume = state.chapters.fastAny { it.chapter.read },
+        onFabClick = onContinueReading,
+        topBar = { titleAlpha, backgroundAlpha ->
             MangaToolbar(
                 title = state.manga.title,
                 hasFilters = state.filterActive,
@@ -356,20 +372,17 @@ private fun MangaScreenSmallImpl(
                 onClickEditNotes = onEditNotesClicked,
                 onClickManageSources = onManageSourcesClicked,
                 onClickMetadataViewer = onMetadataViewerClicked,
-                actionModeCounter = selectedChapterCount,
+                actionModeCounter = chapters.count { it.selected },
                 onCancelActionMode = { onAllChapterSelected(false) },
                 onSelectAll = { onAllChapterSelected(true) },
                 onInvertSelection = { onInvertSelection() },
-                titleAlphaProvider = { titleAlpha },
-                backgroundAlphaProvider = { backgroundAlpha },
+                titleAlphaProvider = titleAlpha,
+                backgroundAlphaProvider = backgroundAlpha,
             )
         },
-        bottomBar = {
-            val selectedChapters = remember(chapters) {
-                chapters.filter { it.selected }
-            }
+        bottomActionMenu = {
             SharedMangaBottomActionMenu(
-                selected = selectedChapters,
+                selected = chapters.filter { it.selected },
                 onMultiBookmarkClicked = onMultiBookmarkClicked,
                 onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
                 onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
@@ -378,197 +391,105 @@ private fun MangaScreenSmallImpl(
                 fillFraction = 1f,
             )
         },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        floatingActionButton = {
-            val isFABVisible = remember(chapters) {
-                chapters.fastAny { !it.chapter.read } && !isAnySelected
-            }
-            SmallExtendedFloatingActionButton(
-                text = {
-                    val isReading = remember(state.chapters) {
-                        state.chapters.fastAny { it.chapter.read }
-                    }
-                    Text(
-                        text = stringResource(if (isReading) MR.strings.action_resume else MR.strings.action_start),
-                    )
-                },
-                icon = { Icon(imageVector = Icons.Filled.PlayArrow, contentDescription = null) },
-                onClick = onContinueReading,
-                expanded = chapterListState.shouldExpandFAB(),
-                modifier = Modifier.animateFloatingActionButton(
-                    visible = isFABVisible,
-                    alignment = Alignment.BottomEnd,
-                ),
-            )
-        },
-    ) { contentPadding ->
-        val topPadding = contentPadding.calculateTopPadding()
-
-        PullRefresh(
-            refreshing = state.isRefreshingData,
-            onRefresh = onRefresh,
-            enabled = !isAnySelected,
-            indicatorPadding = PaddingValues(top = topPadding),
-        ) {
-            val layoutDirection = LocalLayoutDirection.current
-            VerticalFastScroller(
-                listState = chapterListState,
-                topContentPadding = topPadding,
-                endContentPadding = contentPadding.calculateEndPadding(layoutDirection),
-            ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxHeight(),
-                    state = chapterListState,
-                    contentPadding = PaddingValues(
-                        start = contentPadding.calculateStartPadding(layoutDirection),
-                        end = contentPadding.calculateEndPadding(layoutDirection),
-                        bottom = contentPadding.calculateBottomPadding(),
-                    ),
-                ) {
-                    item(
-                        key = MangaScreenItem.INFO_BOX,
-                        contentType = MangaScreenItem.INFO_BOX,
-                    ) {
-                        // RK: shared info box for manga + novels (replaces MangaInfoBox)
-                        EntryInfoBox(
-                            isTabletUi = false,
-                            appBarPadding = topPadding,
-                            // RK: show the active source's metadata; "Unified" label for the merged view
-                            header = (state.mergeDisplayManga ?: state.manga).toEntryHeader(
-                                sourceName = if (state.mergeSources.size > 1 && state.selectedSourceMangaId == null) {
-                                    stringResource(MR.strings.merge_unified)
-                                } else {
-                                    (state.mergeDisplaySource ?: state.source).getNameForMangaInfo()
-                                },
-                                isStubSource = (state.mergeDisplaySource ?: state.source) is StubSource,
-                            ),
-                            onCoverClick = onCoverClicked,
-                            doSearch = onSearch,
-                        )
-                    }
-
-                    item(
-                        key = MangaScreenItem.ACTION_ROW,
-                        contentType = MangaScreenItem.ACTION_ROW,
-                    ) {
-                        // RK: shared action row for manga + novels (replaces MangaActionRow)
-                        EntryActionRow(
-                            favorite = state.manga.favorite,
-                            trackingCount = state.trackingCount,
-                            onAddToLibraryClicked = onAddToLibraryClicked,
-                            onTrackingClicked = onTrackingClicked,
-                            onEditCategory = onEditCategoryClicked,
-                            showIntervalButton = true,
-                            nextUpdate = nextUpdate,
-                            isUserIntervalMode = state.manga.fetchInterval < 0,
-                            onEditIntervalClicked = onEditIntervalClicked,
-                            onWebViewClicked = onWebViewClicked,
-                            onWebViewLongClicked = onWebViewLongClicked,
-                            onShareClicked = null,
-                        )
-                    }
-
-                    // RK: per-source gallery-info card for adult/metadata sources, above the description
-                    state.galleryMetadata?.let { meta ->
-                        item(key = "rk-gallery-info") {
-                            GalleryInfoBox(
-                                metadata = meta,
-                                onMoreInfoClick = onMetadataViewerClicked,
-                                modifier = Modifier.padding(top = 8.dp),
-                            )
-                        }
-                    }
-
-                    item(
-                        key = MangaScreenItem.DESCRIPTION_WITH_TAG,
-                        contentType = MangaScreenItem.DESCRIPTION_WITH_TAG,
-                    ) {
-                        ExpandableMangaDescription(
-                            // RK: also expand by default for EH/EXH galleries (tags are the
-                            // content, no description), so the library view matches the source view.
-                            defaultExpandState = state.isFromSource || state.isMetadataSource,
-                            description = state.manga.description,
-                            tagsProvider = { state.manga.genre },
-                            notes = state.manga.notes,
-                            onTagSearch = onTagSearch,
-                            onGlobalSearch = { onSearch(it, true) },
-                            onCopyTagToClipboard = onCopyTagToClipboard,
-                            onEditNotes = onEditNotesClicked,
-                            // RK: namespaced, color-weighted chips for the active source's gallery metadata
-                            searchMetadataChips = SearchMetadataChips(
-                                state.galleryMetadata,
-                                (state.mergeDisplaySource ?: state.source).id,
-                                state.manga.genre,
-                            ),
-                        )
-                    }
-
-                    // RK: source-switcher chips for a merged group
-                    if (state.mergeSources.size > 1) {
-                        item(key = "rk-merge-source-chips") {
-                            MergeSourceChips(
-                                sources = state.mergeSources,
-                                selectedSourceMangaId = state.selectedSourceMangaId,
-                                onSelect = onSelectSource,
-                                onSplitSource = onSplitSource,
-                            )
-                        }
-                    }
-
-                    // RK: related-mangas carousel (recommendations)
-                    item(key = "rk-related-carousel") {
-                        RelatedMangaCarousel(
-                            items = state.relatedItems,
-                            loading = state.relatedLoading,
-                            totalCount = state.relatedTotalCount,
-                            onClick = onRelatedClick,
-                            onSeeAll = onRelatedSeeAll,
-                            topDivider = true,
-                        )
-                    }
-
-                    // RK: page-preview thumbnails for adult sources (0 rows = off);
-                    // on phone this sits below the related carousel
-                    if (state.pagePreviewsState !is PagePreviewState.Unused && state.previewsRowCount > 0) {
-                        item(key = "rk-page-previews") {
-                            PagePreviews(
-                                pagePreviewState = state.pagePreviewsState,
-                                onOpenPage = onOpenPagePreview,
-                                onMorePreviewsClicked = onMorePreviewsClicked,
-                                rowCount = state.previewsRowCount,
-                            )
-                        }
-                    }
-
-                    item(
-                        key = MangaScreenItem.CHAPTER_HEADER,
-                        contentType = MangaScreenItem.CHAPTER_HEADER,
-                    ) {
-                        val missingChapterCount = remember(chapters) {
-                            chapters.map { it.chapter.chapterNumber }.missingChaptersCount()
-                        }
-                        ChapterHeader(
-                            enabled = !isAnySelected,
-                            chapterCount = chapters.size,
-                            missingChapterCount = missingChapterCount,
-                            onClick = onFilterClicked,
-                        )
-                    }
-
-                    sharedChapterItems(
-                        manga = state.manga,
-                        chapters = listItem,
-                        isAnyChapterSelected = chapters.fastAny { it.selected },
-                        chapterSwipeStartAction = chapterSwipeStartAction,
-                        chapterSwipeEndAction = chapterSwipeEndAction,
-                        onChapterClicked = onChapterClicked,
-                        onDownloadChapter = onDownloadChapter,
-                        onChapterSelected = onChapterSelected,
-                        onChapterSwipe = onChapterSwipe,
+    ) { appBarPadding ->
+        entryInfoItems(
+            isTabletUi = false,
+            appBarPadding = appBarPadding,
+            state = entryState,
+            onCoverClick = onCoverClicked,
+            doSearch = onSearch,
+            onAddToLibraryClicked = onAddToLibraryClicked,
+            onTrackingClicked = onTrackingClicked,
+            onEditCategory = onEditCategoryClicked,
+            onEditIntervalClicked = onEditIntervalClicked,
+            onWebViewClicked = onWebViewClicked,
+            onWebViewLongClicked = onWebViewLongClicked,
+            onShareClicked = null,
+            onTagSearch = onTagSearch,
+            onGlobalSearch = { onSearch(it, true) },
+            onCopyTagToClipboard = onCopyTagToClipboard,
+            onEditNotes = onEditNotesClicked,
+            // RK: namespaced, color-weighted chips for the active source's gallery metadata
+            searchMetadataChips = SearchMetadataChips(
+                state.galleryMetadata,
+                (state.mergeDisplaySource ?: state.source).id,
+                state.manga.genre,
+            ),
+            // RK: per-source gallery-info card for adult/metadata sources, above the description
+            aboveDescription = state.galleryMetadata?.let { meta ->
+                {
+                    GalleryInfoBox(
+                        metadata = meta,
+                        onMoreInfoClick = onMetadataViewerClicked,
+                        modifier = Modifier.padding(top = 8.dp),
                     )
                 }
+            },
+        )
+
+        // RK: source-switcher chips for a merged group
+        if (state.mergeSources.size > 1) {
+            item(key = "rk-merge-source-chips") {
+                MergeSourceChips(
+                    sources = state.mergeSources,
+                    selectedSourceMangaId = state.selectedSourceMangaId,
+                    onSelect = onSelectSource,
+                    onSplitSource = onSplitSource,
+                )
             }
         }
+
+        // RK: related-mangas carousel (recommendations)
+        item(key = "rk-related-carousel") {
+            RelatedMangaCarousel(
+                items = state.relatedItems,
+                loading = state.relatedLoading,
+                totalCount = state.relatedTotalCount,
+                onClick = onRelatedClick,
+                onSeeAll = onRelatedSeeAll,
+                topDivider = true,
+            )
+        }
+
+        // RK: page-preview thumbnails for adult sources (0 rows = off);
+        // on phone this sits below the related carousel
+        if (state.pagePreviewsState !is PagePreviewState.Unused && state.previewsRowCount > 0) {
+            item(key = "rk-page-previews") {
+                PagePreviews(
+                    pagePreviewState = state.pagePreviewsState,
+                    onOpenPage = onOpenPagePreview,
+                    onMorePreviewsClicked = onMorePreviewsClicked,
+                    rowCount = state.previewsRowCount,
+                )
+            }
+        }
+
+        item(
+            key = MangaScreenItem.CHAPTER_HEADER,
+            contentType = MangaScreenItem.CHAPTER_HEADER,
+        ) {
+            val missingChapterCount = remember(chapters) {
+                chapters.map { it.chapter.chapterNumber }.missingChaptersCount()
+            }
+            ChapterHeader(
+                enabled = !isAnySelected,
+                chapterCount = chapters.size,
+                missingChapterCount = missingChapterCount,
+                onClick = onFilterClicked,
+            )
+        }
+
+        sharedChapterItems(
+            manga = state.manga,
+            chapters = listItem,
+            isAnyChapterSelected = chapters.fastAny { it.selected },
+            chapterSwipeStartAction = chapterSwipeStartAction,
+            chapterSwipeEndAction = chapterSwipeEndAction,
+            onChapterClicked = onChapterClicked,
+            onDownloadChapter = onDownloadChapter,
+            onChapterSelected = onChapterSelected,
+            onChapterSwipe = onChapterSwipe,
+        )
     }
 }
 
