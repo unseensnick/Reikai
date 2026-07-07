@@ -301,7 +301,7 @@
         <service
             android:name=".extension.util.ExtensionInstallService"
             android:exported="false"
-            android:foregroundServiceType="shortService" />
+            android:foregroundServiceType="dataSync" /><!-- RK: was shortService, whose ~3-min timeout ANRs multi-extension installs (Komikku 9a7d1b6143) -->
 
         <!-- RK: novel read-aloud (TTS) keep-alive + media notification -->
         <service

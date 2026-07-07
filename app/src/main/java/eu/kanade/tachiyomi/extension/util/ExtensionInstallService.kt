@@ -3,7 +3,9 @@ package eu.kanade.tachiyomi.extension.util
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.net.Uri
+import android.os.Build
 import android.os.IBinder
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.tachiyomi.R
@@ -32,7 +34,17 @@ class ExtensionInstallService : Service() {
             setContentTitle(stringResource(MR.strings.ext_install_service_notif))
             setProgress(100, 100, true)
         }.build()
-        startForeground(Notifications.ID_EXTENSION_INSTALLER, notification)
+        // RK: dataSync foreground type so multi-extension installs waiting on system confirm dialogs
+        // don't hit shortService's ~3-minute timeout and ANR (from Komikku 9a7d1b6143).
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                Notifications.ID_EXTENSION_INSTALLER,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+            )
+        } else {
+            startForeground(Notifications.ID_EXTENSION_INSTALLER, notification)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
