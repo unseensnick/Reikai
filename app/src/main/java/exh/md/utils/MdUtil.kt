@@ -1,5 +1,6 @@
 package exh.md.utils
 
+import android.util.Base64
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.track.mdlist.MdList
@@ -14,6 +15,9 @@ import exh.source.getMainSource
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.FormBody
 import okhttp3.Headers
 import okhttp3.MediaType.Companion.toMediaType
@@ -166,6 +170,19 @@ class MdUtil {
             } catch (_: Exception) {
                 null
             }
+        }
+
+        /**
+         * The MangaDex account name from the OAuth access-token JWT (`preferred_username` claim), so
+         * the tracking settings can show which account is signed in. Null if the token can't be read.
+         */
+        fun usernameFromToken(accessToken: String): String? = try {
+            val payload = accessToken.split(".").getOrNull(1) ?: return null
+            val claims = Base64.decode(payload, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
+                .decodeToString()
+            jsonParser.parseToJsonElement(claims).jsonObject["preferred_username"]?.jsonPrimitive?.contentOrNull
+        } catch (_: Exception) {
+            null
         }
 
         private var codeVerifier: String? = null
