@@ -103,12 +103,11 @@ class HikkaApi(
             val slug = track.tracking_url.split("/")[4]
             val url = "$BASE_API_URL/read/manga/$slug".toUri().buildUpon().build()
             with(json) {
-                val response = authClient.newCall(GET(url.toString())).execute()
-                if (response.code == 404) {
-                    return@withIOContext null
-                }
-                response.use {
-                    it.parseAs<HKRead>()
+                // RK: close the response on the 404 path too. Upstream returns early without closing
+                // it, leaking the connection so the next tracker call (e.g. getManga during bind)
+                // throws "cannot make a new request because the previous response is still open".
+                authClient.newCall(GET(url.toString())).execute().use { response ->
+                    if (response.code == 404) null else response.parseAs<HKRead>()
                 }
             }
         }
