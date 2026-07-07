@@ -399,16 +399,32 @@ private fun NovelSelectionBar(
     screenModel: NovelDetailsScreenModel,
     modifier: Modifier,
 ) {
+    // Only offer the actions that apply to the current selection, mirroring the manga selection bar
+    // (SharedMangaBottomActionMenu) instead of always showing every icon.
+    val selected = state.chapters.filter { it.id in state.selection }
+    fun isDownloaded(chapter: NovelChapter): Boolean {
+        val downloadState = state.downloadStates[chapter.id]
+            ?: if (chapter.isDownloaded) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED
+        return downloadState == Download.State.DOWNLOADED
+    }
+
     MangaBottomActionMenu(
         visible = state.selectionMode,
         modifier = modifier,
-        onBookmarkClicked = { screenModel.bookmarkSelected(true) },
-        onRemoveBookmarkClicked = { screenModel.bookmarkSelected(false) },
-        onMarkAsReadClicked = { screenModel.markSelectedRead(true) },
-        onMarkAsUnreadClicked = { screenModel.markSelectedRead(false) },
-        onMarkPreviousAsReadClicked = { screenModel.markPreviousRead(true) },
-        onDownloadClicked = { screenModel.downloadSelected() },
-        onDeleteClicked = { screenModel.deleteSelected() },
+        onBookmarkClicked = { screenModel.bookmarkSelected(true) }
+            .takeIf { selected.any { !it.bookmark } },
+        onRemoveBookmarkClicked = { screenModel.bookmarkSelected(false) }
+            .takeIf { selected.isNotEmpty() && selected.all { it.bookmark } },
+        onMarkAsReadClicked = { screenModel.markSelectedRead(true) }
+            .takeIf { selected.any { !it.read } },
+        onMarkAsUnreadClicked = { screenModel.markSelectedRead(false) }
+            .takeIf { selected.any { it.read || it.lastTextProgress > 0L } },
+        onMarkPreviousAsReadClicked = { screenModel.markPreviousRead(true) }
+            .takeIf { selected.size == 1 },
+        onDownloadClicked = { screenModel.downloadSelected() }
+            .takeIf { selected.any { !isDownloaded(it) } },
+        onDeleteClicked = { screenModel.deleteSelected() }
+            .takeIf { selected.any { isDownloaded(it) } },
     )
 }
 
