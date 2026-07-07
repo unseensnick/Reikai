@@ -1,5 +1,6 @@
 package reikai.domain.recommendation
 
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 
@@ -111,4 +112,22 @@ class ReikaiRecommendationPreferences(
         wPersonal = recommendationStyle.get().coerceIn(0, 100) / 100.0,
         wSerendipity = serendipity.get().coerceIn(0, 100) / 100.0,
     )
+
+    /**
+     * Tracker ids whose recommendation stream is currently enabled: the master toggle on, AND that
+     * tracker's own sub-toggle on. Empty when the master toggle is off.
+     *
+     * Shared by both carousel paths (the title-search [RecommendationsFetcher] and the media-context
+     * [RelatedMangasLoader]) so they can't disagree on what the "Tracker recommendations" toggles
+     * gate. A media-context recommendation for a tracker not in this set is dropped from the pool.
+     */
+    fun enabledRecommendationTrackerIds(trackerManager: TrackerManager): Set<Long> {
+        if (!includeTrackerRecommendations.get()) return emptySet()
+        return buildSet {
+            if (anilistRecommendations.get()) add(trackerManager.aniList.id)
+            if (myAnimeListRecommendations.get()) add(trackerManager.myAnimeList.id)
+            if (mangaUpdatesRecommendations.get()) add(trackerManager.mangaUpdates.id)
+            if (shikimoriRecommendations.get()) add(trackerManager.shikimori.id)
+        }
+    }
 }

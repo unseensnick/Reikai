@@ -43,6 +43,10 @@ object SettingsRecommendationsScreen : SearchableSettings {
     override fun getPreferences(): List<Preference> {
         val prefs = remember { Injekt.get<ReikaiRecommendationPreferences>() }
         val trackerManager = remember { Injekt.get<TrackerManager>() }
+        // Taste injection is tracker-derived, so the master "Tracker recommendations" toggle gates the
+        // whole section: hidden (and skipped at load time) when the master is off, so "off" reads as a
+        // source-only carousel with no dangling controls.
+        val includeTrackers by prefs.includeTrackerRecommendations.collectAsState()
 
         // Candidate injection needs the manga tracked on a recs-capable tracker, so it's only useful
         // (and only shown) when the user is logged into one.
@@ -56,7 +60,7 @@ object SettingsRecommendationsScreen : SearchableSettings {
         return listOfNotNull(
             sourcesGroup(prefs, trackerManager),
             tasteProfileGroup(prefs, trackerManager),
-            injectionGroup(prefs).takeIf { recsTrackerLoggedIn },
+            injectionGroup(prefs).takeIf { recsTrackerLoggedIn && includeTrackers },
             rerankingGroup(prefs),
             filtersGroup(prefs),
         )
