@@ -21,6 +21,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import eu.kanade.presentation.category.visualName
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -68,7 +69,7 @@ fun ReikaiCategoryPickerSheet(
                     name = if (ReikaiDynamicCategory.isDynamic(category)) {
                         ReikaiDynamicCategory.displayName(category)
                     } else {
-                        category.name
+                        category.visualName
                     },
                     count = if (showItemCounts) getItemCount(category) else null,
                     isActive = category.id == activeCategoryId,
