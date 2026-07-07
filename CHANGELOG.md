@@ -12,6 +12,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+### Additions
+
+- **Track your reading on Hikka, a new tracker synced from Mihon (mihonapp/mihon#1386).** Sign in from Settings > Tracking, then bind a title and your progress stays in sync with your Hikka account, just like the other trackers.
+
 ## [0.2.0]
 
 ### Additions
