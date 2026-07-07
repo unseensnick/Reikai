@@ -36,10 +36,10 @@ Manga rendering is stock-Mihon driven; only the chip, the novel side, the interl
 
 Confirmed in `app/src/main/java/`:
 
-- `eu/kanade/tachiyomi/ui/updates/UpdatesTab.kt`: the Voyager `Tab`. Builds both models, renders the chip, hosts the shared filter/delete dialogs, and routes row taps (manga to `ReaderActivity`, novel to `NovelReaderScreen`). All Reikai additions fenced `// RK`.
+- `eu/kanade/tachiyomi/ui/updates/UpdatesTab.kt`: the Voyager `Tab`. Builds both models, renders the chip, hosts the shared filter/delete dialogs, and routes row taps (manga chapter to `ReaderActivity`, novel chapter to `NovelReaderScreen`, and each cover to its details screen: `MangaScreen` / `NovelScreen`). All Reikai additions fenced `// RK`.
 - `reikai/presentation/updates/ReikaiUpdatesScreen.kt`: the consolidated screen: toolbar, combined selection action bar, pull-to-refresh, the `buildUpdateRows` interleave/group builder, and the collapsed-group / child row composables.
 - `reikai/presentation/updates/NovelUpdatesScreenModel.kt`: the novel side: recent-updates feed, shared filters, by-category filter, merge-aware series keys, selection, and chapter actions. Defines `NovelUpdatesItem`.
-- `reikai/presentation/updates/NovelUpdatesUiItem.kt`: the novel update row composable.
+- `reikai/presentation/updates/EntryUpdatesRow.kt`: the shared flat update row for both content types (replaced the separate manga `UpdatesUiItem` / novel `NovelUpdatesUiItem`; grouped children already share `UpdatesGroupChildRow`).
 - `reikai/presentation/updates/ReikaiUpdatesCategoryFilter.kt`: the include/exclude category control and the group-by-series toggle mounted into the filter sheet.
 - `eu/kanade/tachiyomi/ui/updates/UpdatesScreenModel.kt`: Mihon's stock manga model, left untouched so it ports verbatim; the shell reads its state and calls its public actions.
 - `eu/kanade/tachiyomi/ui/updates/UpdatesSettingsScreenModel.kt`: the filter-sheet model; carries the Reikai category-preference accessors and category flows.

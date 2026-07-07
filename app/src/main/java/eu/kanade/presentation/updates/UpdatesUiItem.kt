@@ -132,7 +132,7 @@ internal fun LazyListScope.updatesUiItems(
 }
 
 @Composable
-internal fun UpdatesUiItem( // RK: was private; reused by the combined (manga + novel) updates list
+private fun UpdatesUiItem(
     update: UpdatesWithRelations,
     selected: Boolean,
     readProgress: String?,

@@ -12,9 +12,13 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+### Changes
+
+- **Novel and grouped covers in the Updates list now open the title's details.** Novel rows did nothing on cover-tap before and grouped rows just expanded; both now open details, while the rest of the row still opens the chapter or expands the group.
+
 ### Other
 
-- History rows for manga and novels now render through one shared component, replacing the two near-identical copies. No visible change; first step toward the unified content UI and design refresh.
+- History and Updates rows for manga and novels now render through shared components instead of near-identical copies. No visible change from the shared rows themselves; groundwork for the unified content UI and design refresh.
 
 ## [0.2.1]
 

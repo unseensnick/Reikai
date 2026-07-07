@@ -30,6 +30,7 @@ import mihon.feature.upcoming.UpcomingScreen
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
 import reikai.presentation.updates.NovelUpdatesScreenModel
 import reikai.presentation.updates.ReikaiUpdatesCategoryFilter
@@ -92,6 +93,7 @@ data object UpdatesTab : Tab {
             },
             onClickMangaCover = { navigator.push(MangaScreen(it.update.mangaId)) },
             onOpenNovelChapter = { navigator.push(NovelReaderScreen(it.update.novelId, it.update.chapterId)) },
+            onClickNovelCover = { navigator.push(NovelScreen(it.update.source, it.update.novelUrl)) },
         )
 
         // Filter / delete dialogs render regardless of chip (the filter is reachable from both screens).

@@ -32,6 +32,7 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadIndicator
 import eu.kanade.presentation.manga.components.DotSeparatorText
 import eu.kanade.presentation.manga.components.MangaCover
+import eu.kanade.tachiyomi.data.download.model.Download
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
 import tachiyomi.presentation.core.components.material.padding
@@ -39,28 +40,35 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.selectedBackground
 
 /**
- * One light-novel row in the Updates tab, the novel twin of the private `UpdatesUiItem`. Renders the
- * novel cover, title, the chapter name with an unread dot / bookmark / read-progress, and the download
- * indicator. The whole row opens the chapter (no separate cover-to-details tap in this first slice).
+ * One flat (non-grouped) row in the Updates tab, shared by manga and novels. Draws the square cover,
+ * title, and a chapter line (unread dot / bookmark / name / read-progress) plus the download
+ * indicator. The per-type differences (title field, progress format, cover-tap target, download
+ * providers) are supplied by the caller as plain data. Replaces Mihon's `UpdatesUiItem` and the novel
+ * `NovelUpdatesUiItem` for the flat leaf row; grouped children already share `UpdatesGroupChildRow`.
  */
 @Composable
-fun NovelUpdatesUiItem(
-    item: NovelUpdatesItem,
+fun EntryUpdatesRow(
+    cover: Any?,
+    title: String,
+    chapterName: String,
+    read: Boolean,
+    bookmark: Boolean,
+    selected: Boolean,
+    readProgress: String?,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    onDownloadClick: ((ChapterDownloadAction) -> Unit)?,
+    onClickCover: (() -> Unit)?,
+    onDownloadChapter: ((ChapterDownloadAction) -> Unit)?,
+    downloadStateProvider: () -> Download.State,
+    downloadProgressProvider: () -> Int,
     modifier: Modifier = Modifier,
 ) {
-    val update = item.update
     val haptic = LocalHapticFeedback.current
-    val textAlpha = if (update.read) DISABLED_ALPHA else 1f
-    val readProgress = (update.lastTextProgress / 100L).toInt()
-        .takeIf { !update.read && it > 0 }
-        ?.let { "$it%" }
+    val textAlpha = if (read) DISABLED_ALPHA else 1f
 
     Row(
         modifier = modifier
-            .selectedBackground(item.selected)
+            .selectedBackground(selected)
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = {
@@ -76,7 +84,8 @@ fun NovelUpdatesUiItem(
             modifier = Modifier
                 .padding(vertical = 6.dp)
                 .fillMaxHeight(),
-            data = update.coverData,
+            data = cover,
+            onClick = onClickCover,
         )
 
         Column(
@@ -85,7 +94,7 @@ fun NovelUpdatesUiItem(
                 .weight(1f),
         ) {
             Text(
-                text = update.novelTitle,
+                text = title,
                 maxLines = 1,
                 style = MaterialTheme.typography.bodyMedium,
                 color = LocalContentColor.current.copy(alpha = textAlpha),
@@ -94,7 +103,7 @@ fun NovelUpdatesUiItem(
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 var textHeight by remember { mutableIntStateOf(0) }
-                if (!update.read) {
+                if (!read) {
                     Icon(
                         imageVector = Icons.Filled.Circle,
                         contentDescription = stringResource(MR.strings.unread),
@@ -104,7 +113,7 @@ fun NovelUpdatesUiItem(
                         tint = MaterialTheme.colorScheme.primary,
                     )
                 }
-                if (update.bookmark) {
+                if (bookmark) {
                     Icon(
                         imageVector = Icons.Filled.Bookmark,
                         contentDescription = stringResource(MR.strings.action_filter_bookmarked),
@@ -115,7 +124,7 @@ fun NovelUpdatesUiItem(
                     Spacer(modifier = Modifier.width(2.dp))
                 }
                 Text(
-                    text = update.chapterName,
+                    text = chapterName,
                     maxLines = 1,
                     style = MaterialTheme.typography.bodySmall,
                     color = LocalContentColor.current.copy(alpha = textAlpha),
@@ -136,11 +145,11 @@ fun NovelUpdatesUiItem(
         }
 
         ChapterDownloadIndicator(
-            enabled = onDownloadClick != null,
+            enabled = onDownloadChapter != null,
             modifier = Modifier.padding(start = 4.dp),
-            downloadStateProvider = { item.downloadState },
-            downloadProgressProvider = { 0 },
-            onClick = { onDownloadClick?.invoke(it) },
+            downloadStateProvider = downloadStateProvider,
+            downloadProgressProvider = downloadProgressProvider,
+            onClick = { onDownloadChapter?.invoke(it) },
         )
     }
 }

@@ -54,7 +54,6 @@ import eu.kanade.presentation.manga.components.ChapterDownloadIndicator
 import eu.kanade.presentation.manga.components.DotSeparatorText
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.manga.components.MangaCover
-import eu.kanade.presentation.updates.UpdatesUiItem
 import eu.kanade.presentation.updates.updatesLastUpdatedItem
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
@@ -99,6 +98,7 @@ fun ReikaiUpdatesScreen(
     onOpenMangaChapter: (UpdatesItem) -> Unit,
     onClickMangaCover: (UpdatesItem) -> Unit,
     onOpenNovelChapter: (NovelUpdatesItem) -> Unit,
+    onClickNovelCover: (NovelUpdatesItem) -> Unit,
 ) {
     val mangaState by mangaModel.state.collectAsState()
     val novelState by novelModel.state.collectAsState()
@@ -287,6 +287,7 @@ fun ReikaiUpdatesScreen(
                                     onOpenMangaChapter = onOpenMangaChapter,
                                     onClickMangaCover = onClickMangaCover,
                                     onOpenNovelChapter = onOpenNovelChapter,
+                                    onClickNovelCover = onClickNovelCover,
                                     onToggleExpand = { key ->
                                         expandedGroups[key] = !(expandedGroups[key] ?: false)
                                     },
@@ -308,6 +309,7 @@ private fun LazyListScope.updateRows(
     onOpenMangaChapter: (UpdatesItem) -> Unit,
     onClickMangaCover: (UpdatesItem) -> Unit,
     onOpenNovelChapter: (NovelUpdatesItem) -> Unit,
+    onClickNovelCover: (NovelUpdatesItem) -> Unit,
     onToggleExpand: (String) -> Unit,
 ) {
     items(
@@ -335,8 +337,12 @@ private fun LazyListScope.updateRows(
             is UpdateRow.Header -> ListGroupHeader(text = relativeDateText(row.date))
             is UpdateRow.Manga -> {
                 val item = row.item
-                UpdatesUiItem(
-                    update = item.update,
+                EntryUpdatesRow(
+                    cover = item.update.coverData,
+                    title = item.update.mangaTitle,
+                    chapterName = item.update.chapterName,
+                    read = item.update.read,
+                    bookmark = item.update.bookmark,
                     selected = item.selected,
                     readProgress = item.update.lastPageRead
                         .takeIf { !item.update.read && it > 0L }
@@ -361,8 +367,16 @@ private fun LazyListScope.updateRows(
             }
             is UpdateRow.Novel -> {
                 val item = row.item
-                NovelUpdatesUiItem(
-                    item = item,
+                EntryUpdatesRow(
+                    cover = item.update.coverData,
+                    title = item.update.novelTitle,
+                    chapterName = item.update.chapterName,
+                    read = item.update.read,
+                    bookmark = item.update.bookmark,
+                    selected = item.selected,
+                    readProgress = (item.update.lastTextProgress / 100L).toInt()
+                        .takeIf { !item.update.read && it > 0 }
+                        ?.let { "$it%" },
                     onClick = {
                         if (selectionMode) {
                             novelModel.toggleSelection(item.update.chapterId, !item.selected)
@@ -371,11 +385,14 @@ private fun LazyListScope.updateRows(
                         }
                     },
                     onLongClick = { novelModel.toggleSelection(item.update.chapterId, !item.selected) },
-                    onDownloadClick = if (selectionMode) {
+                    onClickCover = if (selectionMode) null else ({ onClickNovelCover(item) }),
+                    onDownloadChapter = if (selectionMode) {
                         null
                     } else {
                         { action -> novelModel.onDownloadAction(item, action) }
                     },
+                    downloadStateProvider = { item.downloadState },
+                    downloadProgressProvider = { 0 },
                 )
             }
             is UpdateRow.Group -> {
@@ -393,6 +410,13 @@ private fun LazyListScope.updateRows(
                     anyUnread = row.members.any { !it.memberRead() },
                     onClick = { if (selectionMode) toggleAll() else onToggleExpand(row.key) },
                     onLongClick = toggleAll,
+                    // Cover opens the representative series' details, matching the flat row; the rest of
+                    // the row still expands the group.
+                    onClickCover = if (selectionMode) {
+                        null
+                    } else {
+                        first.memberCoverClick(onClickMangaCover, onClickNovelCover)
+                    },
                 )
             }
             is UpdateRow.Child -> when (val member = row.member) {
@@ -465,6 +489,7 @@ private fun UpdatesGroupRow(
     anyUnread: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    onClickCover: (() -> Unit)?,
 ) {
     val haptic = LocalHapticFeedback.current
     val textAlpha = if (anyUnread) 1f else DISABLED_ALPHA
@@ -487,6 +512,7 @@ private fun UpdatesGroupRow(
                 .padding(vertical = 6.dp)
                 .fillMaxHeight(),
             data = cover,
+            onClick = onClickCover,
         )
         Column(
             modifier = Modifier
@@ -645,6 +671,16 @@ private fun UpdateRow.memberTitle(): String = when (this) {
     is UpdateRow.Manga -> item.update.mangaTitle
     is UpdateRow.Novel -> item.update.novelTitle
     else -> ""
+}
+
+/** Cover-tap for a group's representative member: open its details via the type's own callback. */
+private fun UpdateRow.memberCoverClick(
+    onClickMangaCover: (UpdatesItem) -> Unit,
+    onClickNovelCover: (NovelUpdatesItem) -> Unit,
+): (() -> Unit)? = when (this) {
+    is UpdateRow.Manga -> ({ onClickMangaCover(item) })
+    is UpdateRow.Novel -> ({ onClickNovelCover(item) })
+    else -> null
 }
 
 private fun toggleMemberSelection(
