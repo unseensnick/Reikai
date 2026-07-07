@@ -44,7 +44,9 @@ Reference upstream PRs/issues as **`mihonapp/mihon#<n>`** (a cross-repo link). A
 
 Cases where Reikai knowingly does not match `refs/mihon`, so a future syncer does not "fix" them back. Revisit each when upstream settles.
 
-_None currently._ (The notes background-crash divergence over `mihonapp/mihon#3515` was reconciled on 2026-07-05: Mihon shipped `mihonapp/mihon#3523`, a model-level fix that makes `Manga` serializable, so Reikai adopted it and reverted its serializable-args notes screen back to upstream. See the ledger.)
+- **Hikka tracker response leaks** (`de027cbf1`; `// RK` in `HikkaInterceptor.kt` + `HikkaApi.kt`). Upstream's Hikka auth interceptor never closes the OAuth token-refresh response on the success path, so adding a title to Hikka while the token is expired crashes with "cannot make a new request because the previous response is still open"; `getRead` similarly leaks on its 404 path. Reikai closes both via `.use`. These are upstream bugs present as of `refs/mihon` `d0c79399b` (Hikka is brand new upstream), worth reporting to Mihon. **Watch:** on the next Hikka-touching sync, check whether upstream now closes these responses; if so, drop the `// RK` patches and take upstream.
+
+_Previously:_ the notes background-crash divergence over `mihonapp/mihon#3515` was reconciled on 2026-07-05 (Mihon shipped `mihonapp/mihon#3523`, a model-level fix that makes `Manga` serializable, so Reikai adopted it and reverted its serializable-args notes screen back to upstream). See the ledger.
 
 ## Synced-base ledger
 
