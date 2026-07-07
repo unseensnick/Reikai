@@ -4,7 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-**Unified content UI** in progress on `feat/unified-content-ui` (unmerged): the History + Updates rows and the full-cover dialog are collapsed onto shared `Entry*` components (verified device + minified); the **details screen** is the next surface. Goal and rulings: Later -> UI & design and [the plan](docs/dev/plans/unified-content-ui.md).
+**Unified content UI** in progress on `feat/unified-content-ui` (unmerged): the History + Updates rows, the full-cover dialog, and now most of the **details screen** (shared action row, info header, and phone + tablet screen shell) are collapsed onto shared `Entry*` components (verified device + minified). Remaining on the details screen: the shared toolbar, then manga hide/unhide-chapters and a shared edit-info editor. Goal and rulings: Later -> UI & design and [the plan](docs/dev/plans/unified-content-ui.md).
 
 ## Next
 

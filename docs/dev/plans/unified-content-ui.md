@@ -84,21 +84,31 @@ details screen (the large, highest-impact surface) is next. Reader stays separat
 
 ## Status
 
-**In progress. Three increments shipped.** Captured from a design discussion (2026-07-05) while
-finishing the MD enhanced-source port; a code-research pass (2026-07-07) confirmed the list
-surfaces already carried the merge half of the seam (History and Updates each merge the manga and
-novel feeds into a shared row model and route around Mihon's screen via a `// RK` redirect in the
-tab, built during the light-novel port), so only the leaf row remained.
+**In progress. List surfaces + cover dialog shipped; the details screen is collapsing in phases (P1-P3
+done, P4-P6 remain).** Captured from a design discussion (2026-07-05) while finishing the MD
+enhanced-source port; a code-research pass (2026-07-07) confirmed the list surfaces already carried the
+merge half of the seam, so only the leaf row remained there.
 
-Shipped: the History and Updates screens each collapsed their twin manga/novel row composables into
-one shared `Entry*Row` fed by per-type mappers/slots (`EntryHistoryRow` `0628f5f43`; `EntryUpdatesRow`
-plus the grouped-row cover-tap `43fff525e`), then the full-cover dialog into one shared
-`EntryCoverDialog` (`78e8d8825`). All verified on-device (debug and minified).
+Shipped (list + cover): the History and Updates screens each collapsed their twin manga/novel row
+composables into one shared `Entry*Row` fed by per-type mappers/slots (`EntryHistoryRow` `0628f5f43`;
+`EntryUpdatesRow` plus the grouped-row cover-tap `43fff525e`), then the full-cover dialog into one shared
+`EntryCoverDialog` (`78e8d8825`).
 
-Next: the details screen (the largest surface, its `EntryDetailsUiState` seam). A 2026-07-07 parity
-audit ruled the manga/novel feature divergences (close vs gate); the small closes fold into each
-surface as it is collapsed, the larger ones are standalone ROADMAP items. Mapper work is best done
-right after an upstream sync, since it depends on current State shapes.
+Shipped (details screen, in phases): the shared action row (`EntryActionRow` `9b7e4bea3`), info header
+(`EntryInfoBox` + `EntryHeaderUi` + `Manga`/`Novel` mappers `7cc5197e0`), and the phone + tablet screen
+shell (`EntryDetailsScaffold` `39d5e0c52`, `EntryDetailsTwoPaneScaffold` `4d9f07ae2`), all under
+`reikai/presentation/details/` and driven by a neutral `EntryDetailsUiState` + `entryInfoItems` builder.
+Both Voyager screens' impls now delegate to the shells; the per-type toolbar, selection bar, content
+cards (gallery/previews/related/page-bar/merge-chips), and chapter emitter stay slots. Parity closes rode
+along: novel long-press-categories, novel contextual selection gating (`8f733b2ca`), novel fast-scroller,
+and a pre-existing merged per-source metadata-viewer fix (`05e86c70a`). Note the Phase 3 reshuffle: a
+standalone "column only" step was low-value and forced awkward `stringResource` hoisting, so the shell was
+pulled forward into P3 and the toolbar left as a slot. All verified on-device (debug and minified).
+
+Remaining on the details screen: a shared `EntryToolbar` (fills the shell's `topBar` slot; smaller now the
+shell exists), manga hide/unhide-chapters (pref-based, mirroring novels), and a shared Komikku-style
+edit-info editor plus the manga override data layer (`CustomMangaInfo`). The larger standalone parity items
+are ROADMAP entries. A 2026-07-07 parity audit ruled the manga/novel divergences (close vs gate).
 
 ## Decisions & tradeoffs
 
