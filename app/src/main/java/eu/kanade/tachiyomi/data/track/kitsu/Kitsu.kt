@@ -35,7 +35,7 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
     private val api by lazy { KitsuApi(client, interceptor) }
 
     // RK: full library pull for the recommendation taste profile.
-    suspend fun getUserLibrary(): List<KitsuLibraryEntry> = api.getUserLibrary(api.getCurrentUser())
+    suspend fun getUserLibrary(): List<KitsuLibraryEntry> = api.getUserLibrary(api.getCurrentUser().id)
 
     override fun getLogo() = R.drawable.brand_kitsu
 
@@ -137,8 +137,9 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
     override suspend fun login(username: String, password: String) {
         val token = api.login(username, password)
         interceptor.newAuth(token)
-        val userId = api.getCurrentUser()
-        saveCredentials(username, userId)
+        val currentUser = api.getCurrentUser()
+        saveDisplayUsername(currentUser.attributes.name)
+        saveCredentials(username, currentUser.id)
     }
 
     override fun logout() {

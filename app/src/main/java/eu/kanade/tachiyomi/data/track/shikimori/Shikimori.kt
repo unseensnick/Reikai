@@ -34,7 +34,7 @@ class Shikimori(id: Long) : BaseTracker(id, "Shikimori"), DeletableTracker {
     private val api by lazy { ShikimoriApi(id, client, interceptor) }
 
     // RK: full library pull for the recommendation taste profile.
-    suspend fun getUserLibrary(): List<SMUserRate> = api.getUserLibrary(api.getCurrentUser())
+    suspend fun getUserLibrary(): List<SMUserRate> = api.getUserLibrary(api.getCurrentUser().id.toInt())
 
     override fun getScoreList(): List<String> = SCORE_LIST
 
@@ -126,7 +126,8 @@ class Shikimori(id: Long) : BaseTracker(id, "Shikimori"), DeletableTracker {
             val oauth = api.accessToken(code)
             interceptor.newAuth(oauth)
             val user = api.getCurrentUser()
-            saveCredentials(user.toString(), oauth.accessToken)
+            saveDisplayUsername(user.nickname)
+            saveCredentials(user.id, oauth.accessToken)
         } catch (e: Throwable) {
             logout()
         }

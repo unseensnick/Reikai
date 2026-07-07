@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMAddMangaResponse
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMOAuth
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMSearchResult
+import eu.kanade.tachiyomi.data.track.shikimori.dto.SMUser
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMUserListResult
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMUserRate
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMUserRatesResponse
@@ -173,12 +174,13 @@ class ShikimoriApi(
         }
     }
 
-    suspend fun getCurrentUser(): Int {
+    suspend fun getCurrentUser(): SMUser {
         return with(json) {
             val query = """
             |{
                 |currentUser {
                     |id
+                    |nickname
                 |}
             |}
             """.trimMargin()
@@ -193,8 +195,7 @@ class ShikimoriApi(
             )
                 .awaitSuccess()
                 .parseAs<SMUserResult>()
-                .data.currentUser.id
-                .toInt()
+                .data.currentUser
         }
     }
 
