@@ -6,30 +6,20 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SmallExtendedFloatingActionButton
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
-import androidx.compose.material3.animateFloatingActionButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,7 +28,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -48,7 +37,6 @@ import eu.kanade.presentation.components.NavigatorAdaptiveSheet
 import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.manga.EditCoverAction
 import eu.kanade.presentation.manga.components.ChapterHeader
-import eu.kanade.presentation.manga.components.ExpandableMangaDescription
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.manga.components.MangaChapterListItem
 import eu.kanade.presentation.theme.TachiyomiTheme
@@ -61,10 +49,9 @@ import eu.kanade.tachiyomi.util.system.copyToClipboard
 import reikai.data.coil.NovelCover
 import reikai.domain.novel.model.NovelChapter
 import reikai.presentation.components.EntryCoverDialog
-import reikai.presentation.details.EntryActionRow
 import reikai.presentation.details.EntryDetailsScaffold
+import reikai.presentation.details.EntryDetailsTwoPaneScaffold
 import reikai.presentation.details.EntryDetailsUiState
-import reikai.presentation.details.EntryInfoBox
 import reikai.presentation.details.entryInfoItems
 import reikai.presentation.details.toEntryHeader
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
@@ -73,13 +60,10 @@ import reikai.presentation.novel.notes.NovelNotesScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
 import reikai.presentation.novel.track.NovelTrackInfoDialogHomeScreen
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.components.TwoPanelBox
-import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
-import tachiyomi.presentation.core.util.shouldExpandFAB
 
 /**
  * Light-novel details screen, the novel twin of `MangaScreen`. Mirrors the manga small/large
@@ -274,9 +258,39 @@ private fun NovelDetailsLargeImpl(
     onChapterClick: (NovelChapter) -> Unit,
 ) {
     val chapterListState = rememberLazyListState()
-    Scaffold(
-        topBar = {
+    val display = state.displayNovel
+
+    val entrySourceName = if (state.mergeSources.size > 1 && state.selectedSourceNovelId == null) {
+        stringResource(MR.strings.merge_unified)
+    } else {
+        state.sourceName
+    }
+    val entryState = EntryDetailsUiState(
+        header = display.toEntryHeader(sourceName = entrySourceName, sourceSite = state.sourceUrl),
+        favorite = state.novel.favorite,
+        trackingCount = state.trackingCount,
+        showIntervalButton = false,
+        nextUpdate = null,
+        isUserIntervalMode = false,
+        description = display.description,
+        tags = display.genre,
+        notes = state.novel.notes,
+        descriptionDefaultExpanded = false,
+    )
+
+    EntryDetailsTwoPaneScaffold(
+        chapterListState = chapterListState,
+        snackbarHostState = screenModel.snackbarHostState,
+        isAnySelected = state.selectionMode,
+        isRefreshing = state.isRefreshing,
+        onRefresh = screenModel::refresh,
+        onCancelSelection = screenModel::clearSelection,
+        fabVisible = state.resumeChapter != null && !state.selectionMode,
+        fabIsResume = state.hasStarted,
+        onFabClick = { state.resumeChapter?.let(onChapterClick) },
+        topBar = { modifier ->
             NovelDetailsToolbar(
+                modifier = modifier,
                 state = state,
                 screenModel = screenModel,
                 onBack = onBack,
@@ -287,48 +301,32 @@ private fun NovelDetailsLargeImpl(
                 backgroundAlphaProvider = { 1f },
             )
         },
-        bottomBar = {
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomEnd) {
-                NovelSelectionBar(state, screenModel, Modifier.fillMaxWidth(0.5f))
-            }
-        },
-        snackbarHost = { SnackbarHost(screenModel.snackbarHostState) },
-        floatingActionButton = { NovelResumeFab(state, chapterListState, onChapterClick) },
-    ) { contentPadding ->
-        PullRefresh(
-            refreshing = state.isRefreshing,
-            onRefresh = screenModel::refresh,
-            enabled = !state.selectionMode,
-            indicatorPadding = PaddingValues(top = contentPadding.calculateTopPadding()),
-        ) {
-            TwoPanelBox(
-                startContent = {
-                    LazyColumn(contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding())) {
-                        // The start pane only pads the bottom, so the info box clears the app bar itself.
-                        novelInfoItems(
-                            state,
-                            screenModel,
-                            onWebView,
-                            onShare,
-                            onTracking,
-                            onEditNotes,
-                            onSearch,
-                            onCopy,
-                            isTabletUi = true,
-                            appBarPadding = contentPadding.calculateTopPadding(),
-                        )
-                    }
-                },
-                endContent = {
-                    // Chips + chapter header sit atop the chapter pane (mirrors MangaScreen's tablet layout).
-                    LazyColumn(state = chapterListState, contentPadding = contentPadding) {
-                        novelChapterHeaderItems(state, screenModel)
-                        novelChapterItems(state, screenModel, onChapterClick)
-                    }
-                },
+        bottomActionMenu = { NovelSelectionBar(state, screenModel, Modifier.fillMaxWidth(0.5f)) },
+        startContent = { appBarPadding ->
+            entryInfoItems(
+                isTabletUi = true,
+                appBarPadding = appBarPadding,
+                state = entryState,
+                onCoverClick = screenModel::showCoverDialog,
+                doSearch = { query, _ -> onSearch(query) },
+                onAddToLibraryClicked = screenModel::toggleFavorite,
+                onTrackingClicked = onTracking,
+                onEditCategory = screenModel::showChangeCategoryDialog.takeIf { state.novel.favorite },
+                onEditIntervalClicked = null,
+                onWebViewClicked = state.novelWebUrl?.let { { onWebView() } },
+                onWebViewLongClicked = null,
+                onShareClicked = state.novelWebUrl?.let { { onShare() } },
+                onTagSearch = onSearch,
+                onGlobalSearch = null,
+                onCopyTagToClipboard = { onCopy(it) },
+                onEditNotes = onEditNotes,
             )
-        }
-    }
+        },
+        endContent = {
+            novelChapterHeaderItems(state, screenModel)
+            novelChapterItems(state, screenModel, onChapterClick)
+        },
+    )
 }
 
 @Composable
@@ -341,8 +339,10 @@ private fun NovelDetailsToolbar(
     onEditNotes: () -> Unit,
     titleAlphaProvider: () -> Float,
     backgroundAlphaProvider: () -> Float,
+    modifier: Modifier = Modifier,
 ) {
     NovelToolbar(
+        modifier = modifier,
         title = state.novel.title,
         hasFilters = state.readFilter != 0L || state.bookmarkedFilter != 0L || state.downloadedFilter != 0L,
         navigateUp = onBack,
@@ -368,28 +368,6 @@ private fun NovelDetailsToolbar(
         onToggleShowHidden = screenModel::toggleShowHidden,
         titleAlphaProvider = titleAlphaProvider,
         backgroundAlphaProvider = backgroundAlphaProvider,
-    )
-}
-
-/** Resume/Start reading FAB, the novel twin of `MangaScreen`'s: jumps to the first unread chapter,
- *  collapses to an icon on scroll, and hides when everything is read or in selection mode. */
-@Composable
-private fun NovelResumeFab(
-    state: NovelDetailsState.Loaded,
-    listState: LazyListState,
-    onChapterClick: (NovelChapter) -> Unit,
-) {
-    SmallExtendedFloatingActionButton(
-        text = {
-            Text(stringResource(if (state.hasStarted) MR.strings.action_resume else MR.strings.action_start))
-        },
-        icon = { Icon(imageVector = Icons.Filled.PlayArrow, contentDescription = null) },
-        onClick = { state.resumeChapter?.let(onChapterClick) },
-        expanded = listState.shouldExpandFAB(),
-        modifier = Modifier.animateFloatingActionButton(
-            visible = state.resumeChapter != null && !state.selectionMode,
-            alignment = Alignment.BottomEnd,
-        ),
     )
 }
 
@@ -520,71 +498,6 @@ private fun Screen.NovelCoverDialogHost(state: NovelDetailsState.Loaded, onDismi
                 }
             },
             onDismissRequest = onDismiss,
-        )
-    }
-}
-
-/** Info pane items: cover/title/source, the action row, and the description. On tablet these are the
- *  start pane; on phone they lead the single column. Metadata follows the viewed source (the selected
- *  chip, else the anchor); favorite + library actions stay on the anchor novel. */
-private fun LazyListScope.novelInfoItems(
-    state: NovelDetailsState.Loaded,
-    screenModel: NovelDetailsScreenModel,
-    onWebView: () -> Unit,
-    onShare: () -> Unit,
-    onTracking: () -> Unit,
-    onEditNotes: () -> Unit,
-    onSearch: (String) -> Unit,
-    onCopy: (String) -> Unit,
-    isTabletUi: Boolean,
-    appBarPadding: Dp,
-) {
-    val display = state.displayNovel
-    item(key = "info") {
-        EntryInfoBox(
-            isTabletUi = isTabletUi,
-            appBarPadding = appBarPadding,
-            // a merged group viewed via the "All" chip shows the unified label, mirroring the
-            // manga header. A specific source chip keeps that source's resolved name.
-            header = display.toEntryHeader(
-                sourceName = if (state.mergeSources.size > 1 && state.selectedSourceNovelId == null) {
-                    stringResource(MR.strings.merge_unified)
-                } else {
-                    state.sourceName
-                },
-                sourceSite = state.sourceUrl,
-            ),
-            onCoverClick = screenModel::showCoverDialog,
-            doSearch = { query, _ -> onSearch(query) },
-        )
-    }
-    item(key = "actions") {
-        EntryActionRow(
-            favorite = state.novel.favorite,
-            trackingCount = state.trackingCount,
-            onAddToLibraryClicked = screenModel::toggleFavorite,
-            onTrackingClicked = onTracking,
-            // long-press favorite -> categories, only while in library (parity with manga)
-            onEditCategory = screenModel::showChangeCategoryDialog.takeIf { state.novel.favorite },
-            showIntervalButton = false,
-            nextUpdate = null,
-            isUserIntervalMode = false,
-            onEditIntervalClicked = null,
-            onWebViewClicked = state.novelWebUrl?.let { { onWebView() } },
-            onWebViewLongClicked = null,
-            onShareClicked = state.novelWebUrl?.let { { onShare() } },
-        )
-    }
-    item(key = "description") {
-        ExpandableMangaDescription(
-            defaultExpandState = false,
-            description = display.description,
-            tagsProvider = { display.genre },
-            // notes are a user annotation on the favorited anchor row, not the viewed source's metadata.
-            notes = state.novel.notes,
-            onTagSearch = onSearch,
-            onCopyTagToClipboard = { onCopy(it) },
-            onEditNotes = onEditNotes,
         )
     }
 }
