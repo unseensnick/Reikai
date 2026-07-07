@@ -64,9 +64,14 @@ reskins color / type / shape globally; this initiative handles structure / layou
 the full redesign; seed the tokens in `DESIGN.md` first (brand in `PRODUCT.md`: quiet, dense,
 deliberate), via the `impeccable` skill.
 
-**Sequencing (screen-by-screen, never big-bang):** cover dialog (small, shared) → details
-screen (highest impact) → browse → library grid → migrate / global-search. Reader stays
-separate. Prove the pattern on the small surfaces first.
+**Sequencing (screen-by-screen, never big-bang):** the list surfaces go first. History and
+Updates already carry the merge half of the seam from the light-novel port: each merges the manga
+and novel feeds into a shared row model (`HistoryRow` / `UpdateRow`) and is routed around Mihon's
+own screen by a `// RK` redirect in its tab, so only the leaf row still needs unifying. History
+shipped first (`EntryHistoryRow` plus two mappers replace the twin row composables). Updates is
+next (same collapse, larger: date grouping, filters, two selection systems, differing download
+managers). Then the originally-scoped surfaces: cover dialog (small, shared) → details screen
+(highest impact) → browse → library grid → migrate / global-search. Reader stays separate.
 
 ## Key files
 
@@ -81,11 +86,20 @@ separate. Prove the pattern on the small surfaces first.
 
 ## Status
 
-**Planned, not started.** Captured from a design discussion (2026-07-05) while finishing the
-MD enhanced-source port. Next step when picked up: a `/scout` over the manga↔novel
-duplication to map every shared-vs-divergent surface and draft the `EntryDetailsUiState` seam +
-mapper contract, then a per-screen execution plan. Best done right after an upstream sync, since
-the mappers depend on current State shapes.
+**In progress. First increment shipped.** Captured from a design discussion (2026-07-05) while
+finishing the MD enhanced-source port. A code-research pass (2026-07-07) then found the list
+surfaces already carry the merge half of the seam: History and Updates each merge the manga and
+novel feeds into a shared row model and route around Mihon's screen via a `// RK` redirect in the
+tab, built during the light-novel port. The remaining work on those two is the shared leaf row.
+
+Shipped: the History screen's twin row composables collapsed into one shared `EntryHistoryRow` fed
+by two mappers (`HistoryWithRelations` / `NovelHistoryWithRelations` → `EntryHistoryRowUi`), the
+first end-to-end proof of the mapper+slot pattern (verified on-device, debug and minified;
+`0628f5f43`).
+
+Next: the Updates screen (same collapse), then draft the `EntryDetailsUiState` seam for the
+details screen. Mapper work is best done right after an upstream sync, since it depends on current
+State shapes.
 
 ## Decisions & tradeoffs
 
