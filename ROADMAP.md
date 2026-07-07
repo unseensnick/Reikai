@@ -4,7 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-Nothing in progress. The MD enhanced source completed and shipped in 0.2.0 ([plan](docs/dev/plans/md-enhanced-source.md)).
+Nothing in progress. 0.2.1 shipped: the Hikka tracker, per-tracker usernames in settings, the "Tracker recommendations" toggle fix (`unseensnick/Reikai#37`), two Komikku ports (extension-installer fixes, AniList error parsing), and this cycle's Mihon syncs. Details in [docs/dev/shipped.md](docs/dev/shipped.md).
 
 ## Next
 
