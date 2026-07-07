@@ -188,16 +188,23 @@ class MangaScreen(
                 // stays available while viewing a single source chip)
                 onManageSourcesClicked = screenModel::showManageSourcesDialog
                     .takeIf { successState.mergeSources.size > 1 },
-                // RK: gallery metadata viewer, only for adult/metadata sources
+                // RK: gallery metadata viewer, only for adult/metadata sources. Follow the viewed source
+                //     (the selected chip on a merged entry), so the enhanced-MangaDex "More info" shows
+                //     even when the merge is anchored on a non-metadata source.
                 onMetadataViewerClicked = {
+                    val displayManga = successState.mergeDisplayManga ?: successState.manga
+                    val displaySource = successState.mergeDisplaySource ?: successState.source
                     navigator.push(
                         MetadataViewScreen(
-                            mangaId = successState.manga.id,
-                            sourceId = successState.source.id,
+                            mangaId = displayManga.id,
+                            sourceId = displaySource.id,
                             seedColor = successState.seedColor?.toArgb(),
                         ),
                     )
-                }.takeIf { successState.source.getMainSource<MetadataSource<*, *>>() != null },
+                }.takeIf {
+                    (successState.mergeDisplaySource ?: successState.source)
+                        .getMainSource<MetadataSource<*, *>>() != null
+                },
                 // RK: tap a page-preview thumbnail -> open the reader at that page
                 onOpenPagePreview = { page ->
                     openPagePreview(

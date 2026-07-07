@@ -24,6 +24,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The novel details header now shows a status icon, matching manga.** It sits next to the source and flips between Ongoing, Completed, and the rest.
 - **Novel and grouped covers in the Updates list now open the title's details.** Novel rows did nothing on cover-tap before and grouped rows just expanded; both now open details, while the rest of the row still opens the chapter or expands the group.
 
+### Fixes
+
+- **On a merged series, a source's extended info now shows when you view that source.** The rating and its "More info" link were hidden unless the merge happened to be anchored on that source.
+
 ### Other
 
 - The manga and novel History/Updates rows, the full-cover dialog, the details action row, the details info header, and the details screen shell (phone and tablet) now each render through one shared component instead of near-identical copies. Groundwork for the unified content UI and design refresh.
