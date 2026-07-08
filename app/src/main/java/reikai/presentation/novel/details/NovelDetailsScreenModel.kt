@@ -394,8 +394,10 @@ class NovelDetailsScreenModel(
         pageIndex: Int,
     ) {
         val hidden = hiddenChaptersPref.get()
-        val showHidden = showHiddenFlow.value
         val hasHiddenChapters = hidden.isNotEmpty() && chapters.any { hiddenKey(it) in hidden }
+        // Show-hidden only holds while this entry still has hidden chapters, so unhiding the last one
+        // collapses the mode instead of leaving a stale "Hide hidden chapters" toggle in the overflow.
+        val showHidden = showHiddenFlow.value && hasHiddenChapters
         // Drop hidden chapters from the list (and the resume target / reader order, which feed off it)
         // unless the user is temporarily showing them.
         val visible = if (showHidden || hidden.isEmpty()) chapters else chapters.filterNot { hiddenKey(it) in hidden }
