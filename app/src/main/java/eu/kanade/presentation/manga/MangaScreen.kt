@@ -49,6 +49,7 @@ import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.service.missingChaptersCount
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.withCustomInfo // RK
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -86,6 +87,7 @@ fun MangaScreen(
     onShareClicked: (() -> Unit)?,
     onDownloadActionClicked: ((DownloadAction) -> Unit)?,
     onEditCategoryClicked: (() -> Unit)?,
+    onEditInfoClicked: (() -> Unit)?, // RK
     onEditFetchIntervalClicked: (() -> Unit)?,
     onMigrateClicked: (() -> Unit)?,
     onEditNotesClicked: () -> Unit,
@@ -153,6 +155,7 @@ fun MangaScreen(
             onShareClicked = onShareClicked,
             onDownloadActionClicked = onDownloadActionClicked,
             onEditCategoryClicked = onEditCategoryClicked,
+            onEditInfoClicked = onEditInfoClicked, // RK
             onEditIntervalClicked = onEditFetchIntervalClicked,
             onMigrateClicked = onMigrateClicked,
             onEditNotesClicked = onEditNotesClicked,
@@ -200,6 +203,7 @@ fun MangaScreen(
             onShareClicked = onShareClicked,
             onDownloadActionClicked = onDownloadActionClicked,
             onEditCategoryClicked = onEditCategoryClicked,
+            onEditInfoClicked = onEditInfoClicked, // RK
             onEditIntervalClicked = onEditFetchIntervalClicked,
             onMigrateClicked = onMigrateClicked,
             onEditNotesClicked = onEditNotesClicked,
@@ -257,6 +261,7 @@ private fun MangaScreenSmallImpl(
     onShareClicked: (() -> Unit)?,
     onDownloadActionClicked: ((DownloadAction) -> Unit)?,
     onEditCategoryClicked: (() -> Unit)?,
+    onEditInfoClicked: (() -> Unit)?, // RK
     onEditIntervalClicked: (() -> Unit)?,
     onMigrateClicked: (() -> Unit)?,
     onEditNotesClicked: () -> Unit,
@@ -310,8 +315,10 @@ private fun MangaScreenSmallImpl(
     } else {
         (state.mergeDisplaySource ?: state.source).getNameForMangaInfo()
     }
+    // RK: overlay the manga's custom-info edits for DISPLAY only; actions keep reading raw state.manga.
+    val displayManga = state.manga.withCustomInfo(state.customInfo)
     val entryState = EntryDetailsUiState(
-        header = (state.mergeDisplayManga ?: state.manga).toEntryHeader(
+        header = (state.mergeDisplayManga ?: displayManga).toEntryHeader(
             sourceName = entrySourceName,
             isStubSource = (state.mergeDisplaySource ?: state.source) is StubSource,
         ),
@@ -320,8 +327,8 @@ private fun MangaScreenSmallImpl(
         showIntervalButton = true,
         nextUpdate = nextUpdate,
         isUserIntervalMode = state.manga.fetchInterval < 0,
-        description = state.manga.description,
-        tags = state.manga.genre,
+        description = displayManga.description,
+        tags = displayManga.genre,
         notes = state.manga.notes,
         // expand by default for EH/EXH galleries (tags are the content, no description)
         descriptionDefaultExpanded = state.isFromSource || state.isMetadataSource,
@@ -341,13 +348,14 @@ private fun MangaScreenSmallImpl(
         topBar = { titleAlpha, backgroundAlpha ->
             // RK: shared details toolbar for manga + novels (replaces the per-type MangaToolbar)
             EntryToolbar(
-                title = state.manga.title,
+                title = displayManga.title,
                 hasFilters = state.filterActive,
                 navigateUp = navigateUp,
                 onClickFilter = onFilterClicked,
                 onClickShare = onShareClicked,
                 onClickDownload = onDownloadActionClicked,
                 onClickEditCategory = onEditCategoryClicked,
+                onClickEditInfo = onEditInfoClicked, // RK
                 onClickRefresh = onRefresh,
                 onClickMigrate = onMigrateClicked,
                 onClickEditNotes = onEditNotesClicked,
@@ -513,6 +521,7 @@ fun MangaScreenLargeImpl(
     onShareClicked: (() -> Unit)?,
     onDownloadActionClicked: ((DownloadAction) -> Unit)?,
     onEditCategoryClicked: (() -> Unit)?,
+    onEditInfoClicked: (() -> Unit)?, // RK
     onEditIntervalClicked: (() -> Unit)?,
     onMigrateClicked: (() -> Unit)?,
     onEditNotesClicked: () -> Unit,
@@ -565,8 +574,10 @@ fun MangaScreenLargeImpl(
     } else {
         (state.mergeDisplaySource ?: state.source).getNameForMangaInfo()
     }
+    // RK: overlay the manga's custom-info edits for DISPLAY only; actions keep reading raw state.manga.
+    val displayManga = state.manga.withCustomInfo(state.customInfo)
     val entryState = EntryDetailsUiState(
-        header = (state.mergeDisplayManga ?: state.manga).toEntryHeader(
+        header = (state.mergeDisplayManga ?: displayManga).toEntryHeader(
             sourceName = entrySourceName,
             isStubSource = (state.mergeDisplaySource ?: state.source) is StubSource,
         ),
@@ -575,8 +586,8 @@ fun MangaScreenLargeImpl(
         showIntervalButton = true,
         nextUpdate = nextUpdate,
         isUserIntervalMode = state.manga.fetchInterval < 0,
-        description = state.manga.description,
-        tags = state.manga.genre,
+        description = displayManga.description,
+        tags = displayManga.genre,
         notes = state.manga.notes,
         descriptionDefaultExpanded = true,
     )
@@ -596,13 +607,14 @@ fun MangaScreenLargeImpl(
             // RK: shared details toolbar for manga + novels (replaces the per-type MangaToolbar)
             EntryToolbar(
                 modifier = modifier,
-                title = state.manga.title,
+                title = displayManga.title,
                 hasFilters = state.filterActive,
                 navigateUp = navigateUp,
                 onClickFilter = onFilterButtonClicked,
                 onClickShare = onShareClicked,
                 onClickDownload = onDownloadActionClicked,
                 onClickEditCategory = onEditCategoryClicked,
+                onClickEditInfo = onEditInfoClicked, // RK
                 onClickRefresh = onRefresh,
                 onClickMigrate = onMigrateClicked,
                 onClickEditNotes = onEditNotesClicked,

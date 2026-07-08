@@ -48,6 +48,7 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.PagePreviewSource
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
@@ -63,6 +64,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -74,6 +76,7 @@ import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.presentation.details.EntryEditInfoUi
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
@@ -106,12 +109,15 @@ import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.chapter.service.calculateChapterGap
 import tachiyomi.domain.chapter.service.getChapterSort
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
+import tachiyomi.domain.manga.interactor.SetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetDuplicateLibraryManga
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.GetFlatMetadataById
 import tachiyomi.domain.manga.interactor.GetMangaWithChapters
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.interactor.SetMangaChapterFlags
+import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.manga.model.applyFilter
@@ -181,6 +187,10 @@ class MangaScreenModel(
     private val uiPreferences: UiPreferences = Injekt.get(),
     private val getFlatMetadataById: GetFlatMetadataById = Injekt.get(),
     private val getPagePreviews: GetPagePreviews = Injekt.get(),
+    // RK: manga custom-info overlay. getCustomMangaInfo drives the non-destructive display overlay;
+    // setCustomMangaInfo persists edits from the shared edit-info dialog.
+    private val getCustomMangaInfo: GetCustomMangaInfo = Injekt.get(),
+    private val setCustomMangaInfo: SetCustomMangaInfo = Injekt.get(),
     // RK <--
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : StateScreenModel<MangaScreenModel.State>(State.Loading) {
@@ -340,6 +350,17 @@ class MangaScreenModel(
                 }
         }
 
+        // RK: mirror the manga's custom-info overlay into state; a save re-emits and the display layer
+        // re-applies it via Manga.withCustomInfo (the raw `manga` field stays source-accurate).
+        screenModelScope.launchIO {
+            getCustomMangaInfo.subscribe(mangaId)
+                .flowWithLifecycle(lifecycle)
+                .distinctUntilChanged()
+                .collectLatest { customInfo ->
+                    updateSuccessState { it.copy(customInfo = customInfo) }
+                }
+        }
+
         observeDownloads()
 
         // RK --> keep the source-switcher chip list + selection mirrored into state. The eager
@@ -436,6 +457,9 @@ class MangaScreenModel(
                         PagePreviewState.Unused
                     },
                     previewsRowCount = uiPreferences.previewsRowCount.get(),
+                    // RK: seed the custom-info overlay so it shows on first render (before the reactive
+                    // collector fires), same pattern as the scanlator seeds above.
+                    customInfo = getCustomMangaInfo.subscribe(mangaId).first(),
                 )
             }
 
@@ -1574,6 +1598,10 @@ class MangaScreenModel(
 
         // RK: confirm removing a favorited E-Hentai gallery, with an opt-in "also remove from account".
         data class EhRemoveFavorite(val manga: Manga) : Dialog
+
+        // RK: shared edit-info editor; carries the raw source manga (each field is saved only when it
+        // differs from these).
+        data class EditMangaInfo(val manga: Manga) : Dialog
     }
 
     // RK: a grouped source row shown in the Manage sources dialog.
@@ -1591,6 +1619,27 @@ class MangaScreenModel(
     }
 
     // RK -->
+
+    fun showEditMangaInfoDialog() {
+        val manga = successState?.manga ?: return
+        updateSuccessState { it.copy(dialog = Dialog.EditMangaInfo(manga)) }
+    }
+
+    /** Persist edits as a non-destructive per-field override against the raw source [manga]. */
+    fun saveMangaInfo(manga: Manga, edited: EntryEditInfoUi) {
+        screenModelScope.launchNonCancellable {
+            setCustomMangaInfo.set(edited.toCustomMangaInfo(manga))
+        }
+        dismissDialog()
+    }
+
+    /** Clear every override, so all fields track the source again. */
+    fun resetMangaInfo(manga: Manga) {
+        screenModelScope.launchNonCancellable {
+            setCustomMangaInfo.set(CustomMangaInfo(mangaId = manga.id))
+        }
+        dismissDialog()
+    }
 
     /** Switch the chapter list to a single grouped source, or null for the unified merged view. */
     fun selectSource(sourceMangaId: Long?) {
@@ -1805,6 +1854,10 @@ class MangaScreenModel(
             val showHidden: Boolean = false,
             val hasHiddenChapters: Boolean = false,
             val hiddenChapterIds: Set<Long> = emptySet(),
+            // RK: the manga's custom-info overlay (null = none), applied at the display layer via
+            // Manga.withCustomInfo. Never folded into the raw `manga` field above, which stays
+            // source-accurate for tracker search, refresh, duplicate detection, downloads, etc.
+            val customInfo: CustomMangaInfo? = null,
             // RK: cover-derived theming color (Y11), null when off or not yet extracted.
             val seedColor: Color? = null,
             // RK: page-preview thumbnails (adult sources) + how many rows to show (0 = off).
@@ -1909,3 +1962,18 @@ sealed interface PagePreviewState {
     data class Success(val pagePreviews: List<PagePreview>) : PagePreviewState
     data class Error(val error: Throwable) : PagePreviewState
 }
+
+/**
+ * RK: per-field override, store a value only when it differs from the current source value; a blank field
+ * (or "Unknown" status) stores nothing, so that field tracks the source again.
+ */
+private fun EntryEditInfoUi.toCustomMangaInfo(source: Manga) = CustomMangaInfo(
+    mangaId = source.id,
+    title = title.trim().takeIf { it.isNotEmpty() && it != source.title },
+    author = author.trim().takeIf { it.isNotEmpty() && it != source.author.orEmpty() },
+    artist = artist.trim().takeIf { it.isNotEmpty() && it != source.artist.orEmpty() },
+    description = description.takeIf { it.isNotBlank() && it != source.description.orEmpty() },
+    genre = genre.takeIf { it.isNotEmpty() && it != source.genre.orEmpty() },
+    status = status.takeIf { it != source.status && it != SManga.UNKNOWN.toLong() },
+    thumbnailUrl = thumbnailUrl.trim().takeIf { it.isNotEmpty() && it != source.thumbnailUrl.orEmpty() },
+)

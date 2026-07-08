@@ -112,27 +112,42 @@ resume + download on both types). A 2026-07-07 parity audit ruled the manga/nove
 gate); several fixes rode along (novel toggle lingering, novel hidden-chapter download/resume leak,
 settings-search crash, cross-tracker merge, merged-view dedup).
 
-Remaining: **P6, the shared edit-info editor + the manga custom-info override.** Design LOCKED and
-deep-researched (2026-07-08):
-- **Manga override = a `custom_manga_info` DB table** (NOT Komikku's `edits.json`), a NON-destructive
-  overlay applied read-time in `MangaMapper` (favorites only), package `tachiyomi.*.manga`, `// RK`. Chosen
-  over Komikku's `og*`-in-the-model approach (which renames core `Manga` fields, huge blast radius) and over
-  the novel-style in-row + `editedFlags` approach (needs a `mangas` migration, destructive). = approach B2.
-- **B2 needs a small `// RK` refresh guard** in `UpdateMangaFromRemote.awaitUpdateFromSource`: a
-  `fetchDetails=false` library update echoes the input SManga (carrying the overlay) back into the row, so
-  skip the detail write-back when the source did not fetch fresh details. Without it the overlay leaks into
-  the row and Reset-to-source degrades. (The research surprise.)
-- **After a save, bump the `mangas` row** (`updateManga.awaitUpdateCoverLastModified`) so the details
-  SQLDelight flow re-emits and the mapper re-runs; editing a separate table does not re-emit on its own.
+Remaining: **P6, the shared edit-info editor + the manga custom-info override.** Design LOCKED (Option B),
+deep-researched twice (2026-07-08). **Status: data layer (Stage 1) + manga save/display wiring (Stages 2-3)
+built and functional; the editor FORM is being rebuilt as a native XML `EditText`/`ScrollView` (`AndroidView`,
+Komikku's `EditMangaDialog`) - the one sanctioned exception to the Compose-native rule - because a pure-Compose
+form could not solve the soft-keyboard bugs on Android 15+ edge-to-edge (keyboard blink on every field switch +
+an inset gap / field hidden behind the keyboard). Full continuation state in `Handoff.md`.**
+- **Manga override = a non-destructive `custom_manga_info` DB table** (NOT Komikku's `edits.json`), applied
+  as a display-layer overlay in the ScreenModel via a reactive Flow combine (NOT in `MangaMapper`, NOT a
+  synchronous store), favorites only, package `tachiyomi.*.manga`. The `mangas` row is never written. Chosen
+  over Komikku's `og*`-in-the-model approach (renames core `Manga` fields, huge blast radius) and the
+  novel-style in-row + `editedFlags` approach (needs a `mangas` migration, destructive, patches Mihon's core
+  refresh path).
+- **The mapper overlay was abandoned because the SQLDelight driver is async-only** (`generateAsync`), so a
+  synchronous `mapManga` overlay + "load once" cache is unbuildable cleanly (the mapper can't suspend, and
+  the closest in-repo cache uses a suspend get behind a load gate). The Flow combine mirrors how the novel
+  details ScreenModel reads: anchor a `combine` on the entry flow, rebuild state on re-emit. A pure
+  `Manga.withCustomInfo` helper produces a display-only manga.
+- **The overlay goes on a display-only field, never on the raw `State.Success.manga`.** Raw `manga` feeds
+  tracker search (by title), refresh, duplicate detection, download folder names, related recs, and
+  enhanced-tracker bind, which all need the source title/URL. This reuses the existing `mergeDisplayManga`
+  display path (the header already renders `mergeDisplayManga ?: manga` while actions use the raw manga).
+- Because the combine observes the custom-info flow directly, a save re-emits on its own: **no refresh guard
+  and no `coverLastModified` row-bump are needed** (both were mapper-overlay artifacts). A cover-URL override
+  re-renders on its own (the URL is in Coil's cache key), except while a local custom-cover file is set (that
+  file wins). Reset is clean: delete the override row and the current source value shows again, even offline.
+- **Overlay reach = details + library + updates + history** (manga only; novels store in-row so those
+  surfaces already show edits). The library overlay is applied after auto-merge collapse so same-title
+  grouping keeps the raw title.
 - Shared Compose `EntryEditInfoDialog` (cover preview, status dropdown, Title/Author/Artist/Thumbnail-URL/
   Description, tags as removable chips + Add tags, Reset Tags + Reset Info) reusing the novel
   `EditField`/`StatusDropdown`; neutral `EntryEditInfoUi` + per-type save callback. Cover-URL override for
   BOTH types (novels add a `NovelEditFlags.THUMBNAIL` bit); novel tags move to chips.
 - **Fill-from-tracker IS IN SCOPE** (Stage 5; needs its own tracker-layer scout, stock Mihon likely lacks a
-  metadata API). Backup: Option A (the override table gets its own backup section; the manga row already
-  carries effective values). Novel data layer stays as-is; a novel -> overlay-table migration is a parked
-  post-P6 follow-up (lossy for existing novel edits; ROADMAP). Full grounding + `file:line` insertion points
-  in `Handoff.md`. The larger standalone parity items are ROADMAP entries.
+  metadata API). Backup: Option A (the override table gets its own backup section, re-keyed by url+source on
+  restore). Novel data layer stays as-is; a novel -> overlay-table migration is a parked post-P6 follow-up
+  (lossy for existing novel edits; ROADMAP). Full grounding + `file:line` insertion points in `Handoff.md`.
 
 ## Decisions & tradeoffs
 

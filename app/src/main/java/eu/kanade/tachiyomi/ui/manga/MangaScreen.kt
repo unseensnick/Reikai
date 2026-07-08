@@ -62,6 +62,8 @@ import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import reikai.presentation.components.EntryCoverDialog
+import reikai.presentation.details.EntryEditInfoDialog
+import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.manga.MangaMigrationSourcePickScreen
 import mihon.feature.migration.dialog.MigrateMangaDialog
 import reikai.presentation.manga.EhRemoveFavoriteDialog
@@ -71,6 +73,8 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.MangaCover
+import tachiyomi.domain.manga.model.withCustomInfo // RK
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 class MangaScreen(
@@ -176,6 +180,9 @@ class MangaScreen(
                 onShareClicked = { shareManga(context, screenModel.manga, screenModel.source) }.takeIf { isHttpSource },
                 onDownloadActionClicked = screenModel::runDownloadAction.takeIf { !successState.source.isLocalOrStub() },
                 onEditCategoryClicked = screenModel::showChangeCategoryDialog.takeIf { successState.manga.favorite },
+                // RK: custom-info edits are favorites-only; a modal dialog over the details page (the
+                // native-form editor handles the keyboard).
+                onEditInfoClicked = screenModel::showEditMangaInfoDialog.takeIf { successState.manga.favorite },
                 onEditFetchIntervalClicked = screenModel::showSetFetchIntervalDialog.takeIf {
                     successState.manga.favorite
                 },
@@ -374,6 +381,26 @@ class MangaScreen(
                     onConfirm = screenModel::confirmEhRemoveFromLibrary,
                 )
             }
+            is MangaScreenModel.Dialog.EditMangaInfo -> {
+                EntryEditInfoDialog(
+                    // Seed with the effective (overlaid) values; save diffs each field against the raw
+                    // source manga (dialog.manga), so an unchanged field stores no override.
+                    initial = dialog.manga.withCustomInfo(successState.customInfo).toEntryEditInfoUi(),
+                    sourceGenre = dialog.manga.genre.orEmpty(),
+                    coverModel = { url ->
+                        MangaCover(
+                            mangaId = dialog.manga.id,
+                            sourceId = dialog.manga.source,
+                            isMangaFavorite = dialog.manga.favorite,
+                            url = url.ifBlank { null },
+                            lastModified = dialog.manga.coverLastModified,
+                        )
+                    },
+                    onDismissRequest = onDismissRequest,
+                    onSave = { screenModel.saveMangaInfo(dialog.manga, it) },
+                    onResetInfo = { screenModel.resetMangaInfo(dialog.manga) },
+                )
+            }
             // RK <--
         }
 
@@ -491,3 +518,14 @@ class MangaScreen(
         context.copyToClipboard(url, url)
     }
 }
+
+// RK: seed the shared edit-info dialog from a manga's effective (overlaid) values.
+private fun Manga.toEntryEditInfoUi() = EntryEditInfoUi(
+    title = title,
+    author = author.orEmpty(),
+    artist = artist.orEmpty(),
+    description = description.orEmpty(),
+    genre = genre.orEmpty(),
+    status = status,
+    thumbnailUrl = thumbnailUrl.orEmpty(),
+)
