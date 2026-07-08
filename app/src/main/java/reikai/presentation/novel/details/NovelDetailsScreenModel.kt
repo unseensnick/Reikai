@@ -740,19 +740,7 @@ class NovelDetailsScreenModel(
     // --- Edit info ---
 
     fun showEditNovelInfoDialog() {
-        val n = (state.value as? NovelDetailsState.Loaded)?.displayNovel ?: return
-        updateLoaded {
-            it.copy(
-                dialog = NovelDetailsDialog.EditInfo(
-                    title = n.title,
-                    author = n.author.orEmpty(),
-                    artist = n.artist.orEmpty(),
-                    description = n.description.orEmpty(),
-                    genre = n.genre?.joinToString(", ").orEmpty(),
-                    status = n.status,
-                ),
-            )
-        }
+        updateLoaded { it.copy(dialog = NovelDetailsDialog.EditInfo) }
     }
 
     /** Apply Edit-info. A field differing from the stored value sets its lock bit (so it survives a
@@ -762,8 +750,9 @@ class NovelDetailsScreenModel(
         author: String,
         artist: String,
         description: String,
-        genre: String,
+        genre: List<String>,
         status: Long,
+        thumbnailUrl: String,
     ) {
         screenModelScope.launchIO {
             val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
@@ -771,21 +760,27 @@ class NovelDetailsScreenModel(
             flags = setEditedFlag(flags, NovelEditFlags.AUTHOR, author != n.author.orEmpty())
             flags = setEditedFlag(flags, NovelEditFlags.ARTIST, artist != n.artist.orEmpty())
             flags = setEditedFlag(flags, NovelEditFlags.DESCRIPTION, description != n.description.orEmpty())
-            flags = setEditedFlag(flags, NovelEditFlags.GENRES, genre != n.genre?.joinToString(", ").orEmpty())
+            flags = setEditedFlag(flags, NovelEditFlags.GENRES, genre != n.genre.orEmpty())
             flags =
                 setEditedFlag(
                     flags,
                     NovelEditFlags.STATUS,
                     status != NovelStatusCode.UNKNOWN.toLong() && status != n.status,
                 )
+            flags = setEditedFlag(
+                flags,
+                NovelEditFlags.THUMBNAIL,
+                thumbnailUrl.isNotBlank() && thumbnailUrl != n.thumbnailUrl.orEmpty(),
+            )
             novelRepo.update(
                 n.copy(
                     title = title.ifBlank { n.title },
                     author = author.ifBlank { null },
                     artist = artist.ifBlank { null },
                     description = description.ifBlank { null },
-                    genre = genre.split(",").map { it.trim() }.filter { it.isNotEmpty() }.ifEmpty { null },
+                    genre = genre.filter { it.isNotBlank() }.ifEmpty { null },
                     status = if (status != NovelStatusCode.UNKNOWN.toLong()) status else n.status,
+                    thumbnailUrl = thumbnailUrl.ifBlank { n.thumbnailUrl },
                     editedFlags = flags,
                 ),
             )
@@ -1140,14 +1135,7 @@ sealed interface NovelDetailsDialog {
         val currentCategoryIds: Set<Long>,
     ) : NovelDetailsDialog
 
-    data class EditInfo(
-        val title: String,
-        val author: String,
-        val artist: String,
-        val description: String,
-        val genre: String,
-        val status: Long,
-    ) : NovelDetailsDialog
+    data object EditInfo : NovelDetailsDialog
 
     data object ChapterSettings : NovelDetailsDialog
     data object PageSelector : NovelDetailsDialog

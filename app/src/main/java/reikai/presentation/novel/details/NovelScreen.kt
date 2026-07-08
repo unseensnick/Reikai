@@ -49,9 +49,12 @@ import eu.kanade.tachiyomi.util.system.copyToClipboard
 import reikai.data.coil.NovelCover
 import reikai.domain.novel.model.NovelChapter
 import reikai.presentation.components.EntryCoverDialog
+import reikai.domain.novel.model.Novel
 import reikai.presentation.details.EntryDetailsScaffold
 import reikai.presentation.details.EntryDetailsTwoPaneScaffold
 import reikai.presentation.details.EntryDetailsUiState
+import reikai.presentation.details.EntryEditInfoDialog
+import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.EntryToolbar
 import reikai.presentation.details.entryInfoItems
 import reikai.presentation.details.toEntryHeader
@@ -415,11 +418,31 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: No
             onDismiss = screenModel::dismissDialog,
             onConfirm = screenModel::applyCategories,
         )
-        is NovelDetailsDialog.EditInfo -> EditNovelInfoDialog(
-            dialog = dialog,
-            onDismiss = screenModel::dismissDialog,
-            onReset = screenModel::resetNovelInfo,
-            onConfirm = screenModel::updateNovelInfo,
+        NovelDetailsDialog.EditInfo -> EntryEditInfoDialog(
+            initial = state.displayNovel.toEntryEditInfoUi(),
+            sourceGenre = state.displayNovel.genre.orEmpty(),
+            coverModel = { url ->
+                NovelCover(
+                    url = url.ifBlank { null },
+                    site = state.sourceUrl,
+                    isNovelFavorite = state.novel.favorite,
+                    lastModified = state.novel.coverLastModified,
+                    novelId = state.novel.id,
+                )
+            },
+            onDismissRequest = screenModel::dismissDialog,
+            onSave = {
+                screenModel.updateNovelInfo(
+                    title = it.title,
+                    author = it.author,
+                    artist = it.artist,
+                    description = it.description,
+                    genre = it.genre,
+                    status = it.status,
+                    thumbnailUrl = it.thumbnailUrl,
+                )
+            },
+            onResetInfo = screenModel::resetNovelInfo,
         )
         NovelDetailsDialog.ChapterSettings -> NovelChapterSettingsDialog(
             sorting = state.sorting,
@@ -635,3 +658,14 @@ private fun chapterTitle(chapter: NovelChapter, hideTitles: Boolean): String =
 
 private fun formatChapterNumber(number: Double): String =
     if (number % 1.0 == 0.0) number.toInt().toString() else number.toString()
+
+/** Seed the shared edit-info dialog from a novel's effective (edited) values. */
+private fun Novel.toEntryEditInfoUi() = EntryEditInfoUi(
+    title = title,
+    author = author.orEmpty(),
+    artist = artist.orEmpty(),
+    description = description.orEmpty(),
+    genre = genre.orEmpty(),
+    status = status,
+    thumbnailUrl = thumbnailUrl.orEmpty(),
+)

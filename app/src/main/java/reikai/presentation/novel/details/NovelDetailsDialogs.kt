@@ -2,7 +2,6 @@ package reikai.presentation.novel.details
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,29 +10,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
-import reikai.data.novel.NovelStatusCode
 import reikai.domain.novel.model.NovelChapterFlags
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.i18n.MR
@@ -74,84 +63,6 @@ fun NovelCategoryDialog(
         confirmButton = { TextButton(onClick = { onConfirm(selected.toList()) }) { Text(stringResource(MR.strings.action_ok)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.action_cancel)) } },
     )
-}
-
-/** Edit-info form: title / author / artist / description / genres + status. */
-@Composable
-fun EditNovelInfoDialog(
-    dialog: NovelDetailsDialog.EditInfo,
-    onDismiss: () -> Unit,
-    onReset: () -> Unit,
-    onConfirm: (title: String, author: String, artist: String, description: String, genre: String, status: Long) -> Unit,
-) {
-    var title by remember { mutableStateOf(dialog.title) }
-    var author by remember { mutableStateOf(dialog.author) }
-    var artist by remember { mutableStateOf(dialog.artist) }
-    var description by remember { mutableStateOf(dialog.description) }
-    var genre by remember { mutableStateOf(dialog.genre) }
-    var status by remember { mutableStateOf(dialog.status) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = stringResource(MR.strings.action_edit)) },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                EditField(title, { title = it }, "Title")
-                EditField(author, { author = it }, "Author")
-                EditField(artist, { artist = it }, "Artist")
-                EditField(description, { description = it }, "Description", singleLine = false)
-                EditField(genre, { genre = it }, "Genres (comma separated)")
-                StatusDropdown(status = status, onSelect = { status = it })
-                TextButton(onClick = onReset) { Text(stringResource(MR.strings.action_reset)) }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(title, author, artist, description, genre, status) }) {
-                Text(stringResource(MR.strings.action_save))
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.action_cancel)) } },
-    )
-}
-
-@Composable
-private fun EditField(value: String, onValueChange: (String) -> Unit, label: String, singleLine: Boolean = true) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        singleLine = singleLine,
-        modifier = Modifier.fillMaxWidth(),
-    )
-}
-
-@Composable
-private fun StatusDropdown(status: Long, onSelect: (Long) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    val options = listOf(
-        NovelStatusCode.UNKNOWN to stringResource(MR.strings.unknown_status),
-        NovelStatusCode.ONGOING to stringResource(MR.strings.ongoing),
-        NovelStatusCode.COMPLETED to stringResource(MR.strings.completed),
-        NovelStatusCode.LICENSED to stringResource(MR.strings.licensed),
-        NovelStatusCode.PUBLISHING_FINISHED to stringResource(MR.strings.publishing_finished),
-        NovelStatusCode.CANCELLED to stringResource(MR.strings.cancelled),
-        NovelStatusCode.ON_HIATUS to stringResource(MR.strings.on_hiatus),
-    )
-    val selectedLabel = options.firstOrNull { it.first.toLong() == status }?.second ?: stringResource(MR.strings.unknown_status)
-    Box {
-        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
-            Text(text = selectedLabel, modifier = Modifier.weight(1f))
-            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { (code, label) ->
-                DropdownMenuItem(text = { Text(label) }, onClick = { onSelect(code.toLong()); expanded = false })
-            }
-        }
-    }
 }
 
 /** Chapter sort / filter / display, mirroring the manga `ChapterSettingsDialog` tabbed layout. */
