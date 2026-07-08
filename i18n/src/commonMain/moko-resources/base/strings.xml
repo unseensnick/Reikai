@@ -153,6 +153,11 @@
     <string name="action_move_to_bottom_all_for_series">Move series to bottom</string>
     <string name="action_notes">Notes</string>
     <string name="action_edit_notes">Edit notes</string>
+    <!-- RK: hide/unhide chapters (details toolbar, shared by manga + novel) -->
+    <string name="action_hide">Hide</string>
+    <string name="action_unhide">Unhide</string>
+    <string name="action_show_hidden_chapters">Show hidden chapters</string>
+    <string name="action_hide_hidden_chapters">Hide hidden chapters</string>
     <!-- RK: pref-based merge (manage grouped sources) -->
     <string name="action_manage_sources">Manage sources</string>
     <string name="action_metadata_viewer">Gallery info</string>

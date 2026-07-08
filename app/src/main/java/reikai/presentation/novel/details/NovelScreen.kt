@@ -52,6 +52,7 @@ import reikai.presentation.components.EntryCoverDialog
 import reikai.presentation.details.EntryDetailsScaffold
 import reikai.presentation.details.EntryDetailsTwoPaneScaffold
 import reikai.presentation.details.EntryDetailsUiState
+import reikai.presentation.details.EntryToolbar
 import reikai.presentation.details.entryInfoItems
 import reikai.presentation.details.toEntryHeader
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
@@ -341,7 +342,7 @@ private fun NovelDetailsToolbar(
     backgroundAlphaProvider: () -> Float,
     modifier: Modifier = Modifier,
 ) {
-    NovelToolbar(
+    EntryToolbar(
         modifier = modifier,
         title = state.novel.title,
         hasFilters = state.readFilter != 0L || state.bookmarkedFilter != 0L || state.downloadedFilter != 0L,

@@ -1,4 +1,4 @@
-package reikai.presentation.novel.details
+package reikai.presentation.details
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Download
@@ -28,37 +28,47 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.theme.active
 
 /**
- * Novel details toolbar, the novel twin of `MangaToolbar`: a Filter action (tinted when a filter is
- * active) opening the chapter-settings dialog, an overflow with Refresh / Edit categories / Edit info /
- * Manage sources (merged only) / Share / Show hidden chapters (when any are hidden), and the action-mode
- * select-all / invert / Hide-or-Unhide. Title + background fade with scroll via the alpha providers,
- * matching the manga side.
+ * Shared details toolbar for manga and novels: a Filter action (tinted when a filter is active), the
+ * Download menu, one overflow, and the action-mode select-all / invert / hide-or-unhide. Each per-type
+ * capability is a nullable slot, so a content type lights up only what it supports and the two toolbars
+ * cannot drift. Title + background fade with scroll via the alpha providers, which the details shell feeds.
+ *
+ * Type-specific slots: [onClickMetadataViewer] (manga gallery sources only), [onClickEditInfo] and the
+ * hide/unhide cluster ([onHide] / [onUnhide] / [onToggleShowHidden]) are the novel additions; a null
+ * callback hides its item, so manga can leave them off until it wires them in a later phase.
  */
 @Composable
-fun NovelToolbar(
+fun EntryToolbar(
     title: String,
     hasFilters: Boolean,
     navigateUp: () -> Unit,
     onClickFilter: () -> Unit,
     onClickRefresh: () -> Unit,
-    onClickEditCategory: () -> Unit,
-    onClickEditInfo: () -> Unit,
+    onClickEditCategory: (() -> Unit)?,
     onClickEditNotes: () -> Unit,
     onClickShare: (() -> Unit)?,
     onClickManageSources: (() -> Unit)?,
-    // null unless the novel is favorited (migration only re-homes a library novel).
     onClickMigrate: (() -> Unit)?,
     onClickDownload: ((DownloadAction) -> Unit)?,
+    // Edit metadata. Non-null for novels; manga wires it once the shared editor lands.
+    onClickEditInfo: (() -> Unit)? = null,
+    // Gallery metadata viewer, non-null only for adult/metadata manga sources.
+    onClickMetadataViewer: (() -> Unit)? = null,
+
+    // For action mode
     actionModeCounter: Int,
     onCancelActionMode: () -> Unit,
     onSelectAll: () -> Unit,
     onInvertSelection: () -> Unit,
-    showHidden: Boolean,
-    hasHiddenChapters: Boolean,
-    allHiddenSelected: Boolean,
-    onHide: () -> Unit,
-    onUnhide: () -> Unit,
-    onToggleShowHidden: () -> Unit,
+
+    // Hide/unhide chapters. Non-null for novels; manga wires them once it gains the mechanism.
+    showHidden: Boolean = false,
+    hasHiddenChapters: Boolean = false,
+    allHiddenSelected: Boolean = false,
+    onHide: (() -> Unit)? = null,
+    onUnhide: (() -> Unit)? = null,
+    onToggleShowHidden: (() -> Unit)? = null,
+
     titleAlphaProvider: () -> Float,
     backgroundAlphaProvider: () -> Float,
     modifier: Modifier = Modifier,
@@ -78,8 +88,7 @@ fun NovelToolbar(
             .copy(alpha = if (isActionMode) 1f else backgroundAlphaProvider()),
         navigateUp = navigateUp,
         actions = {
-            // Declared inside the actions RowScope (like MangaToolbar) so the menu anchors under the
-            // download icon, not at the toolbar's top-left.
+            // Declared inside the actions RowScope so the menu anchors under the download icon.
             var downloadExpanded by remember { mutableStateOf(false) }
             if (onClickDownload != null) {
                 DownloadDropdownMenu(
@@ -107,12 +116,14 @@ fun NovelToolbar(
                             ),
                         )
                         // Unhide only when every selected row is already hidden (reachable via the
-                        // "Show hidden chapters" view); otherwise the action hides them. Uses the same
-                        // eye / eye-off icons as the category list (CategoryListItem).
-                        if (allHiddenSelected) {
-                            add(AppBar.Action(title = "Unhide", icon = Icons.Outlined.Visibility, onClick = onUnhide))
-                        } else {
-                            add(AppBar.Action(title = "Hide", icon = Icons.Outlined.VisibilityOff, onClick = onHide))
+                        // "Show hidden chapters" view); otherwise the action hides them. Same eye / eye-off
+                        // icons as the category list (CategoryListItem).
+                        if (onHide != null && onUnhide != null) {
+                            if (allHiddenSelected) {
+                                add(AppBar.Action(title = stringResource(MR.strings.action_unhide), icon = Icons.Outlined.Visibility, onClick = onUnhide))
+                            } else {
+                                add(AppBar.Action(title = stringResource(MR.strings.action_hide), icon = Icons.Outlined.VisibilityOff, onClick = onHide))
+                            }
                         }
                         return@buildList
                     }
@@ -133,23 +144,37 @@ fun NovelToolbar(
                             onClick = onClickFilter,
                         ),
                     )
+                    // Overflow order (both types): Refresh, Edit categories, Edit info, Migrate, Manage
+                    // sources, Notes, Share, Gallery info, Show/Hide hidden. Each is gated on its callback,
+                    // so a content type shows only the items it supports.
                     add(AppBar.OverflowAction(title = stringResource(MR.strings.action_webview_refresh), onClick = onClickRefresh))
-                    add(AppBar.OverflowAction(title = stringResource(MR.strings.action_edit_categories), onClick = onClickEditCategory))
-                    add(AppBar.OverflowAction(title = stringResource(MR.strings.action_edit), onClick = onClickEditInfo))
-                    add(AppBar.OverflowAction(title = stringResource(MR.strings.action_notes), onClick = onClickEditNotes))
+                    if (onClickEditCategory != null) {
+                        add(AppBar.OverflowAction(title = stringResource(MR.strings.action_edit_categories), onClick = onClickEditCategory))
+                    }
+                    if (onClickEditInfo != null) {
+                        add(AppBar.OverflowAction(title = stringResource(MR.strings.action_edit), onClick = onClickEditInfo))
+                    }
+                    if (onClickMigrate != null) {
+                        add(AppBar.OverflowAction(title = stringResource(MR.strings.action_migrate), onClick = onClickMigrate))
+                    }
                     if (onClickManageSources != null) {
                         add(AppBar.OverflowAction(title = stringResource(MR.strings.action_manage_sources), onClick = onClickManageSources))
                     }
-                    if (onClickMigrate != null) {
-                        add(AppBar.OverflowAction(title = stringResource(MR.strings.migrate), onClick = onClickMigrate))
-                    }
+                    add(AppBar.OverflowAction(title = stringResource(MR.strings.action_notes), onClick = onClickEditNotes))
                     if (onClickShare != null) {
                         add(AppBar.OverflowAction(title = stringResource(MR.strings.action_share), onClick = onClickShare))
                     }
-                    if (hasHiddenChapters || showHidden) {
+                    if (onClickMetadataViewer != null) {
+                        add(AppBar.OverflowAction(title = stringResource(MR.strings.action_metadata_viewer), onClick = onClickMetadataViewer))
+                    }
+                    if (onToggleShowHidden != null && (hasHiddenChapters || showHidden)) {
                         add(
                             AppBar.OverflowAction(
-                                title = if (showHidden) "Hide hidden chapters" else "Show hidden chapters",
+                                title = if (showHidden) {
+                                    stringResource(MR.strings.action_hide_hidden_chapters)
+                                } else {
+                                    stringResource(MR.strings.action_show_hidden_chapters)
+                                },
                                 onClick = onToggleShowHidden,
                             ),
                         )

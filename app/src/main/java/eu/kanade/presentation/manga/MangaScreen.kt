@@ -30,11 +30,11 @@ import reikai.presentation.details.EntryDetailsScaffold // RK
 import reikai.presentation.details.EntryDetailsTwoPaneScaffold // RK
 import reikai.presentation.details.EntryDetailsUiState // RK
 import reikai.presentation.details.EntryInfoBox // RK
+import reikai.presentation.details.EntryToolbar // RK
 import reikai.presentation.details.entryInfoItems // RK
 import reikai.presentation.details.toEntryHeader // RK
 import reikai.presentation.manga.MergeSourceChips // RK
 import reikai.presentation.recommendation.RelatedMangaCarousel // RK
-import eu.kanade.presentation.manga.components.MangaToolbar
 import eu.kanade.presentation.manga.components.MissingChapterCountListItem
 import eu.kanade.presentation.manga.components.SearchMetadataChips // RK
 import eu.kanade.presentation.util.formatChapterNumber
@@ -324,7 +324,8 @@ private fun MangaScreenSmallImpl(
         fabIsResume = state.chapters.fastAny { it.chapter.read },
         onFabClick = onContinueReading,
         topBar = { titleAlpha, backgroundAlpha ->
-            MangaToolbar(
+            // RK: shared details toolbar for manga + novels (replaces the per-type MangaToolbar)
+            EntryToolbar(
                 title = state.manga.title,
                 hasFilters = state.filterActive,
                 navigateUp = navigateUp,
@@ -565,7 +566,8 @@ fun MangaScreenLargeImpl(
         fabIsResume = state.chapters.fastAny { it.chapter.read },
         onFabClick = onContinueReading,
         topBar = { modifier ->
-            MangaToolbar(
+            // RK: shared details toolbar for manga + novels (replaces the per-type MangaToolbar)
+            EntryToolbar(
                 modifier = modifier,
                 title = state.manga.title,
                 hasFilters = state.filterActive,
