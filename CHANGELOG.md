@@ -14,6 +14,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Additions
 
+- **You can now hide individual chapters on a manga, just like novels.** Select chapters and hide them from the list; a "Show hidden chapters" toggle reveals them dimmed so you can unhide, and hidden chapters stay out of the resume button and download-all.
 - **The novel chapter list now has a fast-scroll thumb, like manga.** Drag it down the right edge to jump through a long list of chapters.
 - **On a novel's details screen, long-press the In-library button to edit its categories.** It opens the same category picker manga details already had on long-press.
 - **Long-press a manga's source name on its details screen to copy it.** Its title and author already copied on long-press; now the source does too.

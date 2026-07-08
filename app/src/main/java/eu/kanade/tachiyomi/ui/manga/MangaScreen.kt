@@ -205,6 +205,10 @@ class MangaScreen(
                     (successState.mergeDisplaySource ?: successState.source)
                         .getMainSource<MetadataSource<*, *>>() != null
                 },
+                // RK: hide/unhide the selected chapters + toggle showing hidden ones
+                onHideSelected = screenModel::hideSelected,
+                onUnhideSelected = screenModel::unhideSelected,
+                onToggleShowHidden = screenModel::toggleShowHidden,
                 // RK: tap a page-preview thumbnail -> open the reader at that page
                 onOpenPagePreview = { page ->
                     openPagePreview(

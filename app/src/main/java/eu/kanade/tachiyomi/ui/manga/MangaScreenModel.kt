@@ -74,8 +74,9 @@ import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.manga.MangaPreferences
+import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
 import reikai.domain.recommendation.RecommendationHideFilter
@@ -167,6 +168,7 @@ class MangaScreenModel(
     // RK -->
     private val mergeManager: MangaMergeManager = Injekt.get(),
     private val mergedChapterProvider: MergedChapterProvider = Injekt.get(),
+    private val mangaPreferences: MangaPreferences = Injekt.get(),
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
     private val relatedMangasLoader: RelatedMangasLoader = Injekt.get(),
     private val recommendationPreferences: ReikaiRecommendationPreferences = Injekt.get(),
@@ -219,6 +221,11 @@ class MangaScreenModel(
 
     // The grouped source the user is viewing via the chips, or null for the unified merged list.
     private val selectedSourceMangaId = MutableStateFlow<Long?>(null)
+
+    // Hide/unhide chapters (twin of the novel mechanism). The pref is the persisted/backed-up set of
+    // hidden chapter keys; showHiddenFlow is the transient "temporarily reveal hidden chapters" toggle.
+    private val hiddenChaptersPref = mangaPreferences.hiddenChapters()
+    private val showHiddenFlow = MutableStateFlow(false)
     // RK <--
 
     /**
@@ -268,14 +275,19 @@ class MangaScreenModel(
             // RK --> when the manga is part of a merge group, the chapter list is the aggregated
             // union of every grouped source; otherwise it stays the single-source list.
             combine(
-                getMangaAndChapters.subscribe(mangaId, applyScanlatorFilter = true).distinctUntilChanged(),
-                relatedMangaIds,
-                selectedSourceMangaId,
-                downloadCache.changes,
-                downloadManager.queueState,
-            ) { mangaAndChapters, relatedIds, selectedSource, _, _ ->
-                ChapterInputs(mangaAndChapters.first, mangaAndChapters.second, relatedIds, selectedSource)
-            }
+                combine(
+                    getMangaAndChapters.subscribe(mangaId, applyScanlatorFilter = true).distinctUntilChanged(),
+                    relatedMangaIds,
+                    selectedSourceMangaId,
+                    downloadCache.changes,
+                    downloadManager.queueState,
+                ) { mangaAndChapters, relatedIds, selectedSource, _, _ ->
+                    ChapterInputs(mangaAndChapters.first, mangaAndChapters.second, relatedIds, selectedSource)
+                },
+                // Re-emit so a hide/unhide or the show-hidden toggle rebuilds the chapter list.
+                hiddenChaptersPref.changes(),
+                showHiddenFlow,
+            ) { inputs, _, _ -> inputs }
                 .flatMapLatest { (manga, ownChapters, relatedIds, selectedSource) ->
                     when {
                         selectedSource != null && relatedIds.size > 1 ->
@@ -288,10 +300,15 @@ class MangaScreenModel(
                 }
                 .flowWithLifecycle(lifecycle)
                 .collectLatest { mc ->
+                    val items = mc.chapters.toChapterListItems(mc.manga, mc.mangaBySource)
+                    val hidden = applyHiddenChapters(items, mc.manga, mc.mangaBySource)
                     updateSuccessState {
                         it.copy(
                             manga = mc.manga,
-                            chapters = mc.chapters.toChapterListItems(mc.manga, mc.mangaBySource),
+                            chapters = hidden.chapters,
+                            showHidden = hidden.showHidden,
+                            hasHiddenChapters = hidden.hasHiddenChapters,
+                            hiddenChapterIds = hidden.hiddenChapterIds,
                             mergedMangaById = mc.mangaBySource,
                             mergeDisplayManga = mc.displayManga,
                             mergeDisplaySource = mc.displaySource,
@@ -372,15 +389,17 @@ class MangaScreenModel(
             }
             val mergeChips = buildMergeSources(related.ids)
             // RK <--
-            val chapters = getMangaAndChapters.awaitChapters(mangaId, applyScanlatorFilter = true)
+            val chapterItems = getMangaAndChapters.awaitChapters(mangaId, applyScanlatorFilter = true)
                 .toChapterListItems(manga)
+            // RK: seed the hidden-chapters filter on first render so hidden chapters never flash in.
+            val hidden = applyHiddenChapters(chapterItems, manga, emptyMap())
 
             if (!manga.favorite) {
                 setMangaDefaultChapterFlags.await(manga)
             }
 
             val needRefreshInfo = !manga.initialized
-            val needRefreshChapter = chapters.isEmpty()
+            val needRefreshChapter = chapterItems.isEmpty()
 
             // Show what we have earlier
             // RK: seed the primary source's gallery metadata too; same first-render race as the chips.
@@ -396,7 +415,11 @@ class MangaScreenModel(
                     manga = manga,
                     source = source,
                     isFromSource = isFromSource,
-                    chapters = chapters,
+                    chapters = hidden.chapters,
+                    // RK: hide/unhide chapters seed
+                    showHidden = hidden.showHidden,
+                    hasHiddenChapters = hidden.hasHiddenChapters,
+                    hiddenChapterIds = hidden.hiddenChapterIds,
                     availableScanlators = getAvailableScanlators.await(mangaId),
                     excludedScanlators = getExcludedScanlators.await(mangaId),
                     isRefreshingData = needRefreshInfo || needRefreshChapter,
@@ -950,6 +973,71 @@ class MangaScreenModel(
             MergedChapters(displayManga, aggregated, mangaBySource)
         }
     }
+
+    // Hide/unhide chapters (manga twin of the novel details mechanism). The hidden set is a pref of
+    // restore-stable "<source>|<chapterUrl>" keys; it filters Success.chapters at assembly, so hidden
+    // chapters also drop from the resume FAB and download-all (which read that list). The in-app manga
+    // reader still navigates the full DB list; excluding hidden there is roadmapped separately.
+
+    /** Restore-stable hidden-chapter key: the chapter's own source (per-source for a merged group). */
+    private fun hiddenKey(chapter: Chapter, manga: Manga, mangaBySource: Map<Long, Manga>): String =
+        "${(mangaBySource[chapter.mangaId] ?: manga).source}|${chapter.url}"
+
+    private data class HiddenChapters(
+        val chapters: List<ChapterList.Item>,
+        val showHidden: Boolean,
+        val hasHiddenChapters: Boolean,
+        val hiddenChapterIds: Set<Long>,
+    )
+
+    /** Drop hidden chapters from [items] unless the user is temporarily showing them, and compute the
+     *  hide-related state. "Showing hidden" only holds while hidden chapters still exist, so unhiding
+     *  the last one collapses the mode instead of leaving a stale toggle. */
+    private fun applyHiddenChapters(
+        items: List<ChapterList.Item>,
+        manga: Manga,
+        mangaBySource: Map<Long, Manga>,
+    ): HiddenChapters {
+        val hidden = hiddenChaptersPref.get()
+        val hasHidden = hidden.isNotEmpty() && items.any { hiddenKey(it.chapter, manga, mangaBySource) in hidden }
+        val showHidden = showHiddenFlow.value && hasHidden
+        val chapters = if (showHidden || !hasHidden) {
+            items
+        } else {
+            items.filterNot { hiddenKey(it.chapter, manga, mangaBySource) in hidden }
+        }
+        val hiddenChapterIds = if (showHidden) {
+            chapters.filter { hiddenKey(it.chapter, manga, mangaBySource) in hidden }.mapTo(HashSet()) { it.id }
+        } else {
+            emptySet()
+        }
+        return HiddenChapters(chapters, showHidden, hasHidden, hiddenChapterIds)
+    }
+
+    /** Hide the selected chapters, then clear the selection. */
+    fun hideSelected() {
+        val state = successState ?: return
+        val keys = state.chapters.filter { it.selected }
+            .map { hiddenKey(it.chapter, state.manga, state.mergedMangaById) }
+        if (keys.isEmpty()) return
+        hiddenChaptersPref.set(hiddenChaptersPref.get() + keys)
+        toggleAllSelection(false)
+    }
+
+    /** Unhide the selected chapters (reachable while showing hidden), then clear the selection. */
+    fun unhideSelected() {
+        val state = successState ?: return
+        val keys = state.chapters.filter { it.selected }
+            .mapTo(HashSet()) { hiddenKey(it.chapter, state.manga, state.mergedMangaById) }
+        if (keys.isEmpty()) return
+        hiddenChaptersPref.set(hiddenChaptersPref.get().filterNotTo(HashSet()) { it in keys })
+        toggleAllSelection(false)
+    }
+
+    /** Toggle temporarily showing hidden chapters (dimmed) in the list. */
+    fun toggleShowHidden() {
+        showHiddenFlow.value = !showHiddenFlow.value
+    }
     // RK <--
 
     /**
@@ -1000,12 +1088,18 @@ class MangaScreenModel(
      */
     fun getNextUnreadChapter(): Chapter? {
         val successState = successState ?: return null
-        return successState.chapters.getNextUnread(successState.manga)
+        // RK: never resume into a hidden chapter, even while temporarily showing hidden ones.
+        return successState.chapters
+            .filterNot { it.id in successState.hiddenChapterIds }
+            .getNextUnread(successState.manga)
     }
 
     private fun getUnreadChapters(): List<Chapter> {
+        // RK: hidden chapters are never bulk-downloaded (they are in the list only while showing hidden).
+        val hidden = successState?.hiddenChapterIds.orEmpty()
         val chapterItems = if (skipFiltered) filteredChapters.orEmpty() else allChapters.orEmpty()
         return chapterItems
+            .filterNot { it.id in hidden }
             .filter { (chapter, dlStatus) -> !chapter.read && dlStatus == Download.State.NOT_DOWNLOADED }
             .map { it.chapter }
     }
@@ -1017,8 +1111,10 @@ class MangaScreenModel(
     }
 
     private fun getBookmarkedChapters(): List<Chapter> {
+        val hidden = successState?.hiddenChapterIds.orEmpty()
         val chapterItems = if (skipFiltered) filteredChapters.orEmpty() else allChapters.orEmpty()
         return chapterItems
+            .filterNot { it.id in hidden }
             .filter { (chapter, dlStatus) -> chapter.bookmark && dlStatus == Download.State.NOT_DOWNLOADED }
             .map { it.chapter }
     }
@@ -1704,6 +1800,11 @@ class MangaScreenModel(
             val dialog: Dialog? = null,
             val hasPromptedToAddBefore: Boolean = false,
             val hideMissingChapters: Boolean = false,
+            // RK: hide/unhide chapters. showHidden is the transient reveal toggle; hiddenChapterIds are
+            // the currently-shown hidden rows (for dimming), only populated while showing hidden.
+            val showHidden: Boolean = false,
+            val hasHiddenChapters: Boolean = false,
+            val hiddenChapterIds: Set<Long> = emptySet(),
             // RK: cover-derived theming color (Y11), null when off or not yet extracted.
             val seedColor: Color? = null,
             // RK: page-preview thumbnails (adult sources) + how many rows to show (0 = off).

@@ -9,6 +9,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -92,6 +93,10 @@ fun MangaScreen(
     onManageSourcesClicked: (() -> Unit)? = null,
     // RK: opens the gallery metadata viewer (adult/metadata sources only)
     onMetadataViewerClicked: (() -> Unit)? = null,
+    // RK: hide/unhide the selected chapters + toggle temporarily showing hidden ones
+    onHideSelected: (() -> Unit)? = null,
+    onUnhideSelected: (() -> Unit)? = null,
+    onToggleShowHidden: (() -> Unit)? = null,
     // RK: tap a page-preview thumbnail -> open the reader at that page
     onOpenPagePreview: (Int) -> Unit = {},
     // RK: open the full-screen page-preview gallery
@@ -153,6 +158,9 @@ fun MangaScreen(
             onEditNotesClicked = onEditNotesClicked,
             onManageSourcesClicked = onManageSourcesClicked,
             onMetadataViewerClicked = onMetadataViewerClicked,
+            onHideSelected = onHideSelected,
+            onUnhideSelected = onUnhideSelected,
+            onToggleShowHidden = onToggleShowHidden,
             onOpenPagePreview = onOpenPagePreview,
             onMorePreviewsClicked = onMorePreviewsClicked,
             onSelectSource = onSelectSource,
@@ -197,6 +205,9 @@ fun MangaScreen(
             onEditNotesClicked = onEditNotesClicked,
             onManageSourcesClicked = onManageSourcesClicked,
             onMetadataViewerClicked = onMetadataViewerClicked,
+            onHideSelected = onHideSelected,
+            onUnhideSelected = onUnhideSelected,
+            onToggleShowHidden = onToggleShowHidden,
             onOpenPagePreview = onOpenPagePreview,
             onMorePreviewsClicked = onMorePreviewsClicked,
             onSelectSource = onSelectSource,
@@ -253,6 +264,10 @@ private fun MangaScreenSmallImpl(
     onManageSourcesClicked: (() -> Unit)? = null,
     // RK: opens the gallery metadata viewer (adult/metadata sources only)
     onMetadataViewerClicked: (() -> Unit)? = null,
+    // RK: hide/unhide the selected chapters + toggle temporarily showing hidden ones
+    onHideSelected: (() -> Unit)? = null,
+    onUnhideSelected: (() -> Unit)? = null,
+    onToggleShowHidden: (() -> Unit)? = null,
     // RK: tap a page-preview thumbnail -> open the reader at that page
     onOpenPagePreview: (Int) -> Unit = {},
     // RK: open the full-screen page-preview gallery
@@ -320,7 +335,7 @@ private fun MangaScreenSmallImpl(
         isRefreshing = state.isRefreshingData,
         onRefresh = onRefresh,
         onCancelSelection = { onAllChapterSelected(false) },
-        fabVisible = chapters.fastAny { !it.chapter.read } && !isAnySelected,
+        fabVisible = chapters.fastAny { !it.chapter.read && it.id !in state.hiddenChapterIds } && !isAnySelected,
         fabIsResume = state.chapters.fastAny { it.chapter.read },
         onFabClick = onContinueReading,
         topBar = { titleAlpha, backgroundAlpha ->
@@ -338,6 +353,13 @@ private fun MangaScreenSmallImpl(
                 onClickEditNotes = onEditNotesClicked,
                 onClickManageSources = onManageSourcesClicked,
                 onClickMetadataViewer = onMetadataViewerClicked,
+                onHide = onHideSelected,
+                onUnhide = onUnhideSelected,
+                onToggleShowHidden = onToggleShowHidden,
+                showHidden = state.showHidden,
+                hasHiddenChapters = state.hasHiddenChapters,
+                allHiddenSelected = state.showHidden && chapters.any { it.selected } &&
+                    chapters.none { it.selected && it.id !in state.hiddenChapterIds },
                 actionModeCounter = chapters.count { it.selected },
                 onCancelActionMode = { onAllChapterSelected(false) },
                 onSelectAll = { onAllChapterSelected(true) },
@@ -449,6 +471,7 @@ private fun MangaScreenSmallImpl(
             manga = state.manga,
             chapters = listItem,
             isAnyChapterSelected = chapters.fastAny { it.selected },
+            hiddenChapterIds = state.hiddenChapterIds,
             chapterSwipeStartAction = chapterSwipeStartAction,
             chapterSwipeEndAction = chapterSwipeEndAction,
             onChapterClicked = onChapterClicked,
@@ -497,6 +520,10 @@ fun MangaScreenLargeImpl(
     onManageSourcesClicked: (() -> Unit)? = null,
     // RK: opens the gallery metadata viewer (adult/metadata sources only)
     onMetadataViewerClicked: (() -> Unit)? = null,
+    // RK: hide/unhide the selected chapters + toggle temporarily showing hidden ones
+    onHideSelected: (() -> Unit)? = null,
+    onUnhideSelected: (() -> Unit)? = null,
+    onToggleShowHidden: (() -> Unit)? = null,
     // RK: tap a page-preview thumbnail -> open the reader at that page
     onOpenPagePreview: (Int) -> Unit = {},
     // RK: open the full-screen page-preview gallery
@@ -562,7 +589,7 @@ fun MangaScreenLargeImpl(
         isRefreshing = state.isRefreshingData,
         onRefresh = onRefresh,
         onCancelSelection = { onAllChapterSelected(false) },
-        fabVisible = chapters.fastAny { !it.chapter.read } && !isAnySelected,
+        fabVisible = chapters.fastAny { !it.chapter.read && it.id !in state.hiddenChapterIds } && !isAnySelected,
         fabIsResume = state.chapters.fastAny { it.chapter.read },
         onFabClick = onContinueReading,
         topBar = { modifier ->
@@ -581,6 +608,13 @@ fun MangaScreenLargeImpl(
                 onClickEditNotes = onEditNotesClicked,
                 onClickManageSources = onManageSourcesClicked,
                 onClickMetadataViewer = onMetadataViewerClicked,
+                onHide = onHideSelected,
+                onUnhide = onUnhideSelected,
+                onToggleShowHidden = onToggleShowHidden,
+                showHidden = state.showHidden,
+                hasHiddenChapters = state.hasHiddenChapters,
+                allHiddenSelected = state.showHidden && chapters.any { it.selected } &&
+                    chapters.none { it.selected && it.id !in state.hiddenChapterIds },
                 onCancelActionMode = { onAllChapterSelected(false) },
                 actionModeCounter = chapters.count { it.selected },
                 onSelectAll = { onAllChapterSelected(true) },
@@ -687,6 +721,7 @@ fun MangaScreenLargeImpl(
                 manga = state.manga,
                 chapters = listItem,
                 isAnyChapterSelected = chapters.fastAny { it.selected },
+                hiddenChapterIds = state.hiddenChapterIds,
                 chapterSwipeStartAction = chapterSwipeStartAction,
                 chapterSwipeEndAction = chapterSwipeEndAction,
                 onChapterClicked = onChapterClicked,
@@ -740,10 +775,15 @@ private fun SharedMangaBottomActionMenu(
     )
 }
 
+// RK: opacity of a hidden chapter row when temporarily shown (matches the novel details screen).
+private const val HIDDEN_CHAPTER_ALPHA = 0.4f
+
 private fun LazyListScope.sharedChapterItems(
     manga: Manga,
     chapters: List<ChapterList>,
     isAnyChapterSelected: Boolean,
+    // RK: chapters shown dimmed because they are hidden (only non-empty while showing hidden).
+    hiddenChapterIds: Set<Long> = emptySet(),
     chapterSwipeStartAction: LibraryPreferences.ChapterSwipeAction,
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
     onChapterClicked: (Chapter) -> Unit,
@@ -769,6 +809,8 @@ private fun LazyListScope.sharedChapterItems(
             }
             is ChapterList.Item -> {
                 MangaChapterListItem(
+                    // RK: dim rows that are hidden (shown only while "Show hidden chapters" is on).
+                    modifier = Modifier.alpha(if (item.id in hiddenChapterIds) HIDDEN_CHAPTER_ALPHA else 1f),
                     title = if (manga.displayMode == Manga.CHAPTER_DISPLAY_NUMBER) {
                         stringResource(
                             MR.strings.display_mode_chapter,
