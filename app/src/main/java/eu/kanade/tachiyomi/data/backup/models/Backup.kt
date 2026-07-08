@@ -26,4 +26,6 @@ data class Backup(
     // merge prefs store IDs that change on restore (the manga twin of backupNovelMerges at 702/703).
     @ProtoNumber(711) var backupMangaMerges: List<BackupMangaMergeGroup> = emptyList(),
     @ProtoNumber(712) var backupMangaUnmerges: List<BackupMangaMergeGroup> = emptyList(),
+    // RK: manga custom-info (non-destructive edits) as {url,source}-keyed entries, re-keyed on restore.
+    @ProtoNumber(713) var backupCustomMangaInfo: List<BackupCustomMangaInfo> = emptyList(),
 )

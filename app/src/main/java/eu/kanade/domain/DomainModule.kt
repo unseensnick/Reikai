@@ -108,6 +108,7 @@ import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.data.category.CategoryRepositoryImpl
 import tachiyomi.data.chapter.ChapterRepositoryImpl
 import tachiyomi.data.history.HistoryRepositoryImpl
+import tachiyomi.data.manga.CustomMangaInfoRepositoryImpl
 import tachiyomi.data.manga.MangaRepositoryImpl
 import tachiyomi.data.release.ReleaseServiceImpl
 import tachiyomi.data.source.SourceRepositoryImpl
@@ -145,6 +146,7 @@ import tachiyomi.domain.manga.interactor.GetDuplicateLibraryManga
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.GetExhFavoriteMangaWithMetadata
 import tachiyomi.domain.manga.interactor.GetLibraryManga
+import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
 // RK -->
 import eu.kanade.tachiyomi.source.online.MetadataSource
@@ -162,7 +164,9 @@ import tachiyomi.domain.manga.interactor.GetMangaWithChapters
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.interactor.ResetViewerFlags
 import tachiyomi.domain.manga.interactor.SetMangaChapterFlags
+import tachiyomi.domain.manga.interactor.SetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.UpdateMangaNotes
+import tachiyomi.domain.manga.repository.CustomMangaInfoRepository
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.release.interactor.GetApplicationRelease
 import tachiyomi.domain.release.service.ReleaseService
@@ -282,6 +286,10 @@ class DomainModule : InjektModule {
         addFactory { DeleteCategory(get(), get(), get()) }
 
         addSingletonFactory<MangaRepository> { MangaRepositoryImpl(get()) }
+        // RK: manga custom-info overlay (non-destructive display-layer edits)
+        addSingletonFactory<CustomMangaInfoRepository> { CustomMangaInfoRepositoryImpl(get()) }
+        addFactory { GetCustomMangaInfo(get()) }
+        addFactory { SetCustomMangaInfo(get()) }
         addFactory { GetDuplicateLibraryManga(get()) }
         addFactory { GetFavorites(get()) }
         addFactory { GetLibraryManga(get()) }
