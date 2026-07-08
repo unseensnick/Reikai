@@ -398,11 +398,12 @@ class NovelDetailsScreenModel(
         // Show-hidden only holds while this entry still has hidden chapters, so unhiding the last one
         // collapses the mode instead of leaving a stale "Hide hidden chapters" toggle in the overflow.
         val showHidden = showHiddenFlow.value && hasHiddenChapters
-        // Drop hidden chapters from the list (and the resume target / reader order, which feed off it)
-        // unless the user is temporarily showing them.
-        val visible = if (showHidden || hidden.isEmpty()) chapters else chapters.filterNot { hiddenKey(it) in hidden }
+        // Hidden chapters are always excluded from the resume target (and downloads); showing hidden only
+        // reveals them (dimmed) in the list so they can be unhidden.
+        val nonHidden = if (hidden.isEmpty()) chapters else chapters.filterNot { hiddenKey(it) in hidden }
+        val visible = if (showHidden) chapters else nonHidden
         val display = visible.sortedAndFiltered(anchor, novelPreferences)
-        val resume = visible.sortedBy { it.sourceOrder }.firstOrNull { !it.read }
+        val resume = nonHidden.sortedBy { it.sourceOrder }.firstOrNull { !it.read }
         // When showing hidden, mark which displayed rows are hidden (dimmed + drives Hide/Unhide).
         val hiddenChapterIds = if (showHidden) display.filter { hiddenKey(it) in hidden }.mapTo(HashSet()) { it.id } else emptySet()
         val viewSource = siblingSources.value[viewNovel.id]
@@ -1037,7 +1038,10 @@ class NovelDetailsScreenModel(
     fun runDownloadAction(action: DownloadAction) {
         screenModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
-            val targets = selectChaptersForDownloadAction(chapterRepo.getByNovelId(loaded.novel.id), action)
+            // RK: hidden chapters are never bulk-downloaded, so drop them before picking targets.
+            val hidden = hiddenChaptersPref.get()
+            val available = chapterRepo.getByNovelId(loaded.novel.id).filterNot { hiddenKey(it) in hidden }
+            val targets = selectChaptersForDownloadAction(available, action)
             if (targets.isNotEmpty()) downloadManager.downloadChapters(targets)
         }
     }

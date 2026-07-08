@@ -27,6 +27,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Fixes
 
+- **A novel's hidden chapters no longer get bulk-downloaded or resumed into.** Download-all and the resume button now skip hidden chapters, matching how the chapter list already hides them.
 - **A novel's "Show hidden chapters" menu entry now disappears the moment nothing is hidden.** Unhiding your last hidden chapter used to leave a stale "Hide hidden chapters" item lingering in the overflow menu.
 - **On a merged series, a source's extended info now shows when you view that source.** The rating and its "More info" link were hidden unless the merge happened to be anchored on that source.
 
