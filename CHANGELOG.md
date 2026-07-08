@@ -27,6 +27,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Fixes
 
+- **You can now merge two sources tracked on different services.** A manual merge was quietly undone when the two entries were linked to different trackers (say one on AniList, the other on MyAnimeList); it now keeps them merged.
 - **Searching your settings no longer crashes the app.** Two settings that shared a name (the manga and novel versions of a toggle) could collide in the search results and bring it down.
 - **A novel's hidden chapters no longer get bulk-downloaded or resumed into.** Download-all and the resume button now skip hidden chapters, matching how the chapter list already hides them.
 - **A novel's "Show hidden chapters" menu entry now disappears the moment nothing is hidden.** Unhiding your last hidden chapter used to leave a stale "Hide hidden chapters" item lingering in the overflow menu.

@@ -144,6 +144,21 @@ class MangaMergeManagerTest {
     }
 
     @Test
+    fun `computeHealing keeps a sibling tracked on a different service`() {
+        val result = MangaMergeManager.computeHealing(
+            targetId = 1L,
+            merges = setOf("1,2"),
+            unmerges = emptySet(),
+            trackerKeysByMangaId = mapOf(
+                1L to setOf(10L to 100L), // e.g. AniList
+                2L to setOf(20L to 555L), // e.g. MyAnimeList: different service, not comparable -> kept
+            ),
+        )
+        result.dropped shouldBe 0
+        result.newMerges shouldContainExactly setOf("1,2")
+    }
+
+    @Test
     fun `computeHealing keeps verified siblings while dropping a suspect one`() {
         val result = MangaMergeManager.computeHealing(
             targetId = 1L,

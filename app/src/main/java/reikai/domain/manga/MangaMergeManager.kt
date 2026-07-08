@@ -270,9 +270,10 @@ class MangaMergeManager(
     companion object {
 
         /**
-         * Pure healing decision. For each merge entry containing [targetId], keep a sibling only if
-         * either side is untracked or the two share a tracker key; otherwise drop it and record the
-         * unmerge. Entries not mentioning [targetId] pass through untouched.
+         * Pure healing decision. For each merge entry containing [targetId], keep a sibling unless the
+         * two are tracked on the same service but with different remote ids (evidence they are different
+         * series). Siblings on a different service, or with either side untracked, are kept. A dropped
+         * sibling is recorded as unmerged. Entries not mentioning [targetId] pass through untouched.
          */
         fun computeHealing(
             targetId: Long,
@@ -299,9 +300,11 @@ class MangaMergeManager(
                         continue
                     }
                     val siblingKeys = trackerKeysByMangaId[id].orEmpty()
-                    val ok = targetKeys.isEmpty() ||
-                        siblingKeys.isEmpty() ||
-                        targetKeys.any { it in siblingKeys }
+                    // Only a shared tracker SERVICE with mismatched remote ids is evidence of two
+                    // different series. Entries tracked on different services (e.g. one on AniList, the
+                    // other on MyAnimeList) aren't comparable, so a merge across them is kept, not healed.
+                    val sharesService = targetKeys.any { t -> siblingKeys.any { s -> s.first == t.first } }
+                    val ok = !sharesService || targetKeys.any { it in siblingKeys }
                     if (ok) verified += id else { suspect += id; dropped++ }
                 }
                 for (s in suspect) {
