@@ -215,28 +215,23 @@ object SettingsReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.skipDupe,
                     title = stringResource(MR.strings.pref_skip_dupe_chapters),
-                    // RK: subtitle differentiates the manga toggle from the light-novel twin below
-                    subtitle = stringResource(MR.strings.content_type_manga),
                 ),
                 // RK -->
                 // Light-novel twin: skips a chapter whose number repeats the one just read when paging
-                // a merged novel's cross-source list.
+                // a merged novel's cross-source list. Distinct "(Novel)" title (not a subtitle) so the
+                // two toggles never collide on a shared settings-search result key.
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerSkipDuplicateChapters(),
-                    title = stringResource(MR.strings.pref_skip_dupe_chapters),
-                    subtitle = stringResource(MR.strings.content_type_novels),
+                    title = stringResource(MR.strings.pref_skip_dupe_chapters_novel),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.markReadOnSkip,
                     title = stringResource(MR.strings.pref_mark_read_on_skip),
-                    // RK: content-type subtitle differentiates the manga toggle from the novel twin below
-                    subtitle = stringResource(MR.strings.content_type_manga),
                 ),
                 // Light-novel twin: marks the chapter you skip away from (forward "next") as read.
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerMarkReadOnSkip(),
-                    title = stringResource(MR.strings.pref_mark_read_on_skip),
-                    subtitle = stringResource(MR.strings.content_type_novels),
+                    title = stringResource(MR.strings.pref_mark_read_on_skip_novel),
                 ),
                 Preference.PreferenceItem.MultiSelectListPreference(
                     preference = readerPreferences.readerBottomButtons,

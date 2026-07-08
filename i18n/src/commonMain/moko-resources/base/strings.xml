@@ -548,6 +548,9 @@
     <string name="pref_skip_filtered_chapters">Skip filtered chapters</string>
     <string name="pref_skip_dupe_chapters">Skip duplicate chapters</string>
     <!-- RK --><string name="pref_mark_read_on_skip">Mark chapter read when skipping ahead</string>
+    <!-- RK: novel twins of the two skip prefs above; distinct titles so the settings-search result keys don't collide -->
+    <string name="pref_skip_dupe_chapters_novel">Skip duplicate chapters (Novel)</string>
+    <string name="pref_mark_read_on_skip_novel">Mark chapter read when skipping ahead (Novel)</string>
     <string name="pref_mark_read_on_skip_summary">When you jump to the next chapter, mark the chapter you skipped as read</string>
     <string name="pref_reader_bottom_buttons">Bottom bar buttons</string>
     <string name="pref_preserve_reading_position">Resume reading position</string>
