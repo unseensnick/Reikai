@@ -77,7 +77,6 @@ fun SourceNovel.toNovel(
     coverLastModified = 0L,
     totalPages = totalPages.toLong(),
     lastReadAt = null,
-    editedFlags = 0L,
     notes = "",
     viewerFlags = 0L,
     version = 0L,

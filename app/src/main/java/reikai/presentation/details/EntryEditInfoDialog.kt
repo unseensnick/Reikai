@@ -1,5 +1,6 @@
 package reikai.presentation.details
 
+import android.content.res.ColorStateList
 import android.view.LayoutInflater
 import android.view.inputmethod.EditorInfo
 import android.widget.ArrayAdapter
@@ -9,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -17,12 +20,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.viewinterop.AndroidView
 import coil3.load
 import coil3.request.transformations
 import coil3.transform.RoundedCornersTransformation
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
+import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.tachiyomi.databinding.EditEntryInfoBinding
 import eu.kanade.tachiyomi.util.system.dpToPx
 import tachiyomi.core.common.i18n.stringResource
@@ -60,47 +66,55 @@ data class EntryEditInfoUi(
 fun EntryEditInfoDialog(
     initial: EntryEditInfoUi,
     sourceGenre: List<String>,
+    // Cover-derived seed color, passed ungated by both content types so the editor always tints from the
+    // cover regardless of the page's cover-theming preference. Null falls back to the app theme.
+    seedColor: Color?,
     coverModel: (thumbnailUrl: String) -> Any?,
     onDismissRequest: () -> Unit,
     onSave: (EntryEditInfoUi) -> Unit,
     onResetInfo: () -> Unit,
 ) {
-    var binding by remember { mutableStateOf<EditEntryInfoBinding?>(null) }
+    TachiyomiTheme(seedColor = seedColor) {
+        var binding by remember { mutableStateOf<EditEntryInfoBinding?>(null) }
+        // The Compose parts (container, Save/Cancel) follow this theme; the native form views read the
+        // Activity theme instead, so pass the scheme down and tint the chips + buttons to match.
+        val colorScheme = MaterialTheme.colorScheme
 
-    AlertDialog(
-        onDismissRequest = onDismissRequest,
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val b = binding ?: return@TextButton
-                    onSave(b.collect())
-                    onDismissRequest()
-                },
-            ) { Text(stringResource(MR.strings.action_save)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismissRequest) { Text(stringResource(MR.strings.action_cancel)) }
-        },
-        text = {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                AndroidView(
-                    factory = { context ->
-                        EditEntryInfoBinding.inflate(LayoutInflater.from(context))
-                            .also {
-                                binding = it
-                                it.setup(initial, sourceGenre, coverModel, onResetInfo)
-                            }
-                            .root
+        AlertDialog(
+            onDismissRequest = onDismissRequest,
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val b = binding ?: return@TextButton
+                        onSave(b.collect())
+                        onDismissRequest()
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        },
-    )
+                ) { Text(stringResource(MR.strings.action_save)) }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissRequest) { Text(stringResource(MR.strings.action_cancel)) }
+            },
+            text = {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    AndroidView(
+                        factory = { context ->
+                            EditEntryInfoBinding.inflate(LayoutInflater.from(context))
+                                .also {
+                                    binding = it
+                                    it.setup(initial, sourceGenre, coverModel, onResetInfo, colorScheme)
+                                }
+                                .root
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+        )
+    }
 }
 
 private fun EditEntryInfoBinding.collect(): EntryEditInfoUi {
@@ -132,6 +146,7 @@ private fun EditEntryInfoBinding.setup(
     sourceGenre: List<String>,
     coverModel: (thumbnailUrl: String) -> Any?,
     onResetInfo: () -> Unit,
+    colorScheme: ColorScheme,
 ) {
     val context = root.context
 
@@ -145,14 +160,16 @@ private fun EditEntryInfoBinding.setup(
     thumbnailUrl.setText(initial.thumbnailUrl)
     mangaDescription.setText(initial.description)
 
-    mangaGenresTags.setChips(initial.genre)
+    mangaGenresTags.setChips(initial.genre, colorScheme)
     addTag.setOnEditorActionListener { _, actionId, _ ->
         if (actionId == EditorInfo.IME_ACTION_DONE) {
             val entered = addTag.text?.toString().orEmpty()
                 .split(",")
                 .map { it.trim() }
                 .filter { it.isNotBlank() }
-            if (entered.isNotEmpty()) mangaGenresTags.setChips((mangaGenresTags.collectTags() + entered).distinct())
+            if (entered.isNotEmpty()) {
+                mangaGenresTags.setChips((mangaGenresTags.collectTags() + entered).distinct(), colorScheme)
+            }
             addTag.text?.clear()
             true
         } else {
@@ -165,8 +182,15 @@ private fun EditEntryInfoBinding.setup(
     autofillFromTracker.text = "Fill from tracker"
     // Fill-from-tracker is wired in a later stage; the slot is present but inert.
     autofillFromTracker.isEnabled = false
+    // Tint the tonal buttons to the cover-based scheme (the native views don't inherit the Compose theme).
+    val buttonBg = ColorStateList.valueOf(colorScheme.secondaryContainer.toArgb())
+    val buttonText = colorScheme.onSecondaryContainer.toArgb()
+    listOf(resetTags, resetInfo, autofillFromTracker).forEach { button ->
+        button.backgroundTintList = buttonBg
+        button.setTextColor(buttonText)
+    }
 
-    resetTags.setOnClickListener { mangaGenresTags.setChips(sourceGenre) }
+    resetTags.setOnClickListener { mangaGenresTags.setChips(sourceGenre, colorScheme) }
     resetInfo.setOnClickListener { onResetInfo() }
 
     // Stable preview of the effective cover, loaded once (Komikku loads the manga object the same way);
@@ -180,14 +204,19 @@ private fun ImageView.loadCover(data: Any?) {
     }
 }
 
-/** Rebuild the chip group from [tags]; each chip has a remove (close) icon. */
-private fun ChipGroup.setChips(tags: List<String>) {
+/** Rebuild the chip group from [tags]; each chip has a remove (close) icon, tinted to [colorScheme]. */
+private fun ChipGroup.setChips(tags: List<String>, colorScheme: ColorScheme) {
     removeAllViews()
+    val chipBg = ColorStateList.valueOf(colorScheme.secondaryContainer.toArgb())
+    val chipFg = colorScheme.onSecondaryContainer.toArgb()
     tags.filter { it.isNotBlank() }.forEach { tag ->
         addView(
             Chip(context).apply {
                 text = tag
+                setTextColor(chipFg)
+                chipBackgroundColor = chipBg
                 isCloseIconVisible = true
+                closeIconTint = ColorStateList.valueOf(chipFg)
                 setOnCloseIconClickListener { this@setChips.removeView(this) }
             },
         )

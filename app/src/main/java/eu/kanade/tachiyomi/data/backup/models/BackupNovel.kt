@@ -26,6 +26,9 @@ class BackupNovel(
     @ProtoNumber(15) var coverLastModified: Long = 0,
     @ProtoNumber(16) var totalPages: Long = 1,
     @ProtoNumber(17) var lastReadAt: Long? = null,
+    // RK: retired lock bitmask, kept as a reserved proto slot for backup round-trip compatibility with
+    // older backups (and upstream Yokai). Novel edits now live in the custom_novel_info overlay
+    // (backed up separately as backupCustomNovelInfo); this field is written 0 and ignored on restore.
     @ProtoNumber(18) var editedFlags: Long = 0,
     @ProtoNumber(19) var favorite: Boolean = true,
     @ProtoNumber(20) var chapters: List<BackupNovelChapter> = emptyList(),
@@ -56,7 +59,6 @@ class BackupNovel(
             coverLastModified = this@BackupNovel.coverLastModified,
             totalPages = this@BackupNovel.totalPages,
             lastReadAt = this@BackupNovel.lastReadAt,
-            editedFlags = this@BackupNovel.editedFlags,
             notes = this@BackupNovel.notes,
             viewerFlags = this@BackupNovel.viewerFlags,
             version = this@BackupNovel.version,

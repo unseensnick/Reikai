@@ -75,13 +75,16 @@ import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.model.sort
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.GetSearchTags
 import tachiyomi.domain.manga.interactor.GetSearchTitles
+import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.model.applyFilter
+import tachiyomi.domain.manga.model.withCustomInfo
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracksPerManga
 import tachiyomi.domain.track.model.Track
@@ -94,6 +97,8 @@ import kotlin.time.Duration.Companion.seconds
 
 class LibraryScreenModel(
     private val getLibraryManga: GetLibraryManga = Injekt.get(),
+    // RK: per-entry custom title/cover overrides, overlaid on the displayed rows (display-only)
+    private val getCustomMangaInfo: GetCustomMangaInfo = Injekt.get(),
     // RK: resolve merged-away group members by id for the "remove all grouped sources" delete option
     private val getManga: GetManga = Injekt.get(),
     private val getCategories: GetCategories = Injekt.get(),
@@ -133,10 +138,13 @@ class LibraryScreenModel(
             combine(
                 state.map { it.searchQuery }.distinctUntilChanged().debounce(0.25.seconds),
                 getCategories.subscribe(),
-                getFavoritesFlow(),
+                // RK: the custom-info overlay rides with favorites (combine caps at 5 sources) but is
+                //     NOT applied here: search/filter/sort below all read the raw favorites. It is
+                //     carried into LibraryData and applied only at the display read (see State).
+                combine(getFavoritesFlow(), getCustomMangaInfo.subscribeAll(), ::Pair),
                 combine(getTracksPerManga.subscribe(), getTrackingFiltersFlow(), ::Pair),
                 getLibraryItemPreferencesFlow(),
-            ) { searchQuery, categories, favorites, (tracksMap, trackingFilters), itemPreferences ->
+            ) { searchQuery, categories, (favorites, customInfo), (tracksMap, trackingFilters), itemPreferences ->
                 val showSystemCategory = favorites.any { it.libraryManga.categories.contains(0) }
                 val filteredFavorites = favorites
                     .applyFilters(tracksMap, trackingFilters, itemPreferences)
@@ -158,6 +166,8 @@ class LibraryScreenModel(
                     favorites = filteredFavorites,
                     tracksMap = tracksMap,
                     loggedInTrackerIds = trackingFilters.keys,
+                    // RK: display-only overrides, keyed by real manga id; applied at the display read.
+                    customInfo = customInfo.associateBy { it.mangaId },
                 )
             }
                 .distinctUntilChanged()
@@ -745,7 +755,9 @@ class LibraryScreenModel(
                     ),
                 )
             }
-            // RK: collapse pref-based merge groups into one entry per group
+            // RK: collapse pref-based merge groups into one entry per group. Returns the RAW items:
+            //     search, filter and sort in the outer combine all read these, so the display-only
+            //     custom-info overlay is applied later, at the per-category display read (see State).
             MangaMergeCollapse.collapse(
                 items = items,
                 manualMerges = mergePrefs.merges,
@@ -1187,6 +1199,10 @@ class LibraryScreenModel(
         val favorites: List<LibraryItem> = emptyList(),
         val tracksMap: Map</* Manga */ Long, List<Track>> = emptyMap(),
         val loggedInTrackerIds: Set<Long> = emptySet(),
+        // RK: display-only custom title/cover overrides, keyed by real manga id. Never read by
+        //     search/filter/sort/selection (those use the raw favorites); applied only at the
+        //     per-category display read in State.getItemsForCategory.
+        val customInfo: Map</* Manga */ Long, CustomMangaInfo> = emptyMap(),
     ) {
         val favoritesById by lazy { favorites.associateBy { it.id } }
     }
@@ -1258,8 +1274,19 @@ class LibraryScreenModel(
         }
 
         fun getItemsForCategory(category: Category): List<LibraryItem> {
-            // RK: look up by id (groupedFavorites is an ordered List, not a Map keyed by Category)
-            return groupedFavoritesById[category.id].orEmpty().mapNotNull { libraryData.favoritesById[it] }
+            // RK: look up by id (groupedFavorites is an ordered List, not a Map keyed by Category),
+            //     then apply the display-only custom-info overlay. This is the sole render path, so
+            //     the overrides never reach the raw favorites that search/filter/sort/selection read.
+            return groupedFavoritesById[category.id].orEmpty().mapNotNull { id ->
+                libraryData.favoritesById[id]?.let { item ->
+                    val custom = libraryData.customInfo[item.libraryManga.manga.id] ?: return@let item
+                    item.copy(
+                        libraryManga = item.libraryManga.copy(
+                            manga = item.libraryManga.manga.withCustomInfo(custom),
+                        ),
+                    )
+                }
+            }
         }
 
         fun getItemCountForCategory(category: Category): Int? {

@@ -6,6 +6,7 @@ package eu.kanade.tachiyomi.data.backup.create.creators
 
 import app.cash.sqldelight.async.coroutines.awaitAsList
 import eu.kanade.tachiyomi.data.backup.create.BackupOptions
+import eu.kanade.tachiyomi.data.backup.models.BackupCustomNovelInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelChapter
@@ -18,6 +19,7 @@ import reikai.domain.novel.NovelCategoryRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.NovelTrackRepository
+import reikai.domain.novel.repository.CustomNovelInfoRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
@@ -31,6 +33,7 @@ class NovelBackupCreator(
     private val novelCategoryRepository: NovelCategoryRepository = Injekt.get(),
     private val novelTrackRepository: NovelTrackRepository = Injekt.get(),
     private val preferences: ReikaiLibraryPreferences = Injekt.get(),
+    private val customNovelInfoRepository: CustomNovelInfoRepository = Injekt.get(),
     private val database: Database = Injekt.get(),
 ) {
 
@@ -39,6 +42,7 @@ class NovelBackupCreator(
         val categories: List<BackupNovelCategory>,
         val merges: List<BackupNovelMergeGroup>,
         val unmerges: List<BackupNovelMergeGroup>,
+        val customInfo: List<BackupCustomNovelInfo>,
     )
 
     suspend operator fun invoke(options: BackupOptions): NovelBackupData {
@@ -46,6 +50,7 @@ class NovelBackupCreator(
         return NovelBackupData(
             novels = if (options.libraryEntries) favorites.map { backupNovel(it, options) } else emptyList(),
             categories = if (options.categories) backupNovelCategories() else emptyList(),
+            customInfo = if (options.libraryEntries) backupCustomNovelInfo(favorites) else emptyList(),
             merges = if (options.libraryEntries) {
                 serializeGroups(preferences.novelManualMerges.get(), favorites)
             } else {
@@ -57,6 +62,26 @@ class NovelBackupCreator(
                 emptyList()
             },
         )
+    }
+
+    // Back up the novel custom-info overlay as {url, source}-keyed entries (re-keyed to fresh ids on
+    // restore). The favorites map resolves each row's novel; a row for a non-favorite is dropped.
+    private suspend fun backupCustomNovelInfo(favorites: List<Novel>): List<BackupCustomNovelInfo> {
+        val byId = favorites.associateBy { it.id }
+        return customNovelInfoRepository.getAll().mapNotNull { info ->
+            val novel = byId[info.novelId] ?: return@mapNotNull null
+            BackupCustomNovelInfo(
+                source = novel.source,
+                url = novel.url,
+                title = info.title,
+                author = info.author,
+                artist = info.artist,
+                description = info.description,
+                genre = info.genre.orEmpty(),
+                status = info.status,
+                thumbnailUrl = info.thumbnailUrl,
+            )
+        }
     }
 
     private suspend fun backupNovel(novel: Novel, options: BackupOptions): BackupNovel {
@@ -140,7 +165,6 @@ private fun Novel.toBackupNovel() = BackupNovel(
     coverLastModified = this.coverLastModified,
     totalPages = this.totalPages,
     lastReadAt = this.lastReadAt,
-    editedFlags = this.editedFlags,
     favorite = this.favorite,
     notes = this.notes,
     viewerFlags = this.viewerFlags,

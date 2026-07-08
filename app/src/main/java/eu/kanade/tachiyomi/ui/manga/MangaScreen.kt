@@ -387,6 +387,7 @@ class MangaScreen(
                     // source manga (dialog.manga), so an unchanged field stores no override.
                     initial = dialog.manga.withCustomInfo(successState.customInfo).toEntryEditInfoUi(),
                     sourceGenre = dialog.manga.genre.orEmpty(),
+                    seedColor = successState.seedColor,
                     coverModel = { url ->
                         MangaCover(
                             mangaId = dialog.manga.id,

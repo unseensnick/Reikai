@@ -53,6 +53,7 @@ import reikai.domain.novel.updateerror.UpsertNovelUpdateError
 import reikai.data.novel.NovelCategoryRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
+import reikai.data.novel.CustomNovelInfoRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.NovelTrackRepositoryImpl
 import reikai.data.recommendation.taste.TasteLibraryRepositoryImpl
@@ -65,6 +66,9 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.GetCustomNovelInfo
+import reikai.domain.novel.interactor.SetCustomNovelInfo
+import reikai.domain.novel.repository.CustomNovelInfoRepository
 import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.track.NovelTrackUpdater
 import reikai.domain.novel.track.PropagateNovelTrackerLinks
@@ -220,6 +224,10 @@ class DomainModule : InjektModule {
         addFactory { SetNovelViewerFlags(get()) }
         addFactory { NovelLibraryAdder(get(), get(), get(), get(), get(), get()) }
         addFactory { GetEnabledNovelSources(get(), get()) }
+        // RK: novel custom-info overlay (non-destructive display-layer edits)
+        addSingletonFactory<CustomNovelInfoRepository> { CustomNovelInfoRepositoryImpl(get()) }
+        addFactory { GetCustomNovelInfo(get()) }
+        addFactory { SetCustomNovelInfo(get()) }
         // RK <--
         // RK --> novel reading history (P5 / Active #5)
         addSingletonFactory<NovelHistoryRepository> { NovelHistoryRepositoryImpl(get()) }

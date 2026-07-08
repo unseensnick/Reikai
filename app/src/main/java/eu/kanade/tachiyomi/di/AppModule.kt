@@ -39,6 +39,7 @@ import reikai.novel.update.LnPluginUpdateChecker
 import tachiyomi.core.common.storage.AndroidStorageFolderProvider
 import tachiyomi.data.Chapters
 import tachiyomi.data.Custom_manga_info
+import tachiyomi.data.Custom_novel_info
 import tachiyomi.data.Database
 import tachiyomi.data.DateColumnAdapter
 import tachiyomi.data.History
@@ -103,6 +104,10 @@ class AppModule(val app: Application) : InjektModule {
                 ),
                 // RK: manga custom-info overlay (P6)
                 custom_manga_infoAdapter = Custom_manga_info.Adapter(
+                    genreAdapter = StringListColumnAdapter,
+                ),
+                // RK: novel custom-info overlay
+                custom_novel_infoAdapter = Custom_novel_info.Adapter(
                     genreAdapter = StringListColumnAdapter,
                 ),
                 // RK <--

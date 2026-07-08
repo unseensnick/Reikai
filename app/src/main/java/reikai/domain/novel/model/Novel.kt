@@ -44,12 +44,6 @@ data class Novel(
      * library sort doesn't pay a JOIN-per-row. Null when the novel has never been opened.
      */
     val lastReadAt: Long?,
-    /**
-     * Bitmask of fields the user manually overrode via Edit info (author=1, artist=2,
-     * description=4, genres=8). A set bit means the metadata refresh leaves that field alone so the
-     * edit survives pull-to-refresh; clearing it lets the source value win again.
-     */
-    val editedFlags: Long,
     /** Free-text user note shown/edited on the details screen (the novel twin of `Manga.notes`). */
     val notes: String,
     /**
@@ -87,7 +81,6 @@ data class Novel(
             coverLastModified = 0L,
             totalPages = 1L,
             lastReadAt = null,
-            editedFlags = 0L,
             notes = "",
             viewerFlags = 0L,
             version = 0L,

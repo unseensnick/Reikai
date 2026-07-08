@@ -47,7 +47,9 @@ import tachiyomi.domain.chapter.interactor.GetChapter
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
+import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.applyFilter
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.updates.interactor.GetUpdates
@@ -64,6 +66,8 @@ class UpdatesScreenModel(
     private val updateChapter: UpdateChapter = Injekt.get(),
     private val setReadStatus: SetReadStatus = Injekt.get(),
     private val getUpdates: GetUpdates = Injekt.get(),
+    // RK: per-entry custom title/cover overrides, overlaid on the displayed rows (display-only)
+    private val getCustomMangaInfo: GetCustomMangaInfo = Injekt.get(),
     private val getManga: GetManga = Injekt.get(),
     private val getChapter: GetChapter = Injekt.get(),
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
@@ -108,14 +112,18 @@ class UpdatesScreenModel(
                 getUpdatesItemPreferenceFlow().distinctUntilChanged { old, new ->
                     old.filterDownloaded == new.filterDownloaded
                 },
-                // RK: needed for the include/exclude category filter
-                reikaiCategoryFilterFlow(),
-            ) { updates, _, _, itemPreferences, categoryFilter ->
+                // RK: category filter + custom-info overlay share the 5th combine slot (combine caps at 5)
+                combine(reikaiCategoryFilterFlow(), getCustomMangaInfo.subscribeAll(), ::Pair),
+            ) { updates, _, _, itemPreferences, (categoryFilter, customInfo) ->
                 updates
                     .toUpdateItems()
                     .applyFilters(itemPreferences)
                     // RK: trim to the selected categories (a no-op when the filter is off)
                     .applyReikaiCategoryFilter(categoryFilter)
+                    // RK: display-only custom-info overlay, applied last and keyed by the real manga
+                    //     id. Filters and download detection ran on the raw title above; only the
+                    //     displayed title/cover carry the user's overrides.
+                    .overlayCustomInfo(customInfo)
             }
                 .collectLatest { updateItems ->
                     mutableState.update {
@@ -205,6 +213,21 @@ class UpdatesScreenModel(
                 getCategories.await(item.update.mangaId).map { it.id }.toSet().ifEmpty { setOf(0L) }
             }
             matchesCategoryFilter(categories, selection.include, selection.exclude)
+        }
+    }
+
+    // RK: overlay the user's custom title/cover onto each row for display, keyed by real manga id.
+    private fun List<UpdatesItem>.overlayCustomInfo(customInfo: List<CustomMangaInfo>): List<UpdatesItem> {
+        if (customInfo.isEmpty()) return this
+        val overlay = customInfo.associateBy { it.mangaId }
+        return map { item ->
+            val custom = overlay[item.update.mangaId] ?: return@map item
+            item.copy(
+                update = item.update.copy(
+                    mangaTitle = custom.title ?: item.update.mangaTitle,
+                    coverData = item.update.coverData.copy(url = custom.thumbnailUrl ?: item.update.coverData.url),
+                ),
+            )
         }
     }
     // RK <--

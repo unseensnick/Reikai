@@ -259,7 +259,9 @@ class MangaScreenModel(
      * manga opened straight from browsing still tints on first open (mirrors Komikku setPaletteColor).
      */
     fun updateSeedColor() {
-        if (!themeCoverBased) return
+        // Computed regardless of the themeCoverBased pref: the page only applies it when the pref is on
+        // (MangaScreen), but the shared edit-info dialog always tints from the cover, so the seed must be
+        // available either way.
         val cover = manga?.asMangaCover() ?: return
         cover.vibrantCoverColor?.let { color ->
             updateSuccessState { it.copy(seedColor = Color(color)) }

@@ -116,6 +116,7 @@ class BackupCreator(
                 backupMangaMerges = backupMangaMergeGroups(reikaiLibraryPreferences.mangaManualMerges.get(), favorites, options),
                 backupMangaUnmerges = backupMangaMergeGroups(reikaiLibraryPreferences.mangaManualUnmerges.get(), favorites, options),
                 backupCustomMangaInfo = backupCustomMangaInfo(favorites, options),
+                backupCustomNovelInfo = novelData.customInfo,
                 // RK <--
             )
 

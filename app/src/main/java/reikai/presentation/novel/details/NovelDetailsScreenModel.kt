@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import reikai.data.coil.NovelCover
 import reikai.data.novel.NovelStatusCode
+import reikai.data.novel.mergeRefreshedNovel
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.data.novel.toNovel
@@ -45,19 +46,21 @@ import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
+import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.RefreshNovelTracks
+import reikai.domain.novel.interactor.SetCustomNovelInfo
 import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.SetNovelChapterFlags
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.novel.track.TrackNovelChapter
+import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelChapterFlags
-import reikai.domain.novel.model.NovelEditFlags
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.effectiveBookmarkedFilter
 import reikai.domain.novel.model.effectiveDownloadedFilter
@@ -65,8 +68,6 @@ import reikai.domain.novel.model.effectiveHideChapterTitles
 import reikai.domain.novel.model.effectiveReadFilter
 import reikai.domain.novel.model.effectiveSortDescending
 import reikai.domain.novel.model.effectiveSorting
-import reikai.domain.novel.model.mergeRefreshedNovel
-import reikai.domain.novel.model.setEditedFlag
 import reikai.domain.novel.model.sortedAndFiltered
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadManager
@@ -114,6 +115,10 @@ class NovelDetailsScreenModel(
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
     private val libraryPreferences: LibraryPreferences by injectLazy()
     private val context: Application by injectLazy()
+
+    // RK: non-destructive custom-info overlay (edits never touch the novels row, so Reset is clean).
+    private val getCustomNovelInfo: GetCustomNovelInfo by injectLazy()
+    private val setCustomNovelInfo: SetCustomNovelInfo by injectLazy()
 
     // novel trackers (Active #8)
     private val getNovelTracks: GetNovelTracks by injectLazy()
@@ -173,12 +178,18 @@ class NovelDetailsScreenModel(
     @Volatile
     private var currentTrackingCount = 0
 
+    /** Latest custom-info overlay for the anchor novel, held outside state so the first
+     *  [NovelDetailsState.Loaded] built picks it up (mirrors [currentTrackingCount]). */
+    @Volatile
+    private var currentCustomInfo: CustomNovelInfo? = null
+
     init {
         observeMergeGroup()
         observeMergeSourceChips()
         observeChapters()
         observeDownloadQueue()
         observeTrackingCount()
+        observeCustomInfo()
         resolveSource()
     }
 
@@ -207,6 +218,25 @@ class NovelDetailsScreenModel(
                 .collectLatest { count ->
                     currentTrackingCount = count
                     mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(trackingCount = count) ?: it }
+                }
+        }
+    }
+
+    /** Mirror the novel's custom-info overlay into [NovelDetailsState.Loaded.customInfo], so the header,
+     *  description, tags, and cover show the user's edits (the raw novel stays source-accurate). Keyed on
+     *  the anchor id; a write to custom_novel_info re-emits and the display updates on its own. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun observeCustomInfo() {
+        screenModelScope.launchIO {
+            novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId)
+                .map { it?.id }
+                .distinctUntilChanged()
+                .flatMapLatest { novelId ->
+                    if (novelId == null) flowOf(null) else getCustomNovelInfo.subscribe(novelId)
+                }
+                .collectLatest { info ->
+                    currentCustomInfo = info
+                    mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(customInfo = info) ?: it }
                 }
         }
     }
@@ -422,6 +452,7 @@ class NovelDetailsScreenModel(
                 isRefreshing = loaded?.isRefreshing ?: false,
                 downloadStates = loaded?.downloadStates.orEmpty(),
                 trackingCount = currentTrackingCount,
+                customInfo = currentCustomInfo,
                 dialog = loaded?.dialog,
                 selection = loaded?.selection.orEmpty().filterTo(HashSet()) { id -> chapters.any { it.id == id } },
                 resumeChapter = resume,
@@ -743,8 +774,9 @@ class NovelDetailsScreenModel(
         updateLoaded { it.copy(dialog = NovelDetailsDialog.EditInfo) }
     }
 
-    /** Apply Edit-info. A field differing from the stored value sets its lock bit (so it survives a
-     *  refresh); a status of UNKNOWN clears the lock. Title needs no lock (refresh never touches it). */
+    /** Apply Edit-info as a non-destructive overlay: store a value only when it differs from the source
+     *  row (a blank field, or an Unknown status, stores nothing, so that field tracks the source again).
+     *  The novels row is never touched, so Reset restores the source cleanly. */
     fun updateNovelInfo(
         title: String,
         author: String,
@@ -756,46 +788,28 @@ class NovelDetailsScreenModel(
     ) {
         screenModelScope.launchIO {
             val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
-            var flags = n.editedFlags
-            flags = setEditedFlag(flags, NovelEditFlags.AUTHOR, author != n.author.orEmpty())
-            flags = setEditedFlag(flags, NovelEditFlags.ARTIST, artist != n.artist.orEmpty())
-            flags = setEditedFlag(flags, NovelEditFlags.DESCRIPTION, description != n.description.orEmpty())
-            flags = setEditedFlag(flags, NovelEditFlags.GENRES, genre != n.genre.orEmpty())
-            flags =
-                setEditedFlag(
-                    flags,
-                    NovelEditFlags.STATUS,
-                    status != NovelStatusCode.UNKNOWN.toLong() && status != n.status,
-                )
-            flags = setEditedFlag(
-                flags,
-                NovelEditFlags.THUMBNAIL,
-                thumbnailUrl.isNotBlank() && thumbnailUrl != n.thumbnailUrl.orEmpty(),
-            )
-            novelRepo.update(
-                n.copy(
-                    title = title.ifBlank { n.title },
-                    author = author.ifBlank { null },
-                    artist = artist.ifBlank { null },
-                    description = description.ifBlank { null },
-                    genre = genre.filter { it.isNotBlank() }.ifEmpty { null },
-                    status = if (status != NovelStatusCode.UNKNOWN.toLong()) status else n.status,
-                    thumbnailUrl = thumbnailUrl.ifBlank { n.thumbnailUrl },
-                    editedFlags = flags,
+            setCustomNovelInfo.set(
+                CustomNovelInfo(
+                    novelId = n.id,
+                    title = title.trim().takeIf { it.isNotEmpty() && it != n.title },
+                    author = author.trim().takeIf { it.isNotEmpty() && it != n.author.orEmpty() },
+                    artist = artist.trim().takeIf { it.isNotEmpty() && it != n.artist.orEmpty() },
+                    description = description.takeIf { it.isNotBlank() && it != n.description.orEmpty() },
+                    genre = genre.filter { it.isNotBlank() }.takeIf { it.isNotEmpty() && it != n.genre.orEmpty() },
+                    status = status.takeIf { it != n.status && it != NovelStatusCode.UNKNOWN.toLong() },
+                    thumbnailUrl = thumbnailUrl.trim().takeIf { it.isNotEmpty() && it != n.thumbnailUrl.orEmpty() },
                 ),
             )
             dismissDialog()
         }
     }
 
-    /** Clear every override and re-fetch source values. */
+    /** Clear every override; the source row shows through again (no re-fetch needed, it was never overwritten). */
     fun resetNovelInfo() {
         screenModelScope.launchIO {
             val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
-            val cleared = n.copy(editedFlags = 0L)
-            novelRepo.update(cleared)
+            setCustomNovelInfo.set(CustomNovelInfo(novelId = n.id))
             dismissDialog()
-            source?.let { runCatching { fetchAndSync(it, cleared) } }
         }
     }
 
@@ -1086,6 +1100,9 @@ sealed interface NovelDetailsState {
         val downloadStates: Map<Long, Download.State> = emptyMap(),
         /** Bound trackers on a logged-in service; drives the details action-row Tracking button (Active #8). */
         val trackingCount: Int = 0,
+        /** Non-destructive edit-info overlay; the display applies it over [displayNovel] (the raw novel
+         *  stays source-accurate). Null when the novel has no edits. */
+        val customInfo: CustomNovelInfo? = null,
         val dialog: NovelDetailsDialog? = null,
         val selection: Set<Long> = emptySet(),
         val resumeChapter: NovelChapter? = null,

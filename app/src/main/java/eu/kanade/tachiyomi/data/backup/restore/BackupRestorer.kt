@@ -195,6 +195,8 @@ class BackupRestorer(
                     notifier.showRestoreProgress(chunk.last().title, restoreProgress.load(), restoreAmount, isSync)
                 }
             novelRestorer.restoreMerges(backup.backupNovelMerges, backup.backupNovelUnmerges)
+            // RK: apply the custom-info overlay, re-keyed from {url,source} to the fresh novel ids.
+            novelRestorer.restoreCustomNovelInfo(backup.backupCustomNovelInfo)
         }
     }
 

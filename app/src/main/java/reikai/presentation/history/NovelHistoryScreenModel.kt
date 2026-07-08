@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
@@ -20,6 +21,7 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.GetNovelHistory
 import reikai.domain.novel.interactor.RemoveNovelHistory
@@ -42,6 +44,8 @@ import uy.kohesive.injekt.api.get
  */
 class NovelHistoryScreenModel(
     private val getNovelHistory: GetNovelHistory = Injekt.get(),
+    // Per-entry custom title/cover overrides, overlaid on the displayed rows (display-only).
+    private val getCustomNovelInfo: GetCustomNovelInfo = Injekt.get(),
     private val removeNovelHistory: RemoveNovelHistory = Injekt.get(),
     private val getNextNovelChapter: GetNextNovelChapter = Injekt.get(),
     private val novelRepository: NovelRepository = Injekt.get(),
@@ -64,7 +68,21 @@ class NovelHistoryScreenModel(
             state.map { it.searchQuery }
                 .distinctUntilChanged()
                 .flatMapLatest { query ->
-                    getNovelHistory.subscribe(query ?: "")
+                    // Overlay the display-only custom title/cover onto each row, keyed by the real
+                    // novel id. The SQL search (getNovelHistory.subscribe) still runs on the raw title.
+                    combine(
+                        getNovelHistory.subscribe(query ?: ""),
+                        getCustomNovelInfo.subscribeAll(),
+                    ) { history, customInfo ->
+                        val overlay = customInfo.associateBy { it.novelId }
+                        history.map { row ->
+                            val custom = overlay[row.novelId] ?: return@map row
+                            row.copy(
+                                title = custom.title ?: row.title,
+                                coverData = row.coverData.copy(url = custom.thumbnailUrl ?: row.coverData.url),
+                            )
+                        }
+                    }
                         .distinctUntilChanged()
                         .catch { error ->
                             logcat(LogPriority.ERROR, error)

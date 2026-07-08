@@ -31,6 +31,7 @@ class NovelBackupRoundTripTest {
         novelCategoryRepository = mockk(relaxed = true),
         novelTrackRepository = mockk(relaxed = true),
         preferences = mockk(relaxed = true),
+        setCustomNovelInfo = mockk(relaxed = true),
         database = mockk(relaxed = true),
     )
 
@@ -92,6 +93,7 @@ class NovelBackupRoundTripTest {
             novelCategoryRepository = mockk(relaxed = true),
             novelTrackRepository = mockk(relaxed = true),
             preferences = backupPrefs,
+            customNovelInfoRepository = mockk(relaxed = true),
             database = mockk(relaxed = true),
         )
         // Library + merges only; skip chapters/categories/tracking/history so no DB is touched.
@@ -128,6 +130,7 @@ class NovelBackupRoundTripTest {
             novelCategoryRepository = mockk(relaxed = true),
             novelTrackRepository = mockk(relaxed = true),
             preferences = restorePrefs,
+            setCustomNovelInfo = mockk(relaxed = true),
             database = mockk(relaxed = true),
         )
 
@@ -154,6 +157,7 @@ class NovelBackupRoundTripTest {
             novelCategoryRepository = mockk(relaxed = true),
             novelTrackRepository = mockk(relaxed = true),
             preferences = restorePrefs,
+            setCustomNovelInfo = mockk(relaxed = true),
             database = mockk(relaxed = true),
         )
 
@@ -180,7 +184,6 @@ class NovelBackupRoundTripTest {
             thumbnailUrl = "cover",
             favorite = true,
             totalPages = 3,
-            editedFlags = 8,
             notes = "my note",
         )
 
@@ -193,7 +196,6 @@ class NovelBackupRoundTripTest {
         novel.thumbnailUrl shouldBe "cover"
         novel.favorite shouldBe true
         novel.totalPages shouldBe 3L
-        novel.editedFlags shouldBe 8L
         novel.notes shouldBe "my note"
     }
 

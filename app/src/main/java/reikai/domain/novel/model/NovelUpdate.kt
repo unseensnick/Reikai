@@ -30,7 +30,6 @@ data class NovelUpdate(
     val coverLastModified: Long? = null,
     val totalPages: Long? = null,
     val lastReadAt: Long? = null,
-    val editedFlags: Long? = null,
     val notes: String? = null,
     val viewerFlags: Long? = null,
 )

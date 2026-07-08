@@ -50,6 +50,7 @@ import reikai.data.coil.NovelCover
 import reikai.domain.novel.model.NovelChapter
 import reikai.presentation.components.EntryCoverDialog
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.withCustomInfo
 import reikai.presentation.details.EntryDetailsScaffold
 import reikai.presentation.details.EntryDetailsTwoPaneScaffold
 import reikai.presentation.details.EntryDetailsUiState
@@ -175,7 +176,9 @@ private fun NovelDetailsSmallImpl(
     onChapterClick: (NovelChapter) -> Unit,
 ) {
     val listState = rememberLazyListState()
-    val display = state.displayNovel
+    // Display-only overlay: show the user's edits over the source metadata; the raw novel stays
+    // source-accurate for refresh, merge, sort, and search.
+    val display = state.displayNovel.withCustomInfo(state.customInfo)
 
     // Build the shared header/description state in composable scope so the merge-unified label resolves
     // via stringResource before the shell emits the info group. Metadata follows the viewed source (the
@@ -262,7 +265,7 @@ private fun NovelDetailsLargeImpl(
     onChapterClick: (NovelChapter) -> Unit,
 ) {
     val chapterListState = rememberLazyListState()
-    val display = state.displayNovel
+    val display = state.displayNovel.withCustomInfo(state.customInfo)
 
     val entrySourceName = if (state.mergeSources.size > 1 && state.selectedSourceNovelId == null) {
         stringResource(MR.strings.merge_unified)
@@ -419,8 +422,9 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: No
             onConfirm = screenModel::applyCategories,
         )
         NovelDetailsDialog.EditInfo -> EntryEditInfoDialog(
-            initial = state.displayNovel.toEntryEditInfoUi(),
-            sourceGenre = state.displayNovel.genre.orEmpty(),
+            initial = state.displayNovel.withCustomInfo(state.customInfo).toEntryEditInfoUi(),
+            sourceGenre = state.novel.genre.orEmpty(),
+            seedColor = state.seedColor,
             coverModel = { url ->
                 NovelCover(
                     url = url.ifBlank { null },

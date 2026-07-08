@@ -152,7 +152,7 @@ fun EntryToolbar(
                         add(AppBar.OverflowAction(title = stringResource(MR.strings.action_edit_categories), onClick = onClickEditCategory))
                     }
                     if (onClickEditInfo != null) {
-                        add(AppBar.OverflowAction(title = stringResource(MR.strings.action_edit), onClick = onClickEditInfo))
+                        add(AppBar.OverflowAction(title = stringResource(MR.strings.action_edit_info), onClick = onClickEditInfo))
                     }
                     if (onClickMigrate != null) {
                         add(AppBar.OverflowAction(title = stringResource(MR.strings.action_migrate), onClick = onClickMigrate))

@@ -21,7 +21,9 @@ import reikai.domain.manga.MangaMergeManager
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNovelCategories
+import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownload
@@ -50,6 +52,8 @@ class NovelUpdatesScreenModel(
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
     private val updatesPreferences: UpdatesPreferences = Injekt.get(),
     private val getNovelCategories: GetNovelCategories = Injekt.get(),
+    // Per-entry custom title/cover overrides, overlaid on the displayed rows (display-only).
+    private val getCustomNovelInfo: GetCustomNovelInfo = Injekt.get(),
     private val libraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
     private val mangaMergeManager: MangaMergeManager = Injekt.get(),
     private val novelMergeManager: NovelMergeManager = Injekt.get(),
@@ -112,8 +116,9 @@ class NovelUpdatesScreenModel(
                 novelRepo.getRecentNovelUpdatesAsFlow(after, LIMIT),
                 downloadManager.queueState,
                 filterFlow,
-                categoryFilterFlow(),
-            ) { updates, queue, filters, categoryFilter ->
+                // Category filter + custom-info overlay share the 4th combine slot (combine caps at 5).
+                combine(categoryFilterFlow(), getCustomNovelInfo.subscribeAll(), ::Pair),
+            ) { updates, queue, filters, (categoryFilter, customInfo) ->
                 val queueById = queue.associate { it.chapterId to it.state.toDownloadState() }
                 updates
                     .map { update ->
@@ -126,6 +131,9 @@ class NovelUpdatesScreenModel(
                     }
                     .filter { it.matchesFilters(filters) }
                     .applyCategoryFilter(categoryFilter)
+                    // Display-only custom-info overlay, applied last and keyed by the real novel id.
+                    // Filters and download detection ran on the raw values above.
+                    .overlayCustomInfo(customInfo)
             }.collectLatest { items ->
                 mutableState.update { it.copy(isLoading = false, items = items) }
             }
@@ -176,6 +184,21 @@ class NovelUpdatesScreenModel(
                 getNovelCategories.awaitByNovelId(item.update.novelId).map { it.id }.toSet().ifEmpty { setOf(0L) }
             }
             matchesCategoryFilter(categories, selection.include, selection.exclude)
+        }
+    }
+
+    // Overlay the user's custom title/cover onto each row for display, keyed by real novel id.
+    private fun List<NovelUpdatesItem>.overlayCustomInfo(customInfo: List<CustomNovelInfo>): List<NovelUpdatesItem> {
+        if (customInfo.isEmpty()) return this
+        val overlay = customInfo.associateBy { it.novelId }
+        return map { item ->
+            val custom = overlay[item.update.novelId] ?: return@map item
+            item.copy(
+                update = item.update.copy(
+                    novelTitle = custom.title ?: item.update.novelTitle,
+                    coverData = item.update.coverData.copy(url = custom.thumbnailUrl ?: item.update.coverData.url),
+                ),
+            )
         }
     }
 

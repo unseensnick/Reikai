@@ -28,4 +28,6 @@ data class Backup(
     @ProtoNumber(712) var backupMangaUnmerges: List<BackupMangaMergeGroup> = emptyList(),
     // RK: manga custom-info (non-destructive edits) as {url,source}-keyed entries, re-keyed on restore.
     @ProtoNumber(713) var backupCustomMangaInfo: List<BackupCustomMangaInfo> = emptyList(),
+    // RK: novel custom-info (non-destructive edits), the novel twin of backupCustomMangaInfo.
+    @ProtoNumber(714) var backupCustomNovelInfo: List<BackupCustomNovelInfo> = emptyList(),
 )

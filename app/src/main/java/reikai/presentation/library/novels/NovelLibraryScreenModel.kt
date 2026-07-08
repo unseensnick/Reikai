@@ -28,9 +28,11 @@ import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
+import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.UpdateNovel
+import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelCategoryUpdate
@@ -38,6 +40,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelLibrarySort
 import reikai.domain.novel.model.comparator
 import reikai.domain.novel.model.toCategory
+import reikai.domain.novel.model.withCustomInfo
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
@@ -82,6 +85,8 @@ class NovelLibraryScreenModel :
     private val novelCategoryRepository: NovelCategoryRepository by injectLazy()
     private val novelDownloadManager: NovelDownloadManager by injectLazy()
     private val getNovelCategories: GetNovelCategories by injectLazy()
+    // Per-entry custom title/cover overrides, overlaid on the displayed rows (display-only).
+    private val getCustomNovelInfo: GetCustomNovelInfo by injectLazy()
     private val setNovelCategories: SetNovelCategories by injectLazy()
     private val libraryPreferences: LibraryPreferences by injectLazy()
     private val basePreferences: BasePreferences by injectLazy()
@@ -119,7 +124,12 @@ class NovelLibraryScreenModel :
             combine(
                 getNovelCategories.subscribe(),
                 // Re-emit when sources (un)register so `sourceManager.get(...)` resolves once loaded.
-                novelRepository.getLibraryNovelAsFlow().combine(sourceManager.sources) { library, _ -> library },
+                // The custom-info overlay rides with the library so a title/cover edit re-emits too.
+                combine(
+                    novelRepository.getLibraryNovelAsFlow().combine(sourceManager.sources) { library, _ -> library },
+                    getCustomNovelInfo.subscribeAll(),
+                    ::Pair,
+                ),
                 searchQuery,
                 selection,
                 // Collapse set + at-bottom pref ride with settings so a collapse toggle rebuilds the
@@ -129,8 +139,11 @@ class NovelLibraryScreenModel :
                     collapsedCategories,
                     reikaiLibraryPreferences.collapsedDynamicAtBottom.changes(),
                 ) { settings, collapsed, atBottom -> GroupingInputs(settings, collapsed, atBottom) },
-            ) { categories, library, query, sel, grouping ->
-                buildState(categories, library, query, sel, grouping.settings, grouping.collapsed, grouping.atBottom)
+            ) { categories, (library, customInfo), query, sel, grouping ->
+                buildState(
+                    categories, library, customInfo, query, sel,
+                    grouping.settings, grouping.collapsed, grouping.atBottom,
+                )
             }.collectLatest { built ->
                 // Preserve the live searchQuery (and active page): the async buildState lags the user's
                 // typing, so overwriting searchQuery here resets the search field to a stale value mid-
@@ -214,6 +227,7 @@ class NovelLibraryScreenModel :
     private fun buildState(
         categories: List<NovelCategory>,
         library: List<LibraryNovel>,
+        customInfo: List<CustomNovelInfo>,
         query: String?,
         sel: Set<Long>,
         settings: LibrarySettings,
@@ -236,8 +250,12 @@ class NovelLibraryScreenModel :
         val novelById = collapsed.associate { -it.representative.novel.id to it.representative }
         // novelId -> source id, to resolve each grouped source's icon for the merge badge.
         val sourceByNovelId = library.associate { it.novel.id to it.novel.source }
+        // Display-only custom-info overlay. Applied to the representative's display copy only (below),
+        // keyed by the real novel id; collapse, grouping, sort and matchesQuery keep using the raw
+        // novel via `novelById`, so the overrides never feed those operations.
+        val overlay = customInfo.associateBy { it.novelId }
         val items = collapsed.map { group ->
-            val rep = group.representative
+            val rep = group.representative.let { r -> r.copy(novel = r.novel.withCustomInfo(overlay[r.novel.id])) }
             // lnreader plugins mostly declare lang as a full English name ("English"); the badge wants a
             // 2-char code like the manga side, so reduce it (codes pass through unchanged).
             val source = sourceManager.get(rep.novel.source)
