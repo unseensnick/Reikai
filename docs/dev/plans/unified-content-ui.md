@@ -84,10 +84,11 @@ details screen (the large, highest-impact surface) is next. Reader stays separat
 
 ## Status
 
-**In progress. List surfaces + cover dialog shipped; the details screen is collapsing in phases (P1-P3
-done, P4-P6 remain).** Captured from a design discussion (2026-07-05) while finishing the MD
+**In progress. List surfaces + cover dialog shipped; the details screen is collapsing in phases (P1-P5
+done, P6 remains).** Captured from a design discussion (2026-07-05) while finishing the MD
 enhanced-source port; a code-research pass (2026-07-07) confirmed the list surfaces already carried the
-merge half of the seam, so only the leaf row remained there.
+merge half of the seam, so only the leaf row remained there. P6 was deep-researched (2026-07-08) to
+ground the manga custom-info data layer before implementation.
 
 Shipped (list + cover): the History and Updates screens each collapsed their twin manga/novel row
 composables into one shared `Entry*Row` fed by per-type mappers/slots (`EntryHistoryRow` `0628f5f43`;
@@ -105,10 +106,33 @@ and a pre-existing merged per-source metadata-viewer fix (`05e86c70a`). Note the
 standalone "column only" step was low-value and forced awkward `stringResource` hoisting, so the shell was
 pulled forward into P3 and the toolbar left as a slot. All verified on-device (debug and minified).
 
-Remaining on the details screen: a shared `EntryToolbar` (fills the shell's `topBar` slot; smaller now the
-shell exists), manga hide/unhide-chapters (pref-based, mirroring novels), and a shared Komikku-style
-edit-info editor plus the manga override data layer (`CustomMangaInfo`). The larger standalone parity items
-are ROADMAP entries. A 2026-07-07 parity audit ruled the manga/novel divergences (close vs gate).
+Also shipped (details screen): the shared `EntryToolbar` (`57bbd8055`, P4, fills the shell's `topBar` slot)
+and manga hide/unhide-chapters (`8f7014353`, P5, pref-based mirroring novels, hidden excluded from list +
+resume + download on both types). A 2026-07-07 parity audit ruled the manga/novel divergences (close vs
+gate); several fixes rode along (novel toggle lingering, novel hidden-chapter download/resume leak,
+settings-search crash, cross-tracker merge, merged-view dedup).
+
+Remaining: **P6, the shared edit-info editor + the manga custom-info override.** Design LOCKED and
+deep-researched (2026-07-08):
+- **Manga override = a `custom_manga_info` DB table** (NOT Komikku's `edits.json`), a NON-destructive
+  overlay applied read-time in `MangaMapper` (favorites only), package `tachiyomi.*.manga`, `// RK`. Chosen
+  over Komikku's `og*`-in-the-model approach (which renames core `Manga` fields, huge blast radius) and over
+  the novel-style in-row + `editedFlags` approach (needs a `mangas` migration, destructive). = approach B2.
+- **B2 needs a small `// RK` refresh guard** in `UpdateMangaFromRemote.awaitUpdateFromSource`: a
+  `fetchDetails=false` library update echoes the input SManga (carrying the overlay) back into the row, so
+  skip the detail write-back when the source did not fetch fresh details. Without it the overlay leaks into
+  the row and Reset-to-source degrades. (The research surprise.)
+- **After a save, bump the `mangas` row** (`updateManga.awaitUpdateCoverLastModified`) so the details
+  SQLDelight flow re-emits and the mapper re-runs; editing a separate table does not re-emit on its own.
+- Shared Compose `EntryEditInfoDialog` (cover preview, status dropdown, Title/Author/Artist/Thumbnail-URL/
+  Description, tags as removable chips + Add tags, Reset Tags + Reset Info) reusing the novel
+  `EditField`/`StatusDropdown`; neutral `EntryEditInfoUi` + per-type save callback. Cover-URL override for
+  BOTH types (novels add a `NovelEditFlags.THUMBNAIL` bit); novel tags move to chips.
+- **Fill-from-tracker IS IN SCOPE** (Stage 5; needs its own tracker-layer scout, stock Mihon likely lacks a
+  metadata API). Backup: Option A (the override table gets its own backup section; the manga row already
+  carries effective values). Novel data layer stays as-is; a novel -> overlay-table migration is a parked
+  post-P6 follow-up (lossy for existing novel edits; ROADMAP). Full grounding + `file:line` insertion points
+  in `Handoff.md`. The larger standalone parity items are ROADMAP entries.
 
 ## Decisions & tradeoffs
 

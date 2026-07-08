@@ -4,7 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-**Unified content UI** in progress on `feat/unified-content-ui` (unmerged): the History + Updates rows, the full-cover dialog, and now most of the **details screen** (shared action row, info header, and phone + tablet screen shell) are collapsed onto shared `Entry*` components (verified device + minified). Remaining on the details screen: the shared toolbar, then manga hide/unhide-chapters and a shared edit-info editor. Goal and rulings: Later -> UI & design and [the plan](docs/dev/plans/unified-content-ui.md).
+**Unified content UI** in progress on `feat/unified-content-ui` (unmerged): the History + Updates rows, the full-cover dialog, and the **details screen** (shared action row, info header, phone + tablet shell, toolbar, and manga hide/unhide-chapters) are collapsed onto shared `Entry*` components (verified device + minified). **Remaining: P6, the shared edit-info editor + a manga custom-info override** (a `custom_manga_info` overlay table, applied read-time in `MangaMapper`, favorites only; cover-URL override for both types; novel tags -> chips; Fill-from-tracker in scope). Fully scoped + deep-researched; ready to implement (see `Handoff.md` + [the plan](docs/dev/plans/unified-content-ui.md)). Goal and rulings: Later -> UI & design.
 
 ## Next
 
@@ -36,6 +36,7 @@ Larger:
 - **Global novel reader-defaults settings screen** `[M]` - a `SearchableSettings` novel-reader page the per-novel sheet falls back to; also unblocks settings search.
 - **Novel library Behaviour settings** `[M]` - swipe actions + missing-chapter indicators for the novel list.
 - **Bulk multi-select in novel browse + global search** `[M]` - a selection toolbar with bulk add-to-library, matching manga (which uses `BulkFavoriteScreenModel`); novel browse only single-adds today (2026-07-07 parity audit).
+- **Migrate novel edit-info to the manga overlay-table model** `[M]` - P6 follow-up. Once manga edit-info ships on a non-destructive `custom_manga_info` overlay table, move novels off the in-row-edits + `editedFlags` model to a matching `custom_novel_info` overlay for one consistent, non-destructive data layer. Caveat: LOSSY for existing novel edits (novels already overwrote the source values in-row, so an overlay can't restore them without a per-novel source re-fetch); new edits are clean, old edits keep a Reset-degradation asterisk. Rewrite of shipped code + a migration; scope and test in isolation, do NOT fold into P6.
 
 Opportunistic polish: Browse (Latest shortcut, Latest capability-guard so an unsupported source hides the chip, global-search progress, Last-used, hide-in-library, per-row language, genre-tap-search); Reader (Share + open-in-browser, always-on progress %); Downloads queue (pause/resume, per-row retry, move-to-top/bottom, per-series move/cancel); Tracking (start-date backfill, create-private-at-bind, hide trackers lacking novel search); Updates/history (Novels-chip last-updated line, fast-scroll animation); Details (long-press-copy WebView URL, per-source scanlator filter for merged novels, per-category novel display settings `[M]`, novel tag-tap global search, novel long-press-favorite category shortcut).
 
