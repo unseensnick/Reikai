@@ -9,7 +9,9 @@ import eu.kanade.tachiyomi.data.track.mangaupdates.dto.MUListItem
 import eu.kanade.tachiyomi.data.track.mangaupdates.dto.MURating
 import eu.kanade.tachiyomi.data.track.mangaupdates.dto.copyTo
 import eu.kanade.tachiyomi.data.track.mangaupdates.dto.toTrackSearch
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
+import eu.kanade.tachiyomi.util.lang.htmlDecode
 import tachiyomi.i18n.MR
 import tachiyomi.domain.track.model.Track as DomainTrack
 
@@ -109,6 +111,30 @@ class MangaUpdates(id: Long) : BaseTracker(id, "MangaUpdates"), DeletableTracker
         val (series, rating) = api.getSeriesListItem(track)
         return track.copyFrom(series, rating)
     }
+
+    // RK --> autofill entry metadata (Fill from tracker). MangaUpdates splits one author list into
+    // authors vs artists by each entry's type; genres are a separate clean list.
+    override suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
+        val series = api.getSeries(track)
+        return TrackMangaMetadata(
+            remoteId = series.seriesId,
+            title = series.title?.htmlDecode(),
+            thumbnailUrl = series.image?.url?.original,
+            description = series.description?.htmlDecode(),
+            authors = series.authors
+                ?.filter { it.type != null && "Author" in it.type }
+                ?.mapNotNull { it.name }
+                ?.joinToString(", ")
+                ?.ifEmpty { null },
+            artists = series.authors
+                ?.filter { it.type != null && "Artist" in it.type }
+                ?.mapNotNull { it.name }
+                ?.joinToString(", ")
+                ?.ifEmpty { null },
+            genres = series.genres?.mapNotNull { it.genre }?.takeIf { it.isNotEmpty() },
+        )
+    }
+    // RK <--
 
     private fun Track.copyFrom(item: MUListItem, rating: MURating?): Track = apply {
         item.copyTo(this)

@@ -3,8 +3,10 @@ package eu.kanade.tachiyomi.data.track.shikimori
 import android.net.Uri
 import androidx.core.net.toUri
 import eu.kanade.tachiyomi.data.database.models.Track
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMAddMangaResponse
+import eu.kanade.tachiyomi.data.track.shikimori.dto.SMMetadata
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMOAuth
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMSearchResult
 import eu.kanade.tachiyomi.data.track.shikimori.dto.SMUser
@@ -173,6 +175,64 @@ class ShikimoriApi(
             }
         }
     }
+
+    // RK --> "Fill from tracker" metadata (ported from Komikku; poster{mainUrl} per Reikai, plus genres).
+    suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
+        return withIOContext {
+            val query = $$"""
+            |query($ids: String!) {
+                |mangas(ids: $ids) {
+                    |id
+                    |name
+                    |description
+                    |poster {
+                        |mainUrl
+                    |}
+                    |genres {
+                        |name
+                    |}
+                    |personRoles {
+                        |person {
+                            |name
+                        |}
+                        |rolesEn
+                    |}
+                |}
+            |}
+            """.trimMargin()
+            val payload = buildJsonObject {
+                put("query", query)
+                putJsonObject("variables") {
+                    put("ids", track.remoteId.toString())
+                }
+            }
+            with(json) {
+                authClient.newCall(POST(GRAPHQL_API_URL, body = payload.toString().toRequestBody(jsonMime)))
+                    .awaitSuccess()
+                    .parseAs<SMMetadata>()
+                    .let {
+                        if (it.data.mangas.isEmpty()) throw Exception("Could not get metadata from Shikimori")
+                        val manga = it.data.mangas[0]
+                        TrackMangaMetadata(
+                            remoteId = manga.id.toLong(),
+                            title = manga.name,
+                            thumbnailUrl = manga.poster?.mainUrl,
+                            description = manga.description,
+                            authors = manga.personRoles
+                                .filter { role -> role.roles.any { "Story" in it } }
+                                .joinToString(", ") { role -> role.person.name }
+                                .ifEmpty { null },
+                            artists = manga.personRoles
+                                .filter { role -> role.roles.any { "Art" in it } }
+                                .joinToString(", ") { role -> role.person.name }
+                                .ifEmpty { null },
+                            genres = manga.genres.map { it.name }.takeIf { it.isNotEmpty() },
+                        )
+                    }
+            }
+        }
+    }
+    // RK <--
 
     suspend fun getCurrentUser(): SMUser {
         return with(json) {

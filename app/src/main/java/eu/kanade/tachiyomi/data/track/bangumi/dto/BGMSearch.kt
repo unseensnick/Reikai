@@ -26,6 +26,8 @@ data class BGMSubject(
     val eps: Long = 0,
     val rating: BGMSubjectRating?,
     val platform: String?,
+    // RK: only the subject-detail endpoint returns infobox; default keeps search parsing unaffected.
+    val infobox: List<Infobox> = emptyList(),
 ) {
     fun toTrackSearch(trackId: Long): TrackSearch = TrackSearch.create(trackId).apply {
         remote_id = this@BGMSubject.id

@@ -8,7 +8,10 @@ import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMCollectionResponse
 import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMCollectionsResult
 import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMOAuth
 import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMSearchResult
+import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMSubject
 import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMUser
+import eu.kanade.tachiyomi.data.track.bangumi.dto.Infobox
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.HttpException
@@ -29,6 +32,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import tachiyomi.core.common.util.lang.withIOContext
 import uy.kohesive.injekt.injectLazy
+import tachiyomi.domain.track.model.Track as DomainTrack
 
 class BangumiApi(
     private val trackId: Long,
@@ -111,6 +115,36 @@ class BangumiApi(
             }
         }
     }
+
+    // RK --> "Fill from tracker" metadata (ported from Komikku). Title/authors come from the Chinese
+    // fields; author key 作者, illustrator key 插画 (Komikku's 插图 is wrong). No clean genre field, so
+    // genres are left unset. Author/artist are parsed out of the free-form `infobox` list.
+    suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
+        return withIOContext {
+            with(json) {
+                authClient.newCall(GET("$API_URL/v0/subjects/${track.remoteId}"))
+                    .awaitSuccess()
+                    .parseAs<BGMSubject>()
+                    .let { subject ->
+                        TrackMangaMetadata(
+                            remoteId = subject.id,
+                            title = subject.nameCn.ifBlank { subject.name },
+                            thumbnailUrl = subject.images?.common,
+                            description = subject.summary,
+                            authors = subject.infoboxValues("作者").ifEmpty { null },
+                            artists = subject.infoboxValues("插画").ifEmpty { null },
+                        )
+                    }
+            }
+        }
+    }
+
+    private fun BGMSubject.infoboxValues(keyContains: String): String =
+        infobox
+            .filter { keyContains in it.key }
+            .filterIsInstance<Infobox.SingleValue>()
+            .joinToString(", ") { it.value }
+    // RK <--
 
     suspend fun statusLibManga(track: Track, username: String): Track? {
         return withIOContext {
