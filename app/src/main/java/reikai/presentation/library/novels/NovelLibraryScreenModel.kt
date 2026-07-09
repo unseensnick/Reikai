@@ -33,11 +33,11 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.novel.NovelRepository
-import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.SetNovelCategories
+import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.LibraryNovel
@@ -89,7 +89,7 @@ class NovelLibraryScreenModel :
     private val context: Application by injectLazy()
     private val novelRepository: NovelRepository by injectLazy()
     private val updateNovel: UpdateNovel by injectLazy()
-    private val deleteNovelChaptersAfterRead: DeleteNovelChaptersAfterRead by injectLazy()
+    private val setNovelReadStatus: SetNovelReadStatus by injectLazy()
     private val novelChapterRepository: NovelChapterRepository by injectLazy()
     private val novelCategoryRepository: NovelCategoryRepository by injectLazy()
     private val novelDownloadManager: NovelDownloadManager by injectLazy()
@@ -616,11 +616,9 @@ class NovelLibraryScreenModel :
     fun markReadSelection(read: Boolean) {
         val novelIds = state.value.selectedNovelIds
         screenModelScope.launchIO {
-            novelIds.forEach { id ->
-                val chapters = novelChapterRepository.getByNovelId(id)
-                if (chapters.isNotEmpty()) novelChapterRepository.setReadBulk(chapters.map { it.id }, read)
-                if (read) deleteNovelChaptersAfterRead.await(id, chapters)
-            }
+            // The interactor groups by novel for delete-after-read, so pass every selected novel's chapters.
+            val chapters = novelIds.flatMap { novelChapterRepository.getByNovelId(it) }
+            setNovelReadStatus.await(read, chapters)
             clearSelection()
         }
     }

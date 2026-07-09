@@ -25,6 +25,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Your novel library can now filter, sort, and group by tracker, matching manga.** Filter novels by each linked tracker, sort by tracker score, and group by tracking status from the library settings sheet.
 - **Sort your manga library by download count, the way novels already could.** A new Downloaded option in the library Sort tab orders titles by how many chapters you have downloaded.
 - **Adding a novel now warns you when a similar one is already in your library, like manga.** Favoriting a novel from its details screen or your history first flags any matching titles, so you can open the existing one instead of ending up with a duplicate.
+- **Refreshing your novel library now confirms it started, like manga.** Tapping refresh on the Novels chip shows an "Updating library" message (or "Already running" if one is in progress) instead of doing nothing visible.
+- **The Updates screen now shows when your novels last updated.** A "Last updated" line appears on the Novels chip, and the All chip shows whichever of manga or novels refreshed more recently.
 
 ### Changes
 
@@ -35,6 +37,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Fixes
 
+- **Marking a novel chapter read from the Updates list now deletes its download, like manga.** With "delete after read" on, that cleanup ran everywhere except the Updates screen; now it runs there too.
 - **A merged series no longer lists every chapter twice.** Chapters from a source with rich gallery-style metadata were skipping the cross-source dedup, so the unified "all" view doubled up; they now collapse to one row per chapter like the others.
 - **You can now merge two sources tracked on different services.** A manual merge was quietly undone when the two entries were linked to different trackers (say one on AniList, the other on MyAnimeList); it now keeps them merged.
 - **Searching your settings no longer crashes the app.** Two settings that shared a name (the manga and novel versions of a toggle) could collide in the search results and bring it down.

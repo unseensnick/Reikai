@@ -19,6 +19,7 @@ import androidx.work.WorkQuery
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import eu.kanade.tachiyomi.data.notification.Notifications
+import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.CancellationException
@@ -92,6 +93,8 @@ class NovelUpdateJob(
 
     override suspend fun doWork(): Result {
         setForegroundSafely()
+        // Stamp the run start for the Updates "Last updated" line (matches manga LibraryUpdateJob).
+        preferences.novelLibraryUpdateLastTimestamp().set(System.currentTimeMillis())
         return try {
             val categoryId = inputData.getLong(KEY_CATEGORY, -1L)
             withIOContext { updateNovels(categoryId) }
@@ -287,13 +290,19 @@ class NovelUpdateJob(
         /** Run a check immediately (for manual triggers / testing); reuses a running drain via KEEP.
          *  A non-null [category] scopes the run to that category (the novel twin of manga's
          *  per-category manual update); null updates the whole library per the include/exclude prefs. */
-        fun startNow(context: Context, category: Category? = null) {
+        fun startNow(context: Context, category: Category? = null): Boolean {
+            val wm = context.workManager
+            if (wm.isRunning(TAG)) {
+                // Already running either as a scheduled or manual job.
+                return false
+            }
             val request = OneTimeWorkRequestBuilder<NovelUpdateJob>()
                 .addTag(TAG)
                 .setInputData(workDataOf(KEY_CATEGORY to (category?.id ?: -1L)))
                 .setBackoffCriteria(BackoffPolicy.LINEAR, 10, TimeUnit.MINUTES)
                 .build()
-            context.workManager.enqueueUniqueWork(WORK_NAME_MANUAL, ExistingWorkPolicy.KEEP, request)
+            wm.enqueueUniqueWork(WORK_NAME_MANUAL, ExistingWorkPolicy.KEEP, request)
+            return true
         }
 
         /** Cancel the currently-running check by id (so the periodic schedule survives), re-enqueuing

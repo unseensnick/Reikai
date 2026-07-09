@@ -14,8 +14,8 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
-import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
 import reikai.domain.novel.interactor.GetNovelCategories
+import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpsertNovelHistory
 import reikai.domain.novel.model.NovelChapter
@@ -84,7 +84,7 @@ class NovelReaderScreenModel(
     private val upsertNovelHistory: UpsertNovelHistory by injectLazy()
     private val setNovelViewerFlags: SetNovelViewerFlags by injectLazy()
     private val getNovelCategories: GetNovelCategories by injectLazy()
-    private val deleteNovelChaptersAfterRead: DeleteNovelChaptersAfterRead by injectLazy()
+    private val setNovelReadStatus: SetNovelReadStatus by injectLazy()
 
     // novel trackers (Active #8): push read progress on chapter completion
     private val trackNovelChapter: TrackNovelChapter by injectLazy()
@@ -504,15 +504,14 @@ class NovelReaderScreenModel(
             // Stamp the owning novel's last-read time so the LastRead library sort reflects this read.
             novelRepo.setLastReadAt(currentNovelId, System.currentTimeMillis())
             if (clamped >= 97) {
-                chapterRepo.setReadBulk(listOf(id), true)
+                // Fetch before marking so the shared interactor sees the chapter as still unread; it flips
+                // read + honors "delete after marked as read" (the in-RAM htmlCache keeps this view alive).
                 val chapter = chapterRepo.getById(id)
+                setNovelReadStatus.await(true, listOfNotNull(chapter))
                 // push read progress to bound trackers, mirroring ReaderViewModel.updateTrackChapterRead (Active #8)
                 if (trackPreferences.autoUpdateTrack.get()) {
                     chapter?.let { trackNovelChapter.await(Injekt.get<Application>(), currentNovelId, it.chapterNumber) }
                 }
-                // The in-RAM htmlCache keeps the current view alive, so deleting the file is safe here.
-                // Finishing a chapter marks it read, so honor "delete after marked as read" too.
-                chapter?.let { deleteNovelChaptersAfterRead.await(currentNovelId, listOf(it)) }
                 maybeDeleteAfterRead(id)
             }
         }

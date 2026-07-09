@@ -5,6 +5,7 @@ import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import reikai.domain.novel.model.NovelMigrationFlag
+import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.domain.library.service.LibraryPreferences
 
@@ -74,6 +75,11 @@ class NovelPreferences(
 
     /** Last successful update-check timestamp (millis); gates the on-launch path to skip if recent. */
     fun lastLnPluginCheck() = preferenceStore.getLong("ln_plugin_last_check", 0L)
+
+    /** Epoch-millis the last novel library update started; feeds the shared Updates "Last updated"
+     *  line. App-state (not backed up), mirroring manga's [LibraryPreferences.lastUpdatedTimestamp]. */
+    fun novelLibraryUpdateLastTimestamp() =
+        preferenceStore.getLong(Preference.appStateKey("novel_library_update_last_timestamp"), 0L)
 
     // Global chapter sort / filter / display defaults (S3c). A novel falls back to these unless its
     // own `chapterFlags` local bit is set (see [reikai.domain.novel.model.NovelChapterFlags]). Stored

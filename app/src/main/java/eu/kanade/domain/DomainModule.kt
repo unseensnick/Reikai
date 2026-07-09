@@ -89,6 +89,7 @@ import reikai.domain.novel.interactor.RemoveNovelHistory
 import reikai.domain.novel.interactor.ReorderNovelCategories
 import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.SetNovelChapterFlags
+import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.interactor.UpsertNovelHistory
@@ -220,6 +221,7 @@ class DomainModule : InjektModule {
         addFactory { ReorderNovelCategories(get()) }
         addFactory { UpdateNovel(get()) }
         addFactory { DeleteNovelChaptersAfterRead(get(), get(), get()) }
+        addFactory { SetNovelReadStatus(get(), get()) }
         addFactory { SetNovelChapterFlags(get()) }
         addFactory { SetNovelViewerFlags(get()) }
         addFactory { NovelLibraryAdder(get(), get(), get(), get(), get(), get()) }

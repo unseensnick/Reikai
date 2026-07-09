@@ -279,7 +279,13 @@ fun ReikaiUpdatesScreen(
                             indicatorPadding = bodyPadding,
                         ) {
                             FastScrollLazyColumn(contentPadding = bodyPadding) {
-                                if (showsManga) updatesLastUpdatedItem(mangaModel.lastUpdated)
+                                // One "Last updated" line per chip; All shows the more recent of the two.
+                                val lastUpdated = when (contentType) {
+                                    ContentType.MANGA -> mangaModel.lastUpdated
+                                    ContentType.NOVELS -> novelModel.lastUpdated
+                                    ContentType.ALL -> maxOf(mangaModel.lastUpdated, novelModel.lastUpdated)
+                                }
+                                updatesLastUpdatedItem(lastUpdated)
                                 updateRows(
                                     rows = rows,
                                     selectionMode = selectionMode,
