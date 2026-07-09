@@ -74,7 +74,7 @@ The core manga experience is Mihon's (Tachiyomi lineage):
 
 - Local reading of downloaded content.
 - A configurable reader with multiple viewers, reading directions, and settings.
-- Tracker support: [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://www.mangaupdates.com/), [Shikimori](https://shikimori.io), [Bangumi](https://bgm.tv/), and [Hikka](https://hikka.io/).
+- Tracker support: [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://www.mangaupdates.com/), [Shikimori](https://shikimori.io), [Bangumi](https://bgm.tv/), [Hikka](https://hikka.io/), and [MangaBaka](https://mangabaka.org/).
 - Categories to organize your library.
 - Light and dark themes.
 - Scheduled library updates.
