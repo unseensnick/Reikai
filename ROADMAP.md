@@ -55,6 +55,10 @@ From the same audit.
 - **Custom source categories** `[M]` - group installed sources under your own headers (assign each source to one or more categories) in the Sources list, beyond the default language grouping. Needs source-category storage.
 - **Source-list & row polish** `[S]` - row badges (language flag / NSFW / extension name), a browse-toolbar incognito toggle, an NSFW-only filter, per-source data-saver exclude, a browse panorama toggle (the library already has panorama), hide latest / pin.
 
+### Reader
+
+- **Auto Webtoon Mode (smart reading-mode detection)** `[S]` - when a series has no manual reading-mode set, auto-pick Webtoon for long-strip content (manhwa / manhua / webtoon) from its genre tags, plus generic name catch-alls and a short list of currently-live long-strip sources; everything else stays on the global default, and a manual per-series choice always wins. Port of Komikku's metadata-driven auto-webtoon (genre + source-name classification, not image/aspect-ratio detection). Default off, one Settings -> Reader toggle; manga-only (novels have no paged/long-strip axis). Net-new `MangaType` heuristic + a `// RK` branch in `getMangaReadingMode()`. Liveness of the source list checked via byparr (July 2026). From `unseensnick/Reikai#40`.
+
 ### UI & design
 
 - **Unified content UI + design refresh** `[L]` - collapse the three near-duplicate presentation stacks (manga, novels, adult) into one Reikai-owned pixel layer over a content-agnostic UI model. The main goal is manga↔novel feature parity and anti-divergence (a UI change to one type reaches the other), with de-duplication the mechanism; it also gives one place to move off stock Material 3. Domain models and ScreenModels stay per-type; readers stay separate. History + Updates rows and the cover dialog shipped; the details screen is next (the large one). Small parity closes surfaced by the 2026-07-07 audit are folded into each surface as it is collapsed; the larger parity items are the standalone entries under Novels and Details above. [Plan](docs/dev/plans/unified-content-ui.md).
