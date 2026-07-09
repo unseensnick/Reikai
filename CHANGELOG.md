@@ -46,11 +46,12 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Novel browsing no longer stops loading for good after a brief network error.** A failed page now offers a Retry and keeps paging when you scroll on, instead of ending the list.
 - **The novel sources list now shows a "Last used" section.** Your most recently opened novel source sits at the top, like the manga sources list.
 - **The novel sources list no longer shows a Filter button.** It opened the manga-only filter screen, which had nothing to configure for novels.
+- **Hikka tracker media types now read cleanly, matching the other trackers (synced from Mihon, mihonapp/mihon#3560).** A type like "one_shot" now shows as "one shot" in tracker search.
 
 ### Other
 
 - The manga and novel History/Updates rows, cover dialog, and the details action row, info header, screen shell (phone and tablet), and toolbar now render through shared components instead of near-duplicate copies. Groundwork for the unified content UI.
-- Synced upstream Mihon changes: correct reading of extension `extensionLib` metadata, a Hikka tracker hardening (binding with an expired session, plus a notice when a title was removed remotely), aboutLibraries v15, and assorted dependency and CI bumps.
+- Synced upstream Mihon changes: correct `extensionLib` metadata reading, Hikka tracker hardening, a dropped redundant code-shrink build flag, a zstd proguard keep, aboutLibraries v15, and assorted dependency and CI bumps.
 
 ## [0.2.1]
 

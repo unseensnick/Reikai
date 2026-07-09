@@ -89,8 +89,8 @@ android {
             isPseudoLocalesEnabled = true
         }
         val release = getByName("release") {
-            isMinifyEnabled = Config.enableCodeShrink
-            isShrinkResources = Config.enableCodeShrink
+            isMinifyEnabled = true
+            isShrinkResources = true
 
             // RK --> existing Reikai release package; signed with the real key when CI secrets or a
             // local keystore.properties are present (see the signingConfigs block above), else debug-signed.
