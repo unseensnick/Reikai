@@ -158,16 +158,15 @@ data object LibraryTab : Tab {
         val snackbarHostState = remember { SnackbarHostState() }
 
         // RK --> hopper + jump-to-category picker drive both views through a single `hopperTarget`.
-        // Single-list prev/next jump instantly (categories can hold hundreds of items, so animating
-        // across them stutters) and stay snappy under rapid taps; the picker animates a smooth slide;
-        // the tabbed pager animates its page transition.
+        // Single-list jumps (prev/next and the picker) are instant: categories can hold hundreds of
+        // items, so animating across them stutters, while an instant jump stays snappy under rapid
+        // taps (this is what Yōkai does). The tabbed pager animates its page transition.
         val singleListGridState = rememberLazyGridState()
         val pagerState = rememberPagerState(initialPage = activeCoercedActiveIndex) {
             activeCategories.size
         }
         var pickerOpen by remember { mutableStateOf(false) }
         var hopperTarget by remember { mutableStateOf<Int?>(null) }
-        var instantHopperScroll by remember { mutableStateOf(false) }
         var hopperDragAccum by remember { mutableFloatStateOf(0f) }
         fun reikaiHeaderIndices(): List<Int> = reikaiCategoryHeaderIndices(
             categories = activeCategories,
@@ -190,21 +189,13 @@ data object LibraryTab : Tab {
             val target = hopperTarget ?: return@LaunchedEffect
             if (state.reikai.showAllCategories) {
                 reikaiHeaderIndices().getOrNull(target)?.let { itemIndex ->
-                    if (instantHopperScroll) {
-                        // Hopper prev/next: jump instantly. Categories here can hold hundreds of
-                        // items, so animating a scroll across them would have to compose everything
-                        // in between and stutter; an instant jump keeps single and rapid taps snappy.
-                        singleListGridState.scrollToItem(itemIndex)
-                    } else {
-                        // Picker jump: snap to just ABOVE the target, then animate DOWN onto it.
-                        // Animating downward composes items smoothly; animating up onto an
-                        // uncomposed target (e.g. jumping to the first category) stutters.
-                        val current = singleListGridState.firstVisibleItemIndex
-                        if (kotlin.math.abs(itemIndex - current) > 12) {
-                            singleListGridState.scrollToItem((itemIndex - 8).coerceAtLeast(0))
-                        }
-                        singleListGridState.animateScrollToItem(itemIndex)
-                    }
+                    // Jump instantly to the target category, the way Yōkai's hopper does. Categories
+                    // here can hold hundreds of items, so a smooth scroll across them has to compose
+                    // everything in between and stutters; an instant jump stays snappy under rapid
+                    // taps. Land the header flush at the top: a negative offset to leave a gap would
+                    // make firstVisibleItemIndex point at the previous category, so prev/next would
+                    // read the current category one too low and stall after the first hop.
+                    singleListGridState.scrollToItem(itemIndex)
                 }
             } else {
                 pagerState.animateScrollToPage(target)
@@ -570,7 +561,6 @@ data object LibraryTab : Tab {
                                     },
                                 onUpClick = {
                                     val last = activeCategories.lastIndex.coerceAtLeast(0)
-                                    instantHopperScroll = true
                                     hopperTarget = ((hopperTarget ?: currentCategoryIndex()) - 1).coerceIn(0, last)
                                 },
                                 onCenterClick = { pickerOpen = true },
@@ -621,7 +611,6 @@ data object LibraryTab : Tab {
                                 },
                                 onDownClick = {
                                     val last = activeCategories.lastIndex.coerceAtLeast(0)
-                                    instantHopperScroll = true
                                     hopperTarget = ((hopperTarget ?: currentCategoryIndex()) + 1).coerceIn(0, last)
                                 },
                             )
@@ -636,7 +625,6 @@ data object LibraryTab : Tab {
                             showItemCounts = state.showMangaCount,
                             activeCategoryId = activeCategories.getOrNull(currentCategoryIndex())?.id,
                             onSelect = { category ->
-                                instantHopperScroll = false
                                 hopperTarget = activeCategories.indexOf(category)
                                 pickerOpen = false
                             },
