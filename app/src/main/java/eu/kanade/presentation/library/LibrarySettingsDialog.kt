@@ -224,6 +224,9 @@ private fun ColumnScope.SortPage(
             MR.strings.action_sort_chapter_fetch_date to LibrarySort.Type.ChapterFetchDate,
             MR.strings.action_sort_date_added to LibrarySort.Type.DateAdded,
             trackerMeanPair,
+            // RK --> download-count sort (parity with the novel library's Downloaded sort)
+            MR.strings.action_sort_downloaded to LibrarySort.Type.Downloaded,
+            // RK <--
             MR.strings.action_sort_random to LibrarySort.Type.Random,
         )
     }

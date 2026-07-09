@@ -635,6 +635,11 @@ class LibraryScreenModel(
                     val item2Score = trackerScores[manga2.id] ?: defaultTrackerScoreSortValue
                     item1Score.compareTo(item2Score)
                 }
+                // RK --> download-count sort (parity with the novel library's Downloaded sort)
+                LibrarySort.Type.Downloaded -> {
+                    manga1.downloadCount.compareTo(manga2.downloadCount)
+                }
+                // RK <--
                 LibrarySort.Type.Random -> {
                     error("Why Are We Still Here? Just To Suffer?")
                 }

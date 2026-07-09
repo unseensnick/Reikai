@@ -127,5 +127,6 @@ private fun sortLabelRes(type: LibrarySort.Type): StringResource = when (type) {
     LibrarySort.Type.ChapterFetchDate -> MR.strings.action_sort_chapter_fetch_date
     LibrarySort.Type.DateAdded -> MR.strings.action_sort_date_added
     LibrarySort.Type.TrackerMean -> MR.strings.action_sort_tracker_score
+    LibrarySort.Type.Downloaded -> MR.strings.action_sort_downloaded
     LibrarySort.Type.Random -> MR.strings.action_sort_random
 }
