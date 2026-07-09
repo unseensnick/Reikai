@@ -163,8 +163,9 @@ class NovelBrowseScreenModel(
         if (state.value.query.isBlank()) fetchFirstPage(source) else search(state.value.query)
     }
 
-    /** Fetch and append the next page of the active listing. An empty page exhausts it; an error stops
-     *  pagination for this listing (a fresh search/filter resets it) without wiping shown results. */
+    /** Fetch and append the next page of the active listing. An empty page exhausts it; an error leaves
+     *  the page retryable (the error snackbar offers a retry, and scrolling re-triggers it) rather than
+     *  killing pagination for good, and never wipes the results already shown. */
     fun loadMore() {
         val source = state.value.source ?: return
         val current = state.value
@@ -193,7 +194,9 @@ class NovelBrowseScreenModel(
                     }
                 }
             } catch (e: Throwable) {
-                mutableState.update { it.copy(loadingMore = false, endReached = true, error = errorText(e)) }
+                // Don't latch endReached on a transient error: a single network hiccup mid-scroll must
+                // not permanently kill paging. Keep the page retryable and surface the error instead.
+                mutableState.update { it.copy(loadingMore = false, error = errorText(e)) }
             }
         }
     }

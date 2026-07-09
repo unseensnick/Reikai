@@ -151,7 +151,10 @@ class NovelDownloadManager(private val context: Context) {
      * foreground for the duration. Restores the persisted queue first if the in-memory one is empty
      * (cold restart). [onProgress] reports `(done, total, novelTitle)` for the notification.
      */
-    suspend fun runQueue(onProgress: (current: Int, total: Int, title: String) -> Unit) {
+    suspend fun runQueue(
+        onProgress: (current: Int, total: Int, title: String) -> Unit,
+        onError: (novelTitle: String?, error: String?) -> Unit,
+    ) {
         if (!running.compareAndSet(false, true)) return
         try {
             installer.ensureLoaded()
@@ -182,6 +185,7 @@ class NovelDownloadManager(private val context: Context) {
                 // Downloader). Backoff is per-chapter, separate from the cross-chapter pacing below.
                 var ok = false
                 var attempt = 0
+                var lastError: Throwable? = null
                 while (true) {
                     ok = runCatching {
                         val source = novel?.let { sourceManager.get(it.source) } ?: return@runCatching false
@@ -191,6 +195,7 @@ class NovelDownloadManager(private val context: Context) {
                         val selfContained = inlineChapterImages(html, source.site, networkHelper.client)
                         provider.writeChapter(next.novelId, next.chapterId, selfContained)
                     }.getOrElse {
+                        lastError = it
                         logcat(LogPriority.ERROR, it) {
                             "Novel chapter download attempt ${attempt + 1} failed: chapter=${next.chapterId}"
                         }
@@ -210,6 +215,8 @@ class NovelDownloadManager(private val context: Context) {
                     // Don't retry forever across restarts; surface ERROR and drop from persistence.
                     setState(next.chapterId, NovelDownload.State.ERROR)
                     store.remove(next.chapterId)
+                    // Notify the user: a failed novel download was previously completely silent.
+                    onError(novel?.title, lastError?.message)
                 }
                 // Per-source adaptive pacing. Downloads are sequential and LN plugins share one client
                 // with no per-source rate limiter, so each source self-throttles: halve its delay

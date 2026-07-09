@@ -49,8 +49,17 @@ class MigrateNovelUseCase(
             // source plus its existing siblings, not the target (which shares the title on a clean match).
             val group = novelMergeManager.computeRelatedNovelIds(current.id, current.title, current.author)
 
+            // Fetch the source's chapters once when either the chapter-state carry or the
+            // remove-download flag needs them.
+            val currentChapters = if (
+                NovelMigrationFlag.CHAPTER in flags || NovelMigrationFlag.REMOVE_DOWNLOAD in flags
+            ) {
+                novelChapterRepository.getByNovelId(current.id)
+            } else {
+                emptyList()
+            }
+
             if (NovelMigrationFlag.CHAPTER in flags) {
-                val currentChapters = novelChapterRepository.getByNovelId(current.id)
                 val targetChapters = novelChapterRepository.getByNovelId(target.id)
                 computeChapterMigration(currentChapters, targetChapters).forEach {
                     novelChapterRepository.update(it)
@@ -76,10 +85,20 @@ class MigrateNovelUseCase(
                 updateNovel.awaitUpdateCoverLastModified(target.id)
             }
 
+            // Delete the old source's downloaded chapters (parity with manga's REMOVE_DOWNLOAD). The
+            // file delete is a no-op when nothing is downloaded.
+            if (NovelMigrationFlag.REMOVE_DOWNLOAD in flags) {
+                novelDownloadManager.deleteChapters(currentChapters.filter { it.isDownloaded })
+            }
+
             updateNovel.await(
                 NovelUpdate(
                     id = target.id,
                     favorite = true,
+                    // Carry the chapter-list (sort/filter/display) and reader (orientation) flags onto
+                    // the target unconditionally, matching manga migration.
+                    chapterFlags = current.chapterFlags,
+                    viewerFlags = current.viewerFlags,
                     lastReadAt = current.lastReadAt ?: target.lastReadAt,
                     notes = if (NovelMigrationFlag.NOTES in flags) current.notes else null,
                 ),

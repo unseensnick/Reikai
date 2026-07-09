@@ -3,6 +3,7 @@ package reikai.novel.download
 import android.app.Notification
 import android.content.Context
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.data.notification.NotificationHandler
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.notificationBuilder
@@ -44,5 +45,24 @@ class NovelDownloadNotifier(private val context: Context) {
 
     fun dismiss() {
         context.notificationManager.cancel(Notifications.ID_NOVEL_DOWNLOADER)
+    }
+
+    /**
+     * Post a persistent failure notification when a chapter download gives up after all retries.
+     * Without this a failed novel download was completely silent (only an ERROR row in the queue,
+     * gone on restart). Mirrors the manga downloader's error notification; tapping opens the queue.
+     */
+    fun onError(novelTitle: String?, error: String?) {
+        val notification = context.notificationBuilder(Notifications.CHANNEL_DOWNLOADER_ERROR) {
+            setContentTitle(
+                novelTitle?.takeIf { it.isNotBlank() }
+                    ?: context.stringResource(MR.strings.download_notifier_downloader_title),
+            )
+            setContentText(error ?: context.stringResource(MR.strings.download_notifier_unknown_error))
+            setSmallIcon(R.drawable.ic_warning_white_24dp)
+            setContentIntent(NotificationHandler.openDownloadManagerPendingActivity(context))
+            setAutoCancel(true)
+        }.build()
+        context.notificationManager.notify(Notifications.ID_NOVEL_DOWNLOADER_ERROR, notification)
     }
 }

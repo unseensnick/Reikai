@@ -40,6 +40,12 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **On a merged series, a source's extended info now shows when you view that source.** The rating and its "More info" link were hidden unless the merge happened to be anchored on that source.
 - **The library's "Jump to category" hopper now opens on the category you're viewing.** It always started at the top of the list, so the current category could sit off-screen.
 - **Jumping to a library category is now instant instead of a laggy scroll.** The hopper's prev/next and its picker animated a slow scroll to the target, which stuttered on categories holding hundreds of items; they jump straight there now.
+- **Migrating a novel now keeps its reader and chapter-list settings.** It can also delete the old source's downloaded chapters, matching how manga migration works.
+- **A failed novel chapter download now shows a notification instead of failing silently.** Before, the only trace was a queue entry that disappeared when the app restarted.
+- **Deleting downloaded novel chapters from the Updates screen now asks for confirmation first.** Matching manga, so a mixed manga-and-novel selection can no longer lose the novel files before you confirm.
+- **Novel browsing no longer stops loading for good after a brief network error.** A failed page now offers a Retry and keeps paging when you scroll on, instead of ending the list.
+- **The novel sources list now shows a "Last used" section.** Your most recently opened novel source sits at the top, like the manga sources list.
+- **The novel sources list no longer shows a Filter button.** It opened the manga-only filter screen, which had nothing to configure for novels.
 
 ### Other
 

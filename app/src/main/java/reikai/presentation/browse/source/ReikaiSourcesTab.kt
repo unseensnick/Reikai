@@ -77,7 +77,7 @@ fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabCont
 
     return TabContent(
         titleRes = MR.strings.label_sources,
-        actions = listOf(
+        actions = listOfNotNull(
             AppBar.Action(
                 title = stringResource(MR.strings.action_global_search),
                 icon = Icons.Outlined.TravelExplore,
@@ -88,11 +88,13 @@ fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabCont
                     )
                 },
             ),
+            // Filter opens Mihon's manga sources-filter screen; novels have no language enable/disable
+            // model to populate it, so it would be empty and misleading. Hide it on the Novels chip.
             AppBar.Action(
                 title = stringResource(MR.strings.action_filter),
                 icon = Icons.Outlined.FilterList,
                 onClick = { navigator.push(SourcesFilterScreen()) },
-            ),
+            ).takeIf { contentType != ContentType.NOVELS },
         ),
         content = { contentPadding, snackbarHostState ->
             Column {

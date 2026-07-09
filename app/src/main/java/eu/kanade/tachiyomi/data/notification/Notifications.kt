@@ -56,6 +56,10 @@ object Notifications {
     const val CHANNEL_NOVEL_DOWNLOADER = "novel_downloader_progress_channel"
     const val ID_NOVEL_DOWNLOADER = -205
 
+    // RK: novel download failure notification (own id on the shared errors channel, so it neither
+    // overwrites nor is overwritten by the ongoing progress entry).
+    const val ID_NOVEL_DOWNLOADER_ERROR = -206
+
     /**
      * Notification channel and ids used by the library updater.
      */

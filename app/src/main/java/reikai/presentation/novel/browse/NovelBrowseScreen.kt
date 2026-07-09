@@ -34,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -119,11 +120,18 @@ class NovelBrowseScreen(
         }
 
         // Surface a fetch error as a retry snackbar only when results are already shown; an empty
-        // listing routes the error through the EmptyScreen body instead.
+        // listing routes the error through the EmptyScreen body instead. Tapping Retry re-runs the
+        // failed page load (pagination is no longer latched off after an error).
         val errorString = state.error
+        val retryLabel = stringResource(MR.strings.action_retry)
         LaunchedEffect(errorString) {
             if (errorString != null && state.novels.isNotEmpty()) {
-                snackbarHostState.showSnackbar(message = errorString, duration = SnackbarDuration.Short)
+                val result = snackbarHostState.showSnackbar(
+                    message = errorString,
+                    actionLabel = retryLabel,
+                    duration = SnackbarDuration.Long,
+                )
+                if (result == SnackbarResult.ActionPerformed) screenModel.loadMore()
             }
         }
 

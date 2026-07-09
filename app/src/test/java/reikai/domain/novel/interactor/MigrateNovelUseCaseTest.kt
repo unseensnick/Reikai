@@ -11,12 +11,14 @@ import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.model.NovelUpdate
+import reikai.novel.download.NovelDownloadManager
 import java.io.File
 
 class MigrateNovelUseCaseTest {
@@ -41,12 +43,14 @@ class MigrateNovelUseCaseTest {
         novelMergeManager: NovelMergeManager = defaultMerge(),
         getNovelTracks: GetNovelTracks = mockk(relaxed = true),
         insertNovelTrack: InsertNovelTrack = mockk(relaxed = true),
+        novelChapterRepository: NovelChapterRepository = mockk(relaxed = true),
+        novelDownloadManager: NovelDownloadManager = mockk(relaxed = true),
     ) = MigrateNovelUseCase(
-        novelChapterRepository = mockk(relaxed = true),
+        novelChapterRepository = novelChapterRepository,
         getNovelCategories = mockk(relaxed = true),
         setNovelCategories = mockk(relaxed = true),
         novelMergeManager = novelMergeManager,
-        novelDownloadManager = mockk(relaxed = true),
+        novelDownloadManager = novelDownloadManager,
         updateNovel = updateNovel,
         coverCache = coverCache,
         getNovelTracks = getNovelTracks,
@@ -136,6 +140,33 @@ class MigrateNovelUseCaseTest {
         useCase(getNovelTracks = getTracks, insertNovelTrack = insert)(novel(1), novel(2), emptySet(), replace = false)
 
         coVerify { insert.await(match { it.novelId == 2L }) }
+    }
+
+    @Test
+    fun `migration carries the chapter and viewer flags onto the target`() = runTest {
+        val update = slot<NovelUpdate>()
+        val updateNovel = mockk<UpdateNovel>(relaxed = true) { coEvery { await(capture(update)) } returns true }
+        val source = novel(1).copy(chapterFlags = 0b1010L, viewerFlags = 0b0100L)
+
+        useCase(updateNovel = updateNovel)(source, novel(2), emptySet(), replace = false)
+
+        update.captured.chapterFlags shouldBe 0b1010L
+        update.captured.viewerFlags shouldBe 0b0100L
+    }
+
+    @Test
+    fun `remove-download flag deletes the source's downloaded chapters`() = runTest {
+        val repo = mockk<NovelChapterRepository>(relaxed = true) {
+            coEvery { getByNovelId(1L) } returns listOf(chapter(1, 1.0, downloaded = true), chapter(2, 2.0, downloaded = false))
+            coEvery { getByNovelId(2L) } returns emptyList()
+        }
+        val downloadManager = mockk<NovelDownloadManager>(relaxed = true)
+
+        useCase(novelChapterRepository = repo, novelDownloadManager = downloadManager)(
+            novel(1), novel(2), setOf(NovelMigrationFlag.REMOVE_DOWNLOAD), replace = false,
+        )
+
+        verify { downloadManager.deleteChapters(match { chapters -> chapters.map { it.id } == listOf(1L) }) }
     }
 
     private fun chapter(

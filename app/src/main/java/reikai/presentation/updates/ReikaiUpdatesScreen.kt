@@ -54,6 +54,7 @@ import eu.kanade.presentation.manga.components.ChapterDownloadIndicator
 import eu.kanade.presentation.manga.components.DotSeparatorText
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.manga.components.MangaCover
+import eu.kanade.presentation.updates.UpdatesDeleteConfirmationDialog
 import eu.kanade.presentation.updates.updatesLastUpdatedItem
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
@@ -111,6 +112,7 @@ fun ReikaiUpdatesScreen(
     val novelSeriesKeys by novelModel.novelSeriesKeys.collectAsState()
     // Which series groups are expanded (keyed by series+date); ephemeral UI state.
     val expandedGroups = remember { mutableStateMapOf<String, Boolean>() }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     val mangaSelected = mangaState.selected
     val novelSelected = novelState.selected
     val selectionMode = mangaState.selectionMode || novelState.selectionMode
@@ -225,8 +227,7 @@ fun ReikaiUpdatesScreen(
                         novelSelected.fastAny { it.downloadState != Download.State.DOWNLOADED }
                 },
                 onDeleteClicked = {
-                    if (mangaSelected.isNotEmpty()) mangaModel.showConfirmDeleteChapters(mangaSelected)
-                    if (novelSelected.isNotEmpty()) novelModel.deleteChapters(novelSelected)
+                    showDeleteConfirm = true
                 }.takeIf {
                     mangaSelected.fastAny { it.downloadStateProvider() == Download.State.DOWNLOADED } ||
                         novelSelected.fastAny { it.downloadState == Download.State.DOWNLOADED }
@@ -298,6 +299,19 @@ fun ReikaiUpdatesScreen(
                 }
             }
         }
+    }
+
+    // RK: one confirmation over the whole selection (manga + novel). Novel chapters were previously
+    // deleted with no confirm, so a mixed selection lost the novel files before the manga dialog
+    // even appeared. Both models' deleteChapters run only after the user confirms.
+    if (showDeleteConfirm) {
+        UpdatesDeleteConfirmationDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            onConfirm = {
+                if (mangaSelected.isNotEmpty()) mangaModel.deleteChapters(mangaSelected)
+                if (novelSelected.isNotEmpty()) novelModel.deleteChapters(novelSelected)
+            },
+        )
     }
 }
 

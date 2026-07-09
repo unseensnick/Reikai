@@ -42,7 +42,10 @@ class NovelDownloadJob(context: Context, workerParams: WorkerParameters) :
     override suspend fun doWork(): Result {
         setForegroundSafely()
         return try {
-            manager.runQueue { current, total, title -> notifier.show(title, current, total) }
+            manager.runQueue(
+                onProgress = { current, total, title -> notifier.show(title, current, total) },
+                onError = { title, error -> notifier.onError(title, error) },
+            )
             Result.success()
         } catch (_: CancellationException) {
             Result.success()
