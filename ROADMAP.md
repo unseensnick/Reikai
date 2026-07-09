@@ -8,7 +8,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Next
 
-After P6: the standalone manga/novel parity closes from the 2026-07-07 audit (bulk multi-select in novel browse, library tracker sort/filter/group), and the `[S]` quick wins under Later -> Novels.
+After P6, a full-surface parity audit (2026-07-09) is closing the remaining manga/novel gaps in phases: the silent-bug sweep shipped on the branch (novel migration flags, failed-download notification, Updates delete-confirm, browse paging retry, sources Filter + Last-used), and library tracker sort/filter/group plus novel-browse bulk multi-select are next, then the `[S]` quick wins under Later -> Novels. Phase-by-phase status lives in `Handoff.md`.
 
 - **Skip hidden chapters in the manga reader** `[M]` - once manga can hide/unhide chapters (the current details phase), the reader's next/previous still walks the full list from the database, so reading forward can still land on a hidden chapter. Make the manga reader honor the hidden set. Needs its own scout: the reader is the View-based holdout, separate from the Compose details screen. (The novel reader already skips hidden, since it navigates the filtered list.)
 - **Independent library scroll position per content type** `[S]` - the manga and novel library views share one scroll offset (scrolling one moves the other); each should keep its own remembered scroll state. Reikai-specific (upstream is manga-only), so the fix is entirely on our side.
@@ -21,12 +21,11 @@ Backlog, grouped by area. Unordered within an area.
 
 Ready to build (infrastructure exists):
 - **Duplicate detection when adding a novel** `[S]` - wire `getDuplicateLibraryNovel` + `DuplicateNovelDialog` into the details / history add paths.
-- **Novel migration carry-flags** `[S]` - remove-downloads flag + carry `viewerFlags` / `chapterFlags` to the target.
 - **Categorized-display correctness for novels** `[S]` - per-category sort ignores the global toggle and never resets; branch `setSort` + a novel `ResetCategoryFlags`.
 - **Expose novel tracking in library filter / sort / group** `[S]` - tracker-status filter, tracker-score sort, group-by-track-status.
 - **Mark same-numbered duplicate chapters read on novel completion** `[S]` - parity for merged novels.
-- **Failed novel download error notification** `[S]` - mirror `DownloadNotifier.onError` in `NovelDownloadNotifier`.
-- **Novel updates refresh polish** `[S]` - started / already-running snackbar (manga shows one, novel refresh is silent); a delete-chapters confirmation dialog (manga confirms, novel deletes immediately).
+- **Novel download recognition + readable folders** `[M]` - re-key novel downloads by stable names (source / title / chapter, like manga) with a disk scan so they survive reinstall / restore / storage-move, instead of unstable numeric ids plus a wiped DB flag (found on-device: after a reinstall the app no longer sees existing downloads, so re-download is a silent no-op). Fixes the opaque numeric download folders too; needs a one-time migration.
+- **Novel updates refresh feedback** `[S]` - started / already-running snackbar plus a last-updated line (manga shows both; novel refresh is silent).
 - **Sort the manga library by download count** `[S]` - the novel library has a Downloaded sort; add the same key to the manga library (2026-07-07 parity audit).
 - **Tracker-based merge-group healing for novels** `[S-M]` - port `computeHealing` to `NovelMergeManager`.
 - **Skeleton loading on the novel details page** `[S]` - show placeholder skeletons while the first load resolves (like LNReader), instead of a bare spinner when opening a new non-library novel.

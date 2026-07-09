@@ -178,6 +178,17 @@ pass (2026-07-08) that traced Komikku's API and verified every tracker against i
   `HKMangaMetadataTest` for Hikka's role/genre split); the rest are HTTP-fused like all existing tracker code
   and verified on-device against live APIs (Fold, all 8 trackers).
 
+**Post-P6 parity closes (in progress).** A deeper full-surface manga/novel parity re-audit (2026-07-09,
+six research agents + inline grounding, superseding the 2026-07-07 surface pass; record kept locally per
+the audits convention) drives a phased program to close the gaps the surface collapse left in the still-twin
+areas (browse, migration, the library settings sheet, per-type action handlers). Sequenced: a silent-bug
+sweep (novel migration flags, failed-download notification, Updates delete-confirm, browse paging retry,
+sources Filter + Last-used) SHIPPED on the branch; then novel library tracker filter/sort/group, novel-browse
+bulk multi-select, per-API novel tracker search (`searchNovel` for Shikimori/Hikka/MangaBaka; Bangumi + MdList
+gated), a novel reader-defaults settings screen + reader-action parity, the manga reader skip-hidden fix, and
+a novel download-storage re-key (stable names + disk scan so downloads survive reinstall/restore, replacing
+the numeric-id + DB-flag scheme). Live phase status: `Handoff.md`.
+
 ## Decisions & tradeoffs
 
 - **Unify at the UI-model seam, not the domain model:** preserves upstream engine flow and
