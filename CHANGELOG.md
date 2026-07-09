@@ -16,10 +16,11 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **You can now edit a manga's details, the way novels already could.** Change the title, author, artist, cover URL, description, tags, and status from the details screen; your edits also show in the library, updates, and history, never overwrite the source, and Reset restores the original.
 - **Editing a novel now works just like manga, including changing its cover.** Edit info gained a cover URL field, tag chips, and a cover preview; edits are stored separately (so Reset fully restores the source) and show across the library, updates, and history.
+- **Fill a manga or novel's info straight from a bound tracker.** In Edit info, tap Fill from tracker to pull the title, author, artist, cover, description, and genres from a linked tracker (with a picker when more than one is linked).
 - **You can now hide individual chapters on a manga, just like novels.** Select chapters and hide them from the list; a "Show hidden chapters" toggle reveals them dimmed so you can unhide, and hidden chapters stay out of the resume button and download-all.
 - **The novel chapter list now has a fast-scroll thumb, like manga.** Drag it down the right edge to jump through a long list of chapters.
-- **On a novel's details screen, long-press the In-library button to edit its categories.** It opens the same category picker manga details already had on long-press.
-- **Long-press a manga's source name on its details screen to copy it.** Its title and author already copied on long-press; now the source does too.
+- **Long-press a novel's In-library button to edit its categories.** It opens the same category picker manga details already had on long-press.
+- **Copy a manga's source name by long-pressing it.** Its title and author already copied on long-press; now the source name does too.
 
 ### Changes
 

@@ -4,9 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-**Unified content UI** on `feat/unified-content-ui` (unmerged): the History + Updates rows, the full-cover dialog, and the **details screen** (shared action row, info header, phone + tablet shell, toolbar, manga hide/unhide-chapters) are collapsed onto shared `Entry*` components. **P6 shipped** the shared edit-info editor + a non-destructive custom-info overlay for BOTH manga and novels: edits show across details + library + updates + history (display-only, so search/sort/grouping/merge use the source values), novels moved off their destructive in-row model onto a `custom_novel_info` overlay, and the editor is themed from the cover. Verified device + minified. Detail: [the plan](docs/dev/plans/unified-content-ui.md); goal + rulings: Later -> UI & design.
-
-- **Fill-from-tracker in the edit-info editor** `[M]` - the last P6 piece; the editor's "Fill from tracker" button is inert. Port Komikku's tracker metadata API (absent from this base: `Tracker.getMangaMetadata` + `TrackMangaMetadata` + per-service `*Api` calls), then wire it into the shared editor for both types (bound trackers via `GetTracks` / `GetNovelTracks`).
+**Unified content UI** on `feat/unified-content-ui` (unmerged): the History + Updates rows, the full-cover dialog, and the **details screen** (shared action row, info header, phone + tablet shell, toolbar, manga hide/unhide-chapters) are collapsed onto shared `Entry*` components. **P6 shipped** the shared edit-info editor + a non-destructive custom-info overlay for BOTH manga and novels: edits show across details + library + updates + history (display-only, so search/sort/grouping/merge use the source values), novels moved off their destructive in-row model onto a `custom_novel_info` overlay, the editor is themed from the cover, and its **Fill-from-tracker** button autofills title/author/artist/cover/description + genres from a bound tracker (8 trackers; a picker when several are bound). Verified device + minified. Detail: [the plan](docs/dev/plans/unified-content-ui.md); goal + rulings: Later -> UI & design.
 
 ## Next
 

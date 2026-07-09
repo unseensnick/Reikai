@@ -85,7 +85,7 @@ details screen (the large, highest-impact surface) is next. Reader stays separat
 ## Status
 
 **In progress. List surfaces + cover dialog shipped; the details screen is collapsing in phases (P1-P5
-done; P6 editor + custom-info overlay shipping, tracker-autofill deferred).** Captured from a design discussion (2026-07-05) while finishing the MD
+done; P6 editor + custom-info overlay + Fill-from-tracker shipped).** Captured from a design discussion (2026-07-05) while finishing the MD
 enhanced-source port; a code-research pass (2026-07-07) confirmed the list surfaces already carried the
 merge half of the seam, so only the leaf row remained there. P6 was deep-researched (2026-07-08) to
 ground the manga custom-info data layer before implementation.
@@ -121,8 +121,9 @@ edge-to-edge (blink on every field switch + an inset gap / field hidden behind t
 full-screen-Screen host still showed the gap, the editor was rebuilt as Komikku's shape: a Compose Material3
 `AlertDialog` (floats over the details page) hosting a native `edit_entry_info.xml` form via `AndroidView`
 (`EntryEditInfoDialog`). Native `EditText` fixes the keyboard. Fields: cover preview, exposed-dropdown status,
-Title/Author/Artist/Cover-URL/Description, an inline Add-tag field feeding removable chips, Reset-tags /
-Reset-info. Shipped (manga: `9bb98572d` + `368165f78`; novel wired to the same dialog: `f33dc83e1`).
+Title/Author/Artist/Cover-URL/Description, an inline Add-tag field feeding removable chips, a Fill-from-tracker
+button, and three resets (Reset info: non-tag fields to source, keeping tags; Reset tags: chips to source;
+Reset all: clear every override). Shipped (manga: `9bb98572d` + `368165f78`; novel wired to the same dialog: `f33dc83e1`).
 
 **Storage = a non-destructive overlay table per type**, applied as a display-layer overlay via a reactive
 Flow combine in the details ScreenModel (NOT in a mapper, NOT a synchronous store), favorites only. The
@@ -149,10 +150,33 @@ silently reshuffling or unmerging the library. Documented in [FAQ.md](../../FAQ.
 Backup: each override table gets its own section (`backupCustomMangaInfo` 713, `backupCustomNovelInfo` 714),
 re-keyed by url+source on restore.
 
-**Deferred to its own phase: Fill-from-tracker** (the editor button is inert). This needs a Komikku port of a
-tracker metadata API that does not exist here (`Tracker.getMangaMetadata` + `TrackMangaMetadata` + per-service
-`*Api` calls); once ported it wires into the shared editor for both types. Full continuation state in
-`Handoff.md`.
+**Shipped: Fill-from-tracker** (the last P6 piece). The editor's "Fill from tracker" button pulls
+title/author/artist/cover/description **and genres** from a bound tracker, for both manga and novels; a
+`TrackerSelectDialog` (ported from Komikku) picks when more than one is bound. Grounded by a deep-research
+pass (2026-07-08) that traced Komikku's API and verified every tracker against its live API.
+
+- **New spine:** `TrackMangaMetadata` (`data/track/model/`, plus a Reikai-added `genres` field) and a
+  `Tracker.getMangaMetadata(track)` with a throwing `BaseTracker` default; the whole API is a Komikku
+  addition absent from Mihon. Candidates come from `GetTracks` (manga) / `GetNovelTracks.awaitGroup`
+  (novel, merge-group-aware, mirrors `RefreshNovelTracks`), resolved via `TrackerManager`, minus
+  `EnhancedTracker`s (the self-hosted trio, which can't autofill). Wired ungated (metadata is public), so a
+  logged-out but bound tracker still fills where the API allows.
+- **8 trackers, not Komikku's 6.** AniList, MyAnimeList, Shikimori, Bangumi, MangaUpdates, MdList are
+  Komikku-derived (MangaUpdates needed a `getSeries` + `MUAuthor`/`MUGenre` backport; Bangumi a polymorphic
+  `Infobox` parser with corrected `作者`/`插画` keys; Shikimori kept Reikai's `shikimori.io`, not Komikku's dead
+  `.one`). **Kitsu is bespoke:** Komikku's `findLibraryEntryById` GraphQL is now 403-gated, so it runs on the
+  JSON:API `api/edge/` REST the tracker already uses, reading genres from `categories` (Kitsu's `genres`
+  relationship is usually empty). **MdList** reuses the enhanced MangaDex source's own `getMangaUpdate` parse
+  pipeline. **Hikka** has no Komikku reference (Komikku lacks Hikka); its DTO was extended to the live
+  `MangaInfoResponse` (synopsis/authors/genres), with markdown-link stripping on the synopsis.
+- **Level-up over Komikku:** genres are filled everywhere the tracker exposes a clean list (Komikku fetches
+  none), merged append-distinct into the chips so autofill never wipes curated tags; Bangumi is the only
+  tracker with no usable genre field.
+- **Genres decision:** genres-only, skip the noisy tag/category dumps (AniList `tags` 66 w/ spoiler+adult
+  flags, MangaUpdates `categories` 262 vote-noise). MangaDex uses the source's genre string as-is.
+- **Tests:** the two fragile parsers get pure DTO tests (`BGMSubjectInfoboxTest` for the polymorphic infobox,
+  `HKMangaMetadataTest` for Hikka's role/genre split); the rest are HTTP-fused like all existing tracker code
+  and verified on-device against live APIs (Fold, all 8 trackers).
 
 ## Decisions & tradeoffs
 
