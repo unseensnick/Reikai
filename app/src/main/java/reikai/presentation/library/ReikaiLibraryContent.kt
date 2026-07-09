@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.category.visualName
 import eu.kanade.presentation.library.components.DownloadsBadge
 import eu.kanade.presentation.library.components.GlobalSearchItem
@@ -142,6 +143,9 @@ fun ReikaiLibraryContent(
     onClickCategorySort: (Category) -> Unit,
     onRefreshCategory: (Category) -> Unit,
     onSelectAllInCategory: (Category) -> Unit,
+    // Novel-correct sort label for a category's header (its stored sort enum diverges from manga's on
+    // two bits); null falls back to the manga-enum decode in the header.
+    sortLabelFor: ((Category) -> StringResource?)? = null,
     // continue-reading button on covers, single-list parity with the pager; null = hidden
     onClickContinueReading: ((LibraryManga) -> Unit)? = null,
 ) {
@@ -244,6 +248,7 @@ fun ReikaiLibraryContent(
                             onToggleSelectAll = { onSelectAllInCategory(category) },
                             // Dynamic groups have no real category to sort/refresh.
                             sort = if (dynamic) null else category.sort,
+                            sortLabel = if (dynamic) null else sortLabelFor?.invoke(category),
                             onClickSort = if (dynamic) null else { { onClickCategorySort(category) } },
                             onClickRefresh = if (dynamic) null else { { onRefreshCategory(category) } },
                         )

@@ -48,6 +48,10 @@ fun ReikaiLibraryCategoryHeader(
     onToggleSelectAll: () -> Unit = {},
     // Per-category affordances; null = hidden (e.g. dynamic groups, which have no real category).
     sort: LibrarySort? = null,
+    // Overrides the label decoded from [sort]. Novels store their own sort enum in the same flag bits,
+    // and two of its types (Downloaded, Tracker score) don't line up with the manga enum, so the novel
+    // caller supplies the correct label here rather than letting [sortLabelRes] misread the shared bits.
+    sortLabel: StringResource? = null,
     onClickSort: (() -> Unit)? = null,
     onClickRefresh: (() -> Unit)? = null,
 ) {
@@ -89,7 +93,7 @@ fun ReikaiLibraryCategoryHeader(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = stringResource(sortLabelRes(sort.type)),
+                    text = stringResource(sortLabel ?: sortLabelRes(sort.type)),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -23,6 +23,9 @@ class NovelTrackRepositoryImpl(
     override fun getTracksByNovelIdAsFlow(novelId: Long): Flow<List<NovelTrack>> =
         database.novel_tracksQueries.getTracksByNovelId(novelId, ::mapNovelTrack).subscribeToList()
 
+    override fun getTracksAsFlow(): Flow<List<NovelTrack>> =
+        database.novel_tracksQueries.getTracks(::mapNovelTrack).subscribeToList()
+
     override suspend fun delete(novelId: Long, trackerId: Long) {
         try {
             database.novel_tracksQueries.delete(novelId = novelId, syncId = trackerId)

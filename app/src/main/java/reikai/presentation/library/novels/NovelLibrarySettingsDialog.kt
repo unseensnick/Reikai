@@ -48,9 +48,9 @@ import tachiyomi.presentation.core.util.collectAsState
 
 /**
  * Novel library settings sheet (P5 S6 slice 4). Mirrors Mihon's `LibrarySettingsDialog` with Filter /
- * Sort / Display tabs (the Group tab is deferred until novel dynamic grouping exists). Filter + Sort
- * bind to [NovelLibraryScreenModel]; the Display tab edits the shared library display prefs through a
- * [LibrarySettingsScreenModel], so it stays in sync with the manga library's Display tab.
+ * Sort / Display / Group tabs. Filter + Sort + Group bind to [NovelLibraryScreenModel]; the Display tab
+ * edits the shared library display prefs through a [LibrarySettingsScreenModel], so it stays in sync
+ * with the manga library's Display tab.
  */
 @Composable
 fun NovelLibrarySettingsDialog(
@@ -88,13 +88,12 @@ fun NovelLibrarySettingsDialog(
     }
 }
 
-// BY_TRACK_STATUS is omitted: novel trackers are deferred, so a "by tracking status" group would be
-// a single "Not tracked" bucket.
 private val novelGroupModes = listOf(
     LibraryGroup.BY_DEFAULT to MR.strings.group_by_default,
     LibraryGroup.BY_TAG to MR.strings.group_by_tag,
     LibraryGroup.BY_SOURCE to MR.strings.group_by_source,
     LibraryGroup.BY_STATUS to MR.strings.group_by_status,
+    LibraryGroup.BY_TRACK_STATUS to MR.strings.group_by_tracking_status,
     LibraryGroup.BY_AUTHOR to MR.strings.group_by_author,
     LibraryGroup.BY_LANGUAGE to MR.strings.group_by_language,
     LibraryGroup.UNGROUPED to MR.strings.group_ungrouped,
@@ -150,27 +149,87 @@ private fun ColumnScope.FilterPage(
             onClick = { screenModel.toggleFilter(pref) },
         )
     }
+
+    // Per-logged-in-tracker filter (mirrors the manga LibrarySettingsDialog: one row, or a heading + row
+    // per tracker). Bound to the novel model's own tracker prefs, not the shared settings model.
+    val trackers by screenModel.trackersFlow.collectAsState()
+    when (trackers.size) {
+        0 -> {
+            // No logged-in trackers: nothing to filter by.
+        }
+        1 -> {
+            val service = trackers[0]
+            val filterTracker by screenModel.novelFilterTracking(service.id.toInt()).collectAsState()
+            TriStateItem(
+                label = stringResource(MR.strings.action_filter_tracked),
+                state = filterTracker,
+                onClick = { screenModel.toggleNovelTracker(service.id.toInt()) },
+            )
+        }
+        else -> {
+            HeadingItem(MR.strings.action_filter_tracked)
+            trackers.map { service ->
+                val filterTracker by screenModel.novelFilterTracking(service.id.toInt()).collectAsState()
+                TriStateItem(
+                    label = service.name,
+                    state = filterTracker,
+                    onClick = { screenModel.toggleNovelTracker(service.id.toInt()) },
+                )
+            }
+        }
+    }
+
     NovelCategoriesFilter(screenModel = screenModel, onManageCategories = onManageCategories)
 }
 
-private val sortModes: List<Pair<StringResource, NovelLibrarySort.Type>> = listOf(
-    MR.strings.action_sort_alpha to NovelLibrarySort.Type.Alphabetical,
-    MR.strings.action_sort_last_read to NovelLibrarySort.Type.LastRead,
-    MR.strings.action_sort_last_manga_update to NovelLibrarySort.Type.LastUpdate,
-    MR.strings.action_sort_latest_chapter to NovelLibrarySort.Type.LatestChapter,
-    MR.strings.action_sort_chapter_fetch_date to NovelLibrarySort.Type.ChapterFetchDate,
-    MR.strings.action_sort_total to NovelLibrarySort.Type.TotalChapters,
-    MR.strings.action_sort_unread_count to NovelLibrarySort.Type.UnreadCount,
-    MR.strings.action_sort_date_added to NovelLibrarySort.Type.DateAdded,
-    MR.strings.label_downloaded to NovelLibrarySort.Type.Downloaded,
-    MR.strings.action_sort_random to NovelLibrarySort.Type.Random,
-)
+/**
+ * Display label for a novel sort mode, for the single-list category header. The shared header decodes a
+ * category's flags through the manga [tachiyomi.domain.library.model.LibrarySort] enum, which misreads
+ * the two novel-only sorts (Downloaded, Tracker score) since they sit on bits the manga enum labels
+ * differently; the novel library passes this instead so its header labels stay correct.
+ */
+internal fun novelSortLabelRes(type: NovelLibrarySort.Type): StringResource = when (type) {
+    NovelLibrarySort.Type.Alphabetical -> MR.strings.action_sort_alpha
+    NovelLibrarySort.Type.LastRead -> MR.strings.action_sort_last_read
+    NovelLibrarySort.Type.LastUpdate -> MR.strings.action_sort_last_manga_update
+    NovelLibrarySort.Type.UnreadCount -> MR.strings.action_sort_unread_count
+    NovelLibrarySort.Type.TotalChapters -> MR.strings.action_sort_total
+    NovelLibrarySort.Type.LatestChapter -> MR.strings.action_sort_latest_chapter
+    NovelLibrarySort.Type.ChapterFetchDate -> MR.strings.action_sort_chapter_fetch_date
+    NovelLibrarySort.Type.DateAdded -> MR.strings.action_sort_date_added
+    NovelLibrarySort.Type.Downloaded -> MR.strings.action_sort_downloaded
+    NovelLibrarySort.Type.TrackerMean -> MR.strings.action_sort_tracker_score
+    NovelLibrarySort.Type.Random -> MR.strings.action_sort_random
+}
 
 @Composable
 private fun ColumnScope.SortPage(screenModel: NovelLibraryScreenModel, categoryId: Long) {
     val state by screenModel.state.collectAsState()
+    val trackers by screenModel.trackersFlow.collectAsState()
     val current = state.sortFor(categoryId)
     val sortDescending = !current.isAscending
+
+    // Tracker-score sort only shows with a logged-in tracker (mirrors the manga LibrarySettingsDialog).
+    val sortModes = remember(trackers.isEmpty()) {
+        val trackerMeanPair = if (trackers.isNotEmpty()) {
+            MR.strings.action_sort_tracker_score to NovelLibrarySort.Type.TrackerMean
+        } else {
+            null
+        }
+        listOfNotNull(
+            MR.strings.action_sort_alpha to NovelLibrarySort.Type.Alphabetical,
+            MR.strings.action_sort_last_read to NovelLibrarySort.Type.LastRead,
+            MR.strings.action_sort_last_manga_update to NovelLibrarySort.Type.LastUpdate,
+            MR.strings.action_sort_latest_chapter to NovelLibrarySort.Type.LatestChapter,
+            MR.strings.action_sort_chapter_fetch_date to NovelLibrarySort.Type.ChapterFetchDate,
+            MR.strings.action_sort_total to NovelLibrarySort.Type.TotalChapters,
+            MR.strings.action_sort_unread_count to NovelLibrarySort.Type.UnreadCount,
+            MR.strings.action_sort_date_added to NovelLibrarySort.Type.DateAdded,
+            MR.strings.label_downloaded to NovelLibrarySort.Type.Downloaded,
+            trackerMeanPair,
+            MR.strings.action_sort_random to NovelLibrarySort.Type.Random,
+        )
+    }
 
     sortModes.forEach { (labelRes, mode) ->
         if (mode == NovelLibrarySort.Type.Random) {

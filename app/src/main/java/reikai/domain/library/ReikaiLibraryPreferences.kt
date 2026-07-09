@@ -138,6 +138,14 @@ class ReikaiLibraryPreferences(
     val novelLibraryFilterBookmarked: Preference<TriState> =
         preferenceStore.getEnum("novel_library_filter_bookmarked", TriState.DISABLED)
 
+    /**
+     * Per-tracker novel library filter (tri-state), keyed by tracker id. Held under a separate key from
+     * manga's `pref_filter_library_tracked_*` so a tracker filtered on one content type doesn't bleed
+     * into the other; net-new, so no `_v2` migration suffix.
+     */
+    fun novelFilterTracking(id: Int): Preference<TriState> =
+        preferenceStore.getEnum("novel_library_filter_tracked_$id", TriState.DISABLED)
+
     /** Master switch for the novel include/exclude category filter. */
     val novelLibraryFilterCategories: Preference<Boolean> =
         preferenceStore.getBoolean("novel_library_filter_categories", false)

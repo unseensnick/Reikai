@@ -78,12 +78,14 @@ import reikai.presentation.library.ReikaiCategoryPickerSheet
 import reikai.presentation.library.ReikaiLibraryContent
 import reikai.presentation.library.novels.NovelLibraryScreenModel
 import reikai.presentation.library.novels.NovelLibrarySettingsDialog
+import reikai.presentation.library.novels.novelSortLabelRes
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
 import reikai.presentation.novel.migrate.NovelMigrationSourcePickScreen
 import reikai.presentation.library.reikaiCategoryHeaderIndices
 import reikai.presentation.library.reikaiIsCollapsed
 import reikai.presentation.library.reikaiSortCategories
 import reikai.domain.novel.model.NovelCategory
+import reikai.domain.novel.model.NovelLibrarySort
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
 // RK <--
@@ -468,6 +470,13 @@ data object LibraryTab : Tab {
                                 onRefreshCategory = { category -> onClickRefresh(category) },
                                 onSelectAllInCategory = { category ->
                                     if (isNovels) novelModel.selectAllInCategory(category.id) else screenModel.selectAllInCategory(category)
+                                },
+                                // RK: novels store their own sort enum in the shared flag bits; decode the
+                                // header label with the novel enum so Downloaded / Tracker score read right.
+                                sortLabelFor = if (isNovels) {
+                                    { category -> novelSortLabelRes(NovelLibrarySort.fromFlag(category.flags).type) }
+                                } else {
+                                    null
                                 },
                                 onClickContinueReading = if (isNovels) {
                                     onNovelContinueReading.takeIf { novelState.showContinueButton }
