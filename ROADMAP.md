@@ -23,7 +23,6 @@ Ready to build (infrastructure exists):
 - **Categorized-display correctness for novels** `[S]` - per-category sort ignores the global toggle and never resets; branch `setSort` + a novel `ResetCategoryFlags`.
 - **Mark same-numbered duplicate chapters read on novel completion** `[S]` - parity for merged novels.
 - **Novel download recognition + readable folders** `[M]` - re-key novel downloads by stable names (source / title / chapter, like manga) with a disk scan so they survive reinstall / restore / storage-move, instead of unstable numeric ids plus a wiped DB flag (found on-device: after a reinstall the app no longer sees existing downloads, so re-download is a silent no-op). Fixes the opaque numeric download folders too; needs a one-time migration.
-- **Novel updates refresh feedback** `[S]` - started / already-running snackbar plus a last-updated line (manga shows both; novel refresh is silent).
 - **Tracker-based merge-group healing for novels** `[S-M]` - port `computeHealing` to `NovelMergeManager`.
 - **Skeleton loading on the novel details page** `[S]` - show placeholder skeletons while the first load resolves (like LNReader), instead of a bare spinner when opening a new non-library novel.
 
