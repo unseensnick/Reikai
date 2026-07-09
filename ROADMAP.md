@@ -20,7 +20,6 @@ Backlog, grouped by area. Unordered within an area.
 ### Novels (manga <-> novel parity)
 
 Ready to build (infrastructure exists):
-- **Duplicate detection when adding a novel** `[S]` - wire `getDuplicateLibraryNovel` + `DuplicateNovelDialog` into the details / history add paths.
 - **Categorized-display correctness for novels** `[S]` - per-category sort ignores the global toggle and never resets; branch `setSort` + a novel `ResetCategoryFlags`.
 - **Mark same-numbered duplicate chapters read on novel completion** `[S]` - parity for merged novels.
 - **Novel download recognition + readable folders** `[M]` - re-key novel downloads by stable names (source / title / chapter, like manga) with a disk scan so they survive reinstall / restore / storage-move, instead of unstable numeric ids plus a wiped DB flag (found on-device: after a reinstall the app no longer sees existing downloads, so re-download is a silent no-op). Fixes the opaque numeric download folders too; needs a one-time migration.
