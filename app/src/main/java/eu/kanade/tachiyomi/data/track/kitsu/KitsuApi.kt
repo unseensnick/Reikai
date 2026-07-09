@@ -8,9 +8,11 @@ import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuCurrentUserResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuLibraryEntry
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuLibraryResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuListSearchResult
+import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuMetadataResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuOAuth
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuSearchResult
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuUser
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.DELETE
 import eu.kanade.tachiyomi.network.GET
@@ -310,6 +312,52 @@ class KitsuApi(private val client: OkHttpClient, interceptor: KitsuInterceptor) 
                 tags = tags,
                 malId = mappingRefs.firstNotNullOfOrNull { malIdByMappingId[it.id] },
                 anilistId = mappingRefs.firstNotNullOfOrNull { anilistIdByMappingId[it.id] },
+            )
+        }
+    }
+
+    // "Fill from tracker" metadata. Bespoke JSON:API REST (not Komikku's gated GraphQL): resolve the
+    // manga's staff (author/artist by role) and genres out of the `included` graph.
+    suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
+        return withIOContext {
+            val url = "${BASE_URL}manga/${track.remoteId}".toUri().buildUpon()
+                .encodedQuery("include=staff.person,categories")
+                .build()
+                .toString()
+            val result = with(json) {
+                authClient.newCall(GET(url)).awaitSuccess().parseAs<KitsuMetadataResult>()
+            }
+            val manga = result.data
+            val attrs = manga.attributes
+
+            val peopleById = result.included
+                .filter { it.type == "people" }
+                .associate { it.id to it.attributes.name.orEmpty() }
+            val staffById = result.included.filter { it.type == "mediaStaff" }.associateBy { it.id }
+            val categoryTitleById = result.included
+                .filter { it.type == "categories" && it.attributes.nsfw != true }
+                .associate { it.id to it.attributes.title.orEmpty() }
+
+            fun staffNames(roleMatch: String): String? =
+                manga.relationships.staff?.data.orEmpty()
+                    .mapNotNull { staffById[it.id] }
+                    .filter { roleMatch in it.attributes.role.orEmpty() }
+                    .mapNotNull { it.relationships.person?.data?.id?.let(peopleById::get) }
+                    .filter { it.isNotBlank() }
+                    .joinToString(", ")
+                    .ifEmpty { null }
+
+            TrackMangaMetadata(
+                remoteId = manga.id,
+                title = attrs.canonicalTitle,
+                thumbnailUrl = attrs.posterImage?.run { original ?: large ?: medium },
+                description = attrs.synopsis?.ifBlank { null } ?: attrs.description?.ifBlank { null },
+                authors = staffNames("Story"),
+                artists = staffNames("Art"),
+                genres = manga.relationships.categories?.data.orEmpty()
+                    .mapNotNull { categoryTitleById[it.id] }
+                    .filter { it.isNotBlank() }
+                    .takeIf { it.isNotEmpty() },
             )
         }
     }
