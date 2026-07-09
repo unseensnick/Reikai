@@ -35,6 +35,14 @@ data class HKManga(
     @SerialName("start_date")
     val startDate: Long? = null,
     val read: List<HKRead>? = emptyList(),
+    // RK: richer fields the /manga/{slug} endpoint returns, used by "Fill from tracker". The bind path
+    // (toTrack) ignores them; only getMangaMetadata reads them.
+    @SerialName("synopsis_ua")
+    val synopsisUa: String? = null,
+    @SerialName("synopsis_en")
+    val synopsisEn: String? = null,
+    val authors: List<HKAuthor> = emptyList(),
+    val genres: List<HKGenre> = emptyList(),
 ) {
     fun toTrack(trackId: Long): TrackSearch {
         return TrackSearch.create(trackId).apply {
@@ -67,3 +75,40 @@ data class HKManga(
         }
     }
 }
+
+// RK: Hikka credits people with per-role entries; roles carry `name_en` values like "Story"/"Art"
+// (mirrors AniList/MAL), so the metadata mapper splits author vs artist on those.
+@Serializable
+data class HKAuthor(
+    val person: HKPerson? = null,
+    val roles: List<HKRole> = emptyList(),
+)
+
+@Serializable
+data class HKPerson(
+    @SerialName("name_native")
+    val nameNative: String? = null,
+    @SerialName("name_ua")
+    val nameUa: String? = null,
+    @SerialName("name_en")
+    val nameEn: String? = null,
+)
+
+@Serializable
+data class HKRole(
+    val slug: String? = null,
+    @SerialName("name_en")
+    val nameEn: String? = null,
+    @SerialName("name_ua")
+    val nameUa: String? = null,
+)
+
+@Serializable
+data class HKGenre(
+    @SerialName("name_ua")
+    val nameUa: String? = null,
+    @SerialName("name_en")
+    val nameEn: String? = null,
+    val slug: String? = null,
+    val type: String? = null,
+)

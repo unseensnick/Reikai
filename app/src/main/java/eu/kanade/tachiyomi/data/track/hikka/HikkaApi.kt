@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.data.track.hikka.dto.HKMangaPagination
 import eu.kanade.tachiyomi.data.track.hikka.dto.HKOAuth
 import eu.kanade.tachiyomi.data.track.hikka.dto.HKRead
 import eu.kanade.tachiyomi.data.track.hikka.dto.HKUser
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.DELETE
 import eu.kanade.tachiyomi.network.GET
@@ -127,6 +128,48 @@ class HikkaApi(
             }
         }
     }
+
+    // RK --> "Fill from tracker" metadata. No Komikku reference (Komikku has no Hikka); the /manga/{slug}
+    // endpoint returns synopsis + credited people + genres, which the bind path doesn't read.
+    suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
+        return withIOContext {
+            val slug = track.remoteUrl.split("/")[4]
+            val url = "$BASE_API_URL/manga/$slug".toUri().buildUpon().build()
+            with(json) {
+                authClient.newCall(GET(url.toString()))
+                    .awaitSuccess()
+                    .parseAs<HKManga>()
+                    .let { manga ->
+                        fun creditNames(roleMatch: String): String? =
+                            manga.authors
+                                .filter { author -> author.roles.any { it.nameEn?.contains(roleMatch, ignoreCase = true) == true } }
+                                .mapNotNull { it.person?.run { nameEn ?: nameNative ?: nameUa } }
+                                .filter { it.isNotBlank() }
+                                .distinct()
+                                .joinToString(", ")
+                                .ifEmpty { null }
+
+                        TrackMangaMetadata(
+                            remoteId = track.remoteId,
+                            title = manga.titleUa ?: manga.titleEn ?: manga.titleOriginal,
+                            thumbnailUrl = manga.image,
+                            // Hikka synopses are markdown with inline links ([text](url)); keep the text only.
+                            description = (manga.synopsisUa ?: manga.synopsisEn)?.stripMarkdownLinks()?.ifBlank { null },
+                            authors = creditNames("Story"),
+                            artists = creditNames("Art"),
+                            genres = manga.genres
+                                .mapNotNull { it.nameEn ?: it.nameUa }
+                                .filter { it.isNotBlank() }
+                                .takeIf { it.isNotEmpty() },
+                        )
+                    }
+            }
+        }
+    }
+
+    private fun String.stripMarkdownLinks(): String =
+        replace(Regex("""\[([^]]+)]\(([^)]+)\)"""), "$1")
+    // RK <--
 
     suspend fun deleteUserManga(track: DomainTrack) {
         return withIOContext {
