@@ -157,7 +157,7 @@ object SettingsDownloadScreen : SearchableSettings {
         preference: tachiyomi.core.common.preference.Preference<Set<String>>,
         categories: List<Category>,
         label: String,
-    ): Preference.PreferenceItem.MultiSelectListPreference {
+    ): Preference.PreferenceItem.MultiSelectListPreference<String> {
         return Preference.PreferenceItem.MultiSelectListPreference(
             preference = preference,
             entries = categories.associate { it.id.toString() to it.visualName },
