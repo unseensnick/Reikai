@@ -63,6 +63,7 @@ Carried over from [Yōkai](https://github.com/null2264/yokai) (Reikai's previous
 - `Related-mangas carousel`: similar titles below the description, from the source's related API, a keyword fallback, and tracker recs (AniList, MyAnimeList, MangaUpdates, Shikimori). From [Komikku](https://github.com/komikku-app/komikku); Reikai's taste layer is above. ([docs](docs/related-mangas.md))
 - `Adult content sources`: [Komikku](https://github.com/komikku-app/komikku)'s adult-source subsystem, ported wholesale, built-in support, browse, tag search, metadata, account settings and backup, with some ported pieces tweaked and a few extra built-in sources added. Off by default. ([docs](docs/adult-sources.md))
 - `Enhanced source support`: deep integration with one of the most-used manga sources, ported from [Komikku](https://github.com/komikku-app/komikku), sign in for source-native full details (author, status, description, star rating, namespaced tags), browse and bulk-add the titles you follow, track them with the built-in `MDList` tracker (two-way follow-status and rating sync), sync your library both ways, and open a random title.
+- `Edit info` (manga + novels): edit an entry's title, author, artist, cover, description, tags and status, with `Fill from tracker` to autofill those fields and genres from a linked tracker. The editor is ported from [Komikku](https://github.com/komikku-app/komikku)'s manga-only dialog; Reikai unifies it across manga and novels, stores edits non-destructively (Reset restores the source), and adds genres and more trackers to the autofill.
 
 </details>
 
@@ -73,7 +74,7 @@ The core manga experience is Mihon's (Tachiyomi lineage):
 
 - Local reading of downloaded content.
 - A configurable reader with multiple viewers, reading directions, and settings.
-- Tracker support: [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://www.mangaupdates.com/), [Shikimori](https://shikimori.one), [Bangumi](https://bgm.tv/), and [Hikka](https://hikka.io/).
+- Tracker support: [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://www.mangaupdates.com/), [Shikimori](https://shikimori.io), [Bangumi](https://bgm.tv/), and [Hikka](https://hikka.io/).
 - Categories to organize your library.
 - Light and dark themes.
 - Scheduled library updates.
