@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import mihon.feature.migration.dialog.MigrateMangaDialog
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.history.NovelHistoryScreenModel
+import reikai.presentation.novel.browse.DuplicateNovelDialog
 import reikai.presentation.novel.details.NovelCategoryDialog
 import reikai.presentation.novel.details.NovelDetailsDialog
 import reikai.presentation.history.ReikaiHistoryScreen
@@ -166,6 +167,16 @@ data object HistoryTab : Tab {
                 HistoryDeleteAllDialog(
                     onDismissRequest = onDismissNovelDialog,
                     onDelete = novelScreenModel::removeAllHistory,
+                )
+            }
+            is NovelHistoryScreenModel.Dialog.DuplicateNovel -> {
+                DuplicateNovelDialog(
+                    duplicates = dialog.duplicates,
+                    sourceNames = dialog.sourceNames,
+                    sourceSites = dialog.sourceSites,
+                    onDismissRequest = onDismissNovelDialog,
+                    onConfirm = { novelScreenModel.addFavoriteAnyway(dialog.novelId) },
+                    onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
                 )
             }
             is NovelHistoryScreenModel.Dialog.ChangeCategory -> {

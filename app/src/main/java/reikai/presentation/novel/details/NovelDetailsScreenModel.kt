@@ -66,6 +66,7 @@ import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelChapterFlags
 import reikai.domain.novel.model.NovelUpdate
+import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.novel.model.effectiveBookmarkedFilter
 import reikai.domain.novel.model.effectiveDownloadedFilter
 import reikai.domain.novel.model.effectiveHideChapterTitles
@@ -78,6 +79,7 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.novel.selectChaptersForDownloadAction
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
@@ -113,6 +115,7 @@ class NovelDetailsScreenModel(
     private val installer: LnPluginInstaller by injectLazy()
     private val getNovelCategories: GetNovelCategories by injectLazy()
     private val setNovelCategories: SetNovelCategories by injectLazy()
+    private val novelLibraryAdder: NovelLibraryAdder by injectLazy()
     private val deleteNovelChaptersAfterRead: DeleteNovelChaptersAfterRead by injectLazy()
     private val novelPreferences: NovelPreferences by injectLazy()
     private val uiPreferences: UiPreferences by injectLazy()
@@ -743,15 +746,40 @@ class NovelDetailsScreenModel(
         screenModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
             if (!novel.favorite) {
-                updateNovel.awaitUpdateFavorite(novel.id, favorite = true)
-                val categories = getNovelCategories.await().filter { it.id > 0L }
-                if (categories.isNotEmpty()) {
-                    val current = getNovelCategories.awaitByNovelId(novel.id).map { it.id }.toSet()
-                    updateLoaded { it.copy(dialog = NovelDetailsDialog.ChangeCategory(categories, current)) }
+                // Warn on a similarly-named library novel before adding (mirrors MangaScreenModel).
+                novelLibraryAdder.findDuplicates(novel.id, novel.title)?.let { dup ->
+                    updateLoaded {
+                        it.copy(
+                            dialog = NovelDetailsDialog.DuplicateNovel(
+                                dup.duplicates,
+                                dup.sourceNames,
+                                dup.sourceSites,
+                            ),
+                        )
+                    }
+                    return@launchIO
                 }
+                addToLibrary(novel)
             } else {
                 updateNovel.awaitUpdateFavorite(novel.id, favorite = false)
             }
+        }
+    }
+
+    /** Proceed with the add after the possible-duplicate dialog's "Add anyway". */
+    fun addFavoriteAnyway() {
+        screenModelScope.launchIO {
+            val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
+            addToLibrary(novel)
+        }
+    }
+
+    private suspend fun addToLibrary(novel: Novel) {
+        updateNovel.awaitUpdateFavorite(novel.id, favorite = true)
+        val categories = getNovelCategories.await().filter { it.id > 0L }
+        if (categories.isNotEmpty()) {
+            val current = getNovelCategories.awaitByNovelId(novel.id).map { it.id }.toSet()
+            updateLoaded { it.copy(dialog = NovelDetailsDialog.ChangeCategory(categories, current)) }
         }
     }
 
@@ -1169,6 +1197,12 @@ sealed interface NovelDetailsDialog {
     ) : NovelDetailsDialog
 
     data object EditInfo : NovelDetailsDialog
+
+    data class DuplicateNovel(
+        val duplicates: List<NovelWithChapterCount>,
+        val sourceNames: Map<String, String>,
+        val sourceSites: Map<String, String?>,
+    ) : NovelDetailsDialog
 
     data object ChapterSettings : NovelDetailsDialog
     data object PageSelector : NovelDetailsDialog

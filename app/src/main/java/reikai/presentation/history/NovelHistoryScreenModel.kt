@@ -28,6 +28,7 @@ import reikai.domain.novel.interactor.RemoveNovelHistory
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelHistoryWithRelations
+import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.core.common.util.lang.launchIO
@@ -110,14 +111,29 @@ class NovelHistoryScreenModel(
         }
     }
 
-    /** Add a not-yet-library novel from its history row: favorite the existing row, then apply the
-     *  default category or prompt (reuses NovelLibraryAdder's add-to-library category logic). */
+    /** Add a not-yet-library novel from its history row. Warn on a similarly-named library novel first
+     *  (mirrors HistoryScreenModel), then favorite the existing row and apply the default category or
+     *  prompt (reuses NovelLibraryAdder's add-to-library category logic). */
     fun addFavorite(novelId: Long) {
         screenModelScope.launchIO {
-            updateNovel.awaitUpdateFavorite(novelId, favorite = true)
-            novelLibraryAdder.applyDefaultCategoryOrPrompt(novelId)?.let { prompt ->
-                setDialog(Dialog.ChangeCategory(novelId, prompt.categories, prompt.currentIds))
+            val novel = novelRepository.getById(novelId) ?: return@launchIO
+            novelLibraryAdder.findDuplicates(novel.id, novel.title)?.let { dup ->
+                setDialog(Dialog.DuplicateNovel(novelId, dup.duplicates, dup.sourceNames, dup.sourceSites))
+                return@launchIO
             }
+            addToLibrary(novelId)
+        }
+    }
+
+    /** Proceed with the add after the possible-duplicate dialog's "Add anyway". */
+    fun addFavoriteAnyway(novelId: Long) {
+        screenModelScope.launchIO { addToLibrary(novelId) }
+    }
+
+    private suspend fun addToLibrary(novelId: Long) {
+        updateNovel.awaitUpdateFavorite(novelId, favorite = true)
+        novelLibraryAdder.applyDefaultCategoryOrPrompt(novelId)?.let { prompt ->
+            setDialog(Dialog.ChangeCategory(novelId, prompt.categories, prompt.currentIds))
         }
     }
 
@@ -158,6 +174,12 @@ class NovelHistoryScreenModel(
     sealed interface Dialog {
         data object DeleteAll : Dialog
         data class Delete(val history: NovelHistoryWithRelations) : Dialog
+        data class DuplicateNovel(
+            val novelId: Long,
+            val duplicates: List<NovelWithChapterCount>,
+            val sourceNames: Map<String, String>,
+            val sourceSites: Map<String, String?>,
+        ) : Dialog
         data class ChangeCategory(
             val novelId: Long,
             val categories: List<NovelCategory>,

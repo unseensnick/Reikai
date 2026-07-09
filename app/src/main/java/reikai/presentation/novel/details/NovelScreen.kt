@@ -60,6 +60,7 @@ import reikai.presentation.details.EntryToolbar
 import reikai.presentation.details.TrackerAutofill
 import reikai.presentation.details.entryInfoItems
 import reikai.presentation.details.toEntryHeader
+import reikai.presentation.novel.browse.DuplicateNovelDialog
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
 import reikai.presentation.novel.migrate.NovelMigrationSourcePickScreen
 import reikai.presentation.novel.notes.NovelNotesScreen
@@ -416,11 +417,20 @@ private fun NovelSelectionBar(
 
 @Composable
 private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: NovelDetailsScreenModel) {
+    val navigator = LocalNavigator.currentOrThrow
     when (val dialog = state.dialog) {
         is NovelDetailsDialog.ChangeCategory -> NovelCategoryDialog(
             dialog = dialog,
             onDismiss = screenModel::dismissDialog,
             onConfirm = screenModel::applyCategories,
+        )
+        is NovelDetailsDialog.DuplicateNovel -> DuplicateNovelDialog(
+            duplicates = dialog.duplicates,
+            sourceNames = dialog.sourceNames,
+            sourceSites = dialog.sourceSites,
+            onDismissRequest = screenModel::dismissDialog,
+            onConfirm = screenModel::addFavoriteAnyway,
+            onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
         )
         NovelDetailsDialog.EditInfo -> EntryEditInfoDialog(
             initial = state.displayNovel.withCustomInfo(state.customInfo).toEntryEditInfoUi(),

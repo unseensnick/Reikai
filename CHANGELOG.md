@@ -24,6 +24,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Track your manga on MangaBaka, a new tracker synced from Mihon (mihonapp/mihon#3047).** Sign in from Settings > Tracking, then bind a title to sync status, progress, score, and dates like the other trackers (Fill from tracker works too).
 - **Your novel library can now filter, sort, and group by tracker, matching manga.** Filter novels by each linked tracker, sort by tracker score, and group by tracking status from the library settings sheet.
 - **Sort your manga library by download count, the way novels already could.** A new Downloaded option in the library Sort tab orders titles by how many chapters you have downloaded.
+- **Adding a novel now warns you when a similar one is already in your library, like manga.** Favoriting a novel from its details screen or your history first flags any matching titles, so you can open the existing one instead of ending up with a duplicate.
 
 ### Changes
 
