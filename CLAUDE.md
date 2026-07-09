@@ -84,8 +84,6 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 
 **Release-type builds are minified, the `debugY2k` dev build is not**, so R8-only bugs are invisible in the normal dev loop. The recurring one: a net-new top-level package that uses Injekt generics (`Injekt.get<T>()`) needs its own proguard `-keep`, or the minified build crashes (Injekt `FullTypeReference`). When adding such a package or code, add the keep and verify a minified `:app:assemblePreview` build. Full rule: [.claude/rules/architecture.md](.claude/rules/architecture.md) "Minification (R8) and net-new packages".
 
-**Active upstream-fix watch (Hikka tracker):** Reikai carries a `// RK` fix for a Hikka crash. Upstream's auth interceptor leaks the OAuth token-refresh response, so adding a title to Hikka while the token is expired throws "cannot make a new request because the previous response is still open" (`HikkaInterceptor.kt` + `HikkaApi.kt`, commit `de027cbf1`). On the next Hikka-touching Mihon sync, check whether upstream now closes those responses and drop the `// RK` patch if so. Full note: [docs/dev/upstream-sync.md](docs/dev/upstream-sync.md) "Deliberate divergences from upstream".
-
 ## Design context
 
 - [PRODUCT.md](PRODUCT.md) — register (product), users, brand personality (quiet, dense, deliberate), anti-references, design principles, accessibility. Read before any UI / visual work. Maintained via the `impeccable` skill.

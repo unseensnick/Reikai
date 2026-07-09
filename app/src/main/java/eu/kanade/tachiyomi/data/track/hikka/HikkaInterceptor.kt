@@ -17,18 +17,22 @@ class HikkaInterceptor(private val hikka: Hikka) : Interceptor {
         val currAuth = oauth ?: throw Exception("Hikka: You are not authorized")
 
         if (currAuth.isExpired()) {
-            // RK: close each refresh response. Upstream leaks the refresh-token response (never closed
-            // on the success path) and then reads the token-info body after closing it, so the very
-            // next call throws "cannot make a new request because the previous response is still open".
-            val refreshSucceeded = chain.proceed(HikkaApi.refreshTokenRequest(currAuth.accessToken))
-                .use { it.isSuccessful }
-            if (!refreshSucceeded) {
+            val refreshTokenResponse = chain.proceed(HikkaApi.refreshTokenRequest(currAuth.accessToken))
+            if (!refreshTokenResponse.isSuccessful) {
+                refreshTokenResponse.close()
                 hikka.logout()
                 throw Exception("Hikka: The token is expired")
+            } else {
+                refreshTokenResponse.close()
             }
 
-            val authTokenInfo = chain.proceed(HikkaApi.authTokenInfo(currAuth.accessToken))
-                .use { json.decodeFromString<HKAuthTokenInfo>(it.body.string()) }
+            val authTokenInfoResponse = chain.proceed(HikkaApi.authTokenInfo(currAuth.accessToken))
+            if (!authTokenInfoResponse.isSuccessful) {
+                authTokenInfoResponse.close()
+                throw Exception("Hikka: Auth token info failed")
+            }
+
+            val authTokenInfo = json.decodeFromString<HKAuthTokenInfo>(authTokenInfoResponse.body.string())
             setAuth(HKOAuth(currAuth.accessToken, authTokenInfo.expiration, authTokenInfo.created))
         }
 

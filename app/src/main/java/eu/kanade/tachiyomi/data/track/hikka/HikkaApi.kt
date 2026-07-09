@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.DELETE
 import eu.kanade.tachiyomi.network.GET
+import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.PUT
 import eu.kanade.tachiyomi.network.awaitSuccess
@@ -104,11 +105,16 @@ class HikkaApi(
             val slug = track.tracking_url.split("/")[4]
             val url = "$BASE_API_URL/read/manga/$slug".toUri().buildUpon().build()
             with(json) {
-                // RK: close the response on the 404 path too. Upstream returns early without closing
-                // it, leaking the connection so the next tracker call (e.g. getManga during bind)
-                // throws "cannot make a new request because the previous response is still open".
-                authClient.newCall(GET(url.toString())).execute().use { response ->
-                    if (response.code == 404) null else response.parseAs<HKRead>()
+                try {
+                    authClient.newCall(GET(url.toString()))
+                        .awaitSuccess()
+                        .parseAs<HKRead>()
+                } catch (e: HttpException) {
+                    if (e.code == 404) {
+                        null
+                    } else {
+                        throw e
+                    }
                 }
             }
         }
