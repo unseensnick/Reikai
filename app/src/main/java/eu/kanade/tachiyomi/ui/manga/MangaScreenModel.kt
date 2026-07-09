@@ -44,7 +44,9 @@ import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.track.EnhancedTracker
+import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.PagePreviewSource
 import eu.kanade.tachiyomi.source.Source
@@ -125,6 +127,7 @@ import tachiyomi.domain.manga.model.asMangaCover
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
+import tachiyomi.domain.track.model.Track
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
@@ -1642,6 +1645,15 @@ class MangaScreenModel(
         }
         dismissDialog()
     }
+
+    /** Bound trackers eligible for "Fill from tracker" (self-hosted enhanced trackers can't autofill). */
+    suspend fun autofillCandidates(): List<Pair<Track, Tracker>> =
+        getTracks.await(mangaId)
+            .mapNotNull { track -> trackerManager.get(track.trackerId)?.let { track to it } }
+            .filterNot { (_, tracker) -> tracker is EnhancedTracker }
+
+    suspend fun fetchTrackerMetadata(track: Track, tracker: Tracker): TrackMangaMetadata =
+        tracker.getMangaMetadata(track)
 
     /** Switch the chapter list to a single grouped source, or null for the unified merged view. */
     fun selectSource(sourceMangaId: Long?) {

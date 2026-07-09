@@ -20,7 +20,10 @@ import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.coil.getBestColor
 import eu.kanade.tachiyomi.data.download.model.Download
+import eu.kanade.tachiyomi.data.track.EnhancedTracker
+import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -56,6 +59,7 @@ import reikai.domain.novel.interactor.SetNovelChapterFlags
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.novel.track.TrackNovelChapter
+import reikai.domain.novel.track.toUiTrack
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelCategory
@@ -84,6 +88,7 @@ import tachiyomi.data.Database
 import tachiyomi.i18n.MR
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.MangaCover
+import tachiyomi.domain.track.model.Track
 import uy.kohesive.injekt.injectLazy
 
 /**
@@ -812,6 +817,17 @@ class NovelDetailsScreenModel(
             dismissDialog()
         }
     }
+
+    /** Bound trackers eligible for "Fill from tracker", spanning the merge group (mirrors RefreshNovelTracks). */
+    suspend fun autofillCandidates(): List<Pair<Track, Tracker>> {
+        val novelId = (state.value as? NovelDetailsState.Loaded)?.novel?.id ?: return emptyList()
+        return getNovelTracks.awaitGroup(novelId)
+            .mapNotNull { nt -> trackerManager.get(nt.trackerId)?.let { nt.toUiTrack() to it } }
+            .filterNot { (_, tracker) -> tracker is EnhancedTracker }
+    }
+
+    suspend fun fetchTrackerMetadata(track: Track, tracker: Tracker): TrackMangaMetadata =
+        tracker.getMangaMetadata(track)
 
     // --- Chapter sort / filter / display ---
 

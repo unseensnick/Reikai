@@ -242,6 +242,13 @@
     <string name="action_save">Save</string>
     <string name="action_reset">Reset</string>
     <string name="action_revert_to_default">Revert to default</string>
+    <!-- RK: edit-info editor "Fill from tracker" autofill -->
+    <string name="action_reset_tags">Reset tags</string>
+    <string name="action_reset_info">Reset info</string>
+    <string name="action_reset_all">Reset all</string>
+    <string name="action_fill_from_tracker">Fill from tracker</string>
+    <string name="select_tracker">Select tracker</string>
+    <string name="entry_not_tracked">Entry not tracked</string>
     <!-- RK: content-type filter chip (Browse + Library) -->
     <string name="content_type_all">All</string>
     <string name="content_type_manga">Manga</string>

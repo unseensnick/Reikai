@@ -3,6 +3,7 @@ package eu.kanade.test
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.track.Tracker
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -70,6 +71,8 @@ data class DummyTracker(
     ): eu.kanade.tachiyomi.data.database.models.Track = track
 
     override suspend fun search(query: String): List<TrackSearch> = valSearchResults
+
+    override suspend fun getMangaMetadata(track: Track): TrackMangaMetadata = TrackMangaMetadata()
 
     override suspend fun refresh(
         track: eu.kanade.tachiyomi.data.database.models.Track,

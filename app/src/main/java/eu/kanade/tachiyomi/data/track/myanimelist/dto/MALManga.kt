@@ -42,3 +42,22 @@ data class MALAuthor(
 data class MALMangaCovers(
     val large: String = "",
 )
+
+// RK --> "Fill from tracker" metadata (ported from Komikku, plus genres).
+@Serializable
+data class MALMangaMetadata(
+    val id: Long,
+    val title: String,
+    val synopsis: String?,
+    @SerialName("main_picture")
+    val covers: MALMangaCovers?,
+    val authors: List<MALAuthorNode> = emptyList(),
+    val genres: List<MALGenre> = emptyList(),
+)
+
+@Serializable
+data class MALGenre(
+    val id: Int,
+    val name: String,
+)
+// RK <--

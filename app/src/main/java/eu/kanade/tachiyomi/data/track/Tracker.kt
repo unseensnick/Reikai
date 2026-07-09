@@ -4,6 +4,7 @@ import androidx.annotation.CallSuper
 import androidx.annotation.DrawableRes
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.data.database.models.Track
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.coroutines.flow.Flow
 import okhttp3.OkHttpClient
@@ -56,6 +57,11 @@ interface Tracker {
     // RK <--
 
     suspend fun refresh(track: Track): Track
+
+    // RK --> autofill entry metadata from a bound tracker (Fill from tracker). BaseTracker throws by
+    // default; each supported service overrides it. Ported from Komikku, plus a genres field.
+    suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata
+    // RK <--
 
     suspend fun login(username: String, password: String)
 

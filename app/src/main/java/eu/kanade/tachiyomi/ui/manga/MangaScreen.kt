@@ -64,6 +64,7 @@ import logcat.LogPriority
 import reikai.presentation.components.EntryCoverDialog
 import reikai.presentation.details.EntryEditInfoDialog
 import reikai.presentation.details.EntryEditInfoUi
+import reikai.presentation.details.TrackerAutofill
 import reikai.presentation.manga.MangaMigrationSourcePickScreen
 import mihon.feature.migration.dialog.MigrateMangaDialog
 import reikai.presentation.manga.EhRemoveFavoriteDialog
@@ -386,7 +387,7 @@ class MangaScreen(
                     // Seed with the effective (overlaid) values; save diffs each field against the raw
                     // source manga (dialog.manga), so an unchanged field stores no override.
                     initial = dialog.manga.withCustomInfo(successState.customInfo).toEntryEditInfoUi(),
-                    sourceGenre = dialog.manga.genre.orEmpty(),
+                    source = dialog.manga.toEntryEditInfoUi(),
                     seedColor = successState.seedColor,
                     coverModel = { url ->
                         MangaCover(
@@ -399,7 +400,11 @@ class MangaScreen(
                     },
                     onDismissRequest = onDismissRequest,
                     onSave = { screenModel.saveMangaInfo(dialog.manga, it) },
-                    onResetInfo = { screenModel.resetMangaInfo(dialog.manga) },
+                    onResetAll = { screenModel.resetMangaInfo(dialog.manga) },
+                    autofill = TrackerAutofill(
+                        candidates = screenModel::autofillCandidates,
+                        fetch = screenModel::fetchTrackerMetadata,
+                    ),
                 )
             }
             // RK <--

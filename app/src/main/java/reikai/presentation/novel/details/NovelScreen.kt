@@ -57,6 +57,7 @@ import reikai.presentation.details.EntryDetailsUiState
 import reikai.presentation.details.EntryEditInfoDialog
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.EntryToolbar
+import reikai.presentation.details.TrackerAutofill
 import reikai.presentation.details.entryInfoItems
 import reikai.presentation.details.toEntryHeader
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
@@ -423,7 +424,7 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: No
         )
         NovelDetailsDialog.EditInfo -> EntryEditInfoDialog(
             initial = state.displayNovel.withCustomInfo(state.customInfo).toEntryEditInfoUi(),
-            sourceGenre = state.novel.genre.orEmpty(),
+            source = state.novel.toEntryEditInfoUi(),
             seedColor = state.seedColor,
             coverModel = { url ->
                 NovelCover(
@@ -446,7 +447,11 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: No
                     thumbnailUrl = it.thumbnailUrl,
                 )
             },
-            onResetInfo = screenModel::resetNovelInfo,
+            onResetAll = screenModel::resetNovelInfo,
+            autofill = TrackerAutofill(
+                candidates = screenModel::autofillCandidates,
+                fetch = screenModel::fetchTrackerMetadata,
+            ),
         )
         NovelDetailsDialog.ChapterSettings -> NovelChapterSettingsDialog(
             sorting = state.sorting,
