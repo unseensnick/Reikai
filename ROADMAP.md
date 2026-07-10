@@ -29,7 +29,6 @@ Ready to build (infrastructure exists):
 Larger:
 - **Global novel reader-defaults settings screen** `[M]` - a `SearchableSettings` novel-reader page the per-novel sheet falls back to; also unblocks settings search.
 - **Novel library Behaviour settings** `[M]` - swipe actions + missing-chapter indicators for the novel list.
-- **Bulk multi-select in novel browse + global search** `[M]` - a selection toolbar with bulk add-to-library, matching manga (which uses `BulkFavoriteScreenModel`); novel browse only single-adds today (2026-07-07 parity audit).
 
 Opportunistic polish: Browse (Latest shortcut, Latest capability-guard so an unsupported source hides the chip, global-search progress, Last-used, hide-in-library, per-row language, genre-tap-search); Reader (Share + open-in-browser, always-on progress %); Downloads queue (pause/resume, per-row retry, move-to-top/bottom, per-series move/cancel); Tracking (start-date backfill, create-private-at-bind, hide trackers lacking novel search, friendlier Fill-from-tracker errors: no-entry-found on a 404 + null-message fallback); Updates/history (Novels-chip last-updated line, fast-scroll animation); Details (long-press-copy WebView URL, per-source scanlator filter for merged novels, per-category novel display settings `[M]`, novel tag-tap global search, novel long-press-favorite category shortcut).
 
