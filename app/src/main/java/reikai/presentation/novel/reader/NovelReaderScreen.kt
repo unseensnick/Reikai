@@ -103,6 +103,8 @@ class NovelReaderScreen(
         var settingsOpen by rememberSaveable { mutableStateOf(false) }
         var chaptersOpen by rememberSaveable { mutableStateOf(false) }
         var orientationOpen by rememberSaveable { mutableStateOf(false) }
+        var themeOpen by rememberSaveable { mutableStateOf(false) }
+        var textSizeOpen by rememberSaveable { mutableStateOf(false) }
 
         // Translucent chrome background matching the manga reader's toolbars (and the seekbar pill).
         val chromeColor = MaterialTheme.colorScheme
@@ -329,6 +331,8 @@ class NovelReaderScreen(
                         onClickKeepScreenOn = { screenModel.setKeepScreenOn(!settings.keepScreenOn) },
                         bionicActive = settings.bionicReading,
                         onClickBionic = { screenModel.setBionicReading(!settings.bionicReading) },
+                        onClickTheme = { themeOpen = true },
+                        onClickTextSize = { textSizeOpen = true },
                     )
                 }
             }
@@ -467,6 +471,24 @@ class NovelReaderScreen(
                 currentOrientation = settings.orientation,
                 onChange = screenModel::setOrientation,
                 onDismiss = { orientationOpen = false },
+            )
+        }
+
+        if (themeOpen) {
+            NovelReaderThemeDialog(
+                followSystemTheme = rawSettings.followSystemTheme,
+                backgroundColor = rawSettings.backgroundColor,
+                onFollowSystem = screenModel::setFollowSystemTheme,
+                onPreset = screenModel::setThemePreset,
+                onDismiss = { themeOpen = false },
+            )
+        }
+
+        if (textSizeOpen) {
+            NovelReaderTextSizeDialog(
+                fontSize = settings.fontSize,
+                onFontSize = screenModel::setFontSize,
+                onDismiss = { textSizeOpen = false },
             )
         }
     }

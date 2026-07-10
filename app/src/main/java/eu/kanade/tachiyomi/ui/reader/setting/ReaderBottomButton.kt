@@ -23,6 +23,8 @@ enum class ReaderBottomButton(val value: String, val stringRes: StringResource, 
     Autoscroll("as", MR.strings.pref_auto_scroll, Scope.Novel),
     KeepScreenOn("ks", MR.strings.pref_keep_screen_on, Scope.Novel),
     BionicReading("bi", MR.strings.pref_bionic_reading, Scope.Novel),
+    Theme("th", MR.strings.pref_category_theme, Scope.Novel),
+    TextSize("ts", MR.strings.pref_reader_text_size, Scope.Novel),
     ;
 
     enum class Scope { Manga, Novel, Both }

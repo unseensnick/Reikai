@@ -519,7 +519,7 @@ private fun AlignButton(icon: ImageVector, value: String, current: String, onCli
 }
 
 @Composable
-private fun PresetSwatch(preset: ReaderThemePreset, selected: Boolean, onClick: () -> Unit) {
+fun PresetSwatch(preset: ReaderThemePreset, selected: Boolean, onClick: () -> Unit) {
     val bg = remember(preset.background) { Color(android.graphics.Color.parseColor(preset.background)) }
     val fg = remember(preset.textColor) { Color(android.graphics.Color.parseColor(preset.textColor)) }
     Box(

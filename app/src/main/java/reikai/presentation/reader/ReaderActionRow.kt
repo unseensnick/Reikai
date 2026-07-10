@@ -6,7 +6,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FormatBold
 import androidx.compose.material.icons.outlined.FormatListNumbered
+import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Share
@@ -58,6 +60,9 @@ fun ReaderActionRow(
     onClickKeepScreenOn: (() -> Unit)? = null,
     bionicActive: Boolean = false,
     onClickBionic: (() -> Unit)? = null,
+    // Novel-only pickers: open a small chooser (theme / text size), like the rotation button.
+    onClickTheme: (() -> Unit)? = null,
+    onClickTextSize: (() -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
@@ -156,6 +161,24 @@ fun ReaderActionRow(
                 description = stringResource(MR.strings.pref_bionic_reading),
                 active = bionicActive,
             )
+        }
+
+        if (ReaderBottomButton.Theme.isIn(enabledButtons) && onClickTheme != null) {
+            IconButton(onClick = onClickTheme) {
+                Icon(
+                    imageVector = Icons.Outlined.Palette,
+                    contentDescription = stringResource(MR.strings.pref_category_theme),
+                )
+            }
+        }
+
+        if (ReaderBottomButton.TextSize.isIn(enabledButtons) && onClickTextSize != null) {
+            IconButton(onClick = onClickTextSize) {
+                Icon(
+                    imageVector = Icons.Outlined.FormatSize,
+                    contentDescription = stringResource(MR.strings.pref_reader_text_size),
+                )
+            }
         }
 
         IconButton(onClick = onClickSettings) {
