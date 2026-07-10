@@ -284,6 +284,11 @@ class NovelReaderScreenModel(
         colorFilterMode = novelPreferences.readerColorFilterMode().get(),
     )
 
+    /** User-selected bottom-bar buttons, kept out of [settings] since it drives only the chrome, not
+     *  the WebView. */
+    val bottomButtons: StateFlow<Set<String>> = novelPreferences.readerBottomButtons().changes()
+        .stateIn(screenModelScope, SharingStarted.Eagerly, novelPreferences.readerBottomButtons().get())
+
     init {
         // Seed the per-novel orientation from the opened entry (the anchor for a merged novel).
         screenModelScope.launchIO {

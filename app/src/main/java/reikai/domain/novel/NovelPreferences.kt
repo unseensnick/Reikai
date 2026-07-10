@@ -1,5 +1,6 @@
 package reikai.domain.novel
 
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
@@ -213,6 +214,11 @@ class NovelPreferences(
 
     /** Auto-scroll speed in CSS pixels per frame (~60fps). */
     fun readerAutoScrollSpeed() = preferenceStore.getFloat("ln_reader_auto_scroll_speed", 1.0f)
+
+    /** User-selected bottom-bar buttons for the novel reader (the novel twin of the manga
+     *  [ReaderPreferences.readerBottomButtons]). Values are [ReaderBottomButton.value] codes. */
+    fun readerBottomButtons() =
+        preferenceStore.getStringSet("ln_reader_bottom_buttons", ReaderBottomButton.NOVEL_BUTTONS_DEFAULTS)
 
     // Library.
 

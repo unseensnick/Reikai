@@ -565,6 +565,10 @@
     <string name="pref_mark_read_on_skip_novel">Mark chapter read when skipping ahead (Novel)</string>
     <string name="pref_mark_read_on_skip_summary">When you jump to the next chapter, mark the chapter you skipped as read</string>
     <string name="pref_reader_bottom_buttons">Bottom bar buttons</string>
+    <!-- RK: novel reader bottom-bar labels (twin picker + the novel-only toggle buttons) -->
+    <string name="pref_reader_bottom_buttons_novel">Bottom bar buttons (Novel)</string>
+    <string name="pref_auto_scroll">Auto-scroll</string>
+    <string name="pref_bionic_reading">Bionic reading</string>
     <string name="pref_preserve_reading_position">Resume reading position</string>
     <string name="pref_preserve_reading_position_summary">Reopen chapters at your last position, even ones already marked read</string>
     <string name="pref_reader_preload_size">Pages to preload</string><!-- RK -->

@@ -225,10 +225,20 @@ object SettingsReaderScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.MultiSelectListPreference(
                     preference = readerPreferences.readerBottomButtons,
-                    entries = ReaderBottomButton.entries
+                    entries = ReaderBottomButton.offeredIn(ReaderBottomButton.Scope.Manga)
                         .associate { it.value to stringResource(it.stringRes) },
                     title = stringResource(MR.strings.pref_reader_bottom_buttons),
                 ),
+                // RK --> novel twin: the light-novel reader's bottom-bar buttons. Interim home until the
+                // net-new novel reader settings screen (7a) owns it; distinct "(Novel)" title so the two
+                // pickers never collide on a shared settings-search result key.
+                Preference.PreferenceItem.MultiSelectListPreference(
+                    preference = novelPreferences.readerBottomButtons(),
+                    entries = ReaderBottomButton.offeredIn(ReaderBottomButton.Scope.Novel)
+                        .associate { it.value to stringResource(it.stringRes) },
+                    title = stringResource(MR.strings.pref_reader_bottom_buttons_novel),
+                ),
+                // RK <--
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.preserveReadingPosition,
                     title = stringResource(MR.strings.pref_preserve_reading_position),

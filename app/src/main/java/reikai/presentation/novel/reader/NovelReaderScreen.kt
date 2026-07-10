@@ -13,7 +13,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
@@ -21,18 +20,12 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.FormatListNumbered
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -69,6 +62,7 @@ import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.tts.TtsPlayback
+import reikai.presentation.reader.ReaderActionRow
 import reikai.presentation.reader.VerticalReaderRail
 import tachiyomi.core.common.util.lang.launchNonCancellable
 
@@ -120,6 +114,30 @@ class NovelReaderScreen(
         var progressPercent by remember { mutableStateOf(0) }
         var scrollToPercent by remember { mutableStateOf<((Int) -> Unit)?>(null) }
         val autoScrollActive = settings.autoScroll && !menuVisible
+
+        // Web actions (open in WebView / browser, share the chapter URL), shared by the top bar overflow
+        // and the bottom action row. Null until a chapter with a source URL is loaded.
+        val loadedState = state as? NovelReaderState.Loaded
+        val webUrl = loadedState?.webUrl
+        val webTitle = loadedState?.chapterTitle
+        val onOpenInWebView: (() -> Unit)? = webUrl?.let { url ->
+            { navigator.push(WebViewScreen(url = url, initialTitle = webTitle, sourceId = null)) }
+        }
+        val onOpenInBrowser: (() -> Unit)? = webUrl?.let { url -> { context.openInBrowser(url) } }
+        val onShare: (() -> Unit)? = webUrl?.let { url ->
+            {
+                context.startActivity(
+                    Intent.createChooser(
+                        Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, url)
+                        },
+                        null,
+                    ),
+                )
+            }
+        }
+        val bottomButtons by screenModel.bottomButtons.collectAsState()
 
         // Immersive: hide the system bars while reading, reveal them with the chrome on tap. Restore
         // them when leaving the reader so the rest of the app is unaffected.
@@ -269,33 +287,16 @@ class NovelReaderScreen(
             ) {
                 // Shared reader top bar (same component the manga reader uses): back, title +
                 // chapter subtitle, bookmark, and a text-only overflow (WebView / browser / share).
-                val loaded = state as? NovelReaderState.Loaded
-                val webUrl = loaded?.webUrl
-                val webTitle = loaded?.chapterTitle
                 ReaderTopBar(
                     modifier = Modifier.background(chromeColor),
                     mangaTitle = title,
                     chapterTitle = webTitle,
                     navigateUp = { navigator.pop() },
-                    bookmarked = loaded?.bookmarked ?: false,
+                    bookmarked = loadedState?.bookmarked ?: false,
                     onToggleBookmarked = { screenModel.toggleBookmark() },
-                    onOpenInWebView = webUrl?.let { url ->
-                        { navigator.push(WebViewScreen(url = url, initialTitle = webTitle, sourceId = null)) }
-                    },
-                    onOpenInBrowser = webUrl?.let { url -> { context.openInBrowser(url) } },
-                    onShare = webUrl?.let { url ->
-                        {
-                            context.startActivity(
-                                Intent.createChooser(
-                                    Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(Intent.EXTRA_TEXT, url)
-                                    },
-                                    null,
-                                ),
-                            )
-                        }
-                    },
+                    onOpenInWebView = onOpenInWebView,
+                    onOpenInBrowser = onOpenInBrowser,
+                    onShare = onShare,
                 )
             }
 
@@ -309,24 +310,26 @@ class NovelReaderScreen(
                     containerColor = chromeColor,
                     windowInsets = WindowInsets.navigationBars,
                 ) {
-                    Row(
+                    // Shared reader action row (same component the manga reader delegates to). Manga-only
+                    // buttons stay null; the novel-only toggles (auto-scroll / keep-screen-on / bionic)
+                    // and web actions are wired here. Which appear is driven by the novel's own pref.
+                    ReaderActionRow(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        IconButton(onClick = { chaptersOpen = true }) {
-                            Icon(Icons.Outlined.FormatListNumbered, contentDescription = "Chapters")
-                        }
-                        IconButton(onClick = { orientationOpen = true }) {
-                            Icon(
-                                ReaderOrientation.fromPreference(settings.orientation).icon,
-                                contentDescription = "Rotation",
-                            )
-                        }
-                        IconButton(onClick = { settingsOpen = true }) {
-                            Icon(Icons.Filled.Settings, contentDescription = "Reader settings")
-                        }
-                    }
+                        enabledButtons = bottomButtons,
+                        onClickChapterList = { chaptersOpen = true },
+                        onClickWebView = onOpenInWebView,
+                        onClickBrowser = onOpenInBrowser,
+                        onClickShare = onShare,
+                        orientation = ReaderOrientation.fromPreference(settings.orientation),
+                        onClickOrientation = { orientationOpen = true },
+                        onClickSettings = { settingsOpen = true },
+                        autoScrollActive = settings.autoScroll,
+                        onClickAutoScroll = { screenModel.setAutoScroll(!settings.autoScroll) },
+                        keepScreenOn = settings.keepScreenOn,
+                        onClickKeepScreenOn = { screenModel.setKeepScreenOn(!settings.keepScreenOn) },
+                        bionicActive = settings.bionicReading,
+                        onClickBionic = { screenModel.setBionicReading(!settings.bionicReading) },
+                    )
                 }
             }
 
