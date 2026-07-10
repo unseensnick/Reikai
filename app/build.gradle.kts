@@ -39,8 +39,8 @@ android {
         // versionCode must keep climbing and stay above the last Yokai-based build (168) so installs upgrade in place.
         applicationId = "eu.kanade.tachiyomi"
 
-        versionCode = 180
-        versionName = "0.2.1"
+        versionCode = 181
+        versionName = "0.3.0"
         // RK <--
 
         buildConfigField("String", "COMMIT_COUNT", "\"${getLatestCommitCount()}\"")

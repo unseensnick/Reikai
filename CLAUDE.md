@@ -84,6 +84,14 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 
 **Release-type builds are minified, the `debugY2k` dev build is not**, so R8-only bugs are invisible in the normal dev loop. The recurring one: a net-new top-level package that uses Injekt generics (`Injekt.get<T>()`) needs its own proguard `-keep`, or the minified build crashes (Injekt `FullTypeReference`). When adding such a package or code, add the keep and verify a minified `:app:assemblePreview` build. Full rule: [.claude/rules/architecture.md](.claude/rules/architecture.md) "Minification (R8) and net-new packages".
 
+## Current release target (pre-emptive cut)
+
+Version was bumped **pre-emptively** to `0.3.0` / versionCode `181` on 2026-07-10 (in `app/build.gradle.kts`) because the `CHANGELOG.md` `[Unreleased]` section grew large across the parity program; **0.3.0 is not shipped yet**. This overrides the usual "bump only at release-cut" rule for this cycle (see the `feedback_version_bumps` memory). Notes for continuing sessions:
+
+- `versionCode 181` is also the gate for `VerticalNavigatorMigration` (`version = 181f`); it now fires for upgraders, setting up the shared vertical-navigator prefs.
+- **Do NOT rename `[Unreleased]` → `[0.3.0]` yet.** Remaining Phase 7 work still lands CHANGELOG entries under `[Unreleased]` (they belong to 0.3.0). The `[Unreleased]` → `[0.3.0]` rename + the `docs/dev/shipped.md` move happen at the **actual ship**, per `.claude/rules/workflow.md` "Cutting a release".
+- After 0.3.0 ships, resume the normal rule: bump `versionCode`/`versionName` only at release-cut.
+
 ## Design context
 
 - [PRODUCT.md](PRODUCT.md) — register (product), users, brand personality (quiet, dense, deliberate), anti-references, design principles, accessibility. Read before any UI / visual work. Maintained via the `impeccable` skill.
