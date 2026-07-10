@@ -27,6 +27,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Adding a novel now warns you when a similar one is already in your library, like manga.** Favoriting a novel from its details screen or your history first flags any matching titles, so you can open the existing one instead of ending up with a duplicate.
 - **Refreshing your novel library now confirms it started, like manga.** Tapping refresh on the Novels chip shows an "Updating library" message (or "Already running" if one is in progress) instead of doing nothing visible.
 - **The Updates screen now shows when your novels last updated.** A "Last updated" line appears on the Novels chip, and the All chip shows whichever of manga or novels refreshed more recently.
+- **Add many novels to your library at once, the way manga already could.** In a novel source's browse or global search, tap Select, pick several results, and add them all in one step with a single category choice.
 
 ### Changes
 

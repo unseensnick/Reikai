@@ -21,6 +21,7 @@ fun NovelBrowseGridCell(
     site: String?,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    isSelected: Boolean = false,
 ) {
     MangaComfortableGridItem(
         title = item.name,
@@ -29,6 +30,7 @@ fun NovelBrowseGridCell(
         coverBadgeStart = { InLibraryBadge(enabled = inLibrary) },
         onClick = onClick,
         onLongClick = onLongClick,
+        isSelected = isSelected,
     )
 }
 
@@ -40,6 +42,7 @@ fun NovelBrowseCompactGridCell(
     site: String?,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    isSelected: Boolean = false,
 ) {
     MangaCompactGridItem(
         title = item.name,
@@ -48,6 +51,7 @@ fun NovelBrowseCompactGridCell(
         coverBadgeStart = { InLibraryBadge(enabled = inLibrary) },
         onClick = onClick,
         onLongClick = onLongClick,
+        isSelected = isSelected,
     )
 }
 
@@ -59,6 +63,7 @@ fun NovelBrowseListCell(
     site: String?,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    isSelected: Boolean = false,
 ) {
     MangaListItem(
         title = item.name,
@@ -67,6 +72,7 @@ fun NovelBrowseListCell(
         badge = { InLibraryBadge(enabled = inLibrary) },
         onClick = onClick,
         onLongClick = onLongClick,
+        isSelected = isSelected,
     )
 }
 

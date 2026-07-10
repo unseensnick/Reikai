@@ -68,9 +68,18 @@ class NovelLibraryAdder(
     }
 
     /** Favorite the item (a minimal row, full metadata fills on first details open); applies the
-     *  default category or returns the category picker dialog. insertOrGet may return a non-favorite
-     *  shadow row from a prior details open, so favorite is applied as a follow-up. */
+     *  default category or returns the category picker dialog. */
     suspend fun addToLibrary(item: NovelItem, sourceId: String): NovelBrowseDialog? {
+        val storedId = favoriteReturningId(item, sourceId) ?: return null
+        return applyDefaultCategoryOrPrompt(storedId)?.let { prompt ->
+            NovelBrowseDialog.ChangeCategory(storedId, prompt.categories, prompt.currentIds)
+        }
+    }
+
+    /** Insert + favorite the item, returning its stored novel id and skipping the category prompt. The
+     *  bulk add path favorites many items this way, then applies one category set to all. insertOrGet may
+     *  return a non-favorite shadow row from a prior details open, so favorite is applied as a follow-up. */
+    suspend fun favoriteReturningId(item: NovelItem, sourceId: String): Long? {
         val base = Novel.create().copy(
             source = sourceId,
             url = item.path,
@@ -81,9 +90,7 @@ class NovelLibraryAdder(
         if (!stored.favorite) {
             updateNovel.awaitUpdateFavorite(stored.id, favorite = true)
         }
-        return applyDefaultCategoryOrPrompt(stored.id)?.let { prompt ->
-            NovelBrowseDialog.ChangeCategory(stored.id, prompt.categories, prompt.currentIds)
-        }
+        return stored.id
     }
 
     /**
