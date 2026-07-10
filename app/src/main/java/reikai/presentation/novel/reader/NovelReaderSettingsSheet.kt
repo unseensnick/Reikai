@@ -104,7 +104,6 @@ fun NovelReaderSettingsSheet(
     onSwipeGestures: (Boolean) -> Unit,
     onAutoScroll: (Boolean) -> Unit,
     onAutoScrollSpeed: (Float) -> Unit,
-    onVerticalSeekbar: (Boolean) -> Unit,
     overlay: NovelReaderOverlaySettings,
     onCustomBrightness: (Boolean) -> Unit,
     onCustomBrightnessValue: (Int) -> Unit,
@@ -248,7 +247,6 @@ fun NovelReaderSettingsSheet(
                             onAutoScrollSpeed((it * 10).roundToInt() / 10f)
                         }
                     }
-                    SwitchRow("Progress seekbar", settings.verticalSeekbar, onVerticalSeekbar)
                     SwitchRow("Tap edges to scroll", settings.tapToScroll, onTapToScroll)
                     SwitchRow("Swipe between chapters", settings.swipeGestures, onSwipeGestures)
                     SwitchRow("Keep screen on", settings.keepScreenOn, onKeepScreenOn)

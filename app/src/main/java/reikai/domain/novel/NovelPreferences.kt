@@ -214,9 +214,6 @@ class NovelPreferences(
     /** Auto-scroll speed in CSS pixels per frame (~60fps). */
     fun readerAutoScrollSpeed() = preferenceStore.getFloat("ln_reader_auto_scroll_speed", 1.0f)
 
-    /** Show a vertical progress seekbar (scrub) on the right edge when the chrome is visible. */
-    fun readerVerticalSeekbar() = preferenceStore.getBoolean("ln_reader_vertical_seekbar", false)
-
     // Library.
 
     /** Category a newly favorited novel auto-lands in, the novel twin of manga's

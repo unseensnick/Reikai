@@ -6,6 +6,7 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -80,6 +81,9 @@ class NovelReaderScreenModel(
     private val sourceManager: NovelSourceManager by injectLazy()
     private val installer: LnPluginInstaller by injectLazy()
     private val novelPreferences: NovelPreferences by injectLazy()
+    // Shared with the manga reader so the vertical-rail geometry (height + side) is one setting for
+    // both readers (Roadmap: version-181 verticalNavigator prefs).
+    private val readerPreferences: ReaderPreferences by injectLazy()
     private val downloadManager: NovelDownloadManager by injectLazy()
     private val upsertNovelHistory: UpsertNovelHistory by injectLazy()
     private val setNovelViewerFlags: SetNovelViewerFlags by injectLazy()
@@ -194,8 +198,11 @@ class NovelReaderScreenModel(
             combine(
                 novelPreferences.readerAutoScroll().changes(),
                 novelPreferences.readerAutoScrollSpeed().changes(),
-                novelPreferences.readerVerticalSeekbar().changes(),
-            ) { autoScroll, speed, seekbar -> ScrollPrefs(autoScroll, speed, seekbar) },
+                readerPreferences.verticalNavigatorHeight.changes(),
+                readerPreferences.verticalNavigatorOnLeft.changes(),
+            ) { autoScroll, speed, railHeight, railOnLeft ->
+                ScrollPrefs(autoScroll, speed, railHeight, railOnLeft)
+            },
         ) { tts, flags, scroll -> ReaderExtraPrefs(tts, flags, scroll) },
     ) { display, theme, keepScreenOn, orient, extra ->
         NovelReaderSettings(
@@ -221,7 +228,8 @@ class NovelReaderScreenModel(
             swipeGestures = extra.flags.swipeGestures,
             autoScroll = extra.scroll.autoScroll,
             autoScrollSpeed = extra.scroll.autoScrollSpeed,
-            verticalSeekbar = extra.scroll.verticalSeekbar,
+            railHeightPercent = extra.scroll.railHeight,
+            railOnLeft = extra.scroll.railOnLeft,
         )
     }.stateIn(screenModelScope, SharingStarted.Eagerly, currentSettings())
 
@@ -251,7 +259,8 @@ class NovelReaderScreenModel(
             swipeGestures = novelPreferences.readerSwipeGestures().get(),
             autoScroll = novelPreferences.readerAutoScroll().get(),
             autoScrollSpeed = novelPreferences.readerAutoScrollSpeed().get(),
-            verticalSeekbar = novelPreferences.readerVerticalSeekbar().get(),
+            railHeightPercent = readerPreferences.verticalNavigatorHeight.get(),
+            railOnLeft = readerPreferences.verticalNavigatorOnLeft.get(),
         )
     }
 
@@ -458,7 +467,6 @@ class NovelReaderScreenModel(
     fun setSwipeGestures(value: Boolean) = novelPreferences.readerSwipeGestures().set(value)
     fun setAutoScroll(value: Boolean) = novelPreferences.readerAutoScroll().set(value)
     fun setAutoScrollSpeed(value: Float) = novelPreferences.readerAutoScrollSpeed().set(value)
-    fun setVerticalSeekbar(value: Boolean) = novelPreferences.readerVerticalSeekbar().set(value)
     fun setTtsButtonPosition(x: Int, y: Int) {
         novelPreferences.readerTtsButtonX().set(x)
         novelPreferences.readerTtsButtonY().set(y)
@@ -636,7 +644,8 @@ class NovelReaderScreenModel(
     private data class ScrollPrefs(
         val autoScroll: Boolean,
         val autoScrollSpeed: Float,
-        val verticalSeekbar: Boolean,
+        val railHeight: Int,
+        val railOnLeft: Boolean,
     )
     private data class ReaderExtraPrefs(val tts: TtsPrefs, val flags: FlagPrefs, val scroll: ScrollPrefs)
 

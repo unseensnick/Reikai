@@ -1,6 +1,7 @@
 package reikai.presentation.novel.reader
 
 import android.app.Activity
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -10,6 +11,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,16 +23,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.Bookmark
-import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.FormatListNumbered
-import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,9 +36,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.VerticalSlider
 import androidx.compose.material3.rememberSliderState
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
@@ -56,7 +50,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import androidx.core.view.WindowInsetsCompat
@@ -69,11 +62,14 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.reader.ReaderContentOverlay
+import eu.kanade.presentation.reader.appbars.ReaderTopBar
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.Companion.ColorFilterMode
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
+import eu.kanade.tachiyomi.util.system.openInBrowser
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.tts.TtsPlayback
+import reikai.presentation.reader.VerticalReaderRail
 import tachiyomi.core.common.util.lang.launchNonCancellable
 
 /**
@@ -271,36 +267,35 @@ class NovelReaderScreen(
                 enter = slideInVertically { -it },
                 exit = slideOutVertically { -it },
             ) {
-                TopAppBar(
-                    title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    navigationIcon = {
-                        IconButton(onClick = { navigator.pop() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                // Shared reader top bar (same component the manga reader uses): back, title +
+                // chapter subtitle, bookmark, and a text-only overflow (WebView / browser / share).
+                val loaded = state as? NovelReaderState.Loaded
+                val webUrl = loaded?.webUrl
+                val webTitle = loaded?.chapterTitle
+                ReaderTopBar(
+                    modifier = Modifier.background(chromeColor),
+                    mangaTitle = title,
+                    chapterTitle = webTitle,
+                    navigateUp = { navigator.pop() },
+                    bookmarked = loaded?.bookmarked ?: false,
+                    onToggleBookmarked = { screenModel.toggleBookmark() },
+                    onOpenInWebView = webUrl?.let { url ->
+                        { navigator.push(WebViewScreen(url = url, initialTitle = webTitle, sourceId = null)) }
+                    },
+                    onOpenInBrowser = webUrl?.let { url -> { context.openInBrowser(url) } },
+                    onShare = webUrl?.let { url ->
+                        {
+                            context.startActivity(
+                                Intent.createChooser(
+                                    Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, url)
+                                    },
+                                    null,
+                                ),
+                            )
                         }
                     },
-                    actions = {
-                        val loaded = state as? NovelReaderState.Loaded
-                        val webUrl = loaded?.webUrl
-                        if (webUrl != null) {
-                            val webTitle = loaded?.chapterTitle
-                            IconButton(onClick = {
-                                navigator.push(WebViewScreen(url = webUrl, initialTitle = webTitle, sourceId = null))
-                            }) {
-                                Icon(Icons.Outlined.Public, contentDescription = "Open chapter in WebView")
-                            }
-                        }
-                        val bookmarked = loaded?.bookmarked
-                        if (bookmarked != null) {
-                            IconButton(onClick = { screenModel.toggleBookmark() }) {
-                                Icon(
-                                    if (bookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
-                                    contentDescription = if (bookmarked) "Remove bookmark" else "Bookmark",
-                                )
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = chromeColor),
-                    windowInsets = WindowInsets.statusBars,
                 )
             }
 
@@ -310,7 +305,6 @@ class NovelReaderScreen(
                 enter = slideInVertically { it },
                 exit = slideOutVertically { it },
             ) {
-                val loaded = state as? NovelReaderState.Loaded
                 BottomAppBar(
                     containerColor = chromeColor,
                     windowInsets = WindowInsets.navigationBars,
@@ -320,9 +314,6 @@ class NovelReaderScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        IconButton(onClick = { screenModel.prev() }, enabled = loaded?.hasPrev == true) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous chapter")
-                        }
                         IconButton(onClick = { chaptersOpen = true }) {
                             Icon(Icons.Outlined.FormatListNumbered, contentDescription = "Chapters")
                         }
@@ -335,27 +326,56 @@ class NovelReaderScreen(
                         IconButton(onClick = { settingsOpen = true }) {
                             Icon(Icons.Filled.Settings, contentDescription = "Reader settings")
                         }
-                        IconButton(onClick = { screenModel.next() }, enabled = loaded?.hasNext == true) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next chapter")
-                        }
                     }
                 }
             }
 
-            // Vertical progress seekbar on the right edge, shown with the chrome when enabled.
+            // Vertical progress rail on the reader edge (shared VerticalReaderRail, same component the
+            // manga reader uses): chapter skip buttons flank the scroll-percent slider. Shown whenever
+            // the chrome is visible, since it is the novel reader's only chapter navigator. Constrained
+            // to the area between the top and bottom bars (reserving the system bars + the app-bar
+            // heights) so the height fraction sizes against that region, matching the manga rail, which
+            // lives in the weighted space between its bars, instead of covering the chrome at 100%.
             AnimatedVisibility(
-                visible = menuVisible && settings.verticalSeekbar,
-                modifier = Modifier.align(Alignment.CenterEnd),
+                visible = menuVisible,
+                modifier = Modifier
+                    .align(if (settings.railOnLeft) Alignment.CenterStart else Alignment.CenterEnd)
+                    .fillMaxHeight()
+                    .windowInsetsPadding(WindowInsets.systemBars)
+                    .padding(top = 64.dp, bottom = 80.dp),
                 enter = fadeIn(),
                 exit = fadeOut(),
             ) {
-                VerticalSeekbar(
-                    value = progressPercent.toFloat(),
-                    onValueChange = { v ->
-                        progressPercent = v.roundToInt()
-                        scrollToPercent?.invoke(v.roundToInt())
-                    },
+                val loaded = state as? NovelReaderState.Loaded
+                val railInteractionSource = remember { MutableInteractionSource() }
+                val railState = rememberSliderState(
+                    value = progressPercent.toFloat().coerceIn(0f, SEEKBAR_MAX),
+                    steps = SEEKBAR_STEPS,
+                    valueRange = 0f..100f,
                 )
+                railState.value = progressPercent.toFloat().coerceIn(0f, SEEKBAR_MAX)
+                railState.onValueChange = { v ->
+                    progressPercent = v.roundToInt()
+                    scrollToPercent?.invoke(v.roundToInt())
+                }
+                // Anchor to the bottom of the inter-bar region, matching the manga rail
+                // (ReaderAppBars uses Alignment.BottomCenter).
+                Box(modifier = Modifier.fillMaxHeight(), contentAlignment = Alignment.BottomCenter) {
+                    VerticalReaderRail(
+                        modifier = Modifier
+                            .fillMaxHeight((settings.railHeightPercent / 100f).coerceIn(0f, 1f))
+                            .padding(horizontal = 8.dp),
+                        sliderState = railState,
+                        topLabel = progressPercent.toString(),
+                        bottomLabel = "100",
+                        showSlider = true,
+                        onPreviousChapter = { screenModel.prev() },
+                        enabledPrevious = loaded?.hasPrev == true,
+                        onNextChapter = { screenModel.next() },
+                        enabledNext = loaded?.hasNext == true,
+                        interactionSource = railInteractionSource,
+                    )
+                }
             }
 
             // Floating read-aloud puck (shown only when TTS is on). Drawn last so it overlays the
@@ -405,7 +425,6 @@ class NovelReaderScreen(
                 onSwipeGestures = screenModel::setSwipeGestures,
                 onAutoScroll = screenModel::setAutoScroll,
                 onAutoScrollSpeed = screenModel::setAutoScrollSpeed,
-                onVerticalSeekbar = screenModel::setVerticalSeekbar,
                 overlay = overlay,
                 onCustomBrightness = screenModel::setCustomBrightness,
                 onCustomBrightnessValue = screenModel::setCustomBrightnessValue,
@@ -450,47 +469,6 @@ class NovelReaderScreen(
     }
 }
 
-
-/** The reader's right-edge progress seekbar, matching the manga ChapterNavigator's long-strip slider:
- *  the same Material3 [VerticalSlider] in the same rounded translucent pill, theme-colored, 0% at the
- *  top with the fill growing downward as you read. Just the seekbar: no chapter-skip buttons or
- *  page labels. */
-@Composable
-private fun VerticalSeekbar(value: Float, onValueChange: (Float) -> Unit) {
-    // Rest the thumb just shy of the bottom so it never pins to the literal end (where M3's slider
-    // makes it finicky to grab); only the end is a problem, the top is fine. Scrubbing still reaches
-    // 0 / 100%; only the thumb's resting display is inset. Keeps the default thumb + track, so it
-    // matches the manga reader exactly.
-    val state = rememberSliderState(
-        value = value.coerceIn(0f, SEEKBAR_MAX),
-        steps = SEEKBAR_STEPS,
-        valueRange = 0f..100f,
-    )
-    state.value = value.coerceIn(0f, SEEKBAR_MAX)
-    state.onValueChange = onValueChange
-    val backgroundColor = MaterialTheme.colorScheme
-        .surfaceColorAtElevation(3.dp)
-        .copy(alpha = if (isSystemInDarkTheme()) 0.9f else 0.95f)
-    // Round the background (not a clip) so nothing crops the thumb at the ends.
-    Column(
-        modifier = Modifier
-            .fillMaxHeight(0.72f)
-            .padding(end = 8.dp)
-            .background(backgroundColor, RoundedCornerShape(24.dp))
-            .padding(vertical = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        // Reading progress as a percent (like LNReader's reader): current at top, 100 at the bottom.
-        Text(value.roundToInt().toString())
-        VerticalSlider(
-            state = state,
-            modifier = Modifier
-                .weight(1f)
-                .padding(vertical = 8.dp),
-        )
-        Text("100")
-    }
-}
 
 private const val SEEKBAR_STEPS = 33
 private const val SEEKBAR_MAX = 99f

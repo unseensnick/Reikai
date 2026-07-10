@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,7 +22,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
-import androidx.compose.material3.VerticalSlider
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -35,7 +33,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -46,6 +43,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
 import eu.kanade.presentation.util.isTabletUi
+import reikai.presentation.reader.VerticalReaderRail
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import kotlin.math.roundToInt
@@ -130,9 +128,6 @@ fun ChapterNavigator(
             currentPage = currentPage,
             totalPages = totalPages,
             interactionSource = interactionSource,
-            mainAxisPadding = mainAxisPadding,
-            backgroundColor = backgroundColor,
-            buttonColor = buttonColor,
             modifier = modifier,
         )
     }
@@ -224,6 +219,8 @@ fun HorizontalChapterNavigator(
     }
 }
 
+// RK: delegates to the shared VerticalReaderRail (also used by the novel reader) so the two stay in
+// sync; the page-index value semantics (currentPage / totalPages labels) are provided here.
 @Composable
 fun VerticalChapterNavigator(
     state: SliderState,
@@ -234,66 +231,20 @@ fun VerticalChapterNavigator(
     currentPage: Int,
     totalPages: Int,
     interactionSource: MutableInteractionSource,
-    mainAxisPadding: Dp,
-    backgroundColor: Color,
-    buttonColor: IconButtonColors,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxHeight()
-            .padding(vertical = mainAxisPadding),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        FilledIconButton(
-            enabled = enabledPrevious,
-            onClick = onPreviousChapter,
-            colors = buttonColor,
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.SkipPrevious,
-                contentDescription = stringResource(MR.strings.action_previous_chapter),
-                modifier = Modifier.rotate(90f),
-            )
-        }
-
-        if (totalPages > 1) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(backgroundColor)
-                    .padding(vertical = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(text = currentPage.toString())
-
-                VerticalSlider(
-                    state = state,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(vertical = 8.dp),
-                    interactionSource = interactionSource,
-                )
-
-                Text(text = totalPages.toString())
-            }
-        } else {
-            Spacer(Modifier.weight(1f))
-        }
-
-        FilledIconButton(
-            enabled = enabledNext,
-            onClick = onNextChapter,
-            colors = buttonColor,
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.SkipNext,
-                contentDescription = stringResource(MR.strings.action_next_chapter),
-                modifier = Modifier.rotate(90f),
-            )
-        }
-    }
+    VerticalReaderRail(
+        sliderState = state,
+        topLabel = currentPage.toString(),
+        bottomLabel = totalPages.toString(),
+        showSlider = totalPages > 1,
+        onPreviousChapter = onPreviousChapter,
+        enabledPrevious = enabledPrevious,
+        onNextChapter = onNextChapter,
+        enabledNext = enabledNext,
+        interactionSource = interactionSource,
+        modifier = modifier,
+    )
 }
 
 @Preview
