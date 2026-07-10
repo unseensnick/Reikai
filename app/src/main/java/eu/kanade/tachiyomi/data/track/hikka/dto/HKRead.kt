@@ -24,7 +24,9 @@ data class HKRead(
     val endDate: Long? = null,
     val content: HKManga? = null,
 ) {
-    fun toTrack(trackId: Long): TrackSearch {
+    // RK: contentType ("manga"/"novel") keeps a novel bind on the /novel content tree; defaults to
+    // manga so the existing manga callers are unchanged.
+    fun toTrack(trackId: Long, contentType: String = "manga"): TrackSearch {
         return TrackSearch.create(trackId).apply {
             val mangaContent = this@HKRead.content
             if (mangaContent != null) {
@@ -32,7 +34,7 @@ data class HKRead(
                 remote_id = stringToNumber(mangaContent.slug)
                 library_id = stringToNumber(mangaContent.slug)
                 total_chapters = mangaContent.chapters?.toLong() ?: 0
-                tracking_url = "${HikkaApi.BASE_URL}/manga/${mangaContent.slug}"
+                tracking_url = "${HikkaApi.BASE_URL}/$contentType/${mangaContent.slug}"
             }
 
             last_chapter_read = this@HKRead.chapters.toDouble()

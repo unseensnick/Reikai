@@ -44,14 +44,16 @@ data class HKManga(
     val authors: List<HKAuthor> = emptyList(),
     val genres: List<HKGenre> = emptyList(),
 ) {
-    fun toTrack(trackId: Long): TrackSearch {
+    // RK: contentType ("manga"/"novel") keeps a novel bind on the /novel content tree; defaults to
+    // manga so the existing manga callers are unchanged.
+    fun toTrack(trackId: Long, contentType: String = "manga"): TrackSearch {
         return TrackSearch.create(trackId).apply {
             remote_id = stringToNumber(this@HKManga.slug)
             title = this@HKManga.titleUa ?: this@HKManga.titleEn ?: this@HKManga.titleOriginal
             total_chapters = this@HKManga.chapters?.toLong() ?: 0
             cover_url = this@HKManga.image
             score = this@HKManga.score
-            tracking_url = "${HikkaApi.BASE_URL}/manga/${this@HKManga.slug}"
+            tracking_url = "${HikkaApi.BASE_URL}/$contentType/${this@HKManga.slug}"
             publishing_status = this@HKManga.status
             publishing_type = this@HKManga.mediaType?.replace("_", " ").orEmpty()
 

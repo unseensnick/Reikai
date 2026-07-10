@@ -211,7 +211,9 @@ data class NovelTrackInfoDialogHomeScreen(
         }
 
         private fun List<NovelTrack>.mapToTrackItem(): List<TrackItem> {
+            // Only offer trackers with a real novel search; the rest would silently bind a manga hit.
             return Injekt.get<TrackerManager>().loggedInTrackers()
+                .filter { it.supportsNovels }
                 .map { service -> TrackItem(find { it.trackerId == service.id }?.toUiTrack(), service) }
         }
 

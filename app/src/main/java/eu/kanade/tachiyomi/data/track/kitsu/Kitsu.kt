@@ -123,6 +123,8 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
     }
 
     // RK --> novel-aware search (Active #8)
+    override val supportsNovels = true
+
     override suspend fun searchNovel(query: String): List<TrackSearch> {
         return api.search(query, novel = true)
     }

@@ -40,6 +40,10 @@ abstract class BaseTracker(
 
     override val supportsPrivateTracking: Boolean = false
 
+    // RK --> novel search capability; overridden true by the novel-capable trackers (Active #8)
+    override val supportsNovels: Boolean = false
+    // RK <--
+
     // TODO: Store all scores as 10 point in the future maybe?
     override fun get10PointScore(track: DomainTrack): Double {
         return track.score

@@ -28,6 +28,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Refreshing your novel library now confirms it started, like manga.** Tapping refresh on the Novels chip shows an "Updating library" message (or "Already running" if one is in progress) instead of doing nothing visible.
 - **The Updates screen now shows when your novels last updated.** A "Last updated" line appears on the Novels chip, and the All chip shows whichever of manga or novels refreshed more recently.
 - **Add many novels to your library at once, the way manga already could.** In a novel source's browse or global search, tap Select, pick several results, and add them all in one step with a single category choice.
+- **Track your light novels on Shikimori, Hikka, and MangaBaka.** These trackers now search novels directly instead of returning manga, and trackers that can't tell novels apart (Bangumi, MdList) no longer appear in the novel tracking sheet.
 
 ### Changes
 

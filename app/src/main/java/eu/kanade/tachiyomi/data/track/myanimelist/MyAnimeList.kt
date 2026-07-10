@@ -132,6 +132,8 @@ class MyAnimeList(id: Long) : BaseTracker(id, "MyAnimeList"), DeletableTracker {
     }
 
     // RK --> novel-aware search (Active #8): same flow, novel-filtered remote search
+    override val supportsNovels = true
+
     override suspend fun searchNovel(query: String): List<TrackSearch> {
         if (query.startsWith(SEARCH_ID_PREFIX)) {
             query.substringAfter(SEARCH_ID_PREFIX).toIntOrNull()?.let { id ->

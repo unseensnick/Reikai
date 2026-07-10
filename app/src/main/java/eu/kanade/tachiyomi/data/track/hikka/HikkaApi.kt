@@ -60,9 +60,16 @@ class HikkaApi(
         }
     }
 
-    suspend fun searchManga(query: String): List<TrackSearch> {
+    suspend fun searchManga(query: String): List<TrackSearch> = searchContent(query, "manga")
+
+    // RK --> novel-aware search: Hikka keeps novels in a separate /novel content tree with the same
+    // search body and result shape as /manga; toTrack tags the result so its bind path uses /novel.
+    suspend fun searchNovel(query: String): List<TrackSearch> = searchContent(query, "novel")
+    // RK <--
+
+    private suspend fun searchContent(query: String, contentType: String): List<TrackSearch> {
         return withIOContext {
-            val url = "$BASE_API_URL/manga".toUri().buildUpon()
+            val url = "$BASE_API_URL/$contentType".toUri().buildUpon()
                 .appendQueryParameter("page", "1")
                 .appendQueryParameter("size", "50")
                 .build()
@@ -95,15 +102,20 @@ class HikkaApi(
                     .awaitSuccess()
                     .parseAs<HKMangaPagination>()
                     .list
-                    .map { it.toTrack(trackId) }
+                    .map { it.toTrack(trackId, contentType) }
             }
         }
     }
 
+    // RK --> a bound track's URL is hikka.io/{contentType}/{slug}; Hikka splits manga and novel into
+    // separate content trees, so every read/write path derives which tree from the URL segment.
+    private fun contentTypeOf(url: String): String = url.split("/").getOrNull(3) ?: "manga"
+    // RK <--
+
     suspend fun getRead(track: Track): HKRead? {
         return withIOContext {
             val slug = track.tracking_url.split("/")[4]
-            val url = "$BASE_API_URL/read/manga/$slug".toUri().buildUpon().build()
+            val url = "$BASE_API_URL/read/${contentTypeOf(track.tracking_url)}/$slug".toUri().buildUpon().build()
             with(json) {
                 try {
                     authClient.newCall(GET(url.toString()))
@@ -122,15 +134,16 @@ class HikkaApi(
 
     suspend fun getManga(track: Track): TrackSearch {
         return withIOContext {
+            val contentType = contentTypeOf(track.tracking_url)
             val slug = track.tracking_url.split("/")[4]
-            val url = "$BASE_API_URL/manga/$slug".toUri().buildUpon()
+            val url = "$BASE_API_URL/$contentType/$slug".toUri().buildUpon()
                 .build()
 
             with(json) {
                 authClient.newCall(GET(url.toString()))
                     .awaitSuccess()
                     .parseAs<HKManga>()
-                    .toTrack(trackId)
+                    .toTrack(trackId, contentType)
             }
         }
     }
@@ -140,7 +153,7 @@ class HikkaApi(
     suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
         return withIOContext {
             val slug = track.remoteUrl.split("/")[4]
-            val url = "$BASE_API_URL/manga/$slug".toUri().buildUpon().build()
+            val url = "$BASE_API_URL/${contentTypeOf(track.remoteUrl)}/$slug".toUri().buildUpon().build()
             with(json) {
                 authClient.newCall(GET(url.toString()))
                     .awaitSuccess()
@@ -181,7 +194,7 @@ class HikkaApi(
         return withIOContext {
             val slug = track.remoteUrl.split("/")[4]
 
-            val url = "$BASE_API_URL/read/manga/$slug".toUri().buildUpon()
+            val url = "$BASE_API_URL/read/${contentTypeOf(track.remoteUrl)}/$slug".toUri().buildUpon()
                 .build()
 
             authClient.newCall(DELETE(url.toString()))
@@ -191,9 +204,10 @@ class HikkaApi(
 
     suspend fun addUserManga(track: Track): Track {
         return withIOContext {
+            val contentType = contentTypeOf(track.tracking_url)
             val slug = track.tracking_url.split("/")[4]
 
-            val url = "$BASE_API_URL/read/manga/$slug".toUri().buildUpon()
+            val url = "$BASE_API_URL/read/$contentType/$slug".toUri().buildUpon()
                 .build()
 
             var rereads = getRead(track)?.rereads ?: 0
@@ -216,7 +230,7 @@ class HikkaApi(
                 authClient.newCall(PUT(url.toString(), body = payload.toString().toRequestBody(jsonMime)))
                     .awaitSuccess()
                     .parseAs<HKRead>()
-                    .toTrack(trackId)
+                    .toTrack(trackId, contentType)
             }
         }
     }
