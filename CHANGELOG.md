@@ -64,7 +64,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - The manga and novel History/Updates rows, cover dialog, and the details action row, info header, screen shell (phone and tablet), and toolbar now render through shared components instead of near-duplicate copies. Groundwork for the unified content UI.
 - Enhanced and delegated sources now use the wrapped source's home URL for "Open in WebView", and redundant internal source overrides were dropped.
-- The novel reader's top bar and vertical progress rail now render through the same shared components as the manga reader, so a change to one reaches both.
+- The novel reader's top bar, bottom action row, vertical progress rail, and the bars' show/hide animation and background now render through the same shared components as the manga reader, so a change to one reaches both.
 - Settings search now indexes the novel recommendations screen, so its options turn up when you search your settings.
 - Synced upstream Mihon changes: correct `extensionLib` metadata reading, Hikka tracker hardening, a dropped redundant code-shrink build flag, a zstd proguard keep, aboutLibraries v15, a refreshed set of community translations, and assorted dependency and CI bumps.
 

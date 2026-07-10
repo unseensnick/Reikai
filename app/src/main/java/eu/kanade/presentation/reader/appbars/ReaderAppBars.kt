@@ -1,16 +1,12 @@
 package eu.kanade.presentation.reader.appbars
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,23 +20,28 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.reader.components.ChapterNavigator
 import eu.kanade.presentation.reader.components.ChapterNavigatorType
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
+// RK -->
+import reikai.presentation.reader.ReaderBarsFadeSpec
+import reikai.presentation.reader.ReaderBarsSlideSpec
+import reikai.presentation.reader.readerBarEnter
+import reikai.presentation.reader.readerBarExit
+import reikai.presentation.reader.readerChromeColor
+// RK <--
 import tachiyomi.presentation.core.components.material.padding
 
-private val readerBarsSlideAnimationSpec = tween<IntOffset>(200)
-private val readerBarsFadeAnimationSpec = tween<Float>(150)
+// RK: bar animation specs + scrim color moved to reikai.presentation.reader.ReaderChrome so the manga
+// and novel readers share one definition. Values unchanged.
 
 @Composable
 fun ReaderAppBars(
@@ -78,15 +79,14 @@ fun ReaderAppBars(
     onClickChapterList: () -> Unit,
     // RK <--
 ) {
-    val backgroundColor = MaterialTheme.colorScheme
-        .surfaceColorAtElevation(3.dp)
-        .copy(alpha = if (isSystemInDarkTheme()) 0.9f else 0.95f)
+    val backgroundColor = readerChromeColor() // RK: shared scrim (see ReaderChrome)
 
     Column(modifier = Modifier.fillMaxHeight()) {
         AnimatedVisibility(
             visible = visible,
-            enter = slideInVertically(readerBarsSlideAnimationSpec) { -it } + fadeIn(readerBarsFadeAnimationSpec),
-            exit = slideOutVertically(readerBarsSlideAnimationSpec) { -it } + fadeOut(readerBarsFadeAnimationSpec),
+            // RK: shared top-bar transition (see ReaderChrome)
+            enter = readerBarEnter(fromBottom = false),
+            exit = readerBarExit(fromBottom = false),
         ) {
             ReaderTopBar(
                 modifier = Modifier
@@ -111,10 +111,11 @@ fun ReaderAppBars(
                 Row(modifier = Modifier.weight(1f)) {
                     AnimatedVisibility(
                         visible = visible,
-                        enter = slideInHorizontally(readerBarsSlideAnimationSpec) { if (sliderOnLeft) -it else it } +
-                            fadeIn(readerBarsFadeAnimationSpec),
-                        exit = slideOutHorizontally(readerBarsSlideAnimationSpec) { if (sliderOnLeft) -it else it } +
-                            fadeOut(readerBarsFadeAnimationSpec),
+                        // RK: shared bar animation specs (see ReaderChrome); horizontal is manga-only.
+                        enter = slideInHorizontally(ReaderBarsSlideSpec) { if (sliderOnLeft) -it else it } +
+                            fadeIn(ReaderBarsFadeSpec),
+                        exit = slideOutHorizontally(ReaderBarsSlideSpec) { if (sliderOnLeft) -it else it } +
+                            fadeOut(ReaderBarsFadeSpec),
                     ) {
                         Row {
                             Spacer(modifier = Modifier.width(MaterialTheme.padding.small))
@@ -145,8 +146,9 @@ fun ReaderAppBars(
 
         AnimatedVisibility(
             visible = visible,
-            enter = slideInVertically(readerBarsSlideAnimationSpec) { it } + fadeIn(readerBarsFadeAnimationSpec),
-            exit = slideOutVertically(readerBarsSlideAnimationSpec) { it } + fadeOut(readerBarsFadeAnimationSpec),
+            // RK: shared bottom-bar transition (see ReaderChrome)
+            enter = readerBarEnter(fromBottom = true),
+            exit = readerBarExit(fromBottom = true),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)) {
                 if (chapterNavigatorType.isHorizontal()) {

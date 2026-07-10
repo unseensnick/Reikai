@@ -8,8 +8,6 @@ import androidx.activity.ComponentActivity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -26,11 +24,9 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSliderState
-import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -64,6 +60,9 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.presentation.reader.ReaderActionRow
 import reikai.presentation.reader.VerticalReaderRail
+import reikai.presentation.reader.readerBarEnter
+import reikai.presentation.reader.readerBarExit
+import reikai.presentation.reader.readerChromeColor
 import tachiyomi.core.common.util.lang.launchNonCancellable
 
 /**
@@ -107,9 +106,7 @@ class NovelReaderScreen(
         var textSizeOpen by rememberSaveable { mutableStateOf(false) }
 
         // Translucent chrome background matching the manga reader's toolbars (and the seekbar pill).
-        val chromeColor = MaterialTheme.colorScheme
-            .surfaceColorAtElevation(3.dp)
-            .copy(alpha = if (isSystemInDarkTheme()) 0.9f else 0.95f)
+        val chromeColor = readerChromeColor()
 
         // Reading progress (whole percent) for the vertical seekbar, and a handle the WebView registers
         // so the seekbar can scrub. Auto-scroll runs only while reading (chrome hidden).
@@ -284,8 +281,8 @@ class NovelReaderScreen(
             AnimatedVisibility(
                 visible = menuVisible,
                 modifier = Modifier.align(Alignment.TopCenter),
-                enter = slideInVertically { -it },
-                exit = slideOutVertically { -it },
+                enter = readerBarEnter(fromBottom = false),
+                exit = readerBarExit(fromBottom = false),
             ) {
                 // Shared reader top bar (same component the manga reader uses): back, title +
                 // chapter subtitle, bookmark, and a text-only overflow (WebView / browser / share).
@@ -305,8 +302,8 @@ class NovelReaderScreen(
             AnimatedVisibility(
                 visible = menuVisible,
                 modifier = Modifier.align(Alignment.BottomCenter),
-                enter = slideInVertically { it },
-                exit = slideOutVertically { it },
+                enter = readerBarEnter(fromBottom = true),
+                exit = readerBarExit(fromBottom = true),
             ) {
                 BottomAppBar(
                     containerColor = chromeColor,
