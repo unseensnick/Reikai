@@ -5,7 +5,6 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalView
-import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
@@ -182,7 +181,7 @@ object SettingsReaderScreen : SearchableSettings {
         val preloadSize by preloadSizePref.collectAsState()
         return Preference.PreferenceGroup(
             // RK: content-type suffix so it pairs with the "Reading · Novels" group below.
-            title = typedCategory(MR.strings.pref_category_reading, MR.strings.content_type_manga),
+            title = contentTypedCategory(MR.strings.pref_category_reading, MR.strings.content_type_manga),
             preferenceItems = listOf(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.skipRead,
@@ -229,16 +228,10 @@ object SettingsReaderScreen : SearchableSettings {
 
     // RK --> light-novel reader settings, the novel twins of the Reading group above. The live-tuning
     // display controls (font, size, theme) stay in the in-reader gear sheet, which previews them.
-
-    /** "$category · Manga|Novels", so a twin group reads distinctly and its search breadcrumb differs. */
-    @Composable
-    private fun typedCategory(category: StringResource, contentType: StringResource): String =
-        "${stringResource(category)} · ${stringResource(contentType)}"
-
     @Composable
     private fun getNovelReadingGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup =
         Preference.PreferenceGroup(
-            title = typedCategory(MR.strings.pref_category_reading, MR.strings.content_type_novels),
+            title = contentTypedCategory(MR.strings.pref_category_reading, MR.strings.content_type_novels),
             preferenceItems = listOf(
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerDefaultOrientation(),
@@ -280,7 +273,7 @@ object SettingsReaderScreen : SearchableSettings {
     @Composable
     private fun getNovelAccessibilityGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup =
         Preference.PreferenceGroup(
-            title = typedCategory(MR.strings.pref_category_accessibility, MR.strings.content_type_novels),
+            title = contentTypedCategory(MR.strings.pref_category_accessibility, MR.strings.content_type_novels),
             preferenceItems = listOf(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerKeepScreenOn(),
