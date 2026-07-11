@@ -174,6 +174,11 @@ class ReaderPreferences(
         false,
     )
 
+    // RK: how far one volume press scrolls in the long-strip viewers, as a fraction of the screen
+    // (novel-reader parity). Paged viewers turn a whole page, so this does not apply there.
+    val readWithVolumeKeysScrollAmount: Preference<Float> =
+        preferenceStore.getFloat("reader_volume_keys_scroll_amount", 0.75f)
+
     val navigationModePager: Preference<Int> = preferenceStore.getInt("reader_navigation_mode_pager", 0)
 
     val navigationModeWebtoon: Preference<Int> = preferenceStore.getInt("reader_navigation_mode_webtoon", 0)

@@ -510,6 +510,10 @@ object SettingsReaderScreen : SearchableSettings {
     private fun getNavigationGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
         val readWithVolumeKeysPref = readerPreferences.readWithVolumeKeys
         val readWithVolumeKeys by readWithVolumeKeysPref.collectAsState()
+        // RK: volume-key scroll amount (long-strip viewers), novel-reader parity
+        val volumeScrollAmountPref = readerPreferences.readWithVolumeKeysScrollAmount
+        val volumeScrollAmount by volumeScrollAmountPref.collectAsState()
+        val volumeScrollPercent = (volumeScrollAmount * 100).roundToInt()
 
         val verticalNavigator by readerPreferences.verticalNavigator.collectAsState()
         val verticalNavigatorHeightPref = readerPreferences.verticalNavigatorHeight
@@ -526,6 +530,16 @@ object SettingsReaderScreen : SearchableSettings {
                     preference = readerPreferences.readWithVolumeKeysInverted,
                     title = stringResource(MR.strings.pref_read_with_volume_keys_inverted),
                     enabled = readWithVolumeKeys,
+                ),
+                // RK: volume-key scroll amount, long-strip viewers only (novel-reader parity)
+                Preference.PreferenceItem.SliderPreference(
+                    value = volumeScrollPercent,
+                    valueRange = 25..100,
+                    title = stringResource(MR.strings.pref_volume_keys_scroll_amount),
+                    subtitle = stringResource(MR.strings.pref_volume_keys_scroll_amount_long_strip),
+                    valueString = "$volumeScrollPercent%",
+                    enabled = readWithVolumeKeys,
+                    onValueChanged = { volumeScrollAmountPref.set(it / 100f) },
                 ),
                 Preference.PreferenceItem.MultiSelectListPreference(
                     preference = readerPreferences.verticalNavigator,
