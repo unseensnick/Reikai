@@ -68,6 +68,7 @@ fun ChapterNavigator(
     currentPage: Int,
     totalPages: Int,
     onPageIndexChange: (Int) -> Unit,
+    onPageIndexChangeFinished: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHapticFeedback.current
@@ -81,6 +82,7 @@ fun ChapterNavigator(
     }
     state.value = currentPage.toFloat()
     state.onValueChange = { onPageIndexChange(it.roundToInt() - 1) }
+    state.onValueChangeFinished = onPageIndexChangeFinished
 
     val interactionSource = remember { MutableInteractionSource() }
     val sliderDragged by interactionSource.collectIsDraggedAsState()
@@ -261,6 +263,7 @@ private fun ChapterNavigatorPreview() {
             currentPage = currentPage,
             totalPages = 10,
             onPageIndexChange = { currentPage = (it + 1) },
+            onPageIndexChangeFinished = {},
         )
     }
 }

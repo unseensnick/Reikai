@@ -61,6 +61,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The novel sources list no longer shows a Filter button.** It opened the manga-only filter screen, which had nothing to configure for novels.
 - **Hikka tracker media types now read cleanly, matching the other trackers (synced from Mihon, mihonapp/mihon#3560).** A type like "one_shot" now shows as "one shot" in tracker search.
 - **A download whose server can't resume a partial image no longer fails the chapter (synced from Mihon, mihonapp/mihon@4a66b8b5d).** An image request answered with HTTP 416 is now caught and retried from scratch instead of erroring out.
+- **The reader's bars now hide correctly after you use the page slider (synced from Mihon, mihonapp/mihon#3567).** Tapping to change pages right after dragging the chapter-navigator slider used to leave the top and bottom bars stuck on screen.
 
 ### Other
 
