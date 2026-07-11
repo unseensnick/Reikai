@@ -24,6 +24,7 @@ abstract class Installer(private val service: Service) {
     private val extensionManager: ExtensionManager by injectLazy()
 
     private var waitingInstall = AtomicReference<Entry?>(null)
+
     // RK: a set (not a list) so an extension can't get queued twice (from Komikku 94eac94ce7).
     private val queue = Collections.synchronizedSet(mutableSetOf<Entry>())
 

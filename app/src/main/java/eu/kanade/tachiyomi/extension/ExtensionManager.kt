@@ -13,6 +13,8 @@ import eu.kanade.tachiyomi.extension.util.ExtensionInstallReceiver
 import eu.kanade.tachiyomi.extension.util.ExtensionInstaller
 import eu.kanade.tachiyomi.extension.util.ExtensionLoader
 import eu.kanade.tachiyomi.util.system.toast
+import exh.source.BlacklistedSources
+import exh.source.ExhPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
@@ -24,8 +26,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import exh.source.BlacklistedSources
-import exh.source.ExhPreferences
 import logcat.LogPriority
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
@@ -138,6 +138,7 @@ class ExtensionManager(
     }
 
     // RK -->
+
     /**
      * Re-runs the installed scan and trust evaluation against the current repos.
      *

@@ -33,10 +33,10 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import mihon.feature.migration.dialog.MigrateMangaDialog
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.history.NovelHistoryScreenModel
+import reikai.presentation.history.ReikaiHistoryScreen
 import reikai.presentation.novel.browse.DuplicateNovelDialog
 import reikai.presentation.novel.details.NovelCategoryDialog
 import reikai.presentation.novel.details.NovelDetailsDialog
-import reikai.presentation.history.ReikaiHistoryScreen
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
 import tachiyomi.core.common.i18n.stringResource
@@ -239,7 +239,10 @@ data object HistoryTab : Tab {
                 val novelAt = novelLatest?.readAt ?: Long.MIN_VALUE
                 when {
                     novelLatest != null && novelAt >= mangaAt -> novelScreenModel.resume(novelLatest)
-                    mangaLatest != null -> screenModel.getNextChapterForManga(mangaLatest.mangaId, mangaLatest.chapterId)
+                    mangaLatest != null -> screenModel.getNextChapterForManga(
+                        mangaLatest.mangaId,
+                        mangaLatest.chapterId,
+                    )
                     else -> openChapter(context, null)
                 }
             }

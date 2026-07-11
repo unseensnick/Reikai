@@ -44,7 +44,8 @@ class RecommendationRankerTest {
         // With a real taste profile the scoring path runs ln(agreement); a 0 count yields -Infinity,
         // not NaN, so the sort stays well-ordered and keeps every candidate instead of dropping one.
         val ranker = RecommendationRanker()
-        val taste = TasteProfile(tagScores = mapOf("action" to 0.5), tagEntryCounts = mapOf("action" to 1), totalEntries = 1)
+        val taste =
+            TasteProfile(tagScores = mapOf("action" to 0.5), tagEntryCounts = mapOf("action" to 1), totalEntries = 1)
         val pool = listOf(candidate("/a", "A"), candidate("/b", "B"))
         val agreement = mapOf("/a" to 1, "/b" to 0)
 

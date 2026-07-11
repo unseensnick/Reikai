@@ -930,7 +930,11 @@ class ReaderViewModel @JvmOverloads constructor(
                 downloadManager.cancelQueuedDownloads(listOf(download))
             }
             ChapterDownloadAction.DELETE -> {
-                downloadManager.deleteChapters(listOf(chapter), chapterManga, sourceManager.getOrStub(chapterManga.source))
+                downloadManager.deleteChapters(
+                    listOf(chapter),
+                    chapterManga,
+                    sourceManager.getOrStub(chapterManga.source),
+                )
             }
         }
     }

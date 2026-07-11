@@ -3,8 +3,8 @@ package reikai.presentation.library.novels
 import android.app.Application
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
-import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.domain.base.BasePreferences
+import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
@@ -31,7 +31,6 @@ import reikai.domain.novel.NovelCategoryRepository
 import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
-import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNovelCategories
@@ -49,6 +48,7 @@ import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.model.comparator
 import reikai.domain.novel.model.toCategory
 import reikai.domain.novel.model.withCustomInfo
+import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.novel.track.toUiTrack
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
@@ -94,6 +94,7 @@ class NovelLibraryScreenModel :
     private val novelCategoryRepository: NovelCategoryRepository by injectLazy()
     private val novelDownloadManager: NovelDownloadManager by injectLazy()
     private val getNovelCategories: GetNovelCategories by injectLazy()
+
     // Per-entry custom title/cover overrides, overlaid on the displayed rows (display-only).
     private val getCustomNovelInfo: GetCustomNovelInfo by injectLazy()
     private val setNovelCategories: SetNovelCategories by injectLazy()
@@ -115,6 +116,7 @@ class NovelLibraryScreenModel :
 
     private val searchQuery = MutableStateFlow<String?>(null)
     private val selection = MutableStateFlow<Set<Long>>(emptySet())
+
     // Keyed by category name (header key), matching the manga collapse convention. Session-scoped.
     private val collapsedCategories = MutableStateFlow<Set<String>>(emptySet())
 
@@ -298,7 +300,12 @@ class NovelLibraryScreenModel :
             tracksByRep.forEach { (repId, repTracks) ->
                 val scores = repTracks
                     .filter { it.trackerId in loggedInTrackerIds }
-                    .mapNotNull { trackerManager.get(it.trackerId)?.get10PointScore(it.toUiTrack())?.takeIf { s -> s > 0.0 } }
+                    .mapNotNull {
+                        trackerManager.get(it.trackerId)?.get10PointScore(it.toUiTrack())?.takeIf { s ->
+                            s >
+                                0.0
+                        }
+                    }
                 if (scores.isNotEmpty()) put(repId, scores.average())
             }
         }
@@ -381,7 +388,12 @@ class NovelLibraryScreenModel :
             // label reflects the actual sort (it's stored in a global pref, not a DB row). NovelLibrarySort
             // mirrors LibrarySort's bit layout, so the shared header's `category.sort` decodes it correctly.
             val defaultCategory =
-                Category(NovelCategory.UNCATEGORIZED_ID, context.stringResource(MR.strings.label_default), 0L, settings.defaultSort)
+                Category(
+                    NovelCategory.UNCATEGORIZED_ID,
+                    context.stringResource(MR.strings.label_default),
+                    0L,
+                    settings.defaultSort,
+                )
             val visibleCategories = if (settings.showHidden) {
                 categories
             } else {
@@ -402,7 +414,14 @@ class NovelLibraryScreenModel :
         } else {
             // Y3: dynamic grouping (by source / tag / author / language / status) replaces categories.
             buildNovelDynamicGrouping(
-                items, novelById, settings, defaultSort, collapsedKeys, atBottom, tracksByRep, trackerMeanScores,
+                items,
+                novelById,
+                settings,
+                defaultSort,
+                collapsedKeys,
+                atBottom,
+                tracksByRep,
+                trackerMeanScores,
             )
         }
 
@@ -707,7 +726,11 @@ class NovelLibraryScreenModel :
         } else {
             val byNovel = memberIds.associateWith { novelChapterRepository.getByNovelId(it) }
             val sourceIdByNovel = memberIds.associateWith { id -> novelRepository.getById(id)?.source.orEmpty() }
-            NovelChapterAggregation.aggregate(byNovel, sourceIdByNovel, reikaiLibraryPreferences.preferredNovelSources.get())
+            NovelChapterAggregation.aggregate(
+                byNovel,
+                sourceIdByNovel,
+                reikaiLibraryPreferences.preferredNovelSources.get(),
+            )
                 // chapterNumber is the cross-source reading order (sourceOrder isn't comparable across sources).
                 .sortedBy { it.chapterNumber }
         }
@@ -724,7 +747,9 @@ class NovelLibraryScreenModel :
         mutableDialog.value = Dialog.Settings(categoryId, initialTab)
     }
 
-    fun dismissDialog() { mutableDialog.value = null }
+    fun dismissDialog() {
+        mutableDialog.value = null
+    }
 
     /** Sets the sort for a category (or the library default for the synthesized Default category). */
     fun setSort(categoryId: Long, type: NovelLibrarySort.Type, isAscending: Boolean) {
@@ -880,6 +905,7 @@ class NovelLibraryScreenModel :
 
     sealed interface Dialog {
         data class ChangeCategory(val novelIds: List<Long>, val preselected: List<CheckboxState<Category>>) : Dialog
+
         // groupedSourceCount = N grouped sources behind the selection (0 = none merged, no extra option)
         data class Delete(val novelIds: List<Long>, val groupedSourceCount: Int = 0) : Dialog
         data class Settings(val categoryId: Long, val initialTab: Int) : Dialog

@@ -22,9 +22,18 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.manga.components.ChapterHeader
 import eu.kanade.presentation.manga.components.ExpandableMangaDescription
 import eu.kanade.presentation.manga.components.GalleryInfoBox // RK
-import eu.kanade.presentation.manga.components.PagePreviews // RK
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.manga.components.MangaChapterListItem
+import eu.kanade.presentation.manga.components.MissingChapterCountListItem
+import eu.kanade.presentation.manga.components.PagePreviews // RK
+import eu.kanade.presentation.manga.components.SearchMetadataChips // RK
+import eu.kanade.presentation.util.formatChapterNumber
+import eu.kanade.tachiyomi.data.download.model.Download
+import eu.kanade.tachiyomi.source.getNameForMangaInfo
+import eu.kanade.tachiyomi.ui.manga.ChapterList
+import eu.kanade.tachiyomi.ui.manga.MangaScreenModel
+import eu.kanade.tachiyomi.ui.manga.PagePreviewState // RK
+import eu.kanade.tachiyomi.util.system.copyToClipboard
 import reikai.domain.recommendation.RelatedMangaCandidate // RK
 import reikai.presentation.details.EntryActionRow // RK
 import reikai.presentation.details.EntryDetailsScaffold // RK
@@ -36,15 +45,6 @@ import reikai.presentation.details.entryInfoItems // RK
 import reikai.presentation.details.toEntryHeader // RK
 import reikai.presentation.manga.MergeSourceChips // RK
 import reikai.presentation.recommendation.RelatedMangaCarousel // RK
-import eu.kanade.presentation.manga.components.MissingChapterCountListItem
-import eu.kanade.presentation.manga.components.SearchMetadataChips // RK
-import eu.kanade.presentation.util.formatChapterNumber
-import eu.kanade.tachiyomi.data.download.model.Download
-import eu.kanade.tachiyomi.source.getNameForMangaInfo
-import eu.kanade.tachiyomi.ui.manga.ChapterList
-import eu.kanade.tachiyomi.ui.manga.MangaScreenModel
-import eu.kanade.tachiyomi.ui.manga.PagePreviewState // RK
-import eu.kanade.tachiyomi.util.system.copyToClipboard
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.service.missingChaptersCount
 import tachiyomi.domain.library.service.LibraryPreferences

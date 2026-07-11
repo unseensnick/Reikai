@@ -22,6 +22,9 @@ import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.library.LibrarySettingsScreenModel
 import eu.kanade.tachiyomi.util.system.isReleaseBuildType
+import reikai.presentation.library.ReikaiCategoriesFilter
+import reikai.presentation.library.ReikaiCategoriesPage
+import reikai.presentation.library.ReikaiGroupPage
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
@@ -38,11 +41,6 @@ import tachiyomi.presentation.core.components.SortItem
 import tachiyomi.presentation.core.components.TriStateItem
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
-// RK -->
-import reikai.presentation.library.ReikaiCategoriesFilter
-import reikai.presentation.library.ReikaiCategoriesPage
-import reikai.presentation.library.ReikaiGroupPage
-// RK <--
 
 @Composable
 fun LibrarySettingsDialog(

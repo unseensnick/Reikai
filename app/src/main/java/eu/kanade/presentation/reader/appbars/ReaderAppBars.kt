@@ -31,13 +31,11 @@ import eu.kanade.presentation.reader.components.ChapterNavigator
 import eu.kanade.presentation.reader.components.ChapterNavigatorType
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
-// RK -->
 import reikai.presentation.reader.ReaderBarsFadeSpec
 import reikai.presentation.reader.ReaderBarsSlideSpec
 import reikai.presentation.reader.readerBarEnter
 import reikai.presentation.reader.readerBarExit
 import reikai.presentation.reader.readerChromeColor
-// RK <--
 import tachiyomi.presentation.core.components.material.padding
 
 // RK: bar animation specs + scrim color moved to reikai.presentation.reader.ReaderChrome so the manga

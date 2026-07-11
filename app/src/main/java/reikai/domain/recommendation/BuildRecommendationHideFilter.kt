@@ -31,7 +31,10 @@ class BuildRecommendationHideFilter(
 
         val hideInLibrary = preferences.hideInLibraryRecommendations.get()
         val hiddenStatuses = buildSet {
-            if (preferences.hideTrackedReadingCompleted.get()) { add(TrackStatus.READING); add(TrackStatus.COMPLETED) }
+            if (preferences.hideTrackedReadingCompleted.get()) {
+                add(TrackStatus.READING)
+                add(TrackStatus.COMPLETED)
+            }
             if (preferences.hideTrackedDropped.get()) add(TrackStatus.DROPPED)
             if (preferences.hideTrackedOnHold.get()) add(TrackStatus.ON_HOLD)
             if (preferences.hideTrackedPlanToRead.get()) add(TrackStatus.PLAN_TO_READ)
@@ -88,9 +91,15 @@ class BuildRecommendationHideFilter(
         private val malIds = HashSet<Long>()
         private val titles = HashSet<String>()
 
-        fun addPair(trackerId: Long, remoteId: Long) { pairs += trackerId to remoteId }
-        fun addAnilistId(id: Long) { anilistIds += id }
-        fun addMalId(id: Long) { malIds += id }
+        fun addPair(trackerId: Long, remoteId: Long) {
+            pairs += trackerId to remoteId
+        }
+        fun addAnilistId(id: Long) {
+            anilistIds += id
+        }
+        fun addMalId(id: Long) {
+            malIds += id
+        }
 
         fun addTitle(title: String) {
             TitleNormalizer.normalize(title).takeIf { it.isNotEmpty() }?.let { titles += it }

@@ -120,9 +120,21 @@ fun EntryToolbar(
                         // icons as the category list (CategoryListItem).
                         if (onHide != null && onUnhide != null) {
                             if (allHiddenSelected) {
-                                add(AppBar.Action(title = stringResource(MR.strings.action_unhide), icon = Icons.Outlined.Visibility, onClick = onUnhide))
+                                add(
+                                    AppBar.Action(
+                                        title = stringResource(MR.strings.action_unhide),
+                                        icon = Icons.Outlined.Visibility,
+                                        onClick = onUnhide,
+                                    ),
+                                )
                             } else {
-                                add(AppBar.Action(title = stringResource(MR.strings.action_hide), icon = Icons.Outlined.VisibilityOff, onClick = onHide))
+                                add(
+                                    AppBar.Action(
+                                        title = stringResource(MR.strings.action_hide),
+                                        icon = Icons.Outlined.VisibilityOff,
+                                        onClick = onHide,
+                                    ),
+                                )
                             }
                         }
                         return@buildList
@@ -147,25 +159,65 @@ fun EntryToolbar(
                     // Overflow order (both types): Refresh, Edit categories, Edit info, Migrate, Manage
                     // sources, Notes, Share, Gallery info, Show/Hide hidden. Each is gated on its callback,
                     // so a content type shows only the items it supports.
-                    add(AppBar.OverflowAction(title = stringResource(MR.strings.action_webview_refresh), onClick = onClickRefresh))
+                    add(
+                        AppBar.OverflowAction(
+                            title = stringResource(MR.strings.action_webview_refresh),
+                            onClick = onClickRefresh,
+                        ),
+                    )
                     if (onClickEditCategory != null) {
-                        add(AppBar.OverflowAction(title = stringResource(MR.strings.action_edit_categories), onClick = onClickEditCategory))
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_edit_categories),
+                                onClick = onClickEditCategory,
+                            ),
+                        )
                     }
                     if (onClickEditInfo != null) {
-                        add(AppBar.OverflowAction(title = stringResource(MR.strings.action_edit_info), onClick = onClickEditInfo))
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_edit_info),
+                                onClick = onClickEditInfo,
+                            ),
+                        )
                     }
                     if (onClickMigrate != null) {
-                        add(AppBar.OverflowAction(title = stringResource(MR.strings.action_migrate), onClick = onClickMigrate))
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_migrate),
+                                onClick = onClickMigrate,
+                            ),
+                        )
                     }
                     if (onClickManageSources != null) {
-                        add(AppBar.OverflowAction(title = stringResource(MR.strings.action_manage_sources), onClick = onClickManageSources))
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_manage_sources),
+                                onClick = onClickManageSources,
+                            ),
+                        )
                     }
-                    add(AppBar.OverflowAction(title = stringResource(MR.strings.action_notes), onClick = onClickEditNotes))
+                    add(
+                        AppBar.OverflowAction(
+                            title = stringResource(MR.strings.action_notes),
+                            onClick = onClickEditNotes,
+                        ),
+                    )
                     if (onClickShare != null) {
-                        add(AppBar.OverflowAction(title = stringResource(MR.strings.action_share), onClick = onClickShare))
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_share),
+                                onClick = onClickShare,
+                            ),
+                        )
                     }
                     if (onClickMetadataViewer != null) {
-                        add(AppBar.OverflowAction(title = stringResource(MR.strings.action_metadata_viewer), onClick = onClickMetadataViewer))
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_metadata_viewer),
+                                onClick = onClickMetadataViewer,
+                            ),
+                        )
                     }
                     if (onToggleShowHidden != null && (hasHiddenChapters || showHidden)) {
                         add(

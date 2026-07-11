@@ -52,7 +52,9 @@ class NovelBrowseScreenModel(
             }
         }
         screenModelScope.launchIO {
-            try { installer.ensureLoaded() } catch (_: Throwable) {}
+            try {
+                installer.ensureLoaded()
+            } catch (_: Throwable) {}
             val source = manager.get(sourceId)
             if (source == null) {
                 mutableState.update { it.copy(error = "Source not installed: $sourceId") }
@@ -150,7 +152,9 @@ class NovelBrowseScreenModel(
         val source = state.value.source ?: run {
             // Source never resolved: re-attempt the whole init path.
             screenModelScope.launchIO {
-                try { installer.ensureLoaded() } catch (_: Throwable) {}
+                try {
+                    installer.ensureLoaded()
+                } catch (_: Throwable) {}
                 manager.get(sourceId)?.let { s ->
                     mutableState.update {
                         it.copy(source = s, error = null, filterValues = defaultFilterValues(s.filters))
@@ -215,7 +219,11 @@ class NovelBrowseScreenModel(
     }
 
     private inline fun runFetch(error: (Throwable) -> Unit, block: () -> Unit) {
-        try { block() } catch (e: Throwable) { error(e) }
+        try {
+            block()
+        } catch (e: Throwable) {
+            error(e)
+        }
     }
 
     private fun errorText(e: Throwable) = "${e.javaClass.simpleName}: ${e.message ?: ""}"

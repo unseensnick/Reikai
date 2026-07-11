@@ -124,8 +124,16 @@ interface CatalogueSource : Source {
         val handler = CoroutineExceptionHandler { _, e -> exceptionHandler(e) }
         if (!disableRelatedMangas) {
             supervisorScope {
-                if (supportsRelatedMangas) launch(handler) { getRelatedMangaListByExtension(manga, exceptionHandler, pushResults) }
-                if (!disableRelatedMangasBySearch) launch(handler) { getRelatedMangaListBySearch(manga, exceptionHandler, pushResults) }
+                if (supportsRelatedMangas) {
+                    launch(handler) {
+                        getRelatedMangaListByExtension(manga, exceptionHandler, pushResults)
+                    }
+                }
+                if (!disableRelatedMangasBySearch) {
+                    launch(handler) {
+                        getRelatedMangaListBySearch(manga, exceptionHandler, pushResults)
+                    }
+                }
             }
         }
     }

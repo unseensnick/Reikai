@@ -43,11 +43,11 @@ import reikai.presentation.browse.components.NovelSourceRow
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.novel.browse.NovelBrowseScreen
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
+import tachiyomi.domain.source.model.Source
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
 import tachiyomi.presentation.core.components.material.topSmallPaddingValues
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.domain.source.model.Source
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.plus

@@ -47,13 +47,13 @@ import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.all.MangaDex
-import exh.md.follows.MangaDexFollowsScreen
-import exh.source.getMainSource
 import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreenModel.Listing
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
+import exh.md.follows.MangaDexFollowsScreen
+import exh.source.getMainSource
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -282,7 +282,9 @@ data class BrowseSourceScreen(
                         scope.launchIO {
                             val duplicates = screenModel.getDuplicateLibraryManga(manga)
                             when {
-                                manga.favorite -> screenModel.setDialog(BrowseSourceScreenModel.Dialog.RemoveManga(manga))
+                                manga.favorite -> screenModel.setDialog(
+                                    BrowseSourceScreenModel.Dialog.RemoveManga(manga),
+                                )
                                 duplicates.isNotEmpty() -> screenModel.setDialog(
                                     BrowseSourceScreenModel.Dialog.AddDuplicateManga(manga, duplicates),
                                 )

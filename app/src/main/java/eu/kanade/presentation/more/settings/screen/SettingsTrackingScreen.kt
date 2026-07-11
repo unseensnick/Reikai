@@ -57,10 +57,8 @@ import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeListApi
 import eu.kanade.tachiyomi.data.track.shikimori.ShikimoriApi
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toast
-// RK -->
 import exh.md.utils.MdConstants
 import exh.md.utils.MdUtil
-// RK <--
 import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext

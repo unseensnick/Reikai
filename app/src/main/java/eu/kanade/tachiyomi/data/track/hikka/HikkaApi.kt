@@ -161,7 +161,12 @@ class HikkaApi(
                     .let { manga ->
                         fun creditNames(roleMatch: String): String? =
                             manga.authors
-                                .filter { author -> author.roles.any { it.nameEn?.contains(roleMatch, ignoreCase = true) == true } }
+                                .filter { author ->
+                                    author.roles.any {
+                                        it.nameEn?.contains(roleMatch, ignoreCase = true) ==
+                                            true
+                                    }
+                                }
                                 .mapNotNull { it.person?.run { nameEn ?: nameNative ?: nameUa } }
                                 .filter { it.isNotBlank() }
                                 .distinct()
@@ -173,7 +178,9 @@ class HikkaApi(
                             title = manga.titleUa ?: manga.titleEn ?: manga.titleOriginal,
                             thumbnailUrl = manga.image,
                             // Hikka synopses are markdown with inline links ([text](url)); keep the text only.
-                            description = (manga.synopsisUa ?: manga.synopsisEn)?.stripMarkdownLinks()?.ifBlank { null },
+                            description = (manga.synopsisUa ?: manga.synopsisEn)?.stripMarkdownLinks()?.ifBlank {
+                                null
+                            },
                             authors = creditNames("Story"),
                             artists = creditNames("Art"),
                             genres = manga.genres

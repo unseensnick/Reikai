@@ -58,13 +58,13 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import eu.kanade.presentation.browse.components.BrowseSourceLoadingItem
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.AppBarTitle
 import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.presentation.components.RadioMenuItem
 import eu.kanade.presentation.components.SearchToolbar
-import eu.kanade.presentation.browse.components.BrowseSourceLoadingItem
 import eu.kanade.presentation.library.components.CommonMangaItemDefaults
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen

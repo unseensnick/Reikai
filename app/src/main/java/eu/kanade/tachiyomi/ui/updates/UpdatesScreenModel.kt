@@ -33,11 +33,9 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
-// RK -->
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.source.ReikaiSourcePreferences
-// RK <--
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable

@@ -166,7 +166,10 @@ class ReikaiLibraryPreferences(
     val mangaManualMerges: Preference<Set<String>> = preferenceStore.getStringSet(MANGA_MANUAL_MERGES_KEY, emptySet())
 
     /** Explicit unmerges: normalized "min,max" id pairs that must never be grouped. */
-    val mangaManualUnmerges: Preference<Set<String>> = preferenceStore.getStringSet(MANGA_MANUAL_UNMERGES_KEY, emptySet())
+    val mangaManualUnmerges: Preference<Set<String>> = preferenceStore.getStringSet(
+        MANGA_MANUAL_UNMERGES_KEY,
+        emptySet(),
+    )
 
     /** Auto-group favorited series that share a title across sources (guarded by the healing pass). */
     val autoMergeSameTitle: Preference<Boolean> = preferenceStore.getBoolean("auto_merge_same_title", true)
@@ -175,7 +178,10 @@ class ReikaiLibraryPreferences(
     val showMergeSourceIcons: Preference<Boolean> = preferenceStore.getBoolean("merge_source_icons", true)
 
     /** Source ids ranked highest-priority-first; the trunk source when stitching a merged chapter list. */
-    val preferredMangaSources: Preference<List<Long>> = preferenceStore.getLongArray("preferred_manga_sources", emptyList())
+    val preferredMangaSources: Preference<List<Long>> = preferenceStore.getLongArray(
+        "preferred_manga_sources",
+        emptyList(),
+    )
 
     /** Novel-source ids ranked highest-priority-first; the trunk source for a merged novel chapter list.
      *  Novel source ids are Strings (plugin slugs), so this is a newline-joined ordered list. */
@@ -195,7 +201,10 @@ class ReikaiLibraryPreferences(
     val novelManualMerges: Preference<Set<String>> = preferenceStore.getStringSet(NOVEL_MANUAL_MERGES_KEY, emptySet())
 
     /** Explicit novel unmerges: normalized "min,max" id pairs that must never be grouped. */
-    val novelManualUnmerges: Preference<Set<String>> = preferenceStore.getStringSet(NOVEL_MANUAL_UNMERGES_KEY, emptySet())
+    val novelManualUnmerges: Preference<Set<String>> = preferenceStore.getStringSet(
+        NOVEL_MANUAL_UNMERGES_KEY,
+        emptySet(),
+    )
 
     /** Auto-group favorited novels that share a title across sources (see [novelAutoMergeRequireAuthor]). */
     val novelAutoMergeSameTitle: Preference<Boolean> = preferenceStore.getBoolean("novel_auto_merge_same_title", true)

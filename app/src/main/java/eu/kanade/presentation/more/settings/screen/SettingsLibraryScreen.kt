@@ -234,7 +234,9 @@ object SettingsLibraryScreen : SearchableSettings {
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.defaultNovelCategory(),
                     entries = novelIds.zip(novelLabels).toMap(),
-                    title = "${stringResource(MR.strings.default_category)} (${stringResource(MR.strings.content_type_novels)})",
+                    title = "${stringResource(
+                        MR.strings.default_category,
+                    )} (${stringResource(MR.strings.content_type_novels)})",
                 ),
                 // RK <--
                 Preference.PreferenceItem.SwitchPreference(

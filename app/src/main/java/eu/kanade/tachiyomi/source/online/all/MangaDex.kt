@@ -6,8 +6,8 @@ import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.mdlist.MdList
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
-import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.MangasPage
+import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
 import eu.kanade.tachiyomi.source.online.FollowsSource
@@ -198,7 +198,7 @@ class MangaDex(delegate: HttpSource, val context: Context) :
         // dedupes on remote_id).
         remote_id = data.id.hashCode().toLong()
         title = MdUtil.getTitleFromManga(attrs, mdLang.lang, true)
-        tracking_url = MdUtil.baseUrl + MdUtil.buildMangaUrl(data.id)
+        tracking_url = MdUtil.BASE_URL + MdUtil.buildMangaUrl(data.id)
         cover_url = data.relationships
             .firstOrNull { it.type == MdConstants.Types.coverArt }
             ?.attributes?.fileName

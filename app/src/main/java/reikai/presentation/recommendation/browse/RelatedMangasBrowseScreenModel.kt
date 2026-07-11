@@ -14,6 +14,7 @@ import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
 import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangaCandidate
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.core.common.util.lang.launchIO
@@ -23,7 +24,6 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
-import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
@@ -157,7 +157,15 @@ class RelatedMangasBrowseScreenModel(
                 }
                 else -> mutableState.update {
                     // Freshly-added manga have no categories yet, so every checkbox starts unchecked.
-                    it.copy(dialog = Dialog.ChangeCategory(resolved, categories.mapAsCheckboxState { false }, trackerOrigin.size))
+                    it.copy(
+                        dialog = Dialog.ChangeCategory(
+                            resolved,
+                            categories.mapAsCheckboxState {
+                                false
+                            },
+                            trackerOrigin.size,
+                        ),
+                    )
                 }
             }
         }
@@ -181,7 +189,12 @@ class RelatedMangasBrowseScreenModel(
         val favoriteKeys = currentFavoriteKeys()
         mutableState.update { st ->
             st.copy(
-                items = st.items.map { it.copy(inLibrary = (it.candidate.manga.url to it.candidate.sourceId) in favoriteKeys) },
+                items = st.items.map {
+                    it.copy(
+                        inLibrary =
+                        (it.candidate.manga.url to it.candidate.sourceId) in favoriteKeys,
+                    )
+                },
                 selectedUrls = emptySet(),
                 selectionMode = false,
                 dialog = null,

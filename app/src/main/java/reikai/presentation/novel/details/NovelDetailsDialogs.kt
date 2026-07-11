@@ -60,7 +60,9 @@ fun NovelCategoryDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onConfirm(selected.toList()) }) { Text(stringResource(MR.strings.action_ok)) } },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(selected.toList()) }) { Text(stringResource(MR.strings.action_ok)) }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.action_cancel)) } },
     )
 }
@@ -91,11 +93,17 @@ fun NovelChapterSettingsDialog(
         tabOverflowMenuContent = { closeMenu ->
             DropdownMenuItem(
                 text = { Text(stringResource(MR.strings.set_chapter_settings_as_default)) },
-                onClick = { onSetAsDefault(); closeMenu() },
+                onClick = {
+                    onSetAsDefault()
+                    closeMenu()
+                },
             )
             DropdownMenuItem(
                 text = { Text(stringResource(MR.strings.action_reset)) },
-                onClick = { onReset(); closeMenu() },
+                onClick = {
+                    onReset()
+                    closeMenu()
+                },
             )
         },
     ) { page ->
@@ -113,12 +121,18 @@ fun NovelChapterSettingsDialog(
                     )
                     TriStateItem(
                         label = stringResource(MR.strings.action_filter_bookmarked),
-                        state = bookmarkedFilter.toTriState(NovelChapterFlags.SHOW_BOOKMARKED, NovelChapterFlags.SHOW_NOT_BOOKMARKED),
+                        state = bookmarkedFilter.toTriState(
+                            NovelChapterFlags.SHOW_BOOKMARKED,
+                            NovelChapterFlags.SHOW_NOT_BOOKMARKED,
+                        ),
                         onClick = { onFilterChange(readFilter, it.toBookmarkFlag(), downloadedFilter) },
                     )
                     TriStateItem(
                         label = stringResource(MR.strings.label_downloaded),
-                        state = downloadedFilter.toTriState(NovelChapterFlags.SHOW_DOWNLOADED, NovelChapterFlags.SHOW_NOT_DOWNLOADED),
+                        state = downloadedFilter.toTriState(
+                            NovelChapterFlags.SHOW_DOWNLOADED,
+                            NovelChapterFlags.SHOW_NOT_DOWNLOADED,
+                        ),
                         onClick = { onFilterChange(readFilter, bookmarkedFilter, it.toDownloadFlag()) },
                     )
                 }
@@ -134,8 +148,18 @@ fun NovelChapterSettingsDialog(
                     )
                 }
                 2 -> {
-                    RadioItem(label = stringResource(MR.strings.show_title), selected = !hideChapterTitles, onClick = { onDisplayChange(false) })
-                    RadioItem(label = stringResource(MR.strings.show_chapter_number), selected = hideChapterTitles, onClick = { onDisplayChange(true) })
+                    RadioItem(label = stringResource(MR.strings.show_title), selected = !hideChapterTitles, onClick = {
+                        onDisplayChange(false)
+                    })
+                    RadioItem(
+                        label = stringResource(
+                            MR.strings.show_chapter_number,
+                        ),
+                        selected = hideChapterTitles,
+                        onClick = {
+                            onDisplayChange(true)
+                        },
+                    )
                 }
             }
         }

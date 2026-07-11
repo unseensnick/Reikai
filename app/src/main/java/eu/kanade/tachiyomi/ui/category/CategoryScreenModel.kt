@@ -11,13 +11,11 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-// RK -->
 import reikai.domain.category.flagsWithHidden
 import reikai.domain.category.isHidden
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.presentation.category.CategorySelection
 import reikai.presentation.library.reikaiSortCategories
-// RK <--
 import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.domain.category.interactor.CreateCategoryWithName
 import tachiyomi.domain.category.interactor.DeleteCategory

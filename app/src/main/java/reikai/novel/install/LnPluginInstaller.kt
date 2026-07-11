@@ -45,6 +45,7 @@ class LnPluginInstaller(
     // uninstall: those only touch the concurrent [loadedUrls] set, so a tap-to-install never blocks
     // behind an in-progress (possibly slow, e.g. a down repo) ensureLoaded.
     private val loadMutex = Mutex()
+
     // Canonical URLs already loaded + registered this process. ensureLoaded retries only the installed
     // URLs NOT in here, so a plugin whose download failed once (network blip, Cloudflare, cold cache
     // after a restore) heals on the next novel-screen open instead of needing a cold restart.

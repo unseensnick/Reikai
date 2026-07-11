@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.CancellationException
 import mihon.domain.migration.models.MigrationFlag
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import reikai.domain.manga.MangaMergeManager
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
@@ -20,12 +21,9 @@ import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.interactor.InsertTrack
-import java.time.Instant
-// RK -->
-import reikai.domain.manga.MangaMergeManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-// RK <--
+import java.time.Instant
 
 class MigrateMangaUseCase(
     private val sourcePreferences: SourcePreferences,

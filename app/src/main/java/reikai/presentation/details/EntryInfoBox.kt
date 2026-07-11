@@ -142,9 +142,19 @@ fun EntryInfoBox(
 
         CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
             if (!isTabletUi) {
-                EntryTitlesSmall(appBarPadding = appBarPadding, header = header, onCoverClick = onCoverClick, doSearch = doSearch)
+                EntryTitlesSmall(
+                    appBarPadding = appBarPadding,
+                    header = header,
+                    onCoverClick = onCoverClick,
+                    doSearch = doSearch,
+                )
             } else {
-                EntryTitlesLarge(appBarPadding = appBarPadding, header = header, onCoverClick = onCoverClick, doSearch = doSearch)
+                EntryTitlesLarge(
+                    appBarPadding = appBarPadding,
+                    header = header,
+                    onCoverClick = onCoverClick,
+                    doSearch = doSearch,
+                )
             }
         }
     }

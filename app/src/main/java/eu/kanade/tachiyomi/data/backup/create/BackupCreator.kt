@@ -28,10 +28,10 @@ import logcat.LogPriority
 import okio.buffer
 import okio.gzip
 import okio.sink
+import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.backup.service.BackupPreferences
-import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.repository.CustomMangaInfoRepository
@@ -113,8 +113,16 @@ class BackupCreator(
                 backupNovelMerges = novelData.merges,
                 backupNovelUnmerges = novelData.unmerges,
                 backupExtensions = backupExtensions(options),
-                backupMangaMerges = backupMangaMergeGroups(reikaiLibraryPreferences.mangaManualMerges.get(), favorites, options),
-                backupMangaUnmerges = backupMangaMergeGroups(reikaiLibraryPreferences.mangaManualUnmerges.get(), favorites, options),
+                backupMangaMerges = backupMangaMergeGroups(
+                    reikaiLibraryPreferences.mangaManualMerges.get(),
+                    favorites,
+                    options,
+                ),
+                backupMangaUnmerges = backupMangaMergeGroups(
+                    reikaiLibraryPreferences.mangaManualUnmerges.get(),
+                    favorites,
+                    options,
+                ),
                 backupCustomMangaInfo = backupCustomMangaInfo(favorites, options),
                 backupCustomNovelInfo = novelData.customInfo,
                 // RK <--

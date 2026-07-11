@@ -123,7 +123,10 @@ private fun CategoryFilterDialog(
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 // "Edit categories" sits on the left of the action row, opposite Cancel / OK.
                 if (onManageCategories != null) {
-                    TextButton(onClick = { onDismiss(); onManageCategories() }) {
+                    TextButton(onClick = {
+                        onDismiss()
+                        onManageCategories()
+                    }) {
                         Text(stringResource(MR.strings.action_edit_categories))
                     }
                 }

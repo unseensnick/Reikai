@@ -40,7 +40,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import kotlin.math.roundToInt
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -49,9 +48,9 @@ import androidx.lifecycle.lifecycleScope
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.reader.ReaderContentOverlay
 import eu.kanade.presentation.reader.appbars.ReaderTopBar
+import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.Companion.ColorFilterMode
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
@@ -64,6 +63,7 @@ import reikai.presentation.reader.readerBarEnter
 import reikai.presentation.reader.readerBarExit
 import reikai.presentation.reader.readerChromeColor
 import tachiyomi.core.common.util.lang.launchNonCancellable
+import kotlin.math.roundToInt
 
 /**
  * Light-novel reader: a WebView text canvas with Compose chrome. A single tap hides/shows the top +
@@ -490,7 +490,6 @@ class NovelReaderScreen(
         }
     }
 }
-
 
 private const val SEEKBAR_STEPS = 33
 private const val SEEKBAR_MAX = 99f

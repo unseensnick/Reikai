@@ -20,12 +20,12 @@ import reikai.data.recommendation.taste.TrackerLibraryRefreshJob
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteLibraryRepository
-import tachiyomi.core.common.preference.Preference as PreferenceData
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import tachiyomi.core.common.preference.Preference as PreferenceData
 
 /**
  * RK: Settings -> Library -> Recommendations. Net-new settings screen following Mihon's Preference
@@ -127,6 +127,7 @@ object SettingsRecommendationsScreen : SearchableSettings {
         val lastRefreshSummary by produceState("", refreshTick, neverLabel) {
             value = buildLastRefreshSummary(repository, trackerManager, neverLabel)
         }
+
         // enabled = visible in Mihon's preference DSL, so a tracker's pull toggle only appears once
         // the user is logged into it (the pull needs their private library, which login gates).
         fun pullToggle(tracker: Tracker, pref: PreferenceData<Boolean>) =

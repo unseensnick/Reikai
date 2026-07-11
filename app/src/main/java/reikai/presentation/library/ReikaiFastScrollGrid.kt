@@ -182,7 +182,7 @@ fun ReikaiFastScrollLazyVerticalGrid(
                     .collectLatest {
                         if (thumbAllowed()) {
                             alpha.snapTo(1f)
-                            delay(ScrollBarVisibilityDurationMillis)
+                            delay(SCROLL_BAR_VISIBILITY_DURATION_MILLIS)
                             alpha.animateTo(0f, animationSpec = ImmediateFadeOutAnimationSpec)
                         } else {
                             alpha.animateTo(0f, animationSpec = ImmediateFadeOutAnimationSpec)
@@ -254,7 +254,7 @@ private val ThumbLength = 48.dp
 private val ThumbThickness = 12.dp
 private val ThumbTouchThickness = 32.dp
 private val ThumbShape = RoundedCornerShape(ThumbThickness / 2)
-private const val ScrollBarVisibilityDurationMillis = 2000L
+private const val SCROLL_BAR_VISIBILITY_DURATION_MILLIS = 2000L
 private val ImmediateFadeOutAnimationSpec = tween<Float>(
     durationMillis = ViewConfiguration.getScrollBarFadeDuration(),
 )

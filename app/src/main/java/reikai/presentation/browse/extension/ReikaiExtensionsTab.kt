@@ -13,12 +13,12 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.browse.ExtensionItem
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.TabContent
+import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoresScreen
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionFilterScreen
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsScreenModel
 import eu.kanade.tachiyomi.ui.browse.extension.details.ExtensionDetailsScreen
 import eu.kanade.tachiyomi.ui.browse.extension.extensionsTab
-import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoresScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.ReikaiBrowseScreenModel
@@ -171,7 +171,9 @@ private fun CombinedExtensionsContent(
                     onClickItemSecondaryAction = { extension ->
                         when (extension) {
                             is Extension.Available -> extension.sources.getOrNull(0)?.let {
-                                navigator.push(WebViewScreen(url = it.baseUrl, initialTitle = it.name, sourceId = it.id))
+                                navigator.push(
+                                    WebViewScreen(url = it.baseUrl, initialTitle = it.name, sourceId = it.id),
+                                )
                             }
                             is Extension.Installed -> navigator.push(ExtensionDetailsScreen(extension.pkgName))
                             else -> {}

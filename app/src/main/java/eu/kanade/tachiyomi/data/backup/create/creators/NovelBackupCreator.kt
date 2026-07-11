@@ -19,10 +19,10 @@ import reikai.domain.novel.NovelCategoryRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.NovelTrackRepository
-import reikai.domain.novel.repository.CustomNovelInfoRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
+import reikai.domain.novel.repository.CustomNovelInfoRepository
 import tachiyomi.data.Database
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get

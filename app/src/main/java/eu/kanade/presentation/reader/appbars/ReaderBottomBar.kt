@@ -4,9 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
-// RK -->
 import reikai.presentation.reader.ReaderActionRow
-// RK <--
 
 @Composable
 fun ReaderBottomBar(

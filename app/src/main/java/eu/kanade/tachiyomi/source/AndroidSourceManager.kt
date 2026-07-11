@@ -4,7 +4,6 @@ import android.content.Context
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.online.HttpSource
-// RK -->
 import eu.kanade.tachiyomi.source.online.all.AsmHentai
 import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.source.online.all.HentaiFox
@@ -24,7 +23,6 @@ import exh.source.EnhancedHttpSource
 import exh.source.ExhPreferences
 import exh.source.NHENTAI_NET_SOURCE_ID
 import exh.source.PURURIN_SOURCE_ID
-// RK <--
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -226,7 +224,7 @@ class AndroidSourceManager(
     }
 
     companion object {
-        private const val fillInSourceId = Long.MAX_VALUE
+        private const val FILL_IN_SOURCE_ID = Long.MAX_VALUE
 
         // Installed extensions that get wrapped in a metadata-enhancing EnhancedHttpSource.
         // factory = true matches by package prefix (multi-language factory extensions).
@@ -240,35 +238,35 @@ class AndroidSourceManager(
             ),
             DelegatedSource(
                 "MangaDex",
-                fillInSourceId,
+                FILL_IN_SOURCE_ID,
                 "eu.kanade.tachiyomi.extension.all.mangadex.MangaDex",
                 ::MangaDex,
                 factory = true,
             ),
             DelegatedSource(
                 "NHentai",
-                fillInSourceId,
+                FILL_IN_SOURCE_ID,
                 "eu.kanade.tachiyomi.extension.all.nhentai.NHentai",
                 ::NHentai,
                 factory = true,
             ),
             DelegatedSource(
                 "LANraragi",
-                fillInSourceId,
+                FILL_IN_SOURCE_ID,
                 "eu.kanade.tachiyomi.extension.all.lanraragi.LANraragi",
                 ::Lanraragi,
                 factory = true,
             ),
             DelegatedSource(
                 "HentaiFox",
-                fillInSourceId,
+                FILL_IN_SOURCE_ID,
                 "eu.kanade.tachiyomi.extension.all.hentaifox.HentaiFox",
                 ::HentaiFox,
                 factory = true,
             ),
             DelegatedSource(
                 "AsmHentai",
-                fillInSourceId,
+                FILL_IN_SOURCE_ID,
                 "eu.kanade.tachiyomi.extension.all.asmhentai.AsmHentai",
                 ::AsmHentai,
                 factory = true,
@@ -276,7 +274,7 @@ class AndroidSourceManager(
             DelegatedSource(
                 // The Koharu extension's source is named "SchaleNetwork"; match on that.
                 "SchaleNetwork",
-                fillInSourceId,
+                FILL_IN_SOURCE_ID,
                 "eu.kanade.tachiyomi.extension.all.koharu.Koharu",
                 ::Koharu,
                 factory = true,

@@ -249,8 +249,16 @@ fun ReikaiLibraryContent(
                             // Dynamic groups have no real category to sort/refresh.
                             sort = if (dynamic) null else category.sort,
                             sortLabel = if (dynamic) null else sortLabelFor?.invoke(category),
-                            onClickSort = if (dynamic) null else { { onClickCategorySort(category) } },
-                            onClickRefresh = if (dynamic) null else { { onRefreshCategory(category) } },
+                            onClickSort = if (dynamic) {
+                                null
+                            } else {
+                                { onClickCategorySort(category) }
+                            },
+                            onClickRefresh = if (dynamic) {
+                                null
+                            } else {
+                                { onRefreshCategory(category) }
+                            },
                         )
                     }
 

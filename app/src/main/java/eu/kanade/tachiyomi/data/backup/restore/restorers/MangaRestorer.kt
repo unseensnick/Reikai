@@ -17,7 +17,6 @@ import exh.metadata.sql.models.SearchMetadata
 import exh.metadata.sql.models.SearchTag
 import exh.metadata.sql.models.SearchTitle
 import reikai.domain.library.ReikaiLibraryPreferences
-import tachiyomi.domain.manga.repository.MangaMetadataRepository
 import tachiyomi.data.Database
 import tachiyomi.data.MemoColumnAdapter
 import tachiyomi.data.UpdateStrategyColumnAdapter
@@ -29,6 +28,7 @@ import tachiyomi.domain.manga.interactor.GetMangaByUrlAndSourceId
 import tachiyomi.domain.manga.interactor.SetCustomMangaInfo
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.repository.MangaMetadataRepository
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.interactor.InsertTrack
 import tachiyomi.domain.track.model.Track

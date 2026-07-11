@@ -4,7 +4,6 @@ import android.content.Context
 import com.dokar.quickjs.QuickJs
 import com.dokar.quickjs.binding.asyncFunction
 import com.dokar.quickjs.binding.function
-import java.util.concurrent.Executors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,9 +26,10 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import logcat.LogPriority
-import tachiyomi.core.common.util.system.logcat
 import okhttp3.OkHttpClient
 import tachiyomi.core.common.preference.PreferenceStore
+import tachiyomi.core.common.util.system.logcat
+import java.util.concurrent.Executors
 
 /**
  * Hosts lnreader plugins in a headless QuickJS engine (no WebView, no Activity), so novel sources
@@ -228,6 +228,7 @@ class LnPluginHost(
     companion object {
         // loadPlugin is CPU-only (evaluate the plugin code); 30s is ample.
         private const val LOAD_TIMEOUT_MS = 30_000L
+
         // callMethod issues HTTP, which can route through the shared CloudflareInterceptor: a WebView
         // solve (30s latch) and, on failure, a Flaresolverr fallback (90s callTimeout). A 30s budget
         // killed the call right as the WebView gave up, so Flaresolverr never ran. Cover the full

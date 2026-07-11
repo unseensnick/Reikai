@@ -9,8 +9,8 @@ import eu.kanade.tachiyomi.data.track.anilist.dto.ALError
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALLibraryEntry
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALMangaMetadata
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALOAuth
-import eu.kanade.tachiyomi.data.track.anilist.dto.ALUserLibraryResult
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALSearchResult
+import eu.kanade.tachiyomi.data.track.anilist.dto.ALUserLibraryResult
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALUserListMangaQueryResult
 import eu.kanade.tachiyomi.data.track.anilist.dto.ALUserViewerData
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata

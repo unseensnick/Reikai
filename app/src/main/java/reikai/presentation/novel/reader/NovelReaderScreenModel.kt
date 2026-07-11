@@ -5,6 +5,7 @@ import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.track.service.TrackPreferences
+import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +24,6 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryUpdate
 import reikai.domain.novel.model.readerOrientation
 import reikai.domain.novel.track.TrackNovelChapter
-import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
@@ -81,6 +81,7 @@ class NovelReaderScreenModel(
     private val sourceManager: NovelSourceManager by injectLazy()
     private val installer: LnPluginInstaller by injectLazy()
     private val novelPreferences: NovelPreferences by injectLazy()
+
     // Shared with the manga reader so the vertical-rail geometry (height + side) is one setting for
     // both readers (Roadmap: version-181 verticalNavigator prefs).
     private val readerPreferences: ReaderPreferences by injectLazy()
@@ -304,7 +305,9 @@ class NovelReaderScreenModel(
     fun prev() = resolvedPrev?.let { goTo(it) } ?: Unit
 
     /** Jump straight to [id] from the chapters sheet (no-op if it is already the current chapter). */
-    fun goToChapter(id: Long) { if (id != currentId) goTo(id) }
+    fun goToChapter(id: Long) {
+        if (id != currentId) goTo(id)
+    }
 
     fun currentChapterId(): Long = currentId
 
@@ -523,7 +526,9 @@ class NovelReaderScreenModel(
                 setNovelReadStatus.await(true, listOfNotNull(chapter))
                 // push read progress to bound trackers, mirroring ReaderViewModel.updateTrackChapterRead (Active #8)
                 if (trackPreferences.autoUpdateTrack.get()) {
-                    chapter?.let { trackNovelChapter.await(Injekt.get<Application>(), currentNovelId, it.chapterNumber) }
+                    chapter?.let {
+                        trackNovelChapter.await(Injekt.get<Application>(), currentNovelId, it.chapterNumber)
+                    }
                 }
                 maybeDeleteAfterRead(id)
             }

@@ -60,7 +60,9 @@ class NovelMigrationListScreenModel(
         val savedFlags = NovelMigrationFlag.fromBits(novelPreferences.novelMigrationFlags().get())
         mutableState.update { it.copy(initialFlags = savedFlags) }
         screenModelScope.launchIO {
-            try { installer.ensureLoaded() } catch (_: Throwable) {}
+            try {
+                installer.ensureLoaded()
+            } catch (_: Throwable) {}
             val rows = novelIds.mapNotNull { id ->
                 novelRepository.getById(id)?.let { novel ->
                     val source = sourceManager.get(novel.source)
@@ -116,7 +118,17 @@ class NovelMigrationListScreenModel(
                     }
                 }
                 setRow(novelId) { row ->
-                    row.copy(results = row.results.map { if (it.source.id == source.id) it.copy(state = result) else it })
+                    row.copy(
+                        results = row.results.map {
+                            if (it.source.id ==
+                                source.id
+                            ) {
+                                it.copy(state = result)
+                            } else {
+                                it
+                            }
+                        },
+                    )
                 }
             }
         }

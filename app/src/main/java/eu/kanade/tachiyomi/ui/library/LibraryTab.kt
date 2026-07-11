@@ -6,11 +6,11 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -68,10 +68,10 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import reikai.presentation.manga.MangaMigrationSourcePickScreen
-// RK -->
-import reikai.domain.library.ContentType
 import reikai.data.novel.update.NovelUpdateJob
+import reikai.domain.library.ContentType
+import reikai.domain.novel.model.NovelCategory
+import reikai.domain.novel.model.NovelLibrarySort
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.library.ReikaiCategoryHopper
 import reikai.presentation.library.ReikaiCategoryPickerSheet
@@ -79,16 +79,14 @@ import reikai.presentation.library.ReikaiLibraryContent
 import reikai.presentation.library.novels.NovelLibraryScreenModel
 import reikai.presentation.library.novels.NovelLibrarySettingsDialog
 import reikai.presentation.library.novels.novelSortLabelRes
-import reikai.presentation.library.updateerror.UpdateErrorsScreen
-import reikai.presentation.novel.migrate.NovelMigrationSourcePickScreen
 import reikai.presentation.library.reikaiCategoryHeaderIndices
 import reikai.presentation.library.reikaiIsCollapsed
 import reikai.presentation.library.reikaiSortCategories
-import reikai.domain.novel.model.NovelCategory
-import reikai.domain.novel.model.NovelLibrarySort
+import reikai.presentation.library.updateerror.UpdateErrorsScreen
+import reikai.presentation.manga.MangaMigrationSourcePickScreen
 import reikai.presentation.novel.details.NovelScreen
+import reikai.presentation.novel.migrate.NovelMigrationSourcePickScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
-// RK <--
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
@@ -246,7 +244,11 @@ data object LibraryTab : Tab {
                 if (resume != null) {
                     withUIContext {
                         navigator.push(
-                            NovelReaderScreen(resume.chapter.novelId, resume.chapter.id, resume.chapterIds.toLongArray()),
+                            NovelReaderScreen(
+                                resume.chapter.novelId,
+                                resume.chapter.id,
+                                resume.chapterIds.toLongArray(),
+                            ),
                         )
                     }
                 } else {
@@ -282,63 +284,67 @@ data object LibraryTab : Tab {
                     label = "libraryChipBackground",
                 )
                 Column {
-                LibraryToolbar(
-                    // RK: filter indicator + selection actions follow the active (manga/novel) model
-                    hasActiveFilters = activeHasActiveFilters,
-                    selectedCount = activeSelection.size,
-                    title = title,
-                    onClickUnselectAll = if (isNovels) novelModel::clearSelection else screenModel::clearSelection,
-                    onClickSelectAll = if (isNovels) novelModel::selectAll else screenModel::selectAll,
-                    onClickInvertSelection = if (isNovels) novelModel::invertSelection else screenModel::invertSelection,
-                    onClickFilter = {
-                        if (isNovels) {
-                            novelModel.openSettingsDialog(
-                                novelState.activeCategory?.id ?: reikai.domain.novel.model.NovelCategory.UNCATEGORIZED_ID,
-                                0,
-                            )
+                    LibraryToolbar(
+                        // RK: filter indicator + selection actions follow the active (manga/novel) model
+                        hasActiveFilters = activeHasActiveFilters,
+                        selectedCount = activeSelection.size,
+                        title = title,
+                        onClickUnselectAll = if (isNovels) novelModel::clearSelection else screenModel::clearSelection,
+                        onClickSelectAll = if (isNovels) novelModel::selectAll else screenModel::selectAll,
+                        onClickInvertSelection = if (isNovels) {
+                            novelModel::invertSelection
                         } else {
-                            screenModel.showSettingsDialog()
-                        }
-                    },
-                    onClickRefresh = { onClickRefresh(state.activeCategory) },
-                    onClickGlobalUpdate = { onClickRefresh(null) },
-                    onClickOpenRandomManga = {
-                        scope.launch {
-                            val randomItem = screenModel.getRandomLibraryItemForCurrentCategory()
-                            if (randomItem != null) {
-                                navigator.push(MangaScreen(randomItem.libraryManga.manga.id))
-                            } else {
-                                snackbarHostState.showSnackbar(
-                                    context.stringResource(MR.strings.information_no_entries_found),
+                            screenModel::invertSelection
+                        },
+                        onClickFilter = {
+                            if (isNovels) {
+                                novelModel.openSettingsDialog(
+                                    novelState.activeCategory?.id ?: NovelCategory.UNCATEGORIZED_ID,
+                                    0,
                                 )
+                            } else {
+                                screenModel.showSettingsDialog()
                             }
-                        }
-                    },
-                    // RK: opt-in Update errors screen (hidden unless the matching Advanced toggle is on);
-                    //     opens on the chip for the content type currently shown.
-                    onClickUpdateErrors = run {
-                        val enabled =
-                            if (isNovels) state.reikai.trackNovelUpdateErrors else state.reikai.trackUpdateErrors
-                        if (enabled) {
-                            {
-                                val initial = if (isNovels) ContentType.NOVELS else ContentType.MANGA
-                                navigator.push(UpdateErrorsScreen(initial))
+                        },
+                        onClickRefresh = { onClickRefresh(state.activeCategory) },
+                        onClickGlobalUpdate = { onClickRefresh(null) },
+                        onClickOpenRandomManga = {
+                            scope.launch {
+                                val randomItem = screenModel.getRandomLibraryItemForCurrentCategory()
+                                if (randomItem != null) {
+                                    navigator.push(MangaScreen(randomItem.libraryManga.manga.id))
+                                } else {
+                                    snackbarHostState.showSnackbar(
+                                        context.stringResource(MR.strings.information_no_entries_found),
+                                    )
+                                }
                             }
-                        } else {
-                            null
-                        }
-                    },
-                    searchQuery = activeSearchQuery,
-                    onSearchQueryChange = onSearch,
-                    // For scroll overlay when no tab
-                    scrollBehavior = scrollBehavior.takeIf { !state.showCategoryTabs },
-                )
-                ContentTypeFilterChips(
-                    selected = libraryContentType,
-                    onSelect = novelModel::setContentType,
-                    types = listOf(ContentType.MANGA, ContentType.NOVELS),
-                    modifier = Modifier.background(chipBackground),
-                )
+                        },
+                        // RK: opt-in Update errors screen (hidden unless the matching Advanced toggle is on);
+                        //     opens on the chip for the content type currently shown.
+                        onClickUpdateErrors = run {
+                            val enabled =
+                                if (isNovels) state.reikai.trackNovelUpdateErrors else state.reikai.trackUpdateErrors
+                            if (enabled) {
+                                {
+                                    val initial = if (isNovels) ContentType.NOVELS else ContentType.MANGA
+                                    navigator.push(UpdateErrorsScreen(initial))
+                                }
+                            } else {
+                                null
+                            }
+                        },
+                        searchQuery = activeSearchQuery,
+                        onSearchQueryChange = onSearch,
+                        // For scroll overlay when no tab
+                        scrollBehavior = scrollBehavior.takeIf { !state.showCategoryTabs },
+                    )
+                    ContentTypeFilterChips(
+                        selected = libraryContentType,
+                        onSelect = novelModel::setContentType,
+                        types = listOf(ContentType.MANGA, ContentType.NOVELS),
+                        modifier = Modifier.background(chipBackground),
+                    )
                 }
             },
             bottomBar = {
@@ -421,7 +427,11 @@ data object LibraryTab : Tab {
                                 categories = activeCategories,
                                 getItemsForCategory = activeGetItems,
                                 collapsedCategories = activeCollapsedCategories,
-                                collapsedDynamicCategories = if (isNovels) activeCollapsedCategories else state.reikai.collapsedDynamicCategories,
+                                collapsedDynamicCategories = if (isNovels) {
+                                    activeCollapsedCategories
+                                } else {
+                                    state.reikai.collapsedDynamicCategories
+                                },
                                 showItemCounts = state.showMangaCount,
                                 displayMode = displayMode,
                                 columns = columns,
@@ -434,7 +444,9 @@ data object LibraryTab : Tab {
                                         if (novelState.selectionMode) {
                                             novelModel.toggleSelection(category.id, manga.id)
                                         } else {
-                                            novelState.routeFor(manga.id)?.let { navigator.push(NovelScreen(it.source, it.url)) }
+                                            novelState.routeFor(manga.id)?.let {
+                                                navigator.push(NovelScreen(it.source, it.url))
+                                            }
                                         }
                                     } else if (state.selectionMode) {
                                         screenModel.toggleSelection(category, manga)
@@ -452,8 +464,16 @@ data object LibraryTab : Tab {
                                     }
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 },
-                                onToggleDefaultCollapse = if (isNovels) novelModel::toggleCategoryCollapse else screenModel::toggleDefaultCategoryCollapse,
-                                onToggleDynamicCollapse = if (isNovels) novelModel::toggleCategoryCollapse else screenModel::toggleDynamicCategoryCollapse,
+                                onToggleDefaultCollapse = if (isNovels) {
+                                    novelModel::toggleCategoryCollapse
+                                } else {
+                                    screenModel::toggleDefaultCategoryCollapse
+                                },
+                                onToggleDynamicCollapse = if (isNovels) {
+                                    novelModel::toggleCategoryCollapse
+                                } else {
+                                    screenModel::toggleDynamicCategoryCollapse
+                                },
                                 onGlobalSearchClicked = {
                                     navigator.push(GlobalSearchScreen(activeSearchQuery ?: ""))
                                 },
@@ -469,7 +489,11 @@ data object LibraryTab : Tab {
                                 },
                                 onRefreshCategory = { category -> onClickRefresh(category) },
                                 onSelectAllInCategory = { category ->
-                                    if (isNovels) novelModel.selectAllInCategory(category.id) else screenModel.selectAllInCategory(category)
+                                    if (isNovels) {
+                                        novelModel.selectAllInCategory(category.id)
+                                    } else {
+                                        screenModel.selectAllInCategory(category)
+                                    }
                                 },
                                 // RK: novels store their own sort enum in the shared flag bits; decode the
                                 // header label with the novel enum so Downloaded / Tracker score read right.
@@ -493,10 +517,16 @@ data object LibraryTab : Tab {
                                 pagerState = pagerState,
                                 hasActiveFilters = activeHasActiveFilters,
                                 showPageTabs = state.showCategoryTabs || !activeSearchQuery.isNullOrEmpty(),
-                                onChangeCurrentPage = if (isNovels) novelModel::updateActiveCategoryIndex else screenModel::updateActiveCategoryIndex,
+                                onChangeCurrentPage = if (isNovels) {
+                                    novelModel::updateActiveCategoryIndex
+                                } else {
+                                    screenModel::updateActiveCategoryIndex
+                                },
                                 onClickManga = {
                                     if (isNovels) {
-                                        novelState.routeFor(it)?.let { r -> navigator.push(NovelScreen(r.source, r.url)) }
+                                        novelState.routeFor(it)?.let { r ->
+                                            navigator.push(NovelScreen(r.source, r.url))
+                                        }
                                     } else {
                                         navigator.push(MangaScreen(it))
                                     }
@@ -507,7 +537,11 @@ data object LibraryTab : Tab {
                                     onMangaContinueReading.takeIf { state.showMangaContinueButton }
                                 },
                                 onToggleSelection = { category, manga ->
-                                    if (isNovels) novelModel.toggleSelection(category.id, manga.id) else screenModel.toggleSelection(category, manga)
+                                    if (isNovels) {
+                                        novelModel.toggleSelection(category.id, manga.id)
+                                    } else {
+                                        screenModel.toggleSelection(category, manga)
+                                    }
                                 },
                                 onToggleRangeSelection = { category, manga ->
                                     if (isNovels) {
@@ -548,81 +582,81 @@ data object LibraryTab : Tab {
                                     .padding(horizontal = 12.dp)
                                     .padding(bottom = contentPadding.calculateBottomPadding() + 12.dp),
                             ) {
-                            ReikaiCategoryHopper(
-                                modifier = Modifier
-                                    // Drag the hopper left/right to move it between start / center / end.
-                                    .pointerInput(state.reikai.hopperGravity) {
-                                        val gravity = state.reikai.hopperGravity
-                                        detectHorizontalDragGestures(
-                                            onDragStart = { hopperDragAccum = 0f },
-                                            onDragEnd = {
-                                                val next = when {
-                                                    hopperDragAccum > 48f -> (gravity + 1).coerceAtMost(2)
-                                                    hopperDragAccum < -48f -> (gravity - 1).coerceAtLeast(0)
-                                                    else -> gravity
+                                ReikaiCategoryHopper(
+                                    modifier = Modifier
+                                        // Drag the hopper left/right to move it between start / center / end.
+                                        .pointerInput(state.reikai.hopperGravity) {
+                                            val gravity = state.reikai.hopperGravity
+                                            detectHorizontalDragGestures(
+                                                onDragStart = { hopperDragAccum = 0f },
+                                                onDragEnd = {
+                                                    val next = when {
+                                                        hopperDragAccum > 48f -> (gravity + 1).coerceAtMost(2)
+                                                        hopperDragAccum < -48f -> (gravity - 1).coerceAtLeast(0)
+                                                        else -> gravity
+                                                    }
+                                                    if (next != gravity) screenModel.setHopperGravity(next)
+                                                },
+                                            ) { change, dragAmount ->
+                                                change.consume()
+                                                hopperDragAccum += dragAmount
+                                            }
+                                        },
+                                    onUpClick = {
+                                        val last = activeCategories.lastIndex.coerceAtLeast(0)
+                                        hopperTarget = ((hopperTarget ?: currentCategoryIndex()) - 1).coerceIn(0, last)
+                                    },
+                                    onCenterClick = { pickerOpen = true },
+                                    // RK: every hopper long-press action is content-aware (novel vs manga).
+                                    onCenterLongClick = {
+                                        when (state.reikai.hopperLongPressAction) {
+                                            0 -> if (isNovels) novelModel.search("") else screenModel.search("")
+                                            1 -> if (isNovels) {
+                                                novelModel.toggleAllCategoriesCollapsed(novelState.displayedCategories)
+                                            } else {
+                                                screenModel.toggleAllCategoriesCollapsed(state.displayedCategories)
+                                            }
+                                            2 -> if (isNovels) {
+                                                novelModel.openSettingsDialog(
+                                                    novelState.activeCategory?.id ?: NovelCategory.UNCATEGORIZED_ID,
+                                                    2,
+                                                )
+                                            } else {
+                                                screenModel.showSettingsDialog(initialTab = 2)
+                                            }
+                                            3 -> if (isNovels) {
+                                                novelModel.openSettingsDialog(
+                                                    novelState.activeCategory?.id ?: NovelCategory.UNCATEGORIZED_ID,
+                                                    3,
+                                                )
+                                            } else {
+                                                screenModel.showSettingsDialog(initialTab = 3)
+                                            }
+                                            4 -> scope.launch {
+                                                if (isNovels) {
+                                                    novelState.randomRouteInCategory(novelState.activeCategory?.id)
+                                                        ?.let { navigator.push(NovelScreen(it.source, it.url)) }
+                                                } else {
+                                                    screenModel.getRandomLibraryItemForCurrentCategory()
+                                                        ?.let { navigator.push(MangaScreen(it.libraryManga.manga.id)) }
                                                 }
-                                                if (next != gravity) screenModel.setHopperGravity(next)
-                                            },
-                                        ) { change, dragAmount ->
-                                            change.consume()
-                                            hopperDragAccum += dragAmount
+                                            }
+                                            5 -> scope.launch {
+                                                if (isNovels) {
+                                                    novelState.randomRoute()
+                                                        ?.let { navigator.push(NovelScreen(it.source, it.url)) }
+                                                } else {
+                                                    screenModel.getRandomLibraryItem()
+                                                        ?.let { navigator.push(MangaScreen(it.libraryManga.manga.id)) }
+                                                }
+                                            }
                                         }
                                     },
-                                onUpClick = {
-                                    val last = activeCategories.lastIndex.coerceAtLeast(0)
-                                    hopperTarget = ((hopperTarget ?: currentCategoryIndex()) - 1).coerceIn(0, last)
-                                },
-                                onCenterClick = { pickerOpen = true },
-                                // RK: every hopper long-press action is content-aware (novel vs manga).
-                                onCenterLongClick = {
-                                    when (state.reikai.hopperLongPressAction) {
-                                        0 -> if (isNovels) novelModel.search("") else screenModel.search("")
-                                        1 -> if (isNovels) {
-                                            novelModel.toggleAllCategoriesCollapsed(novelState.displayedCategories)
-                                        } else {
-                                            screenModel.toggleAllCategoriesCollapsed(state.displayedCategories)
-                                        }
-                                        2 -> if (isNovels) {
-                                            novelModel.openSettingsDialog(
-                                                novelState.activeCategory?.id ?: NovelCategory.UNCATEGORIZED_ID,
-                                                2,
-                                            )
-                                        } else {
-                                            screenModel.showSettingsDialog(initialTab = 2)
-                                        }
-                                        3 -> if (isNovels) {
-                                            novelModel.openSettingsDialog(
-                                                novelState.activeCategory?.id ?: NovelCategory.UNCATEGORIZED_ID,
-                                                3,
-                                            )
-                                        } else {
-                                            screenModel.showSettingsDialog(initialTab = 3)
-                                        }
-                                        4 -> scope.launch {
-                                            if (isNovels) {
-                                                novelState.randomRouteInCategory(novelState.activeCategory?.id)
-                                                    ?.let { navigator.push(NovelScreen(it.source, it.url)) }
-                                            } else {
-                                                screenModel.getRandomLibraryItemForCurrentCategory()
-                                                    ?.let { navigator.push(MangaScreen(it.libraryManga.manga.id)) }
-                                            }
-                                        }
-                                        5 -> scope.launch {
-                                            if (isNovels) {
-                                                novelState.randomRoute()
-                                                    ?.let { navigator.push(NovelScreen(it.source, it.url)) }
-                                            } else {
-                                                screenModel.getRandomLibraryItem()
-                                                    ?.let { navigator.push(MangaScreen(it.libraryManga.manga.id)) }
-                                            }
-                                        }
-                                    }
-                                },
-                                onDownClick = {
-                                    val last = activeCategories.lastIndex.coerceAtLeast(0)
-                                    hopperTarget = ((hopperTarget ?: currentCategoryIndex()) + 1).coerceIn(0, last)
-                                },
-                            )
+                                    onDownClick = {
+                                        val last = activeCategories.lastIndex.coerceAtLeast(0)
+                                        hopperTarget = ((hopperTarget ?: currentCategoryIndex()) + 1).coerceIn(0, last)
+                                    },
+                                )
                             }
                         }
                     }

@@ -64,6 +64,10 @@ class GetNovelTracks(
             .onStart { emit(listOf(novelId)) }
             .distinctUntilChanged()
             .flatMapLatest { groupIds ->
-                combine(groupIds.map { subscribe(it) }) { it.toList().flatten().distinctBy { track -> track.trackerId } }
+                combine(
+                    groupIds.map {
+                        subscribe(it)
+                    },
+                ) { it.toList().flatten().distinctBy { track -> track.trackerId } }
             }
 }

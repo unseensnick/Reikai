@@ -46,12 +46,26 @@ class NovelPreferredSourcesScreenModel(
 
     fun moveUp(key: String) = persist { keys ->
         val i = keys.indexOf(key)
-        if (i <= 0) keys else keys.toMutableList().also { it[i] = it[i - 1]; it[i - 1] = key }
+        if (i <= 0) {
+            keys
+        } else {
+            keys.toMutableList().also {
+                it[i] = it[i - 1]
+                it[i - 1] = key
+            }
+        }
     }
 
     fun moveDown(key: String) = persist { keys ->
         val i = keys.indexOf(key)
-        if (i < 0 || i >= keys.lastIndex) keys else keys.toMutableList().also { it[i] = it[i + 1]; it[i + 1] = key }
+        if (i < 0 || i >= keys.lastIndex) {
+            keys
+        } else {
+            keys.toMutableList().also {
+                it[i] = it[i + 1]
+                it[i + 1] = key
+            }
+        }
     }
 
     private fun persist(transform: (List<String>) -> List<String>) {

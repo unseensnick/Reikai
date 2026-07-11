@@ -30,7 +30,14 @@ suspend fun walkNovelPages(
         val chapters = runCatching { source.parsePage(novel.url, key)?.chapters }.getOrNull().orEmpty()
         if (chapters.isNotEmpty()) {
             runCatching {
-                syncChaptersWithNovelSource(chapters, novel, novelChapterRepository, novelRepository, database, page = key)
+                syncChaptersWithNovelSource(
+                    chapters,
+                    novel,
+                    novelChapterRepository,
+                    novelRepository,
+                    database,
+                    page = key,
+                )
             }
         }
     }

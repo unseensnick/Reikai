@@ -59,8 +59,14 @@ class MigrateNovelUseCaseTest {
 
     @Test
     fun `cover flag copies the custom cover onto the target and bumps its timestamp`() = runTest {
-        val src = File.createTempFile("mig-src", ".0").apply { writeText("COVER-BYTES"); deleteOnExit() }
-        val dst = File.createTempFile("mig-dst", ".0").apply { writeText(""); deleteOnExit() }
+        val src = File.createTempFile("mig-src", ".0").apply {
+            writeText("COVER-BYTES")
+            deleteOnExit()
+        }
+        val dst = File.createTempFile("mig-dst", ".0").apply {
+            writeText("")
+            deleteOnExit()
+        }
         val coverCache = mockk<CoverCache> {
             every { getCustomCoverFile(-1L) } returns src
             every { getCustomCoverFile(-2L) } returns dst
@@ -78,7 +84,10 @@ class MigrateNovelUseCaseTest {
         val update = slot<NovelUpdate>()
         val updateNovel = mockk<UpdateNovel>(relaxed = true) { coEvery { await(capture(update)) } returns true }
 
-        useCase(mockk(relaxed = true), updateNovel)(novel(1, notes = "my note"), novel(2), setOf(NovelMigrationFlag.NOTES), replace = false)
+        useCase(
+            mockk(relaxed = true),
+            updateNovel,
+        )(novel(1, notes = "my note"), novel(2), setOf(NovelMigrationFlag.NOTES), replace = false)
 
         update.captured.notes shouldBe "my note"
     }
@@ -100,7 +109,8 @@ class MigrateNovelUseCaseTest {
     fun `replace of a merged novel swaps the source out and the target into the group`() = runTest {
         val merge = mockk<NovelMergeManager>(relaxed = true) {
             coEvery { computeRelatedNovelIds(1L, any(), any()) } returns longArrayOf(1L, 3L)
-            every { removeFromGroup(match { it.contentEquals(longArrayOf(1L, 3L)) }, listOf(1L)) } returns longArrayOf(3L)
+            every { removeFromGroup(match { it.contentEquals(longArrayOf(1L, 3L)) }, listOf(1L)) } returns
+                longArrayOf(3L)
         }
 
         useCase(novelMergeManager = merge)(novel(1), novel(2), emptySet(), replace = true)
@@ -157,13 +167,17 @@ class MigrateNovelUseCaseTest {
     @Test
     fun `remove-download flag deletes the source's downloaded chapters`() = runTest {
         val repo = mockk<NovelChapterRepository>(relaxed = true) {
-            coEvery { getByNovelId(1L) } returns listOf(chapter(1, 1.0, downloaded = true), chapter(2, 2.0, downloaded = false))
+            coEvery { getByNovelId(1L) } returns
+                listOf(chapter(1, 1.0, downloaded = true), chapter(2, 2.0, downloaded = false))
             coEvery { getByNovelId(2L) } returns emptyList()
         }
         val downloadManager = mockk<NovelDownloadManager>(relaxed = true)
 
         useCase(novelChapterRepository = repo, novelDownloadManager = downloadManager)(
-            novel(1), novel(2), setOf(NovelMigrationFlag.REMOVE_DOWNLOAD), replace = false,
+            novel(1),
+            novel(2),
+            setOf(NovelMigrationFlag.REMOVE_DOWNLOAD),
+            replace = false,
         )
 
         verify { downloadManager.deleteChapters(match { chapters -> chapters.map { it.id } == listOf(1L) }) }

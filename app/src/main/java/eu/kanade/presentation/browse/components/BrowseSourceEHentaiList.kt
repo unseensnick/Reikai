@@ -34,8 +34,8 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.fastAny
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import dev.icerock.moko.resources.StringResource
@@ -53,9 +53,9 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.BadgeGroup
 import tachiyomi.presentation.core.components.material.padding
-import tachiyomi.presentation.core.util.selectedBackground
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.icons.FlagEmoji.Companion.getEmojiLangFlag
+import tachiyomi.presentation.core.util.selectedBackground
 import java.time.Instant
 import java.time.ZoneId
 import kotlin.math.floor

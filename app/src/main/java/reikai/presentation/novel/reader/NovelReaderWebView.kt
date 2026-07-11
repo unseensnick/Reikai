@@ -22,8 +22,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.viewinterop.AndroidView
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
-import kotlin.math.roundToInt
 import logcat.logcat
+import kotlin.math.roundToInt
 
 /**
  * Renders a novel chapter's text in a WebView using the bundled `index.css` + `core.js` (typography,

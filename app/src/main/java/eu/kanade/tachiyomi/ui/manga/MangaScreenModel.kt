@@ -26,9 +26,9 @@ import eu.kanade.domain.manga.interactor.GetExcludedScanlators
 import eu.kanade.domain.manga.interactor.GetPagePreviews
 import eu.kanade.domain.manga.interactor.SetExcludedScanlators
 import eu.kanade.domain.manga.interactor.UpdateManga
+import eu.kanade.domain.manga.model.PagePreview
 import eu.kanade.domain.manga.model.chaptersFiltered
 import eu.kanade.domain.manga.model.downloadedFilter
-import eu.kanade.domain.manga.model.PagePreview
 import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.domain.track.interactor.RefreshTracks
@@ -58,6 +58,12 @@ import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import eu.kanade.tachiyomi.util.removeCovers
 import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import eu.kanade.tachiyomi.util.system.toast
+import exh.metadata.metadata.EHentaiSearchMetadata
+import exh.metadata.metadata.RaisedSearchMetadata
+import exh.metadata.metadata.base.FlatMetadata
+import exh.source.ExhPreferences
+import exh.source.getMainSource
+import exh.source.isEhBasedManga
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -78,7 +84,6 @@ import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.presentation.details.EntryEditInfoUi
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
@@ -92,6 +97,7 @@ import reikai.domain.recommendation.RelatedMangasLoader
 import reikai.domain.recommendation.taste.GetTasteProfile
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteProfile
+import reikai.presentation.details.EntryEditInfoUi
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.TriState
@@ -112,12 +118,12 @@ import tachiyomi.domain.chapter.service.calculateChapterGap
 import tachiyomi.domain.chapter.service.getChapterSort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
-import tachiyomi.domain.manga.interactor.SetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetDuplicateLibraryManga
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.GetFlatMetadataById
 import tachiyomi.domain.manga.interactor.GetMangaWithChapters
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
+import tachiyomi.domain.manga.interactor.SetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.SetMangaChapterFlags
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
@@ -133,12 +139,6 @@ import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
-import exh.metadata.metadata.EHentaiSearchMetadata
-import exh.metadata.metadata.RaisedSearchMetadata
-import exh.metadata.metadata.base.FlatMetadata
-import exh.source.ExhPreferences
-import exh.source.getMainSource
-import exh.source.isEhBasedManga
 import kotlin.math.floor
 
 // RK: max related candidates shown in the details carousel; the full pool is kept in the cache for

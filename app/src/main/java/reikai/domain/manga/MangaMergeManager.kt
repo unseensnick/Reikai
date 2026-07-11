@@ -305,7 +305,12 @@ class MangaMergeManager(
                     // other on MyAnimeList) aren't comparable, so a merge across them is kept, not healed.
                     val sharesService = targetKeys.any { t -> siblingKeys.any { s -> s.first == t.first } }
                     val ok = !sharesService || targetKeys.any { it in siblingKeys }
-                    if (ok) verified += id else { suspect += id; dropped++ }
+                    if (ok) {
+                        verified += id
+                    } else {
+                        suspect += id
+                        dropped++
+                    }
                 }
                 for (s in suspect) {
                     for (v in verified) added += MergeGroupAlgebra.unmergeKey(s, v)

@@ -203,11 +203,16 @@ fun ReikaiUpdatesScreen(
                 onBookmarkClicked = {
                     if (mangaSelected.isNotEmpty()) mangaModel.bookmarkUpdates(mangaSelected, true)
                     if (novelSelected.isNotEmpty()) novelModel.bookmark(novelSelected, true)
-                }.takeIf { mangaSelected.fastAny { !it.update.bookmark } || novelSelected.fastAny { !it.update.bookmark } },
+                }.takeIf {
+                    mangaSelected.fastAny { !it.update.bookmark } ||
+                        novelSelected.fastAny { !it.update.bookmark }
+                },
                 onRemoveBookmarkClicked = {
                     if (mangaSelected.isNotEmpty()) mangaModel.bookmarkUpdates(mangaSelected, false)
                     if (novelSelected.isNotEmpty()) novelModel.bookmark(novelSelected, false)
-                }.takeIf { mangaSelected.fastAll { it.update.bookmark } && novelSelected.fastAll { it.update.bookmark } },
+                }.takeIf {
+                    mangaSelected.fastAll { it.update.bookmark } && novelSelected.fastAll { it.update.bookmark }
+                },
                 onMarkAsReadClicked = {
                     if (mangaSelected.isNotEmpty()) mangaModel.markUpdatesRead(mangaSelected, true)
                     if (novelSelected.isNotEmpty()) novelModel.markRead(novelSelected, true)
@@ -220,7 +225,12 @@ fun ReikaiUpdatesScreen(
                         novelSelected.fastAny { it.update.read || it.update.lastTextProgress > 0L }
                 },
                 onDownloadClicked = {
-                    if (mangaSelected.isNotEmpty()) mangaModel.downloadChapters(mangaSelected, ChapterDownloadAction.START)
+                    if (mangaSelected.isNotEmpty()) {
+                        mangaModel.downloadChapters(
+                            mangaSelected,
+                            ChapterDownloadAction.START,
+                        )
+                    }
                     if (novelSelected.isNotEmpty()) novelModel.downloadChapters(novelSelected)
                 }.takeIf {
                     mangaSelected.fastAny { it.downloadStateProvider() != Download.State.DOWNLOADED } ||
@@ -761,7 +771,9 @@ private fun buildUpdateRows(
     byDate.forEach { (date, dayRows) ->
         result.add(UpdateRow.Header(date))
         val bySeries = LinkedHashMap<String, MutableList<UpdateRow>>()
-        dayRows.forEach { bySeries.getOrPut(it.seriesKey(mangaSeriesKeys, novelSeriesKeys)) { mutableListOf() }.add(it) }
+        dayRows.forEach {
+            bySeries.getOrPut(it.seriesKey(mangaSeriesKeys, novelSeriesKeys)) { mutableListOf() }.add(it)
+        }
         bySeries.forEach { (seriesKey, members) ->
             if (members.size >= 2) {
                 val key = "$seriesKey@$date"

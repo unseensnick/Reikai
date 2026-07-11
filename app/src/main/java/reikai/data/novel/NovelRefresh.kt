@@ -56,10 +56,25 @@ suspend fun refreshNovelFromSource(
     if (firstChapters.isNotEmpty()) {
         // A paged source's first page is page "1"; tag it so the page-"1" query finds these rows.
         val pageTag = if (sourceNovel.totalPages > 1) "1" else null
-        syncChaptersWithNovelSource(firstChapters, merged, novelChapterRepository, novelRepository, database, page = pageTag)
+        syncChaptersWithNovelSource(
+            firstChapters,
+            merged,
+            novelChapterRepository,
+            novelRepository,
+            database,
+            page = pageTag,
+        )
     }
     if (merged.totalPages > 1L) {
-        walkNovelPages(merged, source, maxOf(2L, novel.totalPages), merged.totalPages, novelChapterRepository, novelRepository, database)
+        walkNovelPages(
+            merged,
+            source,
+            maxOf(2L, novel.totalPages),
+            merged.totalPages,
+            novelChapterRepository,
+            novelRepository,
+            database,
+        )
     }
     return merged
 }

@@ -57,9 +57,6 @@ import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.SetNovelChapterFlags
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.UpdateNovel
-import reikai.domain.novel.track.PropagateNovelTrackerLinks
-import reikai.domain.novel.track.TrackNovelChapter
-import reikai.domain.novel.track.toUiTrack
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelCategory
@@ -74,6 +71,9 @@ import reikai.domain.novel.model.effectiveReadFilter
 import reikai.domain.novel.model.effectiveSortDescending
 import reikai.domain.novel.model.effectiveSorting
 import reikai.domain.novel.model.sortedAndFiltered
+import reikai.domain.novel.track.PropagateNovelTrackerLinks
+import reikai.domain.novel.track.TrackNovelChapter
+import reikai.domain.novel.track.toUiTrack
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
@@ -87,10 +87,10 @@ import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.data.Database
-import tachiyomi.i18n.MR
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.track.model.Track
+import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
 
 /**
@@ -443,7 +443,13 @@ class NovelDetailsScreenModel(
         val display = visible.sortedAndFiltered(anchor, novelPreferences)
         val resume = nonHidden.sortedBy { it.sourceOrder }.firstOrNull { !it.read }
         // When showing hidden, mark which displayed rows are hidden (dimmed + drives Hide/Unhide).
-        val hiddenChapterIds = if (showHidden) display.filter { hiddenKey(it) in hidden }.mapTo(HashSet()) { it.id } else emptySet()
+        val hiddenChapterIds = if (showHidden) {
+            display.filter {
+                hiddenKey(it) in hidden
+            }.mapTo(HashSet()) { it.id }
+        } else {
+            emptySet()
+        }
         val viewSource = siblingSources.value[viewNovel.id]
         mutableState.update { prev ->
             val loaded = prev as? NovelDetailsState.Loaded
@@ -570,7 +576,11 @@ class NovelDetailsScreenModel(
     private fun maybeFetchPage(novel: Novel, pageKey: String) {
         val src = source ?: return
         val loaded = state.value as? NovelDetailsState.Loaded
-        if (loaded != null && (loaded.readFilter != 0L || loaded.bookmarkedFilter != 0L || loaded.downloadedFilter != 0L)) return
+        if (loaded != null &&
+            (loaded.readFilter != 0L || loaded.bookmarkedFilter != 0L || loaded.downloadedFilter != 0L)
+        ) {
+            return
+        }
         if (!triedPages.add(pageKey)) return
         screenModelScope.launchIO {
             mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(isPageLoading = true) ?: it }
@@ -611,7 +621,9 @@ class NovelDetailsScreenModel(
             if (loaded.mergeSources.size <= 1) return@launchIO
             // Per-source chapter counts (the coverage hint), resolved on open so the user can see which
             // source is most complete before splitting.
-            val withCounts = loaded.mergeSources.map { it.copy(chapterCount = chapterRepo.getByNovelId(it.novelId).size) }
+            val withCounts = loaded.mergeSources.map {
+                it.copy(chapterCount = chapterRepo.getByNovelId(it.novelId).size)
+            }
             updateLoaded { it.copy(dialog = NovelDetailsDialog.ManageSources(withCounts)) }
         }
     }
@@ -685,7 +697,9 @@ class NovelDetailsScreenModel(
     /** Renumber sourceOrder over the unified list (ascending by chapter number = reading order) so a
      *  "by source order" sort doesn't interleave sources. Copies; each source's own order is untouched. */
     private fun restampReadingOrder(chapters: List<NovelChapter>): List<NovelChapter> =
-        chapters.sortedBy { it.chapterNumber }.mapIndexed { index, chapter -> chapter.copy(sourceOrder = index.toLong()) }
+        chapters.sortedBy {
+            it.chapterNumber
+        }.mapIndexed { index, chapter -> chapter.copy(sourceOrder = index.toLong()) }
 
     /** Stale-then-fresh: the cached list stays under a spinner while the sync runs, then the flow
      *  swaps in fresh rows. Read/bookmark are preserved by the sync. Deduped against concurrent runs.
@@ -995,6 +1009,7 @@ class NovelDetailsScreenModel(
     }
 
     // novel trackers (Active #8)
+
     /** True if any tracker is logged in; gates the toolbar action (sheet vs Settings > Tracking). */
     fun hasLoggedInTrackers(): Boolean = trackerManager.loggedInTrackers().isNotEmpty()
 
@@ -1162,8 +1177,10 @@ sealed interface NovelDetailsState {
         /** The selected source chip's novelId; null = the unified ("All") view. */
         val selectedSourceNovelId: Long? = null,
         /** Chapter swipe actions, read from the shared (manga) library prefs so novels match manga. */
-        val chapterSwipeStartAction: LibraryPreferences.ChapterSwipeAction = LibraryPreferences.ChapterSwipeAction.Disabled,
-        val chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction = LibraryPreferences.ChapterSwipeAction.Disabled,
+        val chapterSwipeStartAction: LibraryPreferences.ChapterSwipeAction =
+            LibraryPreferences.ChapterSwipeAction.Disabled,
+        val chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction =
+            LibraryPreferences.ChapterSwipeAction.Disabled,
     ) : NovelDetailsState {
         val selectionMode: Boolean get() = selection.isNotEmpty()
 

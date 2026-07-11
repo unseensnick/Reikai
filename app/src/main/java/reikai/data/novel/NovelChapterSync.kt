@@ -1,7 +1,6 @@
 package reikai.data.novel
 
 import app.cash.sqldelight.async.coroutines.awaitAsOne
-import java.util.TreeSet
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -10,6 +9,7 @@ import reikai.domain.novel.model.NovelUpdate
 import reikai.novel.host.ChapterItem
 import tachiyomi.data.Database
 import tachiyomi.domain.chapter.service.ChapterRecognition
+import java.util.TreeSet
 
 /**
  * Novel-side parallel of the manga `syncChaptersWithSource`: reconcile a freshly-parsed source

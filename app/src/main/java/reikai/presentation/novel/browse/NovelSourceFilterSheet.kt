@@ -66,7 +66,10 @@ internal fun NovelSourceFilterSheet(
                         )
                     }
                     Spacer(modifier = Modifier.weight(1f))
-                    Button(onClick = { onApply(); onDismiss() }) {
+                    Button(onClick = {
+                        onApply()
+                        onDismiss()
+                    }) {
                         Text(text = stringResource(MR.strings.action_filter))
                     }
                 }
@@ -129,8 +132,12 @@ private fun NovelFilterItem(
         }
         "ExcludableCheckboxGroup" -> {
             val obj = current as? JsonObject
-            val include = (obj?.get("include") as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }?.toSet() ?: emptySet()
-            val exclude = (obj?.get("exclude") as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }?.toSet() ?: emptySet()
+            val include =
+                (obj?.get("include") as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }?.toSet()
+                    ?: emptySet()
+            val exclude =
+                (obj?.get("exclude") as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }?.toSet()
+                    ?: emptySet()
             Column {
                 HeadingItem(text = label)
                 optionsOf(schema).forEach { (optLabel, optValue) ->

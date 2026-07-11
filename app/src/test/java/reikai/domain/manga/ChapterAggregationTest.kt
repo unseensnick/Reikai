@@ -23,13 +23,20 @@ class ChapterAggregationTest {
     fun `trunk is the source with the most distinct numbers, not the most rows`() {
         // Source 1: 3 real chapters, each duplicated across two scanlators -> 6 rows, 3 distinct.
         val source1 = listOf(
-            chapter(1L, 1.0, "A"), chapter(1L, 1.0, "B"),
-            chapter(1L, 2.0, "A"), chapter(1L, 2.0, "B"),
-            chapter(1L, 3.0, "A"), chapter(1L, 3.0, "B"),
+            chapter(1L, 1.0, "A"),
+            chapter(1L, 1.0, "B"),
+            chapter(1L, 2.0, "A"),
+            chapter(1L, 2.0, "B"),
+            chapter(1L, 3.0, "A"),
+            chapter(1L, 3.0, "B"),
         )
         // Source 2: 5 real chapters, single scanlator -> 5 rows, 5 distinct.
         val source2 = listOf(
-            chapter(2L, 1.0), chapter(2L, 2.0), chapter(2L, 3.0), chapter(2L, 4.0), chapter(2L, 5.0),
+            chapter(2L, 1.0),
+            chapter(2L, 2.0),
+            chapter(2L, 3.0),
+            chapter(2L, 4.0),
+            chapter(2L, 5.0),
         )
 
         val unified = ChapterAggregation.aggregate(mapOf(1L to source1, 2L to source2))

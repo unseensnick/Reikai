@@ -229,6 +229,7 @@ object SettingsReaderScreen : SearchableSettings {
 
     // RK --> light-novel reader settings, the novel twins of the Reading group above. The live-tuning
     // display controls (font, size, theme) stay in the in-reader gear sheet, which previews them.
+
     /** "$category · Manga|Novels", so a twin group reads distinctly and its search breadcrumb differs. */
     @Composable
     private fun typedCategory(category: StringResource, contentType: StringResource): String =

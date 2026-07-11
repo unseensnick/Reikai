@@ -142,7 +142,11 @@ class NovelUpdatesScreenModel(
                         NovelUpdatesItem(
                             update = update,
                             downloadState = queueById[update.chapterId]
-                                ?: if (update.isDownloaded) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED,
+                                ?: if (update.isDownloaded) {
+                                    Download.State.DOWNLOADED
+                                } else {
+                                    Download.State.NOT_DOWNLOADED
+                                },
                             selected = update.chapterId in selectedChapterIds,
                         )
                     }

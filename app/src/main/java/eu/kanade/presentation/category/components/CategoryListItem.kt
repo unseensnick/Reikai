@@ -103,7 +103,11 @@ fun ReorderableCollectionItemScope.CategoryListItem(
             } else {
                 IconButton(onClick = onToggleHidden) {
                     Icon(
-                        imageVector = if (category.isHidden) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
+                        imageVector = if (category.isHidden) {
+                            Icons.Outlined.Visibility
+                        } else {
+                            Icons.Outlined.VisibilityOff
+                        },
                         contentDescription = stringResource(
                             if (category.isHidden) MR.strings.action_show_category else MR.strings.action_hide_category,
                         ),

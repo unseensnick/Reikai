@@ -1,14 +1,14 @@
 package reikai.novel.host
 
 import android.content.Context
-import java.io.File
-import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import tachiyomi.core.common.util.system.logcat
+import java.io.File
+import java.security.MessageDigest
 
 /**
  * Downloads a compiled plugin `.js` from an arbitrary URL and caches it under

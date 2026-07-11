@@ -78,5 +78,4 @@ object NovelMergeCollapse {
         if (author.isEmpty()) return null // can't confirm a match -> stay standalone
         return "t:$title|a:$author"
     }
-
 }

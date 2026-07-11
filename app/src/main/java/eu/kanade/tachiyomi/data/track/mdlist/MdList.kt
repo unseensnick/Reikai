@@ -121,7 +121,9 @@ class MdList(id: Long) : BaseTracker(id, "MDList") {
                 description = manga.description,
                 authors = manga.author,
                 artists = manga.artist,
-                genres = manga.genre?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.takeIf { it.isNotEmpty() },
+                genres = manga.genre?.split(",")?.map {
+                    it.trim()
+                }?.filter { it.isNotBlank() }?.takeIf { it.isNotEmpty() },
             )
         }
     }
@@ -133,7 +135,7 @@ class MdList(id: Long) : BaseTracker(id, "MDList") {
         return Track.create(TrackerManager.MDLIST).apply {
             manga_id = dbManga.id
             status = FollowStatus.UNFOLLOWED.long
-            tracking_url = MdUtil.baseUrl + mdManga.url
+            tracking_url = MdUtil.BASE_URL + mdManga.url
             title = mdManga.title
         }
     }

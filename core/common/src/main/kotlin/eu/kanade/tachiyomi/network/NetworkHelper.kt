@@ -37,7 +37,7 @@ class NetworkHelper(
             .addInterceptor(UncaughtExceptionInterceptor())
             // RK --> pin per-host UA after a FlareSolverr solve
             .addInterceptor(UserAgentInterceptor(::defaultUserAgentProvider, flareSolverr::pinnedUserAgentFor))
-            // RK <--
+        // RK <--
 
         if (preferences.verboseLogging.get()) {
             val httpLoggingInterceptor = HttpLoggingInterceptor().apply {

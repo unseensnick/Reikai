@@ -28,10 +28,10 @@ import kotlinx.coroutines.ensureActive
 import logcat.LogPriority
 import reikai.data.novel.NovelStatusCode
 import reikai.data.novel.refreshNovelFromSource
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
-import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter

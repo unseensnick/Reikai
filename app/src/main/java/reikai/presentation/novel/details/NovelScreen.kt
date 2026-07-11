@@ -47,10 +47,10 @@ import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import reikai.data.coil.NovelCover
-import reikai.domain.novel.model.NovelChapter
-import reikai.presentation.components.EntryCoverDialog
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.withCustomInfo
+import reikai.presentation.components.EntryCoverDialog
 import reikai.presentation.details.EntryDetailsScaffold
 import reikai.presentation.details.EntryDetailsTwoPaneScaffold
 import reikai.presentation.details.EntryDetailsUiState
@@ -151,9 +151,33 @@ class NovelScreen(
                 }
 
                 if (isTabletUi()) {
-                    NovelDetailsLargeImpl(s, screenModel, navigator::pop, onWebView, onShare, onMigrate, onTracking, onEditNotes, onSearch, onCopy, onChapterClick)
+                    NovelDetailsLargeImpl(
+                        s,
+                        screenModel,
+                        navigator::pop,
+                        onWebView,
+                        onShare,
+                        onMigrate,
+                        onTracking,
+                        onEditNotes,
+                        onSearch,
+                        onCopy,
+                        onChapterClick,
+                    )
                 } else {
-                    NovelDetailsSmallImpl(s, screenModel, navigator::pop, onWebView, onShare, onMigrate, onTracking, onEditNotes, onSearch, onCopy, onChapterClick)
+                    NovelDetailsSmallImpl(
+                        s,
+                        screenModel,
+                        navigator::pop,
+                        onWebView,
+                        onShare,
+                        onMigrate,
+                        onTracking,
+                        onEditNotes,
+                        onSearch,
+                        onCopy,
+                        onChapterClick,
+                    )
                 }
 
                 NovelDetailsDialogs(s, screenModel)

@@ -57,7 +57,13 @@ fun buildReaderHtml(
         put("readerSettings", readerSettings)
         put("chapterGeneralSettings", generalSettings)
         put("novel", JSONObject.NULL)
-        put("chapter", JSONObject().apply { put("name", chapterName); put("progress", progressPercent) })
+        put(
+            "chapter",
+            JSONObject().apply {
+                put("name", chapterName)
+                put("progress", progressPercent)
+            },
+        )
         put("nextChapter", if (hasNext) JSONObject().apply { put("name", "") } else JSONObject.NULL)
         put("prevChapter", if (hasPrev) JSONObject().apply { put("name", "") } else JSONObject.NULL)
         put("batteryLevel", 1.0)

@@ -39,24 +39,20 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import mihon.core.common.utils.mutate
-// RK -->
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.isHidden
 import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ReikaiLibraryPreferences
-import tachiyomi.domain.source.model.Source as DomainSource
-import tachiyomi.domain.source.model.StubSource
+import reikai.domain.manga.MangaMergeManager
+import reikai.domain.manga.PropagateTrackerLinks
 import reikai.presentation.library.DynItem
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
-import reikai.domain.manga.MangaMergeManager
-import reikai.domain.manga.PropagateTrackerLinks
 import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.ReikaiLibraryState
 import reikai.presentation.library.reikaiSortCategories
 import reikai.util.isLewd
-// RK <--
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.TriState
@@ -85,6 +81,7 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.model.applyFilter
 import tachiyomi.domain.manga.model.withCustomInfo
+import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracksPerManga
 import tachiyomi.domain.track.model.Track
@@ -94,6 +91,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
+import tachiyomi.domain.source.model.Source as DomainSource
 
 class LibraryScreenModel(
     private val getLibraryManga: GetLibraryManga = Injekt.get(),
@@ -700,8 +698,12 @@ class LibraryScreenModel(
                 // RK -->
                 filterLewd = it[12] as TriState,
                 filterCategories = it[13] as Boolean,
-                filterCategoriesInclude = (it[14] as Set<*>).mapNotNull { id -> (id as? String)?.toLongOrNull() }.toSet(),
-                filterCategoriesExclude = (it[15] as Set<*>).mapNotNull { id -> (id as? String)?.toLongOrNull() }.toSet(),
+                filterCategoriesInclude = (it[14] as Set<*>).mapNotNull { id ->
+                    (id as? String)?.toLongOrNull()
+                }.toSet(),
+                filterCategoriesExclude = (it[15] as Set<*>).mapNotNull { id ->
+                    (id as? String)?.toLongOrNull()
+                }.toSet(),
                 sourceBadge = it[16] as Boolean,
                 // RK <--
             )
@@ -1168,6 +1170,7 @@ class LibraryScreenModel(
             val manga: List<Manga>,
             val initialSelection: List<CheckboxState<Category>>,
         ) : Dialog
+
         // RK: groupedSourceCount = N grouped sources behind the selection (0 = none merged, no extra option)
         data class DeleteManga(val manga: List<Manga>, val groupedSourceCount: Int = 0) : Dialog
     }

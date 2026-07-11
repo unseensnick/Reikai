@@ -13,10 +13,8 @@ import mihon.domain.extension.interactor.GetExtensionStores
 import mihon.domain.extension.interactor.RemoveExtensionStore
 import mihon.domain.extension.interactor.UpdateExtensionStores
 import mihon.domain.extension.model.ExtensionStore
-// RK -->
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import reikai.domain.novel.NovelPreferences
-// RK <--
 import tachiyomi.core.common.util.lang.launchIO
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get

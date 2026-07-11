@@ -5,6 +5,8 @@ import eu.kanade.domain.manga.interactor.UpdateManga
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.serialization.json.JsonObject
+import mihon.core.common.extensions.EMPTY
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.chapter.interactor.GetChapterByUrl
@@ -20,8 +22,6 @@ import tachiyomi.domain.history.model.HistoryUpdate
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
-import kotlinx.serialization.json.JsonObject
-import mihon.core.common.extensions.EMPTY
 import uy.kohesive.injekt.injectLazy
 import java.io.File
 

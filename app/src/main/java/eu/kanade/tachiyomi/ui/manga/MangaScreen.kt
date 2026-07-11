@@ -44,9 +44,6 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.isLocalOrStub
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
-import exh.source.getMainSource
-import exh.pagepreview.PagePreviewScreen
-import exh.ui.metadata.MetadataViewScreen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
@@ -59,16 +56,19 @@ import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
+import exh.pagepreview.PagePreviewScreen
+import exh.source.getMainSource
+import exh.ui.metadata.MetadataViewScreen
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import mihon.feature.migration.dialog.MigrateMangaDialog
 import reikai.presentation.components.EntryCoverDialog
 import reikai.presentation.details.EntryEditInfoDialog
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.TrackerAutofill
-import reikai.presentation.manga.MangaMigrationSourcePickScreen
-import mihon.feature.migration.dialog.MigrateMangaDialog
 import reikai.presentation.manga.EhRemoveFavoriteDialog
 import reikai.presentation.manga.ManageSourcesDialog
+import reikai.presentation.manga.MangaMigrationSourcePickScreen
 import reikai.presentation.recommendation.browse.RelatedMangasBrowseScreen
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -146,7 +146,9 @@ class MangaScreen(
                 chapterSwipeEndAction = screenModel.chapterSwipeEndAction,
                 navigateUp = navigator::pop,
                 onChapterClicked = { openChapter(context, it) },
-                onDownloadChapter = screenModel::runChapterDownloadActions.takeIf { !successState.source.isLocalOrStub() },
+                onDownloadChapter = screenModel::runChapterDownloadActions.takeIf {
+                    !successState.source.isLocalOrStub()
+                },
                 onAddToLibraryClicked = {
                     screenModel.toggleFavorite()
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -179,7 +181,9 @@ class MangaScreen(
                 onSearch = { query, global -> scope.launch { performSearch(navigator, query, global) } },
                 onCoverClicked = screenModel::showCoverDialog,
                 onShareClicked = { shareManga(context, screenModel.manga, screenModel.source) }.takeIf { isHttpSource },
-                onDownloadActionClicked = screenModel::runDownloadAction.takeIf { !successState.source.isLocalOrStub() },
+                onDownloadActionClicked = screenModel::runDownloadAction.takeIf {
+                    !successState.source.isLocalOrStub()
+                },
                 onEditCategoryClicked = screenModel::showChangeCategoryDialog.takeIf { successState.manga.favorite },
                 // RK: custom-info edits are favorites-only; a modal dialog over the details page (the
                 // native-form editor handles the keyboard).

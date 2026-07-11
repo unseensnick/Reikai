@@ -15,7 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 
-/**
+/*
  * Shared reader chrome primitives (scrim color + top/bottom bar show-hide animation) used by both the
  * manga reader ([eu.kanade.presentation.reader.appbars.ReaderAppBars]) and the novel reader, so the two
  * readers' bars tint and animate identically instead of drifting. The navigator arrangement (the manga

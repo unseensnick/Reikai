@@ -43,7 +43,9 @@ class NovelGlobalSearchScreenModel(
     init {
         mutableState.update { it.copy(onlyShowHasResults = sourcePreferences.novelGlobalSearchHasResults.get()) }
         screenModelScope.launchIO {
-            try { installer.ensureLoaded() } catch (_: Throwable) {}
+            try {
+                installer.ensureLoaded()
+            } catch (_: Throwable) {}
             if (initialQuery.isNotBlank()) search(initialQuery)
         }
         // In-library marking, same read-only (source, url) key set as browse.

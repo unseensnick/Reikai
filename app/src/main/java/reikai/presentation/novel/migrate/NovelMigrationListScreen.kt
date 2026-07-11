@@ -335,7 +335,13 @@ private fun ResultCover(item: NovelItem, site: String?, onClick: () -> Unit) {
 @Composable
 private fun NovelThumb(url: String?, site: String?, lastModified: Long, novelId: Long, onClick: () -> Unit) {
     MangaCover.Book(
-        data = NovelCover(url = url, site = site, isNovelFavorite = false, lastModified = lastModified, novelId = novelId),
+        data = NovelCover(
+            url = url,
+            site = site,
+            isNovelFavorite = false,
+            lastModified = lastModified,
+            novelId = novelId,
+        ),
         modifier = Modifier.width(MIGRATION_COVER_WIDTH),
         onClick = onClick,
     )

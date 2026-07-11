@@ -4,11 +4,9 @@ import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.tachiyomi.data.track.TrackerManager
-// RK -->
-import reikai.domain.library.ReikaiLibraryPreferences
-// RK <--
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
+import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.preference.getAndSet
@@ -62,6 +60,7 @@ class LibrarySettingsScreenModel(
     }
 
     // RK --> Reikai settings-sheet actions (Stage 4): dynamic grouping + net-new filter dims
+
     /** Y3: set the dynamic grouping mode (see reikai.presentation.library.LibraryGroup). */
     fun setGrouping(value: Int) {
         reikaiLibraryPreferences.groupLibraryBy.set(value)

@@ -19,16 +19,14 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsScreenModel
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.main.MainActivity
-// RK -->
-import reikai.presentation.browse.ReikaiBrowseScreenModel
-import reikai.presentation.browse.extension.reikaiExtensionsTab
-import reikai.presentation.browse.migrate.reikaiMigrateSourceTab
-import reikai.presentation.browse.source.reikaiSourcesTab
-// RK <--
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
+import reikai.presentation.browse.ReikaiBrowseScreenModel
+import reikai.presentation.browse.extension.reikaiExtensionsTab
+import reikai.presentation.browse.migrate.reikaiMigrateSourceTab
+import reikai.presentation.browse.source.reikaiSourcesTab
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 

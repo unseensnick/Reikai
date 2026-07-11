@@ -9,9 +9,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import okhttp3.Headers
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Request
@@ -67,6 +67,7 @@ class FlareSolverrClient(
     // across all subsequent calls so the FS browser keeps cf_clearance / __cf_bm in-memory
     // and most follow-up requests skip the JS challenge entirely.
     private val fsSessionLock = Any()
+
     @Volatile private var fsSessionId: String? = null
 
     // Byparr (a Camoufox-based FlareSolverr-compatible solver) is sessionless: it has no

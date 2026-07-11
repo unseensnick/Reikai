@@ -53,7 +53,10 @@ class MangaMergeManagerTest {
         (keys[1L] == keys[2L]) shouldBe false
     }
 
-    private fun managerWith(merges: Set<String>, unmerges: Set<String>): Triple<MangaMergeManager, Preference<Set<String>>, Preference<Set<String>>> {
+    private fun managerWith(
+        merges: Set<String>,
+        unmerges: Set<String>,
+    ): Triple<MangaMergeManager, Preference<Set<String>>, Preference<Set<String>>> {
         val mergesPref = mockk<Preference<Set<String>>>(relaxed = true)
         val unmergesPref = mockk<Preference<Set<String>>>(relaxed = true)
         every { mergesPref.get() } returns merges

@@ -84,7 +84,12 @@ object ChapterAggregation {
                     // the number is already covered, collapsing scanlator variants and any number an
                     // earlier source already supplied. Narrowed to Float so a float-origin and a
                     // double-origin "1.1" key to the same value (see the class doc).
-                    chapter.isRecognizedNumber -> if (seenNumbers.add(chapter.chapterNumber.toFloat())) unified.add(chapter)
+                    chapter.isRecognizedNumber -> if (seenNumbers.add(
+                            chapter.chapterNumber.toFloat(),
+                        )
+                    ) {
+                        unified.add(chapter)
+                    }
                     // Unrecognized numbers can't be matched, so keep only the trunk's.
                     isTrunk -> unified.add(chapter)
                 }

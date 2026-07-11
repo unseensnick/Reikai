@@ -5,11 +5,9 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-// RK -->
 import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.model.toCategory
 import reikai.domain.source.ReikaiSourcePreferences
-// RK <--
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.preference.getAndSet
