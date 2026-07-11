@@ -63,6 +63,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Other
 
+- Settings search now scrolls to and highlights the exact matched row, even when two settings in different content-type groups share a name.
 - Formatted the codebase to pass ktlint/spotless, so the formatter runs cleanly and can be enforced going forward.
 - The manga and novel History/Updates rows, cover dialog, and the details action row, info header, screen shell (phone and tablet), and toolbar now render through shared components instead of near-duplicate copies. Groundwork for the unified content UI.
 - Enhanced and delegated sources now use the wrapped source's home URL for "Open in WebView", and redundant internal source overrides were dropped.

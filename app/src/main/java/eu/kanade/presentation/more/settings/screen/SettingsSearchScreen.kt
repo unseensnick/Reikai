@@ -205,7 +205,8 @@ private fun SearchResult(
                                 node = categoryTitle,
                                 isLtr = isLtr,
                             ),
-                            highlightKey = p.title,
+                            // RK: carry the group so highlighting lands on the exact row.
+                            highlightKey = HighlightKey(categoryTitle, p.title),
                         )
                     }
             }
@@ -319,5 +320,5 @@ private data class SearchResultItem(
     val route: VoyagerScreen,
     val title: String,
     val breadcrumbs: String,
-    val highlightKey: String,
+    val highlightKey: HighlightKey, // RK: (group, title) for exact-row highlight
 )
