@@ -52,6 +52,10 @@ jobs:
           mkdir -p ~/.gradle
           cp .github/runner-files/ci-gradle.properties ~/.gradle/gradle.properties
 
+      # Fail fast on formatting before the expensive build (matches Mihon's CI).
+      - name: Check formatting
+        run: ./gradlew spotlessCheck
+
       # Mihon base has no product flavors; the variant is just `release` (debug-signed for now).
       - name: Build the app
         run: ./gradlew assembleRelease
