@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -110,6 +111,7 @@ import logcat.LogPriority
 import mihon.core.migration.Migrator
 import mihon.feature.support.SupportUsScreen
 import reikai.presentation.novel.details.NovelScreen
+import reikai.presentation.novel.reader.NovelVolumeKeyHost
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
@@ -126,7 +128,10 @@ import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 import kotlin.time.times
 
-class MainActivity : BaseActivity() {
+class MainActivity :
+    BaseActivity(),
+    // RK: host hook for the novel reader's hardware volume-key scrolling
+    NovelVolumeKeyHost {
 
     private val libraryPreferences: LibraryPreferences by injectLazy()
     private val preferences: BasePreferences by injectLazy()
@@ -140,6 +145,26 @@ class MainActivity : BaseActivity() {
     var ready = false
 
     private var navigator: Navigator? = null
+
+    // RK --> host hook for the novel reader's hardware volume-key scrolling (NovelVolumeKeyHost).
+    // The novel reader is a Voyager screen hosted here (no dedicated reader activity), so it registers
+    // a handler while on screen and clears it on dispose. dispatchKeyEvent is the host window's earliest
+    // key hook, so returning true swallows the volume key before the system volume UI, mirroring the
+    // manga ReaderActivity, which does the same in its own dedicated activity. The handler only exists
+    // while the reader is open, so volume behaves normally on every other screen.
+    override var novelVolumeKeyHandler: ((KeyEvent) -> Boolean)? = null
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val handler = novelVolumeKeyHandler
+        if (handler != null &&
+            (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP || event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) &&
+            handler(event)
+        ) {
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+    // RK <--
 
     init {
         registerSecureActivity(this)

@@ -3,6 +3,7 @@ package reikai.presentation.novel.reader
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.compose.animation.AnimatedVisibility
@@ -34,6 +35,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -112,6 +114,8 @@ class NovelReaderScreen(
         // so the seekbar can scrub. Auto-scroll runs only while reading (chrome hidden).
         var progressPercent by remember { mutableStateOf(0) }
         var scrollToPercent by remember { mutableStateOf<((Int) -> Unit)?>(null) }
+        // A signed-fraction scroll handle the WebView registers, driven by hardware volume-key navigation.
+        var scrollByFraction by remember { mutableStateOf<((Float) -> Unit)?>(null) }
         val autoScrollActive = settings.autoScroll && !menuVisible
 
         // Web actions (open in WebView / browser, share the chapter URL), shared by the top bar overflow
@@ -209,6 +213,31 @@ class NovelReaderScreen(
             onDispose { (context as? Activity)?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
         }
 
+        // Hardware volume-key navigation: register a handler on the host window while the reader is on
+        // screen and clear it on dispose, so volume keys scroll the chapter here and behave normally
+        // everywhere else. The single registration reads live state via rememberUpdatedState. Volume
+        // down scrolls forward (up = back), swapped by the invert pref; while the chrome is up or the
+        // pref is off the handler declines the key so the system volume UI works as usual.
+        val volumeEnabled = rememberUpdatedState(settings.useVolumeButtons)
+        val volumeInverted = rememberUpdatedState(settings.volumeButtonsInverted)
+        val volumeFraction = rememberUpdatedState(settings.volumeButtonsFraction)
+        val volumeMenuVisible = rememberUpdatedState(menuVisible)
+        val volumeScrollBy = rememberUpdatedState(scrollByFraction)
+        DisposableEffect(context) {
+            val host = context as? NovelVolumeKeyHost
+            host?.novelVolumeKeyHandler = handler@{ event ->
+                if (!volumeEnabled.value || volumeMenuVisible.value) return@handler false
+                if (event.action == KeyEvent.ACTION_DOWN) {
+                    val forward = (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) != volumeInverted.value
+                    val fraction = volumeFraction.value.coerceIn(0.1f, 1f)
+                    volumeScrollBy.value?.invoke(if (forward) fraction else -fraction)
+                }
+                // Swallow both down and up so the system volume UI never shows during a press.
+                true
+            }
+            onDispose { host?.novelVolumeKeyHandler = null }
+        }
+
         // Record reading history when the reader is backgrounded (ON_PAUSE) or left (screen pop): the
         // novel twin of ReaderActivity.onPause -> updateHistory. The host Activity's lifecycleScope is
         // used (not this screen's, which is cancelled on pop) and the write is non-cancellable so it
@@ -264,6 +293,7 @@ class NovelReaderScreen(
                         autoScrollActive = autoScrollActive,
                         autoScrollSpeed = settings.autoScrollSpeed,
                         onScrollHandleReady = { scrollToPercent = it },
+                        onScrollByFractionReady = { scrollByFraction = it },
                         ttsController = screenModel.ttsController,
                         modifier = Modifier.fillMaxSize(),
                     )

@@ -31,6 +31,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Track your light novels on Shikimori, Hikka, and MangaBaka.** These trackers now search novels directly instead of returning manga, and trackers that can't tell novels apart (Bangumi, MdList) no longer appear in the novel tracking sheet.
 - **The novel reader can now open the chapter in your browser or share its link.** Both join "Open in WebView" in the reader's overflow menu, matching the manga reader.
 - **Choose which buttons sit on the novel reader's bottom bar, like manga.** Add quick auto-scroll, keep-screen-on, and bionic-reading toggles, one-tap theme and text-size pickers, plus web view, browser, and share, from Settings > Reader.
+- **Turn pages in the novel reader with your volume keys, like manga.** Enable it in Settings > Reader, optionally invert the direction, and set how far each press scrolls.
 
 ### Changes
 

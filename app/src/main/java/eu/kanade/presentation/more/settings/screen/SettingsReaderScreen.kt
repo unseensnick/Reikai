@@ -19,6 +19,7 @@ import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.text.NumberFormat
+import kotlin.math.roundToInt
 
 object SettingsReaderScreen : SearchableSettings {
 
@@ -229,8 +230,13 @@ object SettingsReaderScreen : SearchableSettings {
     // RK --> light-novel reader settings, the novel twins of the Reading group above. The live-tuning
     // display controls (font, size, theme) stay in the in-reader gear sheet, which previews them.
     @Composable
-    private fun getNovelReadingGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup =
-        Preference.PreferenceGroup(
+    private fun getNovelReadingGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
+        val useVolumeButtonsPref = novelPreferences.readerUseVolumeButtons()
+        val useVolumeButtons by useVolumeButtonsPref.collectAsState()
+        val volumeButtonsFractionPref = novelPreferences.readerVolumeButtonsFraction()
+        val volumeButtonsFraction by volumeButtonsFractionPref.collectAsState()
+        val volumeButtonsPercent = (volumeButtonsFraction * 100).roundToInt()
+        return Preference.PreferenceGroup(
             title = contentTypedCategory(MR.strings.pref_category_reading, MR.strings.content_type_novels),
             preferenceItems = listOf(
                 Preference.PreferenceItem.ListPreference(
@@ -261,6 +267,23 @@ object SettingsReaderScreen : SearchableSettings {
                     preference = novelPreferences.readerAutoScroll(),
                     title = stringResource(MR.strings.pref_auto_scroll),
                 ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = useVolumeButtonsPref,
+                    title = stringResource(MR.strings.pref_read_with_volume_keys),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerVolumeButtonsInverted(),
+                    title = stringResource(MR.strings.pref_read_with_volume_keys_inverted),
+                    enabled = useVolumeButtons,
+                ),
+                Preference.PreferenceItem.SliderPreference(
+                    value = volumeButtonsPercent,
+                    valueRange = 25..100,
+                    title = stringResource(MR.strings.pref_volume_keys_scroll_amount),
+                    valueString = "$volumeButtonsPercent%",
+                    enabled = useVolumeButtons,
+                    onValueChanged = { volumeButtonsFractionPref.set(it / 100f) },
+                ),
                 Preference.PreferenceItem.MultiSelectListPreference(
                     preference = novelPreferences.readerBottomButtons(),
                     entries = ReaderBottomButton.offeredIn(ReaderBottomButton.Scope.Novel)
@@ -269,6 +292,7 @@ object SettingsReaderScreen : SearchableSettings {
                 ),
             ),
         )
+    }
 
     @Composable
     private fun getNovelAccessibilityGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup =

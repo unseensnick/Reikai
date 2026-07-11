@@ -215,6 +215,17 @@ class NovelPreferences(
     /** Auto-scroll speed in CSS pixels per frame (~60fps). */
     fun readerAutoScrollSpeed() = preferenceStore.getFloat("ln_reader_auto_scroll_speed", 1.0f)
 
+    /** Scroll the chapter with the hardware volume keys (down = forward), the novel twin of the manga
+     *  reader's `readWithVolumeKeys`. Intercepted at the host window; off by default. */
+    fun readerUseVolumeButtons() = preferenceStore.getBoolean("ln_reader_use_volume_buttons", false)
+
+    /** Swap which volume key scrolls forward vs back, mirroring `readWithVolumeKeysInverted`. */
+    fun readerVolumeButtonsInverted() = preferenceStore.getBoolean("ln_reader_volume_buttons_inverted", false)
+
+    /** How far one volume press scrolls, as a fraction of the screen height (LNReader's default is
+     *  0.75, leaving a quarter-screen overlap for reading continuity). */
+    fun readerVolumeButtonsFraction() = preferenceStore.getFloat("ln_reader_volume_buttons_fraction", 0.75f)
+
     /** User-selected bottom-bar buttons for the novel reader (the novel twin of the manga
      *  [ReaderPreferences.readerBottomButtons]). Values are [ReaderBottomButton.value] codes. */
     fun readerBottomButtons() =

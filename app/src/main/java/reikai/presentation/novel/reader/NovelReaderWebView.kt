@@ -51,6 +51,7 @@ fun NovelReaderWebView(
     autoScrollActive: Boolean,
     autoScrollSpeed: Float,
     onScrollHandleReady: ((Int) -> Unit) -> Unit,
+    onScrollByFractionReady: ((Float) -> Unit) -> Unit,
     ttsController: NovelTtsController,
     modifier: Modifier = Modifier,
 ) {
@@ -136,6 +137,19 @@ fun NovelReaderWebView(
     DisposableEffect(webView) {
         onScrollHandleReady { percent ->
             webView.scrollTo(0, (webView.maxScroll * percent / 100f).roundToInt())
+        }
+        onDispose {}
+    }
+
+    // Expose a scroll-by-fraction handle for hardware volume-key navigation. Smooth-scrolls the viewport
+    // by a signed fraction (positive = forward/down), reusing the WebView's own smooth scroll so it
+    // matches tap-to-scroll's feel. Invoked on the main thread from the host window's key dispatch.
+    DisposableEffect(webView) {
+        onScrollByFractionReady { fraction ->
+            webView.evaluateJavascript(
+                "window.scrollBy({ top: window.innerHeight * $fraction, behavior: 'smooth' });",
+                null,
+            )
         }
         onDispose {}
     }

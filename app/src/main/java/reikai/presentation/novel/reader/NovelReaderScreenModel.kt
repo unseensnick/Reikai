@@ -204,7 +204,12 @@ class NovelReaderScreenModel(
             ) { autoScroll, speed, railHeight, railOnLeft ->
                 ScrollPrefs(autoScroll, speed, railHeight, railOnLeft)
             },
-        ) { tts, flags, scroll -> ReaderExtraPrefs(tts, flags, scroll) },
+            combine(
+                novelPreferences.readerUseVolumeButtons().changes(),
+                novelPreferences.readerVolumeButtonsInverted().changes(),
+                novelPreferences.readerVolumeButtonsFraction().changes(),
+            ) { enabled, inverted, fraction -> VolumePrefs(enabled, inverted, fraction) },
+        ) { tts, flags, scroll, volume -> ReaderExtraPrefs(tts, flags, scroll, volume) },
     ) { display, theme, keepScreenOn, orient, extra ->
         NovelReaderSettings(
             fontSize = display.fontSize,
@@ -231,6 +236,9 @@ class NovelReaderScreenModel(
             autoScrollSpeed = extra.scroll.autoScrollSpeed,
             railHeightPercent = extra.scroll.railHeight,
             railOnLeft = extra.scroll.railOnLeft,
+            useVolumeButtons = extra.volume.enabled,
+            volumeButtonsInverted = extra.volume.inverted,
+            volumeButtonsFraction = extra.volume.fraction,
         )
     }.stateIn(screenModelScope, SharingStarted.Eagerly, currentSettings())
 
@@ -262,6 +270,9 @@ class NovelReaderScreenModel(
             autoScrollSpeed = novelPreferences.readerAutoScrollSpeed().get(),
             railHeightPercent = readerPreferences.verticalNavigatorHeight.get(),
             railOnLeft = readerPreferences.verticalNavigatorOnLeft.get(),
+            useVolumeButtons = novelPreferences.readerUseVolumeButtons().get(),
+            volumeButtonsInverted = novelPreferences.readerVolumeButtonsInverted().get(),
+            volumeButtonsFraction = novelPreferences.readerVolumeButtonsFraction().get(),
         )
     }
 
@@ -657,7 +668,13 @@ class NovelReaderScreenModel(
         val railHeight: Int,
         val railOnLeft: Boolean,
     )
-    private data class ReaderExtraPrefs(val tts: TtsPrefs, val flags: FlagPrefs, val scroll: ScrollPrefs)
+    private data class VolumePrefs(val enabled: Boolean, val inverted: Boolean, val fraction: Float)
+    private data class ReaderExtraPrefs(
+        val tts: TtsPrefs,
+        val flags: FlagPrefs,
+        val scroll: ScrollPrefs,
+        val volume: VolumePrefs,
+    )
 
     override fun onDispose() {
         super.onDispose()
