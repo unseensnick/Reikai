@@ -113,7 +113,8 @@ object SettingsLibraryScreen : SearchableSettings {
             )
         }
         return Preference.PreferenceGroup(
-            title = stringResource(MR.strings.novel_library_update),
+            // RK: same "Global update" concept as the manga group, content-typed for consistency.
+            title = contentTypedCategory(MR.strings.pref_category_library_update, MR.strings.content_type_novels),
             preferenceItems = listOf(
                 Preference.PreferenceItem.ListPreference(
                     preference = intervalPref,
@@ -228,15 +229,14 @@ object SettingsLibraryScreen : SearchableSettings {
                 Preference.PreferenceItem.ListPreference(
                     preference = libraryPreferences.defaultCategory,
                     entries = ids.zip(labels).toMap(),
-                    title = stringResource(MR.strings.default_category),
+                    // RK: content-type label, since a novel default-category twin sits below.
+                    title = contentTypedCategory(MR.strings.default_category, MR.strings.content_type_manga),
                 ),
                 // RK --> novel default category, alongside the manga one
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.defaultNovelCategory(),
                     entries = novelIds.zip(novelLabels).toMap(),
-                    title = "${stringResource(
-                        MR.strings.default_category,
-                    )} (${stringResource(MR.strings.content_type_novels)})",
+                    title = contentTypedCategory(MR.strings.default_category, MR.strings.content_type_novels),
                 ),
                 // RK <--
                 Preference.PreferenceItem.SwitchPreference(
@@ -289,7 +289,8 @@ object SettingsLibraryScreen : SearchableSettings {
         }
 
         return Preference.PreferenceGroup(
-            title = stringResource(MR.strings.pref_category_library_update),
+            // RK: content-type header, pairs with the novel library-update group.
+            title = contentTypedCategory(MR.strings.pref_category_library_update, MR.strings.content_type_manga),
             preferenceItems = listOf(
                 Preference.PreferenceItem.ListPreference(
                     preference = autoUpdateIntervalPref,
