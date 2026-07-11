@@ -64,6 +64,7 @@ class MangaRestoreChaptersTest {
             fetchInterval = mockk(relaxed = true),
             reikaiLibraryPreferences = mockk(relaxed = true),
             mangaMetadataRepository = mockk(relaxed = true),
+            setCustomMangaInfo = mockk(relaxed = true),
         )
 
         restorer.restore(BackupManga(source = 1L, url = "u", title = "T", chapters = listOf(backup)), emptyList())

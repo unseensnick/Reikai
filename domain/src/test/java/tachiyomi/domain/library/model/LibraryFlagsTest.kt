@@ -12,7 +12,8 @@ class LibraryFlagsTest {
     @Test
     fun `Check the amount of flags`() {
         LibraryDisplayMode.values.size shouldBe 5
-        LibrarySort.types.size shouldBe 10
+        // RK: 10 upstream Mihon sort types + the Reikai "Downloaded" sort.
+        LibrarySort.types.size shouldBe 11
         LibrarySort.directions.size shouldBe 2
     }
 
