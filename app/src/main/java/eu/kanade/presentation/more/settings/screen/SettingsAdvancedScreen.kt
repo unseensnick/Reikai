@@ -116,15 +116,16 @@ object SettingsAdvancedScreen : SearchableSettings {
                     true
                 },
             ),
-            // RK: opt-in for recording library update failures + the Update errors screen
+            // RK: opt-in for recording library update failures + the Update errors screen. Content-typed
+            // titles ("Track update errors · Manga|Novels") match the Library / Downloads label style.
             Preference.PreferenceItem.SwitchPreference(
                 preference = reikaiLibraryPreferences.trackUpdateErrors,
-                title = stringResource(MR.strings.pref_track_update_errors),
+                title = contentTypedCategory(MR.strings.pref_track_update_errors, MR.strings.content_type_manga),
                 subtitle = stringResource(MR.strings.pref_track_update_errors_summary),
             ),
             Preference.PreferenceItem.SwitchPreference(
                 preference = reikaiLibraryPreferences.trackNovelUpdateErrors,
-                title = stringResource(MR.strings.pref_track_novel_update_errors),
+                title = contentTypedCategory(MR.strings.pref_track_update_errors, MR.strings.content_type_novels),
                 subtitle = stringResource(MR.strings.pref_track_update_errors_summary),
             ),
             // RK: enable the built-in E-Hentai sources (anonymous browsing). Turning this on reveals
