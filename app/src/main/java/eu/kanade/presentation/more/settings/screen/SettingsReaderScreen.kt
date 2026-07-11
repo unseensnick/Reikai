@@ -5,6 +5,7 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalView
+import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
@@ -29,7 +30,7 @@ object SettingsReaderScreen : SearchableSettings {
     @Composable
     override fun getPreferences(): List<Preference> {
         val readerPref = remember { Injekt.get<ReaderPreferences>() }
-        // RK: novel reader prefs, for the light-novel twin of the skip-duplicate toggle
+        // RK: novel reader prefs, surfaced as content-type sub-groups ("Reading / Accessibility · Novels").
         val novelPref = remember { Injekt.get<NovelPreferences>() }
 
         return listOf(
@@ -62,9 +63,13 @@ object SettingsReaderScreen : SearchableSettings {
                 preference = readerPref.pageTransitions,
                 title = stringResource(MR.strings.pref_page_transitions),
             ),
-            getDisplayGroup(readerPreferences = readerPref, novelPreferences = novelPref),
+            getDisplayGroup(readerPreferences = readerPref),
             getEInkGroup(readerPreferences = readerPref),
-            getReadingGroup(readerPreferences = readerPref, novelPreferences = novelPref),
+            getReadingGroup(readerPreferences = readerPref),
+            // RK --> light-novel reader settings as content-type sub-groups on the shared Reader screen.
+            getNovelReadingGroup(novelPreferences = novelPref),
+            getNovelAccessibilityGroup(novelPreferences = novelPref),
+            // RK <--
             getPagedGroup(readerPreferences = readerPref),
             getWebtoonGroup(readerPreferences = readerPref),
             getNavigationGroup(readerPreferences = readerPref),
@@ -75,7 +80,6 @@ object SettingsReaderScreen : SearchableSettings {
     @Composable
     private fun getDisplayGroup(
         readerPreferences: ReaderPreferences,
-        novelPreferences: NovelPreferences,
     ): Preference.PreferenceGroup {
         val fullscreen by readerPreferences.fullscreen.collectAsState()
         return Preference.PreferenceGroup(
@@ -86,21 +90,7 @@ object SettingsReaderScreen : SearchableSettings {
                     entries = ReaderOrientation.entries.drop(1)
                         .associate { it.flagValue to stringResource(it.stringRes) },
                     title = stringResource(MR.strings.pref_rotation_type),
-                    // RK: prefix the content type so the manga row reads distinctly from the novel twin
-                    // below, while %s still shows the chosen orientation.
-                    subtitle = "${stringResource(MR.strings.content_type_manga)} · %s",
                 ),
-                // RK --> light-novel twin: default reader orientation for novels (Default is dropped,
-                // since a global "follow default" is meaningless; Reverse portrait is dropped too).
-                Preference.PreferenceItem.ListPreference(
-                    preference = novelPreferences.readerDefaultOrientation(),
-                    entries = ReaderOrientation.entries
-                        .filter { it != ReaderOrientation.DEFAULT && it != ReaderOrientation.REVERSE_PORTRAIT }
-                        .associate { it.flagValue to stringResource(it.stringRes) },
-                    title = stringResource(MR.strings.pref_rotation_type),
-                    subtitle = "${stringResource(MR.strings.content_type_novels)} · %s",
-                ),
-                // RK <--
                 Preference.PreferenceItem.ListPreference(
                     preference = readerPreferences.readerTheme,
                     entries = mapOf(
@@ -186,13 +176,13 @@ object SettingsReaderScreen : SearchableSettings {
     @Composable
     private fun getReadingGroup(
         readerPreferences: ReaderPreferences,
-        novelPreferences: NovelPreferences, // RK: for the light-novel skip-duplicate twin
     ): Preference.PreferenceGroup {
         // RK: collected for the preload slider (Y-feature)
         val preloadSizePref = readerPreferences.preloadSize
         val preloadSize by preloadSizePref.collectAsState()
         return Preference.PreferenceGroup(
-            title = stringResource(MR.strings.pref_category_reading),
+            // RK: content-type suffix so it pairs with the "Reading · Novels" group below.
+            title = typedCategory(MR.strings.pref_category_reading, MR.strings.content_type_manga),
             preferenceItems = listOf(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.skipRead,
@@ -206,22 +196,9 @@ object SettingsReaderScreen : SearchableSettings {
                     preference = readerPreferences.skipDupe,
                     title = stringResource(MR.strings.pref_skip_dupe_chapters),
                 ),
-                // RK -->
-                // Light-novel twin: skips a chapter whose number repeats the one just read when paging
-                // a merged novel's cross-source list. Distinct "(Novel)" title (not a subtitle) so the
-                // two toggles never collide on a shared settings-search result key.
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = novelPreferences.readerSkipDuplicateChapters(),
-                    title = stringResource(MR.strings.pref_skip_dupe_chapters_novel),
-                ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.markReadOnSkip,
                     title = stringResource(MR.strings.pref_mark_read_on_skip),
-                ),
-                // Light-novel twin: marks the chapter you skip away from (forward "next") as read.
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = novelPreferences.readerMarkReadOnSkip(),
-                    title = stringResource(MR.strings.pref_mark_read_on_skip_novel),
                 ),
                 Preference.PreferenceItem.MultiSelectListPreference(
                     preference = readerPreferences.readerBottomButtons,
@@ -229,16 +206,6 @@ object SettingsReaderScreen : SearchableSettings {
                         .associate { it.value to stringResource(it.stringRes) },
                     title = stringResource(MR.strings.pref_reader_bottom_buttons),
                 ),
-                // RK --> novel twin: the light-novel reader's bottom-bar buttons. Interim home until the
-                // net-new novel reader settings screen (7a) owns it; distinct "(Novel)" title so the two
-                // pickers never collide on a shared settings-search result key.
-                Preference.PreferenceItem.MultiSelectListPreference(
-                    preference = novelPreferences.readerBottomButtons(),
-                    entries = ReaderBottomButton.offeredIn(ReaderBottomButton.Scope.Novel)
-                        .associate { it.value to stringResource(it.stringRes) },
-                    title = stringResource(MR.strings.pref_reader_bottom_buttons_novel),
-                ),
-                // RK <--
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.preserveReadingPosition,
                     title = stringResource(MR.strings.pref_preserve_reading_position),
@@ -259,6 +226,76 @@ object SettingsReaderScreen : SearchableSettings {
             ),
         )
     }
+
+    // RK --> light-novel reader settings, the novel twins of the Reading group above. The live-tuning
+    // display controls (font, size, theme) stay in the in-reader gear sheet, which previews them.
+    /** "$category · Manga|Novels", so a twin group reads distinctly and its search breadcrumb differs. */
+    @Composable
+    private fun typedCategory(category: StringResource, contentType: StringResource): String =
+        "${stringResource(category)} · ${stringResource(contentType)}"
+
+    @Composable
+    private fun getNovelReadingGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup =
+        Preference.PreferenceGroup(
+            title = typedCategory(MR.strings.pref_category_reading, MR.strings.content_type_novels),
+            preferenceItems = listOf(
+                Preference.PreferenceItem.ListPreference(
+                    preference = novelPreferences.readerDefaultOrientation(),
+                    entries = ReaderOrientation.entries
+                        .filter { it != ReaderOrientation.DEFAULT && it != ReaderOrientation.REVERSE_PORTRAIT }
+                        .associate { it.flagValue to stringResource(it.stringRes) },
+                    title = stringResource(MR.strings.pref_rotation_type),
+                    subtitle = "%s",
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerTapToScroll(),
+                    title = stringResource(MR.strings.pref_tap_to_scroll),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerSwipeGestures(),
+                    title = stringResource(MR.strings.pref_swipe_between_chapters),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerSkipDuplicateChapters(),
+                    title = stringResource(MR.strings.pref_skip_dupe_chapters),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerMarkReadOnSkip(),
+                    title = stringResource(MR.strings.pref_mark_read_on_skip),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerAutoScroll(),
+                    title = stringResource(MR.strings.pref_auto_scroll),
+                ),
+                Preference.PreferenceItem.MultiSelectListPreference(
+                    preference = novelPreferences.readerBottomButtons(),
+                    entries = ReaderBottomButton.offeredIn(ReaderBottomButton.Scope.Novel)
+                        .associate { it.value to stringResource(it.stringRes) },
+                    title = stringResource(MR.strings.pref_reader_bottom_buttons),
+                ),
+            ),
+        )
+
+    @Composable
+    private fun getNovelAccessibilityGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup =
+        Preference.PreferenceGroup(
+            title = typedCategory(MR.strings.pref_category_accessibility, MR.strings.content_type_novels),
+            preferenceItems = listOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerKeepScreenOn(),
+                    title = stringResource(MR.strings.pref_keep_screen_on),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerBionicReading(),
+                    title = stringResource(MR.strings.pref_bionic_reading),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerRemoveExtraSpacing(),
+                    title = stringResource(MR.strings.pref_remove_extra_spacing),
+                ),
+            ),
+        )
+    // RK <--
 
     @Composable
     private fun getPagedGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
