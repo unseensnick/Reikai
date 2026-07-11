@@ -203,6 +203,10 @@ class NovelPreferences(
     /** Collapse large runs of blank space between paragraphs. */
     fun readerRemoveExtraSpacing() = preferenceStore.getBoolean("ln_reader_remove_extra_spacing", false)
 
+    /** Show the always-on reading percentage while reading (chrome hidden), the novel twin of the manga
+     *  reader's "Show page number". Native Compose overlay; on by default (matches manga and LNReader). */
+    fun readerShowProgressPercentage() = preferenceStore.getBoolean("ln_reader_show_progress_percentage", true)
+
     /** Tap the top / bottom of the screen to scroll a page (center tap still toggles the chrome). */
     fun readerTapToScroll() = preferenceStore.getBoolean("ln_reader_tap_to_scroll", false)
 

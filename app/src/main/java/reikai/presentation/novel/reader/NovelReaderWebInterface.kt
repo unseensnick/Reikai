@@ -18,6 +18,7 @@ class NovelReaderWebInterface(
     private val onHide: () -> Unit,
     private val onConsole: (String) -> Unit,
     private val onSave: (Int) -> Unit,
+    private val onProgress: (Int) -> Unit,
     private val onTtsMessage: (String, JSONObject) -> Unit,
     private val onReaderReady: () -> Unit,
     private val onNavigate: (forward: Boolean) -> Unit,
@@ -29,6 +30,8 @@ class NovelReaderWebInterface(
             "hide" -> onHide()
             "console" -> onConsole(json.optString("msg"))
             "save" -> json.optInt("data", -1).takeIf { it >= 0 }?.let(onSave)
+            // Live scroll percentage (every scroll frame); 'save' is the persisted value on scroll-end.
+            "progress" -> json.optInt("data", -1).takeIf { it >= 0 }?.let(onProgress)
             "reikai-ready" -> onReaderReady()
             "prev" -> onNavigate(false)
             // `next` is overloaded: the TTS auto-advance carries autoStartTTS (handled by the

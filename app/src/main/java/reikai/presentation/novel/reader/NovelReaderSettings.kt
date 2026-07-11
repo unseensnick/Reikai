@@ -33,6 +33,8 @@ data class NovelReaderSettings(
     val removeExtraSpacing: Boolean,
     val tapToScroll: Boolean,
     val swipeGestures: Boolean,
+    /** Always-on reading percentage overlay while reading (chrome hidden). Native Compose, not core.js. */
+    val showProgressPercentage: Boolean,
     // Driven natively (not by core.js): auto-scroll runs an injected scroller.
     val autoScroll: Boolean,
     val autoScrollSpeed: Float,

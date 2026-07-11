@@ -19,12 +19,14 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSliderState
@@ -40,6 +42,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowInsetsCompat
@@ -66,6 +69,7 @@ import reikai.presentation.reader.readerBarExit
 import reikai.presentation.reader.readerChromeColor
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import kotlin.math.roundToInt
+import android.graphics.Color as AndroidColor
 
 /**
  * Light-novel reader: a WebView text canvas with Compose chrome. A single tap hides/shows the top +
@@ -286,14 +290,18 @@ class NovelReaderScreen(
                         hasNext = s.hasNext,
                         onToggleMenu = { menuVisible = !menuVisible },
                         onSaveProgress = { pct ->
-                            progressPercent = pct
-                            screenModel.saveProgress(pct)
+                            // core.js's save formula can exceed 100 at the very bottom (screen height >
+                            // the content viewport), so clamp before display and persistence.
+                            val clamped = pct.coerceIn(0, 100)
+                            progressPercent = clamped
+                            screenModel.saveProgress(clamped)
                         },
                         onNavigate = { forward -> if (forward) screenModel.next() else screenModel.prev() },
                         autoScrollActive = autoScrollActive,
                         autoScrollSpeed = settings.autoScrollSpeed,
                         onScrollHandleReady = { scrollToPercent = it },
                         onScrollByFractionReady = { scrollByFraction = it },
+                        onProgressChanged = { progressPercent = it.coerceIn(0, 100) },
                         ttsController = screenModel.ttsController,
                         modifier = Modifier.fillMaxSize(),
                     )
@@ -307,6 +315,28 @@ class NovelReaderScreen(
                 color = overlay.colorFilterValue.takeIf { overlay.colorFilter },
                 colorBlendMode = ColorFilterMode.getOrNull(overlay.colorFilterMode)?.second,
             )
+
+            // Always-on reading percentage while reading (chrome hidden). LNReader's reader-footer look:
+            // a full-width strip in the reader background, so text scrolls under it and the percentage
+            // always sits on a clean background. Hidden with the chrome, when the vertical rail (which
+            // also shows the percent) takes over. Updated live per scroll frame via onProgressChanged.
+            if (!menuVisible && settings.showProgressPercentage) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .background(Color(AndroidColor.parseColor(settings.backgroundColor)))
+                        .navigationBarsPadding()
+                        .padding(vertical = 4.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "$progressPercent%",
+                        color = Color(AndroidColor.parseColor(settings.textColor)),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
 
             AnimatedVisibility(
                 visible = menuVisible,

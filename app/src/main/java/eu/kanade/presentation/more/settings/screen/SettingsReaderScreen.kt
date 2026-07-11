@@ -72,7 +72,7 @@ object SettingsReaderScreen : SearchableSettings {
             // RK <--
             getPagedGroup(readerPreferences = readerPref),
             getWebtoonGroup(readerPreferences = readerPref),
-            getNavigationGroup(readerPreferences = readerPref),
+            getNavigationGroup(readerPreferences = readerPref, novelPreferences = novelPref),
             getActionsGroup(readerPreferences = readerPref),
         )
     }
@@ -230,13 +230,8 @@ object SettingsReaderScreen : SearchableSettings {
     // RK --> light-novel reader settings, the novel twins of the Reading group above. The live-tuning
     // display controls (font, size, theme) stay in the in-reader gear sheet, which previews them.
     @Composable
-    private fun getNovelReadingGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
-        val useVolumeButtonsPref = novelPreferences.readerUseVolumeButtons()
-        val useVolumeButtons by useVolumeButtonsPref.collectAsState()
-        val volumeButtonsFractionPref = novelPreferences.readerVolumeButtonsFraction()
-        val volumeButtonsFraction by volumeButtonsFractionPref.collectAsState()
-        val volumeButtonsPercent = (volumeButtonsFraction * 100).roundToInt()
-        return Preference.PreferenceGroup(
+    private fun getNovelReadingGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup =
+        Preference.PreferenceGroup(
             title = contentTypedCategory(MR.strings.pref_category_reading, MR.strings.content_type_novels),
             preferenceItems = listOf(
                 Preference.PreferenceItem.ListPreference(
@@ -267,23 +262,6 @@ object SettingsReaderScreen : SearchableSettings {
                     preference = novelPreferences.readerAutoScroll(),
                     title = stringResource(MR.strings.pref_auto_scroll),
                 ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = useVolumeButtonsPref,
-                    title = stringResource(MR.strings.pref_read_with_volume_keys),
-                ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = novelPreferences.readerVolumeButtonsInverted(),
-                    title = stringResource(MR.strings.pref_read_with_volume_keys_inverted),
-                    enabled = useVolumeButtons,
-                ),
-                Preference.PreferenceItem.SliderPreference(
-                    value = volumeButtonsPercent,
-                    valueRange = 25..100,
-                    title = stringResource(MR.strings.pref_volume_keys_scroll_amount),
-                    valueString = "$volumeButtonsPercent%",
-                    enabled = useVolumeButtons,
-                    onValueChanged = { volumeButtonsFractionPref.set(it / 100f) },
-                ),
                 Preference.PreferenceItem.MultiSelectListPreference(
                     preference = novelPreferences.readerBottomButtons(),
                     entries = ReaderBottomButton.offeredIn(ReaderBottomButton.Scope.Novel)
@@ -292,7 +270,6 @@ object SettingsReaderScreen : SearchableSettings {
                 ),
             ),
         )
-    }
 
     @Composable
     private fun getNovelAccessibilityGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup =
@@ -302,6 +279,10 @@ object SettingsReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerKeepScreenOn(),
                     title = stringResource(MR.strings.pref_keep_screen_on),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerShowProgressPercentage(),
+                    title = stringResource(MR.strings.pref_show_reading_progress),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerBionicReading(),
@@ -507,13 +488,23 @@ object SettingsReaderScreen : SearchableSettings {
     }
 
     @Composable
-    private fun getNavigationGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
+    private fun getNavigationGroup(
+        readerPreferences: ReaderPreferences,
+        novelPreferences: NovelPreferences,
+    ): Preference.PreferenceGroup {
         val readWithVolumeKeysPref = readerPreferences.readWithVolumeKeys
         val readWithVolumeKeys by readWithVolumeKeysPref.collectAsState()
         // RK: volume-key scroll amount (long-strip viewers), novel-reader parity
         val volumeScrollAmountPref = readerPreferences.readWithVolumeKeysScrollAmount
         val volumeScrollAmount by volumeScrollAmountPref.collectAsState()
         val volumeScrollPercent = (volumeScrollAmount * 100).roundToInt()
+
+        // RK: novel volume-key twins, co-located with the manga rows below (content-type labels)
+        val useVolumeButtonsPref = novelPreferences.readerUseVolumeButtons()
+        val useVolumeButtons by useVolumeButtonsPref.collectAsState()
+        val volumeButtonsFractionPref = novelPreferences.readerVolumeButtonsFraction()
+        val volumeButtonsFraction by volumeButtonsFractionPref.collectAsState()
+        val volumeButtonsPercent = (volumeButtonsFraction * 100).roundToInt()
 
         val verticalNavigator by readerPreferences.verticalNavigator.collectAsState()
         val verticalNavigatorHeightPref = readerPreferences.verticalNavigatorHeight
@@ -522,25 +513,55 @@ object SettingsReaderScreen : SearchableSettings {
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_reader_navigation),
             preferenceItems = listOf(
+                // RK --> volume-key rows for both content types, labeled so the twins read distinctly
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readWithVolumeKeysPref,
-                    title = stringResource(MR.strings.pref_read_with_volume_keys),
+                    title = contentTypedCategory(MR.strings.pref_read_with_volume_keys, MR.strings.content_type_manga),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.readWithVolumeKeysInverted,
-                    title = stringResource(MR.strings.pref_read_with_volume_keys_inverted),
+                    title = contentTypedCategory(
+                        MR.strings.pref_read_with_volume_keys_inverted,
+                        MR.strings.content_type_manga,
+                    ),
                     enabled = readWithVolumeKeys,
                 ),
-                // RK: volume-key scroll amount, long-strip viewers only (novel-reader parity)
                 Preference.PreferenceItem.SliderPreference(
                     value = volumeScrollPercent,
                     valueRange = 25..100,
-                    title = stringResource(MR.strings.pref_volume_keys_scroll_amount),
+                    title = contentTypedCategory(
+                        MR.strings.pref_volume_keys_scroll_amount,
+                        MR.strings.content_type_manga,
+                    ),
                     subtitle = stringResource(MR.strings.pref_volume_keys_scroll_amount_long_strip),
                     valueString = "$volumeScrollPercent%",
                     enabled = readWithVolumeKeys,
                     onValueChanged = { volumeScrollAmountPref.set(it / 100f) },
                 ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = useVolumeButtonsPref,
+                    title = contentTypedCategory(MR.strings.pref_read_with_volume_keys, MR.strings.content_type_novels),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerVolumeButtonsInverted(),
+                    title = contentTypedCategory(
+                        MR.strings.pref_read_with_volume_keys_inverted,
+                        MR.strings.content_type_novels,
+                    ),
+                    enabled = useVolumeButtons,
+                ),
+                Preference.PreferenceItem.SliderPreference(
+                    value = volumeButtonsPercent,
+                    valueRange = 25..100,
+                    title = contentTypedCategory(
+                        MR.strings.pref_volume_keys_scroll_amount,
+                        MR.strings.content_type_novels,
+                    ),
+                    valueString = "$volumeButtonsPercent%",
+                    enabled = useVolumeButtons,
+                    onValueChanged = { volumeButtonsFractionPref.set(it / 100f) },
+                ),
+                // RK <--
                 Preference.PreferenceItem.MultiSelectListPreference(
                     preference = readerPreferences.verticalNavigator,
                     entries = ReadingMode.entries.filter { it != ReadingMode.DEFAULT }

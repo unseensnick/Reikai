@@ -52,6 +52,7 @@ fun NovelReaderWebView(
     autoScrollSpeed: Float,
     onScrollHandleReady: ((Int) -> Unit) -> Unit,
     onScrollByFractionReady: ((Float) -> Unit) -> Unit,
+    onProgressChanged: (Int) -> Unit,
     ttsController: NovelTtsController,
     modifier: Modifier = Modifier,
 ) {
@@ -100,6 +101,7 @@ fun NovelReaderWebView(
 
     val onToggle = rememberUpdatedState(onToggleMenu)
     val onSave = rememberUpdatedState(onSaveProgress)
+    val onProgressLive = rememberUpdatedState(onProgressChanged)
     val onNav = rememberUpdatedState(onNavigate)
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
     val webView = remember {
@@ -113,6 +115,7 @@ fun NovelReaderWebView(
                     onHide = { mainHandler.post { onToggle.value() } },
                     onConsole = { msg -> if (BuildConfig.DEBUG) logcat { msg } },
                     onSave = { percent -> mainHandler.post { onSave.value(percent) } },
+                    onProgress = { percent -> mainHandler.post { onProgressLive.value(percent) } },
                     onTtsMessage = { type, json -> ttsController.onWebMessage(type, json) },
                     onReaderReady = { mainHandler.post { ttsController.onReaderReady() } },
                     onNavigate = { forward -> mainHandler.post { onNav.value(forward) } },

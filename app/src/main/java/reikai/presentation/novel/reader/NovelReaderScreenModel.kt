@@ -195,7 +195,10 @@ class NovelReaderScreenModel(
                 novelPreferences.readerRemoveExtraSpacing().changes(),
                 novelPreferences.readerTapToScroll().changes(),
                 novelPreferences.readerSwipeGestures().changes(),
-            ) { bionic, spacing, tapScroll, swipe -> FlagPrefs(bionic, spacing, tapScroll, swipe) },
+                novelPreferences.readerShowProgressPercentage().changes(),
+            ) { bionic, spacing, tapScroll, swipe, showProgress ->
+                FlagPrefs(bionic, spacing, tapScroll, swipe, showProgress)
+            },
             combine(
                 novelPreferences.readerAutoScroll().changes(),
                 novelPreferences.readerAutoScrollSpeed().changes(),
@@ -232,6 +235,7 @@ class NovelReaderScreenModel(
             removeExtraSpacing = extra.flags.removeExtraSpacing,
             tapToScroll = extra.flags.tapToScroll,
             swipeGestures = extra.flags.swipeGestures,
+            showProgressPercentage = extra.flags.showProgressPercentage,
             autoScroll = extra.scroll.autoScroll,
             autoScrollSpeed = extra.scroll.autoScrollSpeed,
             railHeightPercent = extra.scroll.railHeight,
@@ -266,6 +270,7 @@ class NovelReaderScreenModel(
             removeExtraSpacing = novelPreferences.readerRemoveExtraSpacing().get(),
             tapToScroll = novelPreferences.readerTapToScroll().get(),
             swipeGestures = novelPreferences.readerSwipeGestures().get(),
+            showProgressPercentage = novelPreferences.readerShowProgressPercentage().get(),
             autoScroll = novelPreferences.readerAutoScroll().get(),
             autoScrollSpeed = novelPreferences.readerAutoScrollSpeed().get(),
             railHeightPercent = readerPreferences.verticalNavigatorHeight.get(),
@@ -661,6 +666,7 @@ class NovelReaderScreenModel(
         val removeExtraSpacing: Boolean,
         val tapToScroll: Boolean,
         val swipeGestures: Boolean,
+        val showProgressPercentage: Boolean,
     )
     private data class ScrollPrefs(
         val autoScroll: Boolean,
