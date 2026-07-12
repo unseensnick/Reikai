@@ -1006,7 +1006,7 @@ class MangaScreenModel(
     // Hide/unhide chapters (manga twin of the novel details mechanism). The hidden set is a pref of
     // restore-stable "<source>|<chapterUrl>" keys; it filters Success.chapters at assembly, so hidden
     // chapters also drop from the resume FAB and download-all (which read that list). The in-app manga
-    // reader still navigates the full DB list; excluding hidden there is roadmapped separately.
+    // reader excludes them too (ReaderViewModel.chapterList), so next/prev navigation skips hidden.
 
     /** Restore-stable hidden-chapter key: the chapter's own source (per-source for a merged group). */
     private fun hiddenKey(chapter: Chapter, manga: Manga, mangaBySource: Map<Long, Manga>): String =

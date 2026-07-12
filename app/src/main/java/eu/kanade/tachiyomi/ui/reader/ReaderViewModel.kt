@@ -58,6 +58,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
+import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
@@ -109,6 +110,7 @@ class ReaderViewModel @JvmOverloads constructor(
     // RK -->
     private val uiPreferences: UiPreferences = Injekt.get(),
     private val mergedChapterProvider: MergedChapterProvider = Injekt.get(),
+    private val mangaPreferences: MangaPreferences = Injekt.get(),
     // RK <--
 ) : ViewModel() {
 
@@ -261,6 +263,18 @@ class ReaderViewModel @JvmOverloads constructor(
         }
 
         chaptersForReader
+            // RK --> drop user-hidden chapters so reader navigation skips them (twin of the details
+            // filter); keep the opened chapter so opening a hidden one directly still resolves.
+            .run {
+                val hidden = mangaPreferences.hiddenChapters().get()
+                if (hidden.isEmpty()) {
+                    this
+                } else {
+                    val filtered = filterNot { "${mangaForChapterId(it.mangaId).source}|${it.url}" in hidden }
+                    if (filtered.any { it.id == chapterId }) filtered else filtered + selectedChapter
+                }
+            }
+            // RK <--
             .sortedWith(getChapterSort(manga, sortDescending = false))
             .run {
                 if (readerPreferences.skipDupe.get()) {

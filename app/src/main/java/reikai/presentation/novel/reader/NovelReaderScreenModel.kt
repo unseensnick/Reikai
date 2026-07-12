@@ -334,6 +334,27 @@ class NovelReaderScreenModel(
         return orderedIds.mapNotNull { id -> anchor[id] ?: chapterRepo.getById(id) }
     }
 
+    /** Drop user-hidden chapters from a reading-order id list so prev/next skips them, keeping the
+     *  currently-open chapter so opening a hidden one directly still resolves. The hidden key mirrors
+     *  the details screen: "<sourceId>|<chapterUrl>", the source resolved per the chapter's own
+     *  novelId (cheap DB read, no plugin load) so a merged session keys each sibling correctly. */
+    private suspend fun filterHiddenChapters(ids: List<Long>): List<Long> {
+        val hidden = novelPreferences.hiddenChapters().get()
+        if (hidden.isEmpty()) return ids
+        val anchor = chapterRepo.getByNovelId(novelId).associateBy { it.id }
+        val sourceIdByNovel = HashMap<Long, String>()
+        return ids.filter { id ->
+            if (id == currentId) return@filter true
+            val chapter = anchor[id] ?: chapterRepo.getById(id) ?: return@filter true
+            val sourceId = sourceIdByNovel[chapter.novelId] ?: run {
+                val resolved = novelRepo.getById(chapter.novelId)?.source.orEmpty()
+                sourceIdByNovel[chapter.novelId] = resolved
+                resolved
+            }
+            "$sourceId|${chapter.url}" !in hidden
+        }
+    }
+
     /** Toggle the current chapter's bookmark (the top-bar action). */
     fun toggleBookmark() {
         val loaded = state.value as? NovelReaderState.Loaded ?: return
@@ -580,11 +601,15 @@ class NovelReaderScreenModel(
     private suspend fun loadCurrent() {
         mutableState.value = try {
             if (orderedIds.isEmpty()) {
-                orderedIds = if (orderedChapterIds.isNotEmpty()) {
+                val resolved = if (orderedChapterIds.isNotEmpty()) {
                     orderedChapterIds.toList()
                 } else {
                     chapterRepo.getByNovelId(novelId).map { it.id }
                 }
+                // Skip user-hidden chapters so prev/next matches the details list from every entry
+                // point: details already hands us a filtered list, but history/updates/library-resume
+                // do not, so filter here rather than trust the caller (the manga reader's approach).
+                orderedIds = filterHiddenChapters(resolved)
             }
             val id = currentId
             val chapter = chapterRepo.getById(id) ?: error("Chapter not found")
