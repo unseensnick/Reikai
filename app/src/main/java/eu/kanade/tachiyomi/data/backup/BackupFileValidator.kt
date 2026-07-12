@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.data.backup
 import android.content.Context
 import android.net.Uri
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import reikai.novel.source.NovelSourceManager
 import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -12,6 +13,8 @@ class BackupFileValidator(
 
     private val sourceManager: SourceManager = Injekt.get(),
     private val trackerManager: TrackerManager = Injekt.get(),
+    // RK: novels validate against their own source registry + the shared tracker manager.
+    private val novelSourceManager: NovelSourceManager = Injekt.get(),
 ) {
 
     /**
@@ -50,7 +53,26 @@ class BackupFileValidator(
             .map { it.name }
             .sorted()
 
-        return Results(missingSources, missingTrackers)
+        // RK --> fold in novel sources / trackers the restore can't satisfy, so the pre-restore
+        // warning covers novels too. A missing novel source shows by its id (novels carry no
+        // source-name table); novel trackers reuse the shared tracker manager.
+        val missingNovelSources = backup.backupNovels
+            .map { it.source }
+            .distinct()
+            .filter { novelSourceManager.get(it) == null }
+        val missingNovelTrackers = backup.backupNovels
+            .flatMap { it.tracking }
+            .map { it.trackerId }
+            .distinct()
+            .mapNotNull { trackerManager.get(it) }
+            .filter { !it.isLoggedIn }
+            .map { it.name }
+
+        return Results(
+            (missingSources + missingNovelSources).distinct().sorted(),
+            (missingTrackers + missingNovelTrackers).distinct().sorted(),
+        )
+        // RK <--
     }
 
     data class Results(

@@ -52,6 +52,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Searching your settings no longer crashes the app.** Two settings that shared a name (the manga and novel versions of a toggle) could collide in the search results and bring it down.
 - **A novel's hidden chapters are no longer pulled into bulk downloads, and the Resume button skips them too.** They're skipped just like the chapter list already hides them.
 - **A novel's "Show hidden chapters" menu item now disappears once nothing is hidden.** Unhiding your last hidden chapter used to leave a stale entry in the overflow menu.
+- **Restoring a backup now warns about missing novel sources and logged-out novel trackers too.** The pre-restore check already flagged these for manga; it now covers novels so you don't silently lose novel data on restore.
 - **The reader now skips chapters you've hidden when you tap next or previous.** Reading forward or back no longer lands on a hidden chapter, in both the manga and novel readers, and hidden chapters stay out of the reader's own chapter list.
 - **On a merged series, a source's rating and "More info" link now show when you view that source.** They were hidden unless the merge happened to be anchored on that source.
 - **The library's "Jump to category" hopper now opens on your current category and jumps there instantly.** It used to start at the top of the list (leaving the current category off-screen) and animate a slow scroll that stuttered on categories with hundreds of items.
