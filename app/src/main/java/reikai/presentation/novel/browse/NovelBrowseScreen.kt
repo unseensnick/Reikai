@@ -254,6 +254,7 @@ class NovelBrowseScreen(
                             label = stringResource(MR.strings.popular),
                             onClick = {
                                 searchQuery = null
+                                screenModel.resetFilters()
                                 screenModel.setListing(NovelBrowseState.Listing.Popular)
                             },
                         )
@@ -263,12 +264,13 @@ class NovelBrowseScreen(
                             label = stringResource(MR.strings.latest),
                             onClick = {
                                 searchQuery = null
+                                screenModel.resetFilters()
                                 screenModel.setListing(NovelBrowseState.Listing.Latest)
                             },
                         )
                         if (state.source?.filters?.isNotEmpty() == true) {
                             ListingChip(
-                                selected = false,
+                                selected = searching || state.hasActiveFilters,
                                 icon = Icons.Outlined.FilterList,
                                 label = stringResource(MR.strings.action_filter),
                                 onClick = screenModel::openFilterSheet,

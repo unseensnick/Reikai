@@ -45,9 +45,11 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Novel and grouped covers in the Updates list now open the title's details.** Novel rows did nothing on cover-tap before and grouped rows just expanded; both now open details, while the rest of the row still opens the chapter or expands the group.
 - **Pick which reading modes use the vertical chapter navigator, and set its height (synced from Mihon, mihonapp/mihon#3531).** The single long-strip on/off toggle is now a per-mode picker with an adjustable height slider.
 - **The novel reader's progress bar is now a full chapter-navigation rail, like manga.** Prev/next skip buttons flank the scroll slider on the reader edge, and its height and side follow the same Reader vertical-navigator setting as manga.
+- **A novel source's Filter chip now lights up when a filter or search is active, like manga.** It used to never show as selected, so there was no sign your filters were applied.
 
 ### Fixes
 
+- **Switching a novel source between Popular and Latest no longer keeps your old filters.** The filter draft now resets on the switch, matching manga, instead of silently staying applied to the new listing.
 - **Marking a merged novel's chapter read or bookmarked now carries across all its sources, like manga.** The change used to touch only the source you tapped, so switching source chips left the same chapter unread or unbookmarked on the others.
 - **Swiping a novel chapter now matches manga.** The swipe-left/right actions were reversed on novels (swiping to mark-as-read bookmarked instead); they now follow your manga swipe setting.
 - **Your manga and novel libraries now each remember their own scroll position.** Switching between them with the Manga/Novels chip no longer carries one view's scroll over to the other.

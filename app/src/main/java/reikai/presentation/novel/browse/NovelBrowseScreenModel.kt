@@ -257,6 +257,12 @@ data class NovelBrowseState(
 ) {
     val showLatest: Boolean get() = listing == Listing.Latest
 
+    /** The filter draft differs from the source's declared defaults, i.e. a filter is applied.
+     *  Drives the Filter chip's active highlight, mirroring manga's `listing is Listing.Search`
+     *  (novels fold filters into the Popular/Latest listing, so there is no Search listing to test). */
+    val hasActiveFilters: Boolean
+        get() = source?.let { filterValues != defaultFilterValues(it.filters) } ?: false
+
     enum class Listing { Popular, Latest }
 }
 
