@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import logcat.LogPriority
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.toNovel
 import reikai.domain.novel.NovelChapterRepository
@@ -25,6 +26,7 @@ import reikai.presentation.novel.globalsearch.SearchState
 import reikai.presentation.novel.globalsearch.SourceSearchResult
 import reikai.presentation.novel.globalsearch.selectGlobalSearchSources
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
 import uy.kohesive.injekt.injectLazy
 
@@ -192,6 +194,7 @@ class NovelMigrationListScreenModel(
             state.value.rows.forEach { row ->
                 val target = row.chosenTarget ?: return@forEach
                 runCatching { migrateNovel(row.novel, target, flags, replace) }
+                    .onFailure { logcat(LogPriority.ERROR, it) { "Novel migration failed" } }
             }
             mutableState.update { it.copy(isMigrating = false, migrated = true) }
         }

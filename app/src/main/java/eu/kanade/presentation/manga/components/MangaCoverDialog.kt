@@ -54,6 +54,9 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.clickableNoIndication
 
+// RK: inert. The cover dialog was unified into the shared reikai.presentation.components.EntryCoverDialog
+// (ported from this composable), so this Mihon original has no call sites. Left in place, not deleted:
+// it is the upstream-sync reference to diff future Mihon cover-dialog changes into EntryCoverDialog.
 @Composable
 fun MangaCoverDialog(
     manga: Manga,

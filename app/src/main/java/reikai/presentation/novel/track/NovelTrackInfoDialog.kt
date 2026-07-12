@@ -152,7 +152,6 @@ data class NovelTrackInfoDialogHomeScreen(
             },
             onCopyLink = { context.copyTrackerLink(it) },
             onTogglePrivate = { screenModel.togglePrivate(it) },
-            allowPrivate = true,
         )
     }
 

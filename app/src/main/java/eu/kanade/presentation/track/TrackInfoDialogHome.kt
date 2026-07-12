@@ -76,9 +76,6 @@ fun TrackInfoDialogHome(
     onRemoved: (TrackItem) -> Unit,
     onCopyLink: (TrackItem) -> Unit,
     onTogglePrivate: (TrackItem) -> Unit,
-    // RK --> novels have no private-listing column, so the toggle is hidden for them (Active #8)
-    allowPrivate: Boolean = true,
-    // RK <--
 ) {
     Column(
         modifier = Modifier
@@ -93,8 +90,7 @@ fun TrackInfoDialogHome(
             if (item.track != null) {
                 val supportsScoring = item.tracker.getScoreList().isNotEmpty()
                 val supportsReadingDates = item.tracker.supportsReadingDates
-                // RK: allowPrivate is false for novels (no private column)
-                val supportsPrivate = item.tracker.supportsPrivateTracking && allowPrivate
+                val supportsPrivate = item.tracker.supportsPrivateTracking
                 TrackInfoItem(
                     title = item.track.title,
                     tracker = item.tracker,

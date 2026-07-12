@@ -77,6 +77,7 @@ One line each; revive note where relevant.
 - **Upcoming / release calendar for novels** - LN sources rarely expose a reliable cadence; stays manga-only.
 - **Novel sources enable/disable filter screen** - add a bulk-toggle screen if managing many LN sources gets painful.
 - **Novel missing-chapter gap separators** - novel numbers are title-recognition-derived and source-order-sorted, so computed gaps would be mostly false.
+- **Hide the novel browse Latest chip** - considered gating it off like manga's `supportsLatest`, but 56% of LN plugins honor `showLatestNovels`, so Latest is a real listing (not a no-op) and the LN plugin API exposes no per-source latest capability to gate on. Kept as-is.
 - **Saved searches** (browse filter presets) - low value; the DB + serializer layer survives on `design/library-compose`. The 2026-07-04 Komikku parity audit rates it the top browse gap, but the "low value" call stands unless reopened.
 - **Per-source Feed** (latest / popular / saved-search rows as a source home) - depends on saved searches (parked above); parked together.
 - **Restore-path onboarding** - the restore log already lists what couldn't reinstall. See [novel-backup.md](docs/dev/plans/novel-backup.md).

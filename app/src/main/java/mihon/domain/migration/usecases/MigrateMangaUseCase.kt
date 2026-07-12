@@ -8,9 +8,11 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.CancellationException
+import logcat.LogPriority
 import mihon.domain.migration.models.MigrationFlag
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.manga.MangaMergeManager
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
@@ -155,6 +157,8 @@ class MigrateMangaUseCase(
             if (e is CancellationException) {
                 throw e
             }
+            // RK: a failed migration was previously swallowed silently; surface it in the log
+            logcat(LogPriority.ERROR, e) { "Manga migration failed" }
         }
     }
 }

@@ -14,7 +14,7 @@ Tracking is a core reader-app expectation: users keep a single list of what they
 
 A "Tracking" action in the novel's overflow menu opens a sheet that looks and works exactly like the manga tracking sheet. Search the tracker for the matching title, bind it, then set status / chapters read / score / dates. The app pushes those values to the tracker as you read. Almost everything is Mihon's existing machinery; only a thin novel-specific layer sits on top.
 
-**The Tracking sheet.** The novel details overflow has a Tracking action that opens a sheet. Rather than build a parallel UI, the sheet reuses Mihon's manga tracking composables verbatim. A small carrier adapter converts a stored `NovelTrack` into Mihon's domain `Track` type (and back), so the same composables render novel tracks. One `// RK` `allowPrivate` flag was added so the sheet can hide the "private listing" toggle that novels don't support (see Decisions).
+**The Tracking sheet.** The novel details overflow has a Tracking action that opens a sheet. Rather than build a parallel UI, the sheet reuses Mihon's manga tracking composables verbatim. A small carrier adapter converts a stored `NovelTrack` into Mihon's domain `Track` type (and back), so the same composables render novel tracks.
 
 **Reusing Mihon's Tracker services and OAuth.** The four trackers (AniList, MyAnimeList, MangaUpdates, Kitsu) are Mihon's own `Tracker` service classes. Sign-in (OAuth), the "find this entry by remote id" path, and the per-field update calls are all reused as-is. No new tracker service exists. This is why only four trackers are supported: they are the mainstream ones Mihon ships that can plausibly carry a light novel.
 
@@ -54,7 +54,6 @@ Mihon files patched with `// RK` islands (search path, sheet wiring, DI):
 
 - `app/src/main/java/eu/kanade/tachiyomi/data/track/{anilist,kitsu,mangaupdates,myanimelist}/`: the four `searchNovel()` paths in each tracker + its API class.
 - `app/src/main/java/eu/kanade/tachiyomi/data/track/Tracker.kt`: the `searchNovel` contract addition.
-- `app/src/main/java/eu/kanade/presentation/track/TrackInfoDialogHome.kt`: the `allowPrivate` flag.
 - `app/src/main/java/eu/kanade/domain/DomainModule.kt`: DI registration of the novel track repo + interactors. `app/src/main/java/eu/kanade/tachiyomi/di/AppModule.kt` registers only the `NovelDelayedTrackingStore` (the offline queue).
 
 UI / sync wiring:
@@ -71,7 +70,7 @@ Shipped in commit `7c56e07eb`, on-device verified (Z Fold). Roadmap Active item 
 
 - **Reuse Mihon's tracker infrastructure rather than build novel-specific trackers.** The four supported trackers are Mihon's own `Tracker` services; novels ride the same OAuth, find, and update code. Only `search()` needed a novel branch. This keeps the patch surface against upstream small and inherits Mihon's maintenance of those services.
 
-- **No private listing.** Mihon's manga tracking can mark an entry "private" on the tracker. The `novel_tracks` table shipped without that column, and adding it would mean a migration for a low-value novel feature, so the private toggle is hidden in the novel sheet (the `// RK` `allowPrivate` flag). Tradeoff: novel tracks are always public on the service.
+- **Private listing supported (added later).** Mihon's manga tracking can mark an entry "private" on the tracker. The `novel_tracks` table first shipped without that column, so early novel tracks were always public; the `private` column was later added (25.sqm), so the private toggle now appears in the novel sheet and syncs to the service like manga. The vestigial `allowPrivate` gate that once hid it has since been removed.
 
 - **No on-bind start-date backfill.** Binding a novel does not auto-fill a start date the way some flows might. The date fields are still settable manually in the sheet. Keeps bind logic simple and avoids guessing a date the user may not want.
 
