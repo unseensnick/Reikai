@@ -170,7 +170,7 @@ class NovelUpdateJob(
      *  pages. Returns the chapters that did not exist before (the before/after id diff). */
     private suspend fun checkNovel(novel: Novel, source: NovelSource): List<NovelChapter> {
         val before = chapterRepo.getByNovelId(novel.id).map { it.id }.toSet()
-        refreshNovelFromSource(novel, source, chapterRepo, novelRepo, database)
+        refreshNovelFromSource(novel, source, chapterRepo, novelRepo, database, novelDownloadManager = downloadManager)
         val after = chapterRepo.getByNovelId(novel.id)
         return after.filter { it.id !in before }
     }

@@ -218,7 +218,7 @@ class DomainModule : InjektModule {
         addFactory { DeleteNovelCategories(get()) }
         addFactory { ReorderNovelCategories(get()) }
         addFactory { UpdateNovel(get()) }
-        addFactory { DeleteNovelChaptersAfterRead(get(), get(), get()) }
+        addFactory { DeleteNovelChaptersAfterRead(get(), get(), get(), get()) }
         addFactory { SetNovelReadStatus(get(), get()) }
         addFactory { SetNovelChapterFlags(get()) }
         addFactory { SetNovelViewerFlags(get()) }

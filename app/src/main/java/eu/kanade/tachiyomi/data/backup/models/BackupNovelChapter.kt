@@ -19,8 +19,8 @@ class BackupNovelChapter(
     @ProtoNumber(9) var dateUpload: Long = 0,
     // page: volume/section label for paged sources; empty when the source doesn't expose it.
     @ProtoNumber(10) var page: String = "",
-    // isDownloaded is intentionally not carried: the on-disk text file isn't in the backup, so a
-    // restored chapter is never downloaded (defaults false in toChapterImpl).
+    // No download flag is carried: the on-disk text file isn't in the backup, so downloaded state is
+    // rederived from disk by NovelDownloadCache after restore.
 ) {
     fun toChapterImpl(novelId: Long): NovelChapter {
         return NovelChapter(
@@ -36,7 +36,6 @@ class BackupNovelChapter(
             dateFetch = this@BackupNovelChapter.dateFetch,
             dateUpload = this@BackupNovelChapter.dateUpload,
             page = this@BackupNovelChapter.page,
-            isDownloaded = false,
         )
     }
 }

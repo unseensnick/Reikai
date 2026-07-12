@@ -167,11 +167,13 @@ class MigrateNovelUseCaseTest {
     @Test
     fun `remove-download flag deletes the source's downloaded chapters`() = runTest {
         val repo = mockk<NovelChapterRepository>(relaxed = true) {
-            coEvery { getByNovelId(1L) } returns
-                listOf(chapter(1, 1.0, downloaded = true), chapter(2, 2.0, downloaded = false))
+            coEvery { getByNovelId(1L) } returns listOf(chapter(1, 1.0), chapter(2, 2.0))
             coEvery { getByNovelId(2L) } returns emptyList()
         }
-        val downloadManager = mockk<NovelDownloadManager>(relaxed = true)
+        // Downloaded state now comes from the cache via the manager, not a chapter flag.
+        val downloadManager = mockk<NovelDownloadManager>(relaxed = true) {
+            every { isChapterDownloaded(any(), match { it.id == 1L }) } returns true
+        }
 
         useCase(novelChapterRepository = repo, novelDownloadManager = downloadManager)(
             novel(1),
@@ -189,7 +191,6 @@ class MigrateNovelUseCaseTest {
         read: Boolean = false,
         bookmark: Boolean = false,
         progress: Long = 0,
-        downloaded: Boolean = false,
     ) = NovelChapter(
         id = id,
         novelId = 1L,
@@ -203,7 +204,6 @@ class MigrateNovelUseCaseTest {
         dateFetch = 0,
         dateUpload = 0,
         page = "",
-        isDownloaded = downloaded,
     )
 
     @Test
@@ -266,13 +266,15 @@ class MigrateNovelUseCaseTest {
     @Test
     fun `re-download covers the target chapters matching downloaded source chapters`() {
         val current = listOf(
-            chapter(1, 1.0, downloaded = true),
-            chapter(2, 2.0, downloaded = false),
-            chapter(3, 3.0, downloaded = true),
+            chapter(1, 1.0),
+            chapter(2, 2.0),
+            chapter(3, 3.0),
         )
         val target = listOf(chapter(10, 1.0), chapter(11, 2.0), chapter(12, 3.0))
 
-        chaptersToRedownload(current, target).map { it.id } shouldContainExactlyInAnyOrder listOf(10L, 12L)
+        // Source chapters 1 and 3 are downloaded on disk (ids in the cache set).
+        chaptersToRedownload(current, target, setOf(1L, 3L)).map { it.id } shouldContainExactlyInAnyOrder
+            listOf(10L, 12L)
     }
 
     @Test
@@ -280,6 +282,6 @@ class MigrateNovelUseCaseTest {
         val current = listOf(chapter(1, 1.0, read = true))
         val target = listOf(chapter(10, 1.0))
 
-        chaptersToRedownload(current, target).shouldContainExactlyInAnyOrder(emptyList())
+        chaptersToRedownload(current, target, emptySet()).shouldContainExactlyInAnyOrder(emptyList())
     }
 }

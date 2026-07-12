@@ -29,6 +29,7 @@ import nl.adaptivity.xmlutil.serialization.DefaultXmlSerializationPolicy
 import nl.adaptivity.xmlutil.serialization.XML
 import nl.adaptivity.xmlutil.serialization.XmlConfig
 import reikai.domain.novel.track.NovelDelayedTrackingStore
+import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.NovelDownloadProvider
 import reikai.novel.host.LnPluginHost
@@ -148,6 +149,7 @@ class AppModule(val app: Application) : InjektModule {
         addSingletonFactory { LnPluginInstaller(get(), get(), get(), get(), get()) }
         addSingletonFactory { LnPluginUpdateChecker(get(), get()) }
         addSingletonFactory { NovelDownloadProvider() }
+        addSingletonFactory { NovelDownloadCache() }
         addSingletonFactory { NovelDownloadManager(app) }
         // RK <--
 

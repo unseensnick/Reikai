@@ -21,7 +21,6 @@ data class NovelUpdateWithRelations(
     val lastTextProgress: Long,
     val source: String,
     val dateFetch: Long,
-    val isDownloaded: Boolean,
     val coverData: NovelCover,
     val novelUrl: String,
 )

@@ -75,6 +75,7 @@ import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.track.toUiTrack
 import reikai.novel.download.NovelDownload
+import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
@@ -111,6 +112,7 @@ class NovelDetailsScreenModel(
     private val chapterRepo: NovelChapterRepository by injectLazy()
     private val database: Database by injectLazy()
     private val downloadManager: NovelDownloadManager by injectLazy()
+    private val novelDownloadCache: NovelDownloadCache by injectLazy()
     private val sourceManager: NovelSourceManager by injectLazy()
     private val installer: LnPluginInstaller by injectLazy()
     private val getNovelCategories: GetNovelCategories by injectLazy()
@@ -250,8 +252,8 @@ class NovelDetailsScreenModel(
     }
 
     /** Mirror the live download queue into [NovelDetailsState.Loaded.downloadStates]. Only the active
-     *  queue states (queued/downloading/error) live here; a finished download is read from the
-     *  chapter row's `isDownloaded` flag instead (see the chapter list's downloadStateProvider). */
+     *  queue states (queued/downloading/error) live here; a finished download is read from
+     *  [NovelDetailsState.Loaded.downloadedChapterIds] (disk-derived) instead. */
     private fun observeDownloadQueue() {
         screenModelScope.launchIO {
             downloadManager.queueState.collectLatest { queue ->
@@ -377,7 +379,12 @@ class NovelDetailsScreenModel(
      *  list (no pagination, pages don't align across sources). Each chapter keeps its own novelId. */
     private suspend fun observeUnifiedChapters(anchor: Novel, related: LongArray) {
         val flows = related.map { id -> chapterRepo.getByNovelIdAsFlow(id).map { id to it } }
-        combine(flows) { pairs -> pairs.toMap() }.collectLatest { byNovel ->
+        // Fold the download cache's change signal in so a download/delete rebuilds the list (the
+        // downloaded state is disk-derived now, not a chapter-row flow).
+        combine(
+            combine(flows) { pairs -> pairs.toMap() },
+            novelDownloadCache.changes,
+        ) { byNovel, _ -> byNovel }.collectLatest { byNovel ->
             val sources = siblingSources.value
             val sourceIdByNovel = byNovel.keys.associateWith { id -> sources[id]?.id.orEmpty() }
             val aggregated = NovelChapterAggregation.aggregate(
@@ -385,8 +392,21 @@ class NovelDetailsScreenModel(
                 sourceIdByNovel,
                 reikaiLibraryPreferences.preferredNovelSources.get(),
             )
-            rebuildLoaded(anchor, anchor, restampReadingOrder(aggregated), emptyList(), 0)
+            val ordered = restampReadingOrder(aggregated)
+            rebuildLoaded(anchor, anchor, ordered, emptyList(), 0, downloadedIdsFor(ordered))
         }
+    }
+
+    /** Disk-download membership (from NovelDownloadCache) for [chapters], resolving each chapter's
+     *  owning novel (a unified merged list spans several sources). Replaces the old is_downloaded flag. */
+    private suspend fun downloadedIdsFor(chapters: List<NovelChapter>): Set<Long> {
+        if (chapters.isEmpty()) return emptySet()
+        val novelsById = chapters.map { it.novelId }.distinct()
+            .mapNotNull { id -> novelRepo.getById(id)?.let { id to it } }
+            .toMap()
+        return chapters
+            .filter { ch -> novelsById[ch.novelId]?.let { novelDownloadCache.isChapterDownloaded(it, ch) } == true }
+            .mapTo(HashSet()) { it.id }
     }
 
     /** Single-source view: the anchor (non-merged or its own chip) or a selected sibling, with that
@@ -406,8 +426,9 @@ class NovelDetailsScreenModel(
         } else {
             chapterRepo.getByNovelIdAndPageAsFlow(viewNovel.id, pageKey)
         }
-        chapterFlow.collectLatest { chapters ->
-            rebuildLoaded(anchor, viewNovel, chapters, pages, idx)
+        // Fold the download cache's change signal in so a download/delete rebuilds the list.
+        combine(chapterFlow, novelDownloadCache.changes) { chapters, _ -> chapters }.collectLatest { chapters ->
+            rebuildLoaded(anchor, viewNovel, chapters, pages, idx, downloadedIdsFor(chapters))
             if (chapters.isEmpty() && isAnchorView) {
                 if (pageKey == null) maybeFirstFetch(viewNovel) else maybeFetchPage(viewNovel, pageKey)
             }
@@ -430,6 +451,7 @@ class NovelDetailsScreenModel(
         chapters: List<NovelChapter>,
         pages: List<String>,
         pageIndex: Int,
+        downloadedChapterIds: Set<Long>,
     ) {
         val hidden = hiddenChaptersPref.get()
         val hasHiddenChapters = hidden.isNotEmpty() && chapters.any { hiddenKey(it) in hidden }
@@ -440,7 +462,7 @@ class NovelDetailsScreenModel(
         // reveals them (dimmed) in the list so they can be unhidden.
         val nonHidden = if (hidden.isEmpty()) chapters else chapters.filterNot { hiddenKey(it) in hidden }
         val visible = if (showHidden) chapters else nonHidden
-        val display = visible.sortedAndFiltered(anchor, novelPreferences)
+        val display = visible.sortedAndFiltered(anchor, novelPreferences, downloadedChapterIds)
         val resume = nonHidden.sortedBy { it.sourceOrder }.firstOrNull { !it.read }
         // When showing hidden, mark which displayed rows are hidden (dimmed + drives Hide/Unhide).
         val hiddenChapterIds = if (showHidden) {
@@ -465,6 +487,7 @@ class NovelDetailsScreenModel(
                 isPageLoading = loaded?.isPageLoading ?: false,
                 isRefreshing = loaded?.isRefreshing ?: false,
                 downloadStates = loaded?.downloadStates.orEmpty(),
+                downloadedChapterIds = downloadedChapterIds,
                 trackingCount = currentTrackingCount,
                 customInfo = currentCustomInfo,
                 dialog = loaded?.dialog,
@@ -565,7 +588,7 @@ class NovelDetailsScreenModel(
         if (chapters.isNotEmpty()) {
             // A paged source's first page is page "1"; tag it so the page-"1" query finds these rows.
             val pageTag = if (sourceNovel.totalPages > 1) "1" else null
-            syncChaptersWithNovelSource(chapters, target, chapterRepo, novelRepo, database, page = pageTag)
+            syncChaptersWithNovelSource(chapters, target, chapterRepo, novelRepo, database, page = pageTag, novelDownloadManager = downloadManager)
         }
         return target
     }
@@ -586,7 +609,7 @@ class NovelDetailsScreenModel(
             mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(isPageLoading = true) ?: it }
             try {
                 src.parsePage(novel.url, pageKey)?.chapters?.takeIf { it.isNotEmpty() }?.let {
-                    syncChaptersWithNovelSource(it, novel, chapterRepo, novelRepo, database, page = pageKey)
+                    syncChaptersWithNovelSource(it, novel, chapterRepo, novelRepo, database, page = pageKey, novelDownloadManager = downloadManager)
                 }
             } catch (_: Throwable) {
             } finally {
@@ -737,7 +760,7 @@ class NovelDetailsScreenModel(
     /** Shared favorite-refresh: parseNovel + merge + sync page 1 + walk newly-opened pages. Bounded,
      *  never a full fetch-all. Keeps the current novel on failure; returns the refreshed novel. */
     private suspend fun refreshNovel(src: NovelSource, novel: Novel): Novel =
-        runCatching { refreshNovelFromSource(novel, src, chapterRepo, novelRepo, database) }.getOrNull() ?: novel
+        runCatching { refreshNovelFromSource(novel, src, chapterRepo, novelRepo, database, novelDownloadManager = downloadManager) }.getOrNull() ?: novel
 
     private suspend fun forceRefreshViewedPage(loaded: NovelDetailsState.Loaded, updated: Novel, src: NovelSource) {
         val newTotalPages = updated.totalPages
@@ -748,7 +771,7 @@ class NovelDetailsScreenModel(
             val key = curPage.toString()
             runCatching {
                 src.parsePage(updated.url, key)?.chapters?.takeIf { it.isNotEmpty() }?.let {
-                    syncChaptersWithNovelSource(it, updated, chapterRepo, novelRepo, database, page = key)
+                    syncChaptersWithNovelSource(it, updated, chapterRepo, novelRepo, database, page = key, novelDownloadManager = downloadManager)
                 }
             }
         }
@@ -1055,8 +1078,13 @@ class NovelDetailsScreenModel(
             LibraryPreferences.ChapterSwipeAction.ToggleRead -> markChapterRead(chapter, !chapter.read)
             LibraryPreferences.ChapterSwipeAction.ToggleBookmark -> toggleChapterBookmark(chapter)
             LibraryPreferences.ChapterSwipeAction.Download -> {
-                val downloadState = (state.value as? NovelDetailsState.Loaded)?.downloadStates?.get(chapter.id)
-                    ?: if (chapter.isDownloaded) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED
+                val loaded = state.value as? NovelDetailsState.Loaded
+                val downloadState = loaded?.downloadStates?.get(chapter.id)
+                    ?: if (loaded?.downloadedChapterIds?.contains(chapter.id) == true) {
+                        Download.State.DOWNLOADED
+                    } else {
+                        Download.State.NOT_DOWNLOADED
+                    }
                 val downloadAction = when (downloadState) {
                     Download.State.NOT_DOWNLOADED, Download.State.ERROR -> ChapterDownloadAction.START_NOW
                     Download.State.QUEUE, Download.State.DOWNLOADING -> ChapterDownloadAction.CANCEL
@@ -1101,7 +1129,10 @@ class NovelDetailsScreenModel(
             // RK: hidden chapters are never bulk-downloaded, so drop them before picking targets.
             val hidden = hiddenChaptersPref.get()
             val available = chapterRepo.getByNovelId(loaded.novel.id).filterNot { hiddenKey(it) in hidden }
-            val targets = selectChaptersForDownloadAction(available, action)
+            val downloadedIds = available
+                .filter { downloadManager.isChapterDownloaded(loaded.novel, it) }
+                .mapTo(HashSet()) { it.id }
+            val targets = selectChaptersForDownloadAction(available, action, downloadedIds)
             if (targets.isNotEmpty()) downloadManager.downloadChapters(targets)
         }
     }
@@ -1147,8 +1178,11 @@ sealed interface NovelDetailsState {
         val isPageLoading: Boolean = false,
         val isRefreshing: Boolean = false,
         /** Live download-queue states by chapter id (queued/downloading/error only; a finished
-         *  download is signalled by the chapter row's `isDownloaded` flag). */
+         *  download is read from [downloadedChapterIds]). */
         val downloadStates: Map<Long, Download.State> = emptyMap(),
+        /** Chapter ids downloaded on disk, from NovelDownloadCache (replaces the old is_downloaded flag).
+         *  A finished download shows DOWNLOADED via membership here, not a queue state. */
+        val downloadedChapterIds: Set<Long> = emptySet(),
         /** Bound trackers on a logged-in service; drives the details action-row Tracking button (Active #8). */
         val trackingCount: Int = 0,
         /** Non-destructive edit-info overlay; the display applies it over [displayNovel] (the raw novel

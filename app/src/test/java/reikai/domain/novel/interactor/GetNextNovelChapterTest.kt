@@ -26,7 +26,6 @@ class GetNextNovelChapterTest {
         dateFetch = 0L,
         dateUpload = 0L,
         page = "",
-        isDownloaded = false,
     )
 
     @Test

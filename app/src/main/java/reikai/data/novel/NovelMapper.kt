@@ -69,8 +69,9 @@ fun mapNovel(
 
 /**
  * Maps a `novelLibraryView` row to [LibraryNovel]. The first 21 args are the `novels` columns (same
- * order as [mapNovel]); the trailing 7 are the view's aggregates. `sum(...)` columns arrive as
+ * order as [mapNovel]); the trailing 6 are the view's aggregates. `sum(...)` columns arrive as
  * `Double` (SQLDelight bypasses the Boolean adapter for aggregates), so they are narrowed to `Long`.
+ * The download count is not in the view: it comes from NovelDownloadCache (disk), filled in the model.
  */
 fun mapLibraryNovel(
     id: Long,
@@ -100,7 +101,6 @@ fun mapLibraryNovel(
     readCount: Double,
     latestUpload: Long,
     chapterFetchedAt: Long,
-    downloadCount: Double,
     bookmarkCount: Double,
     categories: String,
 ): LibraryNovel = LibraryNovel(
@@ -133,7 +133,8 @@ fun mapLibraryNovel(
     totalChapters = totalCount,
     readCount = readCount.toLong(),
     bookmarkCount = bookmarkCount.toLong(),
-    downloadCount = downloadCount.toLong(),
+    // placeholder; NovelLibraryScreenModel fills this from NovelDownloadCache
+    downloadCount = 0,
     latestUpload = latestUpload,
     chapterFetchedAt = chapterFetchedAt,
 )
@@ -215,7 +216,6 @@ fun mapNovelUpdate(
     thumbnailUrl: String?,
     coverLastModified: Long,
     dateFetch: Long,
-    isDownloaded: Boolean,
     novelUrl: String,
 ): NovelUpdateWithRelations = NovelUpdateWithRelations(
     novelId = novelId,
@@ -228,7 +228,6 @@ fun mapNovelUpdate(
     lastTextProgress = lastTextProgress,
     source = source,
     dateFetch = dateFetch,
-    isDownloaded = isDownloaded,
     novelUrl = novelUrl,
     coverData = NovelCover(
         url = thumbnailUrl,
@@ -285,7 +284,7 @@ fun mapNovelChapter(
     dateFetch: Long,
     dateUpload: Long,
     page: String,
-    isDownloaded: Boolean,
+    @Suppress("UNUSED_PARAMETER") isDownloaded: Boolean,
 ): NovelChapter = NovelChapter(
     id = id,
     novelId = novelId,
@@ -299,7 +298,7 @@ fun mapNovelChapter(
     dateFetch = dateFetch,
     dateUpload = dateUpload,
     page = page,
-    isDownloaded = isDownloaded,
+    // is_downloaded column ignored: downloaded state now comes from NovelDownloadCache (disk).
 )
 
 fun mapNovelCategory(

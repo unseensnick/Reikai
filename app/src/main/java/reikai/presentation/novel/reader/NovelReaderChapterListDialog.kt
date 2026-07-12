@@ -39,6 +39,7 @@ fun NovelReaderChapterListDialog(
     sourceNames: Map<Long, String>,
     currentChapterId: Long,
     downloadQueue: List<NovelDownload>,
+    downloadedChapterIds: Set<Long>,
     onClickChapter: (NovelChapter) -> Unit,
     onBookmark: (NovelChapter) -> Unit,
     onDownloadAction: (NovelChapter, ChapterDownloadAction) -> Unit,
@@ -51,8 +52,8 @@ fun NovelReaderChapterListDialog(
             return@AdaptiveSheet
         }
         val listState = rememberLazyListState(chapters.indexOfFirst { it.id == currentChapterId }.coerceAtLeast(0))
-        // Optimistic per-chapter override: deleteChapters runs async and the row reads chapter.isDownloaded
-        // from a snapshot, so without this a delete would leave the row showing as downloaded.
+        // Optimistic per-chapter override: deleteChapters runs async and the row reads the disk-download
+        // snapshot ([downloadedChapterIds]), so without this a delete would leave the row showing as downloaded.
         val stateOverrides = remember { mutableStateMapOf<Long, Download.State>() }
         // Merged novels show a source label, which can make a row two lines: top-align so titles and
         // the download icon line up (matches the novel details list).
@@ -68,7 +69,7 @@ fun NovelReaderChapterListDialog(
                 val downloadState = when {
                     active != null -> active.state.toDownloadState()
                     override != null -> override
-                    chapter.isDownloaded -> Download.State.DOWNLOADED
+                    chapter.id in downloadedChapterIds -> Download.State.DOWNLOADED
                     else -> Download.State.NOT_DOWNLOADED
                 }
                 MangaChapterListItem(

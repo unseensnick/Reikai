@@ -80,10 +80,6 @@ UPDATE novel_chapters SET
     page = coalesce(:page, page)
 WHERE _id = :chapterId;
 
-setDownloaded:
-UPDATE novel_chapters SET is_downloaded = :isDownloaded
-WHERE _id = :chapterId;
-
 delete:
 DELETE FROM novel_chapters
 WHERE _id = :chapterId;

@@ -398,6 +398,18 @@ class NovelReaderScreenModel(
         }
     }
 
+    /** Which of [chapters] are downloaded on disk (from NovelDownloadCache, via the manager). A snapshot
+     *  at sheet-open, matching how the sheet captures the chapter list once. Resolves each chapter's
+     *  owning novel (a merged read spans several). Replaces the old is_downloaded flag on the row. */
+    suspend fun downloadedChapterIds(chapters: List<NovelChapter>): Set<Long> {
+        val novelsById = chapters.map { it.novelId }.distinct()
+            .mapNotNull { id -> novelRepo.getById(id)?.let { id to it } }
+            .toMap()
+        return chapters
+            .filter { ch -> novelsById[ch.novelId]?.let { downloadManager.isChapterDownloaded(it, ch) } == true }
+            .mapTo(HashSet()) { it.id }
+    }
+
     private fun goTo(id: Long, markDepartedRead: Boolean = false) {
         // Record the outgoing chapter before switching (the analog of Mihon's loadNewChapter ->
         // updateHistory + restartReadTimer), then load the new one (loadCurrent resets the timer).
@@ -467,7 +479,10 @@ class NovelReaderScreenModel(
         if (index < 0) return
         val nextIds = orderedIds.drop(index + 1).take(ahead)
         val toDownload = nextIds.mapNotNull { chapterRepo.getById(it) }
-            .filterNot { downloadManager.isChapterDownloaded(it) }
+            .filterNot { ch ->
+                val novel = novelRepo.getById(ch.novelId) ?: return@filterNot false
+                downloadManager.isChapterDownloaded(novel, ch)
+            }
         if (toDownload.isNotEmpty()) downloadManager.downloadChapters(toDownload)
     }
 
@@ -640,7 +655,8 @@ class NovelReaderScreenModel(
      *  already inlined). Otherwise resolve the chapter's source and parse live, using the source site
      *  as the base URL so relative image URLs resolve. */
     private suspend fun loadChapterHtml(chapter: NovelChapter): Pair<String, String?> {
-        downloadManager.getChapterText(chapter)?.let { return it to null }
+        val novel = novelRepo.getById(chapter.novelId)
+        if (novel != null) downloadManager.getChapterText(novel, chapter)?.let { return it to null }
         val src = resolveSourceFor(chapter.novelId)
         return src.parseChapter(chapter.url) to src.site.ifBlank { null }
     }

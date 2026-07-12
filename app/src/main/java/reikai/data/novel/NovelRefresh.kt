@@ -3,6 +3,7 @@ package reikai.data.novel
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
+import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSource
 import tachiyomi.data.Database
 
@@ -46,6 +47,7 @@ suspend fun refreshNovelFromSource(
     novelChapterRepository: NovelChapterRepository,
     novelRepository: NovelRepository,
     database: Database,
+    novelDownloadManager: NovelDownloadManager? = null,
 ): Novel {
     val sourceNovel = source.parseNovel(novel.url)
     val parsed = sourceNovel.toNovel(sourceId = source.id, favorite = novel.favorite)
@@ -63,6 +65,7 @@ suspend fun refreshNovelFromSource(
             novelRepository,
             database,
             page = pageTag,
+            novelDownloadManager = novelDownloadManager,
         )
     }
     if (merged.totalPages > 1L) {
@@ -74,6 +77,7 @@ suspend fun refreshNovelFromSource(
             novelChapterRepository,
             novelRepository,
             database,
+            novelDownloadManager = novelDownloadManager,
         )
     }
     return merged

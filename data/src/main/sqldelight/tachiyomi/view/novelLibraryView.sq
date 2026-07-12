@@ -1,7 +1,8 @@
 -- RK: novel twin of libraryView (P5 S6). Favorited novels plus per-novel chapter counts (total,
--- read, latest upload, fetch date), a downloaded count off novel_chapters.is_downloaded (the
--- library download badge), and the concatenated category ids. No history / excluded_scanlators
--- joins: novels denormalize last_read_at onto the row and have no scanlators.
+-- read, latest upload, fetch date, bookmarks) and the concatenated category ids. The download count
+-- is not here: downloaded state now comes from NovelDownloadCache (disk), filled in the model. No
+-- history / excluded_scanlators joins: novels denormalize last_read_at onto the row and have no
+-- scanlators.
 CREATE VIEW novelLibraryView AS
 SELECT
     N.*,
@@ -9,7 +10,6 @@ SELECT
     coalesce(C.readCount, 0) AS readCount,
     coalesce(C.latestUpload, 0) AS latestUpload,
     coalesce(C.fetchedAt, 0) AS chapterFetchedAt,
-    coalesce(C.downloadCount, 0) AS downloadCount,
     coalesce(C.bookmarkCount, 0) AS bookmarkCount,
     coalesce(NC.categories, '0') AS categories
 FROM novels N
@@ -20,7 +20,6 @@ LEFT JOIN (
         sum(read) AS readCount,
         coalesce(max(novel_chapters.date_upload), 0) AS latestUpload,
         coalesce(max(novel_chapters.date_fetch), 0) AS fetchedAt,
-        sum(is_downloaded) AS downloadCount,
         sum(novel_chapters.bookmark) AS bookmarkCount
     FROM novel_chapters
     GROUP BY novel_chapters.novel_id

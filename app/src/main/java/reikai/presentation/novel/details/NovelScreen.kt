@@ -417,7 +417,11 @@ private fun NovelSelectionBar(
     val selected = state.chapters.filter { it.id in state.selection }
     fun isDownloaded(chapter: NovelChapter): Boolean {
         val downloadState = state.downloadStates[chapter.id]
-            ?: if (chapter.isDownloaded) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED
+            ?: if (chapter.id in state.downloadedChapterIds) {
+                Download.State.DOWNLOADED
+            } else {
+                Download.State.NOT_DOWNLOADED
+            }
         return downloadState == Download.State.DOWNLOADED
     }
 
@@ -667,7 +671,11 @@ private fun LazyListScope.novelChapterItems(
             downloadIndicatorEnabled = !state.selectionMode,
             downloadStateProvider = {
                 state.downloadStates[chapter.id]
-                    ?: if (chapter.isDownloaded) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED
+                    ?: if (chapter.id in state.downloadedChapterIds) {
+                        Download.State.DOWNLOADED
+                    } else {
+                        Download.State.NOT_DOWNLOADED
+                    }
             },
             downloadProgressProvider = { 0 },
             chapterSwipeStartAction = state.chapterSwipeStartAction,

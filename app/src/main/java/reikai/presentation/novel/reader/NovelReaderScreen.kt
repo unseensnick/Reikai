@@ -502,9 +502,11 @@ class NovelReaderScreen(
         if (chaptersOpen) {
             var chapters by remember { mutableStateOf<List<NovelChapter>?>(null) }
             var sourceNames by remember { mutableStateOf<Map<Long, String>>(emptyMap()) }
+            var downloadedChapterIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
             LaunchedEffect(Unit) {
                 val list = screenModel.chapterList()
                 sourceNames = screenModel.chapterSourceNames(list)
+                downloadedChapterIds = screenModel.downloadedChapterIds(list)
                 chapters = list
             }
             val downloadQueue by screenModel.downloadQueue.collectAsState()
@@ -514,6 +516,7 @@ class NovelReaderScreen(
                 sourceNames = sourceNames,
                 currentChapterId = screenModel.currentChapterId(),
                 downloadQueue = downloadQueue,
+                downloadedChapterIds = downloadedChapterIds,
                 onClickChapter = { ch ->
                     chaptersOpen = false
                     screenModel.goToChapter(ch.id)

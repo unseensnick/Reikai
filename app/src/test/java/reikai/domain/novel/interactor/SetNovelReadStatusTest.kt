@@ -13,7 +13,7 @@ class SetNovelReadStatusTest {
     private fun chapter(id: Long, novelId: Long = 1L, read: Boolean = false, progress: Long = 0L) = NovelChapter(
         id = id, novelId = novelId, url = "", name = "", read = read, bookmark = false,
         lastTextProgress = progress, chapterNumber = id.toDouble(), sourceOrder = id, dateFetch = 0L,
-        dateUpload = 0L, page = "", isDownloaded = false,
+        dateUpload = 0L, page = "",
     )
 
     private fun interactor(

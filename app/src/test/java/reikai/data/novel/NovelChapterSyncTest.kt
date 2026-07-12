@@ -5,6 +5,7 @@ import app.cash.sqldelight.async.coroutines.awaitAsOne
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
@@ -15,6 +16,7 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.ChapterItem
 import tachiyomi.data.Database
 
@@ -45,18 +47,22 @@ class NovelChapterSyncTest {
     ) = NovelChapter(
         id = id, novelId = 1L, url = url, name = "name", read = read, bookmark = bookmark,
         lastTextProgress = 0L, chapterNumber = number, sourceOrder = 0L, dateFetch = dateFetch,
-        dateUpload = 0L, page = "", isDownloaded = false,
+        dateUpload = 0L, page = "",
     )
 
-    private fun srcItem(url: String, number: Double) =
-        ChapterItem(name = "name", path = url, chapterNumber = number)
+    private fun srcItem(url: String, number: Double, name: String = "name") =
+        ChapterItem(name = name, path = url, chapterNumber = number)
 
     private class Synced(
         val result: Pair<List<NovelChapter>, List<NovelChapter>>,
         val inserted: List<InsertedRow>,
     )
 
-    private suspend fun sync(db: List<NovelChapter>, source: List<ChapterItem>): Synced {
+    private suspend fun sync(
+        db: List<NovelChapter>,
+        source: List<ChapterItem>,
+        downloadManager: NovelDownloadManager? = null,
+    ): Synced {
         mockkStatic("app.cash.sqldelight.async.coroutines.QueryExtensionsKt")
         val inserted = mutableListOf<InsertedRow>()
         val database = mockk<Database>(relaxed = true) {
@@ -79,7 +85,10 @@ class NovelChapterSyncTest {
         val novelRepository = mockk<NovelRepository>(relaxed = true)
         val novel = Novel.create().copy(id = 1L, title = "Test")
 
-        val result = syncChaptersWithNovelSource(source, novel, novelChapterRepository, novelRepository, database)
+        val result = syncChaptersWithNovelSource(
+            source, novel, novelChapterRepository, novelRepository, database,
+            novelDownloadManager = downloadManager,
+        )
         return Synced(result, inserted)
     }
 
@@ -129,6 +138,35 @@ class NovelChapterSyncTest {
         val source = listOf(srcItem("/c/5", number = 5.0), srcItem("/c/5/", number = 5.0))
 
         sync(emptyList(), source).inserted.map { it.url } shouldContainExactlyInAnyOrder listOf("/c/5", "/c/5/")
+    }
+
+    @Test
+    fun `a re-titled chapter triggers a download rename so its stable-name file follows`() = runTest {
+        // Same url, new name: a toChange whose downloaded file must be relocated (Option 1 rename-on-sync).
+        val old = dbChapter("/c/5", number = 5.0) // name = "name"
+        val source = listOf(srcItem("/c/5", number = 5.0, name = "Renamed"))
+        val downloadManager = mockk<NovelDownloadManager>(relaxed = true)
+
+        sync(listOf(old), source, downloadManager)
+
+        coVerify {
+            downloadManager.renameChapter(
+                match { it.id == 1L },
+                match { it.url == "/c/5" && it.name == "name" },
+                match { it.url == "/c/5" && it.name == "Renamed" },
+            )
+        }
+    }
+
+    @Test
+    fun `an unchanged chapter title does not trigger a download rename`() = runTest {
+        val old = dbChapter("/c/5", number = 5.0) // name = "name"
+        val source = listOf(srcItem("/c/5", number = 5.0)) // same name
+        val downloadManager = mockk<NovelDownloadManager>(relaxed = true)
+
+        sync(listOf(old), source, downloadManager)
+
+        coVerify(exactly = 0) { downloadManager.renameChapter(any(), any(), any()) }
     }
 
     @Test

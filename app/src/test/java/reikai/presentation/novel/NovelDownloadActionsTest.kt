@@ -11,7 +11,7 @@ class NovelDownloadActionsTest {
         NovelChapter(
             id = id, novelId = 1L, url = "u$id", name = "c$id", read = read, bookmark = bookmark,
             lastTextProgress = 0L, chapterNumber = id.toDouble(), sourceOrder = order,
-            dateFetch = 0L, dateUpload = 0L, page = "", isDownloaded = false,
+            dateFetch = 0L, dateUpload = 0L, page = "",
         )
 
     // sourceOrder deliberately shuffled; unread in source order is [12, 10, 13].
@@ -25,24 +25,24 @@ class NovelDownloadActionsTest {
 
     @Test
     fun `next 1 takes the first unread chapter in source order`() {
-        selectChaptersForDownloadAction(chapters, DownloadAction.NEXT_1_CHAPTER).map { it.id } shouldBe listOf(12L)
+        selectChaptersForDownloadAction(chapters, DownloadAction.NEXT_1_CHAPTER, emptySet()).map { it.id } shouldBe listOf(12L)
     }
 
     @Test
     fun `next N counts only unread and stops when fewer remain`() {
-        selectChaptersForDownloadAction(chapters, DownloadAction.NEXT_5_CHAPTERS).map { it.id } shouldBe
+        selectChaptersForDownloadAction(chapters, DownloadAction.NEXT_5_CHAPTERS, emptySet()).map { it.id } shouldBe
             listOf(12L, 10L, 13L)
     }
 
     @Test
     fun `unread returns every unread chapter in source order`() {
-        selectChaptersForDownloadAction(chapters, DownloadAction.UNREAD_CHAPTERS).map { it.id } shouldBe
+        selectChaptersForDownloadAction(chapters, DownloadAction.UNREAD_CHAPTERS, emptySet()).map { it.id } shouldBe
             listOf(12L, 10L, 13L)
     }
 
     @Test
     fun `bookmarked returns bookmarked chapters regardless of read state`() {
-        selectChaptersForDownloadAction(chapters, DownloadAction.BOOKMARKED_CHAPTERS).map { it.id } shouldBe
+        selectChaptersForDownloadAction(chapters, DownloadAction.BOOKMARKED_CHAPTERS, emptySet()).map { it.id } shouldBe
             listOf(11L, 13L)
     }
 }

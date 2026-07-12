@@ -36,6 +36,7 @@ import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownload
+import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
@@ -60,6 +61,7 @@ class NovelUpdatesScreenModel(
     private val setNovelReadStatus: SetNovelReadStatus = Injekt.get(),
     private val novelPreferences: NovelPreferences = Injekt.get(),
     private val downloadManager: NovelDownloadManager = Injekt.get(),
+    private val novelDownloadCache: NovelDownloadCache = Injekt.get(),
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
     private val updatesPreferences: UpdatesPreferences = Injekt.get(),
     private val getNovelCategories: GetNovelCategories = Injekt.get(),
@@ -135,14 +137,23 @@ class NovelUpdatesScreenModel(
                 filterFlow,
                 // Category filter + custom-info overlay share the 4th combine slot (combine caps at 5).
                 combine(categoryFilterFlow(), getCustomNovelInfo.subscribeAll(), ::Pair),
-            ) { updates, queue, filters, (categoryFilter, customInfo) ->
+                // Re-emit when a download/delete changes the disk index so the row icon refreshes.
+                novelDownloadCache.changes,
+            ) { updates, queue, filters, (categoryFilter, customInfo), _ ->
                 val queueById = queue.associate { it.chapterId to it.state.toDownloadState() }
                 updates
                     .map { update ->
                         NovelUpdatesItem(
                             update = update,
                             downloadState = queueById[update.chapterId]
-                                ?: if (update.isDownloaded) {
+                                ?: if (
+                                    novelDownloadCache.isChapterDownloaded(
+                                        update.source,
+                                        update.novelTitle,
+                                        update.chapterName,
+                                        update.chapterUrl,
+                                    )
+                                ) {
                                     Download.State.DOWNLOADED
                                 } else {
                                     Download.State.NOT_DOWNLOADED

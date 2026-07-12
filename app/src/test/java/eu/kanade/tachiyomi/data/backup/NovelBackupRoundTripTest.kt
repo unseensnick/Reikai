@@ -200,7 +200,9 @@ class NovelBackupRoundTripTest {
     }
 
     @Test
-    fun `BackupNovelChapter restores under the new novel id and is never marked downloaded`() {
+    fun `BackupNovelChapter restores under the new novel id`() {
+        // Downloaded state isn't in the backup or the model anymore; it's rederived from disk by
+        // NovelDownloadCache after restore.
         val chapter = BackupNovelChapter(url = "c1", name = "Chapter 1", read = true, lastTextProgress = 4200)
             .toChapterImpl(novelId = 42)
 
@@ -208,6 +210,5 @@ class NovelBackupRoundTripTest {
         chapter.url shouldBe "c1"
         chapter.read shouldBe true
         chapter.lastTextProgress shouldBe 4200L
-        chapter.isDownloaded shouldBe false
     }
 }

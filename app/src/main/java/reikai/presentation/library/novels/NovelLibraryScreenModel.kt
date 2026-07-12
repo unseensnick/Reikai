@@ -50,6 +50,7 @@ import reikai.domain.novel.model.toCategory
 import reikai.domain.novel.model.withCustomInfo
 import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.novel.track.toUiTrack
+import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
@@ -93,6 +94,7 @@ class NovelLibraryScreenModel :
     private val novelChapterRepository: NovelChapterRepository by injectLazy()
     private val novelCategoryRepository: NovelCategoryRepository by injectLazy()
     private val novelDownloadManager: NovelDownloadManager by injectLazy()
+    private val novelDownloadCache: NovelDownloadCache by injectLazy()
     private val getNovelCategories: GetNovelCategories by injectLazy()
 
     // Per-entry custom title/cover overrides, overlaid on the displayed rows (display-only).
@@ -139,7 +141,10 @@ class NovelLibraryScreenModel :
                 // Re-emit when sources (un)register so `sourceManager.get(...)` resolves once loaded.
                 // The custom-info overlay rides with the library so a title/cover edit re-emits too.
                 combine(
-                    novelRepository.getLibraryNovelAsFlow().combine(sourceManager.sources) { library, _ -> library },
+                    novelRepository.getLibraryNovelAsFlow()
+                        .combine(sourceManager.sources) { library, _ -> library }
+                        // Re-emit when a download/delete changes the disk index so the badge + filter refresh.
+                        .combine(novelDownloadCache.changes) { library, _ -> library },
                     getCustomNovelInfo.subscribeAll(),
                     // Whole-library novel tracks (novelId -> tracks) ride with the library so a bind/unbind
                     // re-sinks the tracker filter/sort/group; folded here to keep the main combine at 5 args.
@@ -274,7 +279,12 @@ class NovelLibraryScreenModel :
         collapsedKeys: Set<String>,
         atBottom: Boolean,
     ): State {
-        val filtered = library.filter { novel ->
+        // Downloaded state is disk-derived (NovelDownloadCache), not a DB column, so fill each novel's
+        // download count from the cache before it feeds the filter, sort, collapse, and badge.
+        val withCounts = library.map {
+            it.copy(downloadCount = novelDownloadCache.getDownloadCount(it.novel).toLong())
+        }
+        val filtered = withCounts.filter { novel ->
             (query.isNullOrBlank() || novel.matchesQuery(query)) &&
                 settings.filters.matches(novel, settings.downloadedOnly)
         }
@@ -646,7 +656,12 @@ class NovelLibraryScreenModel :
         val novelIds = state.value.selectedNovelIds
         screenModelScope.launchIO {
             novelIds.forEach { id ->
-                val targets = selectChaptersForDownloadAction(novelChapterRepository.getByNovelId(id), action)
+                val novel = novelRepository.getById(id) ?: return@forEach
+                val chapters = novelChapterRepository.getByNovelId(id)
+                val downloadedIds = chapters
+                    .filter { novelDownloadManager.isChapterDownloaded(novel, it) }
+                    .mapTo(HashSet()) { it.id }
+                val targets = selectChaptersForDownloadAction(chapters, action, downloadedIds)
                 if (targets.isNotEmpty()) novelDownloadManager.downloadChapters(targets)
             }
             clearSelection()
@@ -706,7 +721,13 @@ class NovelLibraryScreenModel :
                     updateNovel.awaitUpdateFavorite(novelId, favorite = false)
                 }
                 if (deleteDownloads) {
-                    val downloaded = novelChapterRepository.getByNovelId(novelId).filter { it.isDownloaded }
+                    val novel = novelRepository.getById(novelId)
+                    val downloaded = if (novel == null) {
+                        emptyList()
+                    } else {
+                        novelChapterRepository.getByNovelId(novelId)
+                            .filter { novelDownloadManager.isChapterDownloaded(novel, it) }
+                    }
                     if (downloaded.isNotEmpty()) novelDownloadManager.deleteChapters(downloaded)
                 }
             }

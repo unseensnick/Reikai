@@ -16,11 +16,13 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.i18n.MR
@@ -29,11 +31,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
 
 /**
- * App-scoped, text-only download engine for light-novel chapters. Mimics LNReader's shape: a single
- * sequential queue, one self-contained HTML file per chapter on disk (inline images embedded as
- * `data:` URIs), an `is_downloaded` DB flag. Deliberately NOT a copy of the manga
- * [eu.kanade.tachiyomi.data.download.DownloadManager] / Downloader stack (no pages, no on-disk cache,
- * no CBZ, no tall-image splitting).
+ * App-scoped, text-only download engine for light-novel chapters. A single sequential queue writes one
+ * self-contained HTML file per chapter on disk (inline images embedded as `data:` URIs) under a
+ * stable-name path ([NovelDownloadProvider]); "downloaded" is decided from a disk scan
+ * ([NovelDownloadCache]), so downloads survive reinstall / restore / storage-move. Lighter than the
+ * manga [eu.kanade.tachiyomi.data.download.DownloadManager] / Downloader stack (no pages, no CBZ, no
+ * tall-image splitting), but shares its naming + disk-cache approach.
  *
  * The actual draining runs inside [NovelDownloadJob] (a foreground worker) so downloads survive
  * backgrounding and resume after a restart; [downloadChapters] enqueues + persists, then starts the
@@ -43,6 +46,7 @@ import kotlin.random.Random
 class NovelDownloadManager(private val context: Context) {
 
     private val provider: NovelDownloadProvider by injectLazy()
+    private val cache: NovelDownloadCache by injectLazy()
     private val chapterRepo: NovelChapterRepository by injectLazy()
     private val novelRepo: NovelRepository by injectLazy()
     private val sourceManager: NovelSourceManager by injectLazy()
@@ -91,16 +95,17 @@ class NovelDownloadManager(private val context: Context) {
         }
     }
 
-    fun isChapterDownloaded(chapter: NovelChapter): Boolean =
-        provider.isChapterDownloaded(chapter.novelId, chapter.id)
+    fun isChapterDownloaded(novel: Novel, chapter: NovelChapter): Boolean =
+        cache.isChapterDownloaded(novel, chapter)
 
     /** The downloaded HTML for a chapter, or null when it isn't downloaded. No host involvement. */
-    fun getChapterText(chapter: NovelChapter): String? =
-        provider.readChapter(chapter.novelId, chapter.id)
+    fun getChapterText(novel: Novel, chapter: NovelChapter): String? =
+        provider.readChapter(novel, chapter)
 
     fun downloadChapters(chapters: List<NovelChapter>) {
-        val targets = chapters.mapNotNull { ch ->
-            if (provider.isChapterDownloaded(ch.novelId, ch.id)) return@mapNotNull null
+        // Callers filter out already-downloaded chapters via the cache; the drain skips any that slip
+        // through. No enqueue-time disk check here (it would need each chapter's owning Novel).
+        val targets = chapters.map { ch ->
             NovelDownload(novelId = ch.novelId, chapterId = ch.id, url = ch.url)
         }
         if (targets.isEmpty()) return
@@ -176,15 +181,26 @@ class NovelDownloadManager(private val context: Context) {
         if (downloads.any { it.state == NovelDownload.State.QUEUE }) NovelDownloadJob.start(context)
     }
 
+    /** Relocate a downloaded chapter's file after a source re-title, keeping the disk index in sync.
+     *  Called from the chapter sync; no-op when the chapter isn't downloaded. */
+    suspend fun renameChapter(novel: Novel, oldChapter: NovelChapter, newChapter: NovelChapter) {
+        val renamed = withIOContext { provider.renameChapter(novel, oldChapter, newChapter) }
+        if (renamed) cache.renameChapter(novel, oldChapter, newChapter)
+    }
+
     fun deleteChapters(chapters: List<NovelChapter>) {
         if (chapters.isEmpty()) return
         val ids = chapters.map { it.id }.toSet()
         _queueState.update { q -> q.filter { it.chapterId !in ids } }
         scope.launch {
+            val novelsById = chapters.map { it.novelId }.distinct()
+                .mapNotNull { id -> novelRepo.getById(id)?.let { id to it } }
+                .toMap()
             chapters.forEach { ch ->
                 store.remove(ch.id)
-                provider.deleteChapter(ch.novelId, ch.id)
-                chapterRepo.setDownloaded(ch.id, false)
+                val novel = novelsById[ch.novelId] ?: return@forEach
+                provider.deleteChapter(novel, ch)
+                cache.removeChapter(novel, ch)
             }
         }
     }
@@ -246,6 +262,7 @@ class NovelDownloadManager(private val context: Context) {
                 setState(next.chapterId, NovelDownload.State.DOWNLOADING)
                 _downloadingNovelId.value = next.novelId
                 val novel = novelRepo.getById(next.novelId)
+                val chapter = chapterRepo.getById(next.chapterId)
                 val total = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
                 onProgress(done, total, novel?.title.orEmpty())
                 // Try a few times before giving up so a transient network blip or a momentarily
@@ -258,11 +275,12 @@ class NovelDownloadManager(private val context: Context) {
                 while (true) {
                     ok = runCatching {
                         val source = novel?.let { sourceManager.get(it.source) } ?: return@runCatching false
+                        if (chapter == null) return@runCatching false
                         val html = source.parseChapter(next.url)
                         if (html.isBlank()) return@runCatching false
                         // Embed inline images so the saved file reads offline (see inlineChapterImages).
                         val selfContained = inlineChapterImages(html, source.site, networkHelper.client)
-                        provider.writeChapter(next.novelId, next.chapterId, selfContained)
+                        provider.writeChapter(novel, chapter, selfContained)
                     }.getOrElse {
                         lastError = it
                         logcat(LogPriority.ERROR, it) {
@@ -289,7 +307,7 @@ class NovelDownloadManager(private val context: Context) {
                     continue
                 }
                 if (ok) {
-                    chapterRepo.setDownloaded(next.chapterId, true)
+                    if (novel != null && chapter != null) cache.addChapter(novel, chapter)
                     store.remove(next.chapterId)
                     _queueState.update { q -> q.filter { it.chapterId != next.chapterId } }
                     done++

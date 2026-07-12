@@ -1,6 +1,7 @@
 package reikai.domain.novel.interactor
 
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownloadManager
 
@@ -15,6 +16,7 @@ class DeleteNovelChaptersAfterRead(
     private val novelPreferences: NovelPreferences,
     private val getNovelCategories: GetNovelCategories,
     private val downloadManager: NovelDownloadManager,
+    private val novelRepository: NovelRepository,
 ) {
 
     suspend fun await(novelId: Long, chapters: List<NovelChapter>) {
@@ -24,8 +26,11 @@ class DeleteNovelChaptersAfterRead(
             val cats = getNovelCategories.awaitByNovelId(novelId).map { it.id }.ifEmpty { listOf(0L) }
             if (cats.intersect(excluded.toSet()).isNotEmpty()) return
         }
+        val novel = novelRepository.getById(novelId) ?: return
         val allowBookmarked = novelPreferences.removeBookmarkedChapters().get()
-        val toDelete = chapters.filter { it.isDownloaded && (allowBookmarked || !it.bookmark) }
+        val toDelete = chapters.filter {
+            downloadManager.isChapterDownloaded(novel, it) && (allowBookmarked || !it.bookmark)
+        }
         if (toDelete.isNotEmpty()) downloadManager.deleteChapters(toDelete)
     }
 }

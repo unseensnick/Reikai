@@ -58,6 +58,11 @@ class MigrateNovelUseCase(
             } else {
                 emptyList()
             }
+            // Disk-download membership on the old source (from NovelDownloadCache), for both the
+            // re-download carry and the remove-download delete below.
+            val currentDownloadedIds = currentChapters
+                .filter { novelDownloadManager.isChapterDownloaded(current, it) }
+                .mapTo(HashSet()) { it.id }
 
             if (NovelMigrationFlag.CHAPTER in flags) {
                 val targetChapters = novelChapterRepository.getByNovelId(target.id)
@@ -67,7 +72,7 @@ class MigrateNovelUseCase(
                 // Re-queue downloads for the target chapters that were offline on the old source (the
                 // file isn't copied, it's re-fetched, like LNReader). downloadChapters skips ones the
                 // target already has.
-                chaptersToRedownload(currentChapters, targetChapters)
+                chaptersToRedownload(currentChapters, targetChapters, currentDownloadedIds)
                     .takeIf { it.isNotEmpty() }
                     ?.let { novelDownloadManager.downloadChapters(it) }
             }
@@ -88,7 +93,7 @@ class MigrateNovelUseCase(
             // Delete the old source's downloaded chapters (parity with manga's REMOVE_DOWNLOAD). The
             // file delete is a no-op when nothing is downloaded.
             if (NovelMigrationFlag.REMOVE_DOWNLOAD in flags) {
-                novelDownloadManager.deleteChapters(currentChapters.filter { it.isDownloaded })
+                novelDownloadManager.deleteChapters(currentChapters.filter { it.id in currentDownloadedIds })
             }
 
             updateNovel.await(
@@ -165,9 +170,10 @@ internal fun computeChapterMigration(
 internal fun chaptersToRedownload(
     currentChapters: List<NovelChapter>,
     targetChapters: List<NovelChapter>,
+    downloadedChapterIds: Set<Long>,
 ): List<NovelChapter> {
     val downloadedNumbers = currentChapters
-        .filter { it.isDownloaded && it.chapterNumber >= 0.0 }
+        .filter { it.id in downloadedChapterIds && it.chapterNumber >= 0.0 }
         .mapTo(HashSet()) { it.chapterNumber }
     if (downloadedNumbers.isEmpty()) return emptyList()
     return targetChapters.filter { it.chapterNumber >= 0.0 && it.chapterNumber in downloadedNumbers }

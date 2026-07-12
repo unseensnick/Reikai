@@ -6,6 +6,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
+import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.ChapterItem
 import tachiyomi.data.Database
 import tachiyomi.domain.chapter.service.ChapterRecognition
@@ -38,6 +39,7 @@ suspend fun syncChaptersWithNovelSource(
     novelRepository: NovelRepository,
     database: Database,
     page: String? = null,
+    novelDownloadManager: NovelDownloadManager? = null,
 ): Pair<List<NovelChapter>, List<NovelChapter>> {
     if (rawSourceChapters.isEmpty()) throw Exception("No chapters found")
 
@@ -70,6 +72,8 @@ suspend fun syncChaptersWithNovelSource(
 
     val toAdd = mutableListOf<NovelChapter>()
     val toChange = mutableListOf<NovelChapter>()
+    // (old, new) pairs for chapters whose title changed; their downloaded file is renamed post-commit.
+    val downloadRenames = mutableListOf<Pair<NovelChapter, NovelChapter>>()
 
     val duplicates = dbChapters.groupBy { it.url }
         .filter { it.value.size > 1 }
@@ -86,15 +90,16 @@ suspend fun syncChaptersWithNovelSource(
         if (dbChapter == null) {
             toAdd.add(sourceChapter)
         } else if (shouldUpdateDbNovelChapter(dbChapter, sourceChapter)) {
-            toChange.add(
-                dbChapter.copy(
-                    name = sourceChapter.name,
-                    dateUpload = sourceChapter.dateUpload,
-                    chapterNumber = sourceChapter.chapterNumber,
-                    sourceOrder = sourceChapter.sourceOrder,
-                    page = sourceChapter.page,
-                ),
+            val updated = dbChapter.copy(
+                name = sourceChapter.name,
+                dateUpload = sourceChapter.dateUpload,
+                chapterNumber = sourceChapter.chapterNumber,
+                sourceOrder = sourceChapter.sourceOrder,
+                page = sourceChapter.page,
             )
+            toChange.add(updated)
+            // A re-titled chapter changes its stable-name download path; queue its file rename below.
+            if (dbChapter.name != sourceChapter.name) downloadRenames += dbChapter to updated
         }
     }
 
@@ -175,6 +180,10 @@ suspend fun syncChaptersWithNovelSource(
 
     // novels.last_update tracks the last time the chapter list changed at all; only on a real change.
     novelRepository.update(NovelUpdate(id = novel.id, lastUpdate = System.currentTimeMillis()))
+
+    // Relocate any downloaded file whose chapter was re-titled, so recognition follows the new name
+    // (mirrors the manga rename-on-sync). No-op when the chapter isn't downloaded.
+    downloadRenames.forEach { (old, new) -> novelDownloadManager?.renameChapter(novel, old, new) }
 
     return insertedChapters.filterNot { it.url in changedOrDuplicateReadUrls } to
         toDelete.filterNot { it.url in changedOrDuplicateReadUrls }

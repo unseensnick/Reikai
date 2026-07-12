@@ -17,6 +17,7 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.model.hasCustomCover
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.NovelItem
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
@@ -55,6 +56,7 @@ class NovelMigrationListScreenModel(
     private val novelPreferences: NovelPreferences by injectLazy()
     private val migrateNovel: MigrateNovelUseCase by injectLazy()
     private val coverCache: CoverCache by injectLazy()
+    private val downloadManager: NovelDownloadManager by injectLazy()
 
     private val searchSemaphore = Semaphore(SEARCH_CONCURRENCY)
 
@@ -205,7 +207,7 @@ class NovelMigrationListScreenModel(
         val sourceNovel = source.parseNovel(url)
         novelRepository.insertOrGet(sourceNovel.toNovel(sourceId = source.id, favorite = false)) ?: return null
         val stored = novelRepository.getByUrlAndSource(url, source.id) ?: return null
-        refreshNovelFromSource(stored, source, chapterRepository, novelRepository, database)
+        refreshNovelFromSource(stored, source, chapterRepository, novelRepository, database, novelDownloadManager = downloadManager)
         return novelRepository.getByUrlAndSource(url, source.id)
     }
 
