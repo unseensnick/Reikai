@@ -144,8 +144,6 @@ data object LibraryTab : Tab {
         val activeIsLoading = if (isNovels) novelState.isLoading else state.isLoading
         val activeCollapsedCategories =
             if (isNovels) novelState.collapsedCategories else state.reikai.collapsedCategories
-        val activeCoercedActiveIndex =
-            if (isNovels) novelState.coercedActiveCategoryIndex else state.coercedActiveCategoryIndex
         val activeGetItems: (Category) -> List<LibraryItem> =
             if (isNovels) novelState::getItemsForCategory else state::getItemsForCategory
         val activeGetItemCount: (Category) -> Int? =
@@ -161,10 +159,19 @@ data object LibraryTab : Tab {
         // Single-list jumps (prev/next and the picker) are instant: categories can hold hundreds of
         // items, so animating across them stutters, while an instant jump stays snappy under rapid
         // taps (this is what Yōkai does). The tabbed pager animates its page transition.
-        val singleListGridState = rememberLazyGridState()
-        val pagerState = rememberPagerState(initialPage = activeCoercedActiveIndex) {
-            activeCategories.size
+        // RK: one scroll state per content type, so toggling the Manga/Novels chip preserves each
+        // view's own position instead of both sharing a single offset (upstream is manga-only). The
+        // active pair falls through to the current type, like the other `active*` locals above.
+        val mangaSingleListGridState = rememberLazyGridState()
+        val novelSingleListGridState = rememberLazyGridState()
+        val singleListGridState = if (isNovels) novelSingleListGridState else mangaSingleListGridState
+        val mangaPagerState = rememberPagerState(initialPage = state.coercedActiveCategoryIndex) {
+            state.displayedCategories.size
         }
+        val novelPagerState = rememberPagerState(initialPage = novelState.coercedActiveCategoryIndex) {
+            novelState.displayedCategories.size
+        }
+        val pagerState = if (isNovels) novelPagerState else mangaPagerState
         var pickerOpen by remember { mutableStateOf(false) }
         var hopperTarget by remember { mutableStateOf<Int?>(null) }
         var hopperDragAccum by remember { mutableFloatStateOf(0f) }
