@@ -164,6 +164,11 @@ object SettingsLibraryScreen : SearchableSettings {
                     ),
                     title = stringResource(MR.strings.pref_library_update_smart_update),
                 ),
+                // RK: novel twin of manga's hide-missing-chapter-indicators toggle (same string).
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.hideMissingChapters(),
+                    title = stringResource(MR.strings.pref_hide_missing_chapter_indicators),
+                ),
             ),
         )
     }

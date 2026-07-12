@@ -86,7 +86,11 @@ class NovelChapterSyncTest {
         val novel = Novel.create().copy(id = 1L, title = "Test")
 
         val result = syncChaptersWithNovelSource(
-            source, novel, novelChapterRepository, novelRepository, database,
+            source,
+            novel,
+            novelChapterRepository,
+            novelRepository,
+            database,
             novelDownloadManager = downloadManager,
         )
         return Synced(result, inserted)

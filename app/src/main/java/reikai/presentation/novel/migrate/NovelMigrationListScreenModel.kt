@@ -207,7 +207,14 @@ class NovelMigrationListScreenModel(
         val sourceNovel = source.parseNovel(url)
         novelRepository.insertOrGet(sourceNovel.toNovel(sourceId = source.id, favorite = false)) ?: return null
         val stored = novelRepository.getByUrlAndSource(url, source.id) ?: return null
-        refreshNovelFromSource(stored, source, chapterRepository, novelRepository, database, novelDownloadManager = downloadManager)
+        refreshNovelFromSource(
+            stored,
+            source,
+            chapterRepository,
+            novelRepository,
+            database,
+            novelDownloadManager = downloadManager,
+        )
         return novelRepository.getByUrlAndSource(url, source.id)
     }
 

@@ -44,10 +44,12 @@ import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.data.novel.toNovel
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelChapterAggregation
+import reikai.domain.novel.NovelChapterListEntry
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.buildNovelChapterListEntries
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.GetNovelTracks
@@ -88,6 +90,7 @@ import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.data.Database
+import tachiyomi.domain.chapter.service.missingChaptersCount
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.track.model.Track
@@ -463,6 +466,14 @@ class NovelDetailsScreenModel(
         val nonHidden = if (hidden.isEmpty()) chapters else chapters.filterNot { hiddenKey(it) in hidden }
         val visible = if (showHidden) chapters else nonHidden
         val display = visible.sortedAndFiltered(anchor, novelPreferences, downloadedChapterIds)
+        val sortDescending = anchor.effectiveSortDescending(novelPreferences)
+        // Header total is always shown when > 0; the inline gap separators are gated by the pref.
+        val missingChapterCount = display.map { it.chapterNumber }.missingChaptersCount()
+        val chapterListEntries = if (novelPreferences.hideMissingChapters().get()) {
+            display.map { NovelChapterListEntry.Item(it) }
+        } else {
+            buildNovelChapterListEntries(display, sortDescending)
+        }
         val resume = nonHidden.sortedBy { it.sourceOrder }.firstOrNull { !it.read }
         // When showing hidden, mark which displayed rows are hidden (dimmed + drives Hide/Unhide).
         val hiddenChapterIds = if (showHidden) {
@@ -479,6 +490,8 @@ class NovelDetailsScreenModel(
                 novel = anchor,
                 displayNovel = viewNovel,
                 chapters = display,
+                chapterListEntries = chapterListEntries,
+                missingChapterCount = missingChapterCount,
                 showHidden = showHidden,
                 hiddenChapterIds = hiddenChapterIds,
                 hasHiddenChapters = hasHiddenChapters,
@@ -499,15 +512,17 @@ class NovelDetailsScreenModel(
                 sourceUrl = viewSource?.site ?: source?.site ?: loaded?.sourceUrl,
                 novelWebUrl = (viewSource ?: source)?.webUrl(viewNovel.url) ?: loaded?.novelWebUrl,
                 sorting = anchor.effectiveSorting(novelPreferences),
-                sortDescending = anchor.effectiveSortDescending(novelPreferences),
+                sortDescending = sortDescending,
                 readFilter = anchor.effectiveReadFilter(novelPreferences),
                 bookmarkedFilter = anchor.effectiveBookmarkedFilter(novelPreferences),
                 downloadedFilter = anchor.effectiveDownloadedFilter(novelPreferences),
                 hideChapterTitles = anchor.effectiveHideChapterTitles(novelPreferences),
                 mergeSources = mergeChips.value,
                 selectedSourceNovelId = selectedSourceNovelId.value,
-                chapterSwipeStartAction = libraryPreferences.swipeToStartAction.get(),
-                chapterSwipeEndAction = libraryPreferences.swipeToEndAction.get(),
+                // RK: match manga's swipe mapping (MangaScreenModel): the start/end action fields cross
+                // the swipeToEnd/swipeToStart prefs, so a right-swipe reads the same on both content types.
+                chapterSwipeStartAction = libraryPreferences.swipeToEndAction.get(),
+                chapterSwipeEndAction = libraryPreferences.swipeToStartAction.get(),
             )
         }
         updateSeedColor(viewNovel)
@@ -588,7 +603,15 @@ class NovelDetailsScreenModel(
         if (chapters.isNotEmpty()) {
             // A paged source's first page is page "1"; tag it so the page-"1" query finds these rows.
             val pageTag = if (sourceNovel.totalPages > 1) "1" else null
-            syncChaptersWithNovelSource(chapters, target, chapterRepo, novelRepo, database, page = pageTag, novelDownloadManager = downloadManager)
+            syncChaptersWithNovelSource(
+                chapters,
+                target,
+                chapterRepo,
+                novelRepo,
+                database,
+                page = pageTag,
+                novelDownloadManager = downloadManager,
+            )
         }
         return target
     }
@@ -609,7 +632,15 @@ class NovelDetailsScreenModel(
             mutableState.update { (it as? NovelDetailsState.Loaded)?.copy(isPageLoading = true) ?: it }
             try {
                 src.parsePage(novel.url, pageKey)?.chapters?.takeIf { it.isNotEmpty() }?.let {
-                    syncChaptersWithNovelSource(it, novel, chapterRepo, novelRepo, database, page = pageKey, novelDownloadManager = downloadManager)
+                    syncChaptersWithNovelSource(
+                        it,
+                        novel,
+                        chapterRepo,
+                        novelRepo,
+                        database,
+                        page = pageKey,
+                        novelDownloadManager = downloadManager,
+                    )
                 }
             } catch (_: Throwable) {
             } finally {
@@ -760,7 +791,10 @@ class NovelDetailsScreenModel(
     /** Shared favorite-refresh: parseNovel + merge + sync page 1 + walk newly-opened pages. Bounded,
      *  never a full fetch-all. Keeps the current novel on failure; returns the refreshed novel. */
     private suspend fun refreshNovel(src: NovelSource, novel: Novel): Novel =
-        runCatching { refreshNovelFromSource(novel, src, chapterRepo, novelRepo, database, novelDownloadManager = downloadManager) }.getOrNull() ?: novel
+        runCatching {
+            refreshNovelFromSource(novel, src, chapterRepo, novelRepo, database, novelDownloadManager = downloadManager)
+        }.getOrNull()
+            ?: novel
 
     private suspend fun forceRefreshViewedPage(loaded: NovelDetailsState.Loaded, updated: Novel, src: NovelSource) {
         val newTotalPages = updated.totalPages
@@ -771,7 +805,15 @@ class NovelDetailsScreenModel(
             val key = curPage.toString()
             runCatching {
                 src.parsePage(updated.url, key)?.chapters?.takeIf { it.isNotEmpty() }?.let {
-                    syncChaptersWithNovelSource(it, updated, chapterRepo, novelRepo, database, page = key, novelDownloadManager = downloadManager)
+                    syncChaptersWithNovelSource(
+                        it,
+                        updated,
+                        chapterRepo,
+                        novelRepo,
+                        database,
+                        page = key,
+                        novelDownloadManager = downloadManager,
+                    )
                 }
             }
         }
@@ -1164,6 +1206,11 @@ sealed interface NovelDetailsState {
          *  repoints it at the selected source. */
         val displayNovel: Novel,
         val chapters: List<NovelChapter>,
+        /** The rendered chapter list: chapters interleaved with "N missing chapters" separators.
+         *  When the hide-missing pref is on, holds only the chapters. */
+        val chapterListEntries: List<NovelChapterListEntry> = emptyList(),
+        /** Total missing chapters across the whole visible list; drives the header warning (> 0). */
+        val missingChapterCount: Int = 0,
         /** True while hidden chapters are temporarily shown (dimmed). */
         val showHidden: Boolean = false,
         /** Ids of the displayed rows that are hidden (only non-empty when [showHidden]); drives dimming

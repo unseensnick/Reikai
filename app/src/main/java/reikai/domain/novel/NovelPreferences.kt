@@ -241,6 +241,10 @@ class NovelPreferences(
      *  [LibraryPreferences.defaultCategory]. -1 = prompt for a category when the user has any. */
     fun defaultNovelCategory() = preferenceStore.getInt("default_novel_category", -1)
 
+    /** Hide the inline "N missing chapters" separators in the details chapter list, the novel twin of
+     *  manga's [LibraryPreferences.hideMissingChapters]. The header warning stays regardless. */
+    fun hideMissingChapters() = preferenceStore.getBoolean("novel_hide_missing_chapters", false)
+
     // Downloads (S5). Key strings preserved from the Yōkai-era fork for upgrade continuity.
 
     /** Delete a downloaded chapter's offline copy once it's marked read. */

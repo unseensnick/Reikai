@@ -25,7 +25,8 @@ class NovelDownloadActionsTest {
 
     @Test
     fun `next 1 takes the first unread chapter in source order`() {
-        selectChaptersForDownloadAction(chapters, DownloadAction.NEXT_1_CHAPTER, emptySet()).map { it.id } shouldBe listOf(12L)
+        selectChaptersForDownloadAction(chapters, DownloadAction.NEXT_1_CHAPTER, emptySet()).map { it.id } shouldBe
+            listOf(12L)
     }
 
     @Test

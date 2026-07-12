@@ -14,6 +14,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Additions
 
+- **Novels now show where chapters are missing, like manga.** A "missing chapters" note appears between chapters when the numbering skips ahead, with a header summary; a Settings > Library toggle hides the inline markers.
 - **You can now fully edit a manga or novel's details, including its cover.** Change the title, author, artist, cover URL, description, tags, and status from the details screen; edits are stored separately (Reset restores the source) and show across your library, updates, and history.
 - **Fill a manga or novel's info straight from a bound tracker.** In Edit info, tap Fill from tracker to pull the title, author, artist, cover, description, and genres from a linked tracker (with a picker when more than one is linked).
 - **You can now hide individual chapters on a manga, just like novels.** Select chapters and hide them from the list; a "Show hidden chapters" toggle reveals them dimmed so you can unhide, and hidden chapters stay out of bulk downloads and the Resume button.
@@ -47,6 +48,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Fixes
 
+- **Swiping a novel chapter now matches manga.** The swipe-left/right actions were reversed on novels (swiping to mark-as-read bookmarked instead); they now follow your manga swipe setting.
 - **Your manga and novel libraries now each remember their own scroll position.** Switching between them with the Manga/Novels chip no longer carries one view's scroll over to the other.
 - **Your downloaded novels now survive reinstalling, restoring a backup, or moving storage.** Novel downloads are saved under stable, readable folders (source, title, chapter) and detected from disk, so the app no longer forgets them and re-downloading isn't a silent no-op.
 - **The novel reader's tap-to-hide toolbars, progress saving, and read-aloud now work in release builds.** They ran through an internal bridge that release-build optimization was stripping out, so they only worked in debug builds until now.

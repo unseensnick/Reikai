@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -39,6 +38,7 @@ import eu.kanade.presentation.manga.EditCoverAction
 import eu.kanade.presentation.manga.components.ChapterHeader
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.manga.components.MangaChapterListItem
+import eu.kanade.presentation.manga.components.MissingChapterCountListItem
 import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
@@ -47,6 +47,7 @@ import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import reikai.data.coil.NovelCover
+import reikai.domain.novel.NovelChapterListEntry
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.withCustomInfo
@@ -596,7 +597,7 @@ private fun LazyListScope.novelChapterHeaderItems(
             ChapterHeader(
                 enabled = !state.selectionMode,
                 chapterCount = state.chapters.size,
-                missingChapterCount = 0,
+                missingChapterCount = state.missingChapterCount,
                 onClick = screenModel::showChapterSettingsDialog,
             )
             if (state.isPaged) {
@@ -659,47 +660,75 @@ private fun LazyListScope.novelChapterItems(
     // slot). Single-source / per-source-chip views show nothing (the label would be redundant).
     val showSource = state.mergeSources.size > 1 && state.selectedSourceNovelId == null
     val sourceNames = if (showSource) state.mergeSources.associate { it.novelId to it.sourceName } else emptyMap()
-    items(items = state.chapters, key = { "chapter-${it.id}" }) { chapter ->
-        MangaChapterListItem(
-            title = chapterTitle(chapter, state.hideChapterTitles),
-            date = chapter.dateUpload.takeIf { it > 0L }?.let { relativeDateText(it) },
-            readProgress = (chapter.lastTextProgress / 100L).toInt().takeIf { !chapter.read && it > 0 }?.let { "$it%" },
-            scanlator = sourceNames[chapter.novelId],
-            read = chapter.read,
-            bookmark = chapter.bookmark,
-            selected = chapter.id in state.selection,
-            downloadIndicatorEnabled = !state.selectionMode,
-            downloadStateProvider = {
-                state.downloadStates[chapter.id]
-                    ?: if (chapter.id in state.downloadedChapterIds) {
-                        Download.State.DOWNLOADED
-                    } else {
-                        Download.State.NOT_DOWNLOADED
-                    }
-            },
-            downloadProgressProvider = { 0 },
-            chapterSwipeStartAction = state.chapterSwipeStartAction,
-            chapterSwipeEndAction = state.chapterSwipeEndAction,
-            onLongClick = { screenModel.toggleSelection(chapter.id, fromLongPress = true) },
-            onClick = {
-                if (state.selectionMode) {
-                    screenModel.toggleSelection(
-                        chapter.id,
-                        fromLongPress = false,
-                    )
-                } else {
-                    onChapterClick(chapter)
-                }
-            },
-            onDownloadClick = { screenModel.onChapterDownloadAction(chapter, it) },
-            onChapterSwipe = { screenModel.chapterSwipe(chapter, it) },
-            // Hidden chapters only appear while "Show hidden" is on; dim them to mark the state.
-            modifier = Modifier.alpha(if (chapter.id in state.hiddenChapterIds) HIDDEN_CHAPTER_ALPHA else 1f),
-            // Without a source label these rows are usually a single line; center so the title and
-            // download icon line up. The unified merged view (source label shown) keeps top alignment.
-            verticalAlignment = if (showSource) Alignment.Top else Alignment.CenterVertically,
-        )
+    // The list interleaves chapters with "N missing chapters" separators (built in the ScreenModel and
+    // gated by the hide-missing pref), so render per entry rather than straight over the chapter list.
+    state.chapterListEntries.forEach { entry ->
+        when (entry) {
+            is NovelChapterListEntry.Missing -> item(key = "missing-${entry.id}") {
+                MissingChapterCountListItem(entry.count)
+            }
+            is NovelChapterListEntry.Item -> item(key = "chapter-${entry.chapter.id}") {
+                NovelChapterRow(
+                    chapter = entry.chapter,
+                    state = state,
+                    screenModel = screenModel,
+                    showSource = showSource,
+                    sourceNames = sourceNames,
+                    onChapterClick = onChapterClick,
+                )
+            }
+        }
     }
+}
+
+@Composable
+private fun NovelChapterRow(
+    chapter: NovelChapter,
+    state: NovelDetailsState.Loaded,
+    screenModel: NovelDetailsScreenModel,
+    showSource: Boolean,
+    sourceNames: Map<Long, String>,
+    onChapterClick: (NovelChapter) -> Unit,
+) {
+    MangaChapterListItem(
+        title = chapterTitle(chapter, state.hideChapterTitles),
+        date = chapter.dateUpload.takeIf { it > 0L }?.let { relativeDateText(it) },
+        readProgress = (chapter.lastTextProgress / 100L).toInt().takeIf { !chapter.read && it > 0 }?.let { "$it%" },
+        scanlator = sourceNames[chapter.novelId],
+        read = chapter.read,
+        bookmark = chapter.bookmark,
+        selected = chapter.id in state.selection,
+        downloadIndicatorEnabled = !state.selectionMode,
+        downloadStateProvider = {
+            state.downloadStates[chapter.id]
+                ?: if (chapter.id in state.downloadedChapterIds) {
+                    Download.State.DOWNLOADED
+                } else {
+                    Download.State.NOT_DOWNLOADED
+                }
+        },
+        downloadProgressProvider = { 0 },
+        chapterSwipeStartAction = state.chapterSwipeStartAction,
+        chapterSwipeEndAction = state.chapterSwipeEndAction,
+        onLongClick = { screenModel.toggleSelection(chapter.id, fromLongPress = true) },
+        onClick = {
+            if (state.selectionMode) {
+                screenModel.toggleSelection(
+                    chapter.id,
+                    fromLongPress = false,
+                )
+            } else {
+                onChapterClick(chapter)
+            }
+        },
+        onDownloadClick = { screenModel.onChapterDownloadAction(chapter, it) },
+        onChapterSwipe = { screenModel.chapterSwipe(chapter, it) },
+        // Hidden chapters only appear while "Show hidden" is on; dim them to mark the state.
+        modifier = Modifier.alpha(if (chapter.id in state.hiddenChapterIds) HIDDEN_CHAPTER_ALPHA else 1f),
+        // Without a source label these rows are usually a single line; center so the title and
+        // download icon line up. The unified merged view (source label shown) keeps top alignment.
+        verticalAlignment = if (showSource) Alignment.Top else Alignment.CenterVertically,
+    )
 }
 
 private fun chapterTitle(chapter: NovelChapter, hideTitles: Boolean): String =
