@@ -54,6 +54,11 @@ class NovelDownloadManager(private val context: Context) {
     private val _queueState = MutableStateFlow<List<NovelDownload>>(emptyList())
     val queueState: StateFlow<List<NovelDownload>> = _queueState.asStateFlow()
 
+    /** The novel whose chapter is being actively downloaded, latched across the between-chapter pacing
+     *  delay so the queue UI's "Downloading" status doesn't flicker to "Queued" between chapters. */
+    private val _downloadingNovelId = MutableStateFlow<Long?>(null)
+    val downloadingNovelId: StateFlow<Long?> = _downloadingNovelId.asStateFlow()
+
     /** True while [runQueue] is draining; gates a single drain. */
     private val running = AtomicBoolean(false)
 
@@ -163,12 +168,29 @@ class NovelDownloadManager(private val context: Context) {
             }
             var done = 0
             while (true) {
-                val next = _queueState.value.firstOrNull { it.state == NovelDownload.State.QUEUE } ?: break
+                val next = _queueState.value.firstOrNull { it.state == NovelDownload.State.QUEUE }
+                if (next == null) {
+                    _downloadingNovelId.value = null
+                    break
+                }
+                // A lost connection (airplane mode, dropped network) isn't a download failure: pause and
+                // wait for it to return instead of erroring chapters, mirroring the Wi-Fi-only pause below.
+                if (!context.activeNetworkState().isOnline) {
+                    _downloadingNovelId.value = null
+                    while (!context.activeNetworkState().isOnline) {
+                        val pending = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
+                        onProgress(done, pending, context.stringResource(MR.strings.download_notifier_no_network))
+                        delay(WIFI_RECHECK_MS)
+                    }
+                    continue
+                }
                 // Honor the shared "download only over Wi-Fi" preference: pause (don't drop) the drain
                 // while it's on and we're off Wi-Fi, and resume on its own once Wi-Fi is back. The worker
                 // stays foreground showing a "no Wi-Fi" notice, mirroring the manga DownloadJob (which keeps
                 // its worker alive and watches the network) instead of ending with the queue stuck.
                 if (downloadPreferences.downloadOnlyOverWifi.get() && !context.activeNetworkState().isWifi) {
+                    // Paused off Wi-Fi: nothing is downloading, so the UI should read Queued, not Downloading.
+                    _downloadingNovelId.value = null
                     while (downloadPreferences.downloadOnlyOverWifi.get() && !context.activeNetworkState().isWifi) {
                         val pending = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
                         onProgress(done, pending, context.stringResource(MR.strings.download_notifier_text_only_wifi))
@@ -177,6 +199,7 @@ class NovelDownloadManager(private val context: Context) {
                     continue // re-pick the next chapter: the queue may have changed while we waited
                 }
                 setState(next.chapterId, NovelDownload.State.DOWNLOADING)
+                _downloadingNovelId.value = next.novelId
                 val novel = novelRepo.getById(next.novelId)
                 val total = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
                 onProgress(done, total, novel?.title.orEmpty())
@@ -186,6 +209,7 @@ class NovelDownloadManager(private val context: Context) {
                 var ok = false
                 var attempt = 0
                 var lastError: Throwable? = null
+                var connectionLost = false
                 while (true) {
                     ok = runCatching {
                         val source = novel?.let { sourceManager.get(it.source) } ?: return@runCatching false
@@ -201,10 +225,23 @@ class NovelDownloadManager(private val context: Context) {
                         }
                         false
                     }
-                    if (ok || attempt >= MAX_RETRIES) break
+                    if (ok) break
+                    // A drop mid-download is a pause, not a failure: stop retrying and let the top-of-loop
+                    // connectivity check wait it out, instead of spending retries and erroring the chapter.
+                    if (!context.activeNetworkState().isOnline) {
+                        connectionLost = true
+                        break
+                    }
+                    if (attempt >= MAX_RETRIES) break
                     attempt++
                     // Exponential backoff: 2s, 4s, 8s.
                     delay((1L shl attempt) * 1000L)
+                }
+                if (connectionLost) {
+                    // Requeue so it's re-picked when the connection returns (not left DOWNLOADING or ERROR).
+                    setState(next.chapterId, NovelDownload.State.QUEUE)
+                    _downloadingNovelId.value = null
+                    continue
                 }
                 if (ok) {
                     chapterRepo.setDownloaded(next.chapterId, true)
@@ -237,6 +274,7 @@ class NovelDownloadManager(private val context: Context) {
                 }
             }
         } finally {
+            _downloadingNovelId.value = null
             running.set(false)
         }
     }

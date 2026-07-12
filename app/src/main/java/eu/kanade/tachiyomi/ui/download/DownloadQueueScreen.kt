@@ -57,7 +57,7 @@ import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.download.DownloadQueueSortKey
 import reikai.presentation.download.DownloadQueueSortSheet
-import reikai.presentation.download.NovelDownloadQueueList
+import reikai.presentation.download.EntryDownloadCardList
 import reikai.presentation.download.NovelDownloadQueueScreenModel
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.i18n.MR
@@ -83,7 +83,8 @@ object DownloadQueueScreen : Screen() {
         val novelModel = rememberScreenModel { NovelDownloadQueueScreenModel() }
         val novelItems by novelModel.state.collectAsState()
         val contentType by novelModel.contentType.collectAsState()
-        val novelCount = novelItems.size
+        // Cards aggregate by series, so the queue-size count is the pending chapters across them.
+        val novelCount = novelItems.sumOf { it.totalChapters - it.downloadedChapters }
         val showManga = contentType != ContentType.NOVELS
         val showNovels = contentType != ContentType.MANGA
         val shownCount = (if (showManga) downloadCount else 0) + (if (showNovels) novelCount else 0)
@@ -274,10 +275,10 @@ object DownloadQueueScreen : Screen() {
                         modifier = Modifier.padding(pad),
                     )
                 } else {
-                    NovelDownloadQueueList(
+                    EntryDownloadCardList(
                         items = novelItems,
-                        onReorder = novelModel::reorder,
-                        onCancel = novelModel::cancel,
+                        onReorder = novelModel::reorderBySeries,
+                        onCancel = novelModel::cancelSeries,
                         contentPadding = pad,
                     )
                 }

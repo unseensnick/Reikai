@@ -1126,6 +1126,11 @@
     <string name="download_queue_error">Couldn\'t download chapters. You can try again in the downloads section</string>
     <string name="download_insufficient_space">Couldn\'t download chapters due to low storage space</string>
     <string name="download_queue_size_warning">Warning: large bulk downloads may lead to sources becoming slower and/or blocking %s. Tap to learn more.</string>
+    <!-- RK: unified download-queue series cards (chapter count + status chip) -->
+    <string name="download_card_chapters">%1$d/%2$d chapters</string>
+    <string name="download_card_status_queued">Queued</string>
+    <string name="download_card_status_downloading">Downloading</string>
+    <string name="download_card_status_error">Error</string>
 
     <!-- Library update service notifications -->
     <string name="notification_updating_progress">Updating library… (%s)</string>
