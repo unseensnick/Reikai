@@ -1029,12 +1029,13 @@ class NovelDetailsScreenModel(
     }
 
     fun markSelectedRead(read: Boolean) = withSelection { chapters ->
-        setNovelReadStatus.await(read, chapters)
-        if (read) autoTrackOnMarkRead(chapters)
+        val expanded = expandToGroup(chapters)
+        setNovelReadStatus.await(read, expanded)
+        if (read) autoTrackOnMarkRead(expanded)
     }
 
     fun bookmarkSelected(bookmark: Boolean) = withSelection { chapters ->
-        chapters.forEach { chapterRepo.setBookmark(it.id, bookmark) }
+        expandToGroup(chapters).forEach { chapterRepo.setBookmark(it.id, bookmark) }
     }
 
     /** Mark every chapter before the earliest selected one (in source order) read/unread. Spans all
@@ -1042,10 +1043,13 @@ class NovelDetailsScreenModel(
     fun markPreviousRead(read: Boolean) {
         screenModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
-            val ascending = chapterRepo.getByNovelId(loaded.novel.id).sortedBy { it.sourceOrder }
+            // Query the viewed source (displayNovel), not the anchor: on a non-anchor source chip the
+            // selection ids belong to the sibling, so an anchor query never matches. expandToGroup then
+            // folds the result across the merge group.
+            val ascending = chapterRepo.getByNovelId(loaded.displayNovel.id).sortedBy { it.sourceOrder }
             val earliest = ascending.indexOfFirst { it.id in loaded.selection }
             if (earliest > 0) {
-                val previous = ascending.subList(0, earliest)
+                val previous = expandToGroup(ascending.subList(0, earliest))
                 setNovelReadStatus.await(read, previous)
                 if (read) autoTrackOnMarkRead(previous)
             }
@@ -1056,21 +1060,45 @@ class NovelDetailsScreenModel(
     fun markAllRead(read: Boolean) {
         screenModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
-            val all = chapterRepo.getByNovelId(loaded.novel.id)
+            val all = expandToGroup(chapterRepo.getByNovelId(loaded.displayNovel.id))
             setNovelReadStatus.await(read, all)
             if (read) autoTrackOnMarkRead(all)
         }
     }
 
     fun toggleChapterBookmark(chapter: NovelChapter) {
-        screenModelScope.launchIO { chapterRepo.setBookmark(chapter.id, !chapter.bookmark) }
+        screenModelScope.launchIO {
+            val target = !chapter.bookmark
+            expandToGroup(listOf(chapter)).forEach { chapterRepo.setBookmark(it.id, target) }
+        }
     }
 
     fun markChapterRead(chapter: NovelChapter, read: Boolean) {
         screenModelScope.launchIO {
-            setNovelReadStatus.await(read, listOf(chapter))
-            if (read) autoTrackOnMarkRead(listOf(chapter))
+            val expanded = expandToGroup(listOf(chapter))
+            setNovelReadStatus.await(read, expanded)
+            if (read) autoTrackOnMarkRead(expanded)
         }
+    }
+
+    /** Expand [chapters] to include the matching chapter (same recognized number) from every
+     *  grouped source, so read / bookmark applies across the whole merge group. No-op when not
+     *  merged or when none of the chapters have a recognized number. Mirrors
+     *  MangaScreenModel.expandToGroup; the recognized-number predicate is `chapterNumber >= 0.0`,
+     *  matching manga's `Chapter.isRecognizedNumber` (NovelChapter has no such property). */
+    private suspend fun expandToGroup(chapters: List<NovelChapter>): List<NovelChapter> {
+        val ids = relatedNovelIds.value
+        if (ids.size <= 1) return chapters
+        val numbers = chapters.asSequence().filter { it.chapterNumber >= 0.0 }.map { it.chapterNumber }.toHashSet()
+        if (numbers.isEmpty()) return chapters
+        val result = chapters.toMutableList()
+        val seen = chapters.mapTo(HashSet()) { it.id }
+        for (sibId in ids) {
+            chapterRepo.getByNovelId(sibId).forEach { c ->
+                if (c.chapterNumber >= 0.0 && c.chapterNumber in numbers && seen.add(c.id)) result += c
+            }
+        }
+        return result
     }
 
     // novel trackers (Active #8)
