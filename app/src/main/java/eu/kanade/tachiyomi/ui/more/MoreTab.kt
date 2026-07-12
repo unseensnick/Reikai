@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import mihon.feature.support.SupportUsScreen
+import reikai.novel.download.NovelDownloadManager
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -88,6 +89,7 @@ private class MoreScreenModel(
     preferences: BasePreferences = Injekt.get(),
     // RK -->
     exhPreferences: ExhPreferences = Injekt.get(),
+    novelDownloadManager: NovelDownloadManager = Injekt.get(),
     // RK <--
 ) : ScreenModel {
 
@@ -106,13 +108,18 @@ private class MoreScreenModel(
             combine(
                 downloadManager.isDownloaderRunning,
                 downloadManager.queueState,
-            ) { isRunning, downloadQueue -> Pair(isRunning, downloadQueue.size) }
-                .collectLatest { (isDownloading, downloadQueueSize) ->
-                    val pendingDownloadExists = downloadQueueSize != 0
+                // RK: fold the novel download queue into the More badge, so its count covers both types
+                novelDownloadManager.queueState,
+            ) { isRunning, downloadQueue, novelQueue ->
+                Triple(isRunning, downloadQueue.size, novelQueue.size)
+            }
+                .collectLatest { (isDownloading, mangaSize, novelSize) ->
+                    val pending = mangaSize + novelSize
                     _downloadQueueState.value = when {
-                        !pendingDownloadExists -> DownloadQueueState.Stopped
-                        !isDownloading -> DownloadQueueState.Paused(downloadQueueSize)
-                        else -> DownloadQueueState.Downloading(downloadQueueSize)
+                        pending == 0 -> DownloadQueueState.Stopped
+                        // RK: novels auto-drain with no user pause, so any pending novel is active
+                        !isDownloading && novelSize == 0 -> DownloadQueueState.Paused(pending)
+                        else -> DownloadQueueState.Downloading(pending)
                     }
                 }
         }
