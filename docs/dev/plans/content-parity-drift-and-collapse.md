@@ -1,0 +1,93 @@
+# Manga/novel parity: drift fixes + twin collapse (round 2)
+
+## Goal
+
+Close the manga/novel divergence the first unification wave left behind: fix the silent behavioural drifts a deep audit found in the still-twin surfaces (browse, global search, migration, the details/library action handlers), then collapse those remaining twin composables onto the shared `Entry*` seam so they cannot drift again.
+
+## Why
+
+The unified-content-UI program ([unified-content-ui.md](unified-content-ui.md)) collapsed the big surfaces (details, list rows, cover, download queue) and a 2026-07-09 audit closed the first round of parity gaps. But browse, global search, and migration are still full novel twins hand-synced against manga, and a deep code-research pass (2026-07-13, five explorer agents plus inline verification against current code) found they have **already silently drifted**: real behavioural gaps the shared surfaces never exposed. The worst is a data-consistency bug, a merged novel's read/bookmark does not propagate across its sources.
+
+Two tracks: **fix the drifts** (bugs, real user payoff), then **collapse the twins** (so future drift is structurally impossible), which is the program's core anti-divergence goal.
+
+## Approach
+
+Use the methods the program already established: a shared leaf composable plus per-type mappers plus optional slots (the `Entry*` seam); reuse a shared component with a content-type slot; content-type reorg; level the lagging type UP to parity or deliberately gate; behaviour/architecture mirroring. Phased, each phase its own commit(s), a `CHANGELOG.md` entry, and on-device Fold verification. Drift fixes ship first (small, high parity payoff); collapses follow (hygiene). Net-new shared composables live in `reikai.*`, so they never conflict with upstream; the only upstream coupling is the mapper, which is compile-caught.
+
+## Phases
+
+Each phase is its own commit(s), a `CHANGELOG.md` entry, and Fold verification. Sizes are rough. Symbols are cited by name (line numbers rot); the audit record has the exact `file:line`.
+
+### Phase 1: Silent-drift fixes (bugs first)
+
+Small level-ups and gates, each independently shippable. Priority order.
+
+**1a. Merged-novel read/bookmark cross-source propagation** `[S]`, highest value. The bug (verified): manga's `MangaScreenModel.expandToGroup` folds a mark-read/bookmark into every grouped source (it builds the set of recognized `chapterNumber`s, then for each sibling in `relatedMangaIds` appends the matching chapters), and both `markChaptersRead` and `bookmarkChapters` route through it. The novel twins do not, so in a merged novel the sibling source's equivalent chapter stays unread/unbookmarked when you switch source chips. Fix: add a `NovelExpandToGroup(chapters): List<NovelChapter>` helper that reads the already-held `NovelDetailsScreenModel.relatedNovelIds` (seeded from `NovelMergeManager.computeRelatedNovelIds`), returns the input when the group is one, else fetches each sibling via `NovelChapterRepository.getByNovelId` and appends chapters whose `chapterNumber > 0.0` (the novel "recognized number" predicate, same as `NovelChapterAggregation`) is in the set. Route all six entry points through it: `markSelectedRead`, `markChapterRead`, `markAllRead`, `markPreviousRead`, `bookmarkSelected`, `toggleChapterBookmark`. Note the repo asymmetry: read is bulk (`SetNovelReadStatus.await(read, list)`), bookmark is per-id (`setBookmark`, no bulk method), so the helper flips bookmark per chapter. Roughly a 15-line helper plus six one-line call-site wraps.
+
+**1b. Browse toolbar drifts.** Two cheap fixes plus one that needs a source-contract change:
+- *Reset filters on a Popular/Latest switch* `[XS]`. Manga calls `resetFilters()` before `setListing(...)`; the novel chip onClicks omit it, and `NovelBrowseScreenModel.setListing` keeps `filterValues` while `resetFilters` resets them to `defaultFilterValues`, so the filter draft silently carries across the switch. Add the reset call.
+- *Highlight the Filter chip when a filter is active* `[XS]`. Manga uses `selected = state.listing is Listing.Search`; the novel chip hard-codes `selected = false`. The novel `Listing` enum has no `Search` member, so the mirror is `selected = searching` (a query/filter listing is active) or a small new "filtered" state. One design call (below).
+- *Gate the Latest chip on source capability* `[M]`. Manga hides Latest unless `source.supportsLatest`; the novel chip renders unconditionally, so a plugin with no latest listing shows an empty page. **`NovelSource` has no latest-capability flag** (verified, none on the interface or `LnPluginSource`; latest is only the `showLatestNovels` option value), so a real gate needs a new `NovelSource.supportsLatest` contract field fed from the plugin manifest. Its own sub-item, or gate-and-defer.
+
+**1c. Novel global search: sink empty sources + progress** `[S]`. Manga's `SearchScreenModel.sortComparator` keys on empty/loading first and re-applies via `.toSortedMap` on every result batch, so empty/errored/pinned-but-empty sources sink below sources with hits as results land; the toolbar draws a `LinearProgressIndicator` from `progress`/`total`. The novel `results` list is ordered once by `selectGlobalSearchSources` (pinned-then-name) and updated in place: no re-sort, no progress. Fix: after each row update, re-sort by `(has hits, is pinned, name)`; add `progress`/`total` to `NovelGlobalSearchState` and a `LinearProgressIndicator` in `SourceFilterChips`. Fold this into Phase 3's shared orchestrator when that lands.
+
+**1d. First-download add-to-library prompt for novels** `[S]`. Manga's `MangaScreenModel.startDownload` shows the "add to library?" snackbar and favorites a non-favorite manga on the first download (one-shot `hasPromptedToAddBefore` flag). The novel download entry points (`onChapterDownloadAction`/`downloadSelected`/`runDownloadAction`) never prompt, though a browse-opened novel is a non-favorite shadow row. Add the same one-shot flag to `NovelDetailsState.Loaded`, guard on `!novel.favorite`, reuse the existing `snackbarHostState`, and on the action call `addToLibrary`/`toggleFavorite`.
+
+**1e. Migration blank re-search guard** `[XS]`. `NovelMigrationListScreenModel.runSearch` resets every source row to `SearchState.Loading` and only then returns on a blank query, so `research(id, "")` (the accept `IconButton` has no blank guard, and the override field can be cleared) leaves permanent spinners that hide the row's overflow menu. Fix: move the `if (query.isBlank()) return` above the Loading reset (blank becomes a true no-op, keeping existing candidates), and add `enabled = query.isNotBlank()` to the accept button.
+
+### Phase 2: Browse surface collapse
+
+The enabling decision is already made: the manga grid leaves (`MangaComfortableGridItem`/`MangaCompactGridItem`/`MangaListItem` in `CommonMangaItem.kt`) already take `coverData: Any` (with a `// RK` note that novels render through them), so the only real divergence is which cover model is built.
+
+**2a. Browse grid cells to a shared leaf + mapper** `[M]`, the keystone. `NovelBrowseGridCell` and the manga `BrowseSource*GridItem` wrappers call the same three leaves and differ only in `coverData` (`NovelCover` vs `MangaCover`) and the favorite flag. Add a neutral `EntryBrowseItemUi(title, cover: Any, coverAlpha, favorite, isSelected)` + `Manga.toBrowseUi` / `NovelItem.toBrowseUi` mappers + one `EntryBrowseGridCell(ui, displayMode, onClick, onLongClick)` that switches on display mode and calls the existing leaf. Reuses the already-shared `InLibraryBadge` (public per its `// RK` note), `BadgeGroup`, and `CommonMangaItemDefaults.BrowseFavoriteCoverAlpha`. Adult rides `Manga.toBrowseUi` unchanged (the only adult bypass is `useEhentaiView` to a separate EH list). This cell is the dependency for Phase 3.
+
+**2b. Source row / options dialog / filter+settings sheet chrome** `[S-M]`. `NovelSourceRow` reimplements `BaseSourceItem.defaultContent` over the already-shared `BaseBrowseItem`; the only per-type piece is the icon (`SourceIcon(Source)` vs `NovelSourceIcon(iconUrl)`), so a neutral `SourceRowContent(name, subtitle, iconSlot)` collapses it. `NovelSourceOptionsDialog` and the manga `SourceOptionsDialog` are the same clickable-`Text` `AlertDialog`; novel's `(title, isPinned, isDisabled, onPin, onToggleDisable)` signature is already the neutral one. The filter/settings sheets (`NovelSourceFilterSheet`/`NovelSourceSettingsSheet` vs `SourceFilterDialog`) share the exact chrome (`AdaptiveSheet` + sticky Reset/Apply header + the shared `CheckboxItem`/`TriStateItem`/`SelectItem`/`TextItem`/`HeadingItem` widgets): extract a `FilterSheetScaffold(onReset, onApply, onDismiss, content)`. **Blocker to full leaf-sharing:** the item dispatch, manga switches on the `Filter` sealed type with stateful `filter.state`, novel switches on the plugin JSON `schema["type"]` strings emitting `JsonElement`s, so the scaffold + widget rows share, the type-to-widget mapper stays per-type.
+
+**2c. Browse body + toolbar shell (optional)** `[M]`. `NovelBrowseBody` and `BrowseSourceContent` share the state-shell order (error, loading, empty, grid/list), extractable as a `BrowseContentShell(loading, isEmpty, error, actions){ leaf }`. **Blocker:** the paging model, manga is Paging3 (`LazyPagingItems` + `loadState`), novel is a manual `List<NovelItem>` + `LoadMoreOnScrollEnd`, so the grid-iteration adapter stays per-type; only the shell + the cell (2a) share. `BrowseSourceToolbar` already carries a `onToggleSelectionMode` bulk-select slot and is manga-typed only via `source: Source?` (name, `isLocal`, `isConfigurable`); shareable if reduced to those primitives. Drift to close along the way: the novel error EmptyScreen lacks the manga `label_help` action and shows no retry snackbar (manga shows an indefinite one).
+
+### Phase 3: Global search collapse `[M]` (depends on 2a)
+
+Manga already splits the pieces cleanly; novel fuses them into `SourceSection`. Collapse to: a shared `EntrySearchSection(title, subtitle, onClick, content)` (manga's `GlobalSearchResultItem` shape) + a shared `EntrySearchCardRow` whose leaf is Phase 2's `EntryBrowseGridCell` (so this is gated on 2a landing); one shared `SourceFilterChips(sourceFilter, onlyShowHasResults, onSetFilter, onToggleResults)` (the three chips are identical, same icons and MR strings); and one shared `SearchItemResult<T>{Loading, Success(List<T>), Error}` with `isEmpty`/`isVisible` (parameterize the error payload, manga carries a `Throwable`, novel a pre-formatted `String`). The orchestration seam is a `GlobalSearchOrchestrator<S,T>(sources, search, key)` fed by three per-type mappers (source-selection, the search call, the domain-item build); the 5-way concurrency is equivalent on both sides (thread pool vs `Semaphore(5)`), not a blocker. Stays per-type: the ScreenModel subclass (novel's `LnPluginInstaller.ensureLoaded`, string source ids, `NovelLibraryAdder`) and the cover/domain-item mapping. ~240 shared lines, gated on 2a. Fold 1c's re-sort + progress into the orchestrator here.
+
+### Phase 4: Library settings + leftover composables
+
+**4a. Notes screen scaffold level-up** `[S]`, cleanest small win. The shared `MangaNotesScreen` composable takes `MangaNotesScreen.State` but reads only `manga.title` (subtitle) + `notes`; `NovelNotesScreen` re-inlines the same Scaffold/AppBar/`MangaNotesTextArea` just to pass `novelTitle`. Change the shared composable to take primitives (`subtitle`, `notes`, `onUpdate`, `navigateUp`), drop the `State` dependency, and both screens call it. ~20 lines saved. (Confirm nothing else references `MangaNotesScreen.State` first.)
+
+**4b. Library Display tab to a shared leaf + slot** `[M]`. `DisplayPage` and `NovelDisplayPage` are near-identical (display-mode `FilterChip`s, columns `SliderItem`, badge `CheckboxItem`s, tabs section, `ReikaiCategoriesPage`), both already bound to the shared `LibrarySettingsScreenModel`. Collapse to `DisplayPage(screenModel, showLocalBadge: Boolean, mergeToggles: slot)`. The two genuine divergences: the merge-toggle block reads distinct prefs per type (manga `autoMergeSameTitle`/`showMergeSourceIcons`; novel `novelAutoMergeSameTitle`, conditional `novelAutoMergeRequireAuthor`, `showNovelMergeSourceIcons`), so it becomes a passed-in `mergeToggles` slot; the `localBadge` checkbox stays manga-only. ~90 lines. (Filter/Sort/Group tabs stay content-type-reorg, low value.)
+
+**4c. Shared selection-action + category-diff + download-selection interactors** `[M]`. `NovelLibraryScreenModel`'s `markReadSelection`/`performDownloadAction`/`removeNovels`/`setNovelCategories`/`openChangeCategoryDialog` mirror the `LibraryScreenModel` twins; both honor the delete-download guard (verified, no drift there). Two clean extractions: a pure `categoryDiff(perEntityCategoryIds) -> (common, mix)` (novel inlines it, manga has `getCommonCategories`/`getMixCategories`); and a generic `selectChaptersForDownloadAction<T>(chapters, action, downloadedIds)` (the novel `NovelDownloadActions` kernel is already the right shape; manga scatters the same logic across `getUnreadChaptersSorted`/`getBookmarkedChapters` plus inline filters). **Reconcile first:** the manga download-selection also excludes chapters already QUEUED, the novel kernel excludes only disk-downloaded ids; align on the manga behaviour (exclude queued too) before sharing, else it is a behavioural change. The mark-read/remove/setCategories twins stay thin per-type wrappers over their interactors.
+
+### Phase 5: Migration collapse (partial) `[M]`
+
+Already shared (confirmed): the merge-group source-pick pre-step (`MigrationSourcePickContent` + `PickMember`, `coverData: Any?`), consumed by both. New shares: the config source-select logic (partition/reorder/select-all plus a `MigrationSource` mapper; parameterize the `String`-vs-`Long` id and the source set, manga filters `HttpSource` + enabled languages, novel includes all plugin sources); and the per-source picker leaf (`MigrateEntryItem` + mapper). Genuinely divergent, keep separate (confirmed): the list-screen model, novel is search-on-scroll with per-row accept/override, manga is an eager `runMigrations` fan-out with `prioritizeByChapters`/`deepSearchMode` and a migrating-state machine; different interaction models and state shapes. ~180 new shared lines.
+
+### Phase 6: Track-info Screen/Model stack `[L]` (deferred)
+
+`NovelTrackInfoDialog` (~708 lines) is a near-verbatim clone of `TrackInfoDialog` (~847 lines); the leaf selectors (`TrackStatusSelector`/`TrackChapterSelector`/`TrackScoreSelector`/`TrackDateSelector`/`TrackerSearch`/`TrackInfoDialogHome`) are already shared. What differs is the Screen-wrapper + Model stack (Home + Status/Chapter/Score/Date/Remove/Search), on two axes: the carrier type (`Track` vs `NovelTrack`, bridged by the existing `toDbTrack`/`toUiTrack`), and the writer (manga calls `Tracker`/`BaseTracker` directly; novel routes through `NovelTrackUpdater`, which already re-exposes the same `setRemoteX(tracker, DbTrack, ...)` surface). Collapse via generic Screen components + a small updater-interface abstraction + the existing DbTrack mappers. The `EnhancedTracker` `onNewSearch` auto-bind branch stays a manga-only slot (novels have no enhanced trackers). High effort, low urgency, deferred.
+
+### Phase 7: Standalone novel quick wins (existing roadmap items)
+
+Independent small parity items already on the roadmap, foldable alongside the above: categorized-display correctness for novels; mark same-numbered duplicate chapters read on novel completion; tracker-based merge-group healing for novels; novel details skeleton loading. `[S]` each.
+
+## Key files
+
+- **Browse:** `reikai/presentation/novel/browse/*` and `reikai/presentation/browse/source/*` vs `eu/kanade/presentation/browse/*`, `eu/kanade/presentation/library/components/CommonMangaItem.kt`, and `eu/kanade/tachiyomi/ui/browse/*`.
+- **Global search:** `reikai/presentation/novel/globalsearch/*` vs `eu/kanade/tachiyomi/ui/browse/source/globalsearch/*` and `eu/kanade/presentation/browse/GlobalSearch*`.
+- **Migration:** `reikai/presentation/novel/migrate/*`, `reikai/presentation/browse/migrate/*`, and the already-shared `reikai/presentation/migrate/MigrationSourcePick` vs `mihon/feature/migration/*`.
+- **Action handlers:** `NovelDetailsScreenModel` / `NovelLibraryScreenModel` vs `MangaScreenModel` / `LibraryScreenModel`; `NovelDownloadActions`.
+- **Leftover composables:** `NovelNotesScreen`, `NovelLibrarySettingsDialog` (display page), `NovelTrackInfoDialog` + `NovelTrackUpdater`.
+
+## Status
+
+Planned 2026-07-13 from the deep audit, phases grounded 2026-07-13. Not started. Sits after the shipped round-1 program (see [unified-content-ui.md](unified-content-ui.md), "Post-P6 parity closes").
+
+## Decisions & tradeoffs
+
+- **Drifts before collapses:** the bugs are the real payoff; the collapses are anti-divergence hygiene.
+- **Sequencing:** Phase 3's shared search cell is gated on Phase 2's `EntryBrowseGridCell`; do 2a before 3. 1c (global-search sort + progress) can ship standalone or fold into the Phase 3 orchestrator.
+- **Reconcile before sharing (4c):** the novel download-selection kernel excludes only disk-downloaded chapters, manga also excludes queued ones; unify on the manga behaviour first, or the shared interactor silently changes novel behaviour.
+- **Open design calls:** the novel Filter chip's `selected` semantics (no `Listing.Search` equivalent exists, so it tracks `searching`, non-default filters, or the sheet-open state, a choice, not pinned by code); and whether the Latest gate (1b) warrants a new `NovelSource.supportsLatest` contract field or accepts always-on Latest.
+- **Refuted finding (not a task):** the "manga deletes bookmarked downloads on mark-read, novels do not" claim is likely not a real gap, manga applies the bookmark and excluded-category exclusion in `DownloadManager.getChaptersToDelete`, not in `SetReadStatus`. Confirm before assuming a bug.
+- **Genuinely not unified (gate, do not force):** the migration list-screen model (search-on-scroll vs eager fan-out); the chapter flag/sort bit layouts (`NovelChapterFlags` vs `Manga.*`); the two source-filter models (plugin JSON schema vs `FilterList`) block leaf-sharing the filter sheet, only its chrome collapses; the readers (separate engines).
+- **Related, tracked separately:** the download-subsystem unification (Road B) and the reader tsundoku track are their own initiatives, sequenced after this.
+- **Stale doc to fix opportunistically:** `NovelMergeCollapse`'s header comment says source-icons are "deferred" but they already ship.
