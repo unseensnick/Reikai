@@ -382,7 +382,9 @@ private fun NovelDetailsToolbar(
         onClickFilter = screenModel::showChapterSettingsDialog,
         onClickRefresh = screenModel::refresh,
         onClickEditCategory = screenModel::showChangeCategoryDialog,
-        onClickEditInfo = screenModel::showEditNovelInfoDialog,
+        // Editing display info is a library action (parity with manga): the overflow item hides
+        // until the novel is favorited, matching MangaScreen's takeIf { manga.favorite } gate.
+        onClickEditInfo = screenModel::showEditNovelInfoDialog.takeIf { state.novel.favorite },
         onClickEditNotes = onEditNotes,
         onClickShare = state.novelWebUrl?.let { { onShare() } },
         onClickManageSources = if (state.mergeSources.size > 1) screenModel::showManageSourcesDialog else null,
