@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import reikai.domain.library.ContentType
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -46,19 +47,24 @@ import tachiyomi.presentation.core.util.plus
 enum class EntryDownloadCardStatus { QUEUED, DOWNLOADING, ERROR }
 
 /**
- * Neutral, content-agnostic model for one download-queue card. Manga and novels each aggregate their
- * queue by series into this, so a single composable renders either (the unified-content-UI seam). A
- * card is a whole series (novel / manga), not a single chapter: [downloadedChapters] / [totalChapters]
- * is the aggregate progress, and reorder / cancel act on the series ([seriesId]).
+ * Neutral model for one download-queue card. Manga and novels each aggregate their queue by series
+ * into this, so a single composable renders either (the unified-content-UI seam), including the All
+ * view where both types share one list. A card is a whole series (novel / manga), not a single
+ * chapter: [downloadedChapters] / [totalChapters] is the aggregate progress, and reorder / cancel act
+ * on the series ([seriesId]). [contentType] routes those actions to the right queue and disambiguates
+ * the key, since a manga and a novel can share a numeric id.
  */
 data class EntryDownloadCardUi(
+    val contentType: ContentType,
     val seriesId: Long,
     val sourceName: String,
     val title: String,
     val downloadedChapters: Int,
     val totalChapters: Int,
     val status: EntryDownloadCardStatus,
-)
+) {
+    val cardKey: String get() = "${contentType.name}-$seriesId"
+}
 
 /**
  * The shared download-queue list for both content types: a flat, drag-reorderable list of per-series
@@ -72,58 +78,70 @@ data class EntryDownloadCardUi(
 @Composable
 fun EntryDownloadCardList(
     items: List<EntryDownloadCardUi>,
-    onReorder: (seriesIdsInOrder: List<Long>) -> Unit,
-    onCancel: (seriesId: Long) -> Unit,
+    onReorder: (contentType: ContentType, seriesIdsInOrder: List<Long>) -> Unit,
+    onCancel: (contentType: ContentType, seriesId: Long) -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
     val localItems = remember { items.toMutableStateList() }
     val listState = rememberLazyListState()
     var didDrag by remember { mutableStateOf(false) }
-    // The series order last committed here, held until the manager echoes it back (see class KDoc).
-    var committedOrder by remember { mutableStateOf<List<Long>?>(null) }
+    var draggedType by remember { mutableStateOf<ContentType?>(null) }
+    // The card-key order last committed here, held until the manager echoes it back (see class KDoc).
+    var committedOrder by remember { mutableStateOf<List<String>?>(null) }
 
     val reorderableState = rememberReorderableLazyListState(listState, contentPadding) { from, to ->
-        val fromIndex = localItems.indexOfFirst { it.seriesId == from.key }
-        val toIndex = localItems.indexOfFirst { it.seriesId == to.key }
+        val fromIndex = localItems.indexOfFirst { it.cardKey == from.key }
+        val toIndex = localItems.indexOfFirst { it.cardKey == to.key }
         if (fromIndex == -1 || toIndex == -1) return@rememberReorderableLazyListState
+        // Reorder within a content type only: manga and novels are separate queues, so in the All view
+        // the two blocks can't interleave.
+        if (localItems[fromIndex].contentType != localItems[toIndex].contentType) {
+            return@rememberReorderableLazyListState
+        }
         localItems.add(toIndex, localItems.removeAt(fromIndex))
+        draggedType = localItems[toIndex].contentType
         didDrag = true
     }
 
-    // Commit a series order locally (keeping each card's fresh content) and up to the manager.
-    fun commitOrder(order: List<Long>) {
-        val bySeries = localItems.associateBy { it.seriesId }
+    // Commit a new order for one content type (from a chevron): reorder that type's cards in place
+    // (other-type cards keep their slots), hold the order until echoed, and route to that type's queue.
+    fun commit(type: ContentType, typeIdsInOrder: List<Long>) {
+        val byId = localItems.filter { it.contentType == type }.associateBy { it.seriesId }
+        val reordered = typeIdsInOrder.mapNotNull { byId[it] }.iterator()
+        val rebuilt = localItems.map {
+            if (it.contentType == type && reordered.hasNext()) reordered.next() else it
+        }
         localItems.clear()
-        localItems.addAll(order.mapNotNull { bySeries[it] })
-        committedOrder = order
-        onReorder(order)
+        localItems.addAll(rebuilt)
+        committedOrder = localItems.map { it.cardKey }
+        onReorder(type, typeIdsInOrder)
     }
 
     LaunchedEffect(items) {
         if (reorderableState.isAnyItemDragging) return@LaunchedEffect
-        val incomingById = items.associateBy { it.seriesId }
-        val incomingIds = items.map { it.seriesId }
-        val localIds = localItems.map { it.seriesId }
+        val incomingByKey = items.associateBy { it.cardKey }
+        val incomingKeys = items.map { it.cardKey }
+        val localKeys = localItems.map { it.cardKey }
         val pending = committedOrder
         // Choose the order to display: adopt the manager's unless a committed order is still unechoed.
         val order = when {
-            pending == null -> incomingIds
-            pending.filter { it in incomingById } == incomingIds.filter { it in pending.toHashSet() } -> {
-                committedOrder = null // echo caught up (agrees across shared series)
-                incomingIds
+            pending == null -> incomingKeys
+            pending.filter { it in incomingByKey } == incomingKeys.filter { it in pending.toHashSet() } -> {
+                committedOrder = null // echo caught up (agrees across shared cards)
+                incomingKeys
             }
-            incomingIds.toHashSet() == localIds.toHashSet() -> localIds // stale, same membership: keep
+            incomingKeys.toHashSet() == localKeys.toHashSet() -> localKeys // stale, same membership: keep
             else -> { // membership and order both changed: a genuine external change, resync
                 committedOrder = null
-                incomingIds
+                incomingKeys
             }
         }
-        // Rebuild in the chosen order with fresh card content; append any series not in the order.
-        val seen = HashSet<Long>()
+        // Rebuild in the chosen order with fresh card content; append any card not in the order.
+        val seen = HashSet<String>()
         val rebuilt = buildList {
-            order.forEach { id -> incomingById[id]?.let { if (seen.add(id)) add(it) } }
-            items.forEach { if (seen.add(it.seriesId)) add(it) }
+            order.forEach { key -> incomingByKey[key]?.let { if (seen.add(key)) add(it) } }
+            items.forEach { if (seen.add(it.cardKey)) add(it) }
         }
         if (rebuilt != localItems.toList()) {
             localItems.clear()
@@ -133,9 +151,9 @@ fun EntryDownloadCardList(
     LaunchedEffect(reorderableState.isAnyItemDragging) {
         if (!reorderableState.isAnyItemDragging && didDrag) {
             didDrag = false
-            val order = localItems.map { it.seriesId }
-            committedOrder = order
-            onReorder(order)
+            val type = draggedType ?: return@LaunchedEffect
+            committedOrder = localItems.map { it.cardKey }
+            onReorder(type, localItems.filter { it.contentType == type }.map { it.seriesId })
         }
     }
 
@@ -146,21 +164,17 @@ fun EntryDownloadCardList(
         contentPadding = contentPadding + PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        items(localItems, key = { it.seriesId }) { item ->
-            ReorderableItem(reorderableState, key = item.seriesId) {
+        items(localItems, key = { it.cardKey }) { item ->
+            ReorderableItem(reorderableState, key = item.cardKey) {
+                val siblingsOfType = {
+                    localItems.filter { it.contentType == item.contentType && it.seriesId != item.seriesId }
+                        .map { it.seriesId }
+                }
                 EntryDownloadCard(
                     item = item,
-                    onMoveToTop = {
-                        commitOrder(
-                            listOf(item.seriesId) + localItems.map {
-                                it.seriesId
-                            }.filter { it != item.seriesId },
-                        )
-                    },
-                    onMoveToBottom = {
-                        commitOrder(localItems.map { it.seriesId }.filter { it != item.seriesId } + item.seriesId)
-                    },
-                    onCancel = { onCancel(item.seriesId) },
+                    onMoveToTop = { commit(item.contentType, listOf(item.seriesId) + siblingsOfType()) },
+                    onMoveToBottom = { commit(item.contentType, siblingsOfType() + item.seriesId) },
+                    onCancel = { onCancel(item.contentType, item.seriesId) },
                     modifier = Modifier.animateItem(),
                 )
             }

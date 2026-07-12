@@ -75,6 +75,7 @@ class NovelDownloadQueueScreenModel :
                             else -> EntryDownloadCardStatus.QUEUED
                         }
                         EntryDownloadCardUi(
+                            contentType = ContentType.NOVELS,
                             seriesId = novelId,
                             sourceName = sourceName,
                             title = title,
