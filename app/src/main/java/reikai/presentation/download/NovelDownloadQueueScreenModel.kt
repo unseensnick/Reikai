@@ -38,6 +38,10 @@ class NovelDownloadQueueScreenModel :
     val contentType: StateFlow<ContentType> = sourcePreferences.downloadContentType.changes()
         .stateIn(screenModelScope, SharingStarted.Eagerly, sourcePreferences.downloadContentType.get())
 
+    /** Whether the novel drain is running, for the queue FAB (mirrors the manga ScreenModel). */
+    val isDownloaderRunning: StateFlow<Boolean> = downloadManager.isDownloaderRunning
+        .stateIn(screenModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     // (title, sourceName) per novel, so a burst of progress-driven emissions doesn't re-hit the DB.
     private val metaCache = HashMap<Long, Pair<String, String>>()
 
@@ -89,6 +93,10 @@ class NovelDownloadQueueScreenModel :
     }
 
     fun setContentType(type: ContentType) = sourcePreferences.downloadContentType.set(type)
+
+    fun pauseDownloads() = downloadManager.pauseDownloads()
+
+    fun startDownloads() = downloadManager.startDownloads()
 
     /** Cancel every queued chapter of one novel (the card's cancel action). */
     fun cancelSeries(novelId: Long) =

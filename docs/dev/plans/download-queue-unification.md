@@ -39,7 +39,7 @@ A dropped connection (airplane mode, dead network) is not a download failure. Th
 - `reikai/presentation/download/NovelDownloadQueueScreenModel.kt`: the novel aggregator (per-series cards, `initialTotals`, status from `downloadingNovelId`), `reorderBySeries`, `cancelSeries`, `sort`.
 - `reikai/novel/download/NovelDownloadManager.kt`: `downloadingNovelId`, the offline pause, and the mid-download requeue.
 - `reikai/presentation/download/MangaDownloadQueueScreenModel.kt`: the manga aggregator (per-series cards from Mihon's `queueState` + `statusFlow`), `reorderBySeries`, `cancelSeries`, `sort`, pause/resume. The manga twin of the novel ScreenModel.
-- `eu/kanade/tachiyomi/ui/download/DownloadQueueScreen.kt`: hosts both content types behind the `ContentType` chip; both branches render the shared card list. Also the Pause/Resume FAB (manga-only, lifted in Phase 11).
+- `eu/kanade/tachiyomi/ui/download/DownloadQueueScreen.kt`: hosts both content types behind the `ContentType` chip; both branches render the shared card list, and one Pause/Resume FAB drives the visible content's downloader(s).
 - `eu/kanade/tachiyomi/ui/download/DownloadQueueScreenModel`, `DownloadHolder`, `DownloadHeaderHolder`, `DownloadAdapter`, `DownloadItem`, `DownloadHeaderItem`: the parked per-chapter manga View queue, left inert (marked with `// RK`) as the revive path for the expandable-cards roadmap item.
 
 ## Status
@@ -52,6 +52,6 @@ Shipped. Both content types render on the shared card list. The novel side lande
 - **Pause, don't error, on connection loss.** A lost connection isn't a failure; erroring chapters on a transient outage lost downloads and mislabeled recovering series. The drain now pauses and requeues instead.
 - **Status from a latched active-series signal.** Deriving "Downloading" from transient per-chapter state flickered every pacing gap; the manager's latched `downloadingNovelId` fixes it, and "Error" is reserved for genuinely stuck series.
 - **Route around, do not rewrite Mihon.** The manga View files stay verbatim and inert, so upstream syncs of the download queue remain clean.
-- **Novel queue pause/resume deferred to Phase 11.** The FAB pauses/resumes the manga downloader; the novel downloader auto-drains. Levelling novels up (user pause/resume) lands after the list unification.
+- **Novel queue pause/resume (shipped, Phase 11).** The novel downloader mirrors manga's pause/resume: a persisted `novelDownloadsPaused` flag gates the init auto-start (so a paused queue stays paused across restart), pause cancels the worker and re-queues any in-flight chapter, and `isDownloaderRunning` is a WorkInfo flow. One FAB drives the visible content's downloader(s), pausing/resuming both in the All view. The queue is now restored into memory in `init` (not only by the drain), so it shows while paused.
 
 Part of the broader [unified-content-ui](unified-content-ui.md) initiative.

@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,6 +17,7 @@ import logcat.LogPriority
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.i18n.stringResource
@@ -47,6 +49,7 @@ class NovelDownloadManager(private val context: Context) {
     private val installer: LnPluginInstaller by injectLazy()
     private val networkHelper: NetworkHelper by injectLazy()
     private val downloadPreferences: DownloadPreferences by injectLazy()
+    private val sourcePreferences: ReikaiSourcePreferences by injectLazy()
 
     private val store = NovelDownloadStore(context)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -59,6 +62,10 @@ class NovelDownloadManager(private val context: Context) {
     private val _downloadingNovelId = MutableStateFlow<Long?>(null)
     val downloadingNovelId: StateFlow<Long?> = _downloadingNovelId.asStateFlow()
 
+    /** True while the drain worker is running (drives the queue FAB's Pause/Resume); false when the
+     *  user paused or the queue is idle. Mirrors the manga DownloadManager.isDownloaderRunning. */
+    val isDownloaderRunning: Flow<Boolean> get() = NovelDownloadJob.isRunningFlow(context)
+
     /** True while [runQueue] is draining; gates a single drain. */
     private val running = AtomicBoolean(false)
 
@@ -67,8 +74,21 @@ class NovelDownloadManager(private val context: Context) {
     private val sourceDelays = HashMap<String, Long>()
 
     init {
-        // Resume a queue persisted by a previous process: kick the job, which restores + drains.
-        if (!store.isEmpty) NovelDownloadJob.start(context)
+        // Load the persisted queue into memory on launch, off the main thread (restore() reads the DB),
+        // so the queue screen shows it even while paused. Previously only the drain restored it, but a
+        // paused restart no longer starts the drain, which otherwise left the queue invisible and
+        // unresumable. Reading the paused pref here (not synchronously in init) also avoids a DI-order
+        // crash if the manager is constructed before ReikaiSourcePreferences is registered.
+        scope.launch {
+            val restored = store.restore()
+            if (restored.isNotEmpty() && _queueState.value.isEmpty()) {
+                _queueState.value = restored
+            }
+            // Resume a queue persisted by a previous process, unless the user left it paused.
+            if (restored.isNotEmpty() && !sourcePreferences.novelDownloadsPaused.get()) {
+                NovelDownloadJob.start(context)
+            }
+        }
     }
 
     fun isChapterDownloaded(chapter: NovelChapter): Boolean =
@@ -96,6 +116,8 @@ class NovelDownloadManager(private val context: Context) {
             byId.values.toList()
         }
         store.addAll(targets)
+        // Adding downloads implies wanting them, so clear any user pause and (re)start the drain.
+        sourcePreferences.novelDownloadsPaused.set(false)
         NovelDownloadJob.start(context)
     }
 
@@ -103,8 +125,24 @@ class NovelDownloadManager(private val context: Context) {
      *  flags) are kept; only what's still queued is discarded. */
     fun cancelAllDownloads() {
         NovelDownloadJob.stop(context)
+        sourcePreferences.novelDownloadsPaused.set(false)
         _queueState.value = emptyList()
         store.clear()
+    }
+
+    /** User pause: stop the drain without clearing the queue, persisted so a restart stays paused. The
+     *  worker is cancelled; any in-flight chapter is reset to QUEUE at the next drain start (see
+     *  [runQueue]) so resume re-downloads it rather than leaving it stuck DOWNLOADING. */
+    fun pauseDownloads() {
+        sourcePreferences.novelDownloadsPaused.set(true)
+        _downloadingNovelId.value = null
+        NovelDownloadJob.stop(context)
+    }
+
+    /** User resume: clear the pause and restart the drain. */
+    fun startDownloads() {
+        sourcePreferences.novelDownloadsPaused.set(false)
+        NovelDownloadJob.start(context)
     }
 
     /** Drop chapters from the pending queue without deleting any downloaded file/flag (the chip's
@@ -165,6 +203,13 @@ class NovelDownloadManager(private val context: Context) {
             installer.ensureLoaded()
             if (_queueState.value.isEmpty()) {
                 store.restore().takeIf { it.isNotEmpty() }?.let { _queueState.value = it }
+            }
+            // Re-queue any chapter a previous drain left DOWNLOADING when it was cancelled (a user pause,
+            // a crash, or a force-kill); the loop below only picks QUEUE, so otherwise it would be stuck.
+            _queueState.update { q ->
+                q.map {
+                    if (it.state == NovelDownload.State.DOWNLOADING) it.copy(state = NovelDownload.State.QUEUE) else it
+                }
             }
             var done = 0
             while (true) {

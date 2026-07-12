@@ -157,40 +157,37 @@ object DownloadQueueScreen : Screen() {
                 )
             },
             floatingActionButton = {
-                // RK: the FAB pauses/resumes the manga downloader; novels drain on a foreground worker
-                if (showManga) {
-                    val isRunning by mangaModel.isDownloaderRunning.collectAsState()
-                    SmallExtendedFloatingActionButton(
-                        text = {
-                            val id = if (isRunning) {
-                                MR.strings.action_pause
-                            } else {
-                                MR.strings.action_resume
-                            }
-                            Text(text = stringResource(id))
-                        },
-                        icon = {
-                            val icon = if (isRunning) {
-                                Icons.Outlined.Pause
-                            } else {
-                                Icons.Filled.PlayArrow
-                            }
-                            Icon(imageVector = icon, contentDescription = null)
-                        },
-                        onClick = {
-                            if (isRunning) {
-                                mangaModel.pauseDownloads()
-                            } else {
-                                mangaModel.startDownloads()
-                            }
-                        },
-                        expanded = fabExpanded,
-                        modifier = Modifier.animateFloatingActionButton(
-                            visible = mangaItems.isNotEmpty(),
-                            alignment = Alignment.BottomEnd,
-                        ),
-                    )
-                }
+                // RK: one FAB pauses/resumes the visible content's downloader(s). In the All view it
+                // drives both, reflecting a combined running state; the empty-queue side no-ops.
+                val mangaRunning by mangaModel.isDownloaderRunning.collectAsState()
+                val novelRunning by novelModel.isDownloaderRunning.collectAsState()
+                val running = (showManga && mangaRunning) || (showNovels && novelRunning)
+                val hasQueue = (showManga && mangaItems.isNotEmpty()) ||
+                    (showNovels && novelItems.isNotEmpty())
+                SmallExtendedFloatingActionButton(
+                    text = {
+                        val id = if (running) MR.strings.action_pause else MR.strings.action_resume
+                        Text(text = stringResource(id))
+                    },
+                    icon = {
+                        val icon = if (running) Icons.Outlined.Pause else Icons.Filled.PlayArrow
+                        Icon(imageVector = icon, contentDescription = null)
+                    },
+                    onClick = {
+                        if (running) {
+                            if (showManga && mangaRunning) mangaModel.pauseDownloads()
+                            if (showNovels && novelRunning) novelModel.pauseDownloads()
+                        } else {
+                            if (showManga && mangaItems.isNotEmpty()) mangaModel.startDownloads()
+                            if (showNovels && novelItems.isNotEmpty()) novelModel.startDownloads()
+                        }
+                    },
+                    expanded = fabExpanded,
+                    modifier = Modifier.animateFloatingActionButton(
+                        visible = hasQueue,
+                        alignment = Alignment.BottomEnd,
+                    ),
+                )
             },
         ) { contentPadding ->
             // RK --> chip + one shared card list for manga, novels, or both (the All view) (P5 S5)

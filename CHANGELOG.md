@@ -18,6 +18,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Fill a manga or novel's info straight from a bound tracker.** In Edit info, tap Fill from tracker to pull the title, author, artist, cover, description, and genres from a linked tracker (with a picker when more than one is linked).
 - **You can now hide individual chapters on a manga, just like novels.** Select chapters and hide them from the list; a "Show hidden chapters" toggle reveals them dimmed so you can unhide, and hidden chapters stay out of bulk downloads and the Resume button.
 - **Manga and novel downloads now show one card per series you can reorder, not a row per chapter.** Cancel or bump a whole series to the top or bottom, and the All view stacks both types in one list.
+- **Pause and resume novel downloads, like manga.** The download queue's Pause/Resume button now works for novels (and in the All view one tap drives both manga and novels); a paused queue stays paused across app restarts.
 - **The novel chapter list now has a fast-scroll thumb, like manga.** Drag it down the right edge to jump through a long list of chapters.
 - **Long-press a novel's In-library button to edit its categories.** It opens the same category picker manga details already had on long-press.
 - **Copy a manga's source name by long-pressing it.** Its title and author already copied on long-press; now the source name does too.

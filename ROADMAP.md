@@ -27,9 +27,8 @@ Ready to build (infrastructure exists):
 
 Larger:
 - **Novel library Behaviour settings** `[M]` - swipe actions + missing-chapter indicators for the novel list.
-- **Novel download-queue pause/resume + FAB** `[M]` - the Download queue Pause/Resume FAB (which also collapses on scroll) is manga-only today (novels auto-drain on a worker); add user pause/resume to the novel downloader (stop the drain without clearing the queue) and show that same FAB, with its scroll-collapse, for novels on the now-unified card queue.
 
-Opportunistic polish: Browse (Latest shortcut, Latest capability-guard so an unsupported source hides the chip, global-search progress, Last-used, hide-in-library, per-row language, genre-tap-search); Downloads queue (pause/resume, per-row retry, move-to-top/bottom, per-series move/cancel); Tracking (start-date backfill, create-private-at-bind, friendlier Fill-from-tracker errors: no-entry-found on a 404 + null-message fallback); Updates/history (fast-scroll animation); Details (long-press-copy WebView URL, per-source scanlator filter for merged novels, per-category novel display settings `[M]`, novel tag-tap global search, novel long-press-favorite category shortcut).
+Opportunistic polish: Browse (Latest shortcut, Latest capability-guard so an unsupported source hides the chip, global-search progress, Last-used, hide-in-library, per-row language, genre-tap-search); Tracking (start-date backfill, create-private-at-bind, friendlier Fill-from-tracker errors: no-entry-found on a 404 + null-message fallback); Updates/history (fast-scroll animation); Details (long-press-copy WebView URL, per-source scanlator filter for merged novels, per-category novel display settings `[M]`, novel tag-tap global search, novel long-press-favorite category shortcut).
 
 ### Details
 

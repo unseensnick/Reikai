@@ -26,6 +26,12 @@ class ReikaiSourcePreferences(
     val downloadContentType: Preference<ContentType> =
         preferenceStore.getEnum("download_content_type", ContentType.ALL)
 
+    /** User pause on the novel downloader, persisted so a paused queue stays paused across restart
+     *  (the manga side gets this free from WorkManager; the novel job auto-starts on init, so it needs
+     *  an explicit flag). */
+    val novelDownloadsPaused: Preference<Boolean> =
+        preferenceStore.getBoolean("novel_downloads_paused", false)
+
     /**
      * Pinned light-novel source ids. Novel twin of
      * [eu.kanade.domain.source.service.SourcePreferences.pinnedSources]: pinned sources rise to a
