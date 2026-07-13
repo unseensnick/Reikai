@@ -126,9 +126,9 @@ class NovelGlobalSearchScreenModel(
                     }
                     mutableState.update { st ->
                         st.copy(
-                            results = st.results.map {
-                                if (it.source.id == source.id) it.copy(state = result) else it
-                            },
+                            results = st.results
+                                .map { if (it.source.id == source.id) it.copy(state = result) else it }
+                                .sortedWith(globalSearchResultComparator(pinned)),
                         )
                     }
                 }
@@ -152,7 +152,11 @@ data class NovelGlobalSearchState(
     val onlyShowHasResults: Boolean = false,
     /** Active long-press dialog (add-duplicate / category picker / remove), or null. */
     val dialog: NovelBrowseDialog? = null,
-)
+) {
+    /** Sources that have finished (Success or Error); with [total], drives the toolbar progress bar. */
+    val progress: Int get() = results.count { it.state !is SearchState.Loading }
+    val total: Int get() = results.size
+}
 
 /** One source's slice of a global search: the source plus its independent load state. */
 data class SourceSearchResult(
@@ -180,6 +184,16 @@ internal fun selectGlobalSearchSources(
 ): List<NovelSource> =
     all.filter { filter == NovelGlobalSearchScreenModel.SourceFilter.All || it.id in pinned }
         .sortedWith(compareBy({ it.id !in pinned }, { it.name.lowercase() }))
+
+/** Orders search rows like Mihon's `SearchScreenModel.sortComparator`: sources with hits first, then
+ *  pinned, then name, so empty / loading / errored sources sink below sources with results as each
+ *  source lands. Re-applied on every row update. */
+internal fun globalSearchResultComparator(pinned: Set<String>): Comparator<SourceSearchResult> =
+    compareBy(
+        { (it.state as? SearchState.Success)?.novels?.isEmpty() ?: true },
+        { it.source.id !in pinned },
+        { it.source.name.lowercase() },
+    )
 
 /** Whether a source row shows under the "has results" filter: always when off; only a non-empty
  *  Success when on (Loading / Error / empty sources are hidden). */

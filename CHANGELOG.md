@@ -30,6 +30,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Refreshing your novel library now shows an "Updating library" confirmation, like manga.** Tapping refresh on the Novels chip shows that message (or "An update is already running" if one is in progress) instead of doing nothing visible.
 - **The Updates screen now shows when your novels last updated.** The last-updated line follows the Novels chip, and the All chip shows whichever of manga or novels refreshed more recently.
 - **Add many novels to your library at once, the way manga already could.** In a novel source's browse or global search, tap Select, pick several results, and add them all in one step with a single category choice.
+- **Novel global search now shows a progress bar while sources are still searching, like manga.** It fills as each source finishes and clears once the search completes.
 - **Track your light novels on Shikimori, Hikka, and MangaBaka.** These trackers now search novels directly instead of returning manga, and trackers that can't tell novels apart (Bangumi, MdList) no longer appear in the novel tracking sheet.
 - **The novel reader can now open the chapter in your browser or share its link.** Both join "Open in WebView" in the reader's overflow menu, matching the manga reader.
 - **Choose which buttons sit on the novel reader's bottom bar, like manga.** Add quick auto-scroll, keep-screen-on, and bionic-reading toggles, one-tap theme and text-size pickers, plus web view, browser, and share, from Settings > Reader.
@@ -46,6 +47,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Pick which reading modes use the vertical chapter navigator, and set its height (synced from Mihon, mihonapp/mihon#3531).** The single long-strip on/off toggle is now a per-mode picker with an adjustable height slider.
 - **The novel reader's progress bar is now a full chapter-navigation rail, like manga.** Prev/next skip buttons flank the scroll slider on the reader edge, and its height and side follow the same Reader vertical-navigator setting as manga.
 - **A novel source's Filter chip now lights up when a filter or search is active, like manga.** It used to never show as selected, so there was no sign your filters were applied.
+- **Novel global search now floats sources with results to the top as they arrive, like manga.** Sources that return nothing, are still loading, or errored sink below the ones with hits, instead of staying in a fixed order.
 
 ### Fixes
 

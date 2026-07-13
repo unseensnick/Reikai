@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -215,6 +216,14 @@ internal fun NovelGlobalSearchResults(
             onSetSourceFilter = onSetSourceFilter,
             onToggleHasResults = onToggleHasResults,
         )
+        // Search-completion bar, shown only while some sources are still loading (mirrors manga's
+        // GlobalSearchToolbar). Hidden before the first result lands and once every source finishes.
+        if (state.progress in 1 until state.total) {
+            LinearProgressIndicator(
+                progress = { state.progress / state.total.toFloat() },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         // The has-results filter hides sources still loading / errored / empty.
         val visibleResults = state.results.filter { sourceFilter(it) && it.isVisible(state.onlyShowHasResults) }
         LazyColumn(
