@@ -1,4 +1,4 @@
-package reikai.presentation.browse.components
+package reikai.presentation.browse
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -13,21 +13,23 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * Long-press options for a novel source: pin/unpin and enable/disable. Novel twin of Mihon's
- * [eu.kanade.presentation.browse.SourceOptionsDialog]; a disabled source stays in the list dimmed
- * (so the toggle reads "Enable") and is excluded from global search.
+ * Long-press options for a browse source (manga or novel): pin/unpin and, when [showToggleDisable],
+ * enable/disable. The disable row's label flips on [isDisabled]; a caller that only ever disables
+ * (manga's source list drops disabled sources) passes `isDisabled = false` so it always reads
+ * "Disable". The manga/novel option lists can no longer drift.
  */
 @Composable
-fun NovelSourceOptionsDialog(
-    sourceName: String,
+fun EntrySourceOptionsDialog(
+    title: String,
     isPinned: Boolean,
+    showToggleDisable: Boolean,
     isDisabled: Boolean,
     onClickPin: () -> Unit,
     onClickToggleDisable: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
-        title = { Text(text = sourceName) },
+        title = { Text(text = title) },
         text = {
             Column {
                 Text(
@@ -37,13 +39,15 @@ fun NovelSourceOptionsDialog(
                         .fillMaxWidth()
                         .padding(vertical = 16.dp),
                 )
-                Text(
-                    text = stringResource(if (isDisabled) MR.strings.action_enable else MR.strings.action_disable),
-                    modifier = Modifier
-                        .clickable(onClick = onClickToggleDisable)
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                )
+                if (showToggleDisable) {
+                    Text(
+                        text = stringResource(if (isDisabled) MR.strings.action_enable else MR.strings.action_disable),
+                        modifier = Modifier
+                            .clickable(onClick = onClickToggleDisable)
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                    )
+                }
             }
         },
         onDismissRequest = onDismiss,

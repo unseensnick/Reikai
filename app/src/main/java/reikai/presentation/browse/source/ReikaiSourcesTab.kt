@@ -35,9 +35,9 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import reikai.domain.library.ContentType
 import reikai.novel.source.NovelSource
+import reikai.presentation.browse.EntrySourceOptionsDialog
 import reikai.presentation.browse.ReikaiBrowseScreenModel
 import reikai.presentation.browse.components.BrowseSectionHeader
-import reikai.presentation.browse.components.NovelSourceOptionsDialog
 import reikai.presentation.browse.components.NovelSourcePinButton
 import reikai.presentation.browse.components.NovelSourceRow
 import reikai.presentation.components.ContentTypeFilterChips
@@ -151,9 +151,10 @@ fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabCont
             }
 
             novelState.dialog?.let { dialog ->
-                NovelSourceOptionsDialog(
-                    sourceName = dialog.source.name,
+                EntrySourceOptionsDialog(
+                    title = dialog.source.name,
                     isPinned = dialog.isPinned,
+                    showToggleDisable = true,
                     isDisabled = dialog.isDisabled,
                     onClickPin = {
                         novelModel.togglePin(dialog.source.id)
