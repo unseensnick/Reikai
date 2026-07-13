@@ -26,10 +26,10 @@ import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -55,10 +55,11 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSource
+import reikai.presentation.browse.EntryBrowseGridCell
 import reikai.presentation.browse.components.BulkSelectionToolbar
+import reikai.presentation.browse.toEntryBrowseUi
 import reikai.presentation.novel.browse.DuplicateNovelDialog
 import reikai.presentation.novel.browse.NovelBrowseDialog
-import reikai.presentation.novel.browse.NovelBrowseGridCell
 import reikai.presentation.novel.browse.NovelBrowseScreen
 import reikai.presentation.novel.browse.NovelBulkFavoriteScreenModel
 import reikai.presentation.novel.browse.RemoveNovelDialog
@@ -67,6 +68,7 @@ import reikai.presentation.novel.details.NovelCategoryDialog
 import reikai.presentation.novel.details.NovelDetailsDialog
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreenModel.SourceFilter
+import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -350,10 +352,12 @@ internal fun SourceSection(
                             it.sourceId == result.source.id && it.item.path == item.path
                         }
                         Box(modifier = Modifier.width(RESULT_CELL_WIDTH).padding(horizontal = 4.dp)) {
-                            NovelBrowseGridCell(
-                                item = item,
-                                inLibrary = (result.source.id to item.path) in favoritedKeys,
-                                site = result.source.site,
+                            EntryBrowseGridCell(
+                                ui = item.toEntryBrowseUi(
+                                    inLibrary = (result.source.id to item.path) in favoritedKeys,
+                                    site = result.source.site,
+                                ),
+                                displayMode = LibraryDisplayMode.ComfortableGrid,
                                 onClick = { onResultClick(item) },
                                 onLongClick = { onResultLongClick(item) },
                                 isSelected = isSelected,

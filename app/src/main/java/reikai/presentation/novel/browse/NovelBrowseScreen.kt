@@ -70,7 +70,9 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import kotlinx.coroutines.flow.distinctUntilChanged
 import reikai.novel.host.NovelItem
+import reikai.presentation.browse.EntryBrowseGridCell
 import reikai.presentation.browse.components.BulkSelectionToolbar
+import reikai.presentation.browse.toEntryBrowseUi
 import reikai.presentation.novel.details.NovelCategoryDialog
 import reikai.presentation.novel.details.NovelDetailsDialog
 import reikai.presentation.novel.details.NovelScreen
@@ -414,10 +416,12 @@ private fun NovelBrowseBody(
                 contentPadding = contentPadding + PaddingValues(vertical = 8.dp),
             ) {
                 items(items = state.novels, key = { it.path }) { item ->
-                    NovelBrowseListCell(
-                        item = item,
-                        inLibrary = (sourceId to item.path) in state.favoritedKeys,
-                        site = state.source?.site,
+                    EntryBrowseGridCell(
+                        ui = item.toEntryBrowseUi(
+                            inLibrary = (sourceId to item.path) in state.favoritedKeys,
+                            site = state.source?.site,
+                        ),
+                        displayMode = displayMode,
                         onClick = { onResultClick(item) },
                         onLongClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -439,10 +443,6 @@ private fun NovelBrowseBody(
         }
         else -> {
             val haptic = LocalHapticFeedback.current
-            // CompactGrid + CoverOnlyGrid use the compact cell; Comfortable(+Panorama) the comfortable one
-            // (browse offers no panorama/cover-only toggle, but a restored pref could still carry them).
-            val compact = displayMode == LibraryDisplayMode.CompactGrid ||
-                displayMode == LibraryDisplayMode.CoverOnlyGrid
             val gridState = rememberLazyGridState()
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(128.dp),
@@ -452,19 +452,19 @@ private fun NovelBrowseBody(
                 horizontalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridHorizontalSpacer),
             ) {
                 items(items = state.novels, key = { it.path }) { item ->
-                    val inLibrary = (sourceId to item.path) in state.favoritedKeys
-                    val onClick = { onResultClick(item) }
-                    val onLongClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onLongClickItem(item)
-                    }
-                    val site = state.source?.site
-                    val isSelected = selection.fastAny { it.sourceId == sourceId && it.item.path == item.path }
-                    if (compact) {
-                        NovelBrowseCompactGridCell(item, inLibrary, site, onClick, onLongClick, isSelected)
-                    } else {
-                        NovelBrowseGridCell(item, inLibrary, site, onClick, onLongClick, isSelected)
-                    }
+                    EntryBrowseGridCell(
+                        ui = item.toEntryBrowseUi(
+                            inLibrary = (sourceId to item.path) in state.favoritedKeys,
+                            site = state.source?.site,
+                        ),
+                        displayMode = displayMode,
+                        onClick = { onResultClick(item) },
+                        onLongClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onLongClickItem(item)
+                        },
+                        isSelected = selection.fastAny { it.sourceId == sourceId && it.item.path == item.path },
+                    )
                 }
                 if (state.loadingMore) {
                     item(span = { GridItemSpan(maxLineSpan) }) { BrowseSourceLoadingItem() }

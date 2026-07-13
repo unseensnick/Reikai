@@ -52,9 +52,11 @@ import eu.kanade.presentation.util.Screen
 import reikai.data.coil.NovelCover
 import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.novel.host.NovelItem
-import reikai.presentation.novel.browse.NovelBrowseGridCell
+import reikai.presentation.browse.EntryBrowseGridCell
+import reikai.presentation.browse.toEntryBrowseUi
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.globalsearch.SearchState
+import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -411,10 +413,9 @@ private fun OverrideSection(
             LazyRow {
                 items(items = novels, key = { it.path }) { item ->
                     Box(modifier = Modifier.width(PICKER_CELL_WIDTH).padding(horizontal = 4.dp)) {
-                        NovelBrowseGridCell(
-                            item = item,
-                            inLibrary = false,
-                            site = result.source.site,
+                        EntryBrowseGridCell(
+                            ui = item.toEntryBrowseUi(inLibrary = false, site = result.source.site),
+                            displayMode = LibraryDisplayMode.ComfortableGrid,
                             onClick = { screenModel.pick(id, result.source.id, item.path) },
                             onLongClick = { navigator.push(NovelScreen(result.source.id, item.path)) },
                         )
