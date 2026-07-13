@@ -140,7 +140,9 @@ class NovelBrowseScreen(
                 val result = snackbarHostState.showSnackbar(
                     message = errorString,
                     actionLabel = retryLabel,
-                    duration = SnackbarDuration.Long,
+                    // Indefinite (matches manga's browse retry snackbar): an error should stay visible
+                    // until the user dismisses or retries it, not auto-dismiss after a few seconds.
+                    duration = SnackbarDuration.Indefinite,
                 )
                 if (result == SnackbarResult.ActionPerformed) screenModel.loadMore()
             }
