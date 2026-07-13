@@ -88,13 +88,17 @@ fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabCont
                     )
                 },
             ),
-            // Filter opens Mihon's manga sources-filter screen; novels have no language enable/disable
-            // model to populate it, so it would be empty and misleading. Hide it on the Novels chip.
+            // Content-type-aware filter: the Novels chip opens the LN per-source filter, Manga / All
+            // open Mihon's manga sources filter (per-language + per-source).
             AppBar.Action(
                 title = stringResource(MR.strings.action_filter),
                 icon = Icons.Outlined.FilterList,
-                onClick = { navigator.push(SourcesFilterScreen()) },
-            ).takeIf { contentType != ContentType.NOVELS },
+                onClick = {
+                    navigator.push(
+                        if (contentType == ContentType.NOVELS) NovelSourcesFilterScreen() else SourcesFilterScreen(),
+                    )
+                },
+            ),
         ),
         content = { contentPadding, snackbarHostState ->
             Column {
@@ -155,7 +159,7 @@ fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabCont
                     title = dialog.source.name,
                     isPinned = dialog.isPinned,
                     showToggleDisable = true,
-                    isDisabled = dialog.isDisabled,
+                    isDisabled = false,
                     onClickPin = {
                         novelModel.togglePin(dialog.source.id)
                         novelModel.closeDialog()
@@ -295,9 +299,6 @@ private fun LazyListScope.mangaSourceGroups(
     }
 }
 
-/** Alpha applied to a disabled novel source row so it reads as inactive but stays tappable. */
-private const val DISABLED_SOURCE_ALPHA = 0.38f
-
 private fun LazyListScope.novelSourceItems(
     models: List<NovelSourceUiModel>,
     onClickItem: (String) -> Unit,
@@ -316,7 +317,6 @@ private fun LazyListScope.novelSourceItems(
         when (model) {
             is NovelSourceUiModel.Header -> NovelSourceLanguageHeader(model.language)
             is NovelSourceUiModel.Item -> NovelSourceRow(
-                modifier = if (model.isDisabled) Modifier.alpha(DISABLED_SOURCE_ALPHA) else Modifier,
                 name = model.source.name,
                 lang = "",
                 iconUrl = model.source.iconUrl,

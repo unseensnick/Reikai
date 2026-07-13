@@ -55,11 +55,13 @@ fun Screen.reikaiExtensionsTab(
         badgeNumber = (extState.updates + lnCount).takeIf { it > 0 },
         // Single "Repos" action -> Mihon's ExtensionStoresScreen, now extended to manage both manga
         // and light-novel repos; keep the Filter action.
-        actions = listOf(
+        actions = listOfNotNull(
+            // Filter is Mihon's manga extension-language filter; it does nothing for novel plugins, so
+            // hide it on the Novels chip (matches the Sources tab's content-type-aware filter).
             AppBar.OverflowAction(
                 title = stringResource(MR.strings.action_filter),
                 onClick = { navigator.push(ExtensionFilterScreen()) },
-            ),
+            ).takeIf { contentType != ContentType.NOVELS },
             AppBar.OverflowAction(
                 title = stringResource(MR.strings.repos),
                 onClick = openRepos,

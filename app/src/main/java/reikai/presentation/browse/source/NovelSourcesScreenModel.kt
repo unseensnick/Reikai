@@ -59,7 +59,6 @@ class NovelSourcesScreenModel(
             dialog = Dialog(
                 source = source,
                 isPinned = source.id in sourcePreferences.pinnedNovelSources.get(),
-                isDisabled = source.id in sourcePreferences.disabledNovelSources.get(),
             ),
         )
     }
@@ -74,10 +73,11 @@ class NovelSourcesScreenModel(
         // The last-used source leads in its own section, then pinned sources, then language groups
         // (mirrors the manga sources list). Each source shows in exactly one section: the last-used
         // one is pulled out of pinned/language, and a pinned source shows only under Pinned.
-        // Disabled sources stay in the list (rendered dimmed) so they can be re-enabled; they are
-        // excluded from global search instead (see GetEnabledNovelSources).
-        val lastUsed = lastUsedId.takeIf { it.isNotBlank() }?.let { id -> firstOrNull { it.id == id } }
-        val remaining = filter { it.id != lastUsed?.id }
+        // Disabled sources are filtered out entirely (like manga); they are re-enabled from the
+        // Sources filter screen and stay excluded from global search (see GetEnabledNovelSources).
+        val enabled = filterNot { it.id in disabled }
+        val lastUsed = lastUsedId.takeIf { it.isNotBlank() }?.let { id -> enabled.firstOrNull { it.id == id } }
+        val remaining = enabled.filter { it.id != lastUsed?.id }
         val pinnedSources = remaining.filter { it.id in pinned }.sortedBy { it.name.lowercase() }
         val byLanguage = remaining.filterNot { it.id in pinned }
             .groupBy { it.lang }
@@ -85,24 +85,16 @@ class NovelSourcesScreenModel(
         return buildList {
             if (lastUsed != null) {
                 add(NovelSourceUiModel.Header(LAST_USED_KEY))
-                add(
-                    NovelSourceUiModel.Item(
-                        lastUsed,
-                        isPinned = lastUsed.id in pinned,
-                        isDisabled = lastUsed.id in disabled,
-                    ),
-                )
+                add(NovelSourceUiModel.Item(lastUsed, isPinned = lastUsed.id in pinned))
             }
             if (pinnedSources.isNotEmpty()) {
                 add(NovelSourceUiModel.Header(PINNED_KEY))
-                pinnedSources.forEach {
-                    add(NovelSourceUiModel.Item(it, isPinned = true, isDisabled = it.id in disabled))
-                }
+                pinnedSources.forEach { add(NovelSourceUiModel.Item(it, isPinned = true)) }
             }
             byLanguage.forEach { (lang, sources) ->
                 add(NovelSourceUiModel.Header(lang))
                 sources.sortedBy { it.name.lowercase() }
-                    .forEach { add(NovelSourceUiModel.Item(it, isPinned = false, isDisabled = it.id in disabled)) }
+                    .forEach { add(NovelSourceUiModel.Item(it, isPinned = false)) }
             }
         }
     }
@@ -116,7 +108,7 @@ class NovelSourcesScreenModel(
         val isEmpty get() = items.isEmpty()
     }
 
-    data class Dialog(val source: NovelSource, val isPinned: Boolean, val isDisabled: Boolean)
+    data class Dialog(val source: NovelSource, val isPinned: Boolean)
 
     companion object {
         // Match Mihon's SourcesScreenModel keys so LocaleHelper renders the "Pinned" / "Last used" headers.
@@ -130,6 +122,5 @@ sealed interface NovelSourceUiModel {
     data class Item(
         val source: NovelSource,
         val isPinned: Boolean = false,
-        val isDisabled: Boolean = false,
     ) : NovelSourceUiModel
 }

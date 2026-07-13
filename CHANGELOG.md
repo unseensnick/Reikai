@@ -49,10 +49,12 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The novel reader's progress bar is now a full chapter-navigation rail, like manga.** Prev/next skip buttons flank the scroll slider on the reader edge, and its height and side follow the same Reader vertical-navigator setting as manga.
 - **A novel source's Filter chip now lights up when a filter or search is active, like manga.** It used to never show as selected, so there was no sign your filters were applied.
 - **Novel global search now floats sources with results to the top as they arrive, like manga.** Sources that return nothing, are still loading, or errored sink below the ones with hits, instead of staying in a fixed order.
+- **Novel sources now enable and disable the same way as manga.** Disabling a novel source removes it from the Sources list (it no longer stays dimmed in place), and the filter button on the Novels chip opens a new screen listing every novel source so you can turn them back on.
 
 ### Fixes
 
 - **Switching a novel source between Popular and Latest no longer keeps your old filters.** The filter draft now resets on the switch, matching manga, instead of silently staying applied to the new listing.
+- **The Extensions filter no longer opens a manga-only language list when you're on the Novels chip.** That button did nothing useful for novels, so it's hidden there.
 - **Clearing the search box while picking a novel's migration target no longer strands the row on a spinner.** A blank re-search is ignored (and its accept button disables), so the row's candidates and overflow menu stay reachable.
 - **Marking a merged novel's chapter read or bookmarked now carries across all its sources, like manga.** The change used to touch only the source you tapped, so switching source chips left the same chapter unread or unbookmarked on the others.
 - **Swiping a novel chapter now matches manga.** The swipe-left/right actions were reversed on novels (swiping to mark-as-read bookmarked instead); they now follow your manga swipe setting.
