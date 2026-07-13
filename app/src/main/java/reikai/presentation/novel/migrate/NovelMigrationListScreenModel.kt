@@ -110,8 +110,10 @@ class NovelMigrationListScreenModel(
             val byId = sourceManager.getAll().associateBy { it.id }
             selectedIds.mapNotNull { byId[it] }
         }.filter { it.id != currentSource }
-        setRow(novelId) { it.copy(results = sources.map { s -> SourceSearchResult(s, SearchState.Loading) }) }
+        // A blank query is a true no-op: keep the existing candidates instead of resetting every row to
+        // a spinner that never resolves (which would hide the row's overflow menu).
         if (query.isBlank()) return
+        setRow(novelId) { it.copy(results = sources.map { s -> SourceSearchResult(s, SearchState.Loading) }) }
         sources.forEach { source ->
             screenModelScope.launchIO {
                 val result = searchSemaphore.withPermit {

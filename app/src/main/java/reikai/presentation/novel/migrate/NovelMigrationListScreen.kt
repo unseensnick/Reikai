@@ -389,7 +389,10 @@ private fun OverrideSection(
         singleLine = true,
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         trailingIcon = {
-            IconButton(onClick = { screenModel.research(id, query) }) {
+            IconButton(
+                onClick = { screenModel.research(id, query) },
+                enabled = query.isNotBlank(),
+            ) {
                 Icon(imageVector = Icons.Filled.Check, contentDescription = null)
             }
         },
