@@ -93,6 +93,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - The manga and novel global search now render through shared components (the per-source result section, the result card row, and the source-filter chips), so the two search screens stay identical; their look is now unified (result card size, section header, and the chip row match).
 - The manga and novel notes editors now render through one shared screen, so a change to the notes editor reaches both.
 - The manga and novel library Display settings tab now render through one shared composable, so a change to it reaches both.
+- The manga and novel "change categories" dialog now share one category-diff helper, so their checked/mixed logic can't drift.
 - Enhanced and delegated sources now use the wrapped source's home URL for "Open in WebView", and redundant internal source overrides were dropped.
 - Synced upstream Mihon changes: correct `extensionLib` metadata reading, Hikka tracker hardening, a dropped redundant code-shrink build flag, a zstd proguard keep, aboutLibraries v15, a refreshed set of community translations, and assorted dependency and CI bumps.
 

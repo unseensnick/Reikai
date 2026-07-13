@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import reikai.data.novel.NovelStatusCode
 import reikai.domain.category.CATEGORY_HIDDEN_MASK
+import reikai.domain.category.categoryDiff
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ContentType
@@ -675,8 +676,7 @@ class NovelLibraryScreenModel :
             // hidden from the library grid but must still be assignable here).
             val categories = getNovelCategories.await().filterNot { it.isSystemCategory }.map { it.toCategory() }
             val perNovel = novelIds.map { getNovelCategories.awaitByNovelId(it).map { c -> c.id }.toSet() }
-            val common = perNovel.reduceOrNull { a, b -> a intersect b } ?: emptySet()
-            val mix = perNovel.flatten().toSet() - common
+            val (common, mix) = categoryDiff(perNovel)
             val preselected: List<CheckboxState<Category>> = categories.map { cat ->
                 when (cat.id) {
                     in common -> CheckboxState.State.Checked(cat)
