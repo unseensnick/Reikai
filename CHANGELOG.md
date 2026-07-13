@@ -31,6 +31,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The Updates screen now shows when your novels last updated.** The last-updated line follows the Novels chip, and the All chip shows whichever of manga or novels refreshed more recently.
 - **Add many novels to your library at once, the way manga already could.** In a novel source's browse or global search, tap Select, pick several results, and add them all in one step with a single category choice.
 - **Novel global search now shows a progress bar while sources are still searching, like manga.** It fills as each source finishes and clears once the search completes.
+- **Downloading from a novel that isn't in your library now offers to add it, like manga.** Your first download on a browse-opened novel shows an "Add to library?" prompt, asked only once.
 - **Track your light novels on Shikimori, Hikka, and MangaBaka.** These trackers now search novels directly instead of returning manga, and trackers that can't tell novels apart (Bangumi, MdList) no longer appear in the novel tracking sheet.
 - **The novel reader can now open the chapter in your browser or share its link.** Both join "Open in WebView" in the reader's overflow menu, matching the manga reader.
 - **Choose which buttons sit on the novel reader's bottom bar, like manga.** Add quick auto-scroll, keep-screen-on, and bionic-reading toggles, one-tap theme and text-size pickers, plus web view, browser, and share, from Settings > Reader.

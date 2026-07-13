@@ -1179,17 +1179,41 @@ class NovelDetailsScreenModel(
 
     fun onChapterDownloadAction(chapter: NovelChapter, action: ChapterDownloadAction) {
         when (action) {
-            ChapterDownloadAction.START -> downloadManager.downloadChapters(listOf(chapter))
+            ChapterDownloadAction.START -> {
+                downloadManager.downloadChapters(listOf(chapter))
+                promptAddToLibraryOnFirstDownload()
+            }
             ChapterDownloadAction.START_NOW -> {
                 downloadManager.downloadChapters(listOf(chapter))
                 downloadManager.startDownloadNow(chapter.id)
+                promptAddToLibraryOnFirstDownload()
             }
             ChapterDownloadAction.CANCEL -> downloadManager.cancelDownloads(listOf(chapter.id))
             ChapterDownloadAction.DELETE -> downloadManager.deleteChapters(listOf(chapter))
         }
     }
 
-    fun downloadSelected() = withSelection { downloadManager.downloadChapters(it) }
+    fun downloadSelected() = withSelection {
+        downloadManager.downloadChapters(it)
+        promptAddToLibraryOnFirstDownload()
+    }
+
+    /** After the first download of a not-yet-favorited novel (typically opened from browse), offer to
+     *  add it to the library, once per screen. Mirrors MangaScreenModel.startDownload's prompt. */
+    private fun promptAddToLibraryOnFirstDownload() {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        if (loaded.novel.favorite || loaded.hasPromptedToAddBefore) return
+        updateLoaded { it.copy(hasPromptedToAddBefore = true) }
+        screenModelScope.launchIO {
+            val result = snackbarHostState.showSnackbar(
+                message = context.stringResource(MR.strings.snack_add_to_library),
+                actionLabel = context.stringResource(MR.strings.action_add),
+                withDismissAction = true,
+            )
+            val stillNotFavorite = (state.value as? NovelDetailsState.Loaded)?.novel?.favorite == false
+            if (result == SnackbarResult.ActionPerformed && stillNotFavorite) toggleFavorite()
+        }
+    }
 
     /** Toolbar download dropdown. Operates on the full stored chapter list (all fetched pages), not the
      *  page on screen, the same way [markAllRead] does. Selection logic is shared with the library. */
@@ -1203,7 +1227,10 @@ class NovelDetailsScreenModel(
                 .filter { downloadManager.isChapterDownloaded(loaded.novel, it) }
                 .mapTo(HashSet()) { it.id }
             val targets = selectChaptersForDownloadAction(available, action, downloadedIds)
-            if (targets.isNotEmpty()) downloadManager.downloadChapters(targets)
+            if (targets.isNotEmpty()) {
+                downloadManager.downloadChapters(targets)
+                promptAddToLibraryOnFirstDownload()
+            }
         }
     }
 
@@ -1267,6 +1294,9 @@ sealed interface NovelDetailsState {
         val selection: Set<Long> = emptySet(),
         val resumeChapter: NovelChapter? = null,
         val hasStarted: Boolean = false,
+        /** True once the first-download "add to library?" prompt has shown this session, so a
+         *  non-favorite novel is asked only once (mirrors manga's hasPromptedToAddBefore). */
+        val hasPromptedToAddBefore: Boolean = false,
         /** Cover-derived header tint; null when off or not yet extracted. */
         val seedColor: Color? = null,
         /** Resolved source name + homepage. [sourceUrl] is the source SITE (used as the cover-load
