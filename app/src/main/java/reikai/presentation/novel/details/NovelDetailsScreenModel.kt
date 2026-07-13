@@ -1226,7 +1226,10 @@ class NovelDetailsScreenModel(
             val downloadedIds = available
                 .filter { downloadManager.isChapterDownloaded(loaded.novel, it) }
                 .mapTo(HashSet()) { it.id }
-            val targets = selectChaptersForDownloadAction(available, action, downloadedIds)
+            val queuedIds = downloadManager.queueState.value
+                .filter { it.novelId == loaded.novel.id }
+                .mapTo(HashSet()) { it.chapterId }
+            val targets = selectChaptersForDownloadAction(available, action, downloadedIds + queuedIds)
             if (targets.isNotEmpty()) {
                 downloadManager.downloadChapters(targets)
                 promptAddToLibraryOnFirstDownload()

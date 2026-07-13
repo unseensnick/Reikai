@@ -662,7 +662,10 @@ class NovelLibraryScreenModel :
                 val downloadedIds = chapters
                     .filter { novelDownloadManager.isChapterDownloaded(novel, it) }
                     .mapTo(HashSet()) { it.id }
-                val targets = selectChaptersForDownloadAction(chapters, action, downloadedIds)
+                val queuedIds = novelDownloadManager.queueState.value
+                    .filter { it.novelId == id }
+                    .mapTo(HashSet()) { it.chapterId }
+                val targets = selectChaptersForDownloadAction(chapters, action, downloadedIds + queuedIds)
                 if (targets.isNotEmpty()) novelDownloadManager.downloadChapters(targets)
             }
             clearSelection()

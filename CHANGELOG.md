@@ -54,6 +54,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Fixes
 
+- **Downloading a novel's next chapters no longer stops short when earlier ones are still queued.** The "next N" download actions now skip chapters already waiting in the queue before counting, so you get a full batch, matching manga.
 - **Switching a novel source between Popular and Latest no longer keeps your old filters.** The filter draft now resets on the switch, matching manga, instead of silently staying applied to the new listing.
 - **Novel global search no longer shows every source spinning before you search.** Source rows with loaders now appear only once a search is actually running, matching manga; a blank query clears the list.
 - **The Extensions filter no longer opens a manga-only language list when you're on the Novels chip.** That button did nothing useful for novels, so it's hidden there.
