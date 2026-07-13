@@ -1,6 +1,5 @@
 package reikai.presentation.library.novels
 
-import android.content.res.Configuration
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -13,7 +12,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -23,24 +21,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.library.LibrarySettingsScreenModel
 import reikai.domain.novel.model.NovelLibrarySort
+import reikai.presentation.library.EntryDisplayPage
 import reikai.presentation.library.LibraryGroup
-import reikai.presentation.library.ReikaiCategoriesPage
 import tachiyomi.core.common.preference.TriState
-import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.BaseSortItem
 import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.HeadingItem
-import tachiyomi.presentation.core.components.SettingsChipRow
 import tachiyomi.presentation.core.components.SettingsItemsPaddings
-import tachiyomi.presentation.core.components.SliderItem
 import tachiyomi.presentation.core.components.SortItem
 import tachiyomi.presentation.core.components.TriStateItem
 import tachiyomi.presentation.core.i18n.stringResource
@@ -252,103 +246,32 @@ private fun ColumnScope.SortPage(screenModel: NovelLibraryScreenModel, categoryI
     }
 }
 
-private val displayModes = listOf(
-    MR.strings.action_display_grid to LibraryDisplayMode.CompactGrid,
-    MR.strings.action_display_comfortable_grid to LibraryDisplayMode.ComfortableGrid,
-    MR.strings.action_display_list to LibraryDisplayMode.List,
-    MR.strings.action_display_cover_only_grid to LibraryDisplayMode.CoverOnlyGrid,
-    MR.strings.action_display_comfortable_grid_panorama to LibraryDisplayMode.ComfortableGridPanorama,
-)
-
 /**
- * Novel Display tab: the shared display prefs (display mode, columns, badges, tabs) plus continue
- * reading and the Reikai category/hopper settings. Omits the manga-only merge toggles (those land
- * with the novel merge system in S8).
+ * Novel Display tab: renders through the shared [EntryDisplayPage]. Omits the manga-only local badge
+ * (`showLocalBadge = false`) and fills the shared merge-toggle slot with the novel merge toggles
+ * (auto-merge, the conditional require-author, and source icons).
  */
 @Composable
 private fun ColumnScope.NovelDisplayPage(screenModel: LibrarySettingsScreenModel) {
-    val displayMode by screenModel.libraryPreferences.displayMode.collectAsState()
-    SettingsChipRow(MR.strings.action_display_mode) {
-        displayModes.map { (titleRes, mode) ->
-            FilterChip(
-                selected = displayMode == mode,
-                onClick = { screenModel.setDisplayMode(mode) },
-                label = { Text(stringResource(titleRes)) },
+    EntryDisplayPage(
+        screenModel = screenModel,
+        showLocalBadge = false,
+        mergeToggles = {
+            CheckboxItem(
+                label = stringResource(MR.strings.action_merge_same_title),
+                pref = screenModel.reikaiLibraryPreferences.novelAutoMergeSameTitle,
             )
-        }
-    }
-
-    if (displayMode != LibraryDisplayMode.List) {
-        val configuration = LocalConfiguration.current
-        val columnPreference = remember {
-            if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
-                screenModel.libraryPreferences.landscapeColumns
-            } else {
-                screenModel.libraryPreferences.portraitColumns
+            val autoMergeNovels by screenModel.reikaiLibraryPreferences.novelAutoMergeSameTitle.collectAsState()
+            if (autoMergeNovels) {
+                CheckboxItem(
+                    label = stringResource(MR.strings.action_merge_require_author),
+                    pref = screenModel.reikaiLibraryPreferences.novelAutoMergeRequireAuthor,
+                )
             }
-        }
-        val columns by columnPreference.collectAsState()
-        SliderItem(
-            value = columns,
-            valueRange = 0..10,
-            label = stringResource(MR.strings.pref_library_columns),
-            valueString = if (columns > 0) columns.toString() else stringResource(MR.strings.label_auto),
-            onChange = columnPreference::set,
-            pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        )
-    }
-
-    HeadingItem(MR.strings.overlay_header)
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_download_badge),
-        pref = screenModel.libraryPreferences.downloadBadge,
+            CheckboxItem(
+                label = stringResource(MR.strings.action_merge_source_icons),
+                pref = screenModel.reikaiLibraryPreferences.showNovelMergeSourceIcons,
+            )
+        },
     )
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_unread_badge),
-        pref = screenModel.libraryPreferences.unreadBadge,
-    )
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_language_badge),
-        pref = screenModel.libraryPreferences.languageBadge,
-    )
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_source_badge),
-        pref = screenModel.reikaiLibraryPreferences.sourceBadge,
-    )
-    // novel merge toggles (P5 S8)
-    CheckboxItem(
-        label = stringResource(MR.strings.action_merge_same_title),
-        pref = screenModel.reikaiLibraryPreferences.novelAutoMergeSameTitle,
-    )
-    val autoMergeNovels by screenModel.reikaiLibraryPreferences.novelAutoMergeSameTitle.collectAsState()
-    if (autoMergeNovels) {
-        CheckboxItem(
-            label = stringResource(MR.strings.action_merge_require_author),
-            pref = screenModel.reikaiLibraryPreferences.novelAutoMergeRequireAuthor,
-        )
-    }
-    CheckboxItem(
-        label = stringResource(MR.strings.action_merge_source_icons),
-        pref = screenModel.reikaiLibraryPreferences.showNovelMergeSourceIcons,
-    )
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_show_continue_reading_button),
-        pref = screenModel.libraryPreferences.showContinueReadingButton,
-    )
-
-    HeadingItem(MR.strings.tabs_header)
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_show_all_categories),
-        pref = screenModel.reikaiLibraryPreferences.showAllCategories,
-    )
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_show_tabs),
-        pref = screenModel.libraryPreferences.categoryTabs,
-    )
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_show_number_of_items),
-        pref = screenModel.libraryPreferences.categoryNumberOfItems,
-    )
-
-    ReikaiCategoriesPage(screenModel = screenModel)
 }
