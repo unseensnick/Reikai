@@ -104,6 +104,12 @@ class NovelGlobalSearchScreenModel(
 
     fun search(query: String) {
         searchJob?.cancel()
+        // Match manga: don't show any source rows / loaders until a real search runs. A blank query
+        // clears the list instead of leaving every source spinning forever.
+        if (query.isBlank()) {
+            mutableState.update { it.copy(query = "", results = emptyList()) }
+            return
+        }
         val pinned = sourcePreferences.pinnedNovelSources.get()
         val sources = selectGlobalSearchSources(getEnabledNovelSources.get(), pinned, state.value.sourceFilter)
         mutableState.update {
@@ -112,7 +118,6 @@ class NovelGlobalSearchScreenModel(
                 results = sources.map { source -> SourceSearchResult(source, SearchState.Loading) },
             )
         }
-        if (query.isBlank()) return
         searchJob = screenModelScope.launchIO {
             val semaphore = Semaphore(SEARCH_CONCURRENCY)
             sources.map { source ->

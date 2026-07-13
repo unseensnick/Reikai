@@ -4,17 +4,20 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import eu.kanade.presentation.browse.components.GlobalSearchCardRow
+import androidx.compose.ui.util.fastAny
 import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
-import eu.kanade.presentation.browse.components.GlobalSearchResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchToolbar
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SearchItemResult
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SearchScreenModel
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SourceFilter
 import eu.kanade.tachiyomi.util.system.LocaleHelper
+import reikai.presentation.browse.EntrySearchCardRow
+import reikai.presentation.browse.EntrySearchSection
+import reikai.presentation.browse.toEntryBrowseUi
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.presentation.core.components.material.Scaffold
 
@@ -89,7 +92,7 @@ internal fun GlobalSearchContent(
     ) {
         items.forEach { (source, result) ->
             item(key = source.id) {
-                GlobalSearchResultItem(
+                EntrySearchSection(
                     title = fromSourceId?.let {
                         "▶ ${source.name}".takeIf { source.id == fromSourceId }
                     } ?: source.name,
@@ -102,12 +105,18 @@ internal fun GlobalSearchContent(
                             GlobalSearchLoadingResultItem()
                         }
                         is SearchItemResult.Success -> {
-                            GlobalSearchCardRow(
-                                titles = result.result,
-                                getManga = getManga,
+                            EntrySearchCardRow(
+                                entries = result.result,
+                                key = { it.id },
+                                // @Composable mapper: resolve the live manga so the in-library badge
+                                // stays current, then build the shared browse-cell UI.
+                                toUi = {
+                                    val manga by getManga(it)
+                                    manga.toEntryBrowseUi()
+                                },
                                 onClick = onClickItem,
                                 onLongClick = onLongClickItem,
-                                selection = selection,
+                                isSelected = { manga -> selection.fastAny { it.id == manga.id } },
                             )
                         }
                         is SearchItemResult.Error -> {

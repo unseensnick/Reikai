@@ -55,6 +55,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 ### Fixes
 
 - **Switching a novel source between Popular and Latest no longer keeps your old filters.** The filter draft now resets on the switch, matching manga, instead of silently staying applied to the new listing.
+- **Novel global search no longer shows every source spinning before you search.** Source rows with loaders now appear only once a search is actually running, matching manga; a blank query clears the list.
 - **The Extensions filter no longer opens a manga-only language list when you're on the Novels chip.** That button did nothing useful for novels, so it's hidden there.
 - **Clearing the search box while picking a novel's migration target no longer strands the row on a spinner.** A blank re-search is ignored (and its accept button disables), so the row's candidates and overflow menu stay reachable.
 - **Marking a merged novel's chapter read or bookmarked now carries across all its sources, like manga.** The change used to touch only the source you tapped, so switching source chips left the same chapter unread or unbookmarked on the others.
@@ -89,6 +90,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - The manga and novel History/Updates rows, cover dialog, details screen, and reader bars now render through shared components instead of near-duplicate copies, so a change to one reaches both. Groundwork for the unified content UI.
 - The manga and novel browse, global-search, and migration result cells now render through one shared browse cell, so the two catalogues stay identical and can't drift.
 - The manga and novel source long-press options dialog (pin, enable/disable) now renders through one shared dialog.
+- The manga and novel global search now render through shared components (the per-source result section, the result card row, and the source-filter chips), so the two search screens stay identical; their look is now unified (result card size, section header, and the chip row match).
 - Enhanced and delegated sources now use the wrapped source's home URL for "Open in WebView", and redundant internal source overrides were dropped.
 - Synced upstream Mihon changes: correct `extensionLib` metadata reading, Hikka tracker hardening, a dropped redundant code-shrink build flag, a zstd proguard keep, aboutLibraries v15, a refreshed set of community translations, and assorted dependency and CI bumps.
 

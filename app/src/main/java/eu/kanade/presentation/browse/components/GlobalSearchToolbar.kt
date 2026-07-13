@@ -31,6 +31,7 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SourceFilter
+import reikai.presentation.browse.EntrySearchSourceFilterChips
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
@@ -103,65 +104,15 @@ fun GlobalSearchToolbar(
             }
         }
 
-        Row(
-            modifier = Modifier
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = MaterialTheme.padding.small),
-            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
-        ) {
-            // TODO: make this UX better; it only applies when triggering a new search
-            if (!hideSourceFilter) {
-                FilterChip(
-                    selected = sourceFilter == SourceFilter.PinnedOnly,
-                    onClick = { onChangeSearchFilter(SourceFilter.PinnedOnly) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Outlined.PushPin,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(FilterChipDefaults.IconSize),
-                        )
-                    },
-                    label = {
-                        Text(text = stringResource(MR.strings.pinned_sources))
-                    },
-                )
-                FilterChip(
-                    selected = sourceFilter == SourceFilter.All,
-                    onClick = { onChangeSearchFilter(SourceFilter.All) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Outlined.DoneAll,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(FilterChipDefaults.IconSize),
-                        )
-                    },
-                    label = {
-                        Text(text = stringResource(MR.strings.all))
-                    },
-                )
-
-                VerticalDivider()
-            }
-
-            FilterChip(
-                selected = onlyShowHasResults,
-                onClick = { onToggleResults() },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Outlined.FilterList,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(FilterChipDefaults.IconSize),
-                    )
-                },
-                label = {
-                    Text(text = stringResource(MR.strings.has_results))
-                },
-            )
-        }
-
-        HorizontalDivider()
+        // RK: the filter chips moved to the shared reikai.presentation.browse.EntrySearchSourceFilterChips
+        // (manga + novel global search share them). Driven by primitives, not the SourceFilter enum.
+        EntrySearchSourceFilterChips(
+            isPinnedOnly = sourceFilter == SourceFilter.PinnedOnly,
+            onlyShowHasResults = onlyShowHasResults,
+            showSourceFilter = !hideSourceFilter,
+            onSelectPinnedOnly = { onChangeSearchFilter(SourceFilter.PinnedOnly) },
+            onSelectAll = { onChangeSearchFilter(SourceFilter.All) },
+            onToggleResults = onToggleResults,
+        )
     }
 }

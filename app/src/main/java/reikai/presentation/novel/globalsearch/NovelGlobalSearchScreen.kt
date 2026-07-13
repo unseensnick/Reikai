@@ -48,6 +48,7 @@ import androidx.compose.ui.util.fastAny
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.SearchToolbar
@@ -56,6 +57,9 @@ import eu.kanade.tachiyomi.util.system.LocaleHelper
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSource
 import reikai.presentation.browse.EntryBrowseGridCell
+import reikai.presentation.browse.EntrySearchCardRow
+import reikai.presentation.browse.EntrySearchSection
+import reikai.presentation.browse.EntrySearchSourceFilterChips
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.toEntryBrowseUi
 import reikai.presentation.novel.browse.DuplicateNovelDialog
@@ -72,9 +76,6 @@ import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
-
-/** Fixed cover width for a source's horizontal results row. */
-private val RESULT_CELL_WIDTH = 112.dp
 
 /**
  * Cross-source light-novel search, the novel twin of Mihon's manga global search. A Pinned / All /
@@ -212,11 +213,13 @@ internal fun NovelGlobalSearchResults(
 ) {
     val layoutDirection = LocalLayoutDirection.current
     Column(modifier = Modifier.padding(top = contentPadding.calculateTopPadding())) {
-        SourceFilterChips(
-            sourceFilter = state.sourceFilter,
+        EntrySearchSourceFilterChips(
+            isPinnedOnly = state.sourceFilter == SourceFilter.PinnedOnly,
             onlyShowHasResults = state.onlyShowHasResults,
-            onSetSourceFilter = onSetSourceFilter,
-            onToggleHasResults = onToggleHasResults,
+            showSourceFilter = true,
+            onSelectPinnedOnly = { onSetSourceFilter(SourceFilter.PinnedOnly) },
+            onSelectAll = { onSetSourceFilter(SourceFilter.All) },
+            onToggleResults = onToggleHasResults,
         )
         // Search-completion bar, shown only while some sources are still loading (mirrors manga's
         // GlobalSearchToolbar). Hidden before the first result lands and once every source finishes.
@@ -250,48 +253,6 @@ internal fun NovelGlobalSearchResults(
     }
 }
 
-/** Pinned / All / Has results chip row, mirroring the manga global search's GlobalSearchToolbar. */
-@Composable
-internal fun SourceFilterChips(
-    sourceFilter: SourceFilter,
-    onlyShowHasResults: Boolean,
-    onSetSourceFilter: (SourceFilter) -> Unit,
-    onToggleHasResults: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        FilterChip(
-            selected = sourceFilter == SourceFilter.PinnedOnly,
-            onClick = { onSetSourceFilter(SourceFilter.PinnedOnly) },
-            leadingIcon = {
-                Icon(Icons.Outlined.PushPin, null, Modifier.size(FilterChipDefaults.IconSize))
-            },
-            label = { Text(stringResource(MR.strings.pinned_sources)) },
-        )
-        FilterChip(
-            selected = sourceFilter == SourceFilter.All,
-            onClick = { onSetSourceFilter(SourceFilter.All) },
-            leadingIcon = {
-                Icon(Icons.Outlined.DoneAll, null, Modifier.size(FilterChipDefaults.IconSize))
-            },
-            label = { Text(stringResource(MR.strings.all)) },
-        )
-        FilterChip(
-            selected = onlyShowHasResults,
-            onClick = onToggleHasResults,
-            leadingIcon = {
-                Icon(Icons.Outlined.FilterList, null, Modifier.size(FilterChipDefaults.IconSize))
-            },
-            label = { Text(stringResource(MR.strings.has_results)) },
-        )
-    }
-}
-
 @Composable
 internal fun SourceSection(
     result: SourceSearchResult,
@@ -303,69 +264,38 @@ internal fun SourceSection(
     selection: List<SelectedNovel> = emptyList(),
 ) {
     val context = LocalContext.current
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        val lang = result.source.lang.takeIf { it.isNotBlank() }
-            ?.let { " · ${LocaleHelper.getSourceDisplayName(it, context)}" }.orEmpty()
-        // Tap the header to open this source's full browse pre-filled with the query (when enabled).
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(if (onClickSource != null) Modifier.clickable(onClick = onClickSource) else Modifier)
-                .padding(horizontal = 12.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = result.source.name + lang,
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.weight(1f),
-            )
-            if (onClickSource != null) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-        }
+    val lang = result.source.lang.takeIf { it.isNotBlank() }
+        ?.let { LocaleHelper.getSourceDisplayName(it, context) }.orEmpty()
+    // Tap the header to open this source's full browse pre-filled with the query (when enabled).
+    EntrySearchSection(
+        title = result.source.name,
+        subtitle = lang,
+        onClick = onClickSource,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+    ) {
         when (val s = result.state) {
-            is SearchState.Loading -> Box(
-                modifier = Modifier.fillMaxWidth().height(RESULT_CELL_WIDTH),
-                contentAlignment = Alignment.Center,
-            ) { CircularProgressIndicator() }
+            is SearchState.Loading -> GlobalSearchLoadingResultItem()
             is SearchState.Error -> Text(
                 text = s.message,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(horizontal = 12.dp),
             )
-            is SearchState.Success -> if (s.novels.isEmpty()) {
-                Text(
-                    text = stringResource(MR.strings.no_results_found),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                )
-            } else {
-                LazyRow(modifier = Modifier.fillMaxWidth()) {
-                    items(items = s.novels, key = { it.path }) { item ->
-                        val isSelected = selection.fastAny {
-                            it.sourceId == result.source.id && it.item.path == item.path
-                        }
-                        Box(modifier = Modifier.width(RESULT_CELL_WIDTH).padding(horizontal = 4.dp)) {
-                            EntryBrowseGridCell(
-                                ui = item.toEntryBrowseUi(
-                                    inLibrary = (result.source.id to item.path) in favoritedKeys,
-                                    site = result.source.site,
-                                ),
-                                displayMode = LibraryDisplayMode.ComfortableGrid,
-                                onClick = { onResultClick(item) },
-                                onLongClick = { onResultLongClick(item) },
-                                isSelected = isSelected,
-                            )
-                        }
-                    }
-                }
-            }
+            is SearchState.Success -> EntrySearchCardRow(
+                entries = s.novels,
+                key = { it.path },
+                toUi = {
+                    it.toEntryBrowseUi(
+                        inLibrary = (result.source.id to it.path) in favoritedKeys,
+                        site = result.source.site,
+                    )
+                },
+                onClick = onResultClick,
+                onLongClick = onResultLongClick,
+                isSelected = { item ->
+                    selection.fastAny { it.sourceId == result.source.id && it.item.path == item.path }
+                },
+            )
         }
     }
 }

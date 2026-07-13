@@ -27,40 +27,8 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 
-@Composable
-fun GlobalSearchResultItem(
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    Column(modifier = modifier) {
-        Row(
-            modifier = Modifier
-                .padding(
-                    start = MaterialTheme.padding.medium,
-                    end = MaterialTheme.padding.extraSmall,
-                )
-                .fillMaxWidth()
-                .clickable(onClick = onClick),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(text = subtitle)
-            }
-            IconButton(onClick = onClick) {
-                Icon(imageVector = Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null)
-            }
-        }
-        content()
-    }
-}
+// RK: the per-source section header moved to the shared reikai.presentation.browse.EntrySearchSection
+// (manga + novel global search render through it now). Only the loading / error leaves stay here.
 
 @Composable
 fun GlobalSearchLoadingResultItem() {
