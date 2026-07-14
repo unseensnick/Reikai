@@ -100,7 +100,7 @@ Four independent parity items scouted 2026-07-14; two shipped, two closed as non
 - **Global search:** `reikai/presentation/novel/globalsearch/*` vs `eu/kanade/tachiyomi/ui/browse/source/globalsearch/*` and `eu/kanade/presentation/browse/GlobalSearch*`.
 - **Migration:** `reikai/presentation/novel/migrate/*`, `reikai/presentation/browse/migrate/*`, and the already-shared `reikai/presentation/migrate/MigrationSourcePick` vs `mihon/feature/migration/*`.
 - **Action handlers:** `NovelDetailsScreenModel` / `NovelLibraryScreenModel` vs `MangaScreenModel` / `LibraryScreenModel`; `NovelDownloadActions`.
-- **Leftover composables:** `NovelNotesScreen`, `NovelLibrarySettingsDialog` (display page), `NovelTrackInfoDialog` + `NovelTrackUpdater`.
+- **Leftover composables:** `NovelNotesScreen`, `NovelLibrarySettingsDialog` (display page). (`NovelTrackInfoDialog` was the track-dialog twin, collapsed into `reikai.presentation.track.EntryTrackInfoDialog` in Phase 6 above; `NovelTrackUpdater` remains as the novel write sink.)
 
 ## Status
 
