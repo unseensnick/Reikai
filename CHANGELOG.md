@@ -93,6 +93,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Other
 
+- Novel source browsing now detects the end of the results without a wasted extra fetch, and prefetches the next page so the "load more" footer is accurate about whether more results follow.
 - Settings search now scrolls to and highlights the exact matched row (even when two settings in different content-type groups share a name) and indexes the novel recommendations screen so its options are searchable.
 - Formatted the codebase to pass ktlint/spotless, so the formatter runs cleanly and can be enforced going forward.
 - The manga and novel History/Updates rows, cover dialog, details screen, and reader bars now render through shared components instead of near-duplicate copies, so a change to one reaches both. Groundwork for the unified content UI.
