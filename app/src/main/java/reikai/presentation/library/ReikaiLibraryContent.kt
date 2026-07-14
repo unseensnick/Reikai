@@ -33,7 +33,6 @@ import kotlinx.coroutines.launch
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryManga
-import tachiyomi.domain.library.model.sort
 import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.util.plus
 import kotlin.time.Duration.Companion.seconds
@@ -143,9 +142,10 @@ fun ReikaiLibraryContent(
     onClickCategorySort: (Category) -> Unit,
     onRefreshCategory: (Category) -> Unit,
     onSelectAllInCategory: (Category) -> Unit,
-    // Novel-correct sort label for a category's header (its stored sort enum diverges from manga's on
-    // two bits); null falls back to the manga-enum decode in the header.
+    // The effective sort per category (its override, or the global sort it follows), decoded per content
+    // type upstream: the header label via [sortLabelFor] and the arrow direction via [sortAscendingFor].
     sortLabelFor: ((Category) -> StringResource?)? = null,
+    sortAscendingFor: ((Category) -> Boolean?)? = null,
     // continue-reading button on covers, single-list parity with the pager; null = hidden
     onClickContinueReading: ((LibraryManga) -> Unit)? = null,
 ) {
@@ -247,8 +247,8 @@ fun ReikaiLibraryContent(
                             allSelected = items.isNotEmpty() && items.all { it.id in selection },
                             onToggleSelectAll = { onSelectAllInCategory(category) },
                             // Dynamic groups have no real category to sort/refresh.
-                            sort = if (dynamic) null else category.sort,
                             sortLabel = if (dynamic) null else sortLabelFor?.invoke(category),
+                            sortAscending = if (dynamic) null else sortAscendingFor?.invoke(category),
                             onClickSort = if (dynamic) {
                                 null
                             } else {

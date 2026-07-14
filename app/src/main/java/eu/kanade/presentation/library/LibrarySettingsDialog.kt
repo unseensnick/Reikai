@@ -17,9 +17,12 @@ import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.library.LibrarySettingsScreenModel
 import eu.kanade.tachiyomi.util.system.isReleaseBuildType
+import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
+import reikai.domain.library.sortForCategory
 import reikai.presentation.library.EntryDisplayPage
 import reikai.presentation.library.ReikaiCategoriesFilter
 import reikai.presentation.library.ReikaiGroupPage
+import reikai.presentation.library.ResetToGlobalSortItem
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibrarySort
@@ -195,8 +198,12 @@ private fun ColumnScope.SortPage(
     screenModel: LibrarySettingsScreenModel,
 ) {
     val trackers by screenModel.trackersFlow.collectAsState()
-    val sortingMode = category.sort.type
-    val sortDescending = !category.sort.isAscending
+    // RK: show the category's own sort when it's an override, else the global sort (null category =
+    // the toolbar's global scope). Reactive so changing the global sort updates the selection live.
+    val globalSort by screenModel.libraryPreferences.sortingMode.collectAsState()
+    val currentSort = sortForCategory(category?.flags ?: 0L, globalSort)
+    val sortingMode = currentSort.type
+    val sortDescending = !currentSort.isAscending
 
     val options = remember(trackers.isEmpty()) {
         val trackerMeanPair = if (trackers.isNotEmpty()) {
@@ -253,6 +260,13 @@ private fun ColumnScope.SortPage(
                 screenModel.setSort(category, mode, direction)
             },
         )
+    }
+
+    // RK: clear this category's override so it follows the global sort again (only when overridden).
+    category?.let { cat ->
+        if ((cat.flags and CATEGORY_SORT_CUSTOMIZED) != 0L) {
+            ResetToGlobalSortItem(onClick = { screenModel.resetSort(cat) })
+        }
     }
 }
 

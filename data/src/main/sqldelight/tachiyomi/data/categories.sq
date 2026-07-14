@@ -60,3 +60,10 @@ WHERE _id = :categoryId;
 updateAllFlags:
 UPDATE categories SET
 flags = coalesce(?, flags);
+
+-- RK: clear the per-category sort-override marker (CATEGORY_SORT_CUSTOMIZED, bit 0) on every category
+-- so they follow the global sort again, preserving all other bits (sort, hidden). Used by
+-- ResetCategoryFlags when "Per-category setting for sort" is turned off.
+clearSortOverrides:
+UPDATE categories SET
+flags = flags & ~1;

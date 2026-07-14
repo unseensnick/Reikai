@@ -15,5 +15,6 @@ val migrations: List<Migration>
         SetupNovelUpdateMigration(),
         SetupEHentaiUpdateMigration(),
         NovelDownloadRekeyMigration(),
+        SetupCategorySortOverrideMigration(),
         // RK <--
     )

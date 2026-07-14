@@ -44,6 +44,7 @@ import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.isHidden
 import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.sortForCategory
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.PropagateTrackerLinks
 import reikai.presentation.library.DynItem
@@ -70,7 +71,6 @@ import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.model.LibrarySort
-import tachiyomi.domain.library.model.sort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetLibraryManga
@@ -178,22 +178,28 @@ class LibraryScreenModel(
         }
 
         screenModelScope.launchIO {
-            state
-                .dropWhile { !it.libraryData.isInitialized }
+            combine(
+                state.dropWhile { !it.libraryData.isInitialized },
+                // RK: re-run the sort when the GLOBAL sort changes; non-overridden categories follow it
+                //     via the CUSTOMIZED override bit, so a global change re-sorts them (applySort reads
+                //     sortingMode fresh). Pairing it into the distinct key is what re-fires the pipeline.
+                libraryPreferences.sortingMode.changes(),
+            ) { s, globalSort -> s to globalSort }
                 // RK --> branch on the Reikai grouping mode; dynamic grouping (Y3) and category
                 // order (R3) replace Mihon's plain category bucketing. The distinct key includes
                 // only the grouping-relevant Reikai fields so badge/hopper changes don't re-group.
-                .map {
+                .map { (it, globalSort) ->
                     Triple(
                         it.libraryData,
                         it.reikai.groupingInputs(),
                         // drop categories an active filter/search emptied, unless the user keeps them
                         (it.hasActiveFilters || it.searchQuery != null) &&
                             !it.reikai.showEmptyCategoriesWhileFiltering,
-                    )
+                    ) to globalSort
                 }
                 .distinctUntilChanged()
-                .map { (data, grouping, dropEmptyWhileFiltering) ->
+                .map { (inputs, _) ->
+                    val (data, grouping, dropEmptyWhileFiltering) = inputs
                     val grouped = if (grouping.groupLibraryBy == LibraryGroup.BY_DEFAULT) {
                         data.favorites
                             .applyGrouping(data.categories, data.showSystemCategory, grouping.showHiddenCategories)
@@ -645,15 +651,18 @@ class LibraryScreenModel(
             }
         }
 
+        // RK: a category follows the global sort unless it has a per-category override (CUSTOMIZED bit).
+        val globalSort = libraryPreferences.sortingMode.get()
         return mapValues { (key, value) ->
-            if (key.sort.type == LibrarySort.Type.Random) {
+            val sort = sortForCategory(key.flags, globalSort)
+            if (sort.type == LibrarySort.Type.Random) {
                 return@mapValues value.shuffled(Random(libraryPreferences.randomSortSeed.get()))
             }
 
             val manga = value.mapNotNull { favoritesById[it] }
 
-            val comparator = key.sort.comparator()
-                .let { if (key.sort.isAscending) it else it.reversed() }
+            val comparator = sort.comparator()
+                .let { if (sort.isAscending) it else it.reversed() }
                 .thenComparator(sortAlphabetically)
 
             manga.sortedWith(comparator).map { it.id }

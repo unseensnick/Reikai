@@ -781,15 +781,31 @@ class NovelLibraryScreenModel :
             reikaiLibraryPreferences.novelLibraryRandomSeed.set(Random.nextLong())
         }
         val flag = NovelLibrarySort(type, isAscending).toFlag()
-        if (categoryId == NovelCategory.UNCATEGORIZED_ID) {
-            reikaiLibraryPreferences.novelLibraryDefaultSort.set(flag)
-        } else {
+        // Mirror manga's SetSortModeForCategory: a real category with categorized-display on is an
+        // OVERRIDE (writes CUSTOMIZED via toFlag); otherwise this is the GLOBAL sort. Clearing overrides
+        // happens only when the toggle is turned off (ResetNovelCategoryFlags), never here, so sorting the
+        // Default bucket / a global change no longer wipes per-category overrides.
+        val perCategory = categoryId != NovelCategory.UNCATEGORIZED_ID &&
+            libraryPreferences.categorizedDisplaySettings.get()
+        if (perCategory) {
             screenModelScope.launchIO {
                 // Preserve the category's other flag bits (e.g. hidden); only rewrite the sort bits.
                 val current = state.value.flagsForCategory(categoryId)
                 val newFlags = (current and NovelLibrarySort.FLAGS_MASK.inv()) or flag
                 novelCategoryRepository.update(NovelCategoryUpdate(id = categoryId, flags = newFlags))
             }
+        } else {
+            reikaiLibraryPreferences.novelLibraryDefaultSort.set(flag)
+        }
+    }
+
+    /** Clear this category's per-category sort override so it follows the global sort again. */
+    fun resetSort(categoryId: Long) {
+        screenModelScope.launchIO {
+            val current = state.value.flagsForCategory(categoryId)
+            novelCategoryRepository.update(
+                NovelCategoryUpdate(id = categoryId, flags = current and NovelLibrarySort.FLAGS_MASK.inv()),
+            )
         }
     }
 

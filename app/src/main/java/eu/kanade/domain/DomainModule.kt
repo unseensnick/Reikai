@@ -79,6 +79,7 @@ import reikai.domain.novel.interactor.MigrateNovelUseCase
 import reikai.domain.novel.interactor.RefreshNovelTracks
 import reikai.domain.novel.interactor.RemoveNovelHistory
 import reikai.domain.novel.interactor.ReorderNovelCategories
+import reikai.domain.novel.interactor.ResetNovelCategoryFlags
 import reikai.domain.novel.interactor.SetCustomNovelInfo
 import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.SetNovelChapterFlags
@@ -214,6 +215,7 @@ class DomainModule : InjektModule {
         addSingletonFactory<NovelCategoryRepository> { NovelCategoryRepositoryImpl(get()) }
         addFactory { GetNovelCategories(get()) }
         addFactory { SetNovelCategories(get()) }
+        addFactory { ResetNovelCategoryFlags(get()) }
         addFactory { InsertNovelCategories(get()) }
         addFactory { DeleteNovelCategories(get()) }
         addFactory { ReorderNovelCategories(get()) }
@@ -284,7 +286,7 @@ class DomainModule : InjektModule {
         addSingletonFactory<CategoryRepository> { CategoryRepositoryImpl(get()) }
         addFactory { GetCategories(get()) }
         addFactory { GetPagePreviews(get(), get()) } // RK: adult-source page previews
-        addFactory { ResetCategoryFlags(get(), get()) }
+        addFactory { ResetCategoryFlags(get()) }
         addFactory { SetDisplayMode(get()) }
         addFactory { SetSortModeForCategory(get(), get()) }
         addFactory { CreateCategoryWithName(get(), get()) }

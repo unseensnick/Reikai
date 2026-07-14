@@ -29,6 +29,7 @@ import eu.kanade.tachiyomi.ui.library.LibrarySettingsScreenModel
 import reikai.domain.novel.model.NovelLibrarySort
 import reikai.presentation.library.EntryDisplayPage
 import reikai.presentation.library.LibraryGroup
+import reikai.presentation.library.ResetToGlobalSortItem
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.BaseSortItem
@@ -243,6 +244,11 @@ private fun ColumnScope.SortPage(screenModel: NovelLibraryScreenModel, categoryI
                 screenModel.setSort(categoryId, mode, isAscending)
             },
         )
+    }
+
+    // RK: clear this category's override so it follows the global sort again (only when overridden).
+    if ((state.flagsForCategory(categoryId) and NovelLibrarySort.CUSTOMIZED) != 0L) {
+        ResetToGlobalSortItem(onClick = { screenModel.resetSort(categoryId) })
     }
 }
 

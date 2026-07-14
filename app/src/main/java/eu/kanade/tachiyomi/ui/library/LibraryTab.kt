@@ -70,6 +70,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.library.ContentType
+import reikai.domain.library.sortForCategory
 import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelLibrarySort
 import reikai.presentation.components.ContentTypeFilterChips
@@ -82,6 +83,7 @@ import reikai.presentation.library.novels.novelSortLabelRes
 import reikai.presentation.library.reikaiCategoryHeaderIndices
 import reikai.presentation.library.reikaiIsCollapsed
 import reikai.presentation.library.reikaiSortCategories
+import reikai.presentation.library.sortLabelRes
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
 import reikai.presentation.manga.MangaMigrationSourcePickScreen
 import reikai.presentation.novel.details.NovelScreen
@@ -304,11 +306,11 @@ data object LibraryTab : Tab {
                             screenModel::invertSelection
                         },
                         onClickFilter = {
+                            // RK: the toolbar sort is GLOBAL (Model A); scope the sheet to the global sort,
+                            // not a stale active category. Per-category overrides are set from each
+                            // category header's sort in the single-list view.
                             if (isNovels) {
-                                novelModel.openSettingsDialog(
-                                    novelState.activeCategory?.id ?: NovelCategory.UNCATEGORIZED_ID,
-                                    0,
-                                )
+                                novelModel.openSettingsDialog(NovelCategory.UNCATEGORIZED_ID, 0)
                             } else {
                                 screenModel.showSettingsDialog()
                             }
@@ -430,6 +432,12 @@ data object LibraryTab : Tab {
                                 LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
                             val columns by screenModel.getColumnsForOrientation(isLandscape)
                             val displayMode by screenModel.getDisplayMode()
+                            // RK: the global sort each non-overridden category follows (re-read per render;
+                            // a global-sort change re-sorts the library, which recomposes this).
+                            val mangaGlobalSort = settingsScreenModel.libraryPreferences.sortingMode.get()
+                            val novelDefaultSort = NovelLibrarySort.fromFlag(
+                                settingsScreenModel.reikaiLibraryPreferences.novelLibraryDefaultSort.get(),
+                            )
                             ReikaiLibraryContent(
                                 categories = activeCategories,
                                 getItemsForCategory = activeGetItems,
@@ -502,12 +510,20 @@ data object LibraryTab : Tab {
                                         screenModel.selectAllInCategory(category)
                                     }
                                 },
-                                // RK: novels store their own sort enum in the shared flag bits; decode the
-                                // header label with the novel enum so Downloaded / Tracker score read right.
+                                // RK: the header shows each category's EFFECTIVE sort (its own override, or
+                                // the global sort it follows), decoded per content type so the label + arrow
+                                // match the actual ordering.
                                 sortLabelFor = if (isNovels) {
-                                    { category -> novelSortLabelRes(NovelLibrarySort.fromFlag(category.flags).type) }
+                                    { category ->
+                                        novelSortLabelRes(NovelLibrarySort.forCategory(category.flags, novelDefaultSort).type)
+                                    }
                                 } else {
-                                    null
+                                    { category -> sortLabelRes(sortForCategory(category.flags, mangaGlobalSort).type) }
+                                },
+                                sortAscendingFor = if (isNovels) {
+                                    { category -> NovelLibrarySort.forCategory(category.flags, novelDefaultSort).isAscending }
+                                } else {
+                                    { category -> sortForCategory(category.flags, mangaGlobalSort).isAscending }
                                 },
                                 onClickContinueReading = if (isNovels) {
                                     onNovelContinueReading.takeIf { novelState.showContinueButton }
@@ -693,9 +709,10 @@ data object LibraryTab : Tab {
                     onDismissRequest = onDismissRequest,
                     screenModel = settingsScreenModel,
                     // RK: a single-list header scopes the sheet to its category (Sort tab). Resolve the
-                    // live category by id so the Sort tab reflects the current sort after it changes.
-                    category = dialog.categoryId?.let { id -> state.libraryData.categories.find { it.id == id } }
-                        ?: state.activeCategory,
+                    // live category by id so the Sort tab reflects the current sort after it changes. A
+                    // toolbar open (null id) leaves it null = the GLOBAL sort scope (Model A), not a stale
+                    // active category.
+                    category = dialog.categoryId?.let { id -> state.libraryData.categories.find { it.id == id } },
                     // RK --> full category list for the include/exclude filter (sorted per R3) + route to category manager
                     categories = reikaiSortCategories(state.libraryData.categories, state.reikai.categorySortOrder),
                     onManageCategories = {

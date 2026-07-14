@@ -24,6 +24,7 @@ import kotlinx.coroutines.launch
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.interactor.GetNovelCategories
+import reikai.domain.novel.interactor.ResetNovelCategoryFlags
 import reikai.domain.novel.model.toCategory
 import reikai.presentation.library.preferredsources.PreferredSourcesScreen
 import reikai.presentation.recommendation.SettingsRecommendationsScreen
@@ -251,6 +252,8 @@ object SettingsLibraryScreen : SearchableSettings {
                         if (!it) {
                             scope.launch {
                                 Injekt.get<ResetCategoryFlags>().await()
+                                // RK: reset novel category sorts too, so novels honor the toggle like manga
+                                Injekt.get<ResetNovelCategoryFlags>().await()
                             }
                         }
                         true
