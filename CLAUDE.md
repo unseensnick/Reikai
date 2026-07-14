@@ -37,7 +37,7 @@ Every Reikai screen ported onto or added to Mihon follows Mihon's existing Voyag
 
 ## Unified content UI (active initiative)
 
-Reikai is collapsing the near-duplicate manga and novel presentation into one Reikai-owned UI layer, one surface at a time (History + Updates rows shipped; cover dialog next; the details screen is the large one). Detail and sequencing: [docs/dev/plans/unified-content-ui.md](docs/dev/plans/unified-content-ui.md).
+Reikai is collapsing the near-duplicate manga and novel presentation into one Reikai-owned UI layer, one surface at a time. The presentation surfaces are done (History + Updates rows, cover dialog, details screen, library, browse/search, notes, and the track dialog); the next unification is the download subsystem (Road B). Detail and sequencing: [docs/dev/plans/unified-content-ui.md](docs/dev/plans/unified-content-ui.md).
 
 **The main goal is manga/novel feature parity and anti-divergence, not just deduplication.** The purpose is that a UI change to one content type automatically reaches the other, so the two can't silently drift and features stay at parity, unless a difference is deliberately gated (the content type genuinely can't support it, or it wouldn't benefit them). Merging two near-duplicate composables into one shared composable is an important sub-goal (one shared composable makes future divergence structurally impossible), but it is the mechanism, not the goal.
 

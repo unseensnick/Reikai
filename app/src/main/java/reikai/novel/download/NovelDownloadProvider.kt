@@ -25,8 +25,9 @@ import uy.kohesive.injekt.injectLazy
  * The `<source>` segment keys on the **plugin id** ([Novel.source]) rather than a display name: a novel
  * source's display name can change on a plugin update, so the id is the hardier folder key (the manga
  * side keys on display name because its numeric source ids are stable). Title + chapter naming is
- * **reused** from the manga [DownloadProvider] (not copied) so the two schemes can never drift, which
- * a later unified download layer depends on; a parity test pins this.
+ * **reused** from the manga [DownloadProvider]: this class delegates to `getMangaDirName` /
+ * `getChapterDirName` rather than copying the logic, so the two schemes can never drift by
+ * construction, which a later unified download layer depends on.
  *
  * Text-only: one self-contained HTML file per chapter (inline images embedded as `data:` URIs). Writes
  * land on a `<name>.html<TMP_DIR_SUFFIX>` temp file and rename on success, so a [NovelDownloadCache]

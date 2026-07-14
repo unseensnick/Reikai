@@ -20,7 +20,7 @@
 - `data/.../view/novelLibraryView.sq`, `novelUpdatesView.sq`, migration `29.sqm` — views recreated without the download columns (the `is_downloaded` column is kept).
 - `mihon/core/migration/migrations/NovelDownloadRekeyMigration.kt` — the one-time file relocation.
 
-**Status.** Shipped on `feat/unified-content-ui` (uncommitted at time of writing; commit SHA to fill on landing). Verified on-device: downloads survive reinstall and backup restore; storage-move shares the same disk-scan path and was not separately exercised. Unit tests cover the rename-on-sync wiring; the disk-scan cache and the relocation migration are Android file-I/O and were validated on-device.
+**Status.** Shipped on `feat/unified-content-ui` (commit `004c8ce16`). Verified on-device: downloads survive reinstall and backup restore; storage-move shares the same disk-scan path and was not separately exercised. Unit tests cover the rename-on-sync wiring; the disk-scan cache and the relocation migration are Android file-I/O and were validated on-device.
 
 **Decisions & tradeoffs.**
 - **Chose full parity (a parallel `NovelDownloadCache`) over reconciling the flag from disk.** The decisive factor was reliability: a single source of truth (disk) makes flag-vs-disk drift structurally impossible, whereas a repair-the-flag approach depends on every sync path firing the reconcile. The cost is a novel-only cache class, retired by the download-subsystem unification (Road B), which the naming reuse keeps a code merge.

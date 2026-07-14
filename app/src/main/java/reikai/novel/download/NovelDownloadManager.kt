@@ -103,8 +103,9 @@ class NovelDownloadManager(private val context: Context) {
         provider.readChapter(novel, chapter)
 
     fun downloadChapters(chapters: List<NovelChapter>) {
-        // Callers filter out already-downloaded chapters via the cache; the drain skips any that slip
-        // through. No enqueue-time disk check here (it would need each chapter's owning Novel).
+        // Callers filter out already-downloaded chapters via the cache before enqueuing. There is no
+        // enqueue-time or drain-time disk check (it would need each chapter's owning Novel), so an
+        // unfiltered caller would re-download an already-present chapter.
         val targets = chapters.map { ch ->
             NovelDownload(novelId = ch.novelId, chapterId = ch.id, url = ch.url)
         }
