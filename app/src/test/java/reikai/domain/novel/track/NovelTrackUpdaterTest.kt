@@ -13,7 +13,7 @@ import reikai.domain.novel.interactor.InsertNovelTrack
 import reikai.domain.novel.model.NovelTrack
 import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
 
-/** Verifies the status/score transitions ported from BaseTracker land in `novel_tracks`. */
+/** Verifies the shared status/score transitions ([reikai.domain.track.TrackFieldMutations]) land in `novel_tracks`. */
 class NovelTrackUpdaterTest {
 
     private val reading = 2L

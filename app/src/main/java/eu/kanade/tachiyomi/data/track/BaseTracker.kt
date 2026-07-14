@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import logcat.LogPriority
 import okhttp3.OkHttpClient
+import reikai.domain.track.TrackFieldMutations
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
@@ -93,31 +94,23 @@ abstract class BaseTracker(
     }
 
     override suspend fun setRemoteStatus(track: Track, status: Long) {
-        track.status = status
-        if (track.status == getCompletionStatus() && track.total_chapters != 0L) {
-            track.last_chapter_read = track.total_chapters.toDouble()
-        }
+        // RK --> field transition shared with the novel writer, so novels inherit upstream changes
+        TrackFieldMutations.applyStatus(this, track, status)
+        // RK <--
         updateRemote(track)
     }
 
     override suspend fun setRemoteLastChapterRead(track: Track, chapterNumber: Int) {
-        if (
-            track.last_chapter_read == 0.0 &&
-            track.last_chapter_read < chapterNumber &&
-            track.status != getRereadingStatus()
-        ) {
-            track.status = getReadingStatus()
-        }
-        track.last_chapter_read = chapterNumber.toDouble()
-        if (track.total_chapters != 0L && track.last_chapter_read.toLong() == track.total_chapters) {
-            track.status = getCompletionStatus()
-            track.finished_reading_date = System.currentTimeMillis()
-        }
+        // RK --> field transition shared with the novel writer, so novels inherit upstream changes
+        TrackFieldMutations.applyLastChapterRead(this, track, chapterNumber)
+        // RK <--
         updateRemote(track)
     }
 
     override suspend fun setRemoteScore(track: Track, scoreString: String) {
-        track.score = indexToScore(getScoreList().indexOf(scoreString))
+        // RK --> field transition shared with the novel writer, so novels inherit upstream changes
+        TrackFieldMutations.applyScore(this, track, scoreString)
+        // RK <--
         updateRemote(track)
     }
 
