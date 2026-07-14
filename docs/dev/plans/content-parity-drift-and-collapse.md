@@ -81,7 +81,11 @@ A 2026-07-14 deep scout (3 explorer agents over both full stacks) found Phase 5 
 
 ### Phase 7: Standalone novel quick wins (existing roadmap items)
 
-Independent small parity items already on the roadmap, foldable alongside the above: categorized-display correctness for novels; mark same-numbered duplicate chapters read on novel completion; tracker-based merge-group healing for novels; novel details skeleton loading. `[S]` each.
+Four independent parity items scouted 2026-07-14; two shipped, two closed as non-work.
+- **Categorized-display correctness: grew into a full feature, shipped (`b90344562`).** The scout found the categorized-display sort was broken on BOTH types (the show-all toolbar sort wrote to a stale active category, and novels had no override model on the read/label path). Rather than patch, it was rebuilt as "global sort + per-category overrides" for both libraries: a manga `CUSTOMIZED` sort-override flag bit mirroring novels (`reikai.domain.library.CategorySortOverride`), an override-aware read (`sortForCategory`), the toolbar routed to the global sort, a shared effective-sort header decode, a `Reset to global sort` row (shared `ResetToGlobalSortItem`), and a one-time migration (versionCode 183) preserving existing overrides. Full detail: [library-sort-overrides.md](library-sort-overrides.md).
+- **Mark same-numbered duplicates read on novel reader completion: shipped (`cce009104`).** `NovelReaderScreenModel.saveProgress` now marks unread same-numbered chapters across the merged group (via `NovelMergeManager.relatedNovelIdsFor`), gated on the shared `markDuplicateReadChapterAsRead` pref, mirroring the manga reader. Fold-verified.
+- **Tracker-based merge-group healing for novels: GATED (do NOT re-flag).** Redundant with the novel author guard, which self-repairs the real title-first mis-grouping failure on every resolution; the only slice tracker healing adds is auto-splitting manual merges (user-intentional). The `NovelMergeManager` "novel tracking is deferred" docstring is now stale (tracking shipped) but the decision holds. Recorded in ROADMAP parked.
+- **Novel details skeleton loading: NON-ISSUE.** Both details screens show a plain `LoadingScreen` spinner during load; neither has a skeleton, so there is no divergence to close (confirmed against current code + the 2026-07-09 audit note).
 
 ## Key files
 
