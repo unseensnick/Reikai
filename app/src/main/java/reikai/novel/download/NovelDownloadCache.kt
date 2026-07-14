@@ -82,6 +82,22 @@ class NovelDownloadCache {
     fun isChapterDownloaded(novel: Novel, chapter: NovelChapter): Boolean =
         isChapterDownloaded(novel.source, novel.title, chapter.name, chapter.url)
 
+    /**
+     * Ids of the [chapters] that are downloaded, all assumed to belong to [novel]. Resolves the novel's
+     * source/title folder once (only the per-chapter file-name check remains), so a long chapter list
+     * doesn't recompute the constant folder names per chapter as a `isChapterDownloaded`-per-chapter loop
+     * would. Result is identical to filtering with [isChapterDownloaded].
+     */
+    fun downloadedChapterIds(novel: Novel, chapters: List<NovelChapter>): Set<Long> {
+        if (chapters.isEmpty()) return emptySet()
+        renewIfStale()
+        val names = tree[provider.sourceDirName(novel.source)]?.get(provider.novelDirName(novel.title))
+            ?: return emptySet()
+        return chapters
+            .filter { ch -> provider.validChapterFileNames(ch.name, ch.url).any { it in names } }
+            .mapTo(HashSet()) { it.id }
+    }
+
     fun getDownloadCount(novel: Novel): Int = getDownloadCount(novel.source, novel.title)
 
     /** Optimistically record a just-written chapter so the UI reflects it without waiting for a scan. */

@@ -407,9 +407,12 @@ class NovelDetailsScreenModel(
         val novelsById = chapters.map { it.novelId }.distinct()
             .mapNotNull { id -> novelRepo.getById(id)?.let { id to it } }
             .toMap()
+        // Group by novel so the cache resolves each novel's download folder once, not per chapter.
         return chapters
-            .filter { ch -> novelsById[ch.novelId]?.let { novelDownloadCache.isChapterDownloaded(it, ch) } == true }
-            .mapTo(HashSet()) { it.id }
+            .groupBy { it.novelId }
+            .flatMapTo(HashSet()) { (novelId, chs) ->
+                novelsById[novelId]?.let { novelDownloadCache.downloadedChapterIds(it, chs) }.orEmpty()
+            }
     }
 
     /** Single-source view: the anchor (non-merged or its own chip) or a selected sibling, with that
