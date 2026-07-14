@@ -1,4 +1,4 @@
-package reikai.presentation.novel.track
+package reikai.presentation.track
 
 import android.app.Application
 import android.content.Context
@@ -38,6 +38,8 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.icerock.moko.resources.StringResource
+import eu.kanade.domain.track.interactor.RefreshTracks
+import eu.kanade.domain.track.model.toDbTrack
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.track.TrackChapterSelector
 import eu.kanade.presentation.track.TrackDateSelector
@@ -47,6 +49,7 @@ import eu.kanade.presentation.track.TrackStatusSelector
 import eu.kanade.presentation.track.TrackerSearch
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.data.track.DeletableTracker
+import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
@@ -56,25 +59,33 @@ import eu.kanade.tachiyomi.util.lang.toLocalDate
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import reikai.domain.manga.PropagateTrackerLinks
 import reikai.domain.novel.interactor.AddNovelTrack
 import reikai.domain.novel.interactor.DeleteNovelTrack
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.RefreshNovelTracks
 import reikai.domain.novel.model.NovelTrack
-import reikai.domain.novel.track.NovelTrackUpdater
-import reikai.domain.novel.track.toDbTrack
 import reikai.domain.novel.track.toUiTrack
+import reikai.domain.track.TrackWriter
+import reikai.domain.track.trackWriterFor
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.manga.interactor.GetManga
+import tachiyomi.domain.source.service.SourceManager
+import tachiyomi.domain.track.interactor.DeleteTrack
+import tachiyomi.domain.track.interactor.GetTracks
+import tachiyomi.domain.track.model.Track
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.components.material.AlertDialogContent
@@ -87,21 +98,25 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 
 /**
- * Novel twin of [eu.kanade.tachiyomi.ui.manga.track.TrackInfoDialogHomeScreen]. Reuses the manga
- * tracking composables verbatim (they are media-agnostic): novel tracks are adapted to the shared
- * [TrackItem] / domain Track carrier via [reikai.domain.novel.track.toUiTrack], and writes go through
- * [reikai.domain.novel.track.NovelTrackUpdater] / [AddNovelTrack] into `novel_tracks`.
+ * The single track-info dialog stack for both manga and novels. Both content types carry the same domain
+ * [Track] (novels adapt via [reikai.domain.novel.track.toUiTrack]) and write through a [TrackWriter], so the
+ * two catalogues cannot drift. Only five things branch on [isNovel]: the track subscription (single-id vs
+ * merge-group), the tracker filter (source-accept vs supportsNovels), the search endpoint (search vs
+ * searchNovel), the bind target (tracker.register + group propagate vs AddNovelTrack), and the delete scope
+ * (single-id vs group). The [EnhancedTracker] auto-bind is a manga-only slot (no novel tracker is enhanced).
  */
-data class NovelTrackInfoDialogHomeScreen(
-    private val novelId: Long,
-    private val novelTitle: String,
+data class EntryTrackInfoDialogHomeScreen(
+    private val entryId: Long,
+    private val entryTitle: String,
+    private val sourceId: Long?,
+    private val isNovel: Boolean,
 ) : Screen() {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val screenModel = rememberScreenModel { Model(novelId) }
+        val screenModel = rememberScreenModel { Model(entryId, sourceId, isNovel) }
 
         val dateFormat = remember { UiPreferences.dateFormat(Injekt.get<UiPreferences>().dateFormat.get()) }
         val state by screenModel.state.collectAsState()
@@ -110,48 +125,41 @@ data class NovelTrackInfoDialogHomeScreen(
             trackItems = state.trackItems,
             dateFormat = dateFormat,
             onStatusClick = {
-                screenModel.novelTrackOf(it)?.let { track ->
-                    navigator.push(NovelTrackStatusSelectorScreen(track, it.tracker.id))
-                }
+                navigator.push(EntryTrackStatusSelectorScreen(it.track!!, it.tracker.id, isNovel))
             },
             onChapterClick = {
-                screenModel.novelTrackOf(it)?.let { track ->
-                    navigator.push(NovelTrackChapterSelectorScreen(track, it.tracker.id))
-                }
+                navigator.push(EntryTrackChapterSelectorScreen(it.track!!, it.tracker.id, isNovel))
             },
             onScoreClick = {
-                screenModel.novelTrackOf(it)?.let { track ->
-                    navigator.push(NovelTrackScoreSelectorScreen(track, it.tracker.id))
-                }
+                navigator.push(EntryTrackScoreSelectorScreen(it.track!!, it.tracker.id, isNovel))
             },
             onStartDateEdit = {
-                screenModel.novelTrackOf(it)?.let { track ->
-                    navigator.push(NovelTrackDateSelectorScreen(track, it.tracker.id, start = true))
-                }
+                navigator.push(EntryTrackDateSelectorScreen(it.track!!, it.tracker.id, start = true, isNovel))
             },
             onEndDateEdit = {
-                screenModel.novelTrackOf(it)?.let { track ->
-                    navigator.push(NovelTrackDateSelectorScreen(track, it.tracker.id, start = false))
-                }
+                navigator.push(EntryTrackDateSelectorScreen(it.track!!, it.tracker.id, start = false, isNovel))
             },
             onNewSearch = {
-                navigator.push(
-                    NovelTrackerSearchScreen(
-                        novelId = novelId,
-                        initialQuery = it.track?.title ?: novelTitle,
-                        currentUrl = it.track?.remoteUrl,
-                        serviceId = it.tracker.id,
-                    ),
-                )
+                if (!isNovel && it.tracker is EnhancedTracker) {
+                    screenModel.registerEnhancedTracking(it)
+                } else {
+                    navigator.push(
+                        EntryTrackerSearchScreen(
+                            entryId = entryId,
+                            initialQuery = it.track?.title ?: entryTitle,
+                            currentUrl = it.track?.remoteUrl,
+                            serviceId = it.tracker.id,
+                            isNovel = isNovel,
+                        ),
+                    )
+                }
             },
             onOpenInBrowser = { openTrackerInBrowser(context, it) },
             onRemoved = {
-                screenModel.novelTrackOf(it)?.let { track ->
-                    navigator.push(NovelTrackerRemoveScreen(novelId, track, it.tracker.id))
-                }
+                navigator.push(EntryTrackerRemoveScreen(entryId, it.track!!, it.tracker.id, isNovel))
             },
             onCopyLink = { context.copyTrackerLink(it) },
-            onTogglePrivate = { screenModel.togglePrivate(it) },
+            onTogglePrivate = screenModel::togglePrivate,
         )
     }
 
@@ -166,42 +174,63 @@ data class NovelTrackInfoDialogHomeScreen(
     }
 
     private class Model(
-        private val novelId: Long,
+        private val entryId: Long,
+        private val sourceId: Long?,
+        private val isNovel: Boolean,
+        private val getTracks: GetTracks = Injekt.get(),
         private val getNovelTracks: GetNovelTracks = Injekt.get(),
-        private val updater: NovelTrackUpdater = Injekt.get(),
     ) : StateScreenModel<Model.State>(State()) {
+
+        private val writer: TrackWriter = trackWriterFor(isNovel)
 
         init {
             screenModelScope.launch { refreshTrackers() }
 
             screenModelScope.launch {
-                // subscribeGroup spans the merge group, so a track bound on a sibling source shows here.
-                getNovelTracks.subscribeGroup(novelId)
+                entryTrackFlow()
                     .catch { logcat(LogPriority.ERROR, it) }
                     .distinctUntilChanged()
-                    .collectLatest { tracks ->
-                        mutableState.update { it.copy(novelTracks = tracks, trackItems = tracks.mapToTrackItem()) }
-                    }
+                    .map { it.mapToTrackItem() }
+                    .collectLatest { trackItems -> mutableState.update { it.copy(trackItems = trackItems) } }
             }
         }
 
-        fun novelTrackOf(item: TrackItem): NovelTrack? =
-            state.value.novelTracks.find { it.trackerId == item.tracker.id }
+        private fun entryTrackFlow(): Flow<List<Track>> =
+            if (isNovel) {
+                // subscribeGroup spans the merge group, so a track bound on a sibling source shows here.
+                getNovelTracks.subscribeGroup(entryId).map { tracks -> tracks.map(NovelTrack::toUiTrack) }
+            } else {
+                getTracks.subscribe(entryId)
+            }
 
-        fun togglePrivate(item: TrackItem) {
-            val novelTrack = novelTrackOf(item) ?: return
+        // Manga-only: EnhancedTracker matches a manga to its same-id remote entry with no manual search.
+        fun registerEnhancedTracking(item: TrackItem) {
+            item.tracker as EnhancedTracker
             screenModelScope.launchNonCancellable {
-                updater.setRemotePrivate(item.tracker, novelTrack.toDbTrack(), !novelTrack.private)
+                val manga = Injekt.get<GetManga>().await(entryId) ?: return@launchNonCancellable
+                try {
+                    val matchResult = item.tracker.match(manga) ?: throw Exception()
+                    item.tracker.register(matchResult, entryId)
+                    // RK: share the new tracker with the rest of the merged group
+                    Injekt.get<PropagateTrackerLinks>().fromSeed(entryId)
+                } catch (_: Exception) {
+                    withUIContext { Injekt.get<Application>().toast(MR.strings.error_no_match) }
+                }
             }
         }
 
         private suspend fun refreshTrackers() {
             val context = Injekt.get<Application>()
-            Injekt.get<RefreshNovelTracks>().await(novelId)
+            val results = if (isNovel) {
+                Injekt.get<RefreshNovelTracks>().await(entryId)
+            } else {
+                Injekt.get<RefreshTracks>().await(entryId)
+            }
+            results
                 .filter { it.first != null }
                 .forEach { (track, e) ->
                     logcat(LogPriority.ERROR, e) {
-                        "Failed to refresh novel track data novelId=$novelId for service ${track!!.id}"
+                        "Failed to refresh track data entryId=$entryId for service ${track!!.id}"
                     }
                     withUIContext {
                         context.toast(context.stringResource(MR.strings.track_error, track!!.name, e.message ?: ""))
@@ -209,31 +238,46 @@ data class NovelTrackInfoDialogHomeScreen(
                 }
         }
 
-        private fun List<NovelTrack>.mapToTrackItem(): List<TrackItem> {
-            // Only offer trackers with a real novel search; the rest would silently bind a manga hit.
-            return Injekt.get<TrackerManager>().loggedInTrackers()
-                .filter { it.supportsNovels }
-                .map { service -> TrackItem(find { it.trackerId == service.id }?.toUiTrack(), service) }
+        fun togglePrivate(item: TrackItem) {
+            screenModelScope.launchNonCancellable {
+                writer.setRemotePrivate(item.tracker, item.track!!.toDbTrack(), !item.track.private)
+            }
+        }
+
+        private fun List<Track>.mapToTrackItem(): List<TrackItem> {
+            val loggedInTrackers = Injekt.get<TrackerManager>().loggedInTrackers()
+            return if (isNovel) {
+                // Only trackers with a real novel search; the rest would silently bind a manga hit.
+                loggedInTrackers
+                    .filter { it.supportsNovels }
+                    .map { service -> TrackItem(find { it.trackerId == service.id }, service) }
+            } else {
+                val source = Injekt.get<SourceManager>().getOrStub(sourceId!!)
+                loggedInTrackers
+                    .map { service -> TrackItem(find { it.trackerId == service.id }, service) }
+                    // Show only if the service supports this manga's source
+                    .filter { (it.tracker as? EnhancedTracker)?.accept(source) ?: true }
+            }
         }
 
         @Immutable
         data class State(
-            val novelTracks: List<NovelTrack> = emptyList(),
             val trackItems: List<TrackItem> = emptyList(),
         )
     }
 }
 
-private data class NovelTrackStatusSelectorScreen(
-    private val track: NovelTrack,
+private data class EntryTrackStatusSelectorScreen(
+    private val track: Track,
     private val serviceId: Long,
+    private val isNovel: Boolean,
 ) : Screen() {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val screenModel = rememberScreenModel {
-            Model(track, Injekt.get<TrackerManager>().get(serviceId)!!)
+            Model(track, Injekt.get<TrackerManager>().get(serviceId)!!, trackWriterFor(isNovel))
         }
         val state by screenModel.state.collectAsState()
         TrackStatusSelector(
@@ -249,9 +293,9 @@ private data class NovelTrackStatusSelectorScreen(
     }
 
     private class Model(
-        private val track: NovelTrack,
+        private val track: Track,
         private val tracker: Tracker,
-        private val updater: NovelTrackUpdater = Injekt.get(),
+        private val writer: TrackWriter,
     ) : StateScreenModel<Model.State>(State(track.status)) {
 
         fun getSelections(): Map<Long, StringResource?> =
@@ -261,7 +305,7 @@ private data class NovelTrackStatusSelectorScreen(
 
         fun setStatus() {
             screenModelScope.launchNonCancellable {
-                updater.setRemoteStatus(tracker, track.toDbTrack(), state.value.selection)
+                writer.setRemoteStatus(tracker, track.toDbTrack(), state.value.selection)
             }
         }
 
@@ -270,16 +314,17 @@ private data class NovelTrackStatusSelectorScreen(
     }
 }
 
-private data class NovelTrackChapterSelectorScreen(
-    private val track: NovelTrack,
+private data class EntryTrackChapterSelectorScreen(
+    private val track: Track,
     private val serviceId: Long,
+    private val isNovel: Boolean,
 ) : Screen() {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val screenModel = rememberScreenModel {
-            Model(track, Injekt.get<TrackerManager>().get(serviceId)!!)
+            Model(track, Injekt.get<TrackerManager>().get(serviceId)!!, trackWriterFor(isNovel))
         }
         val state by screenModel.state.collectAsState()
         TrackChapterSelector(
@@ -295,9 +340,9 @@ private data class NovelTrackChapterSelectorScreen(
     }
 
     private class Model(
-        private val track: NovelTrack,
+        private val track: Track,
         private val tracker: Tracker,
-        private val updater: NovelTrackUpdater = Injekt.get(),
+        private val writer: TrackWriter,
     ) : StateScreenModel<Model.State>(State(track.lastChapterRead.toInt())) {
 
         fun getRange(): Iterable<Int> {
@@ -309,7 +354,7 @@ private data class NovelTrackChapterSelectorScreen(
 
         fun setChapter() {
             screenModelScope.launchNonCancellable {
-                updater.setRemoteLastChapterRead(tracker, track.toDbTrack(), state.value.selection)
+                writer.setRemoteLastChapterRead(tracker, track.toDbTrack(), state.value.selection)
             }
         }
 
@@ -318,16 +363,17 @@ private data class NovelTrackChapterSelectorScreen(
     }
 }
 
-private data class NovelTrackScoreSelectorScreen(
-    private val track: NovelTrack,
+private data class EntryTrackScoreSelectorScreen(
+    private val track: Track,
     private val serviceId: Long,
+    private val isNovel: Boolean,
 ) : Screen() {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val screenModel = rememberScreenModel {
-            Model(track, Injekt.get<TrackerManager>().get(serviceId)!!)
+            Model(track, Injekt.get<TrackerManager>().get(serviceId)!!, trackWriterFor(isNovel))
         }
         val state by screenModel.state.collectAsState()
         TrackScoreSelector(
@@ -343,10 +389,10 @@ private data class NovelTrackScoreSelectorScreen(
     }
 
     private class Model(
-        private val track: NovelTrack,
+        private val track: Track,
         private val tracker: Tracker,
-        private val updater: NovelTrackUpdater = Injekt.get(),
-    ) : StateScreenModel<Model.State>(State(tracker.displayScore(track.toUiTrack()))) {
+        private val writer: TrackWriter,
+    ) : StateScreenModel<Model.State>(State(tracker.displayScore(track))) {
 
         fun getSelections(): List<String> = tracker.getScoreList()
 
@@ -354,7 +400,7 @@ private data class NovelTrackScoreSelectorScreen(
 
         fun setScore() {
             screenModelScope.launchNonCancellable {
-                updater.setRemoteScore(tracker, track.toDbTrack(), state.value.selection)
+                writer.setRemoteScore(tracker, track.toDbTrack(), state.value.selection)
             }
         }
 
@@ -363,22 +409,28 @@ private data class NovelTrackScoreSelectorScreen(
     }
 }
 
-private data class NovelTrackDateSelectorScreen(
-    private val track: NovelTrack,
+private data class EntryTrackDateSelectorScreen(
+    private val track: Track,
     private val serviceId: Long,
     private val start: Boolean,
+    private val isNovel: Boolean,
 ) : Screen() {
 
     @Transient
     private val selectableDates = object : SelectableDates {
         override fun isSelectableDate(utcTimeMillis: Long): Boolean {
             val targetDate = Instant.ofEpochMilli(utcTimeMillis).toLocalDate(ZoneOffset.UTC)
+
+            // Disallow future dates
             if (targetDate > LocalDate.now(ZoneOffset.UTC)) return false
+
             return when {
+                // Disallow setting start date after finish date
                 start && track.finishDate > 0 -> {
                     val finishDate = Instant.ofEpochMilli(track.finishDate).toLocalDate(ZoneOffset.UTC)
                     targetDate <= finishDate
                 }
+                // Disallow setting finish date before start date
                 !start && track.startDate > 0 -> {
                     val startDate = Instant.ofEpochMilli(track.startDate).toLocalDate(ZoneOffset.UTC)
                     startDate <= targetDate
@@ -388,12 +440,16 @@ private data class NovelTrackDateSelectorScreen(
         }
 
         override fun isSelectableYear(year: Int): Boolean {
+            // Disallow future years
             if (year > LocalDate.now(ZoneOffset.UTC).year) return false
+
             return when {
+                // Disallow setting start year after finish year
                 start && track.finishDate > 0 -> {
                     val finishDate = Instant.ofEpochMilli(track.finishDate).toLocalDate(ZoneOffset.UTC)
                     year <= finishDate.year
                 }
+                // Disallow setting finish year before start year
                 !start && track.startDate > 0 -> {
                     val startDate = Instant.ofEpochMilli(track.startDate).toLocalDate(ZoneOffset.UTC)
                     startDate.year <= year
@@ -407,7 +463,7 @@ private data class NovelTrackDateSelectorScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val screenModel = rememberScreenModel {
-            Model(track, Injekt.get<TrackerManager>().get(serviceId)!!, start)
+            Model(track, Injekt.get<TrackerManager>().get(serviceId)!!, start, trackWriterFor(isNovel), isNovel)
         }
 
         val canRemove = if (start) track.startDate > 0 else track.finishDate > 0
@@ -429,12 +485,14 @@ private data class NovelTrackDateSelectorScreen(
     }
 
     private class Model(
-        private val track: NovelTrack,
+        private val track: Track,
         private val tracker: Tracker,
         private val start: Boolean,
-        private val updater: NovelTrackUpdater = Injekt.get(),
+        private val writer: TrackWriter,
+        private val isNovel: Boolean,
     ) : ScreenModel {
 
+        // In UTC
         val initialSelection: Long
             get() {
                 val millis = (if (start) track.startDate else track.finishDate)
@@ -443,34 +501,37 @@ private data class NovelTrackDateSelectorScreen(
                 return millis.convertEpochMillisZone(ZoneOffset.systemDefault(), ZoneOffset.UTC)
             }
 
+        // In UTC
         fun setDate(millis: Long) {
+            // Convert to local time
             val localMillis = millis.convertEpochMillisZone(ZoneOffset.UTC, ZoneOffset.systemDefault())
             screenModelScope.launchNonCancellable {
                 if (start) {
-                    updater.setRemoteStartDate(tracker, track.toDbTrack(), localMillis)
+                    writer.setRemoteStartDate(tracker, track.toDbTrack(), localMillis)
                 } else {
-                    updater.setRemoteFinishDate(tracker, track.toDbTrack(), localMillis)
+                    writer.setRemoteFinishDate(tracker, track.toDbTrack(), localMillis)
                 }
             }
         }
 
         fun confirmRemoveDate(navigator: Navigator) {
-            navigator.push(NovelTrackDateRemoverScreen(track, tracker.id, start))
+            navigator.push(EntryTrackDateRemoverScreen(track, tracker.id, start, isNovel))
         }
     }
 }
 
-private data class NovelTrackDateRemoverScreen(
-    private val track: NovelTrack,
+private data class EntryTrackDateRemoverScreen(
+    private val track: Track,
     private val serviceId: Long,
     private val start: Boolean,
+    private val isNovel: Boolean,
 ) : Screen() {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val screenModel = rememberScreenModel {
-            Model(track, Injekt.get<TrackerManager>().get(serviceId)!!, start)
+            Model(track, Injekt.get<TrackerManager>().get(serviceId)!!, start, trackWriterFor(isNovel))
         }
         AlertDialogContent(
             modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
@@ -502,7 +563,7 @@ private data class NovelTrackDateRemoverScreen(
                     FilledTonalButton(
                         onClick = {
                             screenModel.removeDate()
-                            navigator.popUntil { it is NovelTrackInfoDialogHomeScreen }
+                            navigator.popUntil { it is EntryTrackInfoDialogHomeScreen }
                         },
                         colors = ButtonDefaults.filledTonalButtonColors(
                             containerColor = MaterialTheme.colorScheme.errorContainer,
@@ -517,10 +578,10 @@ private data class NovelTrackDateRemoverScreen(
     }
 
     private class Model(
-        private val track: NovelTrack,
+        private val track: Track,
         private val tracker: Tracker,
         private val start: Boolean,
-        private val updater: NovelTrackUpdater = Injekt.get(),
+        private val writer: TrackWriter,
     ) : ScreenModel {
 
         fun getServiceName() = tracker.name
@@ -528,27 +589,28 @@ private data class NovelTrackDateRemoverScreen(
         fun removeDate() {
             screenModelScope.launchNonCancellable {
                 if (start) {
-                    updater.setRemoteStartDate(tracker, track.toDbTrack(), 0)
+                    writer.setRemoteStartDate(tracker, track.toDbTrack(), 0)
                 } else {
-                    updater.setRemoteFinishDate(tracker, track.toDbTrack(), 0)
+                    writer.setRemoteFinishDate(tracker, track.toDbTrack(), 0)
                 }
             }
         }
     }
 }
 
-data class NovelTrackerSearchScreen(
-    private val novelId: Long,
+data class EntryTrackerSearchScreen(
+    private val entryId: Long,
     private val initialQuery: String,
     private val currentUrl: String?,
     private val serviceId: Long,
+    private val isNovel: Boolean,
 ) : Screen() {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val screenModel = rememberScreenModel {
-            Model(novelId, currentUrl, initialQuery, Injekt.get<TrackerManager>().get(serviceId)!!)
+            Model(entryId, currentUrl, initialQuery, Injekt.get<TrackerManager>().get(serviceId)!!, isNovel)
         }
 
         val state by screenModel.state.collectAsState()
@@ -560,35 +622,44 @@ data class NovelTrackerSearchScreen(
             queryResult = state.queryResult,
             selected = state.selected,
             onSelectedChange = screenModel::updateSelection,
-            onConfirmSelection = f@{ _: Boolean ->
+            onConfirmSelection = f@{ private: Boolean ->
                 val selected = state.selected ?: return@f
+                selected.private = private
                 screenModel.registerTracking(selected)
                 navigator.pop()
             },
             onDismissRequest = navigator::pop,
-            // Private listing is set after binding, via the Private toggle on the track sheet.
-            supportsPrivateTracking = false,
+            supportsPrivateTracking = screenModel.supportsPrivateTracking,
         )
     }
 
     private class Model(
-        private val novelId: Long,
+        private val entryId: Long,
         private val currentUrl: String? = null,
         initialQuery: String,
         private val tracker: Tracker,
+        private val isNovel: Boolean,
     ) : StateScreenModel<Model.State>(State()) {
 
+        val supportsPrivateTracking = tracker.supportsPrivateTracking
+
         init {
-            if (initialQuery.isNotBlank()) trackingSearch(initialQuery)
+            // Run search on first launch
+            if (initialQuery.isNotBlank()) {
+                trackingSearch(initialQuery)
+            }
         }
 
         fun trackingSearch(query: String) {
             screenModelScope.launch {
+                // To show loading state
                 mutableState.update { it.copy(queryResult = null, selected = null) }
 
                 val result = withIOContext {
                     try {
-                        Result.success(tracker.searchNovel(query))
+                        // Novels have their own catalogue on some trackers (e.g. a separate endpoint).
+                        val results = if (isNovel) tracker.searchNovel(query) else tracker.search(query)
+                        Result.success(results)
                     } catch (e: Throwable) {
                         Result.failure(e)
                     }
@@ -604,7 +675,13 @@ data class NovelTrackerSearchScreen(
 
         fun registerTracking(item: TrackSearch) {
             screenModelScope.launchNonCancellable {
-                Injekt.get<AddNovelTrack>().bind(tracker, item, novelId)
+                if (isNovel) {
+                    Injekt.get<AddNovelTrack>().bind(tracker, item, entryId)
+                } else {
+                    tracker.register(item, entryId)
+                    // RK: share the new tracker with the rest of the merged group
+                    Injekt.get<PropagateTrackerLinks>().fromSeed(entryId)
+                }
             }
         }
 
@@ -618,17 +695,18 @@ data class NovelTrackerSearchScreen(
     }
 }
 
-private data class NovelTrackerRemoveScreen(
-    private val novelId: Long,
-    private val track: NovelTrack,
+private data class EntryTrackerRemoveScreen(
+    private val entryId: Long,
+    private val track: Track,
     private val serviceId: Long,
+    private val isNovel: Boolean,
 ) : Screen() {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val screenModel = rememberScreenModel {
-            Model(novelId, track, Injekt.get<TrackerManager>().get(serviceId)!!)
+            Model(entryId, track, Injekt.get<TrackerManager>().get(serviceId)!!, isNovel)
         }
         val serviceName = screenModel.getName()
         var removeRemoteTrack by remember { mutableStateOf(false) }
@@ -664,7 +742,7 @@ private data class NovelTrackerRemoveScreen(
                     FilledTonalButton(
                         onClick = {
                             screenModel.unregisterTracking(serviceId)
-                            if (removeRemoteTrack) screenModel.deleteNovelFromService()
+                            if (removeRemoteTrack) screenModel.deleteEntryFromService()
                             navigator.pop()
                         },
                         colors = ButtonDefaults.filledTonalButtonColors(
@@ -680,29 +758,35 @@ private data class NovelTrackerRemoveScreen(
     }
 
     private class Model(
-        private val novelId: Long,
-        private val track: NovelTrack,
+        private val entryId: Long,
+        private val track: Track,
         private val tracker: Tracker,
-        private val deleteNovelTrack: DeleteNovelTrack = Injekt.get(),
+        private val isNovel: Boolean,
     ) : ScreenModel {
 
         fun getName() = tracker.name
 
         fun isDeletable() = tracker is DeletableTracker
 
-        fun deleteNovelFromService() {
+        fun deleteEntryFromService() {
             screenModelScope.launchNonCancellable {
                 try {
-                    (tracker as DeletableTracker).delete(track.toUiTrack())
+                    (tracker as DeletableTracker).delete(track)
                 } catch (e: Exception) {
-                    logcat(LogPriority.ERROR, e) { "Failed to delete novel entry from service" }
+                    logcat(LogPriority.ERROR, e) { "Failed to delete entry from service" }
                 }
             }
         }
 
         fun unregisterTracking(serviceId: Long) {
-            // Group-aware: clear the tracker from every merged source so it doesn't reappear from a sibling.
-            screenModelScope.launchNonCancellable { deleteNovelTrack.awaitGroup(novelId, serviceId) }
+            screenModelScope.launchNonCancellable {
+                if (isNovel) {
+                    // Group-aware: clear the tracker from every merged source so it doesn't reappear.
+                    Injekt.get<DeleteNovelTrack>().awaitGroup(entryId, serviceId)
+                } else {
+                    Injekt.get<DeleteTrack>().await(entryId, serviceId)
+                }
+            }
         }
     }
 }

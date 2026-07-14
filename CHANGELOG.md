@@ -52,6 +52,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Novel global search now floats sources with results to the top as they arrive, like manga.** Sources that return nothing, are still loading, or errored sink below the ones with hits, instead of staying in a fixed order.
 - **Novel sources now enable and disable the same way as manga.** Disabling a novel source removes it from the Sources list (it no longer stays dimmed in place), and the filter button on the Novels chip opens a new screen listing every novel source so you can turn them back on.
 - **A failed novel browse page now keeps its Retry message on screen until you act, like manga.** The error snackbar no longer disappears on its own after a few seconds.
+- **Mark a novel's tracking as private while binding it (for trackers that support it), like manga.** The private toggle now appears in the search step, instead of only after the bind.
 
 ### Fixes
 

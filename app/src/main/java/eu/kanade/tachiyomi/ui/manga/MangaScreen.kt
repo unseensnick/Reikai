@@ -49,7 +49,6 @@ import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesScreen
-import eu.kanade.tachiyomi.ui.manga.track.TrackInfoDialogHomeScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
@@ -70,6 +69,7 @@ import reikai.presentation.manga.EhRemoveFavoriteDialog
 import reikai.presentation.manga.ManageSourcesDialog
 import reikai.presentation.manga.MangaMigrationSourcePickScreen
 import reikai.presentation.recommendation.browse.RelatedMangasBrowseScreen
+import reikai.presentation.track.EntryTrackInfoDialogHomeScreen
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.model.Chapter
@@ -321,16 +321,18 @@ class MangaScreen(
                 // RK: remember the screen so frequent state updates (the merge collectors recompose
                 // the details screen) don't rebuild it and reset the sheet's navigator mid-update,
                 // which was cancelling the tracker write (InsertTrack JobCancellationException).
+                // RK: shared manga/novel track dialog (reikai.presentation.track.EntryTrackInfoDialog)
                 val trackScreen = remember(successState.manga.id, successState.source.id) {
-                    TrackInfoDialogHomeScreen(
-                        mangaId = successState.manga.id,
-                        mangaTitle = successState.manga.title,
+                    EntryTrackInfoDialogHomeScreen(
+                        entryId = successState.manga.id,
+                        entryTitle = successState.manga.title,
                         sourceId = successState.source.id,
+                        isNovel = false,
                     )
                 }
                 NavigatorAdaptiveSheet(
                     screen = trackScreen,
-                    enableSwipeDismiss = { it.lastItem is TrackInfoDialogHomeScreen },
+                    enableSwipeDismiss = { it.lastItem is EntryTrackInfoDialogHomeScreen },
                     onDismissRequest = onDismissRequest,
                 )
             }

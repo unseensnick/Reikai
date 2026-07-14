@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.util.system.toast
 import logcat.LogPriority
 import reikai.domain.novel.interactor.InsertNovelTrack
 import reikai.domain.track.TrackFieldMutations
+import reikai.domain.track.TrackWriter
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
@@ -22,34 +23,34 @@ import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
  */
 class NovelTrackUpdater(
     private val insertNovelTrack: InsertNovelTrack,
-) {
+) : TrackWriter {
 
-    suspend fun setRemoteStatus(tracker: Tracker, track: DbTrack, status: Long) {
+    override suspend fun setRemoteStatus(tracker: Tracker, track: DbTrack, status: Long) {
         TrackFieldMutations.applyStatus(tracker, track, status)
         updateRemote(tracker, track)
     }
 
-    suspend fun setRemoteLastChapterRead(tracker: Tracker, track: DbTrack, chapterNumber: Int) {
+    override suspend fun setRemoteLastChapterRead(tracker: Tracker, track: DbTrack, chapterNumber: Int) {
         TrackFieldMutations.applyLastChapterRead(tracker, track, chapterNumber)
         updateRemote(tracker, track)
     }
 
-    suspend fun setRemoteScore(tracker: Tracker, track: DbTrack, scoreString: String) {
+    override suspend fun setRemoteScore(tracker: Tracker, track: DbTrack, scoreString: String) {
         TrackFieldMutations.applyScore(tracker, track, scoreString)
         updateRemote(tracker, track)
     }
 
-    suspend fun setRemoteStartDate(tracker: Tracker, track: DbTrack, epochMillis: Long) {
+    override suspend fun setRemoteStartDate(tracker: Tracker, track: DbTrack, epochMillis: Long) {
         track.started_reading_date = epochMillis
         updateRemote(tracker, track)
     }
 
-    suspend fun setRemoteFinishDate(tracker: Tracker, track: DbTrack, epochMillis: Long) {
+    override suspend fun setRemoteFinishDate(tracker: Tracker, track: DbTrack, epochMillis: Long) {
         track.finished_reading_date = epochMillis
         updateRemote(tracker, track)
     }
 
-    suspend fun setRemotePrivate(tracker: Tracker, track: DbTrack, private: Boolean) {
+    override suspend fun setRemotePrivate(tracker: Tracker, track: DbTrack, private: Boolean) {
         track.private = private
         updateRemote(tracker, track)
     }

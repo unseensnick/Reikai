@@ -66,7 +66,7 @@ import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
 import reikai.presentation.novel.migrate.NovelMigrationSourcePickScreen
 import reikai.presentation.novel.notes.NovelNotesScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
-import reikai.presentation.novel.track.NovelTrackInfoDialogHomeScreen
+import reikai.presentation.track.EntryTrackInfoDialogHomeScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -526,11 +526,16 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: No
         // InsertTrack JobCancellationException here).
         NovelDetailsDialog.TrackSheet -> {
             val trackScreen = remember(state.novel.id) {
-                NovelTrackInfoDialogHomeScreen(novelId = state.novel.id, novelTitle = state.novel.title)
+                EntryTrackInfoDialogHomeScreen(
+                    entryId = state.novel.id,
+                    entryTitle = state.novel.title,
+                    sourceId = null,
+                    isNovel = true,
+                )
             }
             NavigatorAdaptiveSheet(
                 screen = trackScreen,
-                enableSwipeDismiss = { it.lastItem is NovelTrackInfoDialogHomeScreen },
+                enableSwipeDismiss = { it.lastItem is EntryTrackInfoDialogHomeScreen },
                 onDismissRequest = screenModel::dismissDialog,
             )
         }
