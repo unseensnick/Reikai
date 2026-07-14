@@ -103,6 +103,6 @@ fun ChapterItem.toNovelChapter(
     chapterNumber = chapterNumber ?: 0.0,
     sourceOrder = sourceOrder,
     dateFetch = now,
-    dateUpload = 0L,
+    dateUpload = NovelDateParser.parse(releaseTime, now),
     page = page.orEmpty(),
 )
