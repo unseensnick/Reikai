@@ -4,14 +4,11 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-The **unified-content-UI + parity program** on `feat/unified-content-ui` (unmerged, ~140 commits) is essentially complete: round 1 and round-2 Phases 1-5 and 7 all shipped. Shipped detail is in CHANGELOG `[Unreleased]` and `Handoff.md`, not here. One open item remains:
-
-- **Track-info Screen/Model collapse (round-2 Phase 6)** `[L]` - collapse `NovelTrackInfoDialog` onto the shared `TrackInfoDialog` Screen/Model stack; the leaf selectors are already shared, what differs is the Screen wrapper + the writer (`NovelTrackUpdater` vs direct `Tracker`/`BaseTracker`). Deferred so far; the next session's task. [Plan](docs/dev/plans/content-parity-drift-and-collapse.md).
+- **Unify the download subsystem across manga and novels (Road B)** `[L]` - collapse the parallel novel download cache/provider into one shared disk-scan layer serving both types, keyed on shared primitives, so they can't drift (Tsundoku's single-subsystem model). The novel download re-key deliberately mirrored the manga scheme + cache shape so this is a code merge, not a data migration. Touches Mihon's shipped download files (`// RK`).
 
 ## Next
 
-- **Unify the download subsystem across manga and novels (Road B)** `[L]` - collapse the parallel novel download cache/provider into one shared disk-scan layer serving both types, keyed on shared primitives, so they can't drift (Tsundoku's single-subsystem model). The novel download re-key deliberately mirrored the manga scheme + cache shape so this is a code merge, not a data migration. Touches Mihon's shipped download files (`// RK`).
-- Then the reader **tsundoku track** (seamless novel-reader transitions, later the native-reader migration), sequenced after the above; detail under Later -> Reader.
+- The reader **tsundoku track** (seamless novel-reader transitions, later the native-reader migration); detail under Later -> Reader.
 
 ## Later
 
@@ -19,13 +16,13 @@ Backlog, grouped by area. Unordered within an area.
 
 ### Novels (manga <-> novel parity)
 
-Core manga/novel parity has shipped (round 1 + round 2); the big collapses are done and the remaining twin (track-info, Phase 6) is in Now. What is left is smaller enhancements and polish:
+Remaining manga/novel parity work, smaller enhancements and polish:
 
 - **Skeleton loading on the novel details page** `[S]` - placeholder skeletons while the first load resolves (like LNReader), instead of a bare spinner when opening a non-library novel. An enhancement, not a parity gap (manga also uses a plain spinner).
 
 Opportunistic polish:
 - Browse: Latest shortcut, Last-used, hide-in-library, per-row language, genre-tap-search.
-- Tracking: start-date backfill, create-private-at-bind, friendlier Fill-from-tracker errors (no-entry-found on a 404 + null-message fallback).
+- Tracking: start-date backfill, friendlier Fill-from-tracker errors (no-entry-found on a 404 + null-message fallback).
 - Updates / history: fast-scroll animation.
 - Details: long-press-copy WebView URL, per-source scanlator filter for merged novels, novel tag-tap global search, novel long-press-favorite category shortcut.
 
