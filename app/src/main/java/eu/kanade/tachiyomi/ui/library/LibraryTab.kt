@@ -515,13 +515,17 @@ data object LibraryTab : Tab {
                                 // match the actual ordering.
                                 sortLabelFor = if (isNovels) {
                                     { category ->
-                                        novelSortLabelRes(NovelLibrarySort.forCategory(category.flags, novelDefaultSort).type)
+                                        novelSortLabelRes(
+                                            NovelLibrarySort.forCategory(category.flags, novelDefaultSort).type,
+                                        )
                                     }
                                 } else {
                                     { category -> sortLabelRes(sortForCategory(category.flags, mangaGlobalSort).type) }
                                 },
                                 sortAscendingFor = if (isNovels) {
-                                    { category -> NovelLibrarySort.forCategory(category.flags, novelDefaultSort).isAscending }
+                                    { category ->
+                                        NovelLibrarySort.forCategory(category.flags, novelDefaultSort).isAscending
+                                    }
                                 } else {
                                     { category -> sortForCategory(category.flags, mangaGlobalSort).isAscending }
                                 },
