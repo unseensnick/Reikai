@@ -373,16 +373,18 @@
     globalThis.Headers = H;
   }
 
-  // QuickJS has no timers and dokar wires only the microtask queue. Plugins (inoveltranslation, ReN)
-  // use setTimeout for politeness delays; run the callback on the next microtask (delay ignored, which
-  // is fine for scraping) so `await new Promise(r => setTimeout(r, n))` resolves instead of crashing.
+  // QuickJS has no timers. Plugins (inoveltranslation, novelfire, the readnovelfull family) use
+  // setTimeout for rate-limit politeness sleeps and retry backoffs, so the delay must be honored or
+  // the source gets hammered and blocked. __lnDelay (a Kotlin async binding) suspends the engine job
+  // pump for the real (capped) delay; `await new Promise(r => setTimeout(r, n))` then waits n ms.
   if (typeof globalThis.setTimeout === "undefined") {
     var _timers = {};
     var _tid = 1;
-    globalThis.setTimeout = function (fn, _ms) {
+    globalThis.setTimeout = function (fn, ms) {
       var id = _tid++;
       _timers[id] = true;
-      Promise.resolve().then(function () {
+      var delayMs = typeof ms === "number" && ms > 0 ? ms : 0;
+      globalThis.__lnDelay(delayMs).then(function () {
         if (_timers[id]) {
           delete _timers[id];
           try {
@@ -644,10 +646,14 @@
     Cancelled: "Cancelled",
     OnHiatus: "On Hiatus",
   });
+  // Member NAMES must mirror LNReader's FilterTypes enum: compiled plugins look a type up by name
+  // (`i.FilterTypes.CheckboxGroup`), so a missing/renamed member resolves to undefined and that filter
+  // silently never renders. The string VALUES are Reikai's own convention, matched by the value branches
+  // in NovelSourceFilterSheet, so they must stay in sync with that sheet, not with upstream's values.
   var FilterTypes = Object.freeze({
     TextInput: "TextInput",
     Picker: "Picker",
-    Checkbox: "Checkbox",
+    CheckboxGroup: "Checkbox",
     Switch: "Switch",
     XCheckbox: "XCheckbox",
     ExcludableCheckboxGroup: "ExcludableCheckboxGroup",
