@@ -235,7 +235,7 @@ object SettingsMainScreen : Screen() {
             icon = Icons.Outlined.Security,
             screen = SettingsSecurityScreen,
         ),
-        // RK: E-Hentai as its own top-level category (gated by SettingsEhScreen.isEnabled), matching
+        // RK --> E-Hentai as its own top-level category (gated by SettingsEhScreen.isEnabled), matching
         //     Komikku's placement between Security and Advanced.
         Item(
             titleRes = MR.strings.pref_category_eh,

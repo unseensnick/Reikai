@@ -196,6 +196,7 @@ object SettingsReaderScreen : SearchableSettings {
                     preference = readerPreferences.skipDupe,
                     title = stringResource(MR.strings.pref_skip_dupe_chapters),
                 ),
+                // RK --> content-type reader prefs inserted before the upstream chapter-transition row
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.markReadOnSkip,
                     title = stringResource(MR.strings.pref_mark_read_on_skip),
