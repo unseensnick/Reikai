@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelCategories
@@ -30,6 +31,7 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.domain.library.service.LibraryPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
@@ -90,6 +92,11 @@ class NovelReaderScreenModel(
     private val setNovelViewerFlags: SetNovelViewerFlags by injectLazy()
     private val getNovelCategories: GetNovelCategories by injectLazy()
     private val setNovelReadStatus: SetNovelReadStatus by injectLazy()
+
+    // Merge-group resolution + the shared "mark duplicate read" pref, for marking same-numbered
+    // chapters across a merged novel's sources read on completion (parity with the manga reader).
+    private val mergeManager: NovelMergeManager by injectLazy()
+    private val libraryPreferences: LibraryPreferences by injectLazy()
 
     // novel trackers (Active #8): push read progress on chapter completion
     private val trackNovelChapter: TrackNovelChapter by injectLazy()
@@ -575,7 +582,26 @@ class NovelReaderScreenModel(
                 // Fetch before marking so the shared interactor sees the chapter as still unread; it flips
                 // read + honors "delete after marked as read" (the in-RAM htmlCache keeps this view alive).
                 val chapter = chapterRepo.getById(id)
-                setNovelReadStatus.await(true, listOfNotNull(chapter))
+                // Mark same-numbered unread chapters across the merged group read too, mirroring the
+                // manga reader (ReaderViewModel.updateChapterProgressOnComplete), gated on the shared
+                // markDuplicateReadChapterAsRead pref. relatedNovelIdsFor returns just this novel when
+                // it isn't merged, so a single-source read is unchanged.
+                val markDupes = libraryPreferences.markDuplicateReadChapterAsRead.get()
+                    .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_EXISTING)
+                val toMark = if (chapter != null && markDupes) {
+                    val siblings = mergeManager.relatedNovelIdsFor(novelId)
+                        .takeIf { it.size > 1 }
+                        ?.flatMap { chapterRepo.getByNovelId(it) }
+                        ?.filter {
+                            it.id != id && !it.read && it.chapterNumber >= 0.0 &&
+                                it.chapterNumber == chapter.chapterNumber
+                        }
+                        .orEmpty()
+                    listOf(chapter) + siblings
+                } else {
+                    listOfNotNull(chapter)
+                }
+                setNovelReadStatus.await(true, toMark)
                 // push read progress to bound trackers, mirroring ReaderViewModel.updateTrackChapterRead (Active #8)
                 if (trackPreferences.autoUpdateTrack.get()) {
                     chapter?.let {
