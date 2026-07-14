@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.host.ChapterItem
+import reikai.novel.host.NovelTextSanitizer
 import reikai.novel.host.SourceNovel
 import tachiyomi.i18n.MR
 
@@ -61,11 +62,11 @@ fun SourceNovel.toNovel(
     id = -1L,
     source = sourceId,
     url = path,
-    title = name ?: "Untitled",
-    author = author,
-    artist = artist,
-    description = summary,
-    genre = genres?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() },
+    title = name?.let { NovelTextSanitizer.decodeEntities(it) } ?: "Untitled",
+    author = author?.let { NovelTextSanitizer.decodeEntities(it) },
+    artist = artist?.let { NovelTextSanitizer.decodeEntities(it) },
+    description = summary?.let { NovelTextSanitizer.decodeEntities(it) },
+    genre = genres?.split(",")?.map { NovelTextSanitizer.decodeEntities(it).trim() }?.filter { it.isNotEmpty() },
     status = NovelStatusCode.fromString(status).toLong(),
     thumbnailUrl = cover,
     favorite = favorite,
@@ -96,7 +97,7 @@ fun ChapterItem.toNovelChapter(
     id = -1L,
     novelId = novelId,
     url = path,
-    name = name,
+    name = NovelTextSanitizer.decodeEntities(name),
     read = false,
     bookmark = false,
     lastTextProgress = 0L,
