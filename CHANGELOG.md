@@ -37,7 +37,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Choose which buttons sit on the novel reader's bottom bar, like manga.** Add quick auto-scroll, keep-screen-on, and bionic-reading toggles, one-tap theme and text-size pickers, plus web view, browser, and share, from Settings > Reader.
 - **Volume keys now scroll the novel reader, and a slider sets how far each press scrolls in novels and long-strip manga.** Turn volume keys on for novels in Settings > Reader (invert optional); paged manga still turns a whole page.
 - **The novel reader now shows your reading percentage while you read, like manga's page number.** It sits at the bottom while the toolbars are hidden; turn it off under Settings > Reader.
-- **Manhwa, manhua and webtoons can now open in webtoon mode on their own, via the new "Auto webtoon mode" toggle under Settings > Reader.** It only fills in for series you never picked a mode for, a mode you set yourself always wins, and the reader tells you when it made the call.
+- **Manhwa, manhua and webtoons can now open in webtoon mode on their own, via the new "Auto webtoon mode" toggle under Settings > Reader.** It goes by the series' tags, so if a source never tags one you can add the tag yourself in Edit info; a mode you set on a series always wins.
 
 ### Changes
 

@@ -78,8 +78,11 @@ import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.history.interactor.UpsertHistory
 import tachiyomi.domain.history.model.HistoryUpdate
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
+import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.withCustomInfo
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
@@ -102,6 +105,8 @@ class ReaderViewModel @JvmOverloads constructor(
     private val trackPreferences: TrackPreferences = Injekt.get(),
     private val trackChapter: TrackChapter = Injekt.get(),
     private val getManga: GetManga = Injekt.get(),
+    // RK: Edit info overrides, so auto-webtoon can classify from edited genres.
+    private val getCustomMangaInfo: GetCustomMangaInfo = Injekt.get(),
     private val getChaptersByMangaId: GetChaptersByMangaId = Injekt.get(),
     private val getNextChapters: GetNextChapters = Injekt.get(),
     private val upsertHistory: UpsertHistory = Injekt.get(),
@@ -352,6 +357,9 @@ class ReaderViewModel @JvmOverloads constructor(
                 val manga = getManga.await(mangaId)
                 if (manga != null) {
                     sourceManager.isInitialized.first { it }
+                    // RK: resolve the Edit info overrides before the state update below builds the
+                    // viewer, since auto-webtoon classifies off them.
+                    customInfo = getCustomMangaInfo.subscribe(mangaId).first()
                     mutableState.update { it.copy(manga = manga) }
                     if (chapterId == -1L) chapterId = initialChapterId
 
@@ -783,6 +791,12 @@ class ReaderViewModel @JvmOverloads constructor(
     private var autoWebtoonMemo: Pair<Long, Int?>? = null
 
     /**
+     * The user's Edit info overrides, snapshotted in [init]. Editing needs the details screen, so
+     * these cannot change while the reader is open.
+     */
+    private var customInfo: CustomMangaInfo? = null
+
+    /**
      * The mode auto-webtoon picks for this series, or null when it does not apply: the preference
      * is off, the user picked a mode for this series, or it is not long strip.
      *
@@ -795,7 +809,10 @@ class ReaderViewModel @JvmOverloads constructor(
         val manga = manga ?: return null
         if (ReadingMode.fromPreference(manga.readingMode.toInt()) != ReadingMode.DEFAULT) return null
         autoWebtoonMemo?.takeIf { it.first == manga.id }?.let { return it.second }
-        return defaultReaderType(manga.mangaType(sourceManager.get(manga.source)?.name))
+        // Edited genres win over the source's, so a source that never tags its series type can be
+        // fixed by hand in Edit info instead of being undetectable.
+        val entry = manga.withCustomInfo(customInfo)
+        return defaultReaderType(entry.mangaType(sourceManager.get(manga.source)?.name))
             .also { autoWebtoonMemo = manga.id to it }
     }
     // RK <--
