@@ -68,8 +68,9 @@ deliberate), via the `impeccable` skill.
 Updates each merge the manga and novel feeds into a shared row model (`HistoryRow` / `UpdateRow`)
 and route around Mihon's screen via a `// RK` redirect in the tab (built during the light-novel
 port), so only the leaf row needed unifying; both shipped (`EntryHistoryRow`, `EntryUpdatesRow`).
-The cover dialog shipped next (`EntryCoverDialog`, replacing the two near-identical copies). The
-details screen (the large, highest-impact surface) is next. Reader stays separate.
+The cover dialog shipped next (`EntryCoverDialog`, replacing the two near-identical copies), then
+the details screen (the large, highest-impact surface) in phases P1-P6. The download subsystem
+(Road B) is the next surface. Reader stays separate.
 
 ## Key files
 
@@ -178,7 +179,7 @@ pass (2026-07-08) that traced Komikku's API and verified every tracker against i
   `HKMangaMetadataTest` for Hikka's role/genre split); the rest are HTTP-fused like all existing tracker code
   and verified on-device against live APIs (Fold, all 8 trackers).
 
-**Post-P6 parity closes (in progress).** A deeper full-surface manga/novel parity re-audit (2026-07-09,
+**Post-P6 parity closes (shipped in 0.3.0).** A deeper full-surface manga/novel parity re-audit (2026-07-09,
 six research agents + inline grounding, superseding the 2026-07-07 surface pass; record kept locally per
 the audits convention) drives a phased program to close the gaps the surface collapse left in the still-twin
 areas (browse, migration, the library settings sheet, per-type action handlers, the reader). SHIPPED on the
@@ -193,11 +194,14 @@ a dedicated novel reader-defaults settings page, which tested worse on the Fold;
 always-on reading percentage, volume-key navigation, and a manga long-strip volume scroll-amount slider).
 Those three reader/settings blocks (chrome unification, settings reorg, 7b reader features) are what the
 ROADMAP and `Handoff.md` track as **Phase 7** (7a = the settings reorg, which reversed the dedicated-page plan;
-7b = the reader sub-features), so per that numbering 7b is the last thing shipped. Still remaining in the
-parity program: the manga reader skip-hidden fix, an independent library scroll
-position per content type, the novel download-storage re-key (stable names + disk scan so downloads survive
-reinstall/restore, replacing the numeric-id + DB-flag scheme), and the `[S]` Novels quick wins. Live phase
-status: `Handoff.md`.
+7b = the reader sub-features). The rest of the program shipped too: the manga reader skip-hidden fix, an
+independent library scroll position per content type, the novel download-storage re-key
+([novel-download-storage.md](novel-download-storage.md)), and the `[S]` Novels quick wins. The round-2 drift
+fixes + twin collapses that followed are recorded in
+[content-parity-drift-and-collapse.md](content-parity-drift-and-collapse.md).
+
+**Remaining: the download subsystem unification (Road B)**, collapsing the parallel novel download
+cache/provider into one shared disk-scan layer serving both types. Queued under ROADMAP "Next".
 
 **A separate reader track (evaluated, deferred).** [novel-reader-tsundoku.md](novel-reader-tsundoku.md)
 captures tsundoku (a maintained, Apache-2.0 Mihon-fork novel reader) as the reader's forward direction:
