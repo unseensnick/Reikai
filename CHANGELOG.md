@@ -40,6 +40,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Changes
 
+- **Tag suggestions on the adult sources now cover newer artists, characters and parodies.** The built-in tag list was refreshed, and gains a "location" namespace.
 - **With "Per-category setting for sort" on, the library now uses one global sort that each category can override.** Set the global from the toolbar, override a category from its header, and clear it with "Reset to global sort"; works for manga and novels.
 - **Manga and novel options in Settings now sit in separate, clearly labeled sections.** Reader, Downloads, and Library each split into "· Manga" / "· Novels" sections instead of interleaved rows or "(Novel)" suffixes, and the novel reader gains its full set of reading and accessibility options.
 - **The novel chapter selection bar now shows only the actions that apply.** Like manga, it hides mark-unread, delete, or mark-previous when your selection doesn't allow them, instead of always showing every icon.
@@ -94,6 +95,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 ### Other
 
 - Novel source browsing now detects the end of the results without a wasted extra fetch, and prefetches the next page so the "load more" footer is accurate about whether more results follow.
+- The similar-titles carousel no longer spends a request on sources that can't return related titles, and closes the response it does make.
 - A novel plugin saved incompletely (an interrupted download) now re-downloads itself on next use instead of staying broken.
 - The light-novel plugin runtime now provides Buffer, Blob, Response.arrayBuffer(), fuller response headers, and an X-XSRF-TOKEN header for Laravel-based sources, so plugins that rely on these no longer fail.
 - Settings search now scrolls to and highlights the exact matched row (even when two settings in different content-type groups share a name) and indexes the novel recommendations screen so its options are searchable.
