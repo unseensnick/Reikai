@@ -43,6 +43,8 @@ import eu.kanade.tachiyomi.util.editCover
 import eu.kanade.tachiyomi.util.lang.byteSize
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.storage.cacheImageDir
+import exh.util.defaultReaderType
+import exh.util.mangaType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -770,10 +772,33 @@ class ReaderViewModel @JvmOverloads constructor(
         val default = readerPreferences.defaultReadingMode.get()
         val readingMode = ReadingMode.fromPreference(manga?.readingMode?.toInt())
         return when {
-            resolveDefault && readingMode == ReadingMode.DEFAULT -> default
+            // RK: auto-webtoon only fills in for a series the user never chose a mode for, so it
+            // rides the existing DEFAULT branch and inherits its resolveDefault guard.
+            resolveDefault && readingMode == ReadingMode.DEFAULT -> autoWebtoonMode() ?: default
             else -> manga?.readingMode?.toInt() ?: default
         }
     }
+
+    // RK -->
+    private var autoWebtoonMemo: Pair<Long, Int?>? = null
+
+    /**
+     * The mode auto-webtoon picks for this series, or null when it does not apply: the preference
+     * is off, the user picked a mode for this series, or it is not long strip.
+     *
+     * The toast reads this too, so both it and the viewer resolve from one predicate and cannot
+     * disagree. Memoized because [getMangaReadingMode] runs on every app-bar recomposition, while
+     * a series' genre and source cannot change mid-session.
+     */
+    fun autoWebtoonMode(): Int? {
+        if (!readerPreferences.autoWebtoonMode.get()) return null
+        val manga = manga ?: return null
+        if (ReadingMode.fromPreference(manga.readingMode.toInt()) != ReadingMode.DEFAULT) return null
+        autoWebtoonMemo?.takeIf { it.first == manga.id }?.let { return it.second }
+        return defaultReaderType(manga.mangaType(sourceManager.get(manga.source)?.name))
+            .also { autoWebtoonMemo = manga.id to it }
+    }
+    // RK <--
 
     /**
      * Updates the viewer position for the open manga.

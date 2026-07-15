@@ -563,6 +563,9 @@
     <string name="pref_skip_dupe_chapters">Skip duplicate chapters</string>
     <!-- RK --><string name="pref_mark_read_on_skip">Mark chapter read when skipping ahead</string>
     <string name="pref_mark_read_on_skip_summary">When you jump to the next chapter, mark the chapter you skipped as read</string>
+    <string name="pref_auto_webtoon_mode">Auto webtoon mode</string>
+    <string name="pref_auto_webtoon_mode_summary">Read manhwa, manhua and webtoons in webtoon mode automatically. A mode you pick for a series always wins</string>
+    <string name="auto_webtoon_snack">Reading webtoon style</string>
     <string name="pref_reader_bottom_buttons">Bottom bar buttons</string>
     <string name="pref_auto_scroll">Auto-scroll</string>
     <string name="pref_bionic_reading">Bionic reading</string>

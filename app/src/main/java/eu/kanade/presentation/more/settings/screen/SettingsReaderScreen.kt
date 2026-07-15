@@ -201,6 +201,11 @@ object SettingsReaderScreen : SearchableSettings {
                     preference = readerPreferences.markReadOnSkip,
                     title = stringResource(MR.strings.pref_mark_read_on_skip),
                 ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = readerPreferences.autoWebtoonMode,
+                    title = stringResource(MR.strings.pref_auto_webtoon_mode),
+                    subtitle = stringResource(MR.strings.pref_auto_webtoon_mode_summary),
+                ),
                 Preference.PreferenceItem.MultiSelectListPreference(
                     preference = readerPreferences.readerBottomButtons,
                     entries = ReaderBottomButton.offeredIn(ReaderBottomButton.Scope.Manga)

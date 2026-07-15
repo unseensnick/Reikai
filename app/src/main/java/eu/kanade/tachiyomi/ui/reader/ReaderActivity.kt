@@ -608,7 +608,14 @@ class ReaderActivity : BaseActivity() {
         updateViewerInset(readerPreferences.fullscreen.get(), readerPreferences.drawUnderCutout.get())
         binding.viewerContainer.addView(newViewer.getView())
 
-        if (readerPreferences.showReadingMode.get()) {
+        // RK --> auto-webtoon overrode the default, so say why. Deliberately not gated on
+        // showReadingMode: muting the routine "here's your mode" readout shouldn't also mute the
+        // one notice that explains an override the user didn't ask for.
+        if (viewModel.autoWebtoonMode() != null) {
+            readingModeToast?.cancel()
+            readingModeToast = toast(MR.strings.auto_webtoon_snack)
+        } else if (readerPreferences.showReadingMode.get()) {
+            // RK <--
             showReadingModeToast(viewModel.getMangaReadingMode())
         }
 
