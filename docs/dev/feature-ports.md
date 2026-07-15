@@ -31,12 +31,12 @@ There is no natural trigger for a pass the way a Mihon sync has one, so "last ch
 
 | Feature | Reikai home | Last checked | Notes |
 |---|---|---|---|
-| Adult / EXH subsystem | `exh/`, [adult-sources.md](../adult-sources.md), [exh-subsystem.md](plans/exh-subsystem.md) | 2026-07-04 @ `3615dc23a9` | Ported wholesale, re-typed onto Mihon's models. Shipped 0.1.6. |
+| Adult / EXH subsystem | `exh/`, [adult-sources.md](../adult-sources.md), [exh-subsystem.md](plans/exh-subsystem.md) | 2026-07-15 @ `af7b919e90` | Ported wholesale, re-typed onto Mihon's models. Shipped 0.1.6. The EH tag data (`exh/eh/tags/`) is a **verbatim** vendored copy and was byte-identical to Komikku's at the 2026-07-15 pass, so refresh it wholesale rather than hand-merging. |
 | Adult browse parity | [adult-browse-parity.md](plans/adult-browse-parity.md) | 2026-07-04 @ `3615dc23a9` | Shipped 0.1.6. |
 | MangaDex enhanced source + MDList tracker | `exh/md/`, [md-enhanced-source.md](plans/md-enhanced-source.md) | 2026-07-15 @ `af7b919e90` | Shipped 0.2.0. Reikai is ahead here, see below. |
 | Related-mangas carousel | `HttpSource` `// RK` island, `reikai/domain/recommendation/`, [related-mangas.md](../related-mangas.md) | 2026-07-15 @ `af7b919e90` | Reikai's taste layer sits above Komikku's baseline. |
-| Edit-info dialog | `reikai/presentation/details/EntryEditInfoDialog.kt` | 2026-07-04 @ `3615dc23a9` | Ported from Komikku's manga-only dialog; Reikai unifies it across manga + novels and stores edits non-destructively. The one sanctioned native-XML surface. |
-| Library tag search | [library-tag-search.md](plans/library-tag-search.md) | 2026-07-04 @ `3615dc23a9` | |
+| Edit-info dialog | `reikai/presentation/details/EntryEditInfoDialog.kt` | 2026-07-15 @ `af7b919e90` | Ported from Komikku's manga-only dialog; Reikai unifies it across manga + novels and stores edits non-destructively. The one sanctioned native-XML surface. Untouched upstream since the port. |
+| Library tag search | `exh/search/`, [library-tag-search.md](plans/library-tag-search.md) | 2026-07-15 @ `af7b919e90` | A trimmed port of Komikku's `exh/search` package (parser only; their SQL-emitting browse path was not taken). Untouched upstream since the port. Reikai is ahead here, see below. |
 | Extension-installer ANR + queue fixes | `5f3ec4515` | 2026-07-04 @ `3615dc23a9` | Shipped 0.2.1. |
 | AniList GraphQL error parsing | `ccaa2767b` | 2026-07-15 @ `af7b919e90` | Shipped 0.2.1. Komikku's later `35db2840c8` is the same fix; already held. |
 
@@ -46,6 +46,7 @@ There is no natural trigger for a pass the way a Mihon sync has one, so "last ch
 - **MangaDex tracker covers.** Reikai routes them through a scoped Coil fetcher (`MangaDexTrackCoverFetcher`); Komikku's `473e9c6d69` is a self-described "dirty hack" global OkHttp interceptor, and `bc90201cc2` then exists only to gate that hack.
 - **Delegated metadata parsing.** Reikai's delegated sources override `getMangaUpdate` (the "getMangaUpdate collapse"), so Komikku's `3921bbf425` bug (subclass `fetchMangaDetails` overrides being bypassed) cannot occur here.
 - **Chapter order into `getMangaUpdate`** and the **redundant details-fetch guard**: Reikai already had both when Komikku fixed them (`8659bed4df`, `26dbe3c0ad`).
+- **Library tag search.** Wildcards actually work in Reikai (the parser emits a regex); Komikku's library matcher hands its SQL-`LIKE` pattern to an in-memory comparison, so wildcards are inert there. Reikai's `flushAll` also resets the exclude/exact flags between components, fixing a latent carry-over in Komikku's parser. See [library-tag-search.md](plans/library-tag-search.md).
 
 ### Deliberately not taken
 
@@ -59,6 +60,7 @@ There is no natural trigger for a pass the way a Mihon sync has one, so "last ch
 
 | Date | Ref HEAD | Range | Result |
 |---|---|---|---|
+| 2026-07-15 | `af7b919e90` | `3615dc23a9..af7b919e90`, the three entries left stale by the pass below (EXH, tag search, edit-info) | **1 ported**: the EH tag-data refresh (`2011491510` -> `f84b44a31`), a verbatim copy plus two new tag files and a new `location` namespace. **Edit-info and tag search: zero upstream commits in range, verified unchanged.** EXH had 12 commits touching `exh/`, but 11 were already assessed (the MangaDex cluster, `manualFetch`) or Komikku's own direction (XLog logging, the TachiyomiX 1.6 adaptation), leaving only the tag data. Note for next time: tag search lives at `exh/search/`, so a `*tag*` path filter misses it. |
 | 2026-07-15 | `af7b919e90` | `3615dc23a9..af7b919e90` (69 commits) | **1 ported**: the related-mangas capability gate + response-close (`eeacb0a7de` -> `810f774da`). Of the 69: 24 were Komikku's own Mihon syncs (taken from `refs/mihon` instead), ~12 Weblate / bumps / EHTags data, 33 Komikku-original. Of those, the whole MangaDex delegated cluster turned out to be Komikku catching up to Reikai; two were already fixed here; the rest N/A or Komikku's own direction. One skipped by policy (`948e41bd54`, see above). |
 | 2026-07-04 | `3615dc23a9` | Parity audit (details / browse / adult / MangaDex) | Audit only, no ports. Action items promoted to ROADMAP; full record in `docs/dev/audits/` (local). |
 
