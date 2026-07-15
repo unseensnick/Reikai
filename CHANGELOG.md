@@ -58,7 +58,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Fixes
 
-- **The reader's page slider is accurate again on a series you have from more than one source.** It could show the wrong page count, run past the end, or drop you on a different page than you dragged to, and chapters could open out of order.
+- **The reader's page slider now updates for each chapter's page count (synced from Mihon, mihonapp/mihon#3549).** It kept the previous chapter's number of steps, so on a longer chapter the slider stopped short of the last page.
+- **Chapters open in the right order on a series you have from more than one source.** Opening a chapter that the combined list had set aside as a duplicate could put it out of sequence, so tapping next or previous went to the wrong chapter.
 - **Novel sources that space out their own requests no longer get blocked.** Reikai now honors the short waits these sources ask for between requests, so they stop failing partway through browsing or downloading.
 - **Novel browse filters that were silently missing now show up.** Some sources' checkbox filter groups never appeared in the filter sheet; they now render alongside the others.
 - **Novel chapters now show their release dates.** The date from the source's chapter list is read instead of being left blank.
