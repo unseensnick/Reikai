@@ -94,6 +94,28 @@ and is found in search by its original name, not the one you typed. This is deli
 keeps a rename from silently reshuffling your library or splitting a merged series. The edit
 is stored separately and never overwrites the source, so Reset restores the original cleanly.
 
+## I turned on Auto webtoon mode but a manhwa still opens paged. Why?
+
+Auto webtoon mode goes by what the source says a series is, not by the pictures. It
+reads two things: the genre tags (a "Manhwa", "Manhua", "Webtoon", or "Long strip"
+tag) and the source's name. If neither says long strip, Reikai leaves your default
+reading mode alone rather than guessing.
+
+So open the series' details and look at its genres. If there is no Manhwa, Manhua, or
+Webtoon tag there, that is your answer: the source never said what it is. Most sites
+do tag it, but some skip it, and a few have pages customized enough that the tag never
+makes it through the extension. There is nothing to fix on either side, there is just
+nothing to go on. When it does fire, the reader briefly says "Reading webtoon style",
+so if you never see that, it did not detect anything.
+
+The other reason it may not fire is that **you already picked a reading mode for that
+series**, which always wins. The reading-mode button in the reader's bottom bar shows
+"Default" when you have not picked one; if it shows anything else, tap it and choose
+"Use default" to hand the series back.
+
+Either way the fix is the same, and it sticks: set the mode once on that series with
+that button and Reikai keeps it from then on.
+
 ## Where do I report a bug, request a feature, or ask a question?
 
 - **Bug:** the [bug report form](https://github.com/unseensnick/Reikai/issues/new?template=2_report_issue.yml)
