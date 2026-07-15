@@ -207,16 +207,17 @@ class ReaderViewModel @JvmOverloads constructor(
         val manga = manga!!
         // RK: unified cross-source list for a merge group (resolved in init); falls back to the
         // single-source list if accessed before init. A chapter opened from outside the merged
-        // details view (history, updates) can be deduped out of the unified list, so make sure the
-        // opened chapter is present before we look it up.
+        // details view (history, updates) or from a non-preferred source's chip can be deduped out
+        // of the unified list, so re-add it via the provider, which restamps it into the list's own
+        // sourceOrder scale. Appending it raw would misplace it once sorted, breaking prev/next.
         val merged = mergedGroup?.chapters
             ?: runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
-        val chapters = if (merged.any { it.id == chapterId }) {
-            merged
-        } else {
-            merged + runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
-                .filter { it.id == chapterId }
-        }
+        val chapters = mergedChapterProvider.withOpenedChapter(
+            merged,
+            merged.find { it.id == chapterId }
+                ?: runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
+                    .find { it.id == chapterId },
+        )
 
         val selectedChapter = chapters.find { it.id == chapterId }
             ?: error("Requested chapter of id $chapterId not found in chapter list")

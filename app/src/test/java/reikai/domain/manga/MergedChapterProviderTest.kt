@@ -49,4 +49,48 @@ class MergedChapterProviderTest {
 
         unified.map { it.sourceOrder } shouldBe listOf(0L, 1L, 2L, 3L)
     }
+
+    /**
+     * Opening a chapter the cross-source dedup dropped (from a non-preferred source's chip, or from
+     * history / updates). It carries its own source's `sourceOrder`, and the reader sorts on that
+     * alone, so it has to be renumbered into the unified list's scale or it lands at an arbitrary
+     * index and prev/next breaks.
+     */
+    private fun dedupedOut(): Pair<List<Chapter>, Chapter> {
+        val preferred = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0))
+        // Source 2 loses chapter 3 to the preferred source, so opening its own copy re-adds it.
+        val opened = chapter(2L, 3.0).copy(sourceOrder = 42L)
+        val unified = provider(preferred = listOf(100L))
+            .aggregate(mapOf(1L to preferred, 2L to listOf(opened)), mapOf(1L to 100L, 2L to 200L))
+        return unified to opened
+    }
+
+    @Test
+    fun `a deduped-out opened chapter is re-added to the list`() {
+        val (unified, opened) = dedupedOut()
+
+        val chapters = provider().withOpenedChapter(unified, opened)
+
+        // By size, not membership: proves the dedup really dropped it and it came back, where
+        // `any { id == opened.id }` would also pass if it had never been dropped.
+        chapters.size shouldBe unified.size + 1
+    }
+
+    @Test
+    fun `re-adding an opened chapter renumbers the list into one source order scale`() {
+        val (unified, opened) = dedupedOut()
+
+        val chapters = provider().withOpenedChapter(unified, opened)
+
+        chapters.map { it.sourceOrder } shouldBe listOf(0L, 1L, 2L, 3L)
+    }
+
+    @Test
+    fun `a chapter already in the list leaves the source order untouched`() {
+        val single = listOf(chapter(1L, 1.0), chapter(1L, 2.0))
+
+        val chapters = provider().withOpenedChapter(single, single.first())
+
+        chapters shouldBe single
+    }
 }
