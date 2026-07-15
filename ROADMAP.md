@@ -8,6 +8,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Next
 
+- **Rebuild the merge system on a real group identity, one system for both content types** `[XL]` - its own branch: persist the group instead of deriving it per call, which closes a live corruption path (reusable manga ids plus merge prefs that are never GC'd), stops restore silently undoing deliberate unmerges, reconciles the library's and details' disagreeing definitions of a group, drops a full-library scan from every details and reader open, and retires the `sourceOrder` overload. Decided 2026-07-15; needs a scout first. [Plan](docs/dev/plans/merge-system-rebuild.md).
 - The reader **tsundoku track** (seamless novel-reader transitions, later the native-reader migration); detail under Later -> Reader.
 
 ## Later
