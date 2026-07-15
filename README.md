@@ -43,7 +43,7 @@ It is built first for my own daily use, so development is sporadic and the featu
 - `Category sort order` + `bulk delete`: order categories, and multi-delete with undo. ([docs](docs/categories.md))
 - `Light novels`, first-class: a full Novels library equal to manga; sources + reader from [LNReader](https://github.com/LNReader/lnreader) on a headless QuickJS host; and track novels on AniList, MyAnimeList, MangaUpdates, Kitsu, Shikimori, Hikka and MangaBaka.
 - `Taste-profile recommendations`: rank the related row by your tracked-tag preferences. ([docs](docs/related-mangas.md#taste-profile))
-- `Cloudflare bypass` support: route a blocked source through a self-hosted proxy ([Byparr](https://github.com/ThePhaseless/Byparr) recommended, or FlareSolverr). ([docs](docs/flaresolverr.md))
+- `Cloudflare bypass` support: route a blocked source through a self-hosted proxy ([Solverr](https://github.com/unseensnick/Solverr) recommended, or Byparr / FlareSolverr). ([docs](docs/flaresolverr.md))
 - `Library update errors`: an opt-in list of entries that failed their last update.
 
 <details>
@@ -64,7 +64,7 @@ Carried over from [Yōkai](https://github.com/null2264/yokai) (Reikai's previous
 - `Adult content sources`: [Komikku](https://github.com/komikku-app/komikku)'s adult-source subsystem, ported wholesale, built-in support, browse, tag search, metadata, account settings and backup, with some ported pieces tweaked and a few extra built-in sources added. Off by default. ([docs](docs/adult-sources.md))
 - `Enhanced source support`: deep integration with one of the most-used manga sources, ported from [Komikku](https://github.com/komikku-app/komikku), sign in for source-native full details (author, status, description, star rating, namespaced tags), browse and bulk-add the titles you follow, track them with the built-in `MDList` tracker (two-way follow-status and rating sync), sync your library both ways, and open a random title.
 - `Edit info` (manga + novels): edit an entry's title, author, artist, cover, description, tags and status, with `Fill from tracker` to autofill those fields and genres from a linked tracker. The editor is ported from [Komikku](https://github.com/komikku-app/komikku)'s manga-only dialog; Reikai unifies it across manga and novels, stores edits non-destructively (Reset restores the source), and adds genres and more trackers to the autofill.
-- `Auto webtoon mode`: manhwa, manhua and webtoons open in webtoon mode on their own, going by the series' genre tags and its source's name rather than the pictures, and only for a series you never picked a mode for. From [Komikku](https://github.com/komikku-app/komikku) (originally [TachiyomiSY](https://github.com/jobobby04/TachiyomiSY)'s); Reikai ships it off by default and says when it made the call. ([FAQ](docs/FAQ.md))
+- `Auto webtoon mode`: manhwa, manhua and webtoons open in webtoon mode on their own, going by the series' genre tags and its source's name rather than the pictures, and only for a series you never picked a mode for. From [Komikku](https://github.com/komikku-app/komikku); Reikai ships it off by default and says when it made the call. ([FAQ](docs/FAQ.md))
 
 </details>
 
@@ -130,8 +130,9 @@ Reikai is a personal fork and stands on the work of the projects it builds on an
 - [Mihon](https://github.com/mihonapp/mihon): the base it is built on.
 - [Yōkai](https://github.com/null2264/yokai): the previous base, where several of the features were first built.
 - [TachiyomiJ2K](https://github.com/Jays2Kings/tachiyomiJ2K): the single-list library and dynamic-grouping experience.
-- [Komikku](https://github.com/komikku-app/komikku): the related-mangas carousel and the adult-source subsystem.
+- [Komikku](https://github.com/komikku-app/komikku): the related-mangas carousel, the adult-source subsystem, the enhanced source and its tracker, the edit-info editor, library tag search, and auto webtoon mode.
 - [LNReader](https://github.com/LNReader/lnreader): the light-novel source format and reader.
+- [Tsundoku](https://github.com/Cody-Duong/tsundoku): novel chapter-date parsing, plugin text sanitizing, and browse paging behaviour.
 - [Tachiyomi](https://github.com/tachiyomiorg) and its wider community, where the lineage began.
 
 Thanks to everyone who contributed to those projects.

@@ -4,11 +4,11 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-- **Unify the download subsystem across manga and novels (Road B)** `[L]` - collapse the parallel novel download cache/provider into one shared disk-scan layer serving both types, keyed on shared primitives, so they can't drift (Tsundoku's single-subsystem model). The novel download re-key deliberately mirrored the manga scheme + cache shape so this is a code merge, not a data migration. Touches Mihon's shipped download files (`// RK`).
+- **Rebuild the merge system on a real group identity, one system for both content types** `[XL]` - persist the group instead of deriving it per call, which closes a live corruption path (reusable manga ids plus merge prefs that are never GC'd), stops restore silently undoing deliberate unmerges, reconciles the library's and details' disagreeing definitions of a group, drops a full-library scan from every details and reader open, and retires the `sourceOrder` overload. Decided 2026-07-15; needs a scout first, then a phased plan. [Plan](docs/dev/plans/merge-system-rebuild.md).
 
 ## Next
 
-- **Rebuild the merge system on a real group identity, one system for both content types** `[XL]` - its own branch: persist the group instead of deriving it per call, which closes a live corruption path (reusable manga ids plus merge prefs that are never GC'd), stops restore silently undoing deliberate unmerges, reconciles the library's and details' disagreeing definitions of a group, drops a full-library scan from every details and reader open, and retires the `sourceOrder` overload. Decided 2026-07-15; needs a scout first. [Plan](docs/dev/plans/merge-system-rebuild.md).
+- **Unify the download subsystem across manga and novels (Road B)** `[L]` - collapse the parallel novel download cache/provider into one shared disk-scan layer serving both types, keyed on shared primitives, so they can't drift (Tsundoku's single-subsystem model). The novel download re-key deliberately mirrored the manga scheme + cache shape so this is a code merge, not a data migration. Touches Mihon's shipped download files (`// RK`).
 - The reader **tsundoku track** (seamless novel-reader transitions, later the native-reader migration); detail under Later -> Reader.
 
 ## Later
@@ -22,10 +22,10 @@ Remaining manga/novel parity work, smaller enhancements and polish:
 - **Skeleton loading on the novel details page** `[S]` - placeholder skeletons while the first load resolves (like LNReader), instead of a bare spinner when opening a non-library novel. An enhancement, not a parity gap (manga also uses a plain spinner).
 
 Opportunistic polish:
-- Browse: Latest shortcut, Last-used, hide-in-library, per-row language, genre-tap-search.
+- Browse: Latest shortcut, hide-in-library, per-row language, genre-tap-search.
 - Tracking: start-date backfill, friendlier Fill-from-tracker errors (no-entry-found on a 404 + null-message fallback).
 - Updates / history: fast-scroll animation.
-- Details: long-press-copy WebView URL, per-source scanlator filter for merged novels, novel tag-tap global search, novel long-press-favorite category shortcut.
+- Details: long-press-copy WebView URL, per-source scanlator filter for merged novels, novel tag-tap global search.
 
 ### Library
 
