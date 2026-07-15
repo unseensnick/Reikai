@@ -260,12 +260,42 @@ abstract class HttpSource : CatalogueSource {
      * by default) and runs [relatedMangaListParse] on the response (which reuses
      * [popularMangaParse] by default). Override either hook to customize.
      *
+     * A source implementing neither parse hook is skipped before the request is issued: the default
+     * chain ends at [popularMangaParse], which throws, so fetching first would spend a details
+     * request per carousel load only to discard it.
+     *
      * @since reikai/extensions-lib 1.6
      */
     override suspend fun fetchRelatedMangaList(manga: SManga): List<SManga> {
+        if (!isRelatedMangaListParseAvailable) return emptyList()
+
         return client.newCall(relatedMangaListRequest(manga))
             .awaitSuccess()
-            .let { response -> relatedMangaListParse(response) }
+            .use { response -> relatedMangaListParse(response) }
+    }
+
+    /**
+     * Whether this source actually implements a related-mangas parse, resolved once per source
+     * instance by walking its class hierarchy up to [HttpSource]. A declared override is the only
+     * reliable signal: [supportsRelatedMangas] is true for every HTTP source, and an extension that
+     * never implemented the hook sets no opt-out either.
+     */
+    private val isRelatedMangaListParseAvailable by lazy(LazyThreadSafetyMode.NONE) {
+        try {
+            var clazz: Class<*>? = javaClass
+            while (clazz != null && clazz != HttpSource::class.java) {
+                if (clazz.declaredMethods.any {
+                        it.name == "relatedMangaListParse" || it.name == "popularMangaParse"
+                    }
+                ) {
+                    return@lazy true
+                }
+                clazz = clazz.superclass
+            }
+            false
+        } catch (_: Exception) {
+            false
+        }
     }
 
     /**
