@@ -1,10 +1,10 @@
 package reikai.data.novel
 
 import io.kotest.matchers.shouldBe
+import org.junit.jupiter.api.Test
 import java.text.SimpleDateFormat
 import java.time.Instant
 import java.util.Locale
-import org.junit.jupiter.api.Test
 
 /**
  * Parsing of an lnreader chapter `releaseTime` into `dateUpload`. Covers the three shapes plugins

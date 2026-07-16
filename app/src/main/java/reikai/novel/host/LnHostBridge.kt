@@ -1,7 +1,6 @@
 package reikai.novel.host
 
 import android.util.Base64
-import java.net.URLDecoder
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -18,6 +17,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import reikai.novel.network.applyNovelDefaults
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.system.logcat
+import java.net.URLDecoder
 
 /**
  * Engine-agnostic host services for LN plugins: HTTP via OkHttp, per-plugin storage via the

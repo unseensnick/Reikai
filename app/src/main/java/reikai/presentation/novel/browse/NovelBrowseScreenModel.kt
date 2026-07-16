@@ -210,7 +210,9 @@ class NovelBrowseScreenModel(
         screenModelScope.launchIO {
             try {
                 val fetchPage: suspend (Int) -> List<NovelItem> = if (current.query.isBlank()) {
-                    { p -> source.popularNovels(p, buildOptions(source.filters, current.filterValues, current.showLatest)) }
+                    { p ->
+                        source.popularNovels(p, buildOptions(source.filters, current.filterValues, current.showLatest))
+                    }
                 } else {
                     { p -> source.searchNovels(current.query, p) }
                 }
