@@ -86,7 +86,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Swiping a novel chapter now does what your swipe setting says.** The left and right actions were reversed on novels, so swiping to mark-as-read bookmarked instead.
 - **A novel's hidden chapters are no longer pulled into bulk downloads, and the Resume button skips them too.** They're skipped just like the chapter list already hides them.
 - **A novel's "Show hidden chapters" menu item now disappears once nothing is hidden.** Unhiding your last hidden chapter used to leave a stale entry in the overflow menu.
-- **Related manga suggestions are now relevant, and chapter lists load faster on slow sources.** Suggestions were searched one word at a time, including words like "the" and "in", which returned unrelated titles and used up a source's request budget while the chapter list was still loading.
+- **Related manga suggestions are now relevant.** They were searched one word of the title at a time, so common words like "the" and "in" pulled back whatever those happened to match.
+- **A manga's own details and chapters now load before its related suggestions.** On sources that limit how often you can ask them for a page, the suggestions used to compete with the chapter list, so the page you actually opened filled in last.
 - **The related manga row no longer jumps while you scroll it.** Cards with a longer title were taller than the rest, so the row resized as they scrolled into view.
 
 **Merged series**

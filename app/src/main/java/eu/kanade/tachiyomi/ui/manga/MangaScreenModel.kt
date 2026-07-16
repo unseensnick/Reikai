@@ -1735,6 +1735,15 @@ class MangaScreenModel(
     // RK --> related-mangas carousel (recommendations)
     private var relatedLoadStarted = false
 
+    /**
+     * Suspend until the initial details/chapter fetch settles. Returns at once when nothing is
+     * refreshing (a library entry that needed no fetch). `fetchAllFromSource` swallows its own
+     * failures, so the flag always clears and this cannot stall the carousel.
+     */
+    private suspend fun awaitOwnDataLoaded() {
+        state.first { it !is State.Success || !it.isRefreshingData }
+    }
+
     /** Load the related carousel once per screen open. Serves a fresh cache hit instantly; otherwise
      *  streams source-native related, marking which candidates are already in the library. */
     fun loadRelatedMangas() {
@@ -1761,6 +1770,11 @@ class MangaScreenModel(
             } else {
                 updateSuccessState { it.copy(relatedLoading = true) }
             }
+            // The entry's own details and chapters come first: both hit the same host, and a source
+            // that paces its requests would otherwise spend them on suggestions while the reader is
+            // still waiting for the chapter list. Flagging the load above first means the skeleton
+            // holds the row's space meanwhile, so nothing shifts when the results land.
+            awaitOwnDataLoaded()
             val mangaId = state.manga.id
             val pool = relatedMangasLoader.load(
                 manga = state.manga.toSManga(),
