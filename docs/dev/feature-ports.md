@@ -21,7 +21,13 @@ The refs in this doc are a different relationship. Reikai borrows **specific fea
 
 There is no natural trigger for a pass the way a Mihon sync has one, so "last checked" is deliberately per-feature and only moves when someone really looks.
 
-**Credit:** a port is credited in the commit body, and for user-facing features in the README "Adapted from ..." section. Mihon is the base and is not credited that way.
+**Credit:** a port is credited in three places, and the third is the one that gets missed:
+
+1. **The commit body.**
+2. **The README** "Adapted from ..." section, for user-facing features.
+3. **The CHANGELOG entry**, inside the bold headline (which is what the release pipeline extracts), in the form `(ported from Komikku, komikku-app/komikku#NNNN)`. Use the `@<sha>` variant when upstream has no PR number, and drop the ref entirely if it would push the line past the length cap: the precise SHA belongs in this ledger, not in a user's release notes. `Other` entries take a plain trailing sentence instead ("Ported from Komikku.").
+
+Mihon is the base and is not credited in the README that way, but its **syncs are still credited in the CHANGELOG**, as `(synced from Mihon, mihonapp/mihon#NNNN)`.
 
 ## Komikku
 

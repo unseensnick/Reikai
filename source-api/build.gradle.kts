@@ -39,6 +39,16 @@ kotlin {
                 api(libs.androidx.preference)
             }
         }
+        // No generated accessor for this one, unlike androidMain.
+        getByName("androidHostTest") {
+            dependencies {
+                // Listed individually: this source set's DSL takes single dependencies, not the
+                // `test` bundle the non-multiplatform modules use.
+                implementation(libs.junit.jupiter)
+                implementation(libs.kotest.assertions)
+                runtimeOnly(libs.junit.platform.launcher)
+            }
+        }
     }
 
     @OptIn(ExperimentalKotlinGradlePluginApi::class)
