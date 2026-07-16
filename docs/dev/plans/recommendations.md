@@ -64,7 +64,7 @@ Net-new engine (`reikai.domain.recommendation`):
 - [TitleNormalizer.kt](../../../app/src/main/java/reikai/domain/recommendation/TitleNormalizer.kt), [RelatedMangaCandidate.kt](../../../app/src/main/java/reikai/domain/recommendation/RelatedMangaCandidate.kt), [RecommendationOrigin.kt](../../../app/src/main/java/reikai/domain/recommendation/RecommendationOrigin.kt): candidate model + dedup + provenance.
 - [RecommendationHideFilter.kt](../../../app/src/main/java/reikai/domain/recommendation/RecommendationHideFilter.kt), [BuildRecommendationHideFilter.kt](../../../app/src/main/java/reikai/domain/recommendation/BuildRecommendationHideFilter.kt): library / read-status suppression.
 - [TrackerRecommendations.kt](../../../app/src/main/java/reikai/domain/recommendation/TrackerRecommendations.kt) + the four providers (`AnilistRecommendations`, `MyAnimeListRecommendations`, `MangaUpdatesRecommendations`, `ShikimoriRecommendations`) and their `dto/` classes; [RecommendationProviders.kt](../../../app/src/main/java/reikai/domain/recommendation/RecommendationProviders.kt) registry.
-- [ReikaiRecommendationPreferences.kt](../../../app/src/main/java/reikai/domain/recommendation/ReikaiRecommendationPreferences.kt): the 21 settings keys.
+- [ReikaiRecommendationPreferences.kt](../../../app/src/main/java/reikai/domain/recommendation/ReikaiRecommendationPreferences.kt): every settings key, including the master switch that turns the carousel off outright.
 
 Net-new taste layer (`reikai.domain.recommendation.taste`):
 

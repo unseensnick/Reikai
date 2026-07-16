@@ -29,9 +29,8 @@ import tachiyomi.core.common.preference.Preference as PreferenceData
 
 /**
  * RK: Settings -> Library -> Recommendations. Net-new settings screen following Mihon's Preference
- * DSL. Exposes the controls whose backends are live: recommendation sources, the taste-profile
- * library pull (+ refresh-now), and the taste reranking. Candidate-injection, status filters, and
- * the auto-refresh schedule land with their backends (R4c / R5).
+ * DSL. "Show related manga" is the master switch: with it off the carousel does no work at all, so
+ * every other group here is hidden rather than left dangling.
  */
 object SettingsRecommendationsScreen : SearchableSettings {
 
