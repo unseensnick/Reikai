@@ -36,4 +36,26 @@ interface MergeGroupRepository {
 
     /** Delete the group row; its member rows cascade away. */
     suspend fun dissolveGroup(groupId: Long)
+
+    /** All memberships of [contentType] as entry-id -> group-id, for batch reads (collapse, group-by-series). */
+    suspend fun getAllMemberships(contentType: ContentType): Map<Long, Long>
+
+    /**
+     * Merge [ids] into one group, absorbing any groups they already belong to (so merging two collapsed
+     * cards pulls in every hidden member). Atomic. Returns the resulting group id, or null when fewer
+     * than two distinct entries would take part.
+     */
+    suspend fun merge(contentType: ContentType, ids: List<Long>): Long?
+
+    /**
+     * Remove [targetIds] from their group and return the surviving members. If the removal leaves fewer
+     * than two members, the group is dissolved (the lone survivor becomes standalone). Atomic.
+     */
+    suspend fun removeFromGroup(contentType: ContentType, targetIds: List<Long>): List<Long>
+
+    /** Dissolve the group [entryId] belongs to, if any (every member becomes standalone). */
+    suspend fun dissolve(contentType: ContentType, entryId: Long)
+
+    /** Dissolve every group of [contentType]. */
+    suspend fun clearAll(contentType: ContentType)
 }

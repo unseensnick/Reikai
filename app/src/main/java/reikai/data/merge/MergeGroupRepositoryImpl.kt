@@ -64,6 +64,69 @@ class MergeGroupRepositoryImpl(
         queries.deleteGroup(groupId)
     }
 
+    override suspend fun getAllMemberships(contentType: ContentType): Map<Long, Long> =
+        when (contentType) {
+            ContentType.MANGA -> queries.allMangaMemberships { id, groupId -> id to groupId }.awaitAsList().toMap()
+            ContentType.NOVELS -> queries.allNovelMemberships { id, groupId -> id to groupId }.awaitAsList().toMap()
+            ContentType.ALL -> error(ALL_UNSUPPORTED)
+        }
+
+    override suspend fun merge(contentType: ContentType, ids: List<Long>): Long? {
+        val distinct = ids.distinct()
+        if (distinct.size < 2) return null
+        return database.transactionWithResult {
+            val groupIds = groupIdsForMembers(contentType, distinct)
+            // Sorted so a fresh group has a deterministic member order; per-group priority (Phase 3)
+            // overrides it later.
+            val members = (distinct + groupIds.flatMap { getMembers(contentType, it) }).distinct().sorted()
+            if (members.size < 2) return@transactionWithResult null
+            groupIds.forEach { queries.deleteGroup(it) }
+            queries.insertGroup(contentType.toDbValue())
+            val groupId = queries.selectLastInsertedRowId().awaitAsOne()
+            members.forEach { insertMember(contentType, groupId, it) }
+            groupId
+        }
+    }
+
+    override suspend fun removeFromGroup(contentType: ContentType, targetIds: List<Long>): List<Long> {
+        if (targetIds.isEmpty()) return emptyList()
+        return database.transactionWithResult {
+            val groupId = targetIds.firstNotNullOfOrNull { getGroupId(contentType, it) }
+                ?: return@transactionWithResult emptyList()
+            val targetSet = targetIds.toHashSet()
+            val survivors = getMembers(contentType, groupId).filter { it !in targetSet }
+            targetIds.forEach { deleteMember(contentType, it) }
+            if (survivors.size < 2) queries.deleteGroup(groupId)
+            survivors
+        }
+    }
+
+    override suspend fun dissolve(contentType: ContentType, entryId: Long) {
+        database.transaction {
+            val groupId = getGroupId(contentType, entryId) ?: return@transaction
+            queries.deleteGroup(groupId)
+        }
+    }
+
+    override suspend fun clearAll(contentType: ContentType) {
+        queries.deleteGroupsByContentType(contentType.toDbValue())
+    }
+
+    private suspend fun groupIdsForMembers(contentType: ContentType, ids: List<Long>): List<Long> =
+        when (contentType) {
+            ContentType.MANGA -> queries.mangaGroupIdsForMembers(ids).awaitAsList()
+            ContentType.NOVELS -> queries.novelGroupIdsForMembers(ids).awaitAsList()
+            ContentType.ALL -> error(ALL_UNSUPPORTED)
+        }
+
+    private suspend fun deleteMember(contentType: ContentType, entryId: Long) {
+        when (contentType) {
+            ContentType.MANGA -> queries.deleteMangaMember(entryId)
+            ContentType.NOVELS -> queries.deleteNovelMember(entryId)
+            ContentType.ALL -> error(ALL_UNSUPPORTED)
+        }
+    }
+
     private suspend fun insertMember(contentType: ContentType, groupId: Long, entryId: Long) {
         when (contentType) {
             ContentType.MANGA -> queries.insertMangaMember(groupId, entryId, DEFAULT_SOURCE_PRIORITY)

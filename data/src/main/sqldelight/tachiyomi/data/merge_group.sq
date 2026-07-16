@@ -99,3 +99,28 @@ ORDER BY source_priority, _id;
 deleteNovelMember:
 DELETE FROM merge_group_novel
 WHERE novel_id = :novelId;
+
+-- Distinct groups any of :mangaIds already belong to; used to absorb overlapping groups on merge.
+mangaGroupIdsForMembers:
+SELECT DISTINCT group_id
+FROM merge_group_manga
+WHERE manga_id IN :mangaIds;
+
+novelGroupIdsForMembers:
+SELECT DISTINCT group_id
+FROM merge_group_novel
+WHERE novel_id IN :novelIds;
+
+-- All memberships of a content type (entry id -> group id), for batch collapse / group-by-series.
+allMangaMemberships:
+SELECT manga_id, group_id
+FROM merge_group_manga;
+
+allNovelMemberships:
+SELECT novel_id, group_id
+FROM merge_group_novel;
+
+-- Dissolve every group of a content type (members cascade); the Settings "clear all merges" action.
+deleteGroupsByContentType:
+DELETE FROM merge_group
+WHERE content_type = :contentType;

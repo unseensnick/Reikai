@@ -140,6 +140,106 @@ class MergeGroupRepositoryTest {
         repository.getMembers(ContentType.NOVELS, groupId) shouldBe listOf(2L)
     }
 
+    @Test
+    fun `merge combines ungrouped entries into one group`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+
+        val groupId = repository.merge(ContentType.MANGA, listOf(1, 2, 3))!!
+
+        repository.getMembers(ContentType.MANGA, groupId) shouldBe listOf(1L, 2L, 3L)
+    }
+
+    @Test
+    fun `merge absorbs the existing groups its ids already belong to`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+        insertManga(4)
+        val g1 = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+        val g2 = repository.createGroup(ContentType.MANGA, listOf(3, 4))!!
+
+        // Merging one member of each group pulls in every hidden member and dissolves the old groups.
+        val merged = repository.merge(ContentType.MANGA, listOf(1, 3))!!
+
+        repository.getMembers(ContentType.MANGA, merged) shouldBe listOf(1L, 2L, 3L, 4L)
+        repository.getGroup(g1).shouldBeNull()
+        repository.getGroup(g2).shouldBeNull()
+    }
+
+    @Test
+    fun `merge returns null for fewer than two ids`() = runTest {
+        insertManga(1)
+
+        repository.merge(ContentType.MANGA, listOf(1)) shouldBe null
+    }
+
+    @Test
+    fun `removeFromGroup keeps two or more survivors grouped`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2, 3))!!
+
+        val survivors = repository.removeFromGroup(ContentType.MANGA, listOf(1))
+
+        survivors shouldBe listOf(2L, 3L)
+        repository.getGroupId(ContentType.MANGA, 1).shouldBeNull()
+        repository.getGroupId(ContentType.MANGA, 2) shouldBe groupId
+    }
+
+    @Test
+    fun `removeFromGroup dissolves the group when one survivor remains`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+
+        val survivors = repository.removeFromGroup(ContentType.MANGA, listOf(1))
+
+        survivors shouldBe listOf(2L)
+        repository.getGroup(groupId).shouldBeNull()
+        repository.getGroupId(ContentType.MANGA, 2).shouldBeNull()
+    }
+
+    @Test
+    fun `dissolve ungroups every member`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+        repository.createGroup(ContentType.MANGA, listOf(1, 2, 3))!!
+
+        repository.dissolve(ContentType.MANGA, 2)
+
+        repository.getGroupId(ContentType.MANGA, 1).shouldBeNull()
+        repository.getGroupId(ContentType.MANGA, 3).shouldBeNull()
+    }
+
+    @Test
+    fun `clearAll dissolves every group of that type only`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertNovel(1)
+        insertNovel(2)
+        repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+        val novelGroup = repository.createGroup(ContentType.NOVELS, listOf(1, 2))!!
+
+        repository.clearAll(ContentType.MANGA)
+
+        repository.getGroupId(ContentType.MANGA, 1).shouldBeNull()
+        repository.getGroupId(ContentType.NOVELS, 1) shouldBe novelGroup
+    }
+
+    @Test
+    fun `getAllMemberships maps each member to its group`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+
+        repository.getAllMemberships(ContentType.MANGA) shouldBe mapOf(1L to groupId, 2L to groupId)
+    }
+
     // Minimal valid parent rows: only the NOT NULL columns without a default need values.
     private suspend fun insertManga(id: Long) {
         driver.execute(
