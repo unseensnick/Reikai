@@ -60,11 +60,13 @@ Carried over from [Yōkai](https://github.com/null2264/yokai) (Reikai's previous
 <details>
 <summary><strong>Adapted from Komikku</strong></summary>
 
-- `Related-mangas carousel`: similar titles below the description, from the source's related API, a keyword fallback, and tracker recs (AniList, MyAnimeList, MangaUpdates, Shikimori). From [Komikku](https://github.com/komikku-app/komikku); Reikai's taste layer is above. ([docs](docs/related-mangas.md))
-- `Adult content sources`: [Komikku](https://github.com/komikku-app/komikku)'s adult-source subsystem, ported wholesale, built-in support, browse, tag search, metadata, account settings and backup, with some ported pieces tweaked and a few extra built-in sources added. Off by default. ([docs](docs/adult-sources.md))
-- `Enhanced source support`: deep integration with one of the most-used manga sources, ported from [Komikku](https://github.com/komikku-app/komikku), sign in for source-native full details (author, status, description, star rating, namespaced tags), browse and bulk-add the titles you follow, track them with the built-in `MDList` tracker (two-way follow-status and rating sync), sync your library both ways, and open a random title.
-- `Edit info` (manga + novels): edit an entry's title, author, artist, cover, description, tags and status, with `Fill from tracker` to autofill those fields and genres from a linked tracker. The editor is ported from [Komikku](https://github.com/komikku-app/komikku)'s manga-only dialog; Reikai unifies it across manga and novels, stores edits non-destructively (Reset restores the source), and adds genres and more trackers to the autofill.
-- `Auto webtoon mode`: manhwa, manhua and webtoons open in webtoon mode on their own, going by the series' genre tags and its source's name rather than the pictures, and only for a series you never picked a mode for. From [Komikku](https://github.com/komikku-app/komikku); Reikai ships it off by default and says when it made the call. ([FAQ](docs/FAQ.md))
+Ported from [Komikku](https://github.com/komikku-app/komikku) (a Mihon fork), re-typed onto Mihon and extended:
+
+- `Related-mangas carousel`: similar titles below the description, with Reikai's taste layer above them. ([docs](docs/related-mangas.md))
+- `Adult content sources`: built-in sources, browse, tag search, metadata, account settings and backup. Off by default. ([docs](docs/adult-sources.md))
+- `Enhanced source support`: sign in to one of the most-used manga sources for source-native details, follows browse, two-way library sync, and its built-in `MDList` tracker.
+- `Edit info` (manga + novels): edit an entry's title, author, cover, description, tags and status, with `Fill from tracker` to autofill them. Reikai unifies it across both types and keeps the source's own values intact.
+- `Auto webtoon mode`: manhwa, manhua and webtoons open in webtoon mode on their own, going by tags and source name. Off by default. ([FAQ](docs/FAQ.md))
 
 </details>
 
