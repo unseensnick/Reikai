@@ -1,0 +1,101 @@
+-- RK: persisted merge-group identity, shared by manga and novels via a content_type
+-- discriminator (0 = manga, 1 = novel). Replaces the pref-derived grouping: membership is
+-- a stored fact resolved by id lookup, not re-derived per call from prefs plus a same-title
+-- scan. The FK cascade from the member tables removes a member automatically when its entry
+-- row is deleted, which closes the stale-pref id-reuse capture the pref system had.
+-- Group-owned display + source-order override live on this row; the per-chapter reading
+-- order table lands in a later phase.
+CREATE TABLE merge_group (
+    _id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    content_type INTEGER NOT NULL,
+    title_override TEXT,
+    cover_override TEXT,
+    override_source_ranking INTEGER NOT NULL DEFAULT 0
+);
+
+-- RK: manga membership. UNIQUE(manga_id) keeps a manga in at most one group (its index also
+-- serves the "which group is this manga in" lookup); moves are an explicit delete + insert in
+-- the repository. source_priority is the per-group trunk ranking, honored only when the
+-- group's override_source_ranking is 1; otherwise the global preferred-source list wins.
+CREATE TABLE merge_group_manga (
+    _id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    group_id INTEGER NOT NULL,
+    manga_id INTEGER NOT NULL,
+    source_priority INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY(group_id) REFERENCES merge_group (_id)
+    ON DELETE CASCADE,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id)
+    ON DELETE CASCADE,
+    UNIQUE(manga_id)
+);
+
+CREATE INDEX idx_merge_group_manga_group_id ON merge_group_manga(group_id);
+
+-- RK: novel membership. Twin of merge_group_manga against the novels table.
+CREATE TABLE merge_group_novel (
+    _id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    group_id INTEGER NOT NULL,
+    novel_id INTEGER NOT NULL,
+    source_priority INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY(group_id) REFERENCES merge_group (_id)
+    ON DELETE CASCADE,
+    FOREIGN KEY(novel_id) REFERENCES novels (_id)
+    ON DELETE CASCADE,
+    UNIQUE(novel_id)
+);
+
+CREATE INDEX idx_merge_group_novel_group_id ON merge_group_novel(group_id);
+
+insertGroup:
+INSERT INTO merge_group(content_type)
+VALUES (:contentType);
+
+selectLastInsertedRowId:
+SELECT last_insert_rowid();
+
+getGroup:
+SELECT *
+FROM merge_group
+WHERE _id = :groupId;
+
+deleteGroup:
+DELETE FROM merge_group
+WHERE _id = :groupId;
+
+insertMangaMember:
+INSERT INTO merge_group_manga(group_id, manga_id, source_priority)
+VALUES (:groupId, :mangaId, :sourcePriority);
+
+mangaGroupId:
+SELECT group_id
+FROM merge_group_manga
+WHERE manga_id = :mangaId;
+
+mangaMembers:
+SELECT manga_id
+FROM merge_group_manga
+WHERE group_id = :groupId
+ORDER BY source_priority, _id;
+
+deleteMangaMember:
+DELETE FROM merge_group_manga
+WHERE manga_id = :mangaId;
+
+insertNovelMember:
+INSERT INTO merge_group_novel(group_id, novel_id, source_priority)
+VALUES (:groupId, :novelId, :sourcePriority);
+
+novelGroupId:
+SELECT group_id
+FROM merge_group_novel
+WHERE novel_id = :novelId;
+
+novelMembers:
+SELECT novel_id
+FROM merge_group_novel
+WHERE group_id = :groupId
+ORDER BY source_priority, _id;
+
+deleteNovelMember:
+DELETE FROM merge_group_novel
+WHERE novel_id = :novelId;

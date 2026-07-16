@@ -361,6 +361,11 @@ dependencies {
     implementation(libs.leakCanary.plumber)
 
     testImplementation(libs.kotlinx.coroutines.test)
+
+    // RK: in-memory SQLite (pure-JVM) for the merge-group DB round-trip / cascade tests (Phase 0 of the
+    // merge-system rebuild). Test-only, never ships. Mihon has no JVM database test harness, so this is a
+    // Reikai-only test dependency; the app itself keeps using the native androidx bundled driver.
+    testImplementation(libs.sqldelight.sqliteDriver)
 }
 
 androidComponents {

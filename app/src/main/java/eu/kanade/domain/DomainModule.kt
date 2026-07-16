@@ -43,6 +43,7 @@ import mihon.domain.migration.usecases.MigrateMangaUseCase
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import mihon.domain.upcoming.interactor.GetUpcomingManga
 import reikai.data.library.updateerror.LibraryUpdateErrorRepositoryImpl
+import reikai.data.merge.MergeGroupRepositoryImpl
 import reikai.data.novel.CustomNovelInfoRepositoryImpl
 import reikai.data.novel.NovelCategoryRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
@@ -58,6 +59,7 @@ import reikai.domain.library.updateerror.UpsertLibraryUpdateError
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.PropagateTrackerLinks
+import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.novel.NovelCategoryRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelHistoryRepository
@@ -208,6 +210,9 @@ class DomainModule : InjektModule {
         // RK <--
         // RK --> shared long-press add-to-library (Browse + global search)
         addFactory { MangaLibraryAdder() }
+        // RK <--
+        // RK --> merge-group persistence (rebuild Phase 0; storage only, no consumers yet)
+        addSingletonFactory<MergeGroupRepository> { MergeGroupRepositoryImpl(get()) }
         // RK <--
         // RK --> light-novel vertical (P5 S1: domain/DB foundation)
         addSingletonFactory<NovelRepository> { NovelRepositoryImpl(get()) }

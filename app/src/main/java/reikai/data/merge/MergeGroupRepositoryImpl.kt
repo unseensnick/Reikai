@@ -1,0 +1,109 @@
+package reikai.data.merge
+
+import app.cash.sqldelight.async.coroutines.awaitAsList
+import app.cash.sqldelight.async.coroutines.awaitAsOne
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
+import reikai.domain.library.ContentType
+import reikai.domain.merge.MergeGroupRepository
+import reikai.domain.merge.model.MergeGroup
+import tachiyomi.data.Database
+
+class MergeGroupRepositoryImpl(
+    private val database: Database,
+) : MergeGroupRepository {
+
+    private val queries = database.merge_groupQueries
+
+    override suspend fun getGroup(groupId: Long): MergeGroup? =
+        queries.getGroup(groupId, ::mapGroup).awaitAsOneOrNull()
+
+    override suspend fun getGroupId(contentType: ContentType, entryId: Long): Long? =
+        when (contentType) {
+            ContentType.MANGA -> queries.mangaGroupId(entryId).awaitAsOneOrNull()
+            ContentType.NOVELS -> queries.novelGroupId(entryId).awaitAsOneOrNull()
+            ContentType.ALL -> error(ALL_UNSUPPORTED)
+        }
+
+    override suspend fun getMembers(contentType: ContentType, groupId: Long): List<Long> =
+        when (contentType) {
+            ContentType.MANGA -> queries.mangaMembers(groupId).awaitAsList()
+            ContentType.NOVELS -> queries.novelMembers(groupId).awaitAsList()
+            ContentType.ALL -> error(ALL_UNSUPPORTED)
+        }
+
+    override suspend fun createGroup(contentType: ContentType, entryIds: List<Long>): Long? {
+        val distinct = entryIds.distinct()
+        if (distinct.size < 2) return null
+        return database.transactionWithResult {
+            queries.insertGroup(contentType.toDbValue())
+            val groupId = queries.selectLastInsertedRowId().awaitAsOne()
+            distinct.forEach { insertMember(contentType, groupId, it) }
+            groupId
+        }
+    }
+
+    override suspend fun addMembers(contentType: ContentType, groupId: Long, entryIds: List<Long>) {
+        database.transaction {
+            entryIds.distinct().forEach { insertMember(contentType, groupId, it) }
+        }
+    }
+
+    override suspend fun removeMembers(contentType: ContentType, entryIds: List<Long>) {
+        database.transaction {
+            entryIds.forEach { id ->
+                when (contentType) {
+                    ContentType.MANGA -> queries.deleteMangaMember(id)
+                    ContentType.NOVELS -> queries.deleteNovelMember(id)
+                    ContentType.ALL -> error(ALL_UNSUPPORTED)
+                }
+            }
+        }
+    }
+
+    override suspend fun dissolveGroup(groupId: Long) {
+        queries.deleteGroup(groupId)
+    }
+
+    private suspend fun insertMember(contentType: ContentType, groupId: Long, entryId: Long) {
+        when (contentType) {
+            ContentType.MANGA -> queries.insertMangaMember(groupId, entryId, DEFAULT_SOURCE_PRIORITY)
+            ContentType.NOVELS -> queries.insertNovelMember(groupId, entryId, DEFAULT_SOURCE_PRIORITY)
+            ContentType.ALL -> error(ALL_UNSUPPORTED)
+        }
+    }
+
+    private fun mapGroup(
+        id: Long,
+        contentType: Long,
+        titleOverride: String?,
+        coverOverride: String?,
+        overrideSourceRanking: Long,
+    ) = MergeGroup(
+        id = id,
+        contentType = contentType.toContentType(),
+        titleOverride = titleOverride,
+        coverOverride = coverOverride,
+        overrideSourceRanking = overrideSourceRanking != 0L,
+    )
+
+    companion object {
+        private const val DEFAULT_SOURCE_PRIORITY = 0L
+
+        // Stable persisted values, mapped by enum constant (not ordinal, which ContentType.ALL would shift).
+        private const val DB_MANGA = 0L
+        private const val DB_NOVEL = 1L
+        private const val ALL_UNSUPPORTED = "ContentType.ALL is not a valid merge-group type"
+
+        private fun ContentType.toDbValue(): Long = when (this) {
+            ContentType.MANGA -> DB_MANGA
+            ContentType.NOVELS -> DB_NOVEL
+            ContentType.ALL -> error(ALL_UNSUPPORTED)
+        }
+
+        private fun Long.toContentType(): ContentType = when (this) {
+            DB_MANGA -> ContentType.MANGA
+            DB_NOVEL -> ContentType.NOVELS
+            else -> error("Unknown merge-group content_type $this")
+        }
+    }
+}

@@ -14,6 +14,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Other
 
+- Groundwork for the merge-system rebuild: persisted merge-group storage (tables plus repository), with no behavior change yet.
 - Shizuku detection now probes for the Shizuku permission instead of a fixed package name (synced from Mihon, mihonapp/mihon#3565).
 
 ## [0.3.0]
