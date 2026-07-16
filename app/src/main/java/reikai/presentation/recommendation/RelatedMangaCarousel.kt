@@ -103,7 +103,9 @@ fun RelatedMangaCarousel(
                     Box(modifier = Modifier.width(CardWidth)) {
                         MangaComfortableGridItem(
                             title = item.candidate.manga.title,
-                            titleMaxLines = 3,
+                            // Default 2 lines, matching every other grid: the cell's title is already
+                            // min 2 lines, so allowing a 3rd made cards different heights and the row
+                            // visibly resize as they scrolled in.
                             coverData = MangaCover(
                                 mangaId = 0L,
                                 sourceId = item.candidate.sourceId,

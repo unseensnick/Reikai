@@ -87,6 +87,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A novel's hidden chapters are no longer pulled into bulk downloads, and the Resume button skips them too.** They're skipped just like the chapter list already hides them.
 - **A novel's "Show hidden chapters" menu item now disappears once nothing is hidden.** Unhiding your last hidden chapter used to leave a stale entry in the overflow menu.
 - **Related manga suggestions are now relevant, and chapter lists load faster on slow sources.** Suggestions were searched one word at a time, including words like "the" and "in", which returned unrelated titles and used up a source's request budget while the chapter list was still loading.
+- **The related manga row no longer jumps while you scroll it.** Cards with a longer title were taller than the rest, so the row resized as they scrolled into view.
 
 **Merged series**
 
