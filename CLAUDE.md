@@ -88,10 +88,10 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 
 ## Current release target (next cycle, on `feat/0.4.0`)
 
-**0.3.0 shipped**: tagged `v0.3.0` -> `4b9f0e0c6`, released, and moved to [docs/dev/shipped.md](docs/dev/shipped.md). `app/build.gradle.kts` still reads `versionName 0.3.0` / `versionCode 183`, which is correct until the next cut. Notes for continuing sessions:
+**0.3.0 shipped**: tagged `v0.3.0` -> `4b9f0e0c6`, released, and moved to [docs/dev/shipped.md](docs/dev/shipped.md). `app/build.gradle.kts` reads `versionName 0.3.0` / `versionCode 184` (the `versionCode` was bumped early this cycle, see below; `versionName` moves at the 0.4.0 cut). Notes for continuing sessions:
 
-- New work lands its CHANGELOG entries under `[Unreleased]`, and bumps nothing: `versionCode` / `versionName` move only at release-cut (see the `feedback_version_bumps` memory).
-- `versionCode 183` is the gate for `SetupCategorySortOverrideMigration` (`version = 183f`), which fires for everyone upgrading from `<=182` and seeds the category sort overrides. `VerticalNavigatorMigration` (`version = 181f`) is a separate, earlier migration gated on the 0.3.0-cycle `versionCode 181` bump. Any new `Setup*Migration` must gate on the NEXT `versionCode`, not 183.
+- New work lands its CHANGELOG entries under `[Unreleased]` and normally bumps nothing: `versionCode` / `versionName` move only at release-cut (see the `feedback_version_bumps` memory). **Deliberate exception (this cycle):** `versionCode` was bumped `183 -> 184` mid-cycle so the merge-system rebuild's Phase 1 data migration (`MigrateMergePrefsToGroupsMigration`, `version = 184f`) actually fires in dev / preview builds and can be tested. A version-gated migration is a no-op until the shipped `versionCode` reaches its gate, so it could not be exercised at 183. `versionName` stays `0.3.0` until the cut; don't bump again unless another migration needs it.
+- `versionCode 184` is the gate for `MigrateMergePrefsToGroupsMigration` (fires for everyone upgrading from `<=183`). `versionCode 183` gated `SetupCategorySortOverrideMigration` (`version = 183f`, upgraders from `<=182`, seeds the category sort overrides); `VerticalNavigatorMigration` (`version = 181f`) is an earlier one on the `versionCode 181` bump. Any further new migration must gate on the NEXT `versionCode` above 184, not reuse 184.
 
 ## Design context
 
