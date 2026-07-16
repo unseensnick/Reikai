@@ -1,0 +1,60 @@
+-- Drop the two novel views' download columns: downloaded state now comes from NovelDownloadCache
+-- (a disk scan), not the novel_chapters.is_downloaded flag. The physical column is kept (backups and
+-- older installs still carry it), but the views no longer expose it, so an installed DB needs both
+-- views dropped and recreated. Matches the updated definitions in view/novelLibraryView.sq and
+-- view/novelUpdatesView.sq (which only reach fresh installs via Schema.create()).
+DROP VIEW IF EXISTS novelLibraryView;
+
+DROP VIEW IF EXISTS novelUpdatesView;
+
+CREATE VIEW novelLibraryView AS
+SELECT
+    N.*,
+    coalesce(C.total, 0) AS totalCount,
+    coalesce(C.readCount, 0) AS readCount,
+    coalesce(C.latestUpload, 0) AS latestUpload,
+    coalesce(C.fetchedAt, 0) AS chapterFetchedAt,
+    coalesce(C.bookmarkCount, 0) AS bookmarkCount,
+    coalesce(NC.categories, '0') AS categories
+FROM novels N
+LEFT JOIN (
+    SELECT
+        novel_chapters.novel_id,
+        count(*) AS total,
+        sum(read) AS readCount,
+        coalesce(max(novel_chapters.date_upload), 0) AS latestUpload,
+        coalesce(max(novel_chapters.date_fetch), 0) AS fetchedAt,
+        sum(novel_chapters.bookmark) AS bookmarkCount
+    FROM novel_chapters
+    GROUP BY novel_chapters.novel_id
+) AS C
+ON N._id = C.novel_id
+LEFT JOIN (
+    SELECT novel_id, group_concat(category_id) AS categories
+    FROM novels_categories
+    GROUP BY novel_id
+) AS NC
+ON NC.novel_id = N._id
+WHERE N.favorite = 1;
+
+CREATE VIEW novelUpdatesView AS
+SELECT
+    novels._id AS novelId,
+    novels.title AS novelTitle,
+    novel_chapters._id AS chapterId,
+    novel_chapters.name AS chapterName,
+    novel_chapters.url AS chapterUrl,
+    novel_chapters.read,
+    novel_chapters.bookmark,
+    novel_chapters.last_text_progress AS lastTextProgress,
+    novels.source,
+    novels.favorite,
+    novels.thumbnail_url AS thumbnailUrl,
+    novels.cover_last_modified AS coverLastModified,
+    novel_chapters.date_fetch AS dateFetch,
+    novels.url AS novelUrl
+FROM novels JOIN novel_chapters
+ON novels._id = novel_chapters.novel_id
+WHERE novels.favorite = 1
+AND novel_chapters.date_fetch > coalesce(novels.date_added, 0)
+ORDER BY novel_chapters.date_fetch DESC;

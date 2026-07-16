@@ -109,14 +109,6 @@ class NovelChapterRepositoryImpl(
         false
     }
 
-    override suspend fun setDownloaded(id: Long, downloaded: Boolean): Boolean = try {
-        database.novel_chaptersQueries.setDownloaded(downloaded, id)
-        true
-    } catch (e: Exception) {
-        logcat(LogPriority.ERROR, e) { "Failed to set downloaded on novel chapter id=$id" }
-        false
-    }
-
     override suspend fun delete(id: Long) {
         database.novel_chaptersQueries.delete(id)
     }

@@ -67,7 +67,9 @@ class HeadlessJsIntegrationTest {
             .filter { it.lang.equals("English", ignoreCase = true) && it.id !in anchorIds }
             .take(SAMPLE_SIZE)
         val sample = anchors + rest
-        report.appendLine("registry: ${entries.size} plugins; testing ${sample.size} (${anchors.size} anchors + breadth)")
+        report.appendLine(
+            "registry: ${entries.size} plugins; testing ${sample.size} (${anchors.size} anchors + breadth)",
+        )
 
         var fetchOk = 0
         var loadOk = 0
@@ -78,7 +80,10 @@ class HeadlessJsIntegrationTest {
         try {
             for (entry in sample) {
                 val source = runCatching { loader.fetchSource(entry.url, forceRefresh = false) }
-                    .getOrElse { report.appendLine("FETCH FAIL ${entry.id}: ${it.message}"); continue }
+                    .getOrElse {
+                        report.appendLine("FETCH FAIL ${entry.id}: ${it.message}")
+                        continue
+                    }
                 fetchOk++
 
                 val info = runCatching { host.loadPlugin(entry.id, source, entry.iconUrl, entry.lang) }
@@ -97,7 +102,10 @@ class HeadlessJsIntegrationTest {
                 if (searchAttempts >= SEARCH_CAP) continue
                 searchAttempts++
                 val results = runCatching { host.searchNovels(info.id, "world", 1) }
-                    .getOrElse { report.appendLine("  search ERROR: ${it.message}"); continue }
+                    .getOrElse {
+                        report.appendLine("  search ERROR: ${it.message}")
+                        continue
+                    }
                 report.appendLine("  search -> ${results.size} results (first='${results.firstOrNull()?.name}')")
                 if (results.isEmpty()) continue
                 searchOk++
@@ -105,11 +113,17 @@ class HeadlessJsIntegrationTest {
                 if (fullChain >= FULL_CHAIN_CAP) continue
                 val path = results.first().path
                 val novel = runCatching { host.parseNovel(info.id, path) }
-                    .getOrElse { report.appendLine("  parseNovel ERROR: ${it.message}"); continue }
+                    .getOrElse {
+                        report.appendLine("  parseNovel ERROR: ${it.message}")
+                        continue
+                    }
                 report.appendLine("  parseNovel -> '${novel.name}' chapters=${novel.chapters?.size ?: 0}")
                 val chapterPath = novel.chapters?.firstOrNull()?.path ?: continue
                 val text = runCatching { host.parseChapter(info.id, chapterPath) }
-                    .getOrElse { report.appendLine("  parseChapter ERROR: ${it.message}"); continue }
+                    .getOrElse {
+                        report.appendLine("  parseChapter ERROR: ${it.message}")
+                        continue
+                    }
                 report.appendLine("  parseChapter -> ${text.length} chars")
                 if (text.isNotBlank()) fullChain++
             }
@@ -179,16 +193,25 @@ class HeadlessJsIntegrationTest {
             for (entry in entries) {
                 val tag = "${entry.id} [${entry.lang}]"
                 val source = runCatching { loader.fetchSource(entry.url, forceRefresh = false) }
-                    .getOrElse { Log.i(TAG, "RESULT $tag FETCH_FAIL ${it.message?.take(160)}"); continue }
+                    .getOrElse {
+                        Log.i(TAG, "RESULT $tag FETCH_FAIL ${it.message?.take(160)}")
+                        continue
+                    }
                 fetchOk++
 
                 val info = runCatching { host.loadPlugin(entry.id, source, entry.iconUrl, entry.lang) }
-                    .getOrElse { Log.i(TAG, "RESULT $tag LOAD_FAIL ${it.message?.take(160)}"); continue }
+                    .getOrElse {
+                        Log.i(TAG, "RESULT $tag LOAD_FAIL ${it.message?.take(160)}")
+                        continue
+                    }
                 loadOk++
 
                 val opts = buildOptions(info.filters, defaultFilterValues(info.filters), showLatest = false)
                 val popular = runCatching { host.popularNovels(info.id, 1, opts) }
-                    .getOrElse { Log.i(TAG, "RESULT $tag POPULAR_ERROR ${it.message?.take(160)}"); continue }
+                    .getOrElse {
+                        Log.i(TAG, "RESULT $tag POPULAR_ERROR ${it.message?.take(160)}")
+                        continue
+                    }
                 if (popular.isEmpty()) {
                     Log.i(TAG, "RESULT $tag POPULAR_EMPTY 0")
                     continue

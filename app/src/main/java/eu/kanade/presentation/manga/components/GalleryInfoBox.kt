@@ -111,7 +111,9 @@ private fun EHentaiGalleryInfo(metadata: EHentaiSearchMetadata, onMoreInfoClick:
                     RatingRow(stars, it.toFloat(), it.toFloat() * 2, MaterialTheme.typography.bodySmall)
                 }
             },
-            right = { metadata.size?.let { IconLabel(Icons.Outlined.Storage, MetadataUtil.humanReadableByteCount(it, true)) } },
+            right = {
+                metadata.size?.let { IconLabel(Icons.Outlined.Storage, MetadataUtil.humanReadableByteCount(it, true)) }
+            },
         )
     }
     if (language != null || metadata.favorites != null) {

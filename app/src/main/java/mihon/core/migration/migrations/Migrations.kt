@@ -9,9 +9,12 @@ val migrations: List<Migration>
         TrustExtensionRepositoryMigration(),
         CategoryPreferencesCleanupMigration(),
         InstallationIdMigration(),
+        VerticalNavigatorMigration(),
         // RK -->
         SetupLnPluginUpdateMigration(),
         SetupNovelUpdateMigration(),
         SetupEHentaiUpdateMigration(),
+        NovelDownloadRekeyMigration(),
+        SetupCategorySortOverrideMigration(),
         // RK <--
     )

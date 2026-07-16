@@ -18,7 +18,12 @@ class NovelMergeCollapseTest {
         lastReadAt: Long? = null,
     ) = LibraryNovel(
         novel = Novel.create().copy(
-            id = id, title = title, author = author, favorite = true, dateAdded = dateAdded, lastReadAt = lastReadAt,
+            id = id,
+            title = title,
+            author = author,
+            favorite = true,
+            dateAdded = dateAdded,
+            lastReadAt = lastReadAt,
         ),
         categories = emptyList(),
         totalChapters = chapters,

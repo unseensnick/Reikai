@@ -4,44 +4,29 @@ import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SmallExtendedFloatingActionButton
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
-import androidx.compose.material3.animateFloatingActionButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -51,9 +36,9 @@ import eu.kanade.presentation.components.NavigatorAdaptiveSheet
 import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.manga.EditCoverAction
 import eu.kanade.presentation.manga.components.ChapterHeader
-import eu.kanade.presentation.manga.components.ExpandableMangaDescription
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.manga.components.MangaChapterListItem
+import eu.kanade.presentation.manga.components.MissingChapterCountListItem
 import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
@@ -62,26 +47,36 @@ import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import reikai.data.coil.NovelCover
+import reikai.domain.novel.NovelChapterListEntry
+import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.withCustomInfo
+import reikai.presentation.components.EntryCoverDialog
+import reikai.presentation.details.EntryDetailsScaffold
+import reikai.presentation.details.EntryDetailsTwoPaneScaffold
+import reikai.presentation.details.EntryDetailsUiState
+import reikai.presentation.details.EntryEditInfoDialog
+import reikai.presentation.details.EntryEditInfoUi
+import reikai.presentation.details.EntryToolbar
+import reikai.presentation.details.TrackerAutofill
+import reikai.presentation.details.entryInfoItems
+import reikai.presentation.details.toEntryHeader
+import reikai.presentation.novel.browse.DuplicateNovelDialog
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
 import reikai.presentation.novel.migrate.NovelMigrationSourcePickScreen
 import reikai.presentation.novel.notes.NovelNotesScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
-import reikai.presentation.novel.track.NovelTrackInfoDialogHomeScreen
+import reikai.presentation.track.EntryTrackInfoDialogHomeScreen
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.components.TwoPanelBox
-import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
-import tachiyomi.presentation.core.util.shouldExpandFAB
 
 /**
- * Light-novel details screen, the novel twin of `MangaScreen` (single-source for now). Mirrors the
- * manga small/large layouts: the phone toolbar fades its title + background as you scroll past the
- * cover; the tablet keeps a two-pane split with the bottom action menu anchored to the chapter pane.
- * Reader, downloads, and merge are stubbed (S4 / S5 / S8).
+ * Light-novel details screen, the novel twin of `MangaScreen`. Mirrors the manga small/large
+ * layouts: the phone toolbar fades its title + background as you scroll past the cover; the tablet
+ * keeps a two-pane split with the bottom action menu anchored to the chapter pane.
  */
 class NovelScreen(
     private val sourceId: String,
@@ -157,9 +152,33 @@ class NovelScreen(
                 }
 
                 if (isTabletUi()) {
-                    NovelDetailsLargeImpl(s, screenModel, navigator::pop, onWebView, onShare, onMigrate, onTracking, onEditNotes, onSearch, onCopy, onChapterClick)
+                    NovelDetailsLargeImpl(
+                        s,
+                        screenModel,
+                        navigator::pop,
+                        onWebView,
+                        onShare,
+                        onMigrate,
+                        onTracking,
+                        onEditNotes,
+                        onSearch,
+                        onCopy,
+                        onChapterClick,
+                    )
                 } else {
-                    NovelDetailsSmallImpl(s, screenModel, navigator::pop, onWebView, onShare, onMigrate, onTracking, onEditNotes, onSearch, onCopy, onChapterClick)
+                    NovelDetailsSmallImpl(
+                        s,
+                        screenModel,
+                        navigator::pop,
+                        onWebView,
+                        onShare,
+                        onMigrate,
+                        onTracking,
+                        onEditNotes,
+                        onSearch,
+                        onCopy,
+                        onChapterClick,
+                    )
                 }
 
                 NovelDetailsDialogs(s, screenModel)
@@ -184,13 +203,43 @@ private fun NovelDetailsSmallImpl(
     onChapterClick: (NovelChapter) -> Unit,
 ) {
     val listState = rememberLazyListState()
-    val isFirstItemVisible by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
-    val isFirstItemScrolled by remember { derivedStateOf { listState.firstVisibleItemScrollOffset > 0 } }
-    val titleAlpha by animateFloatAsState(if (!isFirstItemVisible) 1f else 0f, label = "title")
-    val backgroundAlpha by animateFloatAsState(if (!isFirstItemVisible || isFirstItemScrolled) 1f else 0f, label = "bg")
+    // Display-only overlay: show the user's edits over the source metadata; the raw novel stays
+    // source-accurate for refresh, merge, sort, and search.
+    val display = state.displayNovel.withCustomInfo(state.customInfo)
 
-    Scaffold(
-        topBar = {
+    // Build the shared header/description state in composable scope so the merge-unified label resolves
+    // via stringResource before the shell emits the info group. Metadata follows the viewed source (the
+    // selected chip, else the anchor); favorite + library actions stay on the anchor novel.
+    val entrySourceName = if (state.mergeSources.size > 1 && state.selectedSourceNovelId == null) {
+        stringResource(MR.strings.merge_unified)
+    } else {
+        state.sourceName
+    }
+    val entryState = EntryDetailsUiState(
+        header = display.toEntryHeader(sourceName = entrySourceName, sourceSite = state.sourceUrl),
+        favorite = state.novel.favorite,
+        trackingCount = state.trackingCount,
+        showIntervalButton = false,
+        nextUpdate = null,
+        isUserIntervalMode = false,
+        description = display.description,
+        tags = display.genre,
+        // notes are a user annotation on the favorited anchor row, not the viewed source's metadata.
+        notes = state.novel.notes,
+        descriptionDefaultExpanded = false,
+    )
+
+    EntryDetailsScaffold(
+        listState = listState,
+        snackbarHostState = screenModel.snackbarHostState,
+        isAnySelected = state.selectionMode,
+        isRefreshing = state.isRefreshing,
+        onRefresh = screenModel::refresh,
+        onCancelSelection = screenModel::clearSelection,
+        fabVisible = state.resumeChapter != null && !state.selectionMode,
+        fabIsResume = state.hasStarted,
+        onFabClick = { state.resumeChapter?.let(onChapterClick) },
+        topBar = { titleAlpha, backgroundAlpha ->
             NovelDetailsToolbar(
                 state = state,
                 screenModel = screenModel,
@@ -198,40 +247,33 @@ private fun NovelDetailsSmallImpl(
                 onShare = onShare,
                 onMigrate = onMigrate,
                 onEditNotes = onEditNotes,
-                titleAlphaProvider = { titleAlpha },
-                backgroundAlphaProvider = { backgroundAlpha },
+                titleAlphaProvider = titleAlpha,
+                backgroundAlphaProvider = backgroundAlpha,
             )
         },
-        bottomBar = { NovelSelectionBar(state, screenModel, Modifier.fillMaxWidth()) },
-        snackbarHost = { SnackbarHost(screenModel.snackbarHostState) },
-        floatingActionButton = { NovelResumeFab(state, listState, onChapterClick) },
-    ) { contentPadding ->
-        val layoutDirection = LocalLayoutDirection.current
-        PullRefresh(
-            refreshing = state.isRefreshing,
-            onRefresh = screenModel::refresh,
-            enabled = !state.selectionMode,
-            indicatorPadding = PaddingValues(top = contentPadding.calculateTopPadding()),
-        ) {
-            // Drop the top inset so the info-box backdrop bleeds edge-to-edge behind the toolbar (matches
-            // the manga detail). The info box itself offsets its content by the app-bar padding instead.
-            LazyColumn(
-                state = listState,
-                contentPadding = PaddingValues(
-                    start = contentPadding.calculateStartPadding(layoutDirection),
-                    end = contentPadding.calculateEndPadding(layoutDirection),
-                    bottom = contentPadding.calculateBottomPadding(),
-                ),
-            ) {
-                novelInfoItems(
-                    state, screenModel, onWebView, onShare, onTracking, onEditNotes, onSearch, onCopy,
-                    isTabletUi = false,
-                    appBarPadding = contentPadding.calculateTopPadding(),
-                )
-                novelChapterHeaderItems(state, screenModel)
-                novelChapterItems(state, screenModel, onChapterClick)
-            }
-        }
+        bottomActionMenu = { NovelSelectionBar(state, screenModel, Modifier.fillMaxWidth()) },
+    ) { appBarPadding ->
+        entryInfoItems(
+            isTabletUi = false,
+            appBarPadding = appBarPadding,
+            state = entryState,
+            onCoverClick = screenModel::showCoverDialog,
+            doSearch = { query, _ -> onSearch(query) },
+            onAddToLibraryClicked = screenModel::toggleFavorite,
+            onTrackingClicked = onTracking,
+            // long-press favorite -> categories, only while in library (parity with manga)
+            onEditCategory = screenModel::showChangeCategoryDialog.takeIf { state.novel.favorite },
+            onEditIntervalClicked = null,
+            onWebViewClicked = state.novelWebUrl?.let { { onWebView() } },
+            onWebViewLongClicked = null,
+            onShareClicked = state.novelWebUrl?.let { { onShare() } },
+            onTagSearch = onSearch,
+            onGlobalSearch = null,
+            onCopyTagToClipboard = { onCopy(it) },
+            onEditNotes = onEditNotes,
+        )
+        novelChapterHeaderItems(state, screenModel)
+        novelChapterItems(state, screenModel, onChapterClick)
     }
 }
 
@@ -250,9 +292,39 @@ private fun NovelDetailsLargeImpl(
     onChapterClick: (NovelChapter) -> Unit,
 ) {
     val chapterListState = rememberLazyListState()
-    Scaffold(
-        topBar = {
+    val display = state.displayNovel.withCustomInfo(state.customInfo)
+
+    val entrySourceName = if (state.mergeSources.size > 1 && state.selectedSourceNovelId == null) {
+        stringResource(MR.strings.merge_unified)
+    } else {
+        state.sourceName
+    }
+    val entryState = EntryDetailsUiState(
+        header = display.toEntryHeader(sourceName = entrySourceName, sourceSite = state.sourceUrl),
+        favorite = state.novel.favorite,
+        trackingCount = state.trackingCount,
+        showIntervalButton = false,
+        nextUpdate = null,
+        isUserIntervalMode = false,
+        description = display.description,
+        tags = display.genre,
+        notes = state.novel.notes,
+        descriptionDefaultExpanded = false,
+    )
+
+    EntryDetailsTwoPaneScaffold(
+        chapterListState = chapterListState,
+        snackbarHostState = screenModel.snackbarHostState,
+        isAnySelected = state.selectionMode,
+        isRefreshing = state.isRefreshing,
+        onRefresh = screenModel::refresh,
+        onCancelSelection = screenModel::clearSelection,
+        fabVisible = state.resumeChapter != null && !state.selectionMode,
+        fabIsResume = state.hasStarted,
+        onFabClick = { state.resumeChapter?.let(onChapterClick) },
+        topBar = { modifier ->
             NovelDetailsToolbar(
+                modifier = modifier,
                 state = state,
                 screenModel = screenModel,
                 onBack = onBack,
@@ -263,48 +335,32 @@ private fun NovelDetailsLargeImpl(
                 backgroundAlphaProvider = { 1f },
             )
         },
-        bottomBar = {
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomEnd) {
-                NovelSelectionBar(state, screenModel, Modifier.fillMaxWidth(0.5f))
-            }
-        },
-        snackbarHost = { SnackbarHost(screenModel.snackbarHostState) },
-        floatingActionButton = { NovelResumeFab(state, chapterListState, onChapterClick) },
-    ) { contentPadding ->
-        PullRefresh(
-            refreshing = state.isRefreshing,
-            onRefresh = screenModel::refresh,
-            enabled = !state.selectionMode,
-            indicatorPadding = PaddingValues(top = contentPadding.calculateTopPadding()),
-        ) {
-            TwoPanelBox(
-                startContent = {
-                    LazyColumn(contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding())) {
-                        // The start pane only pads the bottom, so the info box clears the app bar itself.
-                        novelInfoItems(
-                            state,
-                            screenModel,
-                            onWebView,
-                            onShare,
-                            onTracking,
-                            onEditNotes,
-                            onSearch,
-                            onCopy,
-                            isTabletUi = true,
-                            appBarPadding = contentPadding.calculateTopPadding(),
-                        )
-                    }
-                },
-                endContent = {
-                    // Chips + chapter header sit atop the chapter pane (mirrors MangaScreen's tablet layout).
-                    LazyColumn(state = chapterListState, contentPadding = contentPadding) {
-                        novelChapterHeaderItems(state, screenModel)
-                        novelChapterItems(state, screenModel, onChapterClick)
-                    }
-                },
+        bottomActionMenu = { NovelSelectionBar(state, screenModel, Modifier.fillMaxWidth(0.5f)) },
+        startContent = { appBarPadding ->
+            entryInfoItems(
+                isTabletUi = true,
+                appBarPadding = appBarPadding,
+                state = entryState,
+                onCoverClick = screenModel::showCoverDialog,
+                doSearch = { query, _ -> onSearch(query) },
+                onAddToLibraryClicked = screenModel::toggleFavorite,
+                onTrackingClicked = onTracking,
+                onEditCategory = screenModel::showChangeCategoryDialog.takeIf { state.novel.favorite },
+                onEditIntervalClicked = null,
+                onWebViewClicked = state.novelWebUrl?.let { { onWebView() } },
+                onWebViewLongClicked = null,
+                onShareClicked = state.novelWebUrl?.let { { onShare() } },
+                onTagSearch = onSearch,
+                onGlobalSearch = null,
+                onCopyTagToClipboard = { onCopy(it) },
+                onEditNotes = onEditNotes,
             )
-        }
-    }
+        },
+        endContent = {
+            novelChapterHeaderItems(state, screenModel)
+            novelChapterItems(state, screenModel, onChapterClick)
+        },
+    )
 }
 
 @Composable
@@ -317,15 +373,19 @@ private fun NovelDetailsToolbar(
     onEditNotes: () -> Unit,
     titleAlphaProvider: () -> Float,
     backgroundAlphaProvider: () -> Float,
+    modifier: Modifier = Modifier,
 ) {
-    NovelToolbar(
+    EntryToolbar(
+        modifier = modifier,
         title = state.novel.title,
         hasFilters = state.readFilter != 0L || state.bookmarkedFilter != 0L || state.downloadedFilter != 0L,
         navigateUp = onBack,
         onClickFilter = screenModel::showChapterSettingsDialog,
         onClickRefresh = screenModel::refresh,
         onClickEditCategory = screenModel::showChangeCategoryDialog,
-        onClickEditInfo = screenModel::showEditNovelInfoDialog,
+        // Editing display info is a library action (parity with manga): the overflow item hides
+        // until the novel is favorited, matching MangaScreen's takeIf { manga.favorite } gate.
+        onClickEditInfo = screenModel::showEditNovelInfoDialog.takeIf { state.novel.favorite },
         onClickEditNotes = onEditNotes,
         onClickShare = state.novelWebUrl?.let { { onShare() } },
         onClickManageSources = if (state.mergeSources.size > 1) screenModel::showManageSourcesDialog else null,
@@ -347,60 +407,92 @@ private fun NovelDetailsToolbar(
     )
 }
 
-/** Resume/Start reading FAB, the novel twin of `MangaScreen`'s: jumps to the first unread chapter,
- *  collapses to an icon on scroll, and hides when everything is read or in selection mode. */
-@Composable
-private fun NovelResumeFab(
-    state: NovelDetailsState.Loaded,
-    listState: LazyListState,
-    onChapterClick: (NovelChapter) -> Unit,
-) {
-    SmallExtendedFloatingActionButton(
-        text = {
-            Text(stringResource(if (state.hasStarted) MR.strings.action_resume else MR.strings.action_start))
-        },
-        icon = { Icon(imageVector = Icons.Filled.PlayArrow, contentDescription = null) },
-        onClick = { state.resumeChapter?.let(onChapterClick) },
-        expanded = listState.shouldExpandFAB(),
-        modifier = Modifier.animateFloatingActionButton(
-            visible = state.resumeChapter != null && !state.selectionMode,
-            alignment = Alignment.BottomEnd,
-        ),
-    )
-}
-
 @Composable
 private fun NovelSelectionBar(
     state: NovelDetailsState.Loaded,
     screenModel: NovelDetailsScreenModel,
     modifier: Modifier,
 ) {
+    // Only offer the actions that apply to the current selection, mirroring the manga selection bar
+    // (SharedMangaBottomActionMenu) instead of always showing every icon.
+    val selected = state.chapters.filter { it.id in state.selection }
+    fun isDownloaded(chapter: NovelChapter): Boolean {
+        val downloadState = state.downloadStates[chapter.id]
+            ?: if (chapter.id in state.downloadedChapterIds) {
+                Download.State.DOWNLOADED
+            } else {
+                Download.State.NOT_DOWNLOADED
+            }
+        return downloadState == Download.State.DOWNLOADED
+    }
+
     MangaBottomActionMenu(
         visible = state.selectionMode,
         modifier = modifier,
-        onBookmarkClicked = { screenModel.bookmarkSelected(true) },
-        onRemoveBookmarkClicked = { screenModel.bookmarkSelected(false) },
-        onMarkAsReadClicked = { screenModel.markSelectedRead(true) },
-        onMarkAsUnreadClicked = { screenModel.markSelectedRead(false) },
-        onMarkPreviousAsReadClicked = { screenModel.markPreviousRead(true) },
-        onDownloadClicked = { screenModel.downloadSelected() },
-        onDeleteClicked = { screenModel.deleteSelected() },
+        onBookmarkClicked = { screenModel.bookmarkSelected(true) }
+            .takeIf { selected.any { !it.bookmark } },
+        onRemoveBookmarkClicked = { screenModel.bookmarkSelected(false) }
+            .takeIf { selected.isNotEmpty() && selected.all { it.bookmark } },
+        onMarkAsReadClicked = { screenModel.markSelectedRead(true) }
+            .takeIf { selected.any { !it.read } },
+        onMarkAsUnreadClicked = { screenModel.markSelectedRead(false) }
+            .takeIf { selected.any { it.read || it.lastTextProgress > 0L } },
+        onMarkPreviousAsReadClicked = { screenModel.markPreviousRead(true) }
+            .takeIf { selected.size == 1 },
+        onDownloadClicked = { screenModel.downloadSelected() }
+            .takeIf { selected.any { !isDownloaded(it) } },
+        onDeleteClicked = { screenModel.deleteSelected() }
+            .takeIf { selected.any { isDownloaded(it) } },
     )
 }
 
 @Composable
 private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: NovelDetailsScreenModel) {
+    val navigator = LocalNavigator.currentOrThrow
     when (val dialog = state.dialog) {
         is NovelDetailsDialog.ChangeCategory -> NovelCategoryDialog(
             dialog = dialog,
             onDismiss = screenModel::dismissDialog,
             onConfirm = screenModel::applyCategories,
         )
-        is NovelDetailsDialog.EditInfo -> EditNovelInfoDialog(
-            dialog = dialog,
-            onDismiss = screenModel::dismissDialog,
-            onReset = screenModel::resetNovelInfo,
-            onConfirm = screenModel::updateNovelInfo,
+        is NovelDetailsDialog.DuplicateNovel -> DuplicateNovelDialog(
+            duplicates = dialog.duplicates,
+            sourceNames = dialog.sourceNames,
+            sourceSites = dialog.sourceSites,
+            onDismissRequest = screenModel::dismissDialog,
+            onConfirm = screenModel::addFavoriteAnyway,
+            onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
+        )
+        NovelDetailsDialog.EditInfo -> EntryEditInfoDialog(
+            initial = state.displayNovel.withCustomInfo(state.customInfo).toEntryEditInfoUi(),
+            source = state.novel.toEntryEditInfoUi(),
+            seedColor = state.seedColor,
+            coverModel = { url ->
+                NovelCover(
+                    url = url.ifBlank { null },
+                    site = state.sourceUrl,
+                    isNovelFavorite = state.novel.favorite,
+                    lastModified = state.novel.coverLastModified,
+                    novelId = state.novel.id,
+                )
+            },
+            onDismissRequest = screenModel::dismissDialog,
+            onSave = {
+                screenModel.updateNovelInfo(
+                    title = it.title,
+                    author = it.author,
+                    artist = it.artist,
+                    description = it.description,
+                    genre = it.genre,
+                    status = it.status,
+                    thumbnailUrl = it.thumbnailUrl,
+                )
+            },
+            onResetAll = screenModel::resetNovelInfo,
+            autofill = TrackerAutofill(
+                candidates = screenModel::autofillCandidates,
+                fetch = screenModel::fetchTrackerMetadata,
+            ),
         )
         NovelDetailsDialog.ChapterSettings -> NovelChapterSettingsDialog(
             sorting = state.sorting,
@@ -434,11 +526,16 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: No
         // InsertTrack JobCancellationException here).
         NovelDetailsDialog.TrackSheet -> {
             val trackScreen = remember(state.novel.id) {
-                NovelTrackInfoDialogHomeScreen(novelId = state.novel.id, novelTitle = state.novel.title)
+                EntryTrackInfoDialogHomeScreen(
+                    entryId = state.novel.id,
+                    entryTitle = state.novel.title,
+                    sourceId = null,
+                    isNovel = true,
+                )
             }
             NavigatorAdaptiveSheet(
                 screen = trackScreen,
-                enableSwipeDismiss = { it.lastItem is NovelTrackInfoDialogHomeScreen },
+                enableSwipeDismiss = { it.lastItem is EntryTrackInfoDialogHomeScreen },
                 onDismissRequest = screenModel::dismissDialog,
             )
         }
@@ -461,7 +558,7 @@ private fun Screen.NovelCoverDialogHost(state: NovelDetailsState.Loaded, onDismi
         val getContent = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             if (uri != null) coverScreenModel.editCover(context, uri)
         }
-        NovelCoverDialog(
+        EntryCoverDialog(
             cover = NovelCover(
                 url = n.thumbnailUrl,
                 site = state.sourceUrl,
@@ -480,64 +577,6 @@ private fun Screen.NovelCoverDialogHost(state: NovelDetailsState.Loaded, onDismi
                 }
             },
             onDismissRequest = onDismiss,
-        )
-    }
-}
-
-/** Info pane items: cover/title/source, the action row, and the description. On tablet these are the
- *  start pane; on phone they lead the single column. Metadata follows the viewed source (the selected
- *  chip, else the anchor); favorite + library actions stay on the anchor novel. */
-private fun LazyListScope.novelInfoItems(
-    state: NovelDetailsState.Loaded,
-    screenModel: NovelDetailsScreenModel,
-    onWebView: () -> Unit,
-    onShare: () -> Unit,
-    onTracking: () -> Unit,
-    onEditNotes: () -> Unit,
-    onSearch: (String) -> Unit,
-    onCopy: (String) -> Unit,
-    isTabletUi: Boolean,
-    appBarPadding: Dp,
-) {
-    val display = state.displayNovel
-    item(key = "info") {
-        NovelInfoBox(
-            isTabletUi = isTabletUi,
-            appBarPadding = appBarPadding,
-            novel = display,
-            // a merged group viewed via the "All" chip shows the unified label, mirroring the
-            // manga header. A specific source chip keeps that source's resolved name.
-            sourceName = if (state.mergeSources.size > 1 && state.selectedSourceNovelId == null) {
-                stringResource(MR.strings.merge_unified)
-            } else {
-                state.sourceName
-            },
-            sourceSite = state.sourceUrl,
-            onCoverClick = screenModel::showCoverDialog,
-            onSearch = onSearch,
-            onCopy = onCopy,
-        )
-    }
-    item(key = "actions") {
-        NovelActionRow(
-            favorite = state.novel.favorite,
-            trackingCount = state.trackingCount,
-            onAddToLibraryClicked = screenModel::toggleFavorite,
-            onWebViewClicked = state.novelWebUrl?.let { { onWebView() } },
-            onShareClicked = state.novelWebUrl?.let { { onShare() } },
-            onTrackingClicked = onTracking,
-        )
-    }
-    item(key = "description") {
-        ExpandableMangaDescription(
-            defaultExpandState = false,
-            description = display.description,
-            tagsProvider = { display.genre },
-            // notes are a user annotation on the favorited anchor row, not the viewed source's metadata.
-            notes = state.novel.notes,
-            onTagSearch = onSearch,
-            onCopyTagToClipboard = { onCopy(it) },
-            onEditNotes = onEditNotes,
         )
     }
 }
@@ -563,7 +602,7 @@ private fun LazyListScope.novelChapterHeaderItems(
             ChapterHeader(
                 enabled = !state.selectionMode,
                 chapterCount = state.chapters.size,
-                missingChapterCount = 0,
+                missingChapterCount = state.missingChapterCount,
                 onClick = screenModel::showChapterSettingsDialog,
             )
             if (state.isPaged) {
@@ -626,43 +665,75 @@ private fun LazyListScope.novelChapterItems(
     // slot). Single-source / per-source-chip views show nothing (the label would be redundant).
     val showSource = state.mergeSources.size > 1 && state.selectedSourceNovelId == null
     val sourceNames = if (showSource) state.mergeSources.associate { it.novelId to it.sourceName } else emptyMap()
-    items(items = state.chapters, key = { "chapter-${it.id}" }) { chapter ->
-        MangaChapterListItem(
-            title = chapterTitle(chapter, state.hideChapterTitles),
-            date = chapter.dateUpload.takeIf { it > 0L }?.let { relativeDateText(it) },
-            readProgress = (chapter.lastTextProgress / 100L).toInt().takeIf { !chapter.read && it > 0 }?.let { "$it%" },
-            scanlator = sourceNames[chapter.novelId],
-            read = chapter.read,
-            bookmark = chapter.bookmark,
-            selected = chapter.id in state.selection,
-            downloadIndicatorEnabled = !state.selectionMode,
-            downloadStateProvider = {
-                state.downloadStates[chapter.id]
-                    ?: if (chapter.isDownloaded) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED
-            },
-            downloadProgressProvider = { 0 },
-            chapterSwipeStartAction = state.chapterSwipeStartAction,
-            chapterSwipeEndAction = state.chapterSwipeEndAction,
-            onLongClick = { screenModel.toggleSelection(chapter.id, fromLongPress = true) },
-            onClick = {
-                if (state.selectionMode) {
-                    screenModel.toggleSelection(
-                        chapter.id,
-                        fromLongPress = false,
-                    )
-                } else {
-                    onChapterClick(chapter)
-                }
-            },
-            onDownloadClick = { screenModel.onChapterDownloadAction(chapter, it) },
-            onChapterSwipe = { screenModel.chapterSwipe(chapter, it) },
-            // Hidden chapters only appear while "Show hidden" is on; dim them to mark the state.
-            modifier = Modifier.alpha(if (chapter.id in state.hiddenChapterIds) HIDDEN_CHAPTER_ALPHA else 1f),
-            // Without a source label these rows are usually a single line; center so the title and
-            // download icon line up. The unified merged view (source label shown) keeps top alignment.
-            verticalAlignment = if (showSource) Alignment.Top else Alignment.CenterVertically,
-        )
+    // The list interleaves chapters with "N missing chapters" separators (built in the ScreenModel and
+    // gated by the hide-missing pref), so render per entry rather than straight over the chapter list.
+    state.chapterListEntries.forEach { entry ->
+        when (entry) {
+            is NovelChapterListEntry.Missing -> item(key = "missing-${entry.id}") {
+                MissingChapterCountListItem(entry.count)
+            }
+            is NovelChapterListEntry.Item -> item(key = "chapter-${entry.chapter.id}") {
+                NovelChapterRow(
+                    chapter = entry.chapter,
+                    state = state,
+                    screenModel = screenModel,
+                    showSource = showSource,
+                    sourceNames = sourceNames,
+                    onChapterClick = onChapterClick,
+                )
+            }
+        }
     }
+}
+
+@Composable
+private fun NovelChapterRow(
+    chapter: NovelChapter,
+    state: NovelDetailsState.Loaded,
+    screenModel: NovelDetailsScreenModel,
+    showSource: Boolean,
+    sourceNames: Map<Long, String>,
+    onChapterClick: (NovelChapter) -> Unit,
+) {
+    MangaChapterListItem(
+        title = chapterTitle(chapter, state.hideChapterTitles),
+        date = chapter.dateUpload.takeIf { it > 0L }?.let { relativeDateText(it) },
+        readProgress = (chapter.lastTextProgress / 100L).toInt().takeIf { !chapter.read && it > 0 }?.let { "$it%" },
+        scanlator = sourceNames[chapter.novelId],
+        read = chapter.read,
+        bookmark = chapter.bookmark,
+        selected = chapter.id in state.selection,
+        downloadIndicatorEnabled = !state.selectionMode,
+        downloadStateProvider = {
+            state.downloadStates[chapter.id]
+                ?: if (chapter.id in state.downloadedChapterIds) {
+                    Download.State.DOWNLOADED
+                } else {
+                    Download.State.NOT_DOWNLOADED
+                }
+        },
+        downloadProgressProvider = { 0 },
+        chapterSwipeStartAction = state.chapterSwipeStartAction,
+        chapterSwipeEndAction = state.chapterSwipeEndAction,
+        onLongClick = { screenModel.toggleSelection(chapter.id, fromLongPress = true) },
+        onClick = {
+            if (state.selectionMode) {
+                screenModel.toggleSelection(
+                    chapter.id,
+                    fromLongPress = false,
+                )
+            } else {
+                onChapterClick(chapter)
+            }
+        },
+        onDownloadClick = { screenModel.onChapterDownloadAction(chapter, it) },
+        onChapterSwipe = { screenModel.chapterSwipe(chapter, it) },
+        // Hidden chapters only appear while "Show hidden" is on; dim them to mark the state.
+        modifier = Modifier.alpha(if (chapter.id in state.hiddenChapterIds) HIDDEN_CHAPTER_ALPHA else 1f),
+        // Without a source label these rows are usually a single line; center so the title and
+        // download icon line up. The unified merged view (source label shown) keeps top alignment.
+        verticalAlignment = if (showSource) Alignment.Top else Alignment.CenterVertically,
+    )
 }
 
 private fun chapterTitle(chapter: NovelChapter, hideTitles: Boolean): String =
@@ -674,3 +745,14 @@ private fun chapterTitle(chapter: NovelChapter, hideTitles: Boolean): String =
 
 private fun formatChapterNumber(number: Double): String =
     if (number % 1.0 == 0.0) number.toInt().toString() else number.toString()
+
+/** Seed the shared edit-info dialog from a novel's effective (edited) values. */
+private fun Novel.toEntryEditInfoUi() = EntryEditInfoUi(
+    title = title,
+    author = author.orEmpty(),
+    artist = artist.orEmpty(),
+    description = description.orEmpty(),
+    genre = genre.orEmpty(),
+    status = status,
+    thumbnailUrl = thumbnailUrl.orEmpty(),
+)

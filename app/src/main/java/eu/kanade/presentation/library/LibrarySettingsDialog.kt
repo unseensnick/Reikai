@@ -1,6 +1,5 @@
 package eu.kanade.presentation.library
 
-import android.content.res.Configuration
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.padding
@@ -9,22 +8,23 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.library.LibrarySettingsScreenModel
 import eu.kanade.tachiyomi.util.system.isReleaseBuildType
+import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
+import reikai.domain.library.sortForCategory
+import reikai.presentation.library.EntryDisplayPage
+import reikai.presentation.library.ReikaiCategoriesFilter
+import reikai.presentation.library.ReikaiGroupPage
+import reikai.presentation.library.ResetToGlobalSortItem
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.model.sort
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -32,17 +32,10 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.BaseSortItem
 import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.HeadingItem
-import tachiyomi.presentation.core.components.SettingsChipRow
-import tachiyomi.presentation.core.components.SliderItem
 import tachiyomi.presentation.core.components.SortItem
 import tachiyomi.presentation.core.components.TriStateItem
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
-// RK -->
-import reikai.presentation.library.ReikaiCategoriesFilter
-import reikai.presentation.library.ReikaiCategoriesPage
-import reikai.presentation.library.ReikaiGroupPage
-// RK <--
 
 @Composable
 fun LibrarySettingsDialog(
@@ -205,8 +198,12 @@ private fun ColumnScope.SortPage(
     screenModel: LibrarySettingsScreenModel,
 ) {
     val trackers by screenModel.trackersFlow.collectAsState()
-    val sortingMode = category.sort.type
-    val sortDescending = !category.sort.isAscending
+    // RK: show the category's own sort when it's an override, else the global sort (null category =
+    // the toolbar's global scope). Reactive so changing the global sort updates the selection live.
+    val globalSort by screenModel.libraryPreferences.sortingMode.collectAsState()
+    val currentSort = sortForCategory(category?.flags ?: 0L, globalSort)
+    val sortingMode = currentSort.type
+    val sortDescending = !currentSort.isAscending
 
     val options = remember(trackers.isEmpty()) {
         val trackerMeanPair = if (trackers.isNotEmpty()) {
@@ -224,6 +221,9 @@ private fun ColumnScope.SortPage(
             MR.strings.action_sort_chapter_fetch_date to LibrarySort.Type.ChapterFetchDate,
             MR.strings.action_sort_date_added to LibrarySort.Type.DateAdded,
             trackerMeanPair,
+            // RK --> download-count sort (parity with the novel library's Downloaded sort)
+            MR.strings.action_sort_downloaded to LibrarySort.Type.Downloaded,
+            // RK <--
             MR.strings.action_sort_random to LibrarySort.Type.Random,
         )
     }
@@ -261,112 +261,33 @@ private fun ColumnScope.SortPage(
             },
         )
     }
-}
 
-private val displayModes = listOf(
-    MR.strings.action_display_grid to LibraryDisplayMode.CompactGrid,
-    MR.strings.action_display_comfortable_grid to LibraryDisplayMode.ComfortableGrid,
-    // RK: order matches Komikku (List before Cover-only, panorama last) so the panorama chip
-    // wraps to the end of the row instead of wedging into the middle.
-    MR.strings.action_display_list to LibraryDisplayMode.List,
-    MR.strings.action_display_cover_only_grid to LibraryDisplayMode.CoverOnlyGrid,
-    MR.strings.action_display_comfortable_grid_panorama to LibraryDisplayMode.ComfortableGridPanorama,
-)
+    // RK: clear this category's override so it follows the global sort again (only when overridden).
+    category?.let { cat ->
+        if ((cat.flags and CATEGORY_SORT_CUSTOMIZED) != 0L) {
+            ResetToGlobalSortItem(onClick = { screenModel.resetSort(cat) })
+        }
+    }
+}
 
 @Composable
 private fun ColumnScope.DisplayPage(
     screenModel: LibrarySettingsScreenModel,
 ) {
-    val displayMode by screenModel.libraryPreferences.displayMode.collectAsState()
-    SettingsChipRow(MR.strings.action_display_mode) {
-        displayModes.map { (titleRes, mode) ->
-            FilterChip(
-                selected = displayMode == mode,
-                onClick = { screenModel.setDisplayMode(mode) },
-                label = { Text(stringResource(titleRes)) },
+    // RK: delegate to the shared manga/novel Display tab so the two can't drift; manga keeps the
+    // local badge and fills the shared merge-toggle slot with its own two toggles.
+    EntryDisplayPage(
+        screenModel = screenModel,
+        showLocalBadge = true,
+        mergeToggles = {
+            CheckboxItem(
+                label = stringResource(MR.strings.action_merge_same_title),
+                pref = screenModel.reikaiLibraryPreferences.autoMergeSameTitle,
             )
-        }
-    }
-
-    if (displayMode != LibraryDisplayMode.List) {
-        val configuration = LocalConfiguration.current
-        val columnPreference = remember {
-            if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
-                screenModel.libraryPreferences.landscapeColumns
-            } else {
-                screenModel.libraryPreferences.portraitColumns
-            }
-        }
-
-        val columns by columnPreference.collectAsState()
-        SliderItem(
-            value = columns,
-            valueRange = 0..10,
-            label = stringResource(MR.strings.pref_library_columns),
-            valueString = if (columns > 0) {
-                columns.toString()
-            } else {
-                stringResource(MR.strings.label_auto)
-            },
-            onChange = columnPreference::set,
-            pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        )
-    }
-
-    HeadingItem(MR.strings.overlay_header)
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_download_badge),
-        pref = screenModel.libraryPreferences.downloadBadge,
+            CheckboxItem(
+                label = stringResource(MR.strings.action_merge_source_icons),
+                pref = screenModel.reikaiLibraryPreferences.showMergeSourceIcons,
+            )
+        },
     )
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_unread_badge),
-        pref = screenModel.libraryPreferences.unreadBadge,
-    )
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_local_badge),
-        pref = screenModel.libraryPreferences.localBadge,
-    )
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_language_badge),
-        pref = screenModel.libraryPreferences.languageBadge,
-    )
-    // RK: source/extension icon badge toggle
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_source_badge),
-        pref = screenModel.reikaiLibraryPreferences.sourceBadge,
-    )
-    // RK --> pref-based merge toggles
-    CheckboxItem(
-        label = stringResource(MR.strings.action_merge_same_title),
-        pref = screenModel.reikaiLibraryPreferences.autoMergeSameTitle,
-    )
-    CheckboxItem(
-        label = stringResource(MR.strings.action_merge_source_icons),
-        pref = screenModel.reikaiLibraryPreferences.showMergeSourceIcons,
-    )
-    // RK <--
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_show_continue_reading_button),
-        pref = screenModel.libraryPreferences.showContinueReadingButton,
-    )
-
-    HeadingItem(MR.strings.tabs_header)
-    // RK --> single-list (show-all) view toggle; off keeps Mihon's swipeable pager
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_show_all_categories),
-        pref = screenModel.reikaiLibraryPreferences.showAllCategories,
-    )
-    // RK <--
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_show_tabs),
-        pref = screenModel.libraryPreferences.categoryTabs,
-    )
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_show_number_of_items),
-        pref = screenModel.libraryPreferences.categoryNumberOfItems,
-    )
-
-    // RK --> Reikai category/hopper settings under their own heading
-    ReikaiCategoriesPage(screenModel = screenModel)
-    // RK <--
 }

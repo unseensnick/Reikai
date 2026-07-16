@@ -54,4 +54,25 @@ class NovelGlobalSearchSourcesTest {
         SourceSearchResult(src, SearchState.Success(emptyList())).isVisible(true) shouldBe false
         SourceSearchResult(src, SearchState.Success(listOf(mockk<NovelItem>()))).isVisible(true) shouldBe true
     }
+
+    private fun hit(id: String, name: String) =
+        SourceSearchResult(source(id, name), SearchState.Success(listOf(mockk<NovelItem>())))
+
+    @Test
+    fun `sources with results sort above empty, loading and errored ones`() {
+        val rows = listOf(
+            SourceSearchResult(source("b", "Bravo"), SearchState.Success(emptyList())),
+            SourceSearchResult(source("c", "Charlie"), SearchState.Loading),
+            SourceSearchResult(source("d", "Delta"), SearchState.Error("x")),
+            hit("a", "Alpha"),
+        )
+        rows.sortedWith(globalSearchResultComparator(pinned = emptySet())).first().source.id shouldBe "a"
+    }
+
+    @Test
+    fun `within the same result status, pinned sorts before unpinned then alphabetical`() {
+        val rows = listOf(hit("c", "Charlie"), hit("a", "Alpha"), hit("b", "Bravo"))
+        val sorted = rows.sortedWith(globalSearchResultComparator(pinned = setOf("c")))
+        sorted.map { it.source.id } shouldBe listOf("c", "a", "b")
+    }
 }

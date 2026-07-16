@@ -7,9 +7,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -103,7 +103,9 @@ fun RelatedMangaCarousel(
                     Box(modifier = Modifier.width(CardWidth)) {
                         MangaComfortableGridItem(
                             title = item.candidate.manga.title,
-                            titleMaxLines = 3,
+                            // Default 2 lines, matching every other grid: the cell's title is already
+                            // min 2 lines, so allowing a 3rd made cards different heights and the row
+                            // visibly resize as they scrolled in.
                             coverData = MangaCover(
                                 mangaId = 0L,
                                 sourceId = item.candidate.sourceId,
@@ -133,11 +135,11 @@ private fun SkeletonCard() {
         modifier = Modifier
             .width(CardWidth)
             .padding(4.dp)
-            .aspectRatio(MangaCoverAspectRatio)
+            .aspectRatio(MANGA_COVER_ASPECT_RATIO)
             .clip(RoundedCornerShape(4.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant),
     )
 }
 
-private const val MangaCoverAspectRatio = 2f / 3f
+private const val MANGA_COVER_ASPECT_RATIO = 2f / 3f
 private val CardWidth = 120.dp

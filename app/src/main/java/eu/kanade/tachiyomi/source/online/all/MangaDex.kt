@@ -6,8 +6,8 @@ import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.mdlist.MdList
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
-import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.MangasPage
+import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SMangaUpdate
 import eu.kanade.tachiyomi.source.online.FollowsSource
@@ -158,6 +158,18 @@ class MangaDex(delegate: HttpSource, val context: Context) :
 
     suspend fun updateRating(track: Track): Boolean = followsHandler.updateRating(track)
 
+    // MDList "Fill from tracker" metadata: reuse the normal details-parse pipeline (getMangaUpdate ->
+    // parseToManga) on a bare SManga carrying the tracking URL, and hand the parsed SManga to MdList.
+    suspend fun getMangaMetadata(trackingUrl: String): SManga {
+        // title is a non-null lateinit the parse pipeline reads via copy(); seed it so a bare input
+        // doesn't crash. parseIntoMetadata overwrites it with the real title.
+        val manga = SManga.create().apply {
+            url = trackingUrl
+            title = ""
+        }
+        return getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false).manga
+    }
+
     // MDList tracker search. One search call for the hits, then two batched calls (full details +
     // ratings) so the bind sheet is as rich as the other trackers without N per-result round-trips.
     suspend fun searchTracker(query: String): List<TrackSearch> {
@@ -186,7 +198,7 @@ class MangaDex(delegate: HttpSource, val context: Context) :
         // dedupes on remote_id).
         remote_id = data.id.hashCode().toLong()
         title = MdUtil.getTitleFromManga(attrs, mdLang.lang, true)
-        tracking_url = MdUtil.baseUrl + MdUtil.buildMangaUrl(data.id)
+        tracking_url = MdUtil.BASE_URL + MdUtil.buildMangaUrl(data.id)
         cover_url = data.relationships
             .firstOrNull { it.type == MdConstants.Types.coverArt }
             ?.attributes?.fileName

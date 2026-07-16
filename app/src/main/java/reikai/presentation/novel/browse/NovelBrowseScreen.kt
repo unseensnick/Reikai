@@ -1,5 +1,6 @@
 package reikai.presentation.novel.browse
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.ViewModule
+import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.NewReleases
@@ -34,6 +36,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -49,23 +52,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.fastAny
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import eu.kanade.presentation.browse.components.BrowseSourceLoadingItem
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.AppBarTitle
 import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.presentation.components.RadioMenuItem
 import eu.kanade.presentation.components.SearchToolbar
-import eu.kanade.presentation.browse.components.BrowseSourceLoadingItem
 import eu.kanade.presentation.library.components.CommonMangaItemDefaults
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import kotlinx.coroutines.flow.distinctUntilChanged
 import reikai.novel.host.NovelItem
+import reikai.presentation.browse.EntryBrowseGridCell
+import reikai.presentation.browse.components.BulkSelectionToolbar
+import reikai.presentation.browse.toEntryBrowseUi
 import reikai.presentation.novel.details.NovelCategoryDialog
 import reikai.presentation.novel.details.NovelDetailsDialog
 import reikai.presentation.novel.details.NovelScreen
@@ -97,6 +104,11 @@ class NovelBrowseScreen(
         val screenModel = rememberScreenModel { NovelBrowseScreenModel(sourceId, initialQuery) }
         val state by screenModel.state.collectAsState()
         val snackbarHostState = remember { SnackbarHostState() }
+        // RK: shared bulk-selection add-to-library (Phase 5)
+        val bulkModel = rememberScreenModel { NovelBulkFavoriteScreenModel() }
+        val bulkState by bulkModel.state.collectAsState()
+
+        BackHandler(enabled = bulkState.selectionMode) { bulkModel.backHandler() }
 
         var searchQuery by rememberSaveable { mutableStateOf<String?>(initialQuery.ifBlank { null }) }
         var selectingDisplayMode by remember { mutableStateOf(false) }
@@ -119,88 +131,119 @@ class NovelBrowseScreen(
         }
 
         // Surface a fetch error as a retry snackbar only when results are already shown; an empty
-        // listing routes the error through the EmptyScreen body instead.
+        // listing routes the error through the EmptyScreen body instead. Tapping Retry re-runs the
+        // failed page load (pagination is no longer latched off after an error).
         val errorString = state.error
+        val retryLabel = stringResource(MR.strings.action_retry)
         LaunchedEffect(errorString) {
             if (errorString != null && state.novels.isNotEmpty()) {
-                snackbarHostState.showSnackbar(message = errorString, duration = SnackbarDuration.Short)
+                val result = snackbarHostState.showSnackbar(
+                    message = errorString,
+                    actionLabel = retryLabel,
+                    // Indefinite (matches manga's browse retry snackbar): an error should stay visible
+                    // until the user dismisses or retries it, not auto-dismiss after a few seconds.
+                    duration = SnackbarDuration.Indefinite,
+                )
+                if (result == SnackbarResult.ActionPerformed) screenModel.loadMore()
             }
         }
 
         Scaffold(
             topBar = { scrollBehavior ->
                 Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
-                    SearchToolbar(
-                        searchQuery = searchQuery,
-                        onChangeSearchQuery = { searchQuery = it },
-                        titleContent = { AppBarTitle(state.source?.name) },
-                        navigateUp = navigator::pop,
-                        placeholderText = stringResource(MR.strings.action_search),
-                        onSearch = { screenModel.search(it) },
-                        onClickCloseSearch = {
-                            searchQuery = null
-                            screenModel.search("")
-                        },
-                        actions = {
-                            AppBarActions(
-                                actions = buildList {
-                                    add(
-                                        AppBar.Action(
-                                            title = stringResource(MR.strings.action_display_mode),
-                                            icon = if (screenModel.displayMode == LibraryDisplayMode.List) {
-                                                Icons.AutoMirrored.Filled.ViewList
-                                            } else {
-                                                Icons.Filled.ViewModule
-                                            },
-                                            onClick = { selectingDisplayMode = true },
-                                        ),
-                                    )
-                                    add(
-                                        AppBar.OverflowAction(
-                                            title = stringResource(MR.strings.action_open_in_web_view),
-                                            onClick = onWebViewClick,
-                                        ),
-                                    )
-                                    if (state.source?.pluginSettings != null) {
+                    // RK: while bulk-selecting, the selection bar replaces the search toolbar; the
+                    //     Popular / Latest / Filter chip row below stays put (matches manga browse).
+                    if (bulkState.selectionMode) {
+                        BulkSelectionToolbar(
+                            selectedCount = bulkState.selection.size,
+                            onClickClearSelection = bulkModel::toggleSelectionMode,
+                            onChangeCategoryClick = { bulkModel.addFavorite(state.favoritedKeys) },
+                            onSelectAll = { state.novels.forEach { bulkModel.select(sourceId, it) } },
+                            onReverseSelection = {
+                                bulkModel.reverseSelection(state.novels.map { SelectedNovel(sourceId, it) })
+                            },
+                        )
+                    } else {
+                        SearchToolbar(
+                            searchQuery = searchQuery,
+                            onChangeSearchQuery = { searchQuery = it },
+                            titleContent = { AppBarTitle(state.source?.name) },
+                            navigateUp = navigator::pop,
+                            placeholderText = stringResource(MR.strings.action_search),
+                            onSearch = { screenModel.search(it) },
+                            onClickCloseSearch = {
+                                searchQuery = null
+                                screenModel.search("")
+                            },
+                            actions = {
+                                AppBarActions(
+                                    actions = buildList {
                                         add(
-                                            AppBar.OverflowAction(
-                                                title = stringResource(MR.strings.action_settings),
-                                                onClick = screenModel::openSettingsSheet,
+                                            AppBar.Action(
+                                                title = stringResource(MR.strings.action_display_mode),
+                                                icon = if (screenModel.displayMode == LibraryDisplayMode.List) {
+                                                    Icons.AutoMirrored.Filled.ViewList
+                                                } else {
+                                                    Icons.Filled.ViewModule
+                                                },
+                                                onClick = { selectingDisplayMode = true },
                                             ),
                                         )
-                                    }
-                                },
-                            )
+                                        // RK: bulk-select entry (Phase 5)
+                                        add(
+                                            AppBar.Action(
+                                                title = stringResource(MR.strings.action_bulk_select),
+                                                icon = Icons.Outlined.Checklist,
+                                                onClick = bulkModel::toggleSelectionMode,
+                                            ),
+                                        )
+                                        add(
+                                            AppBar.OverflowAction(
+                                                title = stringResource(MR.strings.action_open_in_web_view),
+                                                onClick = onWebViewClick,
+                                            ),
+                                        )
+                                        if (state.source?.pluginSettings != null) {
+                                            add(
+                                                AppBar.OverflowAction(
+                                                    title = stringResource(MR.strings.action_settings),
+                                                    onClick = screenModel::openSettingsSheet,
+                                                ),
+                                            )
+                                        }
+                                    },
+                                )
 
-                            DropdownMenu(
-                                expanded = selectingDisplayMode,
-                                onDismissRequest = { selectingDisplayMode = false },
-                            ) {
-                                RadioMenuItem(
-                                    text = { Text(stringResource(MR.strings.action_display_comfortable_grid)) },
-                                    isChecked = screenModel.displayMode == LibraryDisplayMode.ComfortableGrid,
+                                DropdownMenu(
+                                    expanded = selectingDisplayMode,
+                                    onDismissRequest = { selectingDisplayMode = false },
                                 ) {
-                                    selectingDisplayMode = false
-                                    screenModel.displayMode = LibraryDisplayMode.ComfortableGrid
+                                    RadioMenuItem(
+                                        text = { Text(stringResource(MR.strings.action_display_comfortable_grid)) },
+                                        isChecked = screenModel.displayMode == LibraryDisplayMode.ComfortableGrid,
+                                    ) {
+                                        selectingDisplayMode = false
+                                        screenModel.displayMode = LibraryDisplayMode.ComfortableGrid
+                                    }
+                                    RadioMenuItem(
+                                        text = { Text(stringResource(MR.strings.action_display_grid)) },
+                                        isChecked = screenModel.displayMode == LibraryDisplayMode.CompactGrid,
+                                    ) {
+                                        selectingDisplayMode = false
+                                        screenModel.displayMode = LibraryDisplayMode.CompactGrid
+                                    }
+                                    RadioMenuItem(
+                                        text = { Text(stringResource(MR.strings.action_display_list)) },
+                                        isChecked = screenModel.displayMode == LibraryDisplayMode.List,
+                                    ) {
+                                        selectingDisplayMode = false
+                                        screenModel.displayMode = LibraryDisplayMode.List
+                                    }
                                 }
-                                RadioMenuItem(
-                                    text = { Text(stringResource(MR.strings.action_display_grid)) },
-                                    isChecked = screenModel.displayMode == LibraryDisplayMode.CompactGrid,
-                                ) {
-                                    selectingDisplayMode = false
-                                    screenModel.displayMode = LibraryDisplayMode.CompactGrid
-                                }
-                                RadioMenuItem(
-                                    text = { Text(stringResource(MR.strings.action_display_list)) },
-                                    isChecked = screenModel.displayMode == LibraryDisplayMode.List,
-                                ) {
-                                    selectingDisplayMode = false
-                                    screenModel.displayMode = LibraryDisplayMode.List
-                                }
-                            }
-                        },
-                        scrollBehavior = scrollBehavior,
-                    )
+                            },
+                            scrollBehavior = scrollBehavior,
+                        )
+                    }
 
                     val searching = state.query.isNotBlank()
                     Row(
@@ -215,6 +258,7 @@ class NovelBrowseScreen(
                             label = stringResource(MR.strings.popular),
                             onClick = {
                                 searchQuery = null
+                                screenModel.resetFilters()
                                 screenModel.setListing(NovelBrowseState.Listing.Popular)
                             },
                         )
@@ -224,12 +268,13 @@ class NovelBrowseScreen(
                             label = stringResource(MR.strings.latest),
                             onClick = {
                                 searchQuery = null
+                                screenModel.resetFilters()
                                 screenModel.setListing(NovelBrowseState.Listing.Latest)
                             },
                         )
                         if (state.source?.filters?.isNotEmpty() == true) {
                             ListingChip(
-                                selected = false,
+                                selected = searching || state.hasActiveFilters,
                                 icon = Icons.Outlined.FilterList,
                                 label = stringResource(MR.strings.action_filter),
                                 onClick = screenModel::openFilterSheet,
@@ -247,10 +292,24 @@ class NovelBrowseScreen(
                 sourceId = sourceId,
                 displayMode = screenModel.displayMode,
                 contentPadding = contentPadding,
+                selection = bulkState.selection,
                 onRetry = screenModel::retry,
                 onWebViewClick = onWebViewClick,
-                onResultClick = { navigator.push(NovelScreen(sourceId, it.path)) },
-                onLongClickItem = screenModel::onLongClickItem,
+                // RK: tap toggles selection while bulk-selecting, long-press opens details (mirrors manga)
+                onResultClick = { item ->
+                    if (bulkState.selectionMode) {
+                        bulkModel.toggleSelection(sourceId, item)
+                    } else {
+                        navigator.push(NovelScreen(sourceId, item.path))
+                    }
+                },
+                onLongClickItem = { item ->
+                    if (bulkState.selectionMode) {
+                        navigator.push(NovelScreen(sourceId, item.path))
+                    } else {
+                        screenModel.onLongClickItem(item)
+                    }
+                },
                 onLoadMore = screenModel::loadMore,
             )
         }
@@ -273,6 +332,16 @@ class NovelBrowseScreen(
                 title = dialog.item.name,
                 onDismiss = screenModel::dismissDialog,
                 onConfirm = { screenModel.confirmRemove(dialog.item) },
+            )
+            null -> {}
+        }
+
+        // RK: bulk add-to-library category picker (Phase 5), one choice applied to the whole selection.
+        when (val bulkDialog = bulkState.dialog) {
+            is NovelBulkFavoriteScreenModel.Dialog.ChangeCategory -> NovelCategoryDialog(
+                dialog = NovelDetailsDialog.ChangeCategory(bulkDialog.categories, emptySet()),
+                onDismiss = { bulkModel.setDialog(null) },
+                onConfirm = { bulkModel.setNovelsCategories(bulkDialog.items, it) },
             )
             null -> {}
         }
@@ -317,6 +386,7 @@ private fun NovelBrowseBody(
     sourceId: String,
     displayMode: LibraryDisplayMode,
     contentPadding: PaddingValues,
+    selection: List<SelectedNovel>,
     onRetry: () -> Unit,
     onWebViewClick: () -> Unit,
     onResultClick: (NovelItem) -> Unit,
@@ -348,15 +418,18 @@ private fun NovelBrowseBody(
                 contentPadding = contentPadding + PaddingValues(vertical = 8.dp),
             ) {
                 items(items = state.novels, key = { it.path }) { item ->
-                    NovelBrowseListCell(
-                        item = item,
-                        inLibrary = (sourceId to item.path) in state.favoritedKeys,
-                        site = state.source?.site,
+                    EntryBrowseGridCell(
+                        ui = item.toEntryBrowseUi(
+                            inLibrary = (sourceId to item.path) in state.favoritedKeys,
+                            site = state.source?.site,
+                        ),
+                        displayMode = displayMode,
                         onClick = { onResultClick(item) },
                         onLongClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onLongClickItem(item)
                         },
+                        isSelected = selection.fastAny { it.sourceId == sourceId && it.item.path == item.path },
                     )
                 }
                 if (state.loadingMore) {
@@ -372,10 +445,6 @@ private fun NovelBrowseBody(
         }
         else -> {
             val haptic = LocalHapticFeedback.current
-            // CompactGrid + CoverOnlyGrid use the compact cell; Comfortable(+Panorama) the comfortable one
-            // (browse offers no panorama/cover-only toggle, but a restored pref could still carry them).
-            val compact = displayMode == LibraryDisplayMode.CompactGrid ||
-                displayMode == LibraryDisplayMode.CoverOnlyGrid
             val gridState = rememberLazyGridState()
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(128.dp),
@@ -385,18 +454,19 @@ private fun NovelBrowseBody(
                 horizontalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridHorizontalSpacer),
             ) {
                 items(items = state.novels, key = { it.path }) { item ->
-                    val inLibrary = (sourceId to item.path) in state.favoritedKeys
-                    val onClick = { onResultClick(item) }
-                    val onLongClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onLongClickItem(item)
-                    }
-                    val site = state.source?.site
-                    if (compact) {
-                        NovelBrowseCompactGridCell(item, inLibrary, site, onClick, onLongClick)
-                    } else {
-                        NovelBrowseGridCell(item, inLibrary, site, onClick, onLongClick)
-                    }
+                    EntryBrowseGridCell(
+                        ui = item.toEntryBrowseUi(
+                            inLibrary = (sourceId to item.path) in state.favoritedKeys,
+                            site = state.source?.site,
+                        ),
+                        displayMode = displayMode,
+                        onClick = { onResultClick(item) },
+                        onLongClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onLongClickItem(item)
+                        },
+                        isSelected = selection.fastAny { it.sourceId == sourceId && it.item.path == item.path },
+                    )
                 }
                 if (state.loadingMore) {
                     item(span = { GridItemSpan(maxLineSpan) }) { BrowseSourceLoadingItem() }

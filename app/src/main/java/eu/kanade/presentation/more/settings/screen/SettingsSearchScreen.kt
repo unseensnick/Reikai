@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.paddingFromBaseline
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -50,6 +50,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.UpIcon
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.util.Screen
+import reikai.presentation.recommendation.SettingsRecommendationsScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -204,7 +205,8 @@ private fun SearchResult(
                                 node = categoryTitle,
                                 isLtr = isLtr,
                             ),
-                            highlightKey = p.title,
+                            // RK: carry the group so highlighting lands on the exact row.
+                            highlightKey = HighlightKey(categoryTitle, p.title),
                         )
                     }
             }
@@ -228,10 +230,14 @@ private fun SearchResult(
                     contentPadding = contentPadding,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    items(
+                    // RK: key by position, not item.hashCode(). Two settings sharing a title and group
+                    // (e.g. a manga/novel content-type twin) produce equal items whose hashCodes collide,
+                    // which crashed the LazyColumn ("Key ... already used"). Position is always unique for
+                    // this ephemeral, per-query result list.
+                    itemsIndexed(
                         items = it,
-                        key = { i -> i.hashCode() },
-                    ) { item ->
+                        key = { index, _ -> index },
+                    ) { _, item ->
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -299,6 +305,8 @@ private val settingScreens = listOf(
     SettingsEhScreen,
     // RK: MangaDex enhanced-source hub (gated by isEnabled, filtered in getIndex).
     SettingsMangaDexScreen,
+    // RK: recommendations settings, previously unreachable from settings search.
+    SettingsRecommendationsScreen,
     SettingsAdvancedScreen,
 )
 
@@ -312,5 +320,5 @@ private data class SearchResultItem(
     val route: VoyagerScreen,
     val title: String,
     val breadcrumbs: String,
-    val highlightKey: String,
+    val highlightKey: HighlightKey, // RK: (group, title) for exact-row highlight
 )

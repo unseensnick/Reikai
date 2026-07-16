@@ -339,7 +339,7 @@ object LegacyYokaiDbImporter {
         rawQuery(
             "SELECT _id, source, url, title, author, artist, description, genre, status, " +
                 "thumbnail_url, last_update, initialized, chapter_flags, date_added, update_strategy, " +
-                "cover_last_modified, total_pages, last_read_at, edited_flags FROM novels WHERE favorite = 1",
+                "cover_last_modified, total_pages, last_read_at FROM novels WHERE favorite = 1",
             null,
         ).use { c ->
             while (c.moveToNext()) {
@@ -362,7 +362,6 @@ object LegacyYokaiDbImporter {
                     coverLastModified = c.longOr("cover_last_modified"),
                     totalPages = c.longOr("total_pages", default = 1),
                     lastReadAt = c.longOrNull("last_read_at"),
-                    editedFlags = c.longOr("edited_flags"),
                     favorite = true,
                     chapters = chaptersByNovel[id].orEmpty(),
                     categories = novelCategoryOrders[id].orEmpty(),

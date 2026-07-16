@@ -20,7 +20,8 @@ class LnRegistryTest {
                 "version": "2.2.1",
                 "url": "https://example.com/novelbin.js",
                 "iconUrl": "https://example.com/icon.png"
-            }]""".trimIndent(),
+            }]
+            """.trimIndent(),
         )
         val novelbin = LnRegistryEntry(
             id = "novelbin",
@@ -44,7 +45,8 @@ class LnRegistryTest {
                 "lang": "English",
                 "version": "1.0",
                 "url": "https://example.com/minimal.js"
-            }]""".trimIndent(),
+            }]
+            """.trimIndent(),
         )
         assertEquals(1, entries.size)
         val e = entries.first()
@@ -66,7 +68,8 @@ class LnRegistryTest {
                 "experimental": true,
                 "publishedAt": "2030-01-01",
                 "deprecated": false
-            }]""".trimIndent(),
+            }]
+            """.trimIndent(),
         )
         assertEquals("future", entries.single().id)
     }
@@ -83,7 +86,8 @@ class LnRegistryTest {
               {"id":"a","name":"A","site":"https://a/","lang":"English","version":"1","url":"https://x/a.js"},
               {"id":"b","name":"B","site":"https://b/","lang":"English","version":"1","url":"https://x/b.js"},
               {"id":"c","name":"C","site":"https://c/","lang":"English","version":"1","url":"https://x/c.js"}
-            ]""".trimIndent(),
+            ]
+            """.trimIndent(),
         )
         assertEquals(listOf("a", "b", "c"), entries.map { it.id })
     }
@@ -98,7 +102,8 @@ class LnRegistryTest {
                     "site": "https://broken.example/",
                     "lang": "English",
                     "version": "1.0"
-                }]""".trimIndent(),
+                }]
+                """.trimIndent(),
             )
         }
     }

@@ -43,6 +43,8 @@ import eu.kanade.tachiyomi.util.editCover
 import eu.kanade.tachiyomi.util.lang.byteSize
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.storage.cacheImageDir
+import exh.util.defaultReaderType
+import exh.util.mangaType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -58,6 +60,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
+import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
@@ -75,8 +78,11 @@ import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.history.interactor.UpsertHistory
 import tachiyomi.domain.history.model.HistoryUpdate
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
+import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.withCustomInfo
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
@@ -99,6 +105,8 @@ class ReaderViewModel @JvmOverloads constructor(
     private val trackPreferences: TrackPreferences = Injekt.get(),
     private val trackChapter: TrackChapter = Injekt.get(),
     private val getManga: GetManga = Injekt.get(),
+    // RK: Edit info overrides, so auto-webtoon can classify from edited genres.
+    private val getCustomMangaInfo: GetCustomMangaInfo = Injekt.get(),
     private val getChaptersByMangaId: GetChaptersByMangaId = Injekt.get(),
     private val getNextChapters: GetNextChapters = Injekt.get(),
     private val upsertHistory: UpsertHistory = Injekt.get(),
@@ -109,6 +117,7 @@ class ReaderViewModel @JvmOverloads constructor(
     // RK -->
     private val uiPreferences: UiPreferences = Injekt.get(),
     private val mergedChapterProvider: MergedChapterProvider = Injekt.get(),
+    private val mangaPreferences: MangaPreferences = Injekt.get(),
     // RK <--
 ) : ViewModel() {
 
@@ -198,16 +207,17 @@ class ReaderViewModel @JvmOverloads constructor(
         val manga = manga!!
         // RK: unified cross-source list for a merge group (resolved in init); falls back to the
         // single-source list if accessed before init. A chapter opened from outside the merged
-        // details view (history, updates) can be deduped out of the unified list, so make sure the
-        // opened chapter is present before we look it up.
+        // details view (history, updates) or from a non-preferred source's chip can be deduped out
+        // of the unified list, so re-add it via the provider, which restamps it into the list's own
+        // sourceOrder scale. Appending it raw would misplace it once sorted, breaking prev/next.
         val merged = mergedGroup?.chapters
             ?: runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
-        val chapters = if (merged.any { it.id == chapterId }) {
-            merged
-        } else {
-            merged + runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
-                .filter { it.id == chapterId }
-        }
+        val chapters = mergedChapterProvider.withOpenedChapter(
+            merged,
+            merged.find { it.id == chapterId }
+                ?: runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
+                    .find { it.id == chapterId },
+        )
 
         val selectedChapter = chapters.find { it.id == chapterId }
             ?: error("Requested chapter of id $chapterId not found in chapter list")
@@ -261,6 +271,18 @@ class ReaderViewModel @JvmOverloads constructor(
         }
 
         chaptersForReader
+            // RK --> drop user-hidden chapters so reader navigation skips them (twin of the details
+            // filter); keep the opened chapter so opening a hidden one directly still resolves.
+            .run {
+                val hidden = mangaPreferences.hiddenChapters().get()
+                if (hidden.isEmpty()) {
+                    this
+                } else {
+                    val filtered = filterNot { "${mangaForChapterId(it.mangaId).source}|${it.url}" in hidden }
+                    if (filtered.any { it.id == chapterId }) filtered else filtered + selectedChapter
+                }
+            }
+            // RK <--
             .sortedWith(getChapterSort(manga, sortDescending = false))
             .run {
                 if (readerPreferences.skipDupe.get()) {
@@ -336,6 +358,9 @@ class ReaderViewModel @JvmOverloads constructor(
                 val manga = getManga.await(mangaId)
                 if (manga != null) {
                     sourceManager.isInitialized.first { it }
+                    // RK: resolve the Edit info overrides before the state update below builds the
+                    // viewer, since auto-webtoon classifies off them.
+                    customInfo = getCustomMangaInfo.subscribe(mangaId).first()
                     mutableState.update { it.copy(manga = manga) }
                     if (chapterId == -1L) chapterId = initialChapterId
 
@@ -756,10 +781,42 @@ class ReaderViewModel @JvmOverloads constructor(
         val default = readerPreferences.defaultReadingMode.get()
         val readingMode = ReadingMode.fromPreference(manga?.readingMode?.toInt())
         return when {
-            resolveDefault && readingMode == ReadingMode.DEFAULT -> default
+            // RK: auto-webtoon only fills in for a series the user never chose a mode for, so it
+            // rides the existing DEFAULT branch and inherits its resolveDefault guard.
+            resolveDefault && readingMode == ReadingMode.DEFAULT -> autoWebtoonMode() ?: default
             else -> manga?.readingMode?.toInt() ?: default
         }
     }
+
+    // RK -->
+    private var autoWebtoonMemo: Pair<Long, Int?>? = null
+
+    /**
+     * The user's Edit info overrides, snapshotted in [init]. Editing needs the details screen, so
+     * these cannot change while the reader is open.
+     */
+    private var customInfo: CustomMangaInfo? = null
+
+    /**
+     * The mode auto-webtoon picks for this series, or null when it does not apply: the preference
+     * is off, the user picked a mode for this series, or it is not long strip.
+     *
+     * The toast reads this too, so both it and the viewer resolve from one predicate and cannot
+     * disagree. Memoized because [getMangaReadingMode] runs on every app-bar recomposition, while
+     * a series' genre and source cannot change mid-session.
+     */
+    fun autoWebtoonMode(): Int? {
+        if (!readerPreferences.autoWebtoonMode.get()) return null
+        val manga = manga ?: return null
+        if (ReadingMode.fromPreference(manga.readingMode.toInt()) != ReadingMode.DEFAULT) return null
+        autoWebtoonMemo?.takeIf { it.first == manga.id }?.let { return it.second }
+        // Edited genres win over the source's, so a source that never tags its series type can be
+        // fixed by hand in Edit info instead of being undetectable.
+        val entry = manga.withCustomInfo(customInfo)
+        return defaultReaderType(entry.mangaType(sourceManager.get(manga.source)?.name))
+            .also { autoWebtoonMemo = manga.id to it }
+    }
+    // RK <--
 
     /**
      * Updates the viewer position for the open manga.
@@ -930,7 +987,11 @@ class ReaderViewModel @JvmOverloads constructor(
                 downloadManager.cancelQueuedDownloads(listOf(download))
             }
             ChapterDownloadAction.DELETE -> {
-                downloadManager.deleteChapters(listOf(chapter), chapterManga, sourceManager.getOrStub(chapterManga.source))
+                downloadManager.deleteChapters(
+                    listOf(chapter),
+                    chapterManga,
+                    sourceManager.getOrStub(chapterManga.source),
+                )
             }
         }
     }

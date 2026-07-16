@@ -6,14 +6,16 @@ import tachiyomi.i18n.MR
 /**
  * Which parts of a novel's state a source migration copies, mirroring Mihon's
  * [mihon.domain.migration.models.MigrationFlag] and stored as a small bitmask in
- * [reikai.domain.novel.NovelPreferences]. Like manga, tracks aren't carried (Mihon dropped its track
- * flag) and there's no remove-download flag for novels.
+ * [reikai.domain.novel.NovelPreferences]. Like manga, tracks have no flag: they are always carried on
+ * a migration (Mihon dropped its track flag). [REMOVE_DOWNLOAD] deletes the old source's downloaded
+ * chapters on migrate, mirroring manga.
  */
 enum class NovelMigrationFlag(val bit: Int, val titleRes: StringResource) {
-    CHAPTER(0b0001, MR.strings.chapters),
-    CATEGORY(0b0010, MR.strings.categories),
-    COVER(0b0100, MR.strings.custom_cover),
-    NOTES(0b1000, MR.strings.action_notes),
+    CHAPTER(0b00001, MR.strings.chapters),
+    CATEGORY(0b00010, MR.strings.categories),
+    COVER(0b00100, MR.strings.custom_cover),
+    NOTES(0b01000, MR.strings.action_notes),
+    REMOVE_DOWNLOAD(0b10000, MR.strings.migrationConfigScreen_removeDownloadsTitle),
     ;
 
     companion object {

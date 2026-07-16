@@ -151,7 +151,7 @@ Surfaced by the Komikku parity audit (`docs/dev/audits/2026-07-04-komikku-parity
 
 - **Deep-link + share-to-import** `[M]` (highest-impact unplanned item): a manifest `autoVerify` intent-filter for `mangadex.org` `/manga/ /title/ /chapter/` links + a `UrlImportableSource` impl (`mapUrlToMangaUrl` / `mapUrlToChapterUrl`) + batch-add-by-URL. Reikai's manifest has no MangaDex entries today. Standalone; can land any time from Phase 3 on (pairs naturally with the Phase 3 manifest work for the OAuth redirect).
 - **Browse "Random" + "Follows" header buttons** `[S]`: `MangaDexFilterHeader` above browse results (gated by an is-MangaDex check) that launch the Phase 6 random and Phase 4 follows features. Without it those have no discoverable entry point, so ship the button with each feature (Follows button -> Phase 4, Random button -> Phase 6).
-- **Long-press MangaDex rating -> copy** `[S]`: a Komikku details gesture. **Verify against [security.md](../../.claude/rules/security.md) (clipboard of source data) before adding**; may be an intentional drop.
+- **Long-press MangaDex rating -> copy** `[S]`: a Komikku details gesture. **Verify against [security.md](../../../.claude/rules/security.md) (clipboard of source data) before adding**; may be an intentional drop.
 - **Two app-migrations** `[S]`, Phase 3+: `LogoutFromMangaDexMigration` (force logout if the login flow changes) + `DeleteOldMangaDexTracksMigration`. Only relevant once login + the tracker ship, and only if the login flow later changes.
 
 ## Post-port audit: Reikai vs Komikku's live bugs (2026-07-06)

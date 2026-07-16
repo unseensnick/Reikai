@@ -1,6 +1,5 @@
 package reikai.novel.update
 
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -10,6 +9,7 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.install.canonicalizePluginUrl
 import reikai.novel.registry.LnRegistryEntry
 import tachiyomi.core.common.util.system.logcat
+import java.util.concurrent.TimeUnit
 
 /**
  * Detects light-novel plugin updates by diffing each [NovelPreferences.addedRepoUrls] registry's

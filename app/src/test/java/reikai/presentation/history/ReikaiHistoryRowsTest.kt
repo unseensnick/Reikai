@@ -87,4 +87,17 @@ class ReikaiHistoryRowsTest {
         )
         (rows.first() is HistoryRow.Header) shouldBe true
     }
+
+    @Test
+    fun `the Date and Long read times map to the same timestamp string`() {
+        val epoch = 1_700_000_000_000L
+        val manga = mangaItem(1, epoch).item.toEntryHistoryRowUi()
+        val novel = novelHistory(1, epoch).toEntryHistoryRowUi()
+        manga.readAt shouldBe novel.readAt
+    }
+
+    @Test
+    fun `a real read time maps to a non-empty timestamp`() {
+        novelHistory(1, readAt = 1_700_000_000_000L).toEntryHistoryRowUi().readAt.isNotEmpty() shouldBe true
+    }
 }

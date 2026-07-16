@@ -20,12 +20,12 @@ import reikai.data.recommendation.taste.TrackerLibraryRefreshJob
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteLibraryRepository
-import tachiyomi.core.common.preference.Preference as PreferenceData
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import tachiyomi.core.common.preference.Preference as PreferenceData
 
 /**
  * RK: Settings -> Library -> Recommendations. Net-new settings screen following Mihon's Preference
@@ -47,6 +47,8 @@ object SettingsRecommendationsScreen : SearchableSettings {
         // whole section: hidden (and skipped at load time) when the master is off, so "off" reads as a
         // source-only carousel with no dangling controls.
         val includeTrackers by prefs.includeTrackerRecommendations.collectAsState()
+        // With the carousel off every other control here is dead, so only the master switch shows.
+        val relatedEnabled by prefs.enableRelatedMangas.collectAsState()
 
         // Candidate injection needs the manga tracked on a recs-capable tracker, so it's only useful
         // (and only shown) when the user is logged into one.
@@ -59,10 +61,10 @@ object SettingsRecommendationsScreen : SearchableSettings {
 
         return listOfNotNull(
             sourcesGroup(prefs, trackerManager),
-            tasteProfileGroup(prefs, trackerManager),
-            injectionGroup(prefs).takeIf { recsTrackerLoggedIn && includeTrackers },
-            rerankingGroup(prefs),
-            filtersGroup(prefs),
+            tasteProfileGroup(prefs, trackerManager).takeIf { relatedEnabled },
+            injectionGroup(prefs).takeIf { recsTrackerLoggedIn && includeTrackers && relatedEnabled },
+            rerankingGroup(prefs).takeIf { relatedEnabled },
+            filtersGroup(prefs).takeIf { relatedEnabled },
         )
     }
 
@@ -90,24 +92,30 @@ object SettingsRecommendationsScreen : SearchableSettings {
         trackerManager: TrackerManager,
     ): Preference.PreferenceGroup {
         val includeTrackers by prefs.includeTrackerRecommendations.collectAsState()
+        val relatedEnabled by prefs.enableRelatedMangas.collectAsState()
         fun trackerToggle(tracker: Tracker, pref: PreferenceData<Boolean>) =
             Preference.PreferenceItem.SwitchPreference(
                 preference = pref,
                 title = tracker.name,
-                enabled = includeTrackers,
+                enabled = relatedEnabled && includeTrackers,
             )
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_recommendation_sources),
-            preferenceItems = listOf(
+            preferenceItems = listOfNotNull(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = prefs.enableRelatedMangas,
+                    title = stringResource(MR.strings.pref_enable_related_mangas),
+                    subtitle = stringResource(MR.strings.pref_enable_related_mangas_summary),
+                ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.includeTrackerRecommendations,
                     title = stringResource(MR.strings.pref_include_tracker_recommendations),
                     subtitle = stringResource(MR.strings.pref_include_tracker_recommendations_summary),
-                ),
-                trackerToggle(trackerManager.aniList, prefs.anilistRecommendations),
-                trackerToggle(trackerManager.myAnimeList, prefs.myAnimeListRecommendations),
-                trackerToggle(trackerManager.mangaUpdates, prefs.mangaUpdatesRecommendations),
-                trackerToggle(trackerManager.shikimori, prefs.shikimoriRecommendations),
+                ).takeIf { relatedEnabled },
+                trackerToggle(trackerManager.aniList, prefs.anilistRecommendations).takeIf { relatedEnabled },
+                trackerToggle(trackerManager.myAnimeList, prefs.myAnimeListRecommendations).takeIf { relatedEnabled },
+                trackerToggle(trackerManager.mangaUpdates, prefs.mangaUpdatesRecommendations).takeIf { relatedEnabled },
+                trackerToggle(trackerManager.shikimori, prefs.shikimoriRecommendations).takeIf { relatedEnabled },
             ),
         )
     }
@@ -127,6 +135,7 @@ object SettingsRecommendationsScreen : SearchableSettings {
         val lastRefreshSummary by produceState("", refreshTick, neverLabel) {
             value = buildLastRefreshSummary(repository, trackerManager, neverLabel)
         }
+
         // enabled = visible in Mihon's preference DSL, so a tracker's pull toggle only appears once
         // the user is logged into it (the pull needs their private library, which login gates).
         fun pullToggle(tracker: Tracker, pref: PreferenceData<Boolean>) =

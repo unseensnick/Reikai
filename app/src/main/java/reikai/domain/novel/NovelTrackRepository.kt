@@ -11,6 +11,8 @@ interface NovelTrackRepository {
 
     fun getTracksByNovelIdAsFlow(novelId: Long): Flow<List<NovelTrack>>
 
+    fun getTracksAsFlow(): Flow<List<NovelTrack>>
+
     suspend fun delete(novelId: Long, trackerId: Long)
 
     suspend fun insert(track: NovelTrack)

@@ -77,20 +77,34 @@ class NovelMigrationConfigScreen(
                                 AppBar.Action(
                                     title = stringResource(MR.strings.migrationConfigScreen_selectAllLabel),
                                     icon = Icons.Outlined.SelectAll,
-                                    onClick = { screenModel.toggleSelection(NovelMigrationConfigScreenModel.SelectionConfig.All) },
+                                    onClick = {
+                                        screenModel.toggleSelection(NovelMigrationConfigScreenModel.SelectionConfig.All)
+                                    },
                                 ),
                                 AppBar.Action(
                                     title = stringResource(MR.strings.migrationConfigScreen_selectNoneLabel),
                                     icon = Icons.Outlined.Deselect,
-                                    onClick = { screenModel.toggleSelection(NovelMigrationConfigScreenModel.SelectionConfig.None) },
+                                    onClick = {
+                                        screenModel.toggleSelection(
+                                            NovelMigrationConfigScreenModel.SelectionConfig.None,
+                                        )
+                                    },
                                 ),
                                 AppBar.OverflowAction(
                                     title = stringResource(MR.strings.migrationConfigScreen_selectPinnedLabel),
-                                    onClick = { screenModel.toggleSelection(NovelMigrationConfigScreenModel.SelectionConfig.Pinned) },
+                                    onClick = {
+                                        screenModel.toggleSelection(
+                                            NovelMigrationConfigScreenModel.SelectionConfig.Pinned,
+                                        )
+                                    },
                                 ),
                                 AppBar.OverflowAction(
                                     title = stringResource(MR.strings.migrationConfigScreen_selectEnabledLabel),
-                                    onClick = { screenModel.toggleSelection(NovelMigrationConfigScreenModel.SelectionConfig.Enabled) },
+                                    onClick = {
+                                        screenModel.toggleSelection(
+                                            NovelMigrationConfigScreenModel.SelectionConfig.Enabled,
+                                        )
+                                    },
                                 ),
                             ),
                         )

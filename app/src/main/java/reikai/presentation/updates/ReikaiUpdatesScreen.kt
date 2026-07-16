@@ -54,7 +54,7 @@ import eu.kanade.presentation.manga.components.ChapterDownloadIndicator
 import eu.kanade.presentation.manga.components.DotSeparatorText
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.manga.components.MangaCover
-import eu.kanade.presentation.updates.UpdatesUiItem
+import eu.kanade.presentation.updates.UpdatesDeleteConfirmationDialog
 import eu.kanade.presentation.updates.updatesLastUpdatedItem
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
@@ -99,6 +99,7 @@ fun ReikaiUpdatesScreen(
     onOpenMangaChapter: (UpdatesItem) -> Unit,
     onClickMangaCover: (UpdatesItem) -> Unit,
     onOpenNovelChapter: (NovelUpdatesItem) -> Unit,
+    onClickNovelCover: (NovelUpdatesItem) -> Unit,
 ) {
     val mangaState by mangaModel.state.collectAsState()
     val novelState by novelModel.state.collectAsState()
@@ -111,6 +112,7 @@ fun ReikaiUpdatesScreen(
     val novelSeriesKeys by novelModel.novelSeriesKeys.collectAsState()
     // Which series groups are expanded (keyed by series+date); ephemeral UI state.
     val expandedGroups = remember { mutableStateMapOf<String, Boolean>() }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     val mangaSelected = mangaState.selected
     val novelSelected = novelState.selected
     val selectionMode = mangaState.selectionMode || novelState.selectionMode
@@ -201,11 +203,16 @@ fun ReikaiUpdatesScreen(
                 onBookmarkClicked = {
                     if (mangaSelected.isNotEmpty()) mangaModel.bookmarkUpdates(mangaSelected, true)
                     if (novelSelected.isNotEmpty()) novelModel.bookmark(novelSelected, true)
-                }.takeIf { mangaSelected.fastAny { !it.update.bookmark } || novelSelected.fastAny { !it.update.bookmark } },
+                }.takeIf {
+                    mangaSelected.fastAny { !it.update.bookmark } ||
+                        novelSelected.fastAny { !it.update.bookmark }
+                },
                 onRemoveBookmarkClicked = {
                     if (mangaSelected.isNotEmpty()) mangaModel.bookmarkUpdates(mangaSelected, false)
                     if (novelSelected.isNotEmpty()) novelModel.bookmark(novelSelected, false)
-                }.takeIf { mangaSelected.fastAll { it.update.bookmark } && novelSelected.fastAll { it.update.bookmark } },
+                }.takeIf {
+                    mangaSelected.fastAll { it.update.bookmark } && novelSelected.fastAll { it.update.bookmark }
+                },
                 onMarkAsReadClicked = {
                     if (mangaSelected.isNotEmpty()) mangaModel.markUpdatesRead(mangaSelected, true)
                     if (novelSelected.isNotEmpty()) novelModel.markRead(novelSelected, true)
@@ -218,15 +225,19 @@ fun ReikaiUpdatesScreen(
                         novelSelected.fastAny { it.update.read || it.update.lastTextProgress > 0L }
                 },
                 onDownloadClicked = {
-                    if (mangaSelected.isNotEmpty()) mangaModel.downloadChapters(mangaSelected, ChapterDownloadAction.START)
+                    if (mangaSelected.isNotEmpty()) {
+                        mangaModel.downloadChapters(
+                            mangaSelected,
+                            ChapterDownloadAction.START,
+                        )
+                    }
                     if (novelSelected.isNotEmpty()) novelModel.downloadChapters(novelSelected)
                 }.takeIf {
                     mangaSelected.fastAny { it.downloadStateProvider() != Download.State.DOWNLOADED } ||
                         novelSelected.fastAny { it.downloadState != Download.State.DOWNLOADED }
                 },
                 onDeleteClicked = {
-                    if (mangaSelected.isNotEmpty()) mangaModel.showConfirmDeleteChapters(mangaSelected)
-                    if (novelSelected.isNotEmpty()) novelModel.deleteChapters(novelSelected)
+                    showDeleteConfirm = true
                 }.takeIf {
                     mangaSelected.fastAny { it.downloadStateProvider() == Download.State.DOWNLOADED } ||
                         novelSelected.fastAny { it.downloadState == Download.State.DOWNLOADED }
@@ -278,7 +289,13 @@ fun ReikaiUpdatesScreen(
                             indicatorPadding = bodyPadding,
                         ) {
                             FastScrollLazyColumn(contentPadding = bodyPadding) {
-                                if (showsManga) updatesLastUpdatedItem(mangaModel.lastUpdated)
+                                // One "Last updated" line per chip; All shows the more recent of the two.
+                                val lastUpdated = when (contentType) {
+                                    ContentType.MANGA -> mangaModel.lastUpdated
+                                    ContentType.NOVELS -> novelModel.lastUpdated
+                                    ContentType.ALL -> maxOf(mangaModel.lastUpdated, novelModel.lastUpdated)
+                                }
+                                updatesLastUpdatedItem(lastUpdated)
                                 updateRows(
                                     rows = rows,
                                     selectionMode = selectionMode,
@@ -287,6 +304,7 @@ fun ReikaiUpdatesScreen(
                                     onOpenMangaChapter = onOpenMangaChapter,
                                     onClickMangaCover = onClickMangaCover,
                                     onOpenNovelChapter = onOpenNovelChapter,
+                                    onClickNovelCover = onClickNovelCover,
                                     onToggleExpand = { key ->
                                         expandedGroups[key] = !(expandedGroups[key] ?: false)
                                     },
@@ -298,6 +316,19 @@ fun ReikaiUpdatesScreen(
             }
         }
     }
+
+    // RK: one confirmation over the whole selection (manga + novel). Novel chapters were previously
+    // deleted with no confirm, so a mixed selection lost the novel files before the manga dialog
+    // even appeared. Both models' deleteChapters run only after the user confirms.
+    if (showDeleteConfirm) {
+        UpdatesDeleteConfirmationDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            onConfirm = {
+                if (mangaSelected.isNotEmpty()) mangaModel.deleteChapters(mangaSelected)
+                if (novelSelected.isNotEmpty()) novelModel.deleteChapters(novelSelected)
+            },
+        )
+    }
 }
 
 private fun LazyListScope.updateRows(
@@ -308,6 +339,7 @@ private fun LazyListScope.updateRows(
     onOpenMangaChapter: (UpdatesItem) -> Unit,
     onClickMangaCover: (UpdatesItem) -> Unit,
     onOpenNovelChapter: (NovelUpdatesItem) -> Unit,
+    onClickNovelCover: (NovelUpdatesItem) -> Unit,
     onToggleExpand: (String) -> Unit,
 ) {
     items(
@@ -335,8 +367,12 @@ private fun LazyListScope.updateRows(
             is UpdateRow.Header -> ListGroupHeader(text = relativeDateText(row.date))
             is UpdateRow.Manga -> {
                 val item = row.item
-                UpdatesUiItem(
-                    update = item.update,
+                EntryUpdatesRow(
+                    cover = item.update.coverData,
+                    title = item.update.mangaTitle,
+                    chapterName = item.update.chapterName,
+                    read = item.update.read,
+                    bookmark = item.update.bookmark,
                     selected = item.selected,
                     readProgress = item.update.lastPageRead
                         .takeIf { !item.update.read && it > 0L }
@@ -361,8 +397,16 @@ private fun LazyListScope.updateRows(
             }
             is UpdateRow.Novel -> {
                 val item = row.item
-                NovelUpdatesUiItem(
-                    item = item,
+                EntryUpdatesRow(
+                    cover = item.update.coverData,
+                    title = item.update.novelTitle,
+                    chapterName = item.update.chapterName,
+                    read = item.update.read,
+                    bookmark = item.update.bookmark,
+                    selected = item.selected,
+                    readProgress = (item.update.lastTextProgress / 100L).toInt()
+                        .takeIf { !item.update.read && it > 0 }
+                        ?.let { "$it%" },
                     onClick = {
                         if (selectionMode) {
                             novelModel.toggleSelection(item.update.chapterId, !item.selected)
@@ -371,11 +415,14 @@ private fun LazyListScope.updateRows(
                         }
                     },
                     onLongClick = { novelModel.toggleSelection(item.update.chapterId, !item.selected) },
-                    onDownloadClick = if (selectionMode) {
+                    onClickCover = if (selectionMode) null else ({ onClickNovelCover(item) }),
+                    onDownloadChapter = if (selectionMode) {
                         null
                     } else {
                         { action -> novelModel.onDownloadAction(item, action) }
                     },
+                    downloadStateProvider = { item.downloadState },
+                    downloadProgressProvider = { 0 },
                 )
             }
             is UpdateRow.Group -> {
@@ -393,6 +440,13 @@ private fun LazyListScope.updateRows(
                     anyUnread = row.members.any { !it.memberRead() },
                     onClick = { if (selectionMode) toggleAll() else onToggleExpand(row.key) },
                     onLongClick = toggleAll,
+                    // Cover opens the representative series' details, matching the flat row; the rest of
+                    // the row still expands the group.
+                    onClickCover = if (selectionMode) {
+                        null
+                    } else {
+                        first.memberCoverClick(onClickMangaCover, onClickNovelCover)
+                    },
                 )
             }
             is UpdateRow.Child -> when (val member = row.member) {
@@ -465,6 +519,7 @@ private fun UpdatesGroupRow(
     anyUnread: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    onClickCover: (() -> Unit)?,
 ) {
     val haptic = LocalHapticFeedback.current
     val textAlpha = if (anyUnread) 1f else DISABLED_ALPHA
@@ -487,6 +542,7 @@ private fun UpdatesGroupRow(
                 .padding(vertical = 6.dp)
                 .fillMaxHeight(),
             data = cover,
+            onClick = onClickCover,
         )
         Column(
             modifier = Modifier
@@ -647,6 +703,16 @@ private fun UpdateRow.memberTitle(): String = when (this) {
     else -> ""
 }
 
+/** Cover-tap for a group's representative member: open its details via the type's own callback. */
+private fun UpdateRow.memberCoverClick(
+    onClickMangaCover: (UpdatesItem) -> Unit,
+    onClickNovelCover: (NovelUpdatesItem) -> Unit,
+): (() -> Unit)? = when (this) {
+    is UpdateRow.Manga -> ({ onClickMangaCover(item) })
+    is UpdateRow.Novel -> ({ onClickNovelCover(item) })
+    else -> null
+}
+
 private fun toggleMemberSelection(
     row: UpdateRow,
     selected: Boolean,
@@ -705,7 +771,9 @@ private fun buildUpdateRows(
     byDate.forEach { (date, dayRows) ->
         result.add(UpdateRow.Header(date))
         val bySeries = LinkedHashMap<String, MutableList<UpdateRow>>()
-        dayRows.forEach { bySeries.getOrPut(it.seriesKey(mangaSeriesKeys, novelSeriesKeys)) { mutableListOf() }.add(it) }
+        dayRows.forEach {
+            bySeries.getOrPut(it.seriesKey(mangaSeriesKeys, novelSeriesKeys)) { mutableListOf() }.add(it)
+        }
         bySeries.forEach { (seriesKey, members) ->
             if (members.size >= 2) {
                 val key = "$seriesKey@$date"

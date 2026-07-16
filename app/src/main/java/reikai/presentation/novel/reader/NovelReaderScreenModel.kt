@@ -5,30 +5,33 @@ import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.track.service.TrackPreferences
+import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
-import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
 import reikai.domain.novel.interactor.GetNovelCategories
+import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpsertNovelHistory
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryUpdate
 import reikai.domain.novel.model.readerOrientation
 import reikai.domain.novel.track.TrackNovelChapter
-import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.domain.library.service.LibraryPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
@@ -80,11 +83,20 @@ class NovelReaderScreenModel(
     private val sourceManager: NovelSourceManager by injectLazy()
     private val installer: LnPluginInstaller by injectLazy()
     private val novelPreferences: NovelPreferences by injectLazy()
+
+    // Shared with the manga reader so the vertical-rail geometry (height + side) is one setting for
+    // both readers (Roadmap: version-181 verticalNavigator prefs).
+    private val readerPreferences: ReaderPreferences by injectLazy()
     private val downloadManager: NovelDownloadManager by injectLazy()
     private val upsertNovelHistory: UpsertNovelHistory by injectLazy()
     private val setNovelViewerFlags: SetNovelViewerFlags by injectLazy()
     private val getNovelCategories: GetNovelCategories by injectLazy()
-    private val deleteNovelChaptersAfterRead: DeleteNovelChaptersAfterRead by injectLazy()
+    private val setNovelReadStatus: SetNovelReadStatus by injectLazy()
+
+    // Merge-group resolution + the shared "mark duplicate read" pref, for marking same-numbered
+    // chapters across a merged novel's sources read on completion (parity with the manga reader).
+    private val mergeManager: NovelMergeManager by injectLazy()
+    private val libraryPreferences: LibraryPreferences by injectLazy()
 
     // novel trackers (Active #8): push read progress on chapter completion
     private val trackNovelChapter: TrackNovelChapter by injectLazy()
@@ -190,13 +202,24 @@ class NovelReaderScreenModel(
                 novelPreferences.readerRemoveExtraSpacing().changes(),
                 novelPreferences.readerTapToScroll().changes(),
                 novelPreferences.readerSwipeGestures().changes(),
-            ) { bionic, spacing, tapScroll, swipe -> FlagPrefs(bionic, spacing, tapScroll, swipe) },
+                novelPreferences.readerShowProgressPercentage().changes(),
+            ) { bionic, spacing, tapScroll, swipe, showProgress ->
+                FlagPrefs(bionic, spacing, tapScroll, swipe, showProgress)
+            },
             combine(
                 novelPreferences.readerAutoScroll().changes(),
                 novelPreferences.readerAutoScrollSpeed().changes(),
-                novelPreferences.readerVerticalSeekbar().changes(),
-            ) { autoScroll, speed, seekbar -> ScrollPrefs(autoScroll, speed, seekbar) },
-        ) { tts, flags, scroll -> ReaderExtraPrefs(tts, flags, scroll) },
+                readerPreferences.verticalNavigatorHeight.changes(),
+                readerPreferences.verticalNavigatorOnLeft.changes(),
+            ) { autoScroll, speed, railHeight, railOnLeft ->
+                ScrollPrefs(autoScroll, speed, railHeight, railOnLeft)
+            },
+            combine(
+                novelPreferences.readerUseVolumeButtons().changes(),
+                novelPreferences.readerVolumeButtonsInverted().changes(),
+                novelPreferences.readerVolumeButtonsFraction().changes(),
+            ) { enabled, inverted, fraction -> VolumePrefs(enabled, inverted, fraction) },
+        ) { tts, flags, scroll, volume -> ReaderExtraPrefs(tts, flags, scroll, volume) },
     ) { display, theme, keepScreenOn, orient, extra ->
         NovelReaderSettings(
             fontSize = display.fontSize,
@@ -219,9 +242,14 @@ class NovelReaderScreenModel(
             removeExtraSpacing = extra.flags.removeExtraSpacing,
             tapToScroll = extra.flags.tapToScroll,
             swipeGestures = extra.flags.swipeGestures,
+            showProgressPercentage = extra.flags.showProgressPercentage,
             autoScroll = extra.scroll.autoScroll,
             autoScrollSpeed = extra.scroll.autoScrollSpeed,
-            verticalSeekbar = extra.scroll.verticalSeekbar,
+            railHeightPercent = extra.scroll.railHeight,
+            railOnLeft = extra.scroll.railOnLeft,
+            useVolumeButtons = extra.volume.enabled,
+            volumeButtonsInverted = extra.volume.inverted,
+            volumeButtonsFraction = extra.volume.fraction,
         )
     }.stateIn(screenModelScope, SharingStarted.Eagerly, currentSettings())
 
@@ -249,9 +277,14 @@ class NovelReaderScreenModel(
             removeExtraSpacing = novelPreferences.readerRemoveExtraSpacing().get(),
             tapToScroll = novelPreferences.readerTapToScroll().get(),
             swipeGestures = novelPreferences.readerSwipeGestures().get(),
+            showProgressPercentage = novelPreferences.readerShowProgressPercentage().get(),
             autoScroll = novelPreferences.readerAutoScroll().get(),
             autoScrollSpeed = novelPreferences.readerAutoScrollSpeed().get(),
-            verticalSeekbar = novelPreferences.readerVerticalSeekbar().get(),
+            railHeightPercent = readerPreferences.verticalNavigatorHeight.get(),
+            railOnLeft = readerPreferences.verticalNavigatorOnLeft.get(),
+            useVolumeButtons = novelPreferences.readerUseVolumeButtons().get(),
+            volumeButtonsInverted = novelPreferences.readerVolumeButtonsInverted().get(),
+            volumeButtonsFraction = novelPreferences.readerVolumeButtonsFraction().get(),
         )
     }
 
@@ -275,6 +308,11 @@ class NovelReaderScreenModel(
         colorFilterMode = novelPreferences.readerColorFilterMode().get(),
     )
 
+    /** User-selected bottom-bar buttons, kept out of [settings] since it drives only the chrome, not
+     *  the WebView. */
+    val bottomButtons: StateFlow<Set<String>> = novelPreferences.readerBottomButtons().changes()
+        .stateIn(screenModelScope, SharingStarted.Eagerly, novelPreferences.readerBottomButtons().get())
+
     init {
         // Seed the per-novel orientation from the opened entry (the anchor for a merged novel).
         screenModelScope.launchIO {
@@ -290,7 +328,9 @@ class NovelReaderScreenModel(
     fun prev() = resolvedPrev?.let { goTo(it) } ?: Unit
 
     /** Jump straight to [id] from the chapters sheet (no-op if it is already the current chapter). */
-    fun goToChapter(id: Long) { if (id != currentId) goTo(id) }
+    fun goToChapter(id: Long) {
+        if (id != currentId) goTo(id)
+    }
 
     fun currentChapterId(): Long = currentId
 
@@ -299,6 +339,27 @@ class NovelReaderScreenModel(
     suspend fun chapterList(): List<NovelChapter> {
         val anchor = chapterRepo.getByNovelId(novelId).associateBy { it.id }
         return orderedIds.mapNotNull { id -> anchor[id] ?: chapterRepo.getById(id) }
+    }
+
+    /** Drop user-hidden chapters from a reading-order id list so prev/next skips them, keeping the
+     *  currently-open chapter so opening a hidden one directly still resolves. The hidden key mirrors
+     *  the details screen: "<sourceId>|<chapterUrl>", the source resolved per the chapter's own
+     *  novelId (cheap DB read, no plugin load) so a merged session keys each sibling correctly. */
+    private suspend fun filterHiddenChapters(ids: List<Long>): List<Long> {
+        val hidden = novelPreferences.hiddenChapters().get()
+        if (hidden.isEmpty()) return ids
+        val anchor = chapterRepo.getByNovelId(novelId).associateBy { it.id }
+        val sourceIdByNovel = HashMap<Long, String>()
+        return ids.filter { id ->
+            if (id == currentId) return@filter true
+            val chapter = anchor[id] ?: chapterRepo.getById(id) ?: return@filter true
+            val sourceId = sourceIdByNovel[chapter.novelId] ?: run {
+                val resolved = novelRepo.getById(chapter.novelId)?.source.orEmpty()
+                sourceIdByNovel[chapter.novelId] = resolved
+                resolved
+            }
+            "$sourceId|${chapter.url}" !in hidden
+        }
     }
 
     /** Toggle the current chapter's bookmark (the top-bar action). */
@@ -342,6 +403,18 @@ class NovelReaderScreenModel(
                 ?: novelRepo.getById(id)?.source?.let { sourceManager.get(it)?.name ?: it }
                 ?: ""
         }
+    }
+
+    /** Which of [chapters] are downloaded on disk (from NovelDownloadCache, via the manager). A snapshot
+     *  at sheet-open, matching how the sheet captures the chapter list once. Resolves each chapter's
+     *  owning novel (a merged read spans several). Replaces the old is_downloaded flag on the row. */
+    suspend fun downloadedChapterIds(chapters: List<NovelChapter>): Set<Long> {
+        val novelsById = chapters.map { it.novelId }.distinct()
+            .mapNotNull { id -> novelRepo.getById(id)?.let { id to it } }
+            .toMap()
+        return chapters
+            .filter { ch -> novelsById[ch.novelId]?.let { downloadManager.isChapterDownloaded(it, ch) } == true }
+            .mapTo(HashSet()) { it.id }
     }
 
     private fun goTo(id: Long, markDepartedRead: Boolean = false) {
@@ -413,7 +486,10 @@ class NovelReaderScreenModel(
         if (index < 0) return
         val nextIds = orderedIds.drop(index + 1).take(ahead)
         val toDownload = nextIds.mapNotNull { chapterRepo.getById(it) }
-            .filterNot { downloadManager.isChapterDownloaded(it) }
+            .filterNot { ch ->
+                val novel = novelRepo.getById(ch.novelId) ?: return@filterNot false
+                downloadManager.isChapterDownloaded(novel, ch)
+            }
         if (toDownload.isNotEmpty()) downloadManager.downloadChapters(toDownload)
     }
 
@@ -458,7 +534,6 @@ class NovelReaderScreenModel(
     fun setSwipeGestures(value: Boolean) = novelPreferences.readerSwipeGestures().set(value)
     fun setAutoScroll(value: Boolean) = novelPreferences.readerAutoScroll().set(value)
     fun setAutoScrollSpeed(value: Float) = novelPreferences.readerAutoScrollSpeed().set(value)
-    fun setVerticalSeekbar(value: Boolean) = novelPreferences.readerVerticalSeekbar().set(value)
     fun setTtsButtonPosition(x: Int, y: Int) {
         novelPreferences.readerTtsButtonX().set(x)
         novelPreferences.readerTtsButtonY().set(y)
@@ -504,15 +579,35 @@ class NovelReaderScreenModel(
             // Stamp the owning novel's last-read time so the LastRead library sort reflects this read.
             novelRepo.setLastReadAt(currentNovelId, System.currentTimeMillis())
             if (clamped >= 97) {
-                chapterRepo.setReadBulk(listOf(id), true)
+                // Fetch before marking so the shared interactor sees the chapter as still unread; it flips
+                // read + honors "delete after marked as read" (the in-RAM htmlCache keeps this view alive).
                 val chapter = chapterRepo.getById(id)
+                // Mark same-numbered unread chapters across the merged group read too, mirroring the
+                // manga reader (ReaderViewModel.updateChapterProgressOnComplete), gated on the shared
+                // markDuplicateReadChapterAsRead pref. relatedNovelIdsFor returns just this novel when
+                // it isn't merged, so a single-source read is unchanged.
+                val markDupes = libraryPreferences.markDuplicateReadChapterAsRead.get()
+                    .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_EXISTING)
+                val toMark = if (chapter != null && markDupes) {
+                    val siblings = mergeManager.relatedNovelIdsFor(novelId)
+                        .takeIf { it.size > 1 }
+                        ?.flatMap { chapterRepo.getByNovelId(it) }
+                        ?.filter {
+                            it.id != id && !it.read && it.chapterNumber >= 0.0 &&
+                                it.chapterNumber == chapter.chapterNumber
+                        }
+                        .orEmpty()
+                    listOf(chapter) + siblings
+                } else {
+                    listOfNotNull(chapter)
+                }
+                setNovelReadStatus.await(true, toMark)
                 // push read progress to bound trackers, mirroring ReaderViewModel.updateTrackChapterRead (Active #8)
                 if (trackPreferences.autoUpdateTrack.get()) {
-                    chapter?.let { trackNovelChapter.await(Injekt.get<Application>(), currentNovelId, it.chapterNumber) }
+                    chapter?.let {
+                        trackNovelChapter.await(Injekt.get<Application>(), currentNovelId, it.chapterNumber)
+                    }
                 }
-                // The in-RAM htmlCache keeps the current view alive, so deleting the file is safe here.
-                // Finishing a chapter marks it read, so honor "delete after marked as read" too.
-                chapter?.let { deleteNovelChaptersAfterRead.await(currentNovelId, listOf(it)) }
                 maybeDeleteAfterRead(id)
             }
         }
@@ -547,11 +642,15 @@ class NovelReaderScreenModel(
     private suspend fun loadCurrent() {
         mutableState.value = try {
             if (orderedIds.isEmpty()) {
-                orderedIds = if (orderedChapterIds.isNotEmpty()) {
+                val resolved = if (orderedChapterIds.isNotEmpty()) {
                     orderedChapterIds.toList()
                 } else {
                     chapterRepo.getByNovelId(novelId).map { it.id }
                 }
+                // Skip user-hidden chapters so prev/next matches the details list from every entry
+                // point: details already hands us a filtered list, but history/updates/library-resume
+                // do not, so filter here rather than trust the caller (the manga reader's approach).
+                orderedIds = filterHiddenChapters(resolved)
             }
             val id = currentId
             val chapter = chapterRepo.getById(id) ?: error("Chapter not found")
@@ -582,7 +681,8 @@ class NovelReaderScreenModel(
      *  already inlined). Otherwise resolve the chapter's source and parse live, using the source site
      *  as the base URL so relative image URLs resolve. */
     private suspend fun loadChapterHtml(chapter: NovelChapter): Pair<String, String?> {
-        downloadManager.getChapterText(chapter)?.let { return it to null }
+        val novel = novelRepo.getById(chapter.novelId)
+        if (novel != null) downloadManager.getChapterText(novel, chapter)?.let { return it to null }
         val src = resolveSourceFor(chapter.novelId)
         return src.parseChapter(chapter.url) to src.site.ifBlank { null }
     }
@@ -633,13 +733,21 @@ class NovelReaderScreenModel(
         val removeExtraSpacing: Boolean,
         val tapToScroll: Boolean,
         val swipeGestures: Boolean,
+        val showProgressPercentage: Boolean,
     )
     private data class ScrollPrefs(
         val autoScroll: Boolean,
         val autoScrollSpeed: Float,
-        val verticalSeekbar: Boolean,
+        val railHeight: Int,
+        val railOnLeft: Boolean,
     )
-    private data class ReaderExtraPrefs(val tts: TtsPrefs, val flags: FlagPrefs, val scroll: ScrollPrefs)
+    private data class VolumePrefs(val enabled: Boolean, val inverted: Boolean, val fraction: Float)
+    private data class ReaderExtraPrefs(
+        val tts: TtsPrefs,
+        val flags: FlagPrefs,
+        val scroll: ScrollPrefs,
+        val volume: VolumePrefs,
+    )
 
     override fun onDispose() {
         super.onDispose()

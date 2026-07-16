@@ -7,6 +7,7 @@ import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelCategory
+import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSourceManager
 
@@ -36,25 +37,49 @@ class NovelLibraryAdder(
         }
         // -1: the item isn't favorited yet, so there's no library row to exclude (a non-favorite
         // shadow row is excluded by the query's favorite=1 filter anyway).
-        val duplicates = novelRepository.getDuplicateLibraryNovel(-1L, item.name)
-        if (duplicates.isNotEmpty()) {
-            // Resolve names + sites here so the dialog stays DI-free.
-            val resolved = duplicates.associate { it.novel.source to manager.get(it.novel.source) }
+        findDuplicates(-1L, item.name)?.let {
             return NovelBrowseDialog.AddDuplicate(
                 item = item,
                 sourceId = sourceId,
-                duplicates = duplicates,
-                sourceNames = resolved.mapValues { (id, src) -> src?.name ?: id },
-                sourceSites = resolved.mapValues { (_, src) -> src?.site },
+                duplicates = it.duplicates,
+                sourceNames = it.sourceNames,
+                sourceSites = it.sourceSites,
             )
         }
         return addToLibrary(item, sourceId)
     }
 
+    /**
+     * Shared duplicate lookup for every novel add-path (browse long-press, details favorite, history
+     * add). Returns the possible library duplicates with their source names + sites resolved, or null
+     * when there is none. One source of truth so the three add-paths can't drift. [id] is the row to
+     * exclude from its own match (-1 when the item has no library row yet).
+     */
+    suspend fun findDuplicates(id: Long, title: String): NovelDuplicateInfo? {
+        val duplicates = novelRepository.getDuplicateLibraryNovel(id, title)
+        if (duplicates.isEmpty()) return null
+        // Resolve names + sites here so each dialog host stays DI-free.
+        val resolved = duplicates.associate { it.novel.source to manager.get(it.novel.source) }
+        return NovelDuplicateInfo(
+            duplicates = duplicates,
+            sourceNames = resolved.mapValues { (id, src) -> src?.name ?: id },
+            sourceSites = resolved.mapValues { (_, src) -> src?.site },
+        )
+    }
+
     /** Favorite the item (a minimal row, full metadata fills on first details open); applies the
-     *  default category or returns the category picker dialog. insertOrGet may return a non-favorite
-     *  shadow row from a prior details open, so favorite is applied as a follow-up. */
+     *  default category or returns the category picker dialog. */
     suspend fun addToLibrary(item: NovelItem, sourceId: String): NovelBrowseDialog? {
+        val storedId = favoriteReturningId(item, sourceId) ?: return null
+        return applyDefaultCategoryOrPrompt(storedId)?.let { prompt ->
+            NovelBrowseDialog.ChangeCategory(storedId, prompt.categories, prompt.currentIds)
+        }
+    }
+
+    /** Insert + favorite the item, returning its stored novel id and skipping the category prompt. The
+     *  bulk add path favorites many items this way, then applies one category set to all. insertOrGet may
+     *  return a non-favorite shadow row from a prior details open, so favorite is applied as a follow-up. */
+    suspend fun favoriteReturningId(item: NovelItem, sourceId: String): Long? {
         val base = Novel.create().copy(
             source = sourceId,
             url = item.path,
@@ -65,9 +90,7 @@ class NovelLibraryAdder(
         if (!stored.favorite) {
             updateNovel.awaitUpdateFavorite(stored.id, favorite = true)
         }
-        return applyDefaultCategoryOrPrompt(stored.id)?.let { prompt ->
-            NovelBrowseDialog.ChangeCategory(stored.id, prompt.categories, prompt.currentIds)
-        }
+        return stored.id
     }
 
     /**
@@ -112,3 +135,11 @@ class NovelLibraryAdder(
 /** The category-picker data [NovelLibraryAdder.applyDefaultCategoryOrPrompt] returns when there is no
  *  default category to apply; each caller wraps it in its own dialog type. */
 data class CategoryPrompt(val categories: List<NovelCategory>, val currentIds: Set<Long>)
+
+/** The possible-duplicate data [NovelLibraryAdder.findDuplicates] returns; each add-path wraps it in
+ *  its own dialog type to feed the shared [DuplicateNovelDialog]. */
+data class NovelDuplicateInfo(
+    val duplicates: List<NovelWithChapterCount>,
+    val sourceNames: Map<String, String>,
+    val sourceSites: Map<String, String?>,
+)

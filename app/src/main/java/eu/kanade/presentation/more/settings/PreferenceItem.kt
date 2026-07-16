@@ -16,6 +16,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.structuralEqualityPolicy
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import eu.kanade.presentation.more.settings.screen.HighlightKey
 import eu.kanade.presentation.more.settings.widget.EditTextPreferenceWidget
 import eu.kanade.presentation.more.settings.widget.InfoWidget
 import eu.kanade.presentation.more.settings.widget.ListPreferenceWidget
@@ -36,11 +37,13 @@ val LocalPreferenceMinHeight = compositionLocalOf(structuralEqualityPolicy()) { 
 @Composable
 fun StatusWrapper(
     item: Preference.PreferenceItem<*, *>,
-    highlightKey: String?,
+    highlightKey: HighlightKey?,
+    // RK: the group this item sits in, so a same-titled twin in another group isn't highlighted too.
+    groupTitle: String?,
     content: @Composable () -> Unit,
 ) {
     val enabled = item.enabled
-    val highlighted = item.title == highlightKey
+    val highlighted = highlightKey != null && HighlightKey(groupTitle, item.title).matches(highlightKey)
     AnimatedVisibility(
         visible = enabled,
         enter = expandVertically() + fadeIn(),
@@ -57,12 +60,14 @@ fun StatusWrapper(
 @Composable
 internal fun PreferenceItem(
     item: Preference.PreferenceItem<*, *>,
-    highlightKey: String?,
+    highlightKey: HighlightKey?,
+    groupTitle: String?,
 ) {
     val scope = rememberCoroutineScope()
     StatusWrapper(
         item = item,
         highlightKey = highlightKey,
+        groupTitle = groupTitle,
     ) {
         when (item) {
             is Preference.PreferenceItem.SwitchPreference -> {
@@ -128,15 +133,18 @@ internal fun PreferenceItem(
                     onValueChange = { scope.launch { item.onValueChanged(it) } },
                 )
             }
-            is Preference.PreferenceItem.MultiSelectListPreference -> {
+            is Preference.PreferenceItem.MultiSelectListPreference<*> -> {
                 val values by item.preference.collectAsState()
                 MultiSelectListPreferenceWidget(
-                    preference = item,
                     values = values,
+                    title = item.title,
+                    subtitle = item.internalSubtitleProvider(values, item.entries),
+                    icon = item.icon,
+                    entries = item.entries,
                     onValuesChange = { newValues ->
                         scope.launch {
-                            if (item.onValueChanged(newValues)) {
-                                item.preference.set(newValues.toMutableSet())
+                            if (item.internalOnValueChanged(newValues)) {
+                                item.internalSet(newValues)
                             }
                         }
                     },

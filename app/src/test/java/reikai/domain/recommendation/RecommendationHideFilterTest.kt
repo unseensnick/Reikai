@@ -13,7 +13,10 @@ class RecommendationHideFilterTest {
         RelatedMangaCandidate(
             sourceId = 99L,
             trackerName = null,
-            manga = SManga.create().apply { this.url = title; this.title = title },
+            manga = SManga.create().apply {
+                this.url = title
+                this.title = title
+            },
             trackerId = trackerId,
             remoteId = remoteId,
         )

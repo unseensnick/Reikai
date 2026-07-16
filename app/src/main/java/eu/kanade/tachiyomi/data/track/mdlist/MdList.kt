@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import exh.md.network.MangaDexAuthInterceptor
 import exh.md.utils.FollowStatus
@@ -108,13 +109,33 @@ class MdList(id: Long) : BaseTracker(id, "MDList") {
         }
     }
 
+    // RK --> autofill entry metadata (Fill from tracker); delegates to the MangaDex source parse.
+    override suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
+        return withIOContext {
+            val mdex = mdex ?: throw MangaDexNotFoundException()
+            val manga = mdex.getMangaMetadata(track.remoteUrl)
+            TrackMangaMetadata(
+                remoteId = track.remoteId,
+                title = manga.title,
+                thumbnailUrl = manga.thumbnail_url,
+                description = manga.description,
+                authors = manga.author,
+                artists = manga.artist,
+                genres = manga.genre?.split(",")?.map {
+                    it.trim()
+                }?.filter { it.isNotBlank() }?.takeIf { it.isNotEmpty() },
+            )
+        }
+    }
+    // RK <--
+
     // Seeds an UNFOLLOWED tracker for a library manga so pushFavorites can flip it to READING and
     // create the MDList follow. mdManga supplies the display title/url when it differs from the local row.
     fun createInitialTracker(dbManga: Manga, mdManga: Manga = dbManga): Track {
         return Track.create(TrackerManager.MDLIST).apply {
             manga_id = dbManga.id
             status = FollowStatus.UNFOLLOWED.long
-            tracking_url = MdUtil.baseUrl + mdManga.url
+            tracking_url = MdUtil.BASE_URL + mdManga.url
             title = mdManga.title
         }
     }

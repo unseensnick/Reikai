@@ -25,6 +25,12 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.milliseconds
 
+// RK: inert. The download queue was unified onto the shared Compose card list
+// (reikai.presentation.download.EntryDownloadCardList, driven by MangaDownloadQueueScreenModel), so
+// this per-chapter RecyclerView model and its View cluster (DownloadAdapter, DownloadHolder,
+// DownloadHeaderHolder, DownloadItem, DownloadHeaderItem, download_list.xml) are no longer referenced.
+// Left in place, not deleted: they are the revive path for the parked per-chapter queue control
+// (expandable cards) in ROADMAP.md, and keep upstream download-queue syncs clean.
 class DownloadQueueScreenModel(
     private val downloadManager: DownloadManager = Injekt.get(),
 ) : ScreenModel {

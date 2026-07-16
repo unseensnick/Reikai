@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import logcat.LogPriority
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.toNovel
 import reikai.domain.novel.NovelChapterRepository
@@ -16,6 +17,7 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.model.hasCustomCover
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.NovelItem
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
@@ -25,6 +27,7 @@ import reikai.presentation.novel.globalsearch.SearchState
 import reikai.presentation.novel.globalsearch.SourceSearchResult
 import reikai.presentation.novel.globalsearch.selectGlobalSearchSources
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
 import uy.kohesive.injekt.injectLazy
 
@@ -53,6 +56,7 @@ class NovelMigrationListScreenModel(
     private val novelPreferences: NovelPreferences by injectLazy()
     private val migrateNovel: MigrateNovelUseCase by injectLazy()
     private val coverCache: CoverCache by injectLazy()
+    private val downloadManager: NovelDownloadManager by injectLazy()
 
     private val searchSemaphore = Semaphore(SEARCH_CONCURRENCY)
 
@@ -60,7 +64,9 @@ class NovelMigrationListScreenModel(
         val savedFlags = NovelMigrationFlag.fromBits(novelPreferences.novelMigrationFlags().get())
         mutableState.update { it.copy(initialFlags = savedFlags) }
         screenModelScope.launchIO {
-            try { installer.ensureLoaded() } catch (_: Throwable) {}
+            try {
+                installer.ensureLoaded()
+            } catch (_: Throwable) {}
             val rows = novelIds.mapNotNull { id ->
                 novelRepository.getById(id)?.let { novel ->
                     val source = sourceManager.get(novel.source)
@@ -104,8 +110,10 @@ class NovelMigrationListScreenModel(
             val byId = sourceManager.getAll().associateBy { it.id }
             selectedIds.mapNotNull { byId[it] }
         }.filter { it.id != currentSource }
-        setRow(novelId) { it.copy(results = sources.map { s -> SourceSearchResult(s, SearchState.Loading) }) }
+        // A blank query is a true no-op: keep the existing candidates instead of resetting every row to
+        // a spinner that never resolves (which would hide the row's overflow menu).
         if (query.isBlank()) return
+        setRow(novelId) { it.copy(results = sources.map { s -> SourceSearchResult(s, SearchState.Loading) }) }
         sources.forEach { source ->
             screenModelScope.launchIO {
                 val result = searchSemaphore.withPermit {
@@ -116,7 +124,17 @@ class NovelMigrationListScreenModel(
                     }
                 }
                 setRow(novelId) { row ->
-                    row.copy(results = row.results.map { if (it.source.id == source.id) it.copy(state = result) else it })
+                    row.copy(
+                        results = row.results.map {
+                            if (it.source.id ==
+                                source.id
+                            ) {
+                                it.copy(state = result)
+                            } else {
+                                it
+                            }
+                        },
+                    )
                 }
             }
         }
@@ -180,6 +198,7 @@ class NovelMigrationListScreenModel(
             state.value.rows.forEach { row ->
                 val target = row.chosenTarget ?: return@forEach
                 runCatching { migrateNovel(row.novel, target, flags, replace) }
+                    .onFailure { logcat(LogPriority.ERROR, it) { "Novel migration failed" } }
             }
             mutableState.update { it.copy(isMigrating = false, migrated = true) }
         }
@@ -190,7 +209,14 @@ class NovelMigrationListScreenModel(
         val sourceNovel = source.parseNovel(url)
         novelRepository.insertOrGet(sourceNovel.toNovel(sourceId = source.id, favorite = false)) ?: return null
         val stored = novelRepository.getByUrlAndSource(url, source.id) ?: return null
-        refreshNovelFromSource(stored, source, chapterRepository, novelRepository, database)
+        refreshNovelFromSource(
+            stored,
+            source,
+            chapterRepository,
+            novelRepository,
+            database,
+            novelDownloadManager = downloadManager,
+        )
         return novelRepository.getByUrlAndSource(url, source.id)
     }
 

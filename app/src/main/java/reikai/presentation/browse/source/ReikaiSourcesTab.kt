@@ -35,19 +35,19 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import reikai.domain.library.ContentType
 import reikai.novel.source.NovelSource
+import reikai.presentation.browse.EntrySourceOptionsDialog
 import reikai.presentation.browse.ReikaiBrowseScreenModel
 import reikai.presentation.browse.components.BrowseSectionHeader
-import reikai.presentation.browse.components.NovelSourceOptionsDialog
 import reikai.presentation.browse.components.NovelSourcePinButton
 import reikai.presentation.browse.components.NovelSourceRow
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.novel.browse.NovelBrowseScreen
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
+import tachiyomi.domain.source.model.Source
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
 import tachiyomi.presentation.core.components.material.topSmallPaddingValues
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.domain.source.model.Source
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.plus
@@ -77,7 +77,7 @@ fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabCont
 
     return TabContent(
         titleRes = MR.strings.label_sources,
-        actions = listOf(
+        actions = listOfNotNull(
             AppBar.Action(
                 title = stringResource(MR.strings.action_global_search),
                 icon = Icons.Outlined.TravelExplore,
@@ -88,10 +88,16 @@ fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabCont
                     )
                 },
             ),
+            // Content-type-aware filter: the Novels chip opens the LN per-source filter, Manga / All
+            // open Mihon's manga sources filter (per-language + per-source).
             AppBar.Action(
                 title = stringResource(MR.strings.action_filter),
                 icon = Icons.Outlined.FilterList,
-                onClick = { navigator.push(SourcesFilterScreen()) },
+                onClick = {
+                    navigator.push(
+                        if (contentType == ContentType.NOVELS) NovelSourcesFilterScreen() else SourcesFilterScreen(),
+                    )
+                },
             ),
         ),
         content = { contentPadding, snackbarHostState ->
@@ -149,10 +155,11 @@ fun Screen.reikaiSourcesTab(browseScreenModel: ReikaiBrowseScreenModel): TabCont
             }
 
             novelState.dialog?.let { dialog ->
-                NovelSourceOptionsDialog(
-                    sourceName = dialog.source.name,
+                EntrySourceOptionsDialog(
+                    title = dialog.source.name,
                     isPinned = dialog.isPinned,
-                    isDisabled = dialog.isDisabled,
+                    showToggleDisable = true,
+                    isDisabled = false,
                     onClickPin = {
                         novelModel.togglePin(dialog.source.id)
                         novelModel.closeDialog()
@@ -292,9 +299,6 @@ private fun LazyListScope.mangaSourceGroups(
     }
 }
 
-/** Alpha applied to a disabled novel source row so it reads as inactive but stays tappable. */
-private const val DISABLED_SOURCE_ALPHA = 0.38f
-
 private fun LazyListScope.novelSourceItems(
     models: List<NovelSourceUiModel>,
     onClickItem: (String) -> Unit,
@@ -313,7 +317,6 @@ private fun LazyListScope.novelSourceItems(
         when (model) {
             is NovelSourceUiModel.Header -> NovelSourceLanguageHeader(model.language)
             is NovelSourceUiModel.Item -> NovelSourceRow(
-                modifier = if (model.isDisabled) Modifier.alpha(DISABLED_SOURCE_ALPHA) else Modifier,
                 name = model.source.name,
                 lang = "",
                 iconUrl = model.source.iconUrl,

@@ -11,6 +11,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEachIndexed
+import eu.kanade.presentation.more.settings.screen.HighlightKey
 import eu.kanade.presentation.more.settings.screen.SearchableSettings
 import eu.kanade.presentation.more.settings.widget.PreferenceGroupHeader
 import kotlinx.coroutines.delay
@@ -61,6 +62,8 @@ fun PreferenceScreen(
                         PreferenceItem(
                             item = item,
                             highlightKey = highlightKey,
+                            // RK: the group this item sits in, so highlighting is group-aware.
+                            groupTitle = preference.title,
                         )
                     }
                     item {
@@ -75,6 +78,7 @@ fun PreferenceScreen(
                     PreferenceItem(
                         item = preference,
                         highlightKey = highlightKey,
+                        groupTitle = null, // RK: top-level item, no group
                     )
                 }
             }
@@ -82,16 +86,17 @@ fun PreferenceScreen(
     }
 }
 
-private fun List<Preference>.findHighlightedIndex(highlightKey: String): Int {
-    return flatMap {
-        if (it is Preference.PreferenceGroup) {
-            buildList<String?> {
+// RK: match on (group, title) so the scroll lands on the exact row when two rows share a title.
+private fun List<Preference>.findHighlightedIndex(highlightKey: HighlightKey): Int {
+    return flatMap { pref ->
+        if (pref is Preference.PreferenceGroup) {
+            buildList<HighlightKey?> {
                 add(null) // Header
-                addAll(it.preferenceItems.map { groupItem -> groupItem.title })
+                addAll(pref.preferenceItems.map { groupItem -> HighlightKey(pref.title, groupItem.title) })
                 add(null) // Spacer
             }
         } else {
-            listOf(it.title)
+            listOf(HighlightKey(null, pref.title))
         }
-    }.indexOfFirst { it == highlightKey }
+    }.indexOfFirst { it != null && it.matches(highlightKey) }
 }

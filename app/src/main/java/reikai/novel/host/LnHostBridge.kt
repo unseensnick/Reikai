@@ -9,6 +9,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import logcat.LogPriority
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -16,6 +17,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import reikai.novel.network.applyNovelDefaults
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.system.logcat
+import java.net.URLDecoder
 
 /**
  * Engine-agnostic host services for LN plugins: HTTP via OkHttp, per-plugin storage via the
@@ -60,6 +62,17 @@ class LnHostBridge(
             // plugin for host fetches); shared with the cover fetcher via [applyNovelDefaults].
             val pluginSetUa = opts.headers?.keys?.any { it.equals("User-Agent", ignoreCase = true) } == true
             builder.applyNovelDefaults(userAgent, pluginSetUserAgent = pluginSetUa)
+            // Laravel / Inertia sources expect the XSRF-TOKEN cookie echoed back as the X-XSRF-TOKEN
+            // header. Derive it from the shared cookie jar unless the plugin set the header itself. The
+            // token is a per-session CSRF value, applied but never logged.
+            val pluginSetXsrf = opts.headers?.keys?.any { it.equals("X-XSRF-TOKEN", ignoreCase = true) } == true
+            if (!pluginSetXsrf) {
+                url.toHttpUrlOrNull()?.let { httpUrl ->
+                    client.cookieJar.loadForRequest(httpUrl)
+                        .firstOrNull { it.name == "XSRF-TOKEN" }
+                        ?.let { builder.header("X-XSRF-TOKEN", URLDecoder.decode(it.value, "UTF-8")) }
+                }
+            }
             val res = client.newCall(builder.build()).execute()
             // Final URL after redirects. lnreader's Response shim exposes this as `response.url`;
             // the Madara plugin family compares it to the request host to detect Cloudflare/captcha

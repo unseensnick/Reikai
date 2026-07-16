@@ -35,7 +35,7 @@ import tachiyomi.domain.source.model.Source
 import tachiyomi.presentation.core.components.Badge
 import tachiyomi.source.local.LocalSource
 
-/**
+/*
  * Net-new Reikai cover badges, used by every library cell (single-list, panorama, and the pager's
  * grids). Kept in their own file so the badge logic stays out of Mihon's components.
  */

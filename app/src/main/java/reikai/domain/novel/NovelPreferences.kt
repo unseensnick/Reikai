@@ -1,10 +1,12 @@
 package reikai.domain.novel
 
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import reikai.domain.novel.model.NovelMigrationFlag
+import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.domain.library.service.LibraryPreferences
 
@@ -74,6 +76,11 @@ class NovelPreferences(
 
     /** Last successful update-check timestamp (millis); gates the on-launch path to skip if recent. */
     fun lastLnPluginCheck() = preferenceStore.getLong("ln_plugin_last_check", 0L)
+
+    /** Epoch-millis the last novel library update started; feeds the shared Updates "Last updated"
+     *  line. App-state (not backed up), mirroring manga's [LibraryPreferences.lastUpdatedTimestamp]. */
+    fun novelLibraryUpdateLastTimestamp() =
+        preferenceStore.getLong(Preference.appStateKey("novel_library_update_last_timestamp"), 0L)
 
     // Global chapter sort / filter / display defaults (S3c). A novel falls back to these unless its
     // own `chapterFlags` local bit is set (see [reikai.domain.novel.model.NovelChapterFlags]). Stored
@@ -196,6 +203,10 @@ class NovelPreferences(
     /** Collapse large runs of blank space between paragraphs. */
     fun readerRemoveExtraSpacing() = preferenceStore.getBoolean("ln_reader_remove_extra_spacing", false)
 
+    /** Show the always-on reading percentage while reading (chrome hidden), the novel twin of the manga
+     *  reader's "Show page number". Native Compose overlay; on by default (matches manga and LNReader). */
+    fun readerShowProgressPercentage() = preferenceStore.getBoolean("ln_reader_show_progress_percentage", true)
+
     /** Tap the top / bottom of the screen to scroll a page (center tap still toggles the chrome). */
     fun readerTapToScroll() = preferenceStore.getBoolean("ln_reader_tap_to_scroll", false)
 
@@ -208,14 +219,31 @@ class NovelPreferences(
     /** Auto-scroll speed in CSS pixels per frame (~60fps). */
     fun readerAutoScrollSpeed() = preferenceStore.getFloat("ln_reader_auto_scroll_speed", 1.0f)
 
-    /** Show a vertical progress seekbar (scrub) on the right edge when the chrome is visible. */
-    fun readerVerticalSeekbar() = preferenceStore.getBoolean("ln_reader_vertical_seekbar", false)
+    /** Scroll the chapter with the hardware volume keys (down = forward), the novel twin of the manga
+     *  reader's `readWithVolumeKeys`. Intercepted at the host window; off by default. */
+    fun readerUseVolumeButtons() = preferenceStore.getBoolean("ln_reader_use_volume_buttons", false)
+
+    /** Swap which volume key scrolls forward vs back, mirroring `readWithVolumeKeysInverted`. */
+    fun readerVolumeButtonsInverted() = preferenceStore.getBoolean("ln_reader_volume_buttons_inverted", false)
+
+    /** How far one volume press scrolls, as a fraction of the screen height (LNReader's default is
+     *  0.75, leaving a quarter-screen overlap for reading continuity). */
+    fun readerVolumeButtonsFraction() = preferenceStore.getFloat("ln_reader_volume_buttons_fraction", 0.75f)
+
+    /** User-selected bottom-bar buttons for the novel reader (the novel twin of the manga
+     *  [ReaderPreferences.readerBottomButtons]). Values are [ReaderBottomButton.value] codes. */
+    fun readerBottomButtons() =
+        preferenceStore.getStringSet("ln_reader_bottom_buttons", ReaderBottomButton.NOVEL_BUTTONS_DEFAULTS)
 
     // Library.
 
     /** Category a newly favorited novel auto-lands in, the novel twin of manga's
      *  [LibraryPreferences.defaultCategory]. -1 = prompt for a category when the user has any. */
     fun defaultNovelCategory() = preferenceStore.getInt("default_novel_category", -1)
+
+    /** Hide the inline "N missing chapters" separators in the details chapter list, the novel twin of
+     *  manga's [LibraryPreferences.hideMissingChapters]. The header warning stays regardless. */
+    fun hideMissingChapters() = preferenceStore.getBoolean("novel_hide_missing_chapters", false)
 
     // Downloads (S5). Key strings preserved from the Yōkai-era fork for upgrade continuity.
 

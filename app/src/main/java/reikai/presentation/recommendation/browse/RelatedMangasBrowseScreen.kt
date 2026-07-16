@@ -1,5 +1,6 @@
 package reikai.presentation.recommendation.browse
 
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.outlined.Checklist
@@ -9,7 +10,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -75,7 +75,11 @@ class RelatedMangasBrowseScreen(
                                     Icon(
                                         imageVector = Icons.Outlined.Visibility,
                                         contentDescription = stringResource(MR.strings.recs_show_hidden),
-                                        tint = if (state.showHidden) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                        tint = if (state.showHidden) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            LocalContentColor.current
+                                        },
                                     )
                                 }
                             }
@@ -84,7 +88,11 @@ class RelatedMangasBrowseScreen(
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Outlined.ViewList,
                                         contentDescription = stringResource(MR.strings.recs_group_toggle),
-                                        tint = if (state.grouped) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                                        tint = if (state.grouped) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            LocalContentColor.current
+                                        },
                                     )
                                 }
                             }

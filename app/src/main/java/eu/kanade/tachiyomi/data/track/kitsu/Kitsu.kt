@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.DeletableTracker
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuLibraryEntry
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuOAuth
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.serialization.json.Json
 import tachiyomi.i18n.MR
@@ -122,6 +123,8 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
     }
 
     // RK --> novel-aware search (Active #8)
+    override val supportsNovels = true
+
     override suspend fun searchNovel(query: String): List<TrackSearch> {
         return api.search(query, novel = true)
     }
@@ -133,6 +136,12 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
         track.total_chapters = remoteTrack.total_chapters
         return track
     }
+
+    // RK --> autofill entry metadata (Fill from tracker)
+    override suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
+        return api.getMangaMetadata(track)
+    }
+    // RK <--
 
     override suspend fun login(username: String, password: String) {
         val token = api.login(username, password)

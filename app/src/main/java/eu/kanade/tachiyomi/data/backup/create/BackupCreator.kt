@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.data.backup.create.creators.PreferenceBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.SourcesBackupCreator
 import eu.kanade.tachiyomi.data.backup.models.Backup
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
+import eu.kanade.tachiyomi.data.backup.models.BackupCustomMangaInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
@@ -27,12 +28,13 @@ import logcat.LogPriority
 import okio.buffer
 import okio.gzip
 import okio.sink
+import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.backup.service.BackupPreferences
-import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.repository.CustomMangaInfoRepository
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
@@ -53,6 +55,8 @@ class BackupCreator(
     private val mangaRepository: MangaRepository = Injekt.get(),
     // RK: source of the manga merge/unmerge prefs serialized as {url,source} refs.
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
+    // RK: source of the manga custom-info overlay, backed up as {url,source}-keyed entries.
+    private val customMangaInfoRepository: CustomMangaInfoRepository = Injekt.get(),
 
     private val categoriesBackupCreator: CategoriesBackupCreator = CategoriesBackupCreator(),
     private val mangaBackupCreator: MangaBackupCreator = MangaBackupCreator(),
@@ -109,8 +113,18 @@ class BackupCreator(
                 backupNovelMerges = novelData.merges,
                 backupNovelUnmerges = novelData.unmerges,
                 backupExtensions = backupExtensions(options),
-                backupMangaMerges = backupMangaMergeGroups(reikaiLibraryPreferences.mangaManualMerges.get(), favorites, options),
-                backupMangaUnmerges = backupMangaMergeGroups(reikaiLibraryPreferences.mangaManualUnmerges.get(), favorites, options),
+                backupMangaMerges = backupMangaMergeGroups(
+                    reikaiLibraryPreferences.mangaManualMerges.get(),
+                    favorites,
+                    options,
+                ),
+                backupMangaUnmerges = backupMangaMergeGroups(
+                    reikaiLibraryPreferences.mangaManualUnmerges.get(),
+                    favorites,
+                    options,
+                ),
+                backupCustomMangaInfo = backupCustomMangaInfo(favorites, options),
+                backupCustomNovelInfo = novelData.customInfo,
                 // RK <--
             )
 
@@ -182,6 +196,31 @@ class BackupCreator(
                 .mapNotNull { it.trim().toLongOrNull() }
                 .mapNotNull { id -> byId[id]?.let { BackupMangaSourceRef(url = it.url, source = it.source) } }
             refs.takeIf { it.size >= 2 }?.let { BackupMangaMergeGroup(refs = it) }
+        }
+    }
+
+    // RK: back up the manga custom-info overlay as {url, source}-keyed entries (re-keyed to fresh ids on
+    // restore). Favorites-only, so the favorites map resolves each row's manga; a row for a non-favorite
+    // (shouldn't happen) is dropped. Gated by libraryEntries.
+    private suspend fun backupCustomMangaInfo(
+        favorites: List<Manga>,
+        options: BackupOptions,
+    ): List<BackupCustomMangaInfo> {
+        if (!options.libraryEntries) return emptyList()
+        val byId = favorites.associateBy { it.id }
+        return customMangaInfoRepository.getAll().mapNotNull { info ->
+            val manga = byId[info.mangaId] ?: return@mapNotNull null
+            BackupCustomMangaInfo(
+                source = manga.source,
+                url = manga.url,
+                title = info.title,
+                author = info.author,
+                artist = info.artist,
+                description = info.description,
+                genre = info.genre.orEmpty(),
+                status = info.status,
+                thumbnailUrl = info.thumbnailUrl,
+            )
         }
     }
 

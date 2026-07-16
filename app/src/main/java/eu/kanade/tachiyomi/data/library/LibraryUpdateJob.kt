@@ -22,12 +22,14 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
+import eu.kanade.tachiyomi.source.nHentaiDelegatedSourceIds
 import eu.kanade.tachiyomi.util.storage.getUriCompat
 import eu.kanade.tachiyomi.util.system.createFileInCacheDir
 import eu.kanade.tachiyomi.util.system.isConnectedToWifi
 import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
+import exh.source.LIBRARY_UPDATE_EXCLUDED_SOURCES
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -38,6 +40,9 @@ import kotlinx.coroutines.sync.withPermit
 import logcat.LogPriority
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
+import reikai.domain.library.updateerror.UpsertLibraryUpdateError
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.core.common.util.lang.withIOContext
@@ -46,11 +51,6 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.model.LibraryManga
-import eu.kanade.tachiyomi.source.nHentaiDelegatedSourceIds
-import exh.source.LIBRARY_UPDATE_EXCLUDED_SOURCES
-import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
-import reikai.domain.library.updateerror.UpsertLibraryUpdateError
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_CHARGING
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_NETWORK_NOT_METERED

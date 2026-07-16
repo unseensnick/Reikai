@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -42,6 +43,9 @@ fun ReikaiCategoryPickerSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val maxSheetHeight = (LocalConfiguration.current.screenHeightDp / 2).dp
+    // Open scrolled to the category currently on screen (-1 when absent falls back to the top).
+    val activeIndex = categories.indexOfFirst { it.id == activeCategoryId }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = activeIndex.coerceAtLeast(0))
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -60,6 +64,7 @@ fun ReikaiCategoryPickerSheet(
             )
         }
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = maxSheetHeight),

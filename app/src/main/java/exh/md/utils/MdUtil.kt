@@ -38,13 +38,8 @@ import java.util.TimeZone
 class MdUtil {
 
     companion object {
-        const val cdnUrl = "https://uploads.mangadex.org"
-        const val baseUrl = "https://mangadex.org"
-        const val chapterSuffix = "/chapter/"
-
-        const val similarBaseApi = "https://api.similarmanga.com/similar/"
-
-        const val mangaLimit = 20
+        const val CDN_URL = "https://uploads.mangadex.org"
+        const val BASE_URL = "https://mangadex.org"
 
         val jsonParser =
             Json {
@@ -55,7 +50,7 @@ class MdUtil {
                 prettyPrint = true
             }
 
-        private const val scanlatorSeparator = " & "
+        private const val SCANLATOR_SEPARATOR = " & "
 
         val markdownLinksRegex = "\\[([^]]+)]\\(([^)]+)\\)".toRegex()
         val markdownItalicBoldRegex = "\\*+\\s*([^*]*)\\s*\\*+".toRegex()
@@ -80,7 +75,7 @@ class MdUtil {
         }
 
         fun getScanlatorString(scanlators: Set<String>): String {
-            return scanlators.sorted().joinToString(scanlatorSeparator)
+            return scanlators.sorted().joinToString(SCANLATOR_SEPARATOR)
         }
 
         val dateFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss+SSS", Locale.US)
@@ -148,7 +143,7 @@ class MdUtil {
         }
 
         fun cdnCoverUrl(dexId: String, fileName: String): String {
-            return "$cdnUrl/covers/$dexId/$fileName"
+            return "$CDN_URL/covers/$dexId/$fileName"
         }
 
         inline fun <reified T> encodeToBody(body: T): RequestBody {

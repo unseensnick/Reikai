@@ -1,6 +1,7 @@
 package reikai.domain.manga
 
-import eu.kanade.tachiyomi.source.online.MetadataSource
+import eu.kanade.tachiyomi.source.online.NamespaceSource
+import exh.source.MANGADEX_IDS
 import exh.source.getMainSource
 import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.domain.chapter.model.Chapter
@@ -58,10 +59,17 @@ class MergedChapterProvider(
     /** Aggregate + reading order: stitch the sources into one list, then restamp source order so a
      *  "by source order" sort reads top to bottom instead of interleaving sources. */
     fun aggregate(chaptersBySource: Map<Long, List<Chapter>>, sourceIdByManga: Map<Long, Long>): List<Chapter> {
-        // Gallery / metadata sources (adult) treat each chapter as a whole standalone gallery, so exempt
-        // them from cross-source number dedup: merging two of them keeps both instead of collapsing on 1.
+        // True gallery sources (E-Hentai / ExHentai / nhentai / Pururin / 8Muses / HentaiFox / AsmHentai)
+        // treat each chapter as a whole standalone gallery numbered 1, so exempt them from cross-source
+        // number dedup: merging two keeps both instead of collapsing on "1". They all implement
+        // NamespaceSource, but so does the enhanced MangaDex, which has normal sequential chapters that
+        // MUST dedup like any other source (otherwise a MangaDex + other-source merge never dedups). There
+        // is no clean positive id-set for every gallery (installed extensions vary), so gate on
+        // NamespaceSource and exclude MangaDex by its known ids.
         val gallerySourceMangaIds = sourceIdByManga
-            .filterValues { sourceManager.get(it)?.getMainSource<MetadataSource<*, *>>() != null }
+            .filterValues { sourceId ->
+                sourceId !in MANGADEX_IDS && sourceManager.get(sourceId)?.getMainSource<NamespaceSource>() != null
+            }
             .keys
         return ChapterAggregation
             .aggregate(
@@ -76,4 +84,21 @@ class MergedChapterProvider(
     private fun restampReadingOrder(chapters: List<Chapter>): List<Chapter> =
         chapters.sortedByDescending { it.chapterNumber }
             .mapIndexed { index, chapter -> chapter.copy(sourceOrder = index.toLong()) }
+
+    /**
+     * Re-add the [opened] chapter when the cross-source dedup dropped it (opened from history /
+     * updates, or from a non-preferred source's chip).
+     *
+     * Restamped, because the re-added row still carries its own source's `sourceOrder` while the
+     * unified list was renumbered to a single 0..N-1 scale, and the reader sorts on `sourceOrder`
+     * alone. Two scales under one comparator drop it at an arbitrary index, which breaks prev/next
+     * and leaves the reader describing a different chapter than it is showing.
+     *
+     * Returns [unified] untouched when there is nothing to add, so a single-source list never gets
+     * renumbered over its own source's ordering.
+     */
+    fun withOpenedChapter(unified: List<Chapter>, opened: Chapter?): List<Chapter> = when {
+        opened == null || unified.any { it.id == opened.id } -> unified
+        else -> restampReadingOrder(unified + opened)
+    }
 }

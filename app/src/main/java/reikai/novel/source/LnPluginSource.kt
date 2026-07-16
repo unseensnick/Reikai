@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonObject
 import reikai.novel.host.LnPluginHost
 import reikai.novel.host.LnPluginInfo
 import reikai.novel.host.NovelItem
+import reikai.novel.host.NovelTextSanitizer
 import reikai.novel.host.SourceNovel
 
 /**
@@ -45,8 +46,10 @@ class LnPluginSource(
     override suspend fun parsePage(novelPath: String, page: String): SourceNovel? =
         host.parsePage(info.id, novelPath, page)
 
+    // Strip control chars only (never entities): the body is HTML the reader renders, so its markup
+    // and escaped entities must survive intact.
     override suspend fun parseChapter(chapterPath: String): String =
-        host.parseChapter(info.id, chapterPath)
+        NovelTextSanitizer.stripInvalidChars(host.parseChapter(info.id, chapterPath))
 
     override suspend fun resolveUrl(path: String, isNovel: Boolean): String? =
         host.resolveUrl(info.id, path, isNovel)

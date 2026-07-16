@@ -38,7 +38,5 @@ interface NovelChapterRepository {
      */
     suspend fun setReadBulk(ids: List<Long>, read: Boolean): Boolean
 
-    /** Toggle the offline-download flag with a dedicated single-column write. */
-    suspend fun setDownloaded(id: Long, downloaded: Boolean): Boolean
     suspend fun delete(id: Long)
 }

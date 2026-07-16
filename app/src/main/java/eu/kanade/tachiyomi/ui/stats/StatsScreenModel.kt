@@ -100,42 +100,48 @@ class StatsScreenModel(
 
         val overview = StatsData.Overview(
             libraryMangaCount =
-                (if (mangaPart) i.mangaList.size else 0) + (if (novelPart) i.novelList.size else 0),
+            (if (mangaPart) i.mangaList.size else 0) + (if (novelPart) i.novelList.size else 0),
             completedMangaCount =
-                (if (mangaPart) {
+            (
+                if (mangaPart) {
                     i.mangaList.count { it.manga.status.toInt() == SManga.COMPLETED && it.unreadCount == 0L }
                 } else {
                     0
-                }) +
-                    (if (novelPart) {
-                        i.novelList.count { it.novel.status.toInt() == NovelStatusCode.COMPLETED && it.unreadCount == 0L }
+                }
+                ) +
+                (
+                    if (novelPart) {
+                        i.novelList.count {
+                            it.novel.status.toInt() == NovelStatusCode.COMPLETED && it.unreadCount == 0L
+                        }
                     } else {
                         0
-                    }),
+                    }
+                    ),
             totalReadDuration =
-                (if (mangaPart) i.mangaReadDuration else 0L) + (if (novelPart) i.novelReadDuration else 0L),
+            (if (mangaPart) i.mangaReadDuration else 0L) + (if (novelPart) i.novelReadDuration else 0L),
         )
 
         val titles = StatsData.Titles(
             globalUpdateItemCount =
-                (if (mangaPart) getGlobalUpdateItemCount(i.mangaListRaw) else 0) +
-                    (if (novelPart) getNovelGlobalUpdateItemCount(i.novelList) else 0),
+            (if (mangaPart) getGlobalUpdateItemCount(i.mangaListRaw) else 0) +
+                (if (novelPart) getNovelGlobalUpdateItemCount(i.novelList) else 0),
             startedMangaCount =
-                (if (mangaPart) i.mangaList.count { it.hasStarted } else 0) +
-                    (if (novelPart) i.novelList.count { it.hasStarted } else 0),
+            (if (mangaPart) i.mangaList.count { it.hasStarted } else 0) +
+                (if (novelPart) i.novelList.count { it.hasStarted } else 0),
             // Novels have no local source, so local titles stays a manga-only stat.
             localMangaCount = if (mangaPart) i.mangaList.count { it.manga.isLocal() } else 0,
         )
 
         val chapters = StatsData.Chapters(
             totalChapterCount =
-                (if (mangaPart) i.mangaList.sumOf { it.totalChapters } else 0L).toInt() +
-                    (if (novelPart) i.novelList.sumOf { it.totalChapters } else 0L).toInt(),
+            (if (mangaPart) i.mangaList.sumOf { it.totalChapters } else 0L).toInt() +
+                (if (novelPart) i.novelList.sumOf { it.totalChapters } else 0L).toInt(),
             readChapterCount =
-                (if (mangaPart) i.mangaList.sumOf { it.readCount } else 0L).toInt() +
-                    (if (novelPart) i.novelList.sumOf { it.readCount } else 0L).toInt(),
+            (if (mangaPart) i.mangaList.sumOf { it.readCount } else 0L).toInt() +
+                (if (novelPart) i.novelList.sumOf { it.readCount } else 0L).toInt(),
             downloadCount =
-                (if (mangaPart) i.mangaDownloadCount else 0) + (if (novelPart) i.novelDownloadCount else 0),
+            (if (mangaPart) i.mangaDownloadCount else 0) + (if (novelPart) i.novelDownloadCount else 0),
         )
 
         // Per-title mean scores from both types' scored tracks. Keys are per-table ids (a manga id and a
@@ -150,8 +156,8 @@ class StatsScreenModel(
         }
         val trackers = StatsData.Trackers(
             trackedTitleCount =
-                (if (mangaPart) i.mangaTrackMap.count { it.value.isNotEmpty() } else 0) +
-                    (if (novelPart) i.novelTrackMap.count { it.value.isNotEmpty() } else 0),
+            (if (mangaPart) i.mangaTrackMap.count { it.value.isNotEmpty() } else 0) +
+                (if (novelPart) i.novelTrackMap.count { it.value.isNotEmpty() } else 0),
             meanScore = perTitleMeanScores.filterNot { it.isNaN() }.average(),
             trackerCount = loggedInTrackers.size,
         )

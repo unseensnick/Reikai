@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.category.visualName
 import eu.kanade.presentation.library.components.DownloadsBadge
 import eu.kanade.presentation.library.components.GlobalSearchItem
@@ -32,7 +33,6 @@ import kotlinx.coroutines.launch
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryManga
-import tachiyomi.domain.library.model.sort
 import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.util.plus
 import kotlin.time.Duration.Companion.seconds
@@ -142,6 +142,10 @@ fun ReikaiLibraryContent(
     onClickCategorySort: (Category) -> Unit,
     onRefreshCategory: (Category) -> Unit,
     onSelectAllInCategory: (Category) -> Unit,
+    // The effective sort per category (its override, or the global sort it follows), decoded per content
+    // type upstream: the header label via [sortLabelFor] and the arrow direction via [sortAscendingFor].
+    sortLabelFor: ((Category) -> StringResource?)? = null,
+    sortAscendingFor: ((Category) -> Boolean?)? = null,
     // continue-reading button on covers, single-list parity with the pager; null = hidden
     onClickContinueReading: ((LibraryManga) -> Unit)? = null,
 ) {
@@ -243,9 +247,18 @@ fun ReikaiLibraryContent(
                             allSelected = items.isNotEmpty() && items.all { it.id in selection },
                             onToggleSelectAll = { onSelectAllInCategory(category) },
                             // Dynamic groups have no real category to sort/refresh.
-                            sort = if (dynamic) null else category.sort,
-                            onClickSort = if (dynamic) null else { { onClickCategorySort(category) } },
-                            onClickRefresh = if (dynamic) null else { { onRefreshCategory(category) } },
+                            sortLabel = if (dynamic) null else sortLabelFor?.invoke(category),
+                            sortAscending = if (dynamic) null else sortAscendingFor?.invoke(category),
+                            onClickSort = if (dynamic) {
+                                null
+                            } else {
+                                { onClickCategorySort(category) }
+                            },
+                            onClickRefresh = if (dynamic) {
+                                null
+                            } else {
+                                { onRefreshCategory(category) }
+                            },
                         )
                     }
 

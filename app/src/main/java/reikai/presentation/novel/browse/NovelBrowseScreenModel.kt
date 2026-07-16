@@ -52,7 +52,9 @@ class NovelBrowseScreenModel(
             }
         }
         screenModelScope.launchIO {
-            try { installer.ensureLoaded() } catch (_: Throwable) {}
+            try {
+                installer.ensureLoaded()
+            } catch (_: Throwable) {}
             val source = manager.get(sourceId)
             if (source == null) {
                 mutableState.update { it.copy(error = "Source not installed: $sourceId") }
@@ -87,8 +89,9 @@ class NovelBrowseScreenModel(
         screenModelScope.launchIO {
             runFetch(error = { e -> mutableState.update { it.copy(loading = false, error = errorText(e)) } }) {
                 val novels = source.searchNovels(query, 1)
+                val more = hasMore(novels, 1) { p -> source.searchNovels(query, p) }
                 mutableState.update {
-                    it.copy(loading = false, novels = novels, page = 1, endReached = novels.isEmpty())
+                    it.copy(loading = false, novels = novels, page = 1, endReached = !more)
                 }
             }
         }
@@ -150,7 +153,9 @@ class NovelBrowseScreenModel(
         val source = state.value.source ?: run {
             // Source never resolved: re-attempt the whole init path.
             screenModelScope.launchIO {
-                try { installer.ensureLoaded() } catch (_: Throwable) {}
+                try {
+                    installer.ensureLoaded()
+                } catch (_: Throwable) {}
                 manager.get(sourceId)?.let { s ->
                     mutableState.update {
                         it.copy(source = s, error = null, filterValues = defaultFilterValues(s.filters))
@@ -163,8 +168,39 @@ class NovelBrowseScreenModel(
         if (state.value.query.isBlank()) fetchFirstPage(source) else search(state.value.query)
     }
 
-    /** Fetch and append the next page of the active listing. An empty page exhausts it; an error stops
-     *  pagination for this listing (a fresh search/filter resets it) without wiping shown results. */
+    // Cached result of an eager next-page probe (see [hasMore]), reused by the matching [loadMore].
+    private data class ProbeEntry(val page: Int, val novels: List<NovelItem>, val at: Long)
+    private var probe: ProbeEntry? = null
+
+    /**
+     * Whether more pages likely follow [fetched] (page [page]). lnreader plugins report no
+     * hasNextPage, so a full page assumes more without a network hit; a short page is confirmed by
+     * eagerly probing the next page, whose result is cached so the matching [loadMore] reuses it
+     * instead of re-fetching. A failed probe stays optimistic, so a transient error doesn't wrongly
+     * end the list. Ported from tsundoku's inferHasNextPage.
+     */
+    private suspend fun hasMore(
+        fetched: List<NovelItem>,
+        page: Int,
+        fetchPage: suspend (Int) -> List<NovelItem>,
+    ): Boolean {
+        probe = null
+        if (fetched.isEmpty()) return false
+        if (fetched.size >= PAGE_SIZE) return true
+        val next = page + 1
+        val probed = try {
+            fetchPage(next)
+        } catch (_: Throwable) {
+            return true
+        }
+        if (probed.isEmpty()) return false
+        probe = ProbeEntry(next, probed, System.currentTimeMillis())
+        return true
+    }
+
+    /** Fetch and append the next page of the active listing. An empty page exhausts it; an error leaves
+     *  the page retryable (the error snackbar offers a retry, and scrolling re-triggers it) rather than
+     *  killing pagination for good, and never wipes the results already shown. */
     fun loadMore() {
         val source = state.value.source ?: return
         val current = state.value
@@ -173,15 +209,24 @@ class NovelBrowseScreenModel(
         mutableState.update { it.copy(loadingMore = true) }
         screenModelScope.launchIO {
             try {
-                val more = if (current.query.isBlank()) {
-                    source.popularNovels(next, buildOptions(source.filters, current.filterValues, current.showLatest))
+                val fetchPage: suspend (Int) -> List<NovelItem> = if (current.query.isBlank()) {
+                    { p ->
+                        source.popularNovels(p, buildOptions(source.filters, current.filterValues, current.showLatest))
+                    }
                 } else {
-                    source.searchNovels(current.query, next)
+                    { p -> source.searchNovels(current.query, p) }
                 }
-                mutableState.update {
-                    if (more.isEmpty()) {
-                        it.copy(loadingMore = false, endReached = true)
-                    } else {
+                // Reuse the eager probe fetched for this page, if still fresh, instead of re-fetching.
+                val cached = probe
+                    ?.takeIf { it.page == next && System.currentTimeMillis() - it.at < PROBE_TTL_MS }
+                    ?.novels
+                val more = cached ?: fetchPage(next)
+                if (more.isEmpty()) {
+                    probe = null
+                    mutableState.update { it.copy(loadingMore = false, endReached = true) }
+                } else {
+                    val end = !hasMore(more, next, fetchPage)
+                    mutableState.update {
                         // Dedupe by path so a source repeating entries across a page boundary doesn't
                         // produce duplicate LazyGrid keys.
                         val seen = it.novels.mapTo(HashSet()) { n -> n.path }
@@ -189,11 +234,14 @@ class NovelBrowseScreenModel(
                             loadingMore = false,
                             novels = it.novels + more.filter { n -> seen.add(n.path) },
                             page = next,
+                            endReached = end,
                         )
                     }
                 }
             } catch (e: Throwable) {
-                mutableState.update { it.copy(loadingMore = false, endReached = true, error = errorText(e)) }
+                // Don't latch endReached on a transient error: a single network hiccup mid-scroll must
+                // not permanently kill paging. Keep the page retryable and surface the error instead.
+                mutableState.update { it.copy(loadingMore = false, error = errorText(e)) }
             }
         }
     }
@@ -204,18 +252,34 @@ class NovelBrowseScreenModel(
             runFetch(error = { e -> mutableState.update { it.copy(loading = false, error = errorText(e)) } }) {
                 val opts = buildOptions(source.filters, state.value.filterValues, state.value.showLatest)
                 val novels = source.popularNovels(1, opts)
+                val more = hasMore(novels, 1) { p -> source.popularNovels(p, opts) }
                 mutableState.update {
-                    it.copy(loading = false, novels = novels, page = 1, endReached = novels.isEmpty())
+                    it.copy(loading = false, novels = novels, page = 1, endReached = !more)
                 }
             }
         }
     }
 
     private inline fun runFetch(error: (Throwable) -> Unit, block: () -> Unit) {
-        try { block() } catch (e: Throwable) { error(e) }
+        try {
+            block()
+        } catch (e: Throwable) {
+            error(e)
+        }
     }
 
     private fun errorText(e: Throwable) = "${e.javaClass.simpleName}: ${e.message ?: ""}"
+
+    companion object {
+        // lnreader plugins don't report hasNextPage, so a full page (this many items or more) is taken
+        // as "more may follow"; a shorter page is confirmed by probing the next one. 20 is the common
+        // lnreader page size.
+        private const val PAGE_SIZE = 20
+
+        // How long a cached eager-probe stays usable before loadMore re-fetches instead, since the
+        // source's listing may have shifted in the meantime.
+        private const val PROBE_TTL_MS = 60_000L
+    }
 }
 
 /**
@@ -245,6 +309,12 @@ data class NovelBrowseState(
     val dialog: NovelBrowseDialog? = null,
 ) {
     val showLatest: Boolean get() = listing == Listing.Latest
+
+    /** The filter draft differs from the source's declared defaults, i.e. a filter is applied.
+     *  Drives the Filter chip's active highlight, mirroring manga's `listing is Listing.Search`
+     *  (novels fold filters into the Popular/Latest listing, so there is no Search listing to test). */
+    val hasActiveFilters: Boolean
+        get() = source?.let { filterValues != defaultFilterValues(it.filters) } ?: false
 
     enum class Listing { Popular, Latest }
 }

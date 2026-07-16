@@ -863,15 +863,36 @@ object SettingsEhScreen : SearchableSettings {
         while (period > 0.milliseconds) {
             when {
                 period >= 365.days -> {
-                    (period.inWholeDays / 365).let { relativeTime.years = it; period -= (it * 365).days }
+                    (period.inWholeDays / 365).let {
+                        relativeTime.years = it
+                        period -= (it * 365).days
+                    }
                     continue
                 }
-                period >= 30.days -> (period.inWholeDays / 30).let { relativeTime.months = it; period -= (it * 30).days }
-                period >= 7.days -> (period.inWholeDays / 7).let { relativeTime.weeks = it; period -= (it * 7).days }
-                period >= 1.days -> period.inWholeDays.let { relativeTime.days = it; period -= it.days }
-                period >= 1.hours -> period.inWholeHours.let { relativeTime.hours = it; period -= it.hours }
-                period >= 1.minutes -> period.inWholeMinutes.let { relativeTime.minutes = it; period -= it.minutes }
-                period >= 1.seconds -> period.inWholeSeconds.let { relativeTime.seconds = it; period -= it.seconds }
+                period >= 30.days -> (period.inWholeDays / 30).let {
+                    relativeTime.months = it
+                    period -= (it * 30).days
+                }
+                period >= 7.days -> (period.inWholeDays / 7).let {
+                    relativeTime.weeks = it
+                    period -= (it * 7).days
+                }
+                period >= 1.days -> period.inWholeDays.let {
+                    relativeTime.days = it
+                    period -= it.days
+                }
+                period >= 1.hours -> period.inWholeHours.let {
+                    relativeTime.hours = it
+                    period -= it.hours
+                }
+                period >= 1.minutes -> period.inWholeMinutes.let {
+                    relativeTime.minutes = it
+                    period -= it.minutes
+                }
+                period >= 1.seconds -> period.inWholeSeconds.let {
+                    relativeTime.seconds = it
+                    period -= it.seconds
+                }
                 period >= 1.milliseconds -> {
                     period.inWholeMilliseconds.let { relativeTime.milliseconds = it }
                     period = Duration.ZERO

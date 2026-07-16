@@ -14,6 +14,14 @@
 # without actual type information". Debug builds aren't minified, so it is invisible there.
 -keep,allowoptimization class exh.**
 
+# RK: keep @JavascriptInterface bridge methods. They are invoked only from JS (the novel reader's
+# core.js -> window.NativeReader), so R8's shrinker sees them as unreachable and strips them in minified
+# builds (preview/release), silently killing the whole bridge: tap-to-toggle-chrome, scroll-save, live
+# progress, and TTS all stop working. Debug builds aren't minified, so it is invisible in the dev loop.
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
 # Keep common dependencies used in extensions
 -keep,allowoptimization class androidx.preference.** { public protected *; }
 -keep,allowoptimization class kotlin.** { public protected *; }
@@ -26,6 +34,7 @@
 -keep,allowoptimization class rx.** { public protected *; }
 -keep,allowoptimization class app.cash.quickjs.** { public protected *; }
 -keep,allowoptimization class uy.kohesive.injekt.** { public protected *; }
+-keep,allowoptimization class com.squareup.zstd.** { public protected *; }
 
 # From extensions-lib
 -keep,allowoptimization class eu.kanade.tachiyomi.network.interceptor.RateLimitInterceptorKt { public protected *; }

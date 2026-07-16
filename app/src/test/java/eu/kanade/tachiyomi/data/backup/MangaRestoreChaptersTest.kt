@@ -64,6 +64,7 @@ class MangaRestoreChaptersTest {
             fetchInterval = mockk(relaxed = true),
             reikaiLibraryPreferences = mockk(relaxed = true),
             mangaMetadataRepository = mockk(relaxed = true),
+            setCustomMangaInfo = mockk(relaxed = true),
         )
 
         restorer.restore(BackupManga(source = 1L, url = "u", title = "T", chapters = listOf(backup)), emptyList())
@@ -73,7 +74,14 @@ class MangaRestoreChaptersTest {
     @Test
     fun `a chapter read locally stays read even when the backup has it unread`() = runTest {
         val backup = BackupChapter(url = "c1", name = "C1", read = false, lastPageRead = 0)
-        val dbChapter = Chapter.create().copy(id = 1, mangaId = mangaId, url = "c1", name = "C1", read = true, lastPageRead = 50)
+        val dbChapter = Chapter.create().copy(
+            id = 1,
+            mangaId = mangaId,
+            url = "c1",
+            name = "C1",
+            read = true,
+            lastPageRead = 50,
+        )
 
         restoredChapterUpdate(backup, dbChapter).first shouldBe true
     }
@@ -81,7 +89,14 @@ class MangaRestoreChaptersTest {
     @Test
     fun `local reading progress is kept when the backup chapter has not progressed`() = runTest {
         val backup = BackupChapter(url = "c1", name = "C1", read = false, lastPageRead = 0)
-        val dbChapter = Chapter.create().copy(id = 1, mangaId = mangaId, url = "c1", name = "C1", read = false, lastPageRead = 30)
+        val dbChapter = Chapter.create().copy(
+            id = 1,
+            mangaId = mangaId,
+            url = "c1",
+            name = "C1",
+            read = false,
+            lastPageRead = 30,
+        )
 
         restoredChapterUpdate(backup, dbChapter).second shouldBe 30L
     }

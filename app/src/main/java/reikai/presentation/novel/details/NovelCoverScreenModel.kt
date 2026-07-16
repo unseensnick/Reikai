@@ -71,7 +71,10 @@ class NovelCoverScreenModel(
                 snackbarHostState.showSnackbar(context.stringResource(MR.strings.cover_saved), withDismissAction = true)
             } catch (e: Throwable) {
                 logcat(LogPriority.ERROR, e)
-                snackbarHostState.showSnackbar(context.stringResource(MR.strings.error_saving_cover), withDismissAction = true)
+                snackbarHostState.showSnackbar(
+                    context.stringResource(MR.strings.error_saving_cover),
+                    withDismissAction = true,
+                )
             }
         }
     }
@@ -83,7 +86,10 @@ class NovelCoverScreenModel(
                 withUIContext { context.startActivity(uri.toShareIntent(context)) }
             } catch (e: Throwable) {
                 logcat(LogPriority.ERROR, e)
-                snackbarHostState.showSnackbar(context.stringResource(MR.strings.error_sharing_cover), withDismissAction = true)
+                snackbarHostState.showSnackbar(
+                    context.stringResource(MR.strings.error_sharing_cover),
+                    withDismissAction = true,
+                )
             }
         }
     }

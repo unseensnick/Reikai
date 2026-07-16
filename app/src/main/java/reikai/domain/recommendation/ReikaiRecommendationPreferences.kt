@@ -19,6 +19,14 @@ class ReikaiRecommendationPreferences(
 
     // region Recommendation sources (per-manga "Related")
 
+    /**
+     * Master switch for the whole carousel. Off means no work at all, not just a hidden row: the
+     * details screen skips the load entirely, so a rate-limited source keeps its whole request
+     * budget for the chapter list.
+     */
+    val enableRelatedMangas: Preference<Boolean> =
+        preferenceStore.getBoolean("pref_enable_related_mangas", true)
+
     /** Master switch for tracker-origin recommendation candidates. */
     val includeTrackerRecommendations: Preference<Boolean> =
         preferenceStore.getBoolean("pref_include_tracker_recommendations", true)

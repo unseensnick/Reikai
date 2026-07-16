@@ -8,6 +8,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -19,6 +20,7 @@ import eu.kanade.presentation.updates.UpdatesDeleteConfirmationDialog
 import eu.kanade.presentation.updates.UpdatesFilterDialog
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.main.MainActivity
@@ -26,10 +28,12 @@ import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.updates.UpdatesScreenModel.Event
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import mihon.feature.upcoming.UpcomingScreen
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
 import reikai.presentation.updates.NovelUpdatesScreenModel
 import reikai.presentation.updates.ReikaiUpdatesCategoryFilter
@@ -68,6 +72,7 @@ data object UpdatesTab : Tab {
         val novelScreenModel = rememberScreenModel { NovelUpdatesScreenModel() }
         val novelState by novelScreenModel.state.collectAsState()
         val contentType by novelScreenModel.contentType.collectAsState()
+        val scope = rememberCoroutineScope()
         val chip: @Composable () -> Unit = {
             ContentTypeFilterChips(selected = contentType, onSelect = novelScreenModel::setContentType)
         }
@@ -81,8 +86,23 @@ data object UpdatesTab : Tab {
             snackbarHostState = screenModel.snackbarHostState,
             chip = chip,
             onRefresh = {
-                if (contentType != ContentType.NOVELS) screenModel.updateLibrary()
-                if (contentType != ContentType.MANGA) NovelUpdateJob.startNow(context)
+                // Single-type chips keep their own model's started/already-running snackbar. The All chip
+                // triggers both jobs directly (bypassing each model's event) so it shows one combined line.
+                when (contentType) {
+                    ContentType.MANGA -> screenModel.updateLibrary()
+                    ContentType.NOVELS -> novelScreenModel.updateLibrary()
+                    ContentType.ALL -> {
+                        val started = LibraryUpdateJob.startNow(context) or NovelUpdateJob.startNow(context)
+                        scope.launch {
+                            val msg = if (started) {
+                                MR.strings.updating_both_libraries
+                            } else {
+                                MR.strings.update_already_running
+                            }
+                            screenModel.snackbarHostState.showSnackbar(context.stringResource(msg))
+                        }
+                    }
+                }
             },
             onFilterClicked = screenModel::showFilterDialog,
             hasActiveFilters = state.hasActiveFilters,
@@ -92,6 +112,7 @@ data object UpdatesTab : Tab {
             },
             onClickMangaCover = { navigator.push(MangaScreen(it.update.mangaId)) },
             onOpenNovelChapter = { navigator.push(NovelReaderScreen(it.update.novelId, it.update.chapterId)) },
+            onClickNovelCover = { navigator.push(NovelScreen(it.update.source, it.update.novelUrl)) },
         )
 
         // Filter / delete dialogs render regardless of chip (the filter is reachable from both screens).
@@ -126,6 +147,22 @@ data object UpdatesTab : Tab {
                         context.stringResource(MR.strings.internal_error),
                     )
                     is Event.LibraryUpdateTriggered -> {
+                        val msg = if (event.started) {
+                            MR.strings.updating_library
+                        } else {
+                            MR.strings.update_already_running
+                        }
+                        screenModel.snackbarHostState.showSnackbar(context.stringResource(msg))
+                    }
+                }
+            }
+        }
+
+        // RK: novel refresh feedback (started / already-running), shown on the shared snackbar host.
+        LaunchedEffect(Unit) {
+            novelScreenModel.events.collectLatest { event ->
+                when (event) {
+                    is NovelUpdatesScreenModel.Event.LibraryUpdateTriggered -> {
                         val msg = if (event.started) {
                             MR.strings.updating_library
                         } else {

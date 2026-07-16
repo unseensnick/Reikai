@@ -175,7 +175,10 @@ class MangaCoverFetcher(
                 // RK --> Komikku parity: warm the theming color when serving straight from the
                 // response body; peekBody so the returned stream isn't consumed (Y11)
                 mangaCover?.let {
-                    MangaCoverMetadata.setVibrantColorAsync(it, bufferedSource = response.peekBody(Long.MAX_VALUE).source())
+                    MangaCoverMetadata.setVibrantColorAsync(
+                        it,
+                        bufferedSource = response.peekBody(Long.MAX_VALUE).source(),
+                    )
                 }
                 // RK <--
                 // Read from response if cache is unused or unusable

@@ -70,6 +70,11 @@ class CategoryRepositoryImpl(
         database.categoriesQueries.updateAllFlags(flags)
     }
 
+    // RK: clear the per-category sort-override marker on every category (they follow the global sort again).
+    override suspend fun clearSortOverrides() {
+        database.categoriesQueries.clearSortOverrides()
+    }
+
     override suspend fun delete(categoryId: Long) {
         database.categoriesQueries.delete(categoryId = categoryId)
     }

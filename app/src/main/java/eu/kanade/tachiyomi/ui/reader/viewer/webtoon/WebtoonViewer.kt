@@ -283,25 +283,30 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
         }
     }
 
+    // RK: the volume-key path passes a user-settable distance (novel parity); tap/keyboard nav keep the
+    // fixed scrollDistance. Fraction of the screen, matching the novel reader's volume scroll amount.
+    private val volumeScrollDistance: Int
+        get() = (activity.resources.displayMetrics.heightPixels * config.volumeKeysScrollFraction).toInt()
+
     /**
-     * Scrolls up by [scrollDistance].
+     * Scrolls up by [distance] (defaults to the fixed [scrollDistance] for tap/keyboard nav).
      */
-    private fun scrollUp() {
+    private fun scrollUp(distance: Int = scrollDistance) {
         if (config.usePageTransitions) {
-            recycler.smoothScrollBy(0, -scrollDistance)
+            recycler.smoothScrollBy(0, -distance)
         } else {
-            recycler.scrollBy(0, -scrollDistance)
+            recycler.scrollBy(0, -distance)
         }
     }
 
     /**
-     * Scrolls down by [scrollDistance].
+     * Scrolls down by [distance] (defaults to the fixed [scrollDistance] for tap/keyboard nav).
      */
-    private fun scrollDown() {
+    private fun scrollDown(distance: Int = scrollDistance) {
         if (config.usePageTransitions) {
-            recycler.smoothScrollBy(0, scrollDistance)
+            recycler.smoothScrollBy(0, distance)
         } else {
-            recycler.scrollBy(0, scrollDistance)
+            recycler.scrollBy(0, distance)
         }
     }
 
@@ -317,14 +322,24 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
                 if (!config.volumeKeysEnabled || activity.viewModel.state.value.menuVisible) {
                     return false
                 } else if (isUp) {
-                    if (!config.volumeKeysInverted) scrollDown() else scrollUp()
+                    // RK: user-settable volume scroll distance (novel parity)
+                    if (!config.volumeKeysInverted) {
+                        scrollDown(volumeScrollDistance)
+                    } else {
+                        scrollUp(volumeScrollDistance)
+                    }
                 }
             }
             KeyEvent.KEYCODE_VOLUME_UP -> {
                 if (!config.volumeKeysEnabled || activity.viewModel.state.value.menuVisible) {
                     return false
                 } else if (isUp) {
-                    if (!config.volumeKeysInverted) scrollUp() else scrollDown()
+                    // RK: user-settable volume scroll distance (novel parity)
+                    if (!config.volumeKeysInverted) {
+                        scrollUp(volumeScrollDistance)
+                    } else {
+                        scrollDown(volumeScrollDistance)
+                    }
                 }
             }
             KeyEvent.KEYCODE_MENU -> if (isUp) activity.toggleMenu()

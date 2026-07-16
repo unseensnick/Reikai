@@ -57,7 +57,13 @@ fun buildReaderHtml(
         put("readerSettings", readerSettings)
         put("chapterGeneralSettings", generalSettings)
         put("novel", JSONObject.NULL)
-        put("chapter", JSONObject().apply { put("name", chapterName); put("progress", progressPercent) })
+        put(
+            "chapter",
+            JSONObject().apply {
+                put("name", chapterName)
+                put("progress", progressPercent)
+            },
+        )
         put("nextChapter", if (hasNext) JSONObject().apply { put("name", "") } else JSONObject.NULL)
         put("prevChapter", if (hasPrev) JSONObject().apply { put("name", "") } else JSONObject.NULL)
         put("batteryLevel", 1.0)
@@ -144,6 +150,22 @@ fun buildReaderHtml(
             start: function (px) { speed = px; if (!raf) raf = requestAnimationFrame(step); },
             stop: function () { if (raf) { cancelAnimationFrame(raf); raf = null; } },
           };
+        })();
+        // Live reading percentage on every scroll frame, the way LNReader's footer does. Uses core.js's
+        // own layoutHeight/chapterHeight, so it matches the 'save' value exactly (no jump on scroll-end).
+        (function () {
+          var ticking = false;
+          window.addEventListener('scroll', function () {
+            if (ticking) return;
+            ticking = true;
+            requestAnimationFrame(function () {
+              ticking = false;
+              if (!window.reader || reader.generalSettings.val.pageReader) return;
+              var pct = parseInt(((window.scrollY + reader.layoutHeight) / reader.chapterHeight) * 100, 10);
+              if (pct < 0) pct = 0; else if (pct > 100) pct = 100;
+              if (window.NativeReader) NativeReader.postMessage(JSON.stringify({ type: 'progress', data: pct }));
+            });
+          }, { passive: true });
         })();
         // Tell native the document is up (drives TTS auto-advance + state reset on chapter change).
         if (window.NativeReader) NativeReader.postMessage(JSON.stringify({ type: 'reikai-ready' }));

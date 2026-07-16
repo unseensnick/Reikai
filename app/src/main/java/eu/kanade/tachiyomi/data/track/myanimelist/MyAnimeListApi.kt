@@ -3,12 +3,14 @@ package eu.kanade.tachiyomi.data.track.myanimelist
 import android.net.Uri
 import androidx.core.net.toUri
 import eu.kanade.tachiyomi.data.database.models.Track
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALLibraryItem
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALLibraryResult
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALListItem
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALListItemStatus
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALManga
+import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALMangaMetadata
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALOAuth
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALSearchResult
 import eu.kanade.tachiyomi.data.track.myanimelist.dto.MALUser
@@ -108,6 +110,45 @@ class MyAnimeListApi(
             }
         }
     }
+
+    // RK --> "Fill from tracker" metadata (ported from Komikku, plus genres).
+    suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
+        return withIOContext {
+            val url = "$BASE_API_URL/manga".toUri().buildUpon()
+                .appendPath(track.remoteId.toString())
+                .appendQueryParameter(
+                    "fields",
+                    "id,title,synopsis,main_picture,genres,authors{first_name,last_name}",
+                )
+                .build()
+            with(json) {
+                authClient.newCall(GET(url.toString()))
+                    .awaitSuccess()
+                    .parseAs<MALMangaMetadata>()
+                    .let { metadata ->
+                        TrackMangaMetadata(
+                            remoteId = metadata.id,
+                            title = metadata.title,
+                            thumbnailUrl = metadata.covers?.large?.ifEmpty { null },
+                            description = metadata.synopsis,
+                            authors = metadata.authors
+                                // count "Story" or "Story & Art" as authors, like library entries do
+                                .filter { it.role.contains("Story") }
+                                .mapNotNull { it.node.getFullName() }
+                                .joinToString()
+                                .ifEmpty { null },
+                            artists = metadata.authors
+                                .filter { it.role == "Art" }
+                                .mapNotNull { it.node.getFullName() }
+                                .joinToString()
+                                .ifEmpty { null },
+                            genres = metadata.genres.map { it.name }.takeIf { it.isNotEmpty() },
+                        )
+                    }
+            }
+        }
+    }
+    // RK <--
 
     suspend fun updateItem(track: Track): Track {
         return withIOContext {

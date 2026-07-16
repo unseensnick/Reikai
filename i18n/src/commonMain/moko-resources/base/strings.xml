@@ -71,7 +71,9 @@
     <string name="action_sort_chapter_fetch_date">Chapter fetch date</string>
     <string name="action_sort_date_added">Date added</string>
     <string name="action_sort_tracker_score">Tracker score</string>
+    <string name="action_sort_downloaded">Downloaded</string>
     <string name="action_sort_random">Random</string>
+    <string name="action_sort_reset_to_global">Reset to global sort</string>
     <string name="action_search">Search</string>
     <string name="action_search_hint">Search…</string>
     <string name="action_search_settings">Search settings</string>
@@ -89,6 +91,7 @@
     <string name="action_enable_all">Enable all</string>
     <string name="action_disable_all">Disable all</string>
     <string name="action_edit">Edit</string>
+    <string name="action_edit_info">Edit info</string>
     <string name="action_add">Add</string>
     <string name="action_update_category">Update category</string>
     <string name="action_open_random_manga">Open random entry</string>
@@ -153,6 +156,11 @@
     <string name="action_move_to_bottom_all_for_series">Move series to bottom</string>
     <string name="action_notes">Notes</string>
     <string name="action_edit_notes">Edit notes</string>
+    <!-- RK: hide/unhide chapters (details toolbar, shared by manga + novel) -->
+    <string name="action_hide">Hide</string>
+    <string name="action_unhide">Unhide</string>
+    <string name="action_show_hidden_chapters">Show hidden chapters</string>
+    <string name="action_hide_hidden_chapters">Hide hidden chapters</string>
     <!-- RK: pref-based merge (manage grouped sources) -->
     <string name="action_manage_sources">Manage sources</string>
     <string name="action_metadata_viewer">Gallery info</string>
@@ -191,6 +199,8 @@
     <string name="pref_recommendations">Recommendations</string>
     <string name="pref_recommendations_summary">Related-manga suggestions and taste profile</string>
     <string name="pref_recommendation_sources">Sources</string>
+    <string name="pref_enable_related_mangas">Show related manga</string>
+    <string name="pref_enable_related_mangas_summary">Suggest similar manga on the details page. Turning this off also stops the searches it makes, which can speed up slow sources</string>
     <string name="pref_include_tracker_recommendations">Tracker recommendations</string>
     <string name="pref_include_tracker_recommendations_summary">Suggest similar manga from your trackers</string>
     <string name="pref_taste_profile">Taste profile</string>
@@ -236,6 +246,13 @@
     <string name="action_save">Save</string>
     <string name="action_reset">Reset</string>
     <string name="action_revert_to_default">Revert to default</string>
+    <!-- RK: edit-info editor "Fill from tracker" autofill -->
+    <string name="action_reset_tags">Reset tags</string>
+    <string name="action_reset_info">Reset info</string>
+    <string name="action_reset_all">Reset all</string>
+    <string name="action_fill_from_tracker">Fill from tracker</string>
+    <string name="select_tracker">Select tracker</string>
+    <string name="entry_not_tracked">Entry not tracked</string>
     <!-- RK: content-type filter chip (Browse + Library) -->
     <string name="content_type_all">All</string>
     <string name="content_type_manga">Manga</string>
@@ -243,6 +260,8 @@
     <!-- RK: Updates group-by-series -->
     <string name="updates_group_by_series">Group by series</string>
     <string name="updates_group_chapter_count">%1$d new chapters</string>
+    <!-- RK: refresh feedback on the combined All chip (both libraries update at once) -->
+    <string name="updating_both_libraries">Updating both libraries</string>
     <!-- RK: light-novel browse (P5 S3a) -->
     <string name="repos">Repos</string>
     <string name="ln_available">Available</string>
@@ -517,7 +536,9 @@
     <string name="pref_flash_style_white_black">White and Black</string>
     <string name="pref_double_tap_anim_speed">Double tap animation speed</string>
     <string name="pref_show_page_number">Show page number</string>
-    <string name="pref_webtoon_vertical_navigator">Use vertical navigator for long strip reading</string>
+    <!-- RK: novel reader always-on reading percentage (twin of the manga page number) --><string name="pref_show_reading_progress">Show reading progress</string>
+    <string name="pref_vertical_navigator">Use vertical chapter navigator in</string>
+    <string name="pref_vertical_navigator_height">Vertical navigator height</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Place vertical navigator on the left side</string>
     <string name="pref_show_reading_mode">Show reading mode</string>
     <string name="pref_show_reading_mode_summary">Briefly show current mode when reader is opened</string>
@@ -544,13 +565,26 @@
     <string name="pref_skip_dupe_chapters">Skip duplicate chapters</string>
     <!-- RK --><string name="pref_mark_read_on_skip">Mark chapter read when skipping ahead</string>
     <string name="pref_mark_read_on_skip_summary">When you jump to the next chapter, mark the chapter you skipped as read</string>
+    <string name="pref_auto_webtoon_mode">Auto webtoon mode</string>
+    <string name="pref_auto_webtoon_mode_summary">Read manhwa, manhua and webtoons in webtoon mode automatically. A mode you pick for a series always wins</string>
+    <string name="auto_webtoon_snack">Reading webtoon style</string>
     <string name="pref_reader_bottom_buttons">Bottom bar buttons</string>
+    <string name="pref_auto_scroll">Auto-scroll</string>
+    <string name="pref_bionic_reading">Bionic reading</string>
+    <string name="pref_reader_text_size">Text size</string>
+    <!-- RK: novel reader settings, surfaced as content-type sub-groups on the shared Reader screen -->
+    <string name="pref_category_accessibility">Accessibility</string>
+    <string name="pref_tap_to_scroll">Tap edges to scroll</string>
+    <string name="pref_swipe_between_chapters">Swipe between chapters</string>
+    <string name="pref_remove_extra_spacing">Remove extra spacing</string>
     <string name="pref_preserve_reading_position">Resume reading position</string>
     <string name="pref_preserve_reading_position_summary">Reopen chapters at your last position, even ones already marked read</string>
     <string name="pref_reader_preload_size">Pages to preload</string><!-- RK -->
     <string name="pref_reader_navigation">Navigation</string>
     <string name="pref_read_with_volume_keys">Volume keys</string>
     <string name="pref_read_with_volume_keys_inverted">Invert volume keys</string>
+    <!-- RK: volume-key scroll distance (fraction of the screen per press); novel reader + long-strip manga --><string name="pref_volume_keys_scroll_amount">Volume key scroll amount</string>
+    <!-- RK: clarifies the manga volume scroll amount applies to long-strip modes, not paged --><string name="pref_volume_keys_scroll_amount_long_strip">Long strip modes only</string>
     <string name="pref_read_with_tapping_inverted">Invert tap zones</string>
     <string name="tapping_inverted_none">None</string>
     <string name="tapping_inverted_horizontal">Horizontal</string>
@@ -773,8 +807,7 @@
     <string name="pref_tablet_ui_mode">Tablet UI</string>
     <string name="pref_verbose_logging">Verbose logging</string>
     <string name="pref_verbose_logging_summary">Print verbose logs to system log (reduces app performance)</string>
-    <string name="pref_track_update_errors">Track manga update errors</string>
-    <string name="pref_track_novel_update_errors">Track novel update errors</string>
+    <string name="pref_track_update_errors">Track update errors</string>
     <string name="pref_track_update_errors_summary">Record entries that fail to update and show them in a list (reached from the library menu)</string>
     <string name="label_update_errors">Update errors</string>
     <string name="info_empty_update_errors">No update errors</string>
@@ -965,6 +998,7 @@
     <string name="on_hold">On hold</string>
     <string name="paused">Paused</string>
     <string name="plan_to_read">Plan to read</string>
+    <string name="considering">Considering</string>
     <string name="repeating">Rereading</string>
     <!-- RK: MangaDex MDList tracker "unfollowed" status -->
     <string name="md_follows_unfollowed">Unfollowed</string>
@@ -1098,6 +1132,11 @@
     <string name="download_queue_error">Couldn\'t download chapters. You can try again in the downloads section</string>
     <string name="download_insufficient_space">Couldn\'t download chapters due to low storage space</string>
     <string name="download_queue_size_warning">Warning: large bulk downloads may lead to sources becoming slower and/or blocking %s. Tap to learn more.</string>
+    <!-- RK: unified download-queue series cards (chapter count + status chip) -->
+    <string name="download_card_chapters">%1$d/%2$d chapters</string>
+    <string name="download_card_status_queued">Queued</string>
+    <string name="download_card_status_downloading">Downloading</string>
+    <string name="download_card_status_error">Error</string>
 
     <!-- Library update service notifications -->
     <string name="notification_updating_progress">Updating library… (%s)</string>

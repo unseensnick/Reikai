@@ -44,7 +44,16 @@ class WebtoonConfig(
 
     val theme = readerPreferences.readerTheme.get()
 
+    // RK: user-settable volume-key scroll distance as a fraction of the screen (novel-reader parity).
+    var volumeKeysScrollFraction = 0.75f
+        private set
+
     init {
+        // RK --> volume-key scroll amount (long-strip modes only)
+        readerPreferences.readWithVolumeKeysScrollAmount
+            .register({ volumeKeysScrollFraction = it })
+        // RK <--
+
         readerPreferences.cropBordersWebtoon
             .register({ imageCropBorders = it }, { imagePropertyChangedListener?.invoke() })
 

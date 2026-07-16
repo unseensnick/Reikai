@@ -39,24 +39,22 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import mihon.core.common.utils.mutate
-// RK -->
+import reikai.domain.category.categoryDiff
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.isHidden
 import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ReikaiLibraryPreferences
-import tachiyomi.domain.source.model.Source as DomainSource
-import tachiyomi.domain.source.model.StubSource
+import reikai.domain.library.sortForCategory
+import reikai.domain.manga.MangaMergeManager
+import reikai.domain.manga.PropagateTrackerLinks
 import reikai.presentation.library.DynItem
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
-import reikai.domain.manga.MangaMergeManager
-import reikai.domain.manga.PropagateTrackerLinks
 import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.ReikaiLibraryState
 import reikai.presentation.library.reikaiSortCategories
 import reikai.util.isLewd
-// RK <--
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.TriState
@@ -73,15 +71,18 @@ import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.model.LibrarySort
-import tachiyomi.domain.library.model.sort
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.GetSearchTags
 import tachiyomi.domain.manga.interactor.GetSearchTitles
+import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.model.applyFilter
+import tachiyomi.domain.manga.model.withCustomInfo
+import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracksPerManga
 import tachiyomi.domain.track.model.Track
@@ -91,9 +92,12 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
+import tachiyomi.domain.source.model.Source as DomainSource
 
 class LibraryScreenModel(
     private val getLibraryManga: GetLibraryManga = Injekt.get(),
+    // RK: per-entry custom title/cover overrides, overlaid on the displayed rows (display-only)
+    private val getCustomMangaInfo: GetCustomMangaInfo = Injekt.get(),
     // RK: resolve merged-away group members by id for the "remove all grouped sources" delete option
     private val getManga: GetManga = Injekt.get(),
     private val getCategories: GetCategories = Injekt.get(),
@@ -133,10 +137,13 @@ class LibraryScreenModel(
             combine(
                 state.map { it.searchQuery }.distinctUntilChanged().debounce(0.25.seconds),
                 getCategories.subscribe(),
-                getFavoritesFlow(),
+                // RK: the custom-info overlay rides with favorites (combine caps at 5 sources) but is
+                //     NOT applied here: search/filter/sort below all read the raw favorites. It is
+                //     carried into LibraryData and applied only at the display read (see State).
+                combine(getFavoritesFlow(), getCustomMangaInfo.subscribeAll(), ::Pair),
                 combine(getTracksPerManga.subscribe(), getTrackingFiltersFlow(), ::Pair),
                 getLibraryItemPreferencesFlow(),
-            ) { searchQuery, categories, favorites, (tracksMap, trackingFilters), itemPreferences ->
+            ) { searchQuery, categories, (favorites, customInfo), (tracksMap, trackingFilters), itemPreferences ->
                 val showSystemCategory = favorites.any { it.libraryManga.categories.contains(0) }
                 val filteredFavorites = favorites
                     .applyFilters(tracksMap, trackingFilters, itemPreferences)
@@ -158,6 +165,8 @@ class LibraryScreenModel(
                     favorites = filteredFavorites,
                     tracksMap = tracksMap,
                     loggedInTrackerIds = trackingFilters.keys,
+                    // RK: display-only overrides, keyed by real manga id; applied at the display read.
+                    customInfo = customInfo.associateBy { it.mangaId },
                 )
             }
                 .distinctUntilChanged()
@@ -169,22 +178,28 @@ class LibraryScreenModel(
         }
 
         screenModelScope.launchIO {
-            state
-                .dropWhile { !it.libraryData.isInitialized }
+            combine(
+                state.dropWhile { !it.libraryData.isInitialized },
+                // RK: re-run the sort when the GLOBAL sort changes; non-overridden categories follow it
+                //     via the CUSTOMIZED override bit, so a global change re-sorts them (applySort reads
+                //     sortingMode fresh). Pairing it into the distinct key is what re-fires the pipeline.
+                libraryPreferences.sortingMode.changes(),
+            ) { s, globalSort -> s to globalSort }
                 // RK --> branch on the Reikai grouping mode; dynamic grouping (Y3) and category
                 // order (R3) replace Mihon's plain category bucketing. The distinct key includes
                 // only the grouping-relevant Reikai fields so badge/hopper changes don't re-group.
-                .map {
+                .map { (it, globalSort) ->
                     Triple(
                         it.libraryData,
                         it.reikai.groupingInputs(),
                         // drop categories an active filter/search emptied, unless the user keeps them
                         (it.hasActiveFilters || it.searchQuery != null) &&
                             !it.reikai.showEmptyCategoriesWhileFiltering,
-                    )
+                    ) to globalSort
                 }
                 .distinctUntilChanged()
-                .map { (data, grouping, dropEmptyWhileFiltering) ->
+                .map { (inputs, _) ->
+                    val (data, grouping, dropEmptyWhileFiltering) = inputs
                     val grouped = if (grouping.groupLibraryBy == LibraryGroup.BY_DEFAULT) {
                         data.favorites
                             .applyGrouping(data.categories, data.showSystemCategory, grouping.showHiddenCategories)
@@ -625,21 +640,29 @@ class LibraryScreenModel(
                     val item2Score = trackerScores[manga2.id] ?: defaultTrackerScoreSortValue
                     item1Score.compareTo(item2Score)
                 }
+                // RK --> download-count sort (parity with the novel library's Downloaded sort)
+                LibrarySort.Type.Downloaded -> {
+                    manga1.downloadCount.compareTo(manga2.downloadCount)
+                }
+                // RK <--
                 LibrarySort.Type.Random -> {
                     error("Why Are We Still Here? Just To Suffer?")
                 }
             }
         }
 
+        // RK: a category follows the global sort unless it has a per-category override (CUSTOMIZED bit).
+        val globalSort = libraryPreferences.sortingMode.get()
         return mapValues { (key, value) ->
-            if (key.sort.type == LibrarySort.Type.Random) {
+            val sort = sortForCategory(key.flags, globalSort)
+            if (sort.type == LibrarySort.Type.Random) {
                 return@mapValues value.shuffled(Random(libraryPreferences.randomSortSeed.get()))
             }
 
             val manga = value.mapNotNull { favoritesById[it] }
 
-            val comparator = key.sort.comparator()
-                .let { if (key.sort.isAscending) it else it.reversed() }
+            val comparator = sort.comparator()
+                .let { if (sort.isAscending) it else it.reversed() }
                 .thenComparator(sortAlphabetically)
 
             manga.sortedWith(comparator).map { it.id }
@@ -685,8 +708,12 @@ class LibraryScreenModel(
                 // RK -->
                 filterLewd = it[12] as TriState,
                 filterCategories = it[13] as Boolean,
-                filterCategoriesInclude = (it[14] as Set<*>).mapNotNull { id -> (id as? String)?.toLongOrNull() }.toSet(),
-                filterCategoriesExclude = (it[15] as Set<*>).mapNotNull { id -> (id as? String)?.toLongOrNull() }.toSet(),
+                filterCategoriesInclude = (it[14] as Set<*>).mapNotNull { id ->
+                    (id as? String)?.toLongOrNull()
+                }.toSet(),
+                filterCategoriesExclude = (it[15] as Set<*>).mapNotNull { id ->
+                    (id as? String)?.toLongOrNull()
+                }.toSet(),
                 sourceBadge = it[16] as Boolean,
                 // RK <--
             )
@@ -745,7 +772,9 @@ class LibraryScreenModel(
                     ),
                 )
             }
-            // RK: collapse pref-based merge groups into one entry per group
+            // RK: collapse pref-based merge groups into one entry per group. Returns the RAW items:
+            //     search, filter and sort in the outer combine all read these, so the display-only
+            //     custom-info overlay is applied later, at the per-category display read (see State).
             MangaMergeCollapse.collapse(
                 items = items,
                 manualMerges = mergePrefs.merges,
@@ -796,32 +825,8 @@ class LibraryScreenModel(
         }
     }
 
-    /**
-     * Returns the common categories for the given list of manga.
-     *
-     * @param mangas the list of manga.
-     */
-    private suspend fun getCommonCategories(mangas: List<Manga>): Collection<Category> {
-        if (mangas.isEmpty()) return emptyList()
-        return mangas
-            .map { getCategories.await(it.id).toSet() }
-            .reduce { set1, set2 -> set1.intersect(set2) }
-    }
-
     suspend fun getNextUnreadChapter(manga: Manga): Chapter? {
         return getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true).getNextUnread(manga, downloadManager)
-    }
-
-    /**
-     * Returns the mix (non-common) categories for the given list of manga.
-     *
-     * @param mangas the list of manga.
-     */
-    private suspend fun getMixCategories(mangas: List<Manga>): Collection<Category> {
-        if (mangas.isEmpty()) return emptyList()
-        val mangaCategories = mangas.map { getCategories.await(it.id).toSet() }
-        val common = mangaCategories.reduce { set1, set2 -> set1.intersect(set2) }
-        return mangaCategories.flatten().distinct().subtract(common)
     }
 
     /**
@@ -1116,13 +1121,13 @@ class LibraryScreenModel(
             // Hide the default category because it has a different behavior than the ones from db.
             val categories = state.value.displayedCategories.filter { it.id != 0L }
 
-            // Get indexes of the common categories to preselect.
-            val common = getCommonCategories(mangaList)
-            // Get indexes of the mix categories to preselect.
-            val mix = getMixCategories(mangaList)
+            // RK: shared manga/novel category-diff over each entry's category ids (common = on all,
+            // mix = on some) so the change-categories tri-state can't drift between the two types.
+            val perManga = mangaList.map { getCategories.await(it.id).map { category -> category.id }.toSet() }
+            val (common, mix) = categoryDiff(perManga)
             val preselected = categories
                 .map {
-                    when (it) {
+                    when (it.id) {
                         in common -> CheckboxState.State.Checked(it)
                         in mix -> CheckboxState.TriState.Exclude(it)
                         else -> CheckboxState.State.None(it)
@@ -1151,6 +1156,7 @@ class LibraryScreenModel(
             val manga: List<Manga>,
             val initialSelection: List<CheckboxState<Category>>,
         ) : Dialog
+
         // RK: groupedSourceCount = N grouped sources behind the selection (0 = none merged, no extra option)
         data class DeleteManga(val manga: List<Manga>, val groupedSourceCount: Int = 0) : Dialog
     }
@@ -1187,6 +1193,10 @@ class LibraryScreenModel(
         val favorites: List<LibraryItem> = emptyList(),
         val tracksMap: Map</* Manga */ Long, List<Track>> = emptyMap(),
         val loggedInTrackerIds: Set<Long> = emptySet(),
+        // RK: display-only custom title/cover overrides, keyed by real manga id. Never read by
+        //     search/filter/sort/selection (those use the raw favorites); applied only at the
+        //     per-category display read in State.getItemsForCategory.
+        val customInfo: Map</* Manga */ Long, CustomMangaInfo> = emptyMap(),
     ) {
         val favoritesById by lazy { favorites.associateBy { it.id } }
     }
@@ -1258,8 +1268,19 @@ class LibraryScreenModel(
         }
 
         fun getItemsForCategory(category: Category): List<LibraryItem> {
-            // RK: look up by id (groupedFavorites is an ordered List, not a Map keyed by Category)
-            return groupedFavoritesById[category.id].orEmpty().mapNotNull { libraryData.favoritesById[it] }
+            // RK: look up by id (groupedFavorites is an ordered List, not a Map keyed by Category),
+            //     then apply the display-only custom-info overlay. This is the sole render path, so
+            //     the overrides never reach the raw favorites that search/filter/sort/selection read.
+            return groupedFavoritesById[category.id].orEmpty().mapNotNull { id ->
+                libraryData.favoritesById[id]?.let { item ->
+                    val custom = libraryData.customInfo[item.libraryManga.manga.id] ?: return@let item
+                    item.copy(
+                        libraryManga = item.libraryManga.copy(
+                            manga = item.libraryManga.manga.withCustomInfo(custom),
+                        ),
+                    )
+                }
+            }
         }
 
         fun getItemCountForCategory(category: Category): Int? {

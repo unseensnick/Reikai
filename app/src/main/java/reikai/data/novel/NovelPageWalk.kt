@@ -3,6 +3,7 @@ package reikai.data.novel
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
+import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSource
 import tachiyomi.data.Database
 
@@ -23,6 +24,7 @@ suspend fun walkNovelPages(
     novelChapterRepository: NovelChapterRepository,
     novelRepository: NovelRepository,
     database: Database,
+    novelDownloadManager: NovelDownloadManager? = null,
 ) {
     if (toPage <= 1L) return
     for (p in maxOf(fromPage, 1L)..toPage) {
@@ -30,7 +32,15 @@ suspend fun walkNovelPages(
         val chapters = runCatching { source.parsePage(novel.url, key)?.chapters }.getOrNull().orEmpty()
         if (chapters.isNotEmpty()) {
             runCatching {
-                syncChaptersWithNovelSource(chapters, novel, novelChapterRepository, novelRepository, database, page = key)
+                syncChaptersWithNovelSource(
+                    chapters,
+                    novel,
+                    novelChapterRepository,
+                    novelRepository,
+                    database,
+                    page = key,
+                    novelDownloadManager = novelDownloadManager,
+                )
             }
         }
     }

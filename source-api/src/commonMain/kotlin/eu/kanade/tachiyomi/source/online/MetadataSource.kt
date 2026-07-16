@@ -65,13 +65,6 @@ interface MetadataSource<M : RaisedSearchMetadata, I> : CatalogueSource {
      * If the metadata needs to be parsed from the input producer, the resulting parsed metadata will
      * also be saved to the DB.
      */
-    /**
-     * Try to first get the metadata from the DB. If the metadata is not in the DB, calls the input
-     * producer and parses the metadata from the input
-     *
-     * If the metadata needs to be parsed from the input producer, the resulting parsed metadata will
-     * also be saved to the DB.
-     */
     suspend fun fetchOrLoadMetadata(mangaId: Long?, inputProducer: suspend () -> I): M {
         val meta = if (mangaId != null) {
             val flatMetadata = getFlatMetadataById.await(mangaId)

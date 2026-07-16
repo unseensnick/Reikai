@@ -1,16 +1,14 @@
 package tachiyomi.domain.category.interactor
 
 import tachiyomi.domain.category.repository.CategoryRepository
-import tachiyomi.domain.library.model.plus
-import tachiyomi.domain.library.service.LibraryPreferences
 
 class ResetCategoryFlags(
-    private val preferences: LibraryPreferences,
     private val categoryRepository: CategoryRepository,
 ) {
 
+    // RK: turning off "Per-category setting for sort" clears every category's sort override so they all
+    // follow the global sort again. (Was updateAllFlags(global), which also wiped the hidden bit.)
     suspend fun await() {
-        val sort = preferences.sortingMode.get()
-        categoryRepository.updateAllFlags(sort.type + sort.direction)
+        categoryRepository.clearSortOverrides()
     }
 }

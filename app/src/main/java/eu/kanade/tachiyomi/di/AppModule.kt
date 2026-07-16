@@ -29,6 +29,7 @@ import nl.adaptivity.xmlutil.serialization.DefaultXmlSerializationPolicy
 import nl.adaptivity.xmlutil.serialization.XML
 import nl.adaptivity.xmlutil.serialization.XmlConfig
 import reikai.domain.novel.track.NovelDelayedTrackingStore
+import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.NovelDownloadProvider
 import reikai.novel.host.LnPluginHost
@@ -38,6 +39,8 @@ import reikai.novel.source.NovelSourceManager
 import reikai.novel.update.LnPluginUpdateChecker
 import tachiyomi.core.common.storage.AndroidStorageFolderProvider
 import tachiyomi.data.Chapters
+import tachiyomi.data.Custom_manga_info
+import tachiyomi.data.Custom_novel_info
 import tachiyomi.data.Database
 import tachiyomi.data.DateColumnAdapter
 import tachiyomi.data.History
@@ -100,6 +103,14 @@ class AppModule(val app: Application) : InjektModule {
                     genreAdapter = StringListColumnAdapter,
                     update_strategyAdapter = UpdateStrategyColumnAdapter,
                 ),
+                // RK: manga custom-info overlay (P6)
+                custom_manga_infoAdapter = Custom_manga_info.Adapter(
+                    genreAdapter = StringListColumnAdapter,
+                ),
+                // RK: novel custom-info overlay
+                custom_novel_infoAdapter = Custom_novel_info.Adapter(
+                    genreAdapter = StringListColumnAdapter,
+                ),
                 // RK <--
             )
         }
@@ -138,6 +149,7 @@ class AppModule(val app: Application) : InjektModule {
         addSingletonFactory { LnPluginInstaller(get(), get(), get(), get(), get()) }
         addSingletonFactory { LnPluginUpdateChecker(get(), get()) }
         addSingletonFactory { NovelDownloadProvider() }
+        addSingletonFactory { NovelDownloadCache() }
         addSingletonFactory { NovelDownloadManager(app) }
         // RK <--
 

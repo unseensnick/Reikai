@@ -24,5 +24,8 @@ interface CategoryRepository {
 
     suspend fun updateAllFlags(flags: Long?)
 
+    // RK: clear the per-category sort-override marker on every category (see reikai CATEGORY_SORT_CUSTOMIZED).
+    suspend fun clearSortOverrides()
+
     suspend fun delete(categoryId: Long)
 }

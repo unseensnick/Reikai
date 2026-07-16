@@ -1,0 +1,17 @@
+-- Manga custom-info overlay (P6). Net-new non-destructive table holding user edits (title/author/
+-- artist/description/genre/status/thumbnail) layered over the source data at the display layer,
+-- favorites only. Reaches fresh installs via Schema.create(); existing installs need it created here or
+-- the custom_manga_info queries crash "no such table". Mirrors 24.sqm (novel_update_errors). Raw
+-- `genre TEXT` here (the `AS List<String>` adapter is applied only in the .sq, never in migrations).
+CREATE TABLE custom_manga_info(
+    manga_id INTEGER NOT NULL PRIMARY KEY,
+    title TEXT,
+    author TEXT,
+    artist TEXT,
+    description TEXT,
+    genre TEXT,
+    status INTEGER,
+    thumbnail_url TEXT,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id)
+    ON DELETE CASCADE
+);

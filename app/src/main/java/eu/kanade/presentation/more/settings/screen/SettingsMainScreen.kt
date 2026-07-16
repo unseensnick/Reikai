@@ -25,8 +25,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -235,7 +235,7 @@ object SettingsMainScreen : Screen() {
             icon = Icons.Outlined.Security,
             screen = SettingsSecurityScreen,
         ),
-        // RK: E-Hentai as its own top-level category (gated by SettingsEhScreen.isEnabled), matching
+        // RK --> E-Hentai as its own top-level category (gated by SettingsEhScreen.isEnabled), matching
         //     Komikku's placement between Security and Advanced.
         Item(
             titleRes = MR.strings.pref_category_eh,

@@ -26,9 +26,9 @@ import eu.kanade.domain.manga.interactor.GetExcludedScanlators
 import eu.kanade.domain.manga.interactor.GetPagePreviews
 import eu.kanade.domain.manga.interactor.SetExcludedScanlators
 import eu.kanade.domain.manga.interactor.UpdateManga
+import eu.kanade.domain.manga.model.PagePreview
 import eu.kanade.domain.manga.model.chaptersFiltered
 import eu.kanade.domain.manga.model.downloadedFilter
-import eu.kanade.domain.manga.model.PagePreview
 import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.domain.track.interactor.RefreshTracks
@@ -44,10 +44,13 @@ import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.track.EnhancedTracker
+import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.PagePreviewSource
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
@@ -55,6 +58,12 @@ import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import eu.kanade.tachiyomi.util.removeCovers
 import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import eu.kanade.tachiyomi.util.system.toast
+import exh.metadata.metadata.EHentaiSearchMetadata
+import exh.metadata.metadata.RaisedSearchMetadata
+import exh.metadata.metadata.base.FlatMetadata
+import exh.source.ExhPreferences
+import exh.source.getMainSource
+import exh.source.isEhBasedManga
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,6 +72,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -74,8 +84,9 @@ import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.manga.MangaPreferences
+import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
 import reikai.domain.recommendation.RecommendationHideFilter
@@ -86,6 +97,7 @@ import reikai.domain.recommendation.RelatedMangasLoader
 import reikai.domain.recommendation.taste.GetTasteProfile
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteProfile
+import reikai.presentation.details.EntryEditInfoUi
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.TriState
@@ -105,12 +117,15 @@ import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.chapter.service.calculateChapterGap
 import tachiyomi.domain.chapter.service.getChapterSort
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetDuplicateLibraryManga
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.GetFlatMetadataById
 import tachiyomi.domain.manga.interactor.GetMangaWithChapters
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
+import tachiyomi.domain.manga.interactor.SetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.SetMangaChapterFlags
+import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.manga.model.applyFilter
@@ -118,17 +133,12 @@ import tachiyomi.domain.manga.model.asMangaCover
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
+import tachiyomi.domain.track.model.Track
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
-import exh.metadata.metadata.EHentaiSearchMetadata
-import exh.metadata.metadata.RaisedSearchMetadata
-import exh.metadata.metadata.base.FlatMetadata
-import exh.source.ExhPreferences
-import exh.source.getMainSource
-import exh.source.isEhBasedManga
 import kotlin.math.floor
 
 // RK: max related candidates shown in the details carousel; the full pool is kept in the cache for
@@ -167,6 +177,7 @@ class MangaScreenModel(
     // RK -->
     private val mergeManager: MangaMergeManager = Injekt.get(),
     private val mergedChapterProvider: MergedChapterProvider = Injekt.get(),
+    private val mangaPreferences: MangaPreferences = Injekt.get(),
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
     private val relatedMangasLoader: RelatedMangasLoader = Injekt.get(),
     private val recommendationPreferences: ReikaiRecommendationPreferences = Injekt.get(),
@@ -179,6 +190,10 @@ class MangaScreenModel(
     private val uiPreferences: UiPreferences = Injekt.get(),
     private val getFlatMetadataById: GetFlatMetadataById = Injekt.get(),
     private val getPagePreviews: GetPagePreviews = Injekt.get(),
+    // RK: manga custom-info overlay. getCustomMangaInfo drives the non-destructive display overlay;
+    // setCustomMangaInfo persists edits from the shared edit-info dialog.
+    private val getCustomMangaInfo: GetCustomMangaInfo = Injekt.get(),
+    private val setCustomMangaInfo: SetCustomMangaInfo = Injekt.get(),
     // RK <--
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : StateScreenModel<MangaScreenModel.State>(State.Loading) {
@@ -219,6 +234,11 @@ class MangaScreenModel(
 
     // The grouped source the user is viewing via the chips, or null for the unified merged list.
     private val selectedSourceMangaId = MutableStateFlow<Long?>(null)
+
+    // Hide/unhide chapters (twin of the novel mechanism). The pref is the persisted/backed-up set of
+    // hidden chapter keys; showHiddenFlow is the transient "temporarily reveal hidden chapters" toggle.
+    private val hiddenChaptersPref = mangaPreferences.hiddenChapters()
+    private val showHiddenFlow = MutableStateFlow(false)
     // RK <--
 
     /**
@@ -242,7 +262,9 @@ class MangaScreenModel(
      * manga opened straight from browsing still tints on first open (mirrors Komikku setPaletteColor).
      */
     fun updateSeedColor() {
-        if (!themeCoverBased) return
+        // Computed regardless of the themeCoverBased pref: the page only applies it when the pref is on
+        // (MangaScreen), but the shared edit-info dialog always tints from the cover, so the seed must be
+        // available either way.
         val cover = manga?.asMangaCover() ?: return
         cover.vibrantCoverColor?.let { color ->
             updateSuccessState { it.copy(seedColor = Color(color)) }
@@ -268,14 +290,19 @@ class MangaScreenModel(
             // RK --> when the manga is part of a merge group, the chapter list is the aggregated
             // union of every grouped source; otherwise it stays the single-source list.
             combine(
-                getMangaAndChapters.subscribe(mangaId, applyScanlatorFilter = true).distinctUntilChanged(),
-                relatedMangaIds,
-                selectedSourceMangaId,
-                downloadCache.changes,
-                downloadManager.queueState,
-            ) { mangaAndChapters, relatedIds, selectedSource, _, _ ->
-                ChapterInputs(mangaAndChapters.first, mangaAndChapters.second, relatedIds, selectedSource)
-            }
+                combine(
+                    getMangaAndChapters.subscribe(mangaId, applyScanlatorFilter = true).distinctUntilChanged(),
+                    relatedMangaIds,
+                    selectedSourceMangaId,
+                    downloadCache.changes,
+                    downloadManager.queueState,
+                ) { mangaAndChapters, relatedIds, selectedSource, _, _ ->
+                    ChapterInputs(mangaAndChapters.first, mangaAndChapters.second, relatedIds, selectedSource)
+                },
+                // Re-emit so a hide/unhide or the show-hidden toggle rebuilds the chapter list.
+                hiddenChaptersPref.changes(),
+                showHiddenFlow,
+            ) { inputs, _, _ -> inputs }
                 .flatMapLatest { (manga, ownChapters, relatedIds, selectedSource) ->
                     when {
                         selectedSource != null && relatedIds.size > 1 ->
@@ -288,10 +315,15 @@ class MangaScreenModel(
                 }
                 .flowWithLifecycle(lifecycle)
                 .collectLatest { mc ->
+                    val items = mc.chapters.toChapterListItems(mc.manga, mc.mangaBySource)
+                    val hidden = applyHiddenChapters(items, mc.manga, mc.mangaBySource)
                     updateSuccessState {
                         it.copy(
                             manga = mc.manga,
-                            chapters = mc.chapters.toChapterListItems(mc.manga, mc.mangaBySource),
+                            chapters = hidden.chapters,
+                            showHidden = hidden.showHidden,
+                            hasHiddenChapters = hidden.hasHiddenChapters,
+                            hiddenChapterIds = hidden.hiddenChapterIds,
                             mergedMangaById = mc.mangaBySource,
                             mergeDisplayManga = mc.displayManga,
                             mergeDisplaySource = mc.displaySource,
@@ -320,6 +352,17 @@ class MangaScreenModel(
                     updateSuccessState {
                         it.copy(availableScanlators = availableScanlators)
                     }
+                }
+        }
+
+        // RK: mirror the manga's custom-info overlay into state; a save re-emits and the display layer
+        // re-applies it via Manga.withCustomInfo (the raw `manga` field stays source-accurate).
+        screenModelScope.launchIO {
+            getCustomMangaInfo.subscribe(mangaId)
+                .flowWithLifecycle(lifecycle)
+                .distinctUntilChanged()
+                .collectLatest { customInfo ->
+                    updateSuccessState { it.copy(customInfo = customInfo) }
                 }
         }
 
@@ -372,15 +415,17 @@ class MangaScreenModel(
             }
             val mergeChips = buildMergeSources(related.ids)
             // RK <--
-            val chapters = getMangaAndChapters.awaitChapters(mangaId, applyScanlatorFilter = true)
+            val chapterItems = getMangaAndChapters.awaitChapters(mangaId, applyScanlatorFilter = true)
                 .toChapterListItems(manga)
+            // RK: seed the hidden-chapters filter on first render so hidden chapters never flash in.
+            val hidden = applyHiddenChapters(chapterItems, manga, emptyMap())
 
             if (!manga.favorite) {
                 setMangaDefaultChapterFlags.await(manga)
             }
 
             val needRefreshInfo = !manga.initialized
-            val needRefreshChapter = chapters.isEmpty()
+            val needRefreshChapter = chapterItems.isEmpty()
 
             // Show what we have earlier
             // RK: seed the primary source's gallery metadata too; same first-render race as the chips.
@@ -396,7 +441,11 @@ class MangaScreenModel(
                     manga = manga,
                     source = source,
                     isFromSource = isFromSource,
-                    chapters = chapters,
+                    chapters = hidden.chapters,
+                    // RK: hide/unhide chapters seed
+                    showHidden = hidden.showHidden,
+                    hasHiddenChapters = hidden.hasHiddenChapters,
+                    hiddenChapterIds = hidden.hiddenChapterIds,
                     availableScanlators = getAvailableScanlators.await(mangaId),
                     excludedScanlators = getExcludedScanlators.await(mangaId),
                     isRefreshingData = needRefreshInfo || needRefreshChapter,
@@ -413,6 +462,9 @@ class MangaScreenModel(
                         PagePreviewState.Unused
                     },
                     previewsRowCount = uiPreferences.previewsRowCount.get(),
+                    // RK: seed the custom-info overlay so it shows on first render (before the reactive
+                    // collector fires), same pattern as the scanlator seeds above.
+                    customInfo = getCustomMangaInfo.subscribe(mangaId).first(),
                 )
             }
 
@@ -950,6 +1002,71 @@ class MangaScreenModel(
             MergedChapters(displayManga, aggregated, mangaBySource)
         }
     }
+
+    // Hide/unhide chapters (manga twin of the novel details mechanism). The hidden set is a pref of
+    // restore-stable "<source>|<chapterUrl>" keys; it filters Success.chapters at assembly, so hidden
+    // chapters also drop from the resume FAB and download-all (which read that list). The in-app manga
+    // reader excludes them too (ReaderViewModel.chapterList), so next/prev navigation skips hidden.
+
+    /** Restore-stable hidden-chapter key: the chapter's own source (per-source for a merged group). */
+    private fun hiddenKey(chapter: Chapter, manga: Manga, mangaBySource: Map<Long, Manga>): String =
+        "${(mangaBySource[chapter.mangaId] ?: manga).source}|${chapter.url}"
+
+    private data class HiddenChapters(
+        val chapters: List<ChapterList.Item>,
+        val showHidden: Boolean,
+        val hasHiddenChapters: Boolean,
+        val hiddenChapterIds: Set<Long>,
+    )
+
+    /** Drop hidden chapters from [items] unless the user is temporarily showing them, and compute the
+     *  hide-related state. "Showing hidden" only holds while hidden chapters still exist, so unhiding
+     *  the last one collapses the mode instead of leaving a stale toggle. */
+    private fun applyHiddenChapters(
+        items: List<ChapterList.Item>,
+        manga: Manga,
+        mangaBySource: Map<Long, Manga>,
+    ): HiddenChapters {
+        val hidden = hiddenChaptersPref.get()
+        val hasHidden = hidden.isNotEmpty() && items.any { hiddenKey(it.chapter, manga, mangaBySource) in hidden }
+        val showHidden = showHiddenFlow.value && hasHidden
+        val chapters = if (showHidden || !hasHidden) {
+            items
+        } else {
+            items.filterNot { hiddenKey(it.chapter, manga, mangaBySource) in hidden }
+        }
+        val hiddenChapterIds = if (showHidden) {
+            chapters.filter { hiddenKey(it.chapter, manga, mangaBySource) in hidden }.mapTo(HashSet()) { it.id }
+        } else {
+            emptySet()
+        }
+        return HiddenChapters(chapters, showHidden, hasHidden, hiddenChapterIds)
+    }
+
+    /** Hide the selected chapters, then clear the selection. */
+    fun hideSelected() {
+        val state = successState ?: return
+        val keys = state.chapters.filter { it.selected }
+            .map { hiddenKey(it.chapter, state.manga, state.mergedMangaById) }
+        if (keys.isEmpty()) return
+        hiddenChaptersPref.set(hiddenChaptersPref.get() + keys)
+        toggleAllSelection(false)
+    }
+
+    /** Unhide the selected chapters (reachable while showing hidden), then clear the selection. */
+    fun unhideSelected() {
+        val state = successState ?: return
+        val keys = state.chapters.filter { it.selected }
+            .mapTo(HashSet()) { hiddenKey(it.chapter, state.manga, state.mergedMangaById) }
+        if (keys.isEmpty()) return
+        hiddenChaptersPref.set(hiddenChaptersPref.get().filterNotTo(HashSet()) { it in keys })
+        toggleAllSelection(false)
+    }
+
+    /** Toggle temporarily showing hidden chapters (dimmed) in the list. */
+    fun toggleShowHidden() {
+        showHiddenFlow.value = !showHiddenFlow.value
+    }
     // RK <--
 
     /**
@@ -1000,12 +1117,18 @@ class MangaScreenModel(
      */
     fun getNextUnreadChapter(): Chapter? {
         val successState = successState ?: return null
-        return successState.chapters.getNextUnread(successState.manga)
+        // RK: never resume into a hidden chapter, even while temporarily showing hidden ones.
+        return successState.chapters
+            .filterNot { it.id in successState.hiddenChapterIds }
+            .getNextUnread(successState.manga)
     }
 
     private fun getUnreadChapters(): List<Chapter> {
+        // RK: hidden chapters are never bulk-downloaded (they are in the list only while showing hidden).
+        val hidden = successState?.hiddenChapterIds.orEmpty()
         val chapterItems = if (skipFiltered) filteredChapters.orEmpty() else allChapters.orEmpty()
         return chapterItems
+            .filterNot { it.id in hidden }
             .filter { (chapter, dlStatus) -> !chapter.read && dlStatus == Download.State.NOT_DOWNLOADED }
             .map { it.chapter }
     }
@@ -1017,8 +1140,10 @@ class MangaScreenModel(
     }
 
     private fun getBookmarkedChapters(): List<Chapter> {
+        val hidden = successState?.hiddenChapterIds.orEmpty()
         val chapterItems = if (skipFiltered) filteredChapters.orEmpty() else allChapters.orEmpty()
         return chapterItems
+            .filterNot { it.id in hidden }
             .filter { (chapter, dlStatus) -> chapter.bookmark && dlStatus == Download.State.NOT_DOWNLOADED }
             .map { it.chapter }
     }
@@ -1478,6 +1603,10 @@ class MangaScreenModel(
 
         // RK: confirm removing a favorited E-Hentai gallery, with an opt-in "also remove from account".
         data class EhRemoveFavorite(val manga: Manga) : Dialog
+
+        // RK: shared edit-info editor; carries the raw source manga (each field is saved only when it
+        // differs from these).
+        data class EditMangaInfo(val manga: Manga) : Dialog
     }
 
     // RK: a grouped source row shown in the Manage sources dialog.
@@ -1495,6 +1624,36 @@ class MangaScreenModel(
     }
 
     // RK -->
+
+    fun showEditMangaInfoDialog() {
+        val manga = successState?.manga ?: return
+        updateSuccessState { it.copy(dialog = Dialog.EditMangaInfo(manga)) }
+    }
+
+    /** Persist edits as a non-destructive per-field override against the raw source [manga]. */
+    fun saveMangaInfo(manga: Manga, edited: EntryEditInfoUi) {
+        screenModelScope.launchNonCancellable {
+            setCustomMangaInfo.set(edited.toCustomMangaInfo(manga))
+        }
+        dismissDialog()
+    }
+
+    /** Clear every override, so all fields track the source again. */
+    fun resetMangaInfo(manga: Manga) {
+        screenModelScope.launchNonCancellable {
+            setCustomMangaInfo.set(CustomMangaInfo(mangaId = manga.id))
+        }
+        dismissDialog()
+    }
+
+    /** Bound trackers eligible for "Fill from tracker" (self-hosted enhanced trackers can't autofill). */
+    suspend fun autofillCandidates(): List<Pair<Track, Tracker>> =
+        getTracks.await(mangaId)
+            .mapNotNull { track -> trackerManager.get(track.trackerId)?.let { track to it } }
+            .filterNot { (_, tracker) -> tracker is EnhancedTracker }
+
+    suspend fun fetchTrackerMetadata(track: Track, tracker: Tracker): TrackMangaMetadata =
+        tracker.getMangaMetadata(track)
 
     /** Switch the chapter list to a single grouped source, or null for the unified merged view. */
     fun selectSource(sourceMangaId: Long?) {
@@ -1576,10 +1735,22 @@ class MangaScreenModel(
     // RK --> related-mangas carousel (recommendations)
     private var relatedLoadStarted = false
 
+    /**
+     * Suspend until the initial details/chapter fetch settles. Returns at once when nothing is
+     * refreshing (a library entry that needed no fetch). `fetchAllFromSource` swallows its own
+     * failures, so the flag always clears and this cannot stall the carousel.
+     */
+    private suspend fun awaitOwnDataLoaded() {
+        state.first { it !is State.Success || !it.isRefreshingData }
+    }
+
     /** Load the related carousel once per screen open. Serves a fresh cache hit instantly; otherwise
      *  streams source-native related, marking which candidates are already in the library. */
     fun loadRelatedMangas() {
         if (relatedLoadStarted) return
+        // Gate before any work: the carousel self-hides on an empty pool, so an early return both
+        // hides the row and spares the source every request the load would have made.
+        if (!recommendationPreferences.enableRelatedMangas.get()) return
         val state = successState ?: return
         val source = state.source as? CatalogueSource ?: return
         relatedLoadStarted = true
@@ -1599,6 +1770,11 @@ class MangaScreenModel(
             } else {
                 updateSuccessState { it.copy(relatedLoading = true) }
             }
+            // The entry's own details and chapters come first: both hit the same host, and a source
+            // that paces its requests would otherwise spend them on suggestions while the reader is
+            // still waiting for the chapter list. Flagging the load above first means the skeleton
+            // holds the row's space meanwhile, so nothing shifts when the results land.
+            awaitOwnDataLoaded()
             val mangaId = state.manga.id
             val pool = relatedMangasLoader.load(
                 manga = state.manga.toSManga(),
@@ -1704,6 +1880,15 @@ class MangaScreenModel(
             val dialog: Dialog? = null,
             val hasPromptedToAddBefore: Boolean = false,
             val hideMissingChapters: Boolean = false,
+            // RK: hide/unhide chapters. showHidden is the transient reveal toggle; hiddenChapterIds are
+            // the currently-shown hidden rows (for dimming), only populated while showing hidden.
+            val showHidden: Boolean = false,
+            val hasHiddenChapters: Boolean = false,
+            val hiddenChapterIds: Set<Long> = emptySet(),
+            // RK: the manga's custom-info overlay (null = none), applied at the display layer via
+            // Manga.withCustomInfo. Never folded into the raw `manga` field above, which stays
+            // source-accurate for tracker search, refresh, duplicate detection, downloads, etc.
+            val customInfo: CustomMangaInfo? = null,
             // RK: cover-derived theming color (Y11), null when off or not yet extracted.
             val seedColor: Color? = null,
             // RK: page-preview thumbnails (adult sources) + how many rows to show (0 = off).
@@ -1808,3 +1993,18 @@ sealed interface PagePreviewState {
     data class Success(val pagePreviews: List<PagePreview>) : PagePreviewState
     data class Error(val error: Throwable) : PagePreviewState
 }
+
+/**
+ * RK: per-field override, store a value only when it differs from the current source value; a blank field
+ * (or "Unknown" status) stores nothing, so that field tracks the source again.
+ */
+private fun EntryEditInfoUi.toCustomMangaInfo(source: Manga) = CustomMangaInfo(
+    mangaId = source.id,
+    title = title.trim().takeIf { it.isNotEmpty() && it != source.title },
+    author = author.trim().takeIf { it.isNotEmpty() && it != source.author.orEmpty() },
+    artist = artist.trim().takeIf { it.isNotEmpty() && it != source.artist.orEmpty() },
+    description = description.takeIf { it.isNotBlank() && it != source.description.orEmpty() },
+    genre = genre.takeIf { it.isNotEmpty() && it != source.genre.orEmpty() },
+    status = status.takeIf { it != source.status && it != SManga.UNKNOWN.toLong() },
+    thumbnailUrl = thumbnailUrl.trim().takeIf { it.isNotEmpty() && it != source.thumbnailUrl.orEmpty() },
+)

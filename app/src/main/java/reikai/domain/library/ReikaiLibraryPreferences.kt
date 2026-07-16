@@ -138,6 +138,14 @@ class ReikaiLibraryPreferences(
     val novelLibraryFilterBookmarked: Preference<TriState> =
         preferenceStore.getEnum("novel_library_filter_bookmarked", TriState.DISABLED)
 
+    /**
+     * Per-tracker novel library filter (tri-state), keyed by tracker id. Held under a separate key from
+     * manga's `pref_filter_library_tracked_*` so a tracker filtered on one content type doesn't bleed
+     * into the other; net-new, so no `_v2` migration suffix.
+     */
+    fun novelFilterTracking(id: Int): Preference<TriState> =
+        preferenceStore.getEnum("novel_library_filter_tracked_$id", TriState.DISABLED)
+
     /** Master switch for the novel include/exclude category filter. */
     val novelLibraryFilterCategories: Preference<Boolean> =
         preferenceStore.getBoolean("novel_library_filter_categories", false)
@@ -158,7 +166,10 @@ class ReikaiLibraryPreferences(
     val mangaManualMerges: Preference<Set<String>> = preferenceStore.getStringSet(MANGA_MANUAL_MERGES_KEY, emptySet())
 
     /** Explicit unmerges: normalized "min,max" id pairs that must never be grouped. */
-    val mangaManualUnmerges: Preference<Set<String>> = preferenceStore.getStringSet(MANGA_MANUAL_UNMERGES_KEY, emptySet())
+    val mangaManualUnmerges: Preference<Set<String>> = preferenceStore.getStringSet(
+        MANGA_MANUAL_UNMERGES_KEY,
+        emptySet(),
+    )
 
     /** Auto-group favorited series that share a title across sources (guarded by the healing pass). */
     val autoMergeSameTitle: Preference<Boolean> = preferenceStore.getBoolean("auto_merge_same_title", true)
@@ -167,7 +178,10 @@ class ReikaiLibraryPreferences(
     val showMergeSourceIcons: Preference<Boolean> = preferenceStore.getBoolean("merge_source_icons", true)
 
     /** Source ids ranked highest-priority-first; the trunk source when stitching a merged chapter list. */
-    val preferredMangaSources: Preference<List<Long>> = preferenceStore.getLongArray("preferred_manga_sources", emptyList())
+    val preferredMangaSources: Preference<List<Long>> = preferenceStore.getLongArray(
+        "preferred_manga_sources",
+        emptyList(),
+    )
 
     /** Novel-source ids ranked highest-priority-first; the trunk source for a merged novel chapter list.
      *  Novel source ids are Strings (plugin slugs), so this is a newline-joined ordered list. */
@@ -187,7 +201,10 @@ class ReikaiLibraryPreferences(
     val novelManualMerges: Preference<Set<String>> = preferenceStore.getStringSet(NOVEL_MANUAL_MERGES_KEY, emptySet())
 
     /** Explicit novel unmerges: normalized "min,max" id pairs that must never be grouped. */
-    val novelManualUnmerges: Preference<Set<String>> = preferenceStore.getStringSet(NOVEL_MANUAL_UNMERGES_KEY, emptySet())
+    val novelManualUnmerges: Preference<Set<String>> = preferenceStore.getStringSet(
+        NOVEL_MANUAL_UNMERGES_KEY,
+        emptySet(),
+    )
 
     /** Auto-group favorited novels that share a title across sources (see [novelAutoMergeRequireAuthor]). */
     val novelAutoMergeSameTitle: Preference<Boolean> = preferenceStore.getBoolean("novel_auto_merge_same_title", true)

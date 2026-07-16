@@ -24,6 +24,7 @@ import eu.kanade.presentation.browse.components.BaseSourceItem
 import eu.kanade.tachiyomi.ui.browse.source.SourcesScreenModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreenModel.Listing
 import eu.kanade.tachiyomi.util.system.LocaleHelper
+import reikai.presentation.browse.EntrySourceOptionsDialog
 import tachiyomi.domain.source.model.Pin
 import tachiyomi.domain.source.model.Source
 import tachiyomi.i18n.MR
@@ -169,33 +170,16 @@ fun SourceOptionsDialog(
     onClickDisable: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
-        title = {
-            Text(text = source.visualName)
-        },
-        text = {
-            Column {
-                val textId = if (Pin.Pinned in source.pin) MR.strings.action_unpin else MR.strings.action_pin
-                Text(
-                    text = stringResource(textId),
-                    modifier = Modifier
-                        .clickable(onClick = onClickPin)
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                )
-                if (!source.isLocal()) {
-                    Text(
-                        text = stringResource(MR.strings.action_disable),
-                        modifier = Modifier
-                            .clickable(onClick = onClickDisable)
-                            .fillMaxWidth()
-                            .padding(vertical = 16.dp),
-                    )
-                }
-            }
-        },
-        onDismissRequest = onDismiss,
-        confirmButton = {},
+    // RK: delegate to the shared manga/novel source options dialog. The manga list only ever disables
+    // (a disabled source drops out of the list), so isDisabled is always false here.
+    EntrySourceOptionsDialog(
+        title = source.visualName,
+        isPinned = Pin.Pinned in source.pin,
+        showToggleDisable = !source.isLocal(),
+        isDisabled = false,
+        onClickPin = onClickPin,
+        onClickToggleDisable = onClickDisable,
+        onDismiss = onDismiss,
     )
 }
 

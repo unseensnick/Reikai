@@ -1,10 +1,10 @@
-# Cloudflare bypass proxy (FlareSolverr or Byparr)
+# Cloudflare bypass proxy (Solverr, Byparr or FlareSolverr)
 
 Optional Cloudflare bypass for sites that the in-app WebView can't reliably solve. WebView remains the primary solver: most challenges go through it without ever touching the proxy. The proxy is the escape hatch.
 
-The app speaks the FlareSolverr `/v1` protocol, so it works with either [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) or [Byparr](https://github.com/ThePhaseless/Byparr), a drop-in replacement on the same API and port.
+The app speaks the FlareSolverr `/v1` protocol, so it works with [Solverr](https://github.com/unseensnick/Solverr), [Byparr](https://github.com/ThePhaseless/Byparr) or [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr): all three serve the same API on the same port, so switching between them means changing only the URL.
 
-**Byparr is recommended.** FlareSolverr runs headless Chromium and can no longer solve Cloudflare's newer managed / Turnstile challenges: it returns the unsolved "Just a moment..." page while reporting success ("Challenge not detected!"), so affected sites silently show no results or a parse error. Byparr runs Camoufox (an anti-detect Firefox) and clears those challenges. Prefer FlareSolverr only if you already run it and your sources don't hit the newer challenge tier; it's lighter and, where it works, faster per solve.
+**Solverr is recommended.** The other two each give up something. FlareSolverr runs headless Chromium and can no longer solve Cloudflare's newer managed / Turnstile challenges: it returns the unsolved "Just a moment..." page while reporting success ("Challenge not detected!"), so affected sites silently show no results or a parse error. Byparr runs Camoufox (an anti-detect Firefox) and does clear those challenges, but it is sessionless, so every request pays a full solve. Solverr runs both engines and switches between them automatically, and it keeps FlareSolverr-style sessions, so it clears the newer challenges without losing the fast follow-up path. Prefer one of the others only if you already run it and it works for your sources.
 
 ## Why this exists
 
@@ -13,7 +13,7 @@ Cloudflare ships several tiers of bot protection. The lighter JS challenges (e.g
 - WebView often can't solve the challenge within a reasonable timeout.
 - Even if a clearance cookie is obtained out-of-band, replaying it through OkHttp fails because Cloudflare ties `cf_clearance` to TLS / HTTP-2 / `__cf_bm` session fingerprints that OkHttp can't reproduce.
 
-A bypass proxy runs a real browser on a server you control, solves the challenge there, and serves the response page directly. FlareSolverr uses headless Chromium; Byparr uses Camoufox (an anti-detect Firefox). The fork integrates either as a fallback so users on hard-to-bypass sources have a path forward. Newer Cloudflare challenge tiers (managed challenges, Turnstile) are where headless Chromium gives up but Camoufox still gets through, which is why Byparr is recommended.
+A bypass proxy runs a real browser on a server you control, solves the challenge there, and serves the response page directly. FlareSolverr uses headless Chromium; Byparr uses Camoufox (an anti-detect Firefox); Solverr carries both and picks per challenge. The fork integrates any of them as a fallback so users on hard-to-bypass sources have a path forward. Newer Cloudflare challenge tiers (managed challenges, Turnstile) are where headless Chromium gives up but Camoufox still gets through, which is why a Camoufox-capable proxy is recommended.
 
 ## How the integration behaves
 
@@ -23,7 +23,7 @@ A bypass proxy runs a real browser on a server you control, solves the challenge
 4. After the first FlareSolverr success on a host, subsequent requests within the same app session **skip the 30-second WebView pre-attempt** and go straight to FlareSolverr.
 5. A **single FlareSolverr browser session is shared across all calls**. The session-resident browser keeps `cf_clearance` and `__cf_bm` in memory, so most follow-up requests return in 1–3 seconds with no JS challenge re-solving.
 6. If the FlareSolverr server is restarted (or its session is GC'd) and our cached session ID becomes invalid, the app transparently creates a new session on the next request, with no user-visible error.
-7. **Byparr is sessionless.** It has no shared-session command, so the app detects this from the server banner and sends sessionless requests. Points 4-6 (session reuse, fast follow-ups) apply to FlareSolverr only; with Byparr every solve is independent, so each one pays the full solve time.
+7. **Byparr is sessionless.** It has no shared-session command, so the app detects this from the server banner and sends sessionless requests. Points 4-6 (session reuse, fast follow-ups) apply to Solverr and FlareSolverr, which both implement sessions; with Byparr every solve is independent, so each one pays the full solve time.
 
 We deliberately do **not** save the proxy's cookies to OkHttp and replay them, since that path is unreliable for the reasons above.
 
@@ -33,10 +33,20 @@ This applies to light-novel sources too: they fetch through the same network cli
 
 *Settings → Advanced → Network → **FlareSolverr URL**.*
 
-1. **Run a bypass proxy** somewhere reachable from your device on your LAN. Both listen on port `8191` and speak the same API, so pick one:
+1. **Run a bypass proxy** somewhere reachable from your device on your LAN. All three listen on port `8191` and speak the same API, so pick one:
 
    ```bash
-   # Byparr (recommended): solves the newer Cloudflare challenges FlareSolverr can't
+   # Solverr (recommended): both engines with auto-switching, and keeps sessions
+   docker run -d \
+     --name=solverr \
+     -p 8191:8191 \
+     --shm-size=512m \
+     --restart unless-stopped \
+     ghcr.io/unseensnick/solverr:latest
+   ```
+
+   ```bash
+   # Byparr: solves the newer Cloudflare challenges FlareSolverr can't, but is sessionless
    docker run -d \
      --name=byparr \
      -p 8191:8191 \
@@ -54,9 +64,9 @@ This applies to light-novel sources too: they fetch through the same network cli
      ghcr.io/flaresolverr/flaresolverr:latest
    ```
 
-   FlareSolverr also ships a Windows `.exe` in its [releases](https://github.com/FlareSolverr/FlareSolverr/releases). See the [Byparr](https://github.com/ThePhaseless/Byparr) and [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) docs for advanced configuration (proxies, captcha solvers, etc.).
+   FlareSolverr also ships a Windows `.exe` in its [releases](https://github.com/FlareSolverr/FlareSolverr/releases). See the [Solverr](https://github.com/unseensnick/Solverr), [Byparr](https://github.com/ThePhaseless/Byparr) and [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) docs for advanced configuration (proxies, captcha solvers, etc.).
 
-2. **Verify it's reachable.** From a browser on the same network as your Android device, open `http://<host>:8191`. FlareSolverr shows a welcome JSON; Byparr serves its API docs at `/docs`. Either response means it's reachable.
+2. **Verify it's reachable.** From a browser on the same network as your Android device, open `http://<host>:8191`. Solverr and FlareSolverr show a welcome JSON (Solverr also answers `/health`); Byparr serves its API docs at `/docs`. Any of those means it's reachable.
 
 3. **Configure in the app.** Settings → Advanced → Network. Turn on **Enable FlareSolverr**, then enter `http://<flaresolverr-host>:8191` in **FlareSolverr URL** (the URL and test fields stay disabled until the toggle is on).
 
@@ -88,7 +98,7 @@ This avoids opening port `8191` on your router; connections only succeed when th
 | FlareSolverr server restart | Next request transparently re-creates a session: ~12 s solve, then back to ~1–3 s for follow-ups. No user-visible error. |
 | Cold app restart | The "this host needed the proxy last time" memory is in-RAM only, so the very first request after a cold start pays the WebView pre-attempt again (~42 s). Subsequent requests in the new session are fast. |
 
-The session-based fast rows are FlareSolverr-only. **Byparr is sessionless**, so every solve runs the full Camoufox challenge (~15-20 s), including tab switches and pagination, with no 1-3 s follow-up path. That's the tradeoff for solving challenges headless Chromium can't.
+The session-based fast rows apply to Solverr and FlareSolverr. **Byparr is sessionless**, so every solve runs the full Camoufox challenge (~15-20 s), including tab switches and pagination, with no 1-3 s follow-up path: that's the tradeoff for solving challenges headless Chromium can't. Solverr avoids the tradeoff by keeping sessions while still carrying Camoufox, so it only pays the slow Camoufox solve when a challenge actually needs it.
 
 ## Troubleshooting
 
@@ -96,6 +106,6 @@ The session-based fast rows are FlareSolverr-only. **Byparr is sessionless**, so
 
 **App shows `FlareSolverr error: Captcha detected.`** FlareSolverr ran into a CAPTCHA it can't solve. This is rare on manga sources but can happen if Cloudflare escalates challenge tiers. There's no automated workaround; you can try opening the source in WebView via the source's "Open in WebView" action and solving the CAPTCHA manually there, then come back to the app.
 
-**Every request triggers a new FlareSolverr solve, follow-ups never get fast.** The session feature isn't being reused: most likely the app is being killed between requests, or the FlareSolverr server is destroying sessions on each request (some custom configurations do this). Confirm your FlareSolverr is the standard build (`ghcr.io/flaresolverr/flaresolverr:latest` or the official Windows release), not a fork that auto-destroys sessions. (Byparr is sessionless by design, so this is expected with it.)
+**Every request triggers a new FlareSolverr solve, follow-ups never get fast.** The session feature isn't being reused: most likely the app is being killed between requests, or the FlareSolverr server is destroying sessions on each request (some custom configurations do this). Confirm you're on a build that keeps sessions (Solverr, or FlareSolverr's own `ghcr.io/flaresolverr/flaresolverr:latest` / Windows release), not one that auto-destroys them. (Byparr is sessionless by design, so this is expected with it.)
 
-**A source shows no results or a parse error, but the FlareSolverr log says `Challenge not detected!` with a 200.** FlareSolverr loaded the page but couldn't recognize (so couldn't solve) a newer Cloudflare managed / Turnstile challenge, and returned the unsolved "Just a moment..." page as if it succeeded. The app then receives that challenge HTML instead of the real content. There's no FlareSolverr-side fix; switch to **Byparr**, which solves these challenge tiers.
+**A source shows no results or a parse error, but the FlareSolverr log says `Challenge not detected!` with a 200.** FlareSolverr loaded the page but couldn't recognize (so couldn't solve) a newer Cloudflare managed / Turnstile challenge, and returned the unsolved "Just a moment..." page as if it succeeded. The app then receives that challenge HTML instead of the real content. There's no FlareSolverr-side fix; switch to **Solverr** or **Byparr**, which solve these challenge tiers.

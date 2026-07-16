@@ -75,10 +75,8 @@ import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.util.system.openInBrowser
-// RK -->
 import exh.md.MangaDexTrackCover
 import exh.md.utils.MdConstants
-// RK <--
 import kotlinx.coroutines.launch
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn

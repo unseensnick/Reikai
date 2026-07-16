@@ -1,10 +1,10 @@
 package reikai.domain.recommendation
 
+import reikai.domain.recommendation.taste.TasteProfile
+import reikai.domain.recommendation.taste.toTagKey
 import kotlin.math.ceil
 import kotlin.math.ln
 import kotlin.math.min
-import reikai.domain.recommendation.taste.TasteProfile
-import reikai.domain.recommendation.taste.toTagKey
 
 /**
  * Reorders the merged carousel pool against the user's taste profile. The input is the already

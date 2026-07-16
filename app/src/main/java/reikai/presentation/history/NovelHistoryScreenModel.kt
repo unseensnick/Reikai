@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
@@ -20,12 +21,14 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.GetNovelHistory
 import reikai.domain.novel.interactor.RemoveNovelHistory
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelHistoryWithRelations
+import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.core.common.util.lang.launchIO
@@ -42,6 +45,8 @@ import uy.kohesive.injekt.api.get
  */
 class NovelHistoryScreenModel(
     private val getNovelHistory: GetNovelHistory = Injekt.get(),
+    // Per-entry custom title/cover overrides, overlaid on the displayed rows (display-only).
+    private val getCustomNovelInfo: GetCustomNovelInfo = Injekt.get(),
     private val removeNovelHistory: RemoveNovelHistory = Injekt.get(),
     private val getNextNovelChapter: GetNextNovelChapter = Injekt.get(),
     private val novelRepository: NovelRepository = Injekt.get(),
@@ -64,7 +69,21 @@ class NovelHistoryScreenModel(
             state.map { it.searchQuery }
                 .distinctUntilChanged()
                 .flatMapLatest { query ->
-                    getNovelHistory.subscribe(query ?: "")
+                    // Overlay the display-only custom title/cover onto each row, keyed by the real
+                    // novel id. The SQL search (getNovelHistory.subscribe) still runs on the raw title.
+                    combine(
+                        getNovelHistory.subscribe(query ?: ""),
+                        getCustomNovelInfo.subscribeAll(),
+                    ) { history, customInfo ->
+                        val overlay = customInfo.associateBy { it.novelId }
+                        history.map { row ->
+                            val custom = overlay[row.novelId] ?: return@map row
+                            row.copy(
+                                title = custom.title ?: row.title,
+                                coverData = row.coverData.copy(url = custom.thumbnailUrl ?: row.coverData.url),
+                            )
+                        }
+                    }
                         .distinctUntilChanged()
                         .catch { error ->
                             logcat(LogPriority.ERROR, error)
@@ -92,14 +111,29 @@ class NovelHistoryScreenModel(
         }
     }
 
-    /** Add a not-yet-library novel from its history row: favorite the existing row, then apply the
-     *  default category or prompt (reuses NovelLibraryAdder's add-to-library category logic). */
+    /** Add a not-yet-library novel from its history row. Warn on a similarly-named library novel first
+     *  (mirrors HistoryScreenModel), then favorite the existing row and apply the default category or
+     *  prompt (reuses NovelLibraryAdder's add-to-library category logic). */
     fun addFavorite(novelId: Long) {
         screenModelScope.launchIO {
-            updateNovel.awaitUpdateFavorite(novelId, favorite = true)
-            novelLibraryAdder.applyDefaultCategoryOrPrompt(novelId)?.let { prompt ->
-                setDialog(Dialog.ChangeCategory(novelId, prompt.categories, prompt.currentIds))
+            val novel = novelRepository.getById(novelId) ?: return@launchIO
+            novelLibraryAdder.findDuplicates(novel.id, novel.title)?.let { dup ->
+                setDialog(Dialog.DuplicateNovel(novelId, dup.duplicates, dup.sourceNames, dup.sourceSites))
+                return@launchIO
             }
+            addToLibrary(novelId)
+        }
+    }
+
+    /** Proceed with the add after the possible-duplicate dialog's "Add anyway". */
+    fun addFavoriteAnyway(novelId: Long) {
+        screenModelScope.launchIO { addToLibrary(novelId) }
+    }
+
+    private suspend fun addToLibrary(novelId: Long) {
+        updateNovel.awaitUpdateFavorite(novelId, favorite = true)
+        novelLibraryAdder.applyDefaultCategoryOrPrompt(novelId)?.let { prompt ->
+            setDialog(Dialog.ChangeCategory(novelId, prompt.categories, prompt.currentIds))
         }
     }
 
@@ -140,6 +174,12 @@ class NovelHistoryScreenModel(
     sealed interface Dialog {
         data object DeleteAll : Dialog
         data class Delete(val history: NovelHistoryWithRelations) : Dialog
+        data class DuplicateNovel(
+            val novelId: Long,
+            val duplicates: List<NovelWithChapterCount>,
+            val sourceNames: Map<String, String>,
+            val sourceSites: Map<String, String?>,
+        ) : Dialog
         data class ChangeCategory(
             val novelId: Long,
             val categories: List<NovelCategory>,

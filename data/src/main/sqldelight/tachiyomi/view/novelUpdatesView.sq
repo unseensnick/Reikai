@@ -18,7 +18,6 @@ SELECT
     novels.thumbnail_url AS thumbnailUrl,
     novels.cover_last_modified AS coverLastModified,
     novel_chapters.date_fetch AS dateFetch,
-    novel_chapters.is_downloaded AS isDownloaded,
     novels.url AS novelUrl
 FROM novels JOIN novel_chapters
 ON novels._id = novel_chapters.novel_id

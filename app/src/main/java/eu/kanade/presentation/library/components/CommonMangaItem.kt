@@ -53,6 +53,7 @@ object CommonMangaItemDefaults {
 }
 
 private val ContinueReadingButtonSizeSmall = 28.dp
+
 // RK: internal so the net-new Reikai panorama cell (reikai.presentation.library) can reuse them
 internal val ContinueReadingButtonSizeLarge = 32.dp
 

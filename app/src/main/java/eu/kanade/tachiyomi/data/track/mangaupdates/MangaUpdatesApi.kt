@@ -126,6 +126,16 @@ class MangaUpdatesApi(
         }
     }
 
+    // RK --> full series record for "Fill from tracker" (unauthenticated; carries authors + genres).
+    suspend fun getSeries(track: DomainTrack): MURecord {
+        return with(json) {
+            client.newCall(GET("$BASE_URL/v1/series/${track.remoteId}"))
+                .awaitSuccess()
+                .parseAs<MURecord>()
+        }
+    }
+    // RK <--
+
     private suspend fun updateSeriesRating(track: Track) {
         if (track.score < 0.0) return
         if (track.score != 0.0) {

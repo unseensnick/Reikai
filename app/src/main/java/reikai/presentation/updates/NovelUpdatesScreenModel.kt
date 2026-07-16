@@ -1,18 +1,25 @@
 package reikai.presentation.updates
 
+import android.app.Application
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import eu.kanade.core.preference.asState
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ContentType
@@ -20,11 +27,16 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
+import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNovelCategories
+import reikai.domain.novel.interactor.SetNovelReadStatus
+import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownload
+import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
@@ -46,15 +58,26 @@ import java.time.ZonedDateTime
 class NovelUpdatesScreenModel(
     private val novelRepo: NovelRepository = Injekt.get(),
     private val chapterRepo: NovelChapterRepository = Injekt.get(),
+    private val setNovelReadStatus: SetNovelReadStatus = Injekt.get(),
+    private val novelPreferences: NovelPreferences = Injekt.get(),
     private val downloadManager: NovelDownloadManager = Injekt.get(),
+    private val novelDownloadCache: NovelDownloadCache = Injekt.get(),
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
     private val updatesPreferences: UpdatesPreferences = Injekt.get(),
     private val getNovelCategories: GetNovelCategories = Injekt.get(),
+    // Per-entry custom title/cover overrides, overlaid on the displayed rows (display-only).
+    private val getCustomNovelInfo: GetCustomNovelInfo = Injekt.get(),
     private val libraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
     private val mangaMergeManager: MangaMergeManager = Injekt.get(),
     private val novelMergeManager: NovelMergeManager = Injekt.get(),
     private val getFavorites: GetFavorites = Injekt.get(),
 ) : StateScreenModel<NovelUpdatesScreenModel.State>(State()) {
+
+    private val _events: Channel<Event> = Channel(Channel.UNLIMITED)
+    val events: Flow<Event> = _events.receiveAsFlow()
+
+    /** Timestamp of the last novel library update, for the shared Updates "Last updated" line. */
+    val lastUpdated by novelPreferences.novelLibraryUpdateLastTimestamp().asState(screenModelScope)
 
     /** Sticky All / Manga / Novels chip state for the Updates tab (drives which screen the tab shows). */
     val contentType: StateFlow<ContentType> = sourcePreferences.updatesContentType.changes()
@@ -112,20 +135,37 @@ class NovelUpdatesScreenModel(
                 novelRepo.getRecentNovelUpdatesAsFlow(after, LIMIT),
                 downloadManager.queueState,
                 filterFlow,
-                categoryFilterFlow(),
-            ) { updates, queue, filters, categoryFilter ->
+                // Category filter + custom-info overlay share the 4th combine slot (combine caps at 5).
+                combine(categoryFilterFlow(), getCustomNovelInfo.subscribeAll(), ::Pair),
+                // Re-emit when a download/delete changes the disk index so the row icon refreshes.
+                novelDownloadCache.changes,
+            ) { updates, queue, filters, (categoryFilter, customInfo), _ ->
                 val queueById = queue.associate { it.chapterId to it.state.toDownloadState() }
                 updates
                     .map { update ->
                         NovelUpdatesItem(
                             update = update,
                             downloadState = queueById[update.chapterId]
-                                ?: if (update.isDownloaded) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED,
+                                ?: if (
+                                    novelDownloadCache.isChapterDownloaded(
+                                        update.source,
+                                        update.novelTitle,
+                                        update.chapterName,
+                                        update.chapterUrl,
+                                    )
+                                ) {
+                                    Download.State.DOWNLOADED
+                                } else {
+                                    Download.State.NOT_DOWNLOADED
+                                },
                             selected = update.chapterId in selectedChapterIds,
                         )
                     }
                     .filter { it.matchesFilters(filters) }
                     .applyCategoryFilter(categoryFilter)
+                    // Display-only custom-info overlay, applied last and keyed by the real novel id.
+                    // Filters and download detection ran on the raw values above.
+                    .overlayCustomInfo(customInfo)
             }.collectLatest { items ->
                 mutableState.update { it.copy(isLoading = false, items = items) }
             }
@@ -179,6 +219,21 @@ class NovelUpdatesScreenModel(
         }
     }
 
+    // Overlay the user's custom title/cover onto each row for display, keyed by real novel id.
+    private fun List<NovelUpdatesItem>.overlayCustomInfo(customInfo: List<CustomNovelInfo>): List<NovelUpdatesItem> {
+        if (customInfo.isEmpty()) return this
+        val overlay = customInfo.associateBy { it.novelId }
+        return map { item ->
+            val custom = overlay[item.update.novelId] ?: return@map item
+            item.copy(
+                update = item.update.copy(
+                    novelTitle = custom.title ?: item.update.novelTitle,
+                    coverData = item.update.coverData.copy(url = custom.thumbnailUrl ?: item.update.coverData.url),
+                ),
+            )
+        }
+    }
+
     fun toggleSelection(chapterId: Long, selected: Boolean) {
         if (selected) selectedChapterIds.add(chapterId) else selectedChapterIds.remove(chapterId)
         refreshSelection()
@@ -203,9 +258,21 @@ class NovelUpdatesScreenModel(
         }
     }
 
+    /** Kick off a novel library update; reports back started vs already-running for the snackbar. */
+    fun updateLibrary(): Boolean {
+        val started = NovelUpdateJob.startNow(Injekt.get<Application>())
+        screenModelScope.launch {
+            _events.send(Event.LibraryUpdateTriggered(started))
+        }
+        return started
+    }
+
     fun markRead(items: List<NovelUpdatesItem>, read: Boolean) {
         screenModelScope.launchIO {
-            chapterRepo.setReadBulk(items.map { it.update.chapterId }, read)
+            // Route through the shared read interactor so mark-read here also deletes downloads when
+            // "delete after read" is on, matching manga (and the novel details/reader/library paths).
+            val chapters = items.mapNotNull { chapterRepo.getById(it.update.chapterId) }
+            setNovelReadStatus.await(read, chapters)
             selectAll(false)
         }
     }
@@ -262,6 +329,10 @@ class NovelUpdatesScreenModel(
     ) {
         val selected = items.filter { it.selected }
         val selectionMode = selected.isNotEmpty()
+    }
+
+    sealed interface Event {
+        data class LibraryUpdateTriggered(val started: Boolean) : Event
     }
 
     companion object {

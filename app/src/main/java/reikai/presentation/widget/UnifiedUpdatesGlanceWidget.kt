@@ -27,11 +27,11 @@ import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
+import androidx.glance.layout.ContentScale
 import androidx.glance.layout.Row
 import androidx.glance.layout.RowScope
 import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
-import androidx.glance.layout.ContentScale
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
@@ -54,12 +54,15 @@ import coil3.transform.RoundedCornersTransformation
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.util.system.dpToPx
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.interactor.GetCustomNovelInfo
+import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.NovelUpdateWithRelations
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
+import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
+import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.updates.interactor.GetUpdates
 import tachiyomi.domain.updates.model.UpdatesWithRelations
@@ -89,6 +92,9 @@ class UnifiedUpdatesGlanceWidget(
     private val getUpdates: GetUpdates = Injekt.get(),
     private val novelRepository: NovelRepository = Injekt.get(),
     private val preferences: SecurityPreferences = Injekt.get(),
+    // Per-entry custom cover overrides, overlaid on the widget's cover cells (display-only).
+    private val getCustomMangaInfo: GetCustomMangaInfo = Injekt.get(),
+    private val getCustomNovelInfo: GetCustomNovelInfo = Injekt.get(),
 ) : GlanceAppWidget() {
 
     override val sizeMode = SizeMode.Exact
@@ -129,8 +135,11 @@ class UnifiedUpdatesGlanceWidget(
                 combine(
                     getUpdates.subscribe(read = false, after = after),
                     novelRepository.getRecentNovelUpdatesAsFlow(after, ROW_LIMIT),
-                ) { manga, novel -> manga to novel }
-                    .map { (manga, novel) -> prepareSections(manga, novel, rowCount, columnCount) }
+                    getCustomMangaInfo.subscribeAll(),
+                    getCustomNovelInfo.subscribeAll(),
+                ) { manga, novel, customManga, customNovel ->
+                    prepareSections(manga, novel, customManga, customNovel, rowCount, columnCount)
+                }
             }
             val data by flow.collectAsState(initial = null)
             UnifiedUpdatesContent(
@@ -154,9 +163,14 @@ class UnifiedUpdatesGlanceWidget(
     private suspend fun prepareSections(
         manga: List<UpdatesWithRelations>,
         novel: List<NovelUpdateWithRelations>,
+        customManga: List<CustomMangaInfo>,
+        customNovel: List<CustomNovelInfo>,
         rowCount: Int,
         columnCount: Int,
     ): SectionData {
+        // Display-only custom-cover overlay (cover url only; the widget shows no titles), keyed by real id.
+        val novelCoverOverlay = customNovel.associateBy { it.novelId }
+        val mangaCoverOverlay = customManga.associateBy { it.mangaId }
         // The manga query already returns unread only (getUpdates read=false); filter the novel side to
         // match. Dedupe per series, then give each section half the rows.
         val novelRows = novel.filter { !it.read }.distinctBy { it.novelId }
@@ -172,8 +186,11 @@ class UnifiedUpdatesGlanceWidget(
             val novelCovers = novelRows
                 .take(cap)
                 .map { row ->
+                    val cover = row.coverData.copy(
+                        url = novelCoverOverlay[row.novelId]?.thumbnailUrl ?: row.coverData.url,
+                    )
                     WidgetCover(
-                        bitmap = loadCover(row.coverData, widthPx, heightPx, roundPx),
+                        bitmap = loadCover(cover, widthPx, heightPx, roundPx),
                         intent = novelIntent(row),
                     )
                 }
@@ -184,7 +201,7 @@ class UnifiedUpdatesGlanceWidget(
                         mangaId = row.mangaId,
                         sourceId = row.sourceId,
                         isMangaFavorite = true,
-                        url = row.coverData.url,
+                        url = mangaCoverOverlay[row.mangaId]?.thumbnailUrl ?: row.coverData.url,
                         lastModified = row.coverData.lastModified,
                     )
                     WidgetCover(

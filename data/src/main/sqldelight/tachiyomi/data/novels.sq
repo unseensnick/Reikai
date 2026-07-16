@@ -33,7 +33,6 @@ CREATE TABLE novels(
     cover_last_modified INTEGER NOT NULL DEFAULT 0,
     total_pages INTEGER NOT NULL DEFAULT 1,
     last_read_at INTEGER,
-    edited_flags INTEGER NOT NULL DEFAULT 0,
     notes TEXT NOT NULL DEFAULT '',
     viewer_flags INTEGER NOT NULL DEFAULT 0,
     version INTEGER NOT NULL DEFAULT 0,
@@ -106,8 +105,8 @@ LEFT JOIN chapter_counts CC
 ON N._id = CC.novel_id;
 
 insert:
-INSERT INTO novels (source, url, title, author, artist, description, genre, status, thumbnail_url, favorite, last_update, initialized, chapter_flags, date_added, update_strategy, cover_last_modified, total_pages, last_read_at, edited_flags, notes, viewer_flags, version)
-VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :favorite, :lastUpdate, :initialized, :chapterFlags, :dateAdded, :updateStrategy, :coverLastModified, :totalPages, :lastReadAt, :editedFlags, :notes, :viewerFlags, :version);
+INSERT INTO novels (source, url, title, author, artist, description, genre, status, thumbnail_url, favorite, last_update, initialized, chapter_flags, date_added, update_strategy, cover_last_modified, total_pages, last_read_at, notes, viewer_flags, version)
+VALUES (:source, :url, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl, :favorite, :lastUpdate, :initialized, :chapterFlags, :dateAdded, :updateStrategy, :coverLastModified, :totalPages, :lastReadAt, :notes, :viewerFlags, :version);
 
 -- Full-row update for the paths that legitimately write a complete Novel: restore and edit-info
 -- (which set columns back to null, something `coalesce` can't express). Surgical single/few-column
@@ -133,7 +132,6 @@ UPDATE novels SET
     cover_last_modified = :coverLastModified,
     total_pages = :totalPages,
     last_read_at = :lastReadAt,
-    edited_flags = :editedFlags,
     notes = :notes,
     viewer_flags = :viewerFlags,
     version = :version,
@@ -164,7 +162,6 @@ UPDATE novels SET
     cover_last_modified = coalesce(:coverLastModified, cover_last_modified),
     total_pages = coalesce(:totalPages, total_pages),
     last_read_at = coalesce(:lastReadAt, last_read_at),
-    edited_flags = coalesce(:editedFlags, edited_flags),
     notes = coalesce(:notes, notes),
     viewer_flags = coalesce(:viewerFlags, viewer_flags),
     is_syncing = 0

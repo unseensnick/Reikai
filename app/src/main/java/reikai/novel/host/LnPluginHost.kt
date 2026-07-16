@@ -4,12 +4,12 @@ import android.content.Context
 import com.dokar.quickjs.QuickJs
 import com.dokar.quickjs.binding.asyncFunction
 import com.dokar.quickjs.binding.function
-import java.util.concurrent.Executors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -27,9 +27,10 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import logcat.LogPriority
-import tachiyomi.core.common.util.system.logcat
 import okhttp3.OkHttpClient
 import tachiyomi.core.common.preference.PreferenceStore
+import tachiyomi.core.common.util.system.logcat
+import java.util.concurrent.Executors
 
 /**
  * Hosts lnreader plugins in a headless QuickJS engine (no WebView, no Activity), so novel sources
@@ -77,6 +78,13 @@ class LnPluginHost(
             withContext(Dispatchers.IO) {
                 bridge.runFetch(args[0] as String, args.getOrNull(1) as? String ?: "{}")
             }
+        }
+        // Backs the setTimeout shim in headless.js: plugins use it for rate-limit politeness sleeps and
+        // retry backoffs, which QuickJS can't honor natively (no timers). Suspends the engine job pump
+        // for the real delay, capped so a buggy/hostile plugin can't hold the mutex indefinitely.
+        q.asyncFunction("__lnDelay") { args ->
+            delay(((args.getOrNull(0) as? Number)?.toLong() ?: 0L).coerceIn(0L, MAX_TIMER_DELAY_MS))
+            null
         }
         // protobuf.js (and other UMD bundles) attach to a global they find via `typeof self/window`,
         // which QuickJS lacks; seed them before the vendors load so `globalThis.protobuf` resolves.
@@ -228,11 +236,17 @@ class LnPluginHost(
     companion object {
         // loadPlugin is CPU-only (evaluate the plugin code); 30s is ample.
         private const val LOAD_TIMEOUT_MS = 30_000L
+
         // callMethod issues HTTP, which can route through the shared CloudflareInterceptor: a WebView
         // solve (30s latch) and, on failure, a Flaresolverr fallback (90s callTimeout). A 30s budget
         // killed the call right as the WebView gave up, so Flaresolverr never ran. Cover the full
         // WebView + Flaresolverr path.
         private const val CALL_TIMEOUT_MS = 180_000L
+
+        // Ceiling for a plugin setTimeout / retry-backoff sleep (see __lnDelay). Honors real Retry-After
+        // backoffs (usually 5-30s) while staying well under CALL_TIMEOUT_MS, which remains the backstop
+        // against a plugin that asks to sleep far longer.
+        private const val MAX_TIMER_DELAY_MS = 30_000L
         val JSON: Json = Json {
             ignoreUnknownKeys = true
             isLenient = true

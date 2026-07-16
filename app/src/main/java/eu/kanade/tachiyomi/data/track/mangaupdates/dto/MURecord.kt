@@ -21,6 +21,20 @@ data class MURecord(
     val ratingVotes: Int? = null,
     @SerialName("latest_chapter")
     val latestChapter: Int? = null,
+    // RK: authors + genres for "Fill from tracker" (author/artist split by type; genres are a clean list).
+    val authors: List<MUAuthor>? = null,
+    val genres: List<MUGenre>? = null,
+)
+
+@Serializable
+data class MUAuthor(
+    val type: String? = null,
+    val name: String? = null,
+)
+
+@Serializable
+data class MUGenre(
+    val genre: String? = null,
 )
 
 fun MURecord.toTrackSearch(id: Long): TrackSearch {

@@ -13,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
@@ -35,6 +36,7 @@ import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.history.interactor.RemoveHistory
 import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetDuplicateLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
@@ -45,6 +47,8 @@ import uy.kohesive.injekt.api.get
 
 class HistoryScreenModel(
     private val addTracks: AddTracks = Injekt.get(),
+    // RK: per-entry custom title/cover overrides, overlaid on the displayed rows (display-only)
+    private val getCustomMangaInfo: GetCustomMangaInfo = Injekt.get(),
     private val getCategories: GetCategories = Injekt.get(),
     private val getDuplicateLibraryManga: GetDuplicateLibraryManga = Injekt.get(),
     private val getHistory: GetHistory = Injekt.get(),
@@ -66,7 +70,21 @@ class HistoryScreenModel(
             state.map { it.searchQuery }
                 .distinctUntilChanged()
                 .flatMapLatest { query ->
-                    getHistory.subscribe(query ?: "")
+                    // RK: overlay the display-only custom title/cover onto each row, keyed by the real
+                    //     manga id. The SQL search (getHistory.subscribe) still runs on the raw title.
+                    combine(
+                        getHistory.subscribe(query ?: ""),
+                        getCustomMangaInfo.subscribeAll(),
+                    ) { history, customInfo ->
+                        val overlay = customInfo.associateBy { it.mangaId }
+                        history.map { row ->
+                            val custom = overlay[row.mangaId] ?: return@map row
+                            row.copy(
+                                title = custom.title ?: row.title,
+                                coverData = row.coverData.copy(url = custom.thumbnailUrl ?: row.coverData.url),
+                            )
+                        }
+                    }
                         .distinctUntilChanged()
                         .catch { error ->
                             logcat(LogPriority.ERROR, error)

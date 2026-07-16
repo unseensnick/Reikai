@@ -39,7 +39,7 @@ Restructure each row into a source-to-target comparison (the agreed mockup): bot
 - `reikai/presentation/novel/migrate/NovelMigrationListScreen.kt`, `NovelMigrationListScreenModel.kt`: the migration list (all three phases touch these).
 - `reikai/presentation/novel/migrate/NovelMigrationConfigScreen.kt`: new in Phase 2, the source-selection pre-step.
 - `reikai/domain/source/ReikaiSourcePreferences.kt`: new `novelMigrationSources` preference (Phase 2).
-- `reikai/presentation/novel/browse/NovelBrowseGridCell.kt`, `reikai/data/coil/NovelCover.kt`: the existing cover pipeline reused for result thumbnails.
+- `reikai/presentation/browse/EntryBrowseGridCell.kt`, `reikai/data/coil/NovelCover.kt`: the existing cover pipeline reused for result thumbnails. The cell is now the shared manga + novel one.
 - Reference (Mihon, do not edit): `mihon/feature/migration/config/MigrationConfigScreen.kt` (pre-step), `mihon/feature/migration/list/MigrationListScreenContent.kt` (comparison row + per-row actions).
 
 ## Status
@@ -48,7 +48,7 @@ Shipped, on-device verified (`bf5bd4f8f`, `94f7ef09d`, `8cb547a71`, `b66e3efd0`,
 
 - **Phase 1: covers + chapter-count signal.** Shipped. Covers (tap to open details) on the suggested hit, candidate list, and chosen target; source chapter count always shown; target count with a red shortfall vs the source after selection. The cover tap opens details, which doubles as the verify path for the conservative paged-source count. Color choice: error on the delta only (count stays neutral).
 - **Phase 2: source-selection pre-step.** Shipped. New `NovelMigrationConfigScreen` (Selected / Available, drag-reorderable priority, select all / none / pinned / enabled), saved to the new `novelMigrationSources` pref (ordered, newline-joined). The migration list searches only the selected sources in saved order (fallback to all when none saved). Both entry points (novel details, library multi-select) route through it first. Rows reuse `NovelSourceRow`; the screen mirrors Mihon's `MigrationConfigScreen`.
-- **Phase 3: comparison-row redesign + polish.** Shipped. Each row is a source -> target comparison (both 48dp covers + an arrow). Per-row actions are manga-style: a one-tap Accept for a suggestion plus an overflow menu (Search manually, Don't migrate), keeping the lazy Accept -> materialize step (no per-result fetch). The override picker is a browse-style horizontal cover grid (`NovelBrowseGridCell`, 112dp cells) grouped by source: tap to pick, long-press to open details. The toolbar shows an "N novels - M matched" count (batch only), and the bottom bar offers Copy and Migrate as separate buttons; the what-to-include dialog then confirms the chosen action. Deferred: per-row migrate-now / copy-now (partial-batch convenience, low value).
+- **Phase 3: comparison-row redesign + polish.** Shipped. Each row is a source -> target comparison (both 48dp covers + an arrow). Per-row actions are manga-style: a one-tap Accept for a suggestion plus an overflow menu (Search manually, Don't migrate), keeping the lazy Accept -> materialize step (no per-result fetch). The override picker is a browse-style horizontal cover grid (`EntryBrowseGridCell`, 112dp cells) grouped by source: tap to pick, long-press to open details. The toolbar shows an "N novels - M matched" count (batch only), and the bottom bar offers Copy and Migrate as separate buttons; the what-to-include dialog then confirms the chosen action. Deferred: per-row migrate-now / copy-now (partial-batch convenience, low value).
 
 ## Decisions & tradeoffs
 

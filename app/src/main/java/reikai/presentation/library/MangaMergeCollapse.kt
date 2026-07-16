@@ -46,7 +46,9 @@ object MangaMergeCollapse {
                 result.add(bucket.first())
                 continue
             }
-            for (subGroup in MergeGroupAlgebra.splitByUnmergedPairs(bucket, unmergedPairs) { it.libraryManga.manga.id }) {
+            for (subGroup in MergeGroupAlgebra.splitByUnmergedPairs(bucket, unmergedPairs) {
+                it.libraryManga.manga.id
+            }) {
                 if (subGroup.size == 1) {
                     result.add(subGroup.first())
                 } else {
@@ -86,5 +88,4 @@ object MangaMergeCollapse {
             ),
         )
     }
-
 }

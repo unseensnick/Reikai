@@ -34,7 +34,6 @@ import eu.kanade.presentation.manga.DuplicateMangaDialog
 import eu.kanade.presentation.manga.EditCoverAction
 import eu.kanade.presentation.manga.MangaScreen
 import eu.kanade.presentation.manga.components.DeleteChaptersDialog
-import eu.kanade.presentation.manga.components.MangaCoverDialog
 import eu.kanade.presentation.manga.components.ScanlatorFilterDialog
 import eu.kanade.presentation.manga.components.SetIntervalDialog
 import eu.kanade.presentation.theme.TachiyomiTheme
@@ -45,32 +44,38 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.isLocalOrStub
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
-import exh.source.getMainSource
-import exh.pagepreview.PagePreviewScreen
-import exh.ui.metadata.MetadataViewScreen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesScreen
-import eu.kanade.tachiyomi.ui.manga.track.TrackInfoDialogHomeScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
+import exh.pagepreview.PagePreviewScreen
+import exh.source.getMainSource
+import exh.ui.metadata.MetadataViewScreen
 import kotlinx.coroutines.launch
 import logcat.LogPriority
-import reikai.presentation.manga.MangaMigrationSourcePickScreen
 import mihon.feature.migration.dialog.MigrateMangaDialog
+import reikai.presentation.components.EntryCoverDialog
+import reikai.presentation.details.EntryEditInfoDialog
+import reikai.presentation.details.EntryEditInfoUi
+import reikai.presentation.details.TrackerAutofill
 import reikai.presentation.manga.EhRemoveFavoriteDialog
 import reikai.presentation.manga.ManageSourcesDialog
+import reikai.presentation.manga.MangaMigrationSourcePickScreen
 import reikai.presentation.recommendation.browse.RelatedMangasBrowseScreen
+import reikai.presentation.track.EntryTrackInfoDialogHomeScreen
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.MangaCover
+import tachiyomi.domain.manga.model.withCustomInfo // RK
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 class MangaScreen(
@@ -141,7 +146,9 @@ class MangaScreen(
                 chapterSwipeEndAction = screenModel.chapterSwipeEndAction,
                 navigateUp = navigator::pop,
                 onChapterClicked = { openChapter(context, it) },
-                onDownloadChapter = screenModel::runChapterDownloadActions.takeIf { !successState.source.isLocalOrStub() },
+                onDownloadChapter = screenModel::runChapterDownloadActions.takeIf {
+                    !successState.source.isLocalOrStub()
+                },
                 onAddToLibraryClicked = {
                     screenModel.toggleFavorite()
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -174,8 +181,13 @@ class MangaScreen(
                 onSearch = { query, global -> scope.launch { performSearch(navigator, query, global) } },
                 onCoverClicked = screenModel::showCoverDialog,
                 onShareClicked = { shareManga(context, screenModel.manga, screenModel.source) }.takeIf { isHttpSource },
-                onDownloadActionClicked = screenModel::runDownloadAction.takeIf { !successState.source.isLocalOrStub() },
+                onDownloadActionClicked = screenModel::runDownloadAction.takeIf {
+                    !successState.source.isLocalOrStub()
+                },
                 onEditCategoryClicked = screenModel::showChangeCategoryDialog.takeIf { successState.manga.favorite },
+                // RK: custom-info edits are favorites-only; a modal dialog over the details page (the
+                // native-form editor handles the keyboard).
+                onEditInfoClicked = screenModel::showEditMangaInfoDialog.takeIf { successState.manga.favorite },
                 onEditFetchIntervalClicked = screenModel::showSetFetchIntervalDialog.takeIf {
                     successState.manga.favorite
                 },
@@ -188,16 +200,27 @@ class MangaScreen(
                 // stays available while viewing a single source chip)
                 onManageSourcesClicked = screenModel::showManageSourcesDialog
                     .takeIf { successState.mergeSources.size > 1 },
-                // RK: gallery metadata viewer, only for adult/metadata sources
+                // RK: gallery metadata viewer, only for adult/metadata sources. Follow the viewed source
+                //     (the selected chip on a merged entry), so the enhanced-MangaDex "More info" shows
+                //     even when the merge is anchored on a non-metadata source.
                 onMetadataViewerClicked = {
+                    val displayManga = successState.mergeDisplayManga ?: successState.manga
+                    val displaySource = successState.mergeDisplaySource ?: successState.source
                     navigator.push(
                         MetadataViewScreen(
-                            mangaId = successState.manga.id,
-                            sourceId = successState.source.id,
+                            mangaId = displayManga.id,
+                            sourceId = displaySource.id,
                             seedColor = successState.seedColor?.toArgb(),
                         ),
                     )
-                }.takeIf { successState.source.getMainSource<MetadataSource<*, *>>() != null },
+                }.takeIf {
+                    (successState.mergeDisplaySource ?: successState.source)
+                        .getMainSource<MetadataSource<*, *>>() != null
+                },
+                // RK: hide/unhide the selected chapters + toggle showing hidden ones
+                onHideSelected = screenModel::hideSelected,
+                onUnhideSelected = screenModel::unhideSelected,
+                onToggleShowHidden = screenModel::toggleShowHidden,
                 // RK: tap a page-preview thumbnail -> open the reader at that page
                 onOpenPagePreview = { page ->
                     openPagePreview(
@@ -298,16 +321,18 @@ class MangaScreen(
                 // RK: remember the screen so frequent state updates (the merge collectors recompose
                 // the details screen) don't rebuild it and reset the sheet's navigator mid-update,
                 // which was cancelling the tracker write (InsertTrack JobCancellationException).
+                // RK: shared manga/novel track dialog (reikai.presentation.track.EntryTrackInfoDialog)
                 val trackScreen = remember(successState.manga.id, successState.source.id) {
-                    TrackInfoDialogHomeScreen(
-                        mangaId = successState.manga.id,
-                        mangaTitle = successState.manga.title,
+                    EntryTrackInfoDialogHomeScreen(
+                        entryId = successState.manga.id,
+                        entryTitle = successState.manga.title,
                         sourceId = successState.source.id,
+                        isNovel = false,
                     )
                 }
                 NavigatorAdaptiveSheet(
                     screen = trackScreen,
-                    enableSwipeDismiss = { it.lastItem is TrackInfoDialogHomeScreen },
+                    enableSwipeDismiss = { it.lastItem is EntryTrackInfoDialogHomeScreen },
                     onDismissRequest = onDismissRequest,
                 )
             }
@@ -319,8 +344,9 @@ class MangaScreen(
                         if (it == null) return@rememberLauncherForActivityResult
                         sm.editCover(context, it)
                     }
-                    MangaCoverDialog(
-                        manga = manga!!,
+                    // RK: shared cover dialog for manga + novels (replaces MangaCoverDialog)
+                    EntryCoverDialog(
+                        cover = manga!!,
                         snackbarHostState = sm.snackbarHostState,
                         isCustomCover = remember(manga) { manga!!.hasCustomCover() },
                         onShareClick = { sm.shareCover(context) },
@@ -360,6 +386,31 @@ class MangaScreen(
                 EhRemoveFavoriteDialog(
                     onDismissRequest = onDismissRequest,
                     onConfirm = screenModel::confirmEhRemoveFromLibrary,
+                )
+            }
+            is MangaScreenModel.Dialog.EditMangaInfo -> {
+                EntryEditInfoDialog(
+                    // Seed with the effective (overlaid) values; save diffs each field against the raw
+                    // source manga (dialog.manga), so an unchanged field stores no override.
+                    initial = dialog.manga.withCustomInfo(successState.customInfo).toEntryEditInfoUi(),
+                    source = dialog.manga.toEntryEditInfoUi(),
+                    seedColor = successState.seedColor,
+                    coverModel = { url ->
+                        MangaCover(
+                            mangaId = dialog.manga.id,
+                            sourceId = dialog.manga.source,
+                            isMangaFavorite = dialog.manga.favorite,
+                            url = url.ifBlank { null },
+                            lastModified = dialog.manga.coverLastModified,
+                        )
+                    },
+                    onDismissRequest = onDismissRequest,
+                    onSave = { screenModel.saveMangaInfo(dialog.manga, it) },
+                    onResetAll = { screenModel.resetMangaInfo(dialog.manga) },
+                    autofill = TrackerAutofill(
+                        candidates = screenModel::autofillCandidates,
+                        fetch = screenModel::fetchTrackerMetadata,
+                    ),
                 )
             }
             // RK <--
@@ -479,3 +530,14 @@ class MangaScreen(
         context.copyToClipboard(url, url)
     }
 }
+
+// RK: seed the shared edit-info dialog from a manga's effective (overlaid) values.
+private fun Manga.toEntryEditInfoUi() = EntryEditInfoUi(
+    title = title,
+    author = author.orEmpty(),
+    artist = artist.orEmpty(),
+    description = description.orEmpty(),
+    genre = genre.orEmpty(),
+    status = status,
+    thumbnailUrl = thumbnailUrl.orEmpty(),
+)

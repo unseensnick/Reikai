@@ -16,7 +16,7 @@ data class HKManga(
     @SerialName("title_original")
     val titleOriginal: String,
     @SerialName("media_type")
-    val mediaType: String,
+    val mediaType: String?,
     @SerialName("title_ua")
     val titleUa: String? = null,
     @SerialName("title_en")
@@ -35,17 +35,27 @@ data class HKManga(
     @SerialName("start_date")
     val startDate: Long? = null,
     val read: List<HKRead>? = emptyList(),
+    // RK: richer fields the /manga/{slug} endpoint returns, used by "Fill from tracker". The bind path
+    // (toTrack) ignores them; only getMangaMetadata reads them.
+    @SerialName("synopsis_ua")
+    val synopsisUa: String? = null,
+    @SerialName("synopsis_en")
+    val synopsisEn: String? = null,
+    val authors: List<HKAuthor> = emptyList(),
+    val genres: List<HKGenre> = emptyList(),
 ) {
-    fun toTrack(trackId: Long): TrackSearch {
+    // RK: contentType ("manga"/"novel") keeps a novel bind on the /novel content tree; defaults to
+    // manga so the existing manga callers are unchanged.
+    fun toTrack(trackId: Long, contentType: String = "manga"): TrackSearch {
         return TrackSearch.create(trackId).apply {
             remote_id = stringToNumber(this@HKManga.slug)
             title = this@HKManga.titleUa ?: this@HKManga.titleEn ?: this@HKManga.titleOriginal
             total_chapters = this@HKManga.chapters?.toLong() ?: 0
             cover_url = this@HKManga.image
             score = this@HKManga.score
-            tracking_url = "${HikkaApi.BASE_URL}/manga/${this@HKManga.slug}"
+            tracking_url = "${HikkaApi.BASE_URL}/$contentType/${this@HKManga.slug}"
             publishing_status = this@HKManga.status
-            publishing_type = this@HKManga.mediaType
+            publishing_type = this@HKManga.mediaType?.replace("_", " ").orEmpty()
 
             startDate?.takeIf { it != 0L }?.let {
                 val outputDf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -67,3 +77,40 @@ data class HKManga(
         }
     }
 }
+
+// RK: Hikka credits people with per-role entries; roles carry `name_en` values like "Story"/"Art"
+// (mirrors AniList/MAL), so the metadata mapper splits author vs artist on those.
+@Serializable
+data class HKAuthor(
+    val person: HKPerson? = null,
+    val roles: List<HKRole> = emptyList(),
+)
+
+@Serializable
+data class HKPerson(
+    @SerialName("name_native")
+    val nameNative: String? = null,
+    @SerialName("name_ua")
+    val nameUa: String? = null,
+    @SerialName("name_en")
+    val nameEn: String? = null,
+)
+
+@Serializable
+data class HKRole(
+    val slug: String? = null,
+    @SerialName("name_en")
+    val nameEn: String? = null,
+    @SerialName("name_ua")
+    val nameUa: String? = null,
+)
+
+@Serializable
+data class HKGenre(
+    @SerialName("name_ua")
+    val nameUa: String? = null,
+    @SerialName("name_en")
+    val nameEn: String? = null,
+    val slug: String? = null,
+    val type: String? = null,
+)

@@ -3,10 +3,18 @@ package eu.kanade.presentation.more.settings.screen
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.platform.LocalContext
+import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.category.visualName
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
+
+// RK: "$category · Manga|Novels" for the content-type sub-group headers, so a duplicated setting reads
+// distinctly and its settings-search breadcrumb differs between the two content types.
+@ReadOnlyComposable
+@Composable
+fun contentTypedCategory(category: StringResource, contentType: StringResource): String =
+    "${stringResource(category)} · ${stringResource(contentType)}"
 
 /**
  * Returns a string of categories name for settings subtitle

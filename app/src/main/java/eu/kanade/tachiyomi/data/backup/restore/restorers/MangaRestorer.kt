@@ -6,6 +6,7 @@ import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
+import eu.kanade.tachiyomi.data.backup.models.BackupCustomMangaInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
@@ -16,7 +17,6 @@ import exh.metadata.sql.models.SearchMetadata
 import exh.metadata.sql.models.SearchTag
 import exh.metadata.sql.models.SearchTitle
 import reikai.domain.library.ReikaiLibraryPreferences
-import tachiyomi.domain.manga.repository.MangaMetadataRepository
 import tachiyomi.data.Database
 import tachiyomi.data.MemoColumnAdapter
 import tachiyomi.data.UpdateStrategyColumnAdapter
@@ -25,7 +25,10 @@ import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.interactor.FetchInterval
 import tachiyomi.domain.manga.interactor.GetMangaByUrlAndSourceId
+import tachiyomi.domain.manga.interactor.SetCustomMangaInfo
+import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.repository.MangaMetadataRepository
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.interactor.InsertTrack
 import tachiyomi.domain.track.model.Track
@@ -48,6 +51,8 @@ class MangaRestorer(
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
     // RK: restores captured adult/EXH gallery metadata (search_metadata/tags/titles).
     private val mangaMetadataRepository: MangaMetadataRepository = Injekt.get(),
+    // RK: applies the restored manga custom-info overlay (re-keyed by url+source).
+    private val setCustomMangaInfo: SetCustomMangaInfo = Injekt.get(),
 ) {
 
     private var now = ZonedDateTime.now()
@@ -391,6 +396,26 @@ class MangaRestorer(
                 .sorted()
             ids.takeIf { it.size >= 2 }?.joinToString(",")
         }.toSet()
+    }
+
+    // RK: apply the restored manga custom-info overlay. Each entry is re-keyed from its {url, source} ref
+    // to the restored manga's fresh id; an unresolved ref is skipped. Call AFTER the manga loop.
+    suspend fun restoreCustomInfo(customInfo: List<BackupCustomMangaInfo>) {
+        customInfo.forEach { backup ->
+            val mangaId = getMangaByUrlAndSourceId.await(backup.url, backup.source)?.id ?: return@forEach
+            setCustomMangaInfo.set(
+                CustomMangaInfo(
+                    mangaId = mangaId,
+                    title = backup.title,
+                    author = backup.author,
+                    artist = backup.artist,
+                    description = backup.description,
+                    genre = backup.genre.takeIf { it.isNotEmpty() },
+                    status = backup.status,
+                    thumbnailUrl = backup.thumbnailUrl,
+                ),
+            )
+        }
     }
 
     private suspend fun restoreHistory(backupHistory: List<BackupHistory>) {

@@ -497,8 +497,12 @@ class ReaderActivity : BaseActivity() {
         val isPagerType = ReadingMode.isPagerType(viewModel.getMangaReadingMode())
         val cropEnabled = if (isPagerType) cropBorderPaged else cropBorderWebtoon
 
-        val verticalNavigatorForLongStrip by readerPreferences.verticalNavigatorForLongStrip.collectAsState()
+        val verticalNavigatorModes by readerPreferences.verticalNavigator.collectAsState()
+        val verticalNavigator = verticalNavigatorModes.contains(
+            ReadingMode.fromPreference(viewModel.getMangaReadingMode()),
+        )
         val verticalNavigatorOnLeft by readerPreferences.verticalNavigatorOnLeft.collectAsState()
+        val verticalNavigatorHeight by readerPreferences.verticalNavigatorHeight.collectAsState()
 
         // RK -->
         val bottomButtons by readerPreferences.readerBottomButtons.collectAsState()
@@ -517,7 +521,7 @@ class ReaderActivity : BaseActivity() {
             onOpenInBrowser = ::openChapterInBrowser.takeIf { isHttpSource },
             onShare = ::shareChapter.takeIf { isHttpSource },
 
-            chapterNavigatorType = if (isPagerType || !verticalNavigatorForLongStrip) {
+            chapterNavigatorType = if (!verticalNavigator) {
                 if (state.viewer is R2LPagerViewer) {
                     ChapterNavigatorType.HORIZONTAL_RTL
                 } else {
@@ -530,6 +534,7 @@ class ReaderActivity : BaseActivity() {
                     ChapterNavigatorType.VERTICAL_RIGHT
                 }
             },
+            verticalNavigatorHeight = verticalNavigatorHeight / 100f,
             onNextChapter = ::loadNextChapter,
             enabledNext = state.viewerChapters?.nextChapter != null,
             onPreviousChapter = ::loadPreviousChapter,
@@ -539,6 +544,9 @@ class ReaderActivity : BaseActivity() {
             onPageIndexChange = {
                 isScrollingThroughPages = true
                 moveToPageIndex(it)
+            },
+            onPageIndexChangeFinished = {
+                isScrollingThroughPages = false
             },
 
             readingMode = ReadingMode.fromPreference(
@@ -600,7 +608,14 @@ class ReaderActivity : BaseActivity() {
         updateViewerInset(readerPreferences.fullscreen.get(), readerPreferences.drawUnderCutout.get())
         binding.viewerContainer.addView(newViewer.getView())
 
-        if (readerPreferences.showReadingMode.get()) {
+        // RK --> auto-webtoon overrode the default, so say why. Deliberately not gated on
+        // showReadingMode: muting the routine "here's your mode" readout shouldn't also mute the
+        // one notice that explains an override the user didn't ask for.
+        if (viewModel.autoWebtoonMode() != null) {
+            readingModeToast?.cancel()
+            readingModeToast = toast(MR.strings.auto_webtoon_snack)
+        } else if (readerPreferences.showReadingMode.get()) {
+            // RK <--
             showReadingModeToast(viewModel.getMangaReadingMode())
         }
 

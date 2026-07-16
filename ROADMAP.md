@@ -4,11 +4,12 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-Nothing in progress. 0.2.1 shipped: the Hikka tracker, per-tracker usernames in settings, the "Tracker recommendations" toggle fix (`unseensnick/Reikai#37`), two Komikku ports (extension-installer fixes, AniList error parsing), and this cycle's Mihon syncs. Details in [docs/dev/shipped.md](docs/dev/shipped.md).
+- **Rebuild the merge system on a real group identity, one system for both content types** `[XL]` - persist the group instead of deriving it per call, which closes a live corruption path (reusable manga ids plus merge prefs that are never GC'd), stops restore silently undoing deliberate unmerges, reconciles the library's and details' disagreeing definitions of a group, drops a full-library scan from every details and reader open, and retires the `sourceOrder` overload. Decided 2026-07-15; needs a scout first, then a phased plan. [Plan](docs/dev/plans/merge-system-rebuild.md).
 
 ## Next
 
-Nothing formally queued. Largest option: the unified content UI + design refresh `[L]` (under Later -> UI & design). Quick wins: the `[S]` items under Later -> Novels.
+- **Unify the download subsystem across manga and novels (Road B)** `[L]` - collapse the parallel novel download cache/provider into one shared disk-scan layer serving both types, keyed on shared primitives, so they can't drift (Tsundoku's single-subsystem model). The novel download re-key deliberately mirrored the manga scheme + cache shape so this is a code merge, not a data migration. Touches Mihon's shipped download files (`// RK`).
+- The reader **tsundoku track** (seamless novel-reader transitions, later the native-reader migration); detail under Later -> Reader.
 
 ## Later
 
@@ -16,29 +17,29 @@ Backlog, grouped by area. Unordered within an area.
 
 ### Novels (manga <-> novel parity)
 
-Ready to build (infrastructure exists):
-- **Duplicate detection when adding a novel** `[S]` - wire `getDuplicateLibraryNovel` + `DuplicateNovelDialog` into the details / history add paths.
-- **Novel migration carry-flags** `[S]` - remove-downloads flag + carry `viewerFlags` / `chapterFlags` to the target.
-- **Categorized-display correctness for novels** `[S]` - per-category sort ignores the global toggle and never resets; branch `setSort` + a novel `ResetCategoryFlags`.
-- **Expose novel tracking in library filter / sort / group** `[S]` - tracker-status filter, tracker-score sort, group-by-track-status.
-- **Mark same-numbered duplicate chapters read on novel completion** `[S]` - parity for merged novels.
-- **Failed novel download error notification** `[S]` - mirror `DownloadNotifier.onError` in `NovelDownloadNotifier`.
-- **Novel updates refresh polish** `[S]` - started / already-running snackbar; update-row cover opens details.
-- **Tracker-based merge-group healing for novels** `[S-M]` - port `computeHealing` to `NovelMergeManager`.
-- **Skeleton loading on the novel details page** `[S]` - show placeholder skeletons while the first load resolves (like LNReader), instead of a bare spinner when opening a new non-library novel.
+Remaining manga/novel parity work, smaller enhancements and polish:
 
-Larger:
-- **Global novel reader-defaults settings screen** `[M]` - a `SearchableSettings` novel-reader page the per-novel sheet falls back to; also unblocks settings search.
-- **Novel library Behaviour settings** `[M]` - swipe actions + missing-chapter indicators for the novel list.
+- **Skeleton loading on the novel details page** `[S]` - placeholder skeletons while the first load resolves (like LNReader), instead of a bare spinner when opening a non-library novel. An enhancement, not a parity gap (manga also uses a plain spinner).
 
-Opportunistic polish: Browse (Latest shortcut, global-search progress, Last-used, hide-in-library, per-row language, genre-tap-search); Reader (Share + open-in-browser, always-on progress %); Downloads queue (pause/resume, per-row retry, move-to-top/bottom, per-series move/cancel); Tracking (start-date backfill, create-private-at-bind, hide trackers lacking novel search); Updates/history (Novels-chip last-updated line, fast-scroll animation); Details (long-press-copy WebView URL, per-source scanlator filter for merged novels, per-category novel display settings `[M]`).
+Opportunistic polish:
+- Browse: Latest shortcut, hide-in-library, per-row language, genre-tap-search.
+- Tracking: start-date backfill, friendlier Fill-from-tracker errors (no-entry-found on a 404 + null-message fallback).
+- Updates / history: fast-scroll animation.
+- Details: long-press-copy WebView URL, per-source scanlator filter for merged novels, novel tag-tap global search.
+
+### Library
+
+Novels are a first-class library type, but the library tab is still a binary Manga/Novels toggle.
+
+- **"All" library chip (interleave manga + novels)** `[M]` - add an All option to the library content-type chip that shows both types in one view, beside the current Manga and Novels tabs. The item seam already exists (both models emit `List<LibraryItem>`, novels disguised as negative-id items, and the shared grid routes taps + selection by id sign), so All is a merge of the two `getItemsForCategory` outputs at `LibraryTab`'s `active*` fall-through, needing no new shared composable and no domain merge. Three pieces sit above the seam: (1) a unified category axis across the forked manga/novel category namespaces (the category-schema unification below), (2) a cross-type sort key surfaced onto `LibraryItem` so a merged list can be re-ordered (each model sorts its own half with a different comparator today), and (3) per-item action dispatch by id sign, replacing the whole-screen `isNovels` switch in the bottom bar, dialogs, continue-reading and refresh routing.
+- **Unify the category schema (content_type discriminator)** `[M-L]` - retire the forked `novel_categories` table into the shared `categories` table with a `content_type` column (manga / novel / universal type-0), tsundoku's model adapted to Reikai's separate entry tables (the two join tables stay). Enables the tabbed All view and a coherent shared category structure, and drops a parallel repo/model stack. Migration must preserve the novel-order encoding.
+- **Trigger-maintained library count columns for novels** `[M]` - denormalize unread / download / total counts onto the novel row via chapter and history triggers (tsundoku's `mangas.sq` pattern), so library filter and sort read them directly instead of aggregating on every rebuild.
 
 ### Details
 
 From the 2026-07-04 Komikku parity audit (missing features + gestures on the details screen).
 
 - **Header long-press menus + tap-source-to-browse** `[M]` - long-press the title / author / source for library search, global search and copy (today it only copies); tap the source name to open its browse. Flagship parity gap.
-- **Edit entry info** `[L]` - a local editor for title / author / description / tags / status / cover (a TachiyomiSY/Komikku feature; base Mihon has custom-cover editing only).
 - **Per-chapter source label on merged entries** `[M]` - show which source each chapter came from in a merged series.
 - **Per-group Preferred-sources override** `[S-M]` - override the global Preferred-sources ranking for a single merge group (decides which source's version of shared-numbered chapters wins), via a reorder in Manage sources. Low priority; `ChapterAggregation.aggregate` already takes the ranking as a parameter, so only a per-group order pref plus the reorder UI are new. The global ranking still covers the common case.
 - **Details overflow polish** `[S]` - per-entry disable-auto-update, clear-data (downloads + cached chapters), open folder, jump to source settings.
@@ -52,9 +53,34 @@ From the same audit.
 - **Custom source categories** `[M]` - group installed sources under your own headers (assign each source to one or more categories) in the Sources list, beyond the default language grouping. Needs source-category storage.
 - **Source-list & row polish** `[S]` - row badges (language flag / NSFW / extension name), a browse-toolbar incognito toggle, an NSFW-only filter, per-source data-saver exclude, a browse panorama toggle (the library already has panorama), hide latest / pin.
 
+### Reader
+
+- **Seamless chapter transitions in the novel reader (Option 1)** `[M]` - port tsundoku's infinite-scroll idea onto the current WebView reader: at a scroll threshold, append the prefetched next chapter behind a divider, track the chapter boundary (title / progress / mark-read / history / prefetch-next), and prune distant chapters. The manga webtoon reader has this; novels don't. [Plan](docs/dev/plans/novel-reader-tsundoku.md).
+- **Tsundoku-based novel reader migration (Option 3)** `[XL]` - its own branch, later: replace the bespoke WebView + LNReader-core.js novel reader with a native reader that lifts tsundoku's `NovelViewer` text engine onto Reikai's existing novel domain via `ReaderChapter` / `Page` / `PageLoader` adapters. Merging novels into manga rows is ruled out (the `String` plugin-source-id cost): keep the separate novel tables and feed the shared reader-side types from `NovelChapter`. Native rendering, the full tsundoku feature set, a maintained upstream to sync from. Accepts the View-based reader for novels; recommended, deferred by choice. Start with a migration-planning `/scout`. [Plan](docs/dev/plans/novel-reader-tsundoku.md).
+- **Novel reader feature harvest from tsundoku** `[M]` - port tsundoku's viewer-agnostic reader extras: a content pipeline (user regex replacements, hide-chapter-title, force-lowercase, raw-HTML toggle), custom `file://` / `content://` fonts, and 4-way margins plus distinct paragraph spacing and indent. Portable to the current WebView reader now or a native reader later. [Plan](docs/dev/plans/novel-reader-tsundoku.md).
+- **Native TTS with in-text highlight for novels** `[L]` - upgrade novel TTS to follow along in the text (per-chunk highlight) with clean cross-chapter handoff, matching tsundoku's `TtsController`; the current core.js TTS has no in-text follow. [Plan](docs/dev/plans/novel-reader-tsundoku.md).
+
+### Novel sources & LN plugins
+
+- **CustomNovelSource mirror mode (re-point a source at a mirror domain)** `[M]` - a custom-source layer that delegates to an already-installed extension or LN plugin while rewriting its base URL (tsundoku's `basedOnSourceId` + an OkHttp base-URL interceptor / `withSiteOverride`), to recover a source whose domain moved or died. Reikai has no way to re-point an installed source today.
+- **No-code custom novel source (CSS-selector wizard)** `[L]` - add a whole novel site from JSON config (popular / latest / search / details / chapters / content selectors, generated numeric chapter-URL patterns, pagination, POST search, status + date mapping) with a per-step test-probe wizard, no plugin authoring (tsundoku's `CustomNovelSource` + `CustomSourceManager.testSource`). A net-new source-authoring path beyond LN plugins.
+
+### Downloads & updates
+
+- **Novel download/update pacing controls** `[S-M]` - per-source throttle, update staggering, and a per-source override map for novel scrapers (tsundoku's `NovelDownloadPreferences`), a more complete anti-detection pacing layer than Reikai's current per-chapter backoff. Independent of Road B.
+
+### Trackers
+
+Dedicated LN trackers are shippable via WebView session-scraping (no official API needed), which overturns the earlier park for RanobeDB / NovelList.
+
+- **WebView cookie/token tracker login** `[M]` - a shared WebView login flow that captures a service's session cookie or JWT (tsundoku's `TrackerWebViewLoginActivity`), the auth path all three novel trackers below need; Reikai today has only OAuth-deeplink and username/password login. Strip tsundoku's raw-cookie DEBUG logging on port.
+- **RanobeDB tracker** `[M]` - a dedicated light-novel tracker (ranobedb.org): status, score, dates and delete, via a public JSON read API plus a reverse-engineered write path. Strongest of the three; port first.
+- **NovelList tracker** `[M]` - novellist.co tracker: status, chapter progress and score via a JWT REST API (search needs no auth). Second.
+- **NovelUpdates tracker** `[L]` - novelupdates.com tracker: highest demand but 100% HTML scraping plus a notes-field progress hack, no score or date sync; high ongoing maintenance. Port last or skip.
+
 ### UI & design
 
-- **Unified content UI + design refresh** `[L]` - collapse the three near-duplicate presentation stacks (manga, novels, adult) into one Reikai-owned pixel layer over a content-agnostic UI model, killing the manga↔novel duplication and giving one place to move off stock Material 3. Domain models and ScreenModels stay per-type; readers stay separate. [Plan](docs/dev/plans/unified-content-ui.md).
+- **Reikai design refresh (off stock Material 3)** `[L]` - the manga/novel/adult surfaces are now collapsed onto shared `Entry*` components (History/Updates rows, cover dialog, details screen, browse, global search, library settings, sort), so the structural unification is largely done. The remaining forward work is owning the pixels: a Reikai theme (color / typography / shape / component defaults through the single `TachiyomiTheme` -> `MaterialExpressiveTheme` entry point) layered over the shared components, seeding tokens in `DESIGN.md` first (brand in `PRODUCT.md`: quiet, dense, deliberate). Complementary to, not a replacement for, the structural work. [Plan](docs/dev/plans/unified-content-ui.md).
 
 ## Parked / not building
 
@@ -64,15 +90,21 @@ One line each; revive note where relevant.
   - **EH per-page add-path throttle** `[S]` bundles here - redundant with the shipped 3/sec rate limit for normal imports; only this feature's sustained walk exercises it.
 - **Manga per-page chapter loading** - no manga source would feed a paged chapter list (the contract returns the full list in one call).
 - **Auto-error a chapter stuck mid-download** `[S]` - a per-chapter stall timeout so a hung image download gives up faster than `callTimeout` x3 (~8 min worst case). Parked: the pause/resume fix covers the reported bug and stalls still self-resolve via `callTimeout`. Revive if a permanent stall (callTimeout never fires) turns up.
-- **Dedicated LN trackers** (NovelUpdates / MiraiList / RanobeDB / Hardcover) - no sanctioned read+write API as of June 2026; recheck Hardcover if it leaves beta. See [novel-tracking.md](docs/dev/plans/novel-tracking.md).
+- **Per-chapter control in the download queue (expandable cards)** `[M]` - the unified queue collapsed to one card per series (drag / move-to-top / move-to-bottom / cancel act on the whole series), dropping per-chapter reorder + per-chapter cancel from the global queue. Parked: series-level control covers the real cases and per-chapter selection lives on the details screen. Revive by expanding a card to its chapters on tap; Mihon's per-chapter manga queue files (`DownloadAdapter` / `DownloadHolder` / the `download_single` menu) are still in the tree, so it is mostly wiring plus a novel equivalent.
+- **Hardcover / MiraiList trackers** - still no sanctioned read+write API; recheck Hardcover if it leaves beta. (RanobeDB / NovelList / NovelUpdates moved to Later -> Trackers: shippable via WebView session-scraping.) See [novel-tracking.md](docs/dev/plans/novel-tracking.md).
 - **Novel recommendations / related carousel** - now feasible (trackers shipped) as an `[M]`; the source-native path stays infeasible (no plugin `getRelated`). Reconsider if wanted.
+- **On-device novel translation (translation-engine ecosystem)** - tsundoku's pluggable translate stack (LibreTranslate / OpenAI / local Ollama / DeepL / Gemini / a custom-HTTP engine, plus a translate-on-download hook). Cool and possibly useful, but uncertain whether it gets real use; low priority, deliberately kept off the active backlog for now. Revive if on-device / AI novel translation is wanted.
 - **Batch recommendation search** - overlaps the existing taste-profile layer. Revive if manual multi-title discovery is wanted.
 - **CMK source-native recommendations (+ id-graph)** - stock CMK was pulled from the extension repos, so the recs port's id-set gate never fires (only clones with different ids remain). Revive if a first-party CMK source returns; the id-graph idea (suggest tracker binds from an entry's cross-links) rides the same API.
 - **MD source-native similarity carousel** - its only data source (`api.similarmanga.com`, the TF-IDF `similar-manga` project) is frozen at 2025-05-27 and unmaintained; MD's official `/relation` endpoint returns exact relations (doujinshi / colored), not discovery, and tracker recs already cover popular titles. Dropped with the MD enhanced source (0.2.0); see [md-enhanced-source.md](docs/dev/plans/md-enhanced-source.md).
-- **Serialize track-sheet edits (rapid edits clobber each other)** `[M]` - each field edit runs in its own coroutine (`TrackInfoDialog.kt`), so two quick edits (e.g. chapter then score) race on the same track row and the second wins, losing the first. A Mihon-wide race, worst on MDList. Parked: the per-track mutex fix touches shared tracker code, so it needs its own scoped pass. Revive standalone.
+- **Serialize track-sheet edits (rapid edits clobber each other)** `[M]` - each field edit runs in its own coroutine (`EntryTrackInfoDialog.kt`, the shared manga+novel dialog), so two quick edits (e.g. chapter then score) race on the same track row and the second wins, losing the first. A Mihon-wide race, worst on MDList; now applies to both content types. Parked: the per-track mutex fix touches shared tracker code, so it needs its own scoped pass. Revive standalone.
+- **Content-type binary fetch for LN plugins** - auto-detecting a binary response by Content-Type and base64-transporting it would let a plugin read true binary bytes from a normal `fetch`, but it risks garbling a mislabeled non-UTF-8 (GBK / Shift-JIS) text source, and no current novel plugin fetches raw binary (they decode base64 / hex text via the `Buffer` shim, which shipped). Revive with an explicit opt-in binary mode if a real binary-fetch source appears. `Response.arrayBuffer()`, `Buffer`, `Blob`, `X-XSRF-TOKEN`, real `setTimeout` delays, and the rest of the LN host / parsing hardening shipped in 0.3.0.
 - **Upcoming / release calendar for novels** - LN sources rarely expose a reliable cadence; stays manga-only.
-- **Novel sources enable/disable filter screen** - add a bulk-toggle screen if managing many LN sources gets painful.
-- **Novel missing-chapter gap separators** - novel numbers are title-recognition-derived and source-order-sorted, so computed gaps would be mostly false.
+- **Hide the novel browse Latest chip** - considered gating it off like manga's `supportsLatest`, but the LN plugin API exposes no per-source latest capability to gate on: `showLatestNovels` is just a runtime flag each plugin honors or ignores, the registry manifest carries no listings field, and LNReader itself shows Latest unconditionally. A plugin that ignores the flag returns the same list as Popular (not an empty page), so the symptom is harmless. Every build option is poor (runtime probe, curated allow-list, or a flag only plugins we patch would set). Kept as-is.
+- **Bulk novel-migration search tuning** (extra query, hide-unmatched, hide-without-updates, deep search, prioritize-by-chapters) `[M]` - these manga config options are gated off for novels for now: novel batch-migration is manual accept/override by design (no smart-title matching), so the auto-match knobs add little. Revive if novel migration matching gets painful.
+- **Tune the auto-webtoon source-name catch-alls** `[S]` - the classifier takes Komikku's source-name token lists verbatim. Dead tokens are harmless (an uninstalled source never matches), but the two generic catch-alls are over-broad: they force webtoon mode on mixed-content aggregators and on at least one page-format western comic host. Only the catch-alls are worth touching. Parked, and the cost is now higher than it looks: the auto-pick is computed fresh each open and never stored, so identical token lists are exactly what makes a library read the same in Reikai and Komikku. Tuning them desyncs that. Revive if a real false positive annoys more than the divergence would.
+- **Cross-app preference-key compatibility with Komikku** `[M]` - Reikai shares none of Komikku's sixteen `eh_*` preference keys, so a backup restored in either direction silently drops EH logins, saved searches and the rest of the adult-source settings; only the auto-webtoon toggle deliberately adopts the upstream key. Preferences back up by raw key with no allowlist, so adopting the upstream names would close the gap. Parked: renaming live keys resets existing users' settings without a migration to carry them over, and it is unproven how many people move between the two apps. Revive if switching apps should be seamless.
+- **Tracker-based merge-group healing for novels** - manga splits mis-grouped merge members by comparing tracker keys; novels use a metadata-only author guard that already self-repairs the real title-first mis-grouping on every resolution, so tracker healing would only add auto-splitting of manual merges (user-intentional). Gated even though novel tracking now ships. (The `NovelMergeManager` "tracking is deferred" docstring is stale; the decision holds.)
 - **Saved searches** (browse filter presets) - low value; the DB + serializer layer survives on `design/library-compose`. The 2026-07-04 Komikku parity audit rates it the top browse gap, but the "low value" call stands unless reopened.
 - **Per-source Feed** (latest / popular / saved-search rows as a source home) - depends on saved searches (parked above); parked together.
 - **Restore-path onboarding** - the restore log already lists what couldn't reinstall. See [novel-backup.md](docs/dev/plans/novel-backup.md).

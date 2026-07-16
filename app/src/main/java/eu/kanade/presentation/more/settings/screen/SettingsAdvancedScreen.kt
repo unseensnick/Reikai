@@ -53,18 +53,18 @@ import eu.kanade.tachiyomi.util.system.isShizukuInstalled
 import eu.kanade.tachiyomi.util.system.powerManager
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import eu.kanade.tachiyomi.util.system.toast
+import exh.source.ExhPreferences
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.manga.MangaMergeManager
+import reikai.domain.novel.NovelMergeManager
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.logcat
-import exh.source.ExhPreferences
-import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.manga.MangaMergeManager
-import reikai.domain.novel.NovelMergeManager
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.ResetViewerFlags
 import tachiyomi.i18n.MR
@@ -116,15 +116,16 @@ object SettingsAdvancedScreen : SearchableSettings {
                     true
                 },
             ),
-            // RK: opt-in for recording library update failures + the Update errors screen
+            // RK: opt-in for recording library update failures + the Update errors screen. Content-typed
+            // titles ("Track update errors · Manga|Novels") match the Library / Downloads label style.
             Preference.PreferenceItem.SwitchPreference(
                 preference = reikaiLibraryPreferences.trackUpdateErrors,
-                title = stringResource(MR.strings.pref_track_update_errors),
+                title = contentTypedCategory(MR.strings.pref_track_update_errors, MR.strings.content_type_manga),
                 subtitle = stringResource(MR.strings.pref_track_update_errors_summary),
             ),
             Preference.PreferenceItem.SwitchPreference(
                 preference = reikaiLibraryPreferences.trackNovelUpdateErrors,
-                title = stringResource(MR.strings.pref_track_novel_update_errors),
+                title = contentTypedCategory(MR.strings.pref_track_update_errors, MR.strings.content_type_novels),
                 subtitle = stringResource(MR.strings.pref_track_update_errors_summary),
             ),
             // RK: enable the built-in E-Hentai sources (anonymous browsing). Turning this on reveals

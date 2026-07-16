@@ -35,6 +35,14 @@ Every Reikai screen ported onto or added to Mihon follows Mihon's existing Voyag
 7. Business logic out of `@Composable`. Side-effects in `LaunchedEffect` or the ScreenModel.
 8. Re-typed to Mihon's immutable domain models; in-place edits to Mihon's own files fenced with `// RK -->` / `// RK <--` markers (see below). Net-new code lives in its own files/modules.
 
+## Unified content UI (active initiative)
+
+Reikai is collapsing the near-duplicate manga and novel presentation into one Reikai-owned UI layer, one surface at a time. The presentation surfaces are done (History + Updates rows, cover dialog, details screen, library, browse/search, notes, and the track dialog); the next unification is the download subsystem (Road B). Detail and sequencing: [docs/dev/plans/unified-content-ui.md](docs/dev/plans/unified-content-ui.md).
+
+**The main goal is manga/novel feature parity and anti-divergence, not just deduplication.** The purpose is that a UI change to one content type automatically reaches the other, so the two can't silently drift and features stay at parity, unless a difference is deliberately gated (the content type genuinely can't support it, or it wouldn't benefit them). Merging two near-duplicate composables into one shared composable is an important sub-goal (one shared composable makes future divergence structurally impossible), but it is the mechanism, not the goal.
+
+**Practical rule when unifying a surface:** don't just merge the composables. Also flag every manga/novel feature gap you notice on that surface (an action, badge, or behavior one type has and the other lacks) and let the user rule on each: bring it to parity by leveling the lagging side up, or keep it deliberately gated. Never fake a feature a content type cannot actually support. Example shipped this way: the Updates novel cover-tap.
+
 ## Code change defaults
 
 - **DRY**: Before adding a helper, search the codebase (or run an Explore agent in plan mode) for an existing equivalent.
@@ -76,7 +84,14 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 
 **Release-type builds are minified, the `debugY2k` dev build is not**, so R8-only bugs are invisible in the normal dev loop. The recurring one: a net-new top-level package that uses Injekt generics (`Injekt.get<T>()`) needs its own proguard `-keep`, or the minified build crashes (Injekt `FullTypeReference`). When adding such a package or code, add the keep and verify a minified `:app:assemblePreview` build. Full rule: [.claude/rules/architecture.md](.claude/rules/architecture.md) "Minification (R8) and net-new packages".
 
-**Active upstream-fix watch (Hikka tracker):** Reikai carries a `// RK` fix for a Hikka crash. Upstream's auth interceptor leaks the OAuth token-refresh response, so adding a title to Hikka while the token is expired throws "cannot make a new request because the previous response is still open" (`HikkaInterceptor.kt` + `HikkaApi.kt`, commit `de027cbf1`). On the next Hikka-touching Mihon sync, check whether upstream now closes those responses and drop the `// RK` patch if so. Full note: [docs/dev/upstream-sync.md](docs/dev/upstream-sync.md) "Deliberate divergences from upstream".
+## Current release target (0.3.0, cut)
+
+`versionName 0.3.0` / `versionCode 183` in `app/build.gradle.kts`. The CHANGELOG is cut: `[0.3.0]` holds the release's entries and a fresh empty `[Unreleased]` sits above it. Notes for continuing sessions:
+
+- **Remaining step: tag `v0.3.0`.** The tag does not exist yet, locally or on the remote. Per `.claude/rules/workflow.md` "Cutting a release", the `docs/dev/shipped.md` move belongs to the cut as well.
+- `versionCode 183` is the gate for `SetupCategorySortOverrideMigration` (`version = 183f`), which fires for everyone upgrading from `<=182` and seeds the category sort overrides. `VerticalNavigatorMigration` (`version = 181f`) is a separate, earlier migration gated on the 0.3.0-cycle `versionCode 181` bump.
+- New work lands its CHANGELOG entries under the fresh `[Unreleased]` (they belong to the next release, not 0.3.0).
+- The normal rule resumes now that 0.3.0 is cut: bump `versionCode`/`versionName` only at release-cut (see the `feedback_version_bumps` memory).
 
 ## Design context
 
@@ -95,9 +110,15 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 - [docs/dev/development.md](docs/dev/development.md) — architecture and module overview (Mihon-based: Compose + Voyager, Injekt, SQLDelight).
 - [docs/dev/plans/](docs/dev/plans/): per-feature implementation and decision records (one per substantial feature, indexed by its README). The forward backlog is [ROADMAP.md](ROADMAP.md); the format for both lives in `.claude/rules/workflow.md`.
 - [docs/dev/upstream-sync.md](docs/dev/upstream-sync.md) — porting upstream Mihon changes by hand (Reikai is a standalone repo, not a GitHub fork): the process, commit convention, verbatim-cp + `// RK` hand-merge method, recurring gotchas, and the running synced-base ledger. Enforced by `docs-lint` + the `pre-commit` hook (no em dash, no bare `#N`; content-source names allowed).
+- [docs/dev/feature-ports.md](docs/dev/feature-ports.md) — the **borrowed-feature** refs (Komikku, Tsundoku, LNReader), which are NOT a base sync: no "synced through" frontier, so the record is per feature (what was taken, from which SHA, last checked, verdict), plus where Reikai is *ahead* (don't port backwards) and what was deliberately not taken. Read before porting from a ref: a matching commit title proves nothing, and a fork's own Mihon syncs must come from `refs/mihon` instead. Same lint as upstream-sync.md.
 - **Doc flow (finish an item, then ship):** [ROADMAP.md](ROADMAP.md) forward backlog, then [CHANGELOG.md](CHANGELOG.md) `[Unreleased]` (the source of truth for release notes, benefit-first bold headline), then [docs/dev/shipped.md](docs/dev/shipped.md) done-log at release-cut. Format for all three lives in `.claude/rules/workflow.md`.
 - [docs/dev/readme-showcase.md](docs/dev/readme-showcase.md) — how the README showcase animation (`screens.webp`) is captured and built; the reproduction kit (stills + frame + scripts) lives in `.github/readme-images/showcase/`.
-- Read-only reference clones live in `refs/` (declared in `.claude/settings.json`), mostly self-evident from their names. Non-obvious: `refs/tachiyomi-extension/` is the **Suwayomi** extension repo (`Suwayomi/tachiyomi-extension`, for connecting Reikai to a self-hosted Suwayomi server as an in-app source), NOT the archived `tachiyomiorg/tachiyomi-extensions`.
+- **Read-only reference clones live in the `refs/` directory, which is a SIBLING of this `app/` repo, not inside it.** The repo root is `E:\Code\yokai-y2k\app`; the clones are at `E:\Code\yokai-y2k\refs` (i.e. `../refs/<name>` from the repo root, declared as absolute paths in `.claude/settings.json`). `refs/foo` relative to the app cwd does NOT resolve; use `../refs/foo` or the absolute path. The sync / port sources and what each is for:
+  - `refs/mihon/` — the live upstream **base**. Ported by hand on an ongoing basis; the process + running ledger live in [docs/dev/upstream-sync.md](docs/dev/upstream-sync.md). Do not credit (it is the base).
+  - `refs/komikku/` — **Komikku**, a healthy Mihon fork; the source of borrowed **feature ports** into Reikai (the EXH/adult subsystem, the MD enhanced source, the native edit-info dialog, library tag search, and more). Compare implementation, not surface; credit like the other ports.
+  - `refs/lnreader-main/` (+ `refs/lnreader-2.0.3-Pre-release/`, `refs/lnreader-plugins/`) — **LNReader**; the origin of the current **novel reader** engine (the vendored `core.js`) and the LN plugin ecosystem.
+  - `refs/tsundoku/` — **Tsundoku**, an Apache-2.0 Mihon fork built for novels; the reference for **novel-reader features and the future native-reader migration** (alongside LNReader). See [docs/dev/plans/novel-reader-tsundoku.md](docs/dev/plans/novel-reader-tsundoku.md).
+  - Other clones are mostly self-evident from their names. Non-obvious: `refs/tachiyomi-extension/` is the **Suwayomi** extension repo (`Suwayomi/tachiyomi-extension`, for connecting Reikai to a self-hosted Suwayomi server as an in-app source), NOT the archived `tachiyomiorg/tachiyomi-extensions`.
 
 ## Skills for common flows
 

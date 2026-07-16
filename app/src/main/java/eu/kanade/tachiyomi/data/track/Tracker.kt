@@ -4,6 +4,7 @@ import androidx.annotation.CallSuper
 import androidx.annotation.DrawableRes
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.data.database.models.Track
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.coroutines.flow.Flow
 import okhttp3.OkHttpClient
@@ -50,12 +51,21 @@ interface Tracker {
 
     suspend fun search(query: String): List<TrackSearch>
 
-    // RK --> novel-aware search (Active #8). Default delegates to the manga search so trackers outside
-    // the novel-capable set degrade gracefully; the four light-novel trackers override it.
+    // RK --> novel-aware search (Active #8). searchNovel defaults to the manga search so trackers
+    // outside the novel-capable set degrade gracefully; the seven novel-capable trackers override it.
+    // supportsNovels gates the novel tracking sheet: only trackers that declare it (the same seven)
+    // are offered, so a tracker that can only return manga hits can't be bound to a novel.
+    val supportsNovels: Boolean
+
     suspend fun searchNovel(query: String): List<TrackSearch> = search(query)
     // RK <--
 
     suspend fun refresh(track: Track): Track
+
+    // RK --> autofill entry metadata from a bound tracker (Fill from tracker). BaseTracker throws by
+    // default; each supported service overrides it. Ported from Komikku, plus a genres field.
+    suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata
+    // RK <--
 
     suspend fun login(username: String, password: String)
 

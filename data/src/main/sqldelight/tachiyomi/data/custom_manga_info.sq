@@ -1,0 +1,32 @@
+import kotlin.String;
+import kotlin.collections.List;
+
+CREATE TABLE custom_manga_info(
+    manga_id INTEGER NOT NULL PRIMARY KEY,
+    title TEXT,
+    author TEXT,
+    artist TEXT,
+    description TEXT,
+    genre TEXT AS List<String>,
+    status INTEGER,
+    thumbnail_url TEXT,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id)
+    ON DELETE CASCADE
+);
+
+getAll:
+SELECT *
+FROM custom_manga_info;
+
+getByMangaId:
+SELECT *
+FROM custom_manga_info
+WHERE manga_id = :mangaId;
+
+insert:
+INSERT OR REPLACE INTO custom_manga_info(manga_id, title, author, artist, description, genre, status, thumbnail_url)
+VALUES (:mangaId, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl);
+
+delete:
+DELETE FROM custom_manga_info
+WHERE manga_id = :mangaId;

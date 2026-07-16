@@ -53,7 +53,14 @@ class PreferredSourcesScreenModel(
         val id = key.toLongOrNull() ?: return
         persist { ids ->
             val i = ids.indexOf(id)
-            if (i <= 0) ids else ids.toMutableList().also { it[i] = it[i - 1]; it[i - 1] = id }
+            if (i <= 0) {
+                ids
+            } else {
+                ids.toMutableList().also {
+                    it[i] = it[i - 1]
+                    it[i - 1] = id
+                }
+            }
         }
     }
 
@@ -61,7 +68,14 @@ class PreferredSourcesScreenModel(
         val id = key.toLongOrNull() ?: return
         persist { ids ->
             val i = ids.indexOf(id)
-            if (i < 0 || i >= ids.lastIndex) ids else ids.toMutableList().also { it[i] = it[i + 1]; it[i + 1] = id }
+            if (i < 0 || i >= ids.lastIndex) {
+                ids
+            } else {
+                ids.toMutableList().also {
+                    it[i] = it[i + 1]
+                    it[i + 1] = id
+                }
+            }
         }
     }
 

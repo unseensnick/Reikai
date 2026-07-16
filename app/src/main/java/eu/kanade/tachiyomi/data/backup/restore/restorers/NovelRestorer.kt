@@ -4,6 +4,7 @@
 // from the backup's {url, source} refs once every novel has its fresh id.
 package eu.kanade.tachiyomi.data.backup.restore.restorers
 
+import eu.kanade.tachiyomi.data.backup.models.BackupCustomNovelInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelChapter
@@ -15,6 +16,8 @@ import reikai.domain.novel.NovelCategoryRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.NovelTrackRepository
+import reikai.domain.novel.interactor.SetCustomNovelInfo
+import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelCategory
 import tachiyomi.data.Database
@@ -28,6 +31,7 @@ class NovelRestorer(
     private val novelCategoryRepository: NovelCategoryRepository = Injekt.get(),
     private val novelTrackRepository: NovelTrackRepository = Injekt.get(),
     private val preferences: ReikaiLibraryPreferences = Injekt.get(),
+    private val setCustomNovelInfo: SetCustomNovelInfo = Injekt.get(),
     private val database: Database = Injekt.get(),
 ) {
 
@@ -81,8 +85,8 @@ class NovelRestorer(
 
     /**
      * Fold the newer copy's source details (and edit-count) onto this base, preserving the base's
-     * local fields. `editedFlags` travels with the details so the edit-lock stays aligned with the
-     * description it guards (a novel concern manga lacks).
+     * local fields. User edits are no longer in the row (they live in the custom_novel_info overlay,
+     * restored separately), so only source-owned details travel here.
      */
     private fun Novel.copyFrom(newer: Novel): Novel = this.copy(
         favorite = this.favorite || newer.favorite,
@@ -92,7 +96,6 @@ class NovelRestorer(
         genre = newer.genre,
         thumbnailUrl = newer.thumbnailUrl,
         status = newer.status,
-        editedFlags = newer.editedFlags,
         initialized = this.initialized || newer.initialized,
         version = newer.version,
     )
@@ -177,6 +180,26 @@ class NovelRestorer(
         }
         if (resolvedUnmerges.isNotEmpty()) {
             preferences.novelManualUnmerges.set(preferences.novelManualUnmerges.get() + resolvedUnmerges)
+        }
+    }
+
+    /** Apply the backup's novel custom-info overlay, re-keyed from {url,source} to the restored ids. */
+    suspend fun restoreCustomNovelInfo(entries: List<BackupCustomNovelInfo>) {
+        if (entries.isEmpty()) return
+        entries.forEach { entry ->
+            val novelId = novelRepository.getByUrlAndSource(entry.url, entry.source)?.id ?: return@forEach
+            setCustomNovelInfo.set(
+                CustomNovelInfo(
+                    novelId = novelId,
+                    title = entry.title,
+                    author = entry.author,
+                    artist = entry.artist,
+                    description = entry.description,
+                    genre = entry.genre.ifEmpty { null },
+                    status = entry.status,
+                    thumbnailUrl = entry.thumbnailUrl,
+                ),
+            )
         }
     }
 

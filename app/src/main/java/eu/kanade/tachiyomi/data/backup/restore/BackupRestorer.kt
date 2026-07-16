@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.backup.BackupDecoder
 import eu.kanade.tachiyomi.data.backup.BackupNotifier
 import eu.kanade.tachiyomi.data.backup.models.Backup
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
+import eu.kanade.tachiyomi.data.backup.models.BackupCustomMangaInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
@@ -142,6 +143,7 @@ class BackupRestorer(
                     if (options.categories) backup.backupCategories else emptyList(),
                     backup.backupMangaMerges,
                     backup.backupMangaUnmerges,
+                    backup.backupCustomMangaInfo,
                 )
             }
             if (options.extensionStores) {
@@ -193,6 +195,8 @@ class BackupRestorer(
                     notifier.showRestoreProgress(chunk.last().title, restoreProgress.load(), restoreAmount, isSync)
                 }
             novelRestorer.restoreMerges(backup.backupNovelMerges, backup.backupNovelUnmerges)
+            // RK: apply the custom-info overlay, re-keyed from {url,source} to the fresh novel ids.
+            novelRestorer.restoreCustomNovelInfo(backup.backupCustomNovelInfo)
         }
     }
 
@@ -215,6 +219,8 @@ class BackupRestorer(
         // RK: merge/unmerge groups, rebuilt from {url,source} once the restored manga have fresh IDs.
         backupMangaMerges: List<BackupMangaMergeGroup>,
         backupMangaUnmerges: List<BackupMangaMergeGroup>,
+        // RK: custom-info overlay, re-keyed from {url,source} to fresh IDs after the manga loop.
+        backupCustomMangaInfo: List<BackupCustomMangaInfo>,
     ) = launch {
         mangaRestorer.sortByNew(backupMangas)
             .chunked(100)
@@ -239,6 +245,9 @@ class BackupRestorer(
         // RK: with every manga restored (fresh IDs), rebuild the merge prefs from the backup's refs.
         ensureActive()
         mangaRestorer.restoreMerges(backupMangaMerges, backupMangaUnmerges)
+        // RK: and apply the custom-info overlay, re-keyed to those same fresh IDs.
+        ensureActive()
+        mangaRestorer.restoreCustomInfo(backupCustomMangaInfo)
     }
 
     private fun CoroutineScope.restoreAppPreferences(

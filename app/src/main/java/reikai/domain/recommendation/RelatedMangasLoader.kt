@@ -122,11 +122,17 @@ class RelatedMangasLoader(
     private suspend fun fetchMediaContexts(tracks: List<Track>): Map<Long, TrackerRecommendations.MediaContext> =
         coroutineScope {
             tracks
-                .mapNotNull { track -> RecommendationProviders.forTracker(track.trackerId, trackerManager)?.let { track to it } }
+                .mapNotNull { track ->
+                    RecommendationProviders.forTracker(track.trackerId, trackerManager)?.let {
+                        track to
+                            it
+                    }
+                }
                 .map { (track, provider) ->
                     async {
                         try {
-                            track.trackerId to withTimeout(MEDIA_CONTEXT_TIMEOUT) { provider.getMediaContext(track.remoteId) }
+                            track.trackerId to
+                                withTimeout(MEDIA_CONTEXT_TIMEOUT) { provider.getMediaContext(track.remoteId) }
                         } catch (e: TimeoutCancellationException) {
                             null
                         } catch (e: CancellationException) {

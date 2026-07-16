@@ -6,12 +6,14 @@ import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.domain.track.model.toDomainTrack
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.database.models.Track
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import logcat.LogPriority
 import okhttp3.OkHttpClient
+import reikai.domain.track.TrackFieldMutations
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
@@ -38,6 +40,10 @@ abstract class BaseTracker(
     override val supportsReadingDates: Boolean = false
 
     override val supportsPrivateTracking: Boolean = false
+
+    // RK --> novel search capability; overridden true by the novel-capable trackers (Active #8)
+    override val supportsNovels: Boolean = false
+    // RK <--
 
     // TODO: Store all scores as 10 point in the future maybe?
     override fun get10PointScore(track: DomainTrack): Double {
@@ -88,31 +94,23 @@ abstract class BaseTracker(
     }
 
     override suspend fun setRemoteStatus(track: Track, status: Long) {
-        track.status = status
-        if (track.status == getCompletionStatus() && track.total_chapters != 0L) {
-            track.last_chapter_read = track.total_chapters.toDouble()
-        }
+        // RK --> field transition shared with the novel writer, so novels inherit upstream changes
+        TrackFieldMutations.applyStatus(this, track, status)
+        // RK <--
         updateRemote(track)
     }
 
     override suspend fun setRemoteLastChapterRead(track: Track, chapterNumber: Int) {
-        if (
-            track.last_chapter_read == 0.0 &&
-            track.last_chapter_read < chapterNumber &&
-            track.status != getRereadingStatus()
-        ) {
-            track.status = getReadingStatus()
-        }
-        track.last_chapter_read = chapterNumber.toDouble()
-        if (track.total_chapters != 0L && track.last_chapter_read.toLong() == track.total_chapters) {
-            track.status = getCompletionStatus()
-            track.finished_reading_date = System.currentTimeMillis()
-        }
+        // RK --> field transition shared with the novel writer, so novels inherit upstream changes
+        TrackFieldMutations.applyLastChapterRead(this, track, chapterNumber)
+        // RK <--
         updateRemote(track)
     }
 
     override suspend fun setRemoteScore(track: Track, scoreString: String) {
-        track.score = indexToScore(getScoreList().indexOf(scoreString))
+        // RK --> field transition shared with the novel writer, so novels inherit upstream changes
+        TrackFieldMutations.applyScore(this, track, scoreString)
+        // RK <--
         updateRemote(track)
     }
 
@@ -130,6 +128,12 @@ abstract class BaseTracker(
         track.private = private
         updateRemote(track)
     }
+
+    // RK --> throwing default; supported trackers override to autofill entry metadata.
+    override suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
+        throw NotImplementedError("Not implemented.")
+    }
+    // RK <--
 
     private suspend fun updateRemote(track: Track): Unit = withIOContext {
         try {

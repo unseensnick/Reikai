@@ -31,6 +31,7 @@ class NovelBackupRoundTripTest {
         novelCategoryRepository = mockk(relaxed = true),
         novelTrackRepository = mockk(relaxed = true),
         preferences = mockk(relaxed = true),
+        setCustomNovelInfo = mockk(relaxed = true),
         database = mockk(relaxed = true),
     )
 
@@ -92,6 +93,7 @@ class NovelBackupRoundTripTest {
             novelCategoryRepository = mockk(relaxed = true),
             novelTrackRepository = mockk(relaxed = true),
             preferences = backupPrefs,
+            customNovelInfoRepository = mockk(relaxed = true),
             database = mockk(relaxed = true),
         )
         // Library + merges only; skip chapters/categories/tracking/history so no DB is touched.
@@ -128,6 +130,7 @@ class NovelBackupRoundTripTest {
             novelCategoryRepository = mockk(relaxed = true),
             novelTrackRepository = mockk(relaxed = true),
             preferences = restorePrefs,
+            setCustomNovelInfo = mockk(relaxed = true),
             database = mockk(relaxed = true),
         )
 
@@ -154,6 +157,7 @@ class NovelBackupRoundTripTest {
             novelCategoryRepository = mockk(relaxed = true),
             novelTrackRepository = mockk(relaxed = true),
             preferences = restorePrefs,
+            setCustomNovelInfo = mockk(relaxed = true),
             database = mockk(relaxed = true),
         )
 
@@ -180,7 +184,6 @@ class NovelBackupRoundTripTest {
             thumbnailUrl = "cover",
             favorite = true,
             totalPages = 3,
-            editedFlags = 8,
             notes = "my note",
         )
 
@@ -193,12 +196,13 @@ class NovelBackupRoundTripTest {
         novel.thumbnailUrl shouldBe "cover"
         novel.favorite shouldBe true
         novel.totalPages shouldBe 3L
-        novel.editedFlags shouldBe 8L
         novel.notes shouldBe "my note"
     }
 
     @Test
-    fun `BackupNovelChapter restores under the new novel id and is never marked downloaded`() {
+    fun `BackupNovelChapter restores under the new novel id`() {
+        // Downloaded state isn't in the backup or the model anymore; it's rederived from disk by
+        // NovelDownloadCache after restore.
         val chapter = BackupNovelChapter(url = "c1", name = "Chapter 1", read = true, lastTextProgress = 4200)
             .toChapterImpl(novelId = 42)
 
@@ -206,6 +210,5 @@ class NovelBackupRoundTripTest {
         chapter.url shouldBe "c1"
         chapter.read shouldBe true
         chapter.lastTextProgress shouldBe 4200L
-        chapter.isDownloaded shouldBe false
     }
 }

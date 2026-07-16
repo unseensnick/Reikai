@@ -8,9 +8,11 @@ import eu.kanade.tachiyomi.data.track.hikka.dto.HKMangaPagination
 import eu.kanade.tachiyomi.data.track.hikka.dto.HKOAuth
 import eu.kanade.tachiyomi.data.track.hikka.dto.HKRead
 import eu.kanade.tachiyomi.data.track.hikka.dto.HKUser
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.DELETE
 import eu.kanade.tachiyomi.network.GET
+import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.PUT
 import eu.kanade.tachiyomi.network.awaitSuccess
@@ -58,9 +60,16 @@ class HikkaApi(
         }
     }
 
-    suspend fun searchManga(query: String): List<TrackSearch> {
+    suspend fun searchManga(query: String): List<TrackSearch> = searchContent(query, "manga")
+
+    // RK --> novel-aware search: Hikka keeps novels in a separate /novel content tree with the same
+    // search body and result shape as /manga; toTrack tags the result so its bind path uses /novel.
+    suspend fun searchNovel(query: String): List<TrackSearch> = searchContent(query, "novel")
+    // RK <--
+
+    private suspend fun searchContent(query: String, contentType: String): List<TrackSearch> {
         return withIOContext {
-            val url = "$BASE_API_URL/manga".toUri().buildUpon()
+            val url = "$BASE_API_URL/$contentType".toUri().buildUpon()
                 .appendQueryParameter("page", "1")
                 .appendQueryParameter("size", "50")
                 .build()
@@ -93,21 +102,31 @@ class HikkaApi(
                     .awaitSuccess()
                     .parseAs<HKMangaPagination>()
                     .list
-                    .map { it.toTrack(trackId) }
+                    .map { it.toTrack(trackId, contentType) }
             }
         }
     }
 
+    // RK --> a bound track's URL is hikka.io/{contentType}/{slug}; Hikka splits manga and novel into
+    // separate content trees, so every read/write path derives which tree from the URL segment.
+    private fun contentTypeOf(url: String): String = url.split("/").getOrNull(3) ?: "manga"
+    // RK <--
+
     suspend fun getRead(track: Track): HKRead? {
         return withIOContext {
             val slug = track.tracking_url.split("/")[4]
-            val url = "$BASE_API_URL/read/manga/$slug".toUri().buildUpon().build()
+            val url = "$BASE_API_URL/read/${contentTypeOf(track.tracking_url)}/$slug".toUri().buildUpon().build()
             with(json) {
-                // RK: close the response on the 404 path too. Upstream returns early without closing
-                // it, leaking the connection so the next tracker call (e.g. getManga during bind)
-                // throws "cannot make a new request because the previous response is still open".
-                authClient.newCall(GET(url.toString())).execute().use { response ->
-                    if (response.code == 404) null else response.parseAs<HKRead>()
+                try {
+                    authClient.newCall(GET(url.toString()))
+                        .awaitSuccess()
+                        .parseAs<HKRead>()
+                } catch (e: HttpException) {
+                    if (e.code == 404) {
+                        null
+                    } else {
+                        throw e
+                    }
                 }
             }
         }
@@ -115,24 +134,74 @@ class HikkaApi(
 
     suspend fun getManga(track: Track): TrackSearch {
         return withIOContext {
+            val contentType = contentTypeOf(track.tracking_url)
             val slug = track.tracking_url.split("/")[4]
-            val url = "$BASE_API_URL/manga/$slug".toUri().buildUpon()
+            val url = "$BASE_API_URL/$contentType/$slug".toUri().buildUpon()
                 .build()
 
             with(json) {
                 authClient.newCall(GET(url.toString()))
                     .awaitSuccess()
                     .parseAs<HKManga>()
-                    .toTrack(trackId)
+                    .toTrack(trackId, contentType)
             }
         }
     }
+
+    // RK --> "Fill from tracker" metadata. No Komikku reference (Komikku has no Hikka); the /manga/{slug}
+    // endpoint returns synopsis + credited people + genres, which the bind path doesn't read.
+    suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
+        return withIOContext {
+            val slug = track.remoteUrl.split("/")[4]
+            val url = "$BASE_API_URL/${contentTypeOf(track.remoteUrl)}/$slug".toUri().buildUpon().build()
+            with(json) {
+                authClient.newCall(GET(url.toString()))
+                    .awaitSuccess()
+                    .parseAs<HKManga>()
+                    .let { manga ->
+                        fun creditNames(roleMatch: String): String? =
+                            manga.authors
+                                .filter { author ->
+                                    author.roles.any {
+                                        it.nameEn?.contains(roleMatch, ignoreCase = true) ==
+                                            true
+                                    }
+                                }
+                                .mapNotNull { it.person?.run { nameEn ?: nameNative ?: nameUa } }
+                                .filter { it.isNotBlank() }
+                                .distinct()
+                                .joinToString(", ")
+                                .ifEmpty { null }
+
+                        TrackMangaMetadata(
+                            remoteId = track.remoteId,
+                            title = manga.titleUa ?: manga.titleEn ?: manga.titleOriginal,
+                            thumbnailUrl = manga.image,
+                            // Hikka synopses are markdown with inline links ([text](url)); keep the text only.
+                            description = (manga.synopsisUa ?: manga.synopsisEn)?.stripMarkdownLinks()?.ifBlank {
+                                null
+                            },
+                            authors = creditNames("Story"),
+                            artists = creditNames("Art"),
+                            genres = manga.genres
+                                .mapNotNull { it.nameEn ?: it.nameUa }
+                                .filter { it.isNotBlank() }
+                                .takeIf { it.isNotEmpty() },
+                        )
+                    }
+            }
+        }
+    }
+
+    private fun String.stripMarkdownLinks(): String =
+        replace(Regex("""\[([^]]+)]\(([^)]+)\)"""), "$1")
+    // RK <--
 
     suspend fun deleteUserManga(track: DomainTrack) {
         return withIOContext {
             val slug = track.remoteUrl.split("/")[4]
 
-            val url = "$BASE_API_URL/read/manga/$slug".toUri().buildUpon()
+            val url = "$BASE_API_URL/read/${contentTypeOf(track.remoteUrl)}/$slug".toUri().buildUpon()
                 .build()
 
             authClient.newCall(DELETE(url.toString()))
@@ -142,9 +211,10 @@ class HikkaApi(
 
     suspend fun addUserManga(track: Track): Track {
         return withIOContext {
+            val contentType = contentTypeOf(track.tracking_url)
             val slug = track.tracking_url.split("/")[4]
 
-            val url = "$BASE_API_URL/read/manga/$slug".toUri().buildUpon()
+            val url = "$BASE_API_URL/read/$contentType/$slug".toUri().buildUpon()
                 .build()
 
             var rereads = getRead(track)?.rereads ?: 0
@@ -167,7 +237,7 @@ class HikkaApi(
                 authClient.newCall(PUT(url.toString(), body = payload.toString().toRequestBody(jsonMime)))
                     .awaitSuccess()
                     .parseAs<HKRead>()
-                    .toTrack(trackId)
+                    .toTrack(trackId, contentType)
             }
         }
     }

@@ -39,7 +39,6 @@ import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.migrate.NovelMigrationConfigScreen
-import tachiyomi.domain.manga.model.MangaCover as MangaCoverData
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -47,6 +46,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.selectedBackground
+import tachiyomi.domain.manga.model.MangaCover as MangaCoverData
 
 /** Opens on the [initialContentType] chip (e.g. Novels when reached from the novel library). */
 class UpdateErrorsScreen(

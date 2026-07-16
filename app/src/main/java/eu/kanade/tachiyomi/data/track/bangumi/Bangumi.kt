@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMCollectionItem
 import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMOAuth
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.serialization.json.Json
 import tachiyomi.i18n.MR
@@ -79,6 +80,12 @@ class Bangumi(id: Long) : BaseTracker(id, "Bangumi") {
         track.copyPersonalFrom(remoteStatusTrack)
         return track
     }
+
+    // RK --> autofill entry metadata (Fill from tracker)
+    override suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
+        return api.getMangaMetadata(track)
+    }
+    // RK <--
 
     override fun getLogo() = R.drawable.brand_bangumi
 

@@ -53,7 +53,10 @@ class MangaMergeManagerTest {
         (keys[1L] == keys[2L]) shouldBe false
     }
 
-    private fun managerWith(merges: Set<String>, unmerges: Set<String>): Triple<MangaMergeManager, Preference<Set<String>>, Preference<Set<String>>> {
+    private fun managerWith(
+        merges: Set<String>,
+        unmerges: Set<String>,
+    ): Triple<MangaMergeManager, Preference<Set<String>>, Preference<Set<String>>> {
         val mergesPref = mockk<Preference<Set<String>>>(relaxed = true)
         val unmergesPref = mockk<Preference<Set<String>>>(relaxed = true)
         every { mergesPref.get() } returns merges
@@ -141,6 +144,21 @@ class MangaMergeManagerTest {
         // Only the target survives, so no merge entry remains, and the pair is unmerged.
         result.newMerges shouldContainExactly emptySet()
         result.newUnmerges shouldContainExactly setOf("1,2")
+    }
+
+    @Test
+    fun `computeHealing keeps a sibling tracked on a different service`() {
+        val result = MangaMergeManager.computeHealing(
+            targetId = 1L,
+            merges = setOf("1,2"),
+            unmerges = emptySet(),
+            trackerKeysByMangaId = mapOf(
+                1L to setOf(10L to 100L), // e.g. AniList
+                2L to setOf(20L to 555L), // e.g. MyAnimeList: different service, not comparable -> kept
+            ),
+        )
+        result.dropped shouldBe 0
+        result.newMerges shouldContainExactly setOf("1,2")
     }
 
     @Test

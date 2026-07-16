@@ -71,6 +71,7 @@ class MangaRestoreCategoriesTest {
             fetchInterval = mockk(relaxed = true),
             reikaiLibraryPreferences = mockk(relaxed = true),
             mangaMetadataRepository = mockk(relaxed = true),
+            setCustomMangaInfo = mockk(relaxed = true),
         )
 
         restorer.restore(backupManga, backupCategories)

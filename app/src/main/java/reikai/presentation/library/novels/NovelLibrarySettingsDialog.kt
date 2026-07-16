@@ -1,6 +1,5 @@
 package reikai.presentation.library.novels
 
-import android.content.res.Configuration
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -13,7 +12,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -23,24 +21,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.library.LibrarySettingsScreenModel
 import reikai.domain.novel.model.NovelLibrarySort
+import reikai.presentation.library.EntryDisplayPage
 import reikai.presentation.library.LibraryGroup
-import reikai.presentation.library.ReikaiCategoriesPage
+import reikai.presentation.library.ResetToGlobalSortItem
 import tachiyomi.core.common.preference.TriState
-import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.BaseSortItem
 import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.HeadingItem
-import tachiyomi.presentation.core.components.SettingsChipRow
 import tachiyomi.presentation.core.components.SettingsItemsPaddings
-import tachiyomi.presentation.core.components.SliderItem
 import tachiyomi.presentation.core.components.SortItem
 import tachiyomi.presentation.core.components.TriStateItem
 import tachiyomi.presentation.core.i18n.stringResource
@@ -48,9 +43,9 @@ import tachiyomi.presentation.core.util.collectAsState
 
 /**
  * Novel library settings sheet (P5 S6 slice 4). Mirrors Mihon's `LibrarySettingsDialog` with Filter /
- * Sort / Display tabs (the Group tab is deferred until novel dynamic grouping exists). Filter + Sort
- * bind to [NovelLibraryScreenModel]; the Display tab edits the shared library display prefs through a
- * [LibrarySettingsScreenModel], so it stays in sync with the manga library's Display tab.
+ * Sort / Display / Group tabs. Filter + Sort + Group bind to [NovelLibraryScreenModel]; the Display tab
+ * edits the shared library display prefs through a [LibrarySettingsScreenModel], so it stays in sync
+ * with the manga library's Display tab.
  */
 @Composable
 fun NovelLibrarySettingsDialog(
@@ -88,13 +83,12 @@ fun NovelLibrarySettingsDialog(
     }
 }
 
-// BY_TRACK_STATUS is omitted: novel trackers are deferred, so a "by tracking status" group would be
-// a single "Not tracked" bucket.
 private val novelGroupModes = listOf(
     LibraryGroup.BY_DEFAULT to MR.strings.group_by_default,
     LibraryGroup.BY_TAG to MR.strings.group_by_tag,
     LibraryGroup.BY_SOURCE to MR.strings.group_by_source,
     LibraryGroup.BY_STATUS to MR.strings.group_by_status,
+    LibraryGroup.BY_TRACK_STATUS to MR.strings.group_by_tracking_status,
     LibraryGroup.BY_AUTHOR to MR.strings.group_by_author,
     LibraryGroup.BY_LANGUAGE to MR.strings.group_by_language,
     LibraryGroup.UNGROUPED to MR.strings.group_ungrouped,
@@ -150,27 +144,87 @@ private fun ColumnScope.FilterPage(
             onClick = { screenModel.toggleFilter(pref) },
         )
     }
+
+    // Per-logged-in-tracker filter (mirrors the manga LibrarySettingsDialog: one row, or a heading + row
+    // per tracker). Bound to the novel model's own tracker prefs, not the shared settings model.
+    val trackers by screenModel.trackersFlow.collectAsState()
+    when (trackers.size) {
+        0 -> {
+            // No logged-in trackers: nothing to filter by.
+        }
+        1 -> {
+            val service = trackers[0]
+            val filterTracker by screenModel.novelFilterTracking(service.id.toInt()).collectAsState()
+            TriStateItem(
+                label = stringResource(MR.strings.action_filter_tracked),
+                state = filterTracker,
+                onClick = { screenModel.toggleNovelTracker(service.id.toInt()) },
+            )
+        }
+        else -> {
+            HeadingItem(MR.strings.action_filter_tracked)
+            trackers.map { service ->
+                val filterTracker by screenModel.novelFilterTracking(service.id.toInt()).collectAsState()
+                TriStateItem(
+                    label = service.name,
+                    state = filterTracker,
+                    onClick = { screenModel.toggleNovelTracker(service.id.toInt()) },
+                )
+            }
+        }
+    }
+
     NovelCategoriesFilter(screenModel = screenModel, onManageCategories = onManageCategories)
 }
 
-private val sortModes: List<Pair<StringResource, NovelLibrarySort.Type>> = listOf(
-    MR.strings.action_sort_alpha to NovelLibrarySort.Type.Alphabetical,
-    MR.strings.action_sort_last_read to NovelLibrarySort.Type.LastRead,
-    MR.strings.action_sort_last_manga_update to NovelLibrarySort.Type.LastUpdate,
-    MR.strings.action_sort_latest_chapter to NovelLibrarySort.Type.LatestChapter,
-    MR.strings.action_sort_chapter_fetch_date to NovelLibrarySort.Type.ChapterFetchDate,
-    MR.strings.action_sort_total to NovelLibrarySort.Type.TotalChapters,
-    MR.strings.action_sort_unread_count to NovelLibrarySort.Type.UnreadCount,
-    MR.strings.action_sort_date_added to NovelLibrarySort.Type.DateAdded,
-    MR.strings.label_downloaded to NovelLibrarySort.Type.Downloaded,
-    MR.strings.action_sort_random to NovelLibrarySort.Type.Random,
-)
+/**
+ * Display label for a novel sort mode, for the single-list category header. The shared header decodes a
+ * category's flags through the manga [tachiyomi.domain.library.model.LibrarySort] enum, which misreads
+ * the two novel-only sorts (Downloaded, Tracker score) since they sit on bits the manga enum labels
+ * differently; the novel library passes this instead so its header labels stay correct.
+ */
+internal fun novelSortLabelRes(type: NovelLibrarySort.Type): StringResource = when (type) {
+    NovelLibrarySort.Type.Alphabetical -> MR.strings.action_sort_alpha
+    NovelLibrarySort.Type.LastRead -> MR.strings.action_sort_last_read
+    NovelLibrarySort.Type.LastUpdate -> MR.strings.action_sort_last_manga_update
+    NovelLibrarySort.Type.UnreadCount -> MR.strings.action_sort_unread_count
+    NovelLibrarySort.Type.TotalChapters -> MR.strings.action_sort_total
+    NovelLibrarySort.Type.LatestChapter -> MR.strings.action_sort_latest_chapter
+    NovelLibrarySort.Type.ChapterFetchDate -> MR.strings.action_sort_chapter_fetch_date
+    NovelLibrarySort.Type.DateAdded -> MR.strings.action_sort_date_added
+    NovelLibrarySort.Type.Downloaded -> MR.strings.action_sort_downloaded
+    NovelLibrarySort.Type.TrackerMean -> MR.strings.action_sort_tracker_score
+    NovelLibrarySort.Type.Random -> MR.strings.action_sort_random
+}
 
 @Composable
 private fun ColumnScope.SortPage(screenModel: NovelLibraryScreenModel, categoryId: Long) {
     val state by screenModel.state.collectAsState()
+    val trackers by screenModel.trackersFlow.collectAsState()
     val current = state.sortFor(categoryId)
     val sortDescending = !current.isAscending
+
+    // Tracker-score sort only shows with a logged-in tracker (mirrors the manga LibrarySettingsDialog).
+    val sortModes = remember(trackers.isEmpty()) {
+        val trackerMeanPair = if (trackers.isNotEmpty()) {
+            MR.strings.action_sort_tracker_score to NovelLibrarySort.Type.TrackerMean
+        } else {
+            null
+        }
+        listOfNotNull(
+            MR.strings.action_sort_alpha to NovelLibrarySort.Type.Alphabetical,
+            MR.strings.action_sort_last_read to NovelLibrarySort.Type.LastRead,
+            MR.strings.action_sort_last_manga_update to NovelLibrarySort.Type.LastUpdate,
+            MR.strings.action_sort_latest_chapter to NovelLibrarySort.Type.LatestChapter,
+            MR.strings.action_sort_chapter_fetch_date to NovelLibrarySort.Type.ChapterFetchDate,
+            MR.strings.action_sort_total to NovelLibrarySort.Type.TotalChapters,
+            MR.strings.action_sort_unread_count to NovelLibrarySort.Type.UnreadCount,
+            MR.strings.action_sort_date_added to NovelLibrarySort.Type.DateAdded,
+            MR.strings.label_downloaded to NovelLibrarySort.Type.Downloaded,
+            trackerMeanPair,
+            MR.strings.action_sort_random to NovelLibrarySort.Type.Random,
+        )
+    }
 
     sortModes.forEach { (labelRes, mode) ->
         if (mode == NovelLibrarySort.Type.Random) {
@@ -191,105 +245,39 @@ private fun ColumnScope.SortPage(screenModel: NovelLibraryScreenModel, categoryI
             },
         )
     }
+
+    // RK: clear this category's override so it follows the global sort again (only when overridden).
+    if ((state.flagsForCategory(categoryId) and NovelLibrarySort.CUSTOMIZED) != 0L) {
+        ResetToGlobalSortItem(onClick = { screenModel.resetSort(categoryId) })
+    }
 }
 
-private val displayModes = listOf(
-    MR.strings.action_display_grid to LibraryDisplayMode.CompactGrid,
-    MR.strings.action_display_comfortable_grid to LibraryDisplayMode.ComfortableGrid,
-    MR.strings.action_display_list to LibraryDisplayMode.List,
-    MR.strings.action_display_cover_only_grid to LibraryDisplayMode.CoverOnlyGrid,
-    MR.strings.action_display_comfortable_grid_panorama to LibraryDisplayMode.ComfortableGridPanorama,
-)
-
 /**
- * Novel Display tab: the shared display prefs (display mode, columns, badges, tabs) plus continue
- * reading and the Reikai category/hopper settings. Omits the manga-only merge toggles (those land
- * with the novel merge system in S8).
+ * Novel Display tab: renders through the shared [EntryDisplayPage]. Omits the manga-only local badge
+ * (`showLocalBadge = false`) and fills the shared merge-toggle slot with the novel merge toggles
+ * (auto-merge, the conditional require-author, and source icons).
  */
 @Composable
 private fun ColumnScope.NovelDisplayPage(screenModel: LibrarySettingsScreenModel) {
-    val displayMode by screenModel.libraryPreferences.displayMode.collectAsState()
-    SettingsChipRow(MR.strings.action_display_mode) {
-        displayModes.map { (titleRes, mode) ->
-            FilterChip(
-                selected = displayMode == mode,
-                onClick = { screenModel.setDisplayMode(mode) },
-                label = { Text(stringResource(titleRes)) },
+    EntryDisplayPage(
+        screenModel = screenModel,
+        showLocalBadge = false,
+        mergeToggles = {
+            CheckboxItem(
+                label = stringResource(MR.strings.action_merge_same_title),
+                pref = screenModel.reikaiLibraryPreferences.novelAutoMergeSameTitle,
             )
-        }
-    }
-
-    if (displayMode != LibraryDisplayMode.List) {
-        val configuration = LocalConfiguration.current
-        val columnPreference = remember {
-            if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
-                screenModel.libraryPreferences.landscapeColumns
-            } else {
-                screenModel.libraryPreferences.portraitColumns
+            val autoMergeNovels by screenModel.reikaiLibraryPreferences.novelAutoMergeSameTitle.collectAsState()
+            if (autoMergeNovels) {
+                CheckboxItem(
+                    label = stringResource(MR.strings.action_merge_require_author),
+                    pref = screenModel.reikaiLibraryPreferences.novelAutoMergeRequireAuthor,
+                )
             }
-        }
-        val columns by columnPreference.collectAsState()
-        SliderItem(
-            value = columns,
-            valueRange = 0..10,
-            label = stringResource(MR.strings.pref_library_columns),
-            valueString = if (columns > 0) columns.toString() else stringResource(MR.strings.label_auto),
-            onChange = columnPreference::set,
-            pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        )
-    }
-
-    HeadingItem(MR.strings.overlay_header)
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_download_badge),
-        pref = screenModel.libraryPreferences.downloadBadge,
+            CheckboxItem(
+                label = stringResource(MR.strings.action_merge_source_icons),
+                pref = screenModel.reikaiLibraryPreferences.showNovelMergeSourceIcons,
+            )
+        },
     )
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_unread_badge),
-        pref = screenModel.libraryPreferences.unreadBadge,
-    )
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_language_badge),
-        pref = screenModel.libraryPreferences.languageBadge,
-    )
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_source_badge),
-        pref = screenModel.reikaiLibraryPreferences.sourceBadge,
-    )
-    // novel merge toggles (P5 S8)
-    CheckboxItem(
-        label = stringResource(MR.strings.action_merge_same_title),
-        pref = screenModel.reikaiLibraryPreferences.novelAutoMergeSameTitle,
-    )
-    val autoMergeNovels by screenModel.reikaiLibraryPreferences.novelAutoMergeSameTitle.collectAsState()
-    if (autoMergeNovels) {
-        CheckboxItem(
-            label = stringResource(MR.strings.action_merge_require_author),
-            pref = screenModel.reikaiLibraryPreferences.novelAutoMergeRequireAuthor,
-        )
-    }
-    CheckboxItem(
-        label = stringResource(MR.strings.action_merge_source_icons),
-        pref = screenModel.reikaiLibraryPreferences.showNovelMergeSourceIcons,
-    )
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_show_continue_reading_button),
-        pref = screenModel.libraryPreferences.showContinueReadingButton,
-    )
-
-    HeadingItem(MR.strings.tabs_header)
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_show_all_categories),
-        pref = screenModel.reikaiLibraryPreferences.showAllCategories,
-    )
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_show_tabs),
-        pref = screenModel.libraryPreferences.categoryTabs,
-    )
-    CheckboxItem(
-        label = stringResource(MR.strings.action_display_show_number_of_items),
-        pref = screenModel.libraryPreferences.categoryNumberOfItems,
-    )
-
-    ReikaiCategoriesPage(screenModel = screenModel)
 }

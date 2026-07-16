@@ -11,7 +11,7 @@ class NovelDownloadActionsTest {
         NovelChapter(
             id = id, novelId = 1L, url = "u$id", name = "c$id", read = read, bookmark = bookmark,
             lastTextProgress = 0L, chapterNumber = id.toDouble(), sourceOrder = order,
-            dateFetch = 0L, dateUpload = 0L, page = "", isDownloaded = false,
+            dateFetch = 0L, dateUpload = 0L, page = "",
         )
 
     // sourceOrder deliberately shuffled; unread in source order is [12, 10, 13].
@@ -25,24 +25,53 @@ class NovelDownloadActionsTest {
 
     @Test
     fun `next 1 takes the first unread chapter in source order`() {
-        selectChaptersForDownloadAction(chapters, DownloadAction.NEXT_1_CHAPTER).map { it.id } shouldBe listOf(12L)
+        selectChaptersForDownloadAction(chapters, DownloadAction.NEXT_1_CHAPTER, emptySet()).map { it.id } shouldBe
+            listOf(12L)
     }
 
     @Test
     fun `next N counts only unread and stops when fewer remain`() {
-        selectChaptersForDownloadAction(chapters, DownloadAction.NEXT_5_CHAPTERS).map { it.id } shouldBe
+        selectChaptersForDownloadAction(chapters, DownloadAction.NEXT_5_CHAPTERS, emptySet()).map { it.id } shouldBe
             listOf(12L, 10L, 13L)
     }
 
     @Test
     fun `unread returns every unread chapter in source order`() {
-        selectChaptersForDownloadAction(chapters, DownloadAction.UNREAD_CHAPTERS).map { it.id } shouldBe
+        selectChaptersForDownloadAction(chapters, DownloadAction.UNREAD_CHAPTERS, emptySet()).map { it.id } shouldBe
             listOf(12L, 10L, 13L)
     }
 
     @Test
     fun `bookmarked returns bookmarked chapters regardless of read state`() {
-        selectChaptersForDownloadAction(chapters, DownloadAction.BOOKMARKED_CHAPTERS).map { it.id } shouldBe
+        selectChaptersForDownloadAction(chapters, DownloadAction.BOOKMARKED_CHAPTERS, emptySet()).map { it.id } shouldBe
             listOf(11L, 13L)
+    }
+
+    @Test
+    fun `next 1 skips an excluded leading chapter`() {
+        // 12 is the first unread; excluding it (already downloaded or queued) advances to 10.
+        selectChaptersForDownloadAction(chapters, DownloadAction.NEXT_1_CHAPTER, setOf(12L)).map { it.id } shouldBe
+            listOf(10L)
+    }
+
+    @Test
+    fun `next N excludes queued or downloaded before take, so it still fills a full batch`() {
+        // 10 unread chapters, the first 3 already queued or downloaded: next-5 must return 5 FRESH
+        // chapters (4..8), not stop short at 2 because the take happened before the exclusion.
+        val many = (1L..10L).map { chapter(id = it, order = it) }
+        selectChaptersForDownloadAction(many, DownloadAction.NEXT_5_CHAPTERS, setOf(1L, 2L, 3L)).map { it.id } shouldBe
+            listOf(4L, 5L, 6L, 7L, 8L)
+    }
+
+    @Test
+    fun `unread excludes excluded ids`() {
+        selectChaptersForDownloadAction(chapters, DownloadAction.UNREAD_CHAPTERS, setOf(10L)).map { it.id } shouldBe
+            listOf(12L, 13L)
+    }
+
+    @Test
+    fun `bookmarked excludes excluded ids`() {
+        selectChaptersForDownloadAction(chapters, DownloadAction.BOOKMARKED_CHAPTERS, setOf(13L)).map { it.id } shouldBe
+            listOf(11L)
     }
 }

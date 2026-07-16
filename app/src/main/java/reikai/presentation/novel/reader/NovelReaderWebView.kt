@@ -22,8 +22,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.viewinterop.AndroidView
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
-import kotlin.math.roundToInt
 import logcat.logcat
+import kotlin.math.roundToInt
 
 /**
  * Renders a novel chapter's text in a WebView using the bundled `index.css` + `core.js` (typography,
@@ -51,6 +51,8 @@ fun NovelReaderWebView(
     autoScrollActive: Boolean,
     autoScrollSpeed: Float,
     onScrollHandleReady: ((Int) -> Unit) -> Unit,
+    onScrollByFractionReady: ((Float) -> Unit) -> Unit,
+    onProgressChanged: (Int) -> Unit,
     ttsController: NovelTtsController,
     modifier: Modifier = Modifier,
 ) {
@@ -99,6 +101,7 @@ fun NovelReaderWebView(
 
     val onToggle = rememberUpdatedState(onToggleMenu)
     val onSave = rememberUpdatedState(onSaveProgress)
+    val onProgressLive = rememberUpdatedState(onProgressChanged)
     val onNav = rememberUpdatedState(onNavigate)
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
     val webView = remember {
@@ -112,6 +115,7 @@ fun NovelReaderWebView(
                     onHide = { mainHandler.post { onToggle.value() } },
                     onConsole = { msg -> if (BuildConfig.DEBUG) logcat { msg } },
                     onSave = { percent -> mainHandler.post { onSave.value(percent) } },
+                    onProgress = { percent -> mainHandler.post { onProgressLive.value(percent) } },
                     onTtsMessage = { type, json -> ttsController.onWebMessage(type, json) },
                     onReaderReady = { mainHandler.post { ttsController.onReaderReady() } },
                     onNavigate = { forward -> mainHandler.post { onNav.value(forward) } },
@@ -136,6 +140,19 @@ fun NovelReaderWebView(
     DisposableEffect(webView) {
         onScrollHandleReady { percent ->
             webView.scrollTo(0, (webView.maxScroll * percent / 100f).roundToInt())
+        }
+        onDispose {}
+    }
+
+    // Expose a scroll-by-fraction handle for hardware volume-key navigation. Smooth-scrolls the viewport
+    // by a signed fraction (positive = forward/down), reusing the WebView's own smooth scroll so it
+    // matches tap-to-scroll's feel. Invoked on the main thread from the host window's key dispatch.
+    DisposableEffect(webView) {
+        onScrollByFractionReady { fraction ->
+            webView.evaluateJavascript(
+                "window.scrollBy({ top: window.innerHeight * $fraction, behavior: 'smooth' });",
+                null,
+            )
         }
         onDispose {}
     }

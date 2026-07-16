@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.DeletableTracker
 import eu.kanade.tachiyomi.data.track.hikka.dto.HKOAuth
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -120,22 +121,34 @@ class Hikka(id: Long) : BaseTracker(id, "Hikka"), DeletableTracker {
 
     override suspend fun search(query: String): List<TrackSearch> = api.searchManga(query)
 
+    // RK --> novel-aware search (Active #8): searches Hikka's separate /novel content tree; the bind,
+    // update and read paths follow the /novel content type carried by each result's tracking URL.
+    override val supportsNovels = true
+
+    override suspend fun searchNovel(query: String): List<TrackSearch> = api.searchNovel(query)
+    // RK <--
+
     override suspend fun refresh(track: Track): Track {
         val remoteTrack = api.getManga(track)
         track.copyPersonalFrom(remoteTrack)
         track.total_chapters = remoteTrack.total_chapters
 
-        val readContent = api.getRead(track)
-        if (readContent != null) {
-            track.score = readContent.score.toDouble()
-            track.last_chapter_read = readContent.chapters.toDouble()
-            track.status = toTrackStatus(readContent.status)
-            track.started_reading_date = (readContent.startDate ?: 0L) * 1000
-            track.finished_reading_date = (readContent.endDate ?: 0L) * 1000
-        }
+        val readContent = api.getRead(track) ?: throw Exception("Could not find manga")
+
+        track.score = readContent.score.toDouble()
+        track.last_chapter_read = readContent.chapters.toDouble()
+        track.status = toTrackStatus(readContent.status)
+        track.started_reading_date = (readContent.startDate ?: 0L) * 1000
+        track.finished_reading_date = (readContent.endDate ?: 0L) * 1000
 
         return track
     }
+
+    // RK --> autofill entry metadata (Fill from tracker)
+    override suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
+        return api.getMangaMetadata(track)
+    }
+    // RK <--
 
     override suspend fun login(username: String, password: String) = login(password)
 

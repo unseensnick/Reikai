@@ -13,8 +13,8 @@ import kotlinx.coroutines.withTimeout
 import logcat.LogPriority
 import reikai.domain.recommendation.RecommendationOrigin
 import reikai.domain.recommendation.RecommendationProviders
-import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
+import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.TrackerRecommendations
 import tachiyomi.core.common.util.system.logcat
 import uy.kohesive.injekt.Injekt
@@ -101,7 +101,9 @@ class TasteCandidateFetcher(
                                 pushResults(mangas.map { candidate(source, it, RecommendationOrigin.TagSearch(tag)) })
                             }
                         }
-                        .onFailure { handleFailure(it, exceptionHandler) { "Tag-search candidate fetch failed for \"$tag\"" } }
+                        .onFailure {
+                            handleFailure(it, exceptionHandler) { "Tag-search candidate fetch failed for \"$tag\"" }
+                        }
                 }
             }
         }
@@ -122,7 +124,11 @@ class TasteCandidateFetcher(
                                 pushResults(recs.map { it.withOrigin(RecommendationOrigin.CrossRec(seed.title)) })
                             }
                         }
-                        .onFailure { handleFailure(it, exceptionHandler) { "Cross-recommendation candidate fetch failed for \"${seed.title}\"" } }
+                        .onFailure {
+                            handleFailure(it, exceptionHandler) {
+                                "Cross-recommendation candidate fetch failed for \"${seed.title}\""
+                            }
+                        }
                 }
             }
         }

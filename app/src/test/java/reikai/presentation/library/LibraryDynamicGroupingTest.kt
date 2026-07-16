@@ -72,7 +72,12 @@ class LibraryDynamicGroupingTest {
         byName.keys shouldBe setOf("MangaDex", "Webtoons")
         byName.getValue("MangaDex") shouldContainExactlyInAnyOrder listOf(1L, 3L)
         byName.getValue("Webtoons") shouldContainExactly listOf(2L)
-        ReikaiDynamicCategory.sourceId(result.keys.first { ReikaiDynamicCategory.displayName(it) == "MangaDex" }) shouldBe 100L
+        ReikaiDynamicCategory.sourceId(
+            result.keys.first {
+                ReikaiDynamicCategory.displayName(it) == "MangaDex"
+            },
+        ) shouldBe
+            100L
     }
 
     @Test

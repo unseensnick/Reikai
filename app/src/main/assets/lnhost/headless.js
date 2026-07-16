@@ -305,6 +305,90 @@
     };
   }
 
+  // Node's Buffer, enough for the base64 / hex / utf8 conversions LN plugins use (decoding an obfuscated
+  // chapter body, hashing, etc.). Backed by a Uint8Array with an encoding-aware toString.
+  if (typeof globalThis.Buffer === "undefined") {
+    var hexToBytes = function (hex) {
+      var clean = String(hex).replace(/[^0-9a-fA-F]/g, "");
+      var bytes = new Uint8Array(clean.length >> 1);
+      for (var i = 0; i < bytes.length; i++) {
+        bytes[i] = parseInt(clean.substr(i * 2, 2), 16);
+      }
+      return bytes;
+    };
+    var bytesToHex = function (bytes) {
+      var out = "";
+      for (var i = 0; i < bytes.length; i++) {
+        out += ("0" + bytes[i].toString(16)).slice(-2);
+      }
+      return out;
+    };
+    var Buf = function () {};
+    Buf.from = function (data, enc) {
+      var bytes;
+      if (data instanceof Uint8Array) bytes = new Uint8Array(data);
+      else if (Array.isArray(data)) bytes = Uint8Array.from(data);
+      else if (data instanceof ArrayBuffer) bytes = new Uint8Array(data);
+      else if (enc === "base64") bytes = base64ToBytes(String(data));
+      else if (enc === "hex") bytes = hexToBytes(String(data));
+      else bytes = new TextEncoder().encode(String(data));
+      bytes.toString = function (e) {
+        if (e === "base64") return bytesToBase64(this);
+        if (e === "hex") return bytesToHex(this);
+        return new TextDecoder().decode(this);
+      };
+      return bytes;
+    };
+    Buf.isBuffer = function (o) {
+      return o instanceof Uint8Array;
+    };
+    Buf.concat = function (list) {
+      var total = (list || []).reduce(function (n, b) {
+        return n + b.length;
+      }, 0);
+      var out = new Uint8Array(total);
+      var off = 0;
+      (list || []).forEach(function (b) {
+        out.set(b, off);
+        off += b.length;
+      });
+      return Buf.from(out);
+    };
+    globalThis.Buffer = Buf;
+  }
+
+  // Minimal Blob for plugins that wrap bytes/text (QuickJS ships none). Enough for text() /
+  // arrayBuffer() / size / type; no streaming.
+  if (typeof globalThis.Blob === "undefined") {
+    var Bl = function (parts, opts) {
+      var chunks = [];
+      (parts || []).forEach(function (p) {
+        if (typeof p === "string") chunks.push(new TextEncoder().encode(p));
+        else if (p instanceof ArrayBuffer) chunks.push(new Uint8Array(p));
+        else if (p instanceof Uint8Array) chunks.push(p);
+      });
+      var total = chunks.reduce(function (n, c) {
+        return n + c.length;
+      }, 0);
+      var bytes = new Uint8Array(total);
+      var off = 0;
+      chunks.forEach(function (c) {
+        bytes.set(c, off);
+        off += c.length;
+      });
+      this._bytes = bytes;
+      this.size = total;
+      this.type = (opts && opts.type) || "";
+    };
+    Bl.prototype.text = function () {
+      return Promise.resolve(new TextDecoder().decode(this._bytes));
+    };
+    Bl.prototype.arrayBuffer = function () {
+      return Promise.resolve(this._bytes.buffer);
+    };
+    globalThis.Blob = Bl;
+  }
+
   // QuickJS has no Headers. Plugins (mtlnovel family, readfrom, novelyra) build request headers with
   // `new Headers({...})` and pass it as init.headers; without this they crash "'Headers' is not
   // defined". WHATWG-ish: case-insensitive names, append concatenates, the method surface plugins use.
@@ -373,16 +457,18 @@
     globalThis.Headers = H;
   }
 
-  // QuickJS has no timers and dokar wires only the microtask queue. Plugins (inoveltranslation, ReN)
-  // use setTimeout for politeness delays; run the callback on the next microtask (delay ignored, which
-  // is fine for scraping) so `await new Promise(r => setTimeout(r, n))` resolves instead of crashing.
+  // QuickJS has no timers. Plugins (inoveltranslation, novelfire, the readnovelfull family) use
+  // setTimeout for rate-limit politeness sleeps and retry backoffs, so the delay must be honored or
+  // the source gets hammered and blocked. __lnDelay (a Kotlin async binding) suspends the engine job
+  // pump for the real (capped) delay; `await new Promise(r => setTimeout(r, n))` then waits n ms.
   if (typeof globalThis.setTimeout === "undefined") {
     var _timers = {};
     var _tid = 1;
-    globalThis.setTimeout = function (fn, _ms) {
+    globalThis.setTimeout = function (fn, ms) {
       var id = _tid++;
       _timers[id] = true;
-      Promise.resolve().then(function () {
+      var delayMs = typeof ms === "number" && ms > 0 ? ms : 0;
+      globalThis.__lnDelay(delayMs).then(function () {
         if (_timers[id]) {
           delete _timers[id];
           try {
@@ -447,6 +533,13 @@
 
   function makeResponse(payload) {
     var headersObj = payload.headers || {};
+    // arrayBuffer / blob read bytes: an explicit binary body (bodyBase64, e.g. fetchProto) if present,
+    // else the UTF-8 bytes of the text body. Text sources still read through the charset-aware text()
+    // path, so this never disturbs them (no charset-guessing binary fetch; that is deliberately parked).
+    function bodyBytes() {
+      if (payload.bodyBase64 != null) return base64ToBytes(payload.bodyBase64);
+      return new TextEncoder().encode(payload.body || "");
+    }
     return {
       // Final URL after redirects. The Madara plugin family reads response.url to detect
       // Cloudflare/captcha redirects; without it they crash on undefined.split('/').
@@ -469,12 +562,35 @@
             fn(headersObj[k], k);
           });
         },
+        keys: function () {
+          return Object.keys(headersObj);
+        },
+        values: function () {
+          return Object.keys(headersObj).map(function (k) {
+            return headersObj[k];
+          });
+        },
+        entries: function () {
+          return Object.keys(headersObj).map(function (k) {
+            return [k, headersObj[k]];
+          });
+        },
       },
       text: function () {
         return Promise.resolve(payload.body);
       },
       json: function () {
         return Promise.resolve(JSON.parse(payload.body));
+      },
+      arrayBuffer: function () {
+        return Promise.resolve(bodyBytes().buffer);
+      },
+      blob: function () {
+        return Promise.resolve(
+          new globalThis.Blob([bodyBytes()], {
+            type: headersObj["content-type"] || "",
+          }),
+        );
       },
     };
   }
@@ -644,10 +760,14 @@
     Cancelled: "Cancelled",
     OnHiatus: "On Hiatus",
   });
+  // Member NAMES must mirror LNReader's FilterTypes enum: compiled plugins look a type up by name
+  // (`i.FilterTypes.CheckboxGroup`), so a missing/renamed member resolves to undefined and that filter
+  // silently never renders. The string VALUES are Reikai's own convention, matched by the value branches
+  // in NovelSourceFilterSheet, so they must stay in sync with that sheet, not with upstream's values.
   var FilterTypes = Object.freeze({
     TextInput: "TextInput",
     Picker: "Picker",
-    Checkbox: "Checkbox",
+    CheckboxGroup: "Checkbox",
     Switch: "Switch",
     XCheckbox: "XCheckbox",
     ExcludableCheckboxGroup: "ExcludableCheckboxGroup",
@@ -662,6 +782,18 @@
   }
   function bytesToUtf8(b) {
     return new TextDecoder().decode(new Uint8Array(b));
+  }
+  // base64 <-> bytes over the Latin1 atob/btoa shims, for Response.arrayBuffer / Blob / Buffer.
+  function base64ToBytes(b64) {
+    var bin = globalThis.atob(b64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+  function bytesToBase64(bytes) {
+    var bin = "";
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return globalThis.btoa(bin);
   }
   var urlencode = {
     encode: function (s) {
@@ -698,6 +830,7 @@
       dayjs: globalThis.dayjs,
       protobufjs: globalThis.protobuf,
       urlencode: urlencode,
+      buffer: { Buffer: globalThis.Buffer },
       "@libs/novelStatus": { NovelStatus: NovelStatus },
       "@libs/fetch": {
         fetchApi: fetchApi,

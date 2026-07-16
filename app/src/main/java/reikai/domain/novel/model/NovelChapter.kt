@@ -28,9 +28,4 @@ data class NovelChapter(
      * paged sources; empty string when the source doesn't expose it.
      */
     val page: String,
-    /**
-     * True when the chapter's text was downloaded for offline reading. The on-disk HTML file is
-     * the read-back source of truth; this flag is the fast signal the chapter list uses.
-     */
-    val isDownloaded: Boolean,
 ) : Serializable

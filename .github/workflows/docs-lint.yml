@@ -1,16 +1,16 @@
 name: Docs lint
 
-# Enforces the CHANGELOG, ROADMAP and upstream-sync conventions (see .claude/rules/workflow.md:
+# Enforces the CHANGELOG, ROADMAP, upstream-sync and feature-ports conventions (see .claude/rules/workflow.md:
 # "After completing any code change", "Public-facing naming", "Roadmap & plans", "Syncing with
 # Mihon"). Mirrors the local .githooks/pre-commit so PRs are checked even when the hook isn't
 # installed.
 
 on:
   pull_request:
-    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md']
+    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md']
   push:
     branches: [main]
-    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md']
+    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md']
 
 permissions:
   contents: read
@@ -23,7 +23,7 @@ jobs:
       - name: Clone repo
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - name: Lint CHANGELOG.md, ROADMAP.md and upstream-sync.md
+      - name: Lint CHANGELOG.md, ROADMAP.md, upstream-sync.md and feature-ports.md
         run: |
           set -u
           # Content-source names (adult + mainstream); genericize or use an approved shorthand
@@ -81,6 +81,18 @@ jobs:
           fi
           if hn=$(grep -nE '(^|[^A-Za-z0-9])#[0-9]' docs/dev/upstream-sync.md); then
             echo "::error::upstream-sync.md has a bare '#N'; reference upstream as mihonapp/mihon#N."
+            echo "$hn"
+            fail=1
+          fi
+
+          # ===== docs/dev/feature-ports.md (content-source names are allowed: it is a dev record) =====
+          if em=$(grep -n '—' docs/dev/feature-ports.md); then
+            echo "::error::feature-ports.md contains an em dash; use commas, parentheses, periods or colons."
+            echo "$em"
+            fail=1
+          fi
+          if hn=$(grep -nE '(^|[^A-Za-z0-9])#[0-9]' docs/dev/feature-ports.md); then
+            echo "::error::feature-ports.md has a bare '#N'; reference a ref's PR as owner/repo#N."
             echo "$hn"
             fail=1
           fi

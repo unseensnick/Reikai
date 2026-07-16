@@ -1,0 +1,36 @@
+-- Novel custom-info overlay. Moves novel Edit-info edits off the destructive in-row model
+-- (novels.edited_flags lock bits) onto a non-destructive overlay table, so Reset cleanly restores the
+-- source values (mirrors 27.sqm / custom_manga_info). Raw `genre TEXT` here (the `AS List<String>`
+-- adapter is applied only in the .sq, never in migrations).
+CREATE TABLE custom_novel_info(
+    novel_id INTEGER NOT NULL PRIMARY KEY,
+    title TEXT,
+    author TEXT,
+    artist TEXT,
+    description TEXT,
+    genre TEXT,
+    status INTEGER,
+    thumbnail_url TEXT,
+    FOREIGN KEY(novel_id) REFERENCES novels (_id)
+    ON DELETE CASCADE
+);
+
+-- One-time migration of existing in-row edits into the overlay, keyed by the lock bit that marked each
+-- field as user-edited (author=1, artist=2, description=4, genres=8, status=16, thumbnail=32). Title had
+-- no lock bit (the refresh never touched it), so it is left in the row and stays preserved.
+INSERT INTO custom_novel_info(novel_id, author, artist, description, genre, status, thumbnail_url)
+SELECT
+    _id,
+    CASE WHEN edited_flags & 1 THEN author END,
+    CASE WHEN edited_flags & 2 THEN artist END,
+    CASE WHEN edited_flags & 4 THEN description END,
+    CASE WHEN edited_flags & 8 THEN genre END,
+    CASE WHEN edited_flags & 16 THEN status END,
+    CASE WHEN edited_flags & 32 THEN thumbnail_url END
+FROM novels
+WHERE edited_flags != 0;
+
+-- Retire the now-unused lock column. edited_flags is a plain NOT NULL column, not indexed and not named
+-- in any view/trigger (the update_novel_version trigger references url/description/favorite; views use
+-- novels.* / N.*), so a direct DROP COLUMN is valid on SQLite 3.35+.
+ALTER TABLE novels DROP COLUMN edited_flags;

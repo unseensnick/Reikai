@@ -80,8 +80,15 @@ fun Novel.effectiveHideChapterTitles(prefs: NovelPreferences): Boolean =
 /** Replace the [mask] bits of [flags] with [flag]. */
 fun setNovelFlag(flags: Long, flag: Long, mask: Long): Long = (flags and mask.inv()) or (flag and mask)
 
-/** Sort + filter a chapter list for display, using the novel's effective settings. */
-fun List<NovelChapter>.sortedAndFiltered(novel: Novel, prefs: NovelPreferences): List<NovelChapter> {
+/**
+ * Sort + filter a chapter list for display, using the novel's effective settings. [downloadedChapterIds]
+ * carries the disk-download membership (from NovelDownloadCache) so the downloaded filter has no DB flag.
+ */
+fun List<NovelChapter>.sortedAndFiltered(
+    novel: Novel,
+    prefs: NovelPreferences,
+    downloadedChapterIds: Set<Long>,
+): List<NovelChapter> {
     val read = novel.effectiveReadFilter(prefs)
     val bookmarked = novel.effectiveBookmarkedFilter(prefs)
     val downloaded = novel.effectiveDownloadedFilter(prefs)
@@ -97,8 +104,8 @@ fun List<NovelChapter>.sortedAndFiltered(novel: Novel, prefs: NovelPreferences):
             else -> true
         }
         val downloadOk = when (downloaded) {
-            NovelChapterFlags.SHOW_DOWNLOADED -> ch.isDownloaded
-            NovelChapterFlags.SHOW_NOT_DOWNLOADED -> !ch.isDownloaded
+            NovelChapterFlags.SHOW_DOWNLOADED -> ch.id in downloadedChapterIds
+            NovelChapterFlags.SHOW_NOT_DOWNLOADED -> ch.id !in downloadedChapterIds
             else -> true
         }
         readOk && bookmarkOk && downloadOk

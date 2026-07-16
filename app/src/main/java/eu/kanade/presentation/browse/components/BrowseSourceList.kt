@@ -9,12 +9,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
-import eu.kanade.presentation.library.components.CommonMangaItemDefaults
-import eu.kanade.presentation.library.components.MangaListItem
 import exh.metadata.metadata.RaisedSearchMetadata
 import kotlinx.coroutines.flow.StateFlow
+import reikai.presentation.browse.EntryBrowseGridCell
+import reikai.presentation.browse.toEntryBrowseUi
+import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.presentation.core.util.plus
 
 @Composable
@@ -62,21 +62,12 @@ private fun BrowseSourceListItem(
     onLongClick: () -> Unit = onClick,
     isSelected: Boolean = false,
 ) {
-    MangaListItem(
-        isSelected = isSelected,
-        title = manga.title,
-        coverData = MangaCover(
-            mangaId = manga.id,
-            sourceId = manga.source,
-            isMangaFavorite = manga.favorite,
-            url = manga.thumbnailUrl,
-            lastModified = manga.coverLastModified,
-        ),
-        coverAlpha = if (manga.favorite) CommonMangaItemDefaults.BrowseFavoriteCoverAlpha else 1f,
-        badge = {
-            InLibraryBadge(enabled = manga.favorite)
-        },
-        onLongClick = onLongClick,
+    // RK: delegate to the shared manga/novel browse cell so the two catalogues can't drift.
+    EntryBrowseGridCell(
+        ui = manga.toEntryBrowseUi(),
+        displayMode = LibraryDisplayMode.List,
         onClick = onClick,
+        onLongClick = onLongClick,
+        isSelected = isSelected,
     )
 }

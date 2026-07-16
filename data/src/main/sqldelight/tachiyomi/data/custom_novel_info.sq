@@ -1,0 +1,32 @@
+import kotlin.String;
+import kotlin.collections.List;
+
+CREATE TABLE custom_novel_info(
+    novel_id INTEGER NOT NULL PRIMARY KEY,
+    title TEXT,
+    author TEXT,
+    artist TEXT,
+    description TEXT,
+    genre TEXT AS List<String>,
+    status INTEGER,
+    thumbnail_url TEXT,
+    FOREIGN KEY(novel_id) REFERENCES novels (_id)
+    ON DELETE CASCADE
+);
+
+getAll:
+SELECT *
+FROM custom_novel_info;
+
+getByNovelId:
+SELECT *
+FROM custom_novel_info
+WHERE novel_id = :novelId;
+
+insert:
+INSERT OR REPLACE INTO custom_novel_info(novel_id, title, author, artist, description, genre, status, thumbnail_url)
+VALUES (:novelId, :title, :author, :artist, :description, :genre, :status, :thumbnailUrl);
+
+delete:
+DELETE FROM custom_novel_info
+WHERE novel_id = :novelId;

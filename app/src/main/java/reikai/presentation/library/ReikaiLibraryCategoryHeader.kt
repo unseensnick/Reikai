@@ -47,7 +47,11 @@ fun ReikaiLibraryCategoryHeader(
     allSelected: Boolean = false,
     onToggleSelectAll: () -> Unit = {},
     // Per-category affordances; null = hidden (e.g. dynamic groups, which have no real category).
-    sort: LibrarySort? = null,
+    // The caller passes the EFFECTIVE sort (a category's override, or the global sort it follows): the
+    // label via [sortLabel] and the arrow via [sortAscending], both content-type-decoded upstream so the
+    // header never touches the raw flag bits (manga and novel encode different enums into them).
+    sortLabel: StringResource? = null,
+    sortAscending: Boolean? = null,
     onClickSort: (() -> Unit)? = null,
     onClickRefresh: (() -> Unit)? = null,
 ) {
@@ -81,7 +85,7 @@ fun ReikaiLibraryCategoryHeader(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        if (sort != null && onClickSort != null) {
+        if (sortLabel != null && sortAscending != null && onClickSort != null) {
             Row(
                 modifier = Modifier
                     .clickable(onClick = onClickSort)
@@ -89,12 +93,12 @@ fun ReikaiLibraryCategoryHeader(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = stringResource(sortLabelRes(sort.type)),
+                    text = stringResource(sortLabel),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Icon(
-                    imageVector = if (sort.isAscending) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
+                    imageVector = if (sortAscending) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
                     contentDescription = stringResource(MR.strings.action_sort),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp),
@@ -112,8 +116,8 @@ fun ReikaiLibraryCategoryHeader(
     }
 }
 
-/** The display label for a sort mode, reusing Mihon's Sort-tab strings. */
-private fun sortLabelRes(type: LibrarySort.Type): StringResource = when (type) {
+/** The display label for a manga sort mode, reusing Mihon's Sort-tab strings. */
+internal fun sortLabelRes(type: LibrarySort.Type): StringResource = when (type) {
     LibrarySort.Type.Alphabetical -> MR.strings.action_sort_alpha
     LibrarySort.Type.TotalChapters -> MR.strings.action_sort_total
     LibrarySort.Type.LastRead -> MR.strings.action_sort_last_read
@@ -123,5 +127,6 @@ private fun sortLabelRes(type: LibrarySort.Type): StringResource = when (type) {
     LibrarySort.Type.ChapterFetchDate -> MR.strings.action_sort_chapter_fetch_date
     LibrarySort.Type.DateAdded -> MR.strings.action_sort_date_added
     LibrarySort.Type.TrackerMean -> MR.strings.action_sort_tracker_score
+    LibrarySort.Type.Downloaded -> MR.strings.action_sort_downloaded
     LibrarySort.Type.Random -> MR.strings.action_sort_random
 }

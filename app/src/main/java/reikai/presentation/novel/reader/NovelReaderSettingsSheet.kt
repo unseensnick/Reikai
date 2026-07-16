@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FormatAlignLeft
@@ -104,7 +104,6 @@ fun NovelReaderSettingsSheet(
     onSwipeGestures: (Boolean) -> Unit,
     onAutoScroll: (Boolean) -> Unit,
     onAutoScrollSpeed: (Float) -> Unit,
-    onVerticalSeekbar: (Boolean) -> Unit,
     overlay: NovelReaderOverlaySettings,
     onCustomBrightness: (Boolean) -> Unit,
     onCustomBrightnessValue: (Int) -> Unit,
@@ -126,9 +125,21 @@ fun NovelReaderSettingsSheet(
         ) {
             when (page) {
                 1 -> {
-                    LabeledSlider("Font size", "${settings.fontSize}", settings.fontSize.toFloat(), 12f..32f, 19) { onFontSize(it.toInt()) }
-                    LabeledSlider("Line height", "%.1f".format(settings.lineHeight), settings.lineHeight, 1.0f..2.5f, 14) { onLineHeight((it * 10).toInt() / 10f) }
-                    LabeledSlider("Padding", "${settings.padding}", settings.padding.toFloat(), 0f..48f, 11) { onPadding(it.toInt()) }
+                    LabeledSlider("Font size", "${settings.fontSize}", settings.fontSize.toFloat(), 12f..32f, 19) {
+                        onFontSize(it.toInt())
+                    }
+                    LabeledSlider(
+                        "Line height",
+                        "%.1f".format(settings.lineHeight),
+                        settings.lineHeight,
+                        1.0f..2.5f,
+                        14,
+                    ) {
+                        onLineHeight((it * 10).toInt() / 10f)
+                    }
+                    LabeledSlider("Padding", "${settings.padding}", settings.padding.toFloat(), 0f..48f, 11) {
+                        onPadding(it.toInt())
+                    }
                     Text("Alignment", style = MaterialTheme.typography.titleSmall)
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
@@ -137,7 +148,12 @@ fun NovelReaderSettingsSheet(
                         AlignButton(Icons.AutoMirrored.Filled.FormatAlignLeft, "left", settings.textAlign, onTextAlign)
                         AlignButton(Icons.Filled.FormatAlignCenter, "center", settings.textAlign, onTextAlign)
                         AlignButton(Icons.Filled.FormatAlignJustify, "justify", settings.textAlign, onTextAlign)
-                        AlignButton(Icons.AutoMirrored.Filled.FormatAlignRight, "right", settings.textAlign, onTextAlign)
+                        AlignButton(
+                            Icons.AutoMirrored.Filled.FormatAlignRight,
+                            "right",
+                            settings.textAlign,
+                            onTextAlign,
+                        )
                     }
                     Text("Font", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
                     Row(
@@ -181,7 +197,11 @@ fun NovelReaderSettingsSheet(
                         }
                     }
                     // Per-novel orientation: Default (follow the global default) + the concrete locks.
-                    Text("Orientation", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+                    Text(
+                        "Orientation",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
                     Row(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
                             .lockPagerSwipeWhileDragging().padding(top = 4.dp),
@@ -204,8 +224,11 @@ fun NovelReaderSettingsSheet(
                     SwitchRow("Custom brightness", overlay.customBrightness, onCustomBrightness)
                     if (overlay.customBrightness) {
                         LabeledSlider(
-                            "Brightness", "${overlay.customBrightnessValue}",
-                            overlay.customBrightnessValue.toFloat(), -75f..100f, 0,
+                            "Brightness",
+                            "${overlay.customBrightnessValue}",
+                            overlay.customBrightnessValue.toFloat(),
+                            -75f..100f,
+                            0,
                         ) { onCustomBrightnessValue(it.roundToInt()) }
                     }
                     SwitchRow("Color filter", overlay.colorFilter, onColorFilter)
@@ -223,10 +246,14 @@ fun NovelReaderSettingsSheet(
                         LabeledSlider("Opacity", "${argb.alpha}", argb.alpha.toFloat(), 0f..255f, 0) {
                             onColorFilterValue(getColorValue(argb, it.roundToInt(), ALPHA_MASK, 24))
                         }
-                        Text("Blend mode", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+                        Text(
+                            "Blend mode",
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
                         Row(
                             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                            .lockPagerSwipeWhileDragging().padding(top = 4.dp),
+                                .lockPagerSwipeWhileDragging().padding(top = 4.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             ColorFilterMode.forEachIndexed { index, mode ->
@@ -244,11 +271,16 @@ fun NovelReaderSettingsSheet(
                     SwitchRow("Remove extra spacing", settings.removeExtraSpacing, onRemoveExtraSpacing)
                     SwitchRow("Auto-scroll", settings.autoScroll, onAutoScroll)
                     if (settings.autoScroll) {
-                        LabeledSlider("Scroll speed", "%.1f".format(settings.autoScrollSpeed), settings.autoScrollSpeed, 0.2f..4.0f, 18) {
+                        LabeledSlider(
+                            "Scroll speed",
+                            "%.1f".format(settings.autoScrollSpeed),
+                            settings.autoScrollSpeed,
+                            0.2f..4.0f,
+                            18,
+                        ) {
                             onAutoScrollSpeed((it * 10).roundToInt() / 10f)
                         }
                     }
-                    SwitchRow("Progress seekbar", settings.verticalSeekbar, onVerticalSeekbar)
                     SwitchRow("Tap edges to scroll", settings.tapToScroll, onTapToScroll)
                     SwitchRow("Swipe between chapters", settings.swipeGestures, onSwipeGestures)
                     SwitchRow("Keep screen on", settings.keepScreenOn, onKeepScreenOn)
@@ -521,7 +553,7 @@ private fun AlignButton(icon: ImageVector, value: String, current: String, onCli
 }
 
 @Composable
-private fun PresetSwatch(preset: ReaderThemePreset, selected: Boolean, onClick: () -> Unit) {
+fun PresetSwatch(preset: ReaderThemePreset, selected: Boolean, onClick: () -> Unit) {
     val bg = remember(preset.background) { Color(android.graphics.Color.parseColor(preset.background)) }
     val fg = remember(preset.textColor) { Color(android.graphics.Color.parseColor(preset.textColor)) }
     Box(

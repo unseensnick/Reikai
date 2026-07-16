@@ -61,7 +61,15 @@ fun NovelTtsFloatingButton(
 
         // Unset (Int.MIN_VALUE) anchors to the right edge, vertically centered; else restore + clamp.
         var offsetX by remember {
-            mutableFloatStateOf(if (initialX == Int.MIN_VALUE) (maxX - margin).coerceAtLeast(0f) else initialX.toFloat().coerceIn(0f, maxX))
+            mutableFloatStateOf(
+                if (initialX ==
+                    Int.MIN_VALUE
+                ) {
+                    (maxX - margin).coerceAtLeast(0f)
+                } else {
+                    initialX.toFloat().coerceIn(0f, maxX)
+                },
+            )
         }
         var offsetY by remember {
             mutableFloatStateOf(if (initialY == Int.MIN_VALUE) maxY / 2f else initialY.toFloat().coerceIn(0f, maxY))

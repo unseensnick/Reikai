@@ -19,10 +19,17 @@ class TasteCandidateSelectionTest {
         score: Double,
         status: TrackStatus,
         tags: List<String> = emptyList(),
-        title: String = "t${nextId}",
+        title: String = "t$nextId",
         remoteId: Long = nextId++,
         trackerId: Long = 1L,
-    ) = TrackedEntry(trackerId = trackerId, remoteId = remoteId, title = title, score = score, status = status, tags = tags)
+    ) = TrackedEntry(
+        trackerId = trackerId,
+        remoteId = remoteId,
+        title = title,
+        score = score,
+        status = status,
+        tags = tags,
+    )
 
     // region selectContextualTags
 
@@ -70,7 +77,13 @@ class TasteCandidateSelectionTest {
         val belowThreshold = entry(0.5, TrackStatus.COMPLETED, remoteId = 10L)
         val dropped = entry(0.99, TrackStatus.DROPPED, remoteId = 11L)
         val planned = entry(0.99, TrackStatus.PLAN_TO_READ, remoteId = 12L)
-        selectCrossRecSeeds(listOf(belowThreshold, dropped, planned), setOf(10L, 11L, 12L), trackerId = 1L, max = 5) shouldBe emptyList()
+        selectCrossRecSeeds(
+            listOf(belowThreshold, dropped, planned),
+            setOf(10L, 11L, 12L),
+            trackerId = 1L,
+            max = 5,
+        ) shouldBe
+            emptyList()
     }
 
     @Test

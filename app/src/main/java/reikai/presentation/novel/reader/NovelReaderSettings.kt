@@ -33,10 +33,18 @@ data class NovelReaderSettings(
     val removeExtraSpacing: Boolean,
     val tapToScroll: Boolean,
     val swipeGestures: Boolean,
-    // Driven natively (not by core.js): auto-scroll runs an injected scroller, the seekbar is Compose.
+    /** Always-on reading percentage overlay while reading (chrome hidden). Native Compose, not core.js. */
+    val showProgressPercentage: Boolean,
+    // Driven natively (not by core.js): auto-scroll runs an injected scroller.
     val autoScroll: Boolean,
     val autoScrollSpeed: Float,
-    val verticalSeekbar: Boolean,
+    // Driven natively: hardware volume keys scroll the chapter, intercepted at the host window.
+    val useVolumeButtons: Boolean,
+    val volumeButtonsInverted: Boolean,
+    val volumeButtonsFraction: Float,
+    // Vertical progress-rail geometry, shared with the manga reader (verticalNavigator prefs).
+    val railHeightPercent: Int,
+    val railOnLeft: Boolean,
 )
 
 /**

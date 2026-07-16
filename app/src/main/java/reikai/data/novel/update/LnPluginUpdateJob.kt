@@ -75,8 +75,10 @@ class LnPluginUpdateJob(
 
         fun setupTask(context: Context) {
             val request = PeriodicWorkRequestBuilder<LnPluginUpdateJob>(
-                12, TimeUnit.HOURS,
-                1, TimeUnit.HOURS,
+                12,
+                TimeUnit.HOURS,
+                1,
+                TimeUnit.HOURS,
             )
                 .addTag(TAG)
                 .setConstraints(Constraints(requiredNetworkType = NetworkType.CONNECTED))

@@ -24,7 +24,6 @@ class NovelChapterAggregationTest {
             dateFetch = 0L,
             dateUpload = 0L,
             page = "",
-            isDownloaded = false,
         )
 
     private fun List<NovelChapter>.numbers(): List<Double> = map { it.chapterNumber }.sorted()
