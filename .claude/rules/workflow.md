@@ -142,6 +142,8 @@ Don't bump per-push; ship alpha cycles by branch/tag. At release-cut, bump both 
 
 Mihon upstream changes are **ported manually** from the local `refs/mihon/` clone. When porting an upstream change that touches a file Reikai has patched, re-apply inside the `// RK` island.
 
+**Collapsing a Mihon file onto a Reikai-owned twin: copy, never move.** Leave the Mihon original in place, marked `// RK: inert` and naming its replacement, so upstream's future changes still land on it verbatim and can be diffed into the twin. Move it and that sync reference is gone. Keep the retained copy verbatim upstream; Reikai behaviour belongs in the twin. Full rule (including why a move is near-invisible in review) in [docs/dev/upstream-sync.md](../../docs/dev/upstream-sync.md) "Porting method".
+
 **Commit-message reference convention (required):** in a Mihon-sync commit, reference an upstream pull request or issue as **`mihonapp/mihon#<num>`** (GitHub renders this as a link to the Mihon repo). Never a bare `#<num>` (it auto-links to a *Reikai* issue/PR) nor a bare `<num>`. Also cite the upstream short-SHA (e.g. `mihon 80541831b`).
 
 The full process, commit convention, porting method (verbatim copy for marker-free files, hand-merge inside `// RK` islands for patched ones), recurring gotchas, and the running synced-base ledger live in **[docs/dev/upstream-sync.md](../../docs/dev/upstream-sync.md)**. Append a ledger row on every sync. A `docs-lint` CI check plus the `pre-commit` hook enforce no em dash and no bare `#N` in that doc (content-source names are allowed there, it is a dev record).
