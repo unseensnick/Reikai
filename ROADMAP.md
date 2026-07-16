@@ -4,7 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-- **Migrate off Voyager ScreenModel to AndroidX ViewModel** `[XL]` - the one unported upstream change (mihonapp/mihon#3594, mihon `c3b99aea0`), and an architectural migration rather than a routine sync: it removes the `voyager-screenModel` dependency, adds a `:core:viewmodel` module, and renames every `*ScreenModel` / `rememberScreenModel {}`. Reikai has 62 ScreenModel files and 53 call sites, 29 of them Reikai-owned that upstream's diff does not cover, and it invalidates the screen conventions in three docs. Its own branch; scout first, then a phased plan. Ledger: [upstream-sync.md](docs/dev/upstream-sync.md).
+_Nothing actively in progress._
 
 ## Next
 
@@ -87,6 +87,7 @@ Dedicated LN trackers are shippable via WebView session-scraping (no official AP
 
 One line each; revive note where relevant.
 
+- **Migrate off Voyager ScreenModel to AndroidX ViewModel** `[XL]` - the one unported upstream change (mihonapp/mihon#3594, mihon `c3b99aea0`); parked because it is unreleased and still crashes on open in its `private viewModel<T>()` screens, so porting now risks a large divergence against code upstream may revise. Revive once upstream ships it in a release and fixes its own copies. [Plan](docs/dev/plans/viewmodel-migration.md).
 - **Full two-way EH favorites sync** (pull account -> library) - the only feature that would mutate the library from a remote source; the scoped one-way backup shipped instead. Revive only if account -> library mirroring is wanted.
   - **EH per-page add-path throttle** `[S]` bundles here - redundant with the shipped 3/sec rate limit for normal imports; only this feature's sustained walk exercises it.
 - **Manga per-page chapter loading** - no manga source would feed a paged chapter list (the contract returns the full list in one call).

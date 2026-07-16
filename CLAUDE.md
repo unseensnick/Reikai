@@ -35,6 +35,8 @@ Every Reikai screen ported onto or added to Mihon follows Mihon's existing Voyag
 7. Business logic out of `@Composable`. Side-effects in `LaunchedEffect` or the ScreenModel.
 8. Re-typed to Mihon's immutable domain models; in-place edits to Mihon's own files fenced with `// RK -->` / `// RK <--` markers (see below). Net-new code lives in its own files/modules.
 
+**Watch item (deferred: the ViewModel migration is paused, see the plan).** When Reikai eventually ports Mihon's move off Voyager `ScreenModel` to AndroidX `ViewModel` (deferred, see [docs/dev/plans/viewmodel-migration.md](docs/dev/plans/viewmodel-migration.md)), or syncs any single upstream screen file that already made the switch: a model resolved by a **bare `viewModel<T>()` must not be `private`**. The default factory builds it reflectively from `androidx.lifecycle`, and a private top-level Kotlin class is package-private in bytecode, so `newInstance()` throws `IllegalAccessException` and the screen crashes on open. Unlike the R8 trap below, this fails on **every** build type, debug included. Fix by making the class `internal` (public in bytecode, still module-private in Kotlin), or pass an explicit factory, which skips reflection. **Upstream ships this bug** (mihonapp/mihon#3594) on its `CreateBackup`, `ClearDatabase`, `MigrateDialog` and `More` models.
+
 ## Unified content UI (active initiative)
 
 Reikai is collapsing the near-duplicate manga and novel presentation into one Reikai-owned UI layer, one surface at a time. The presentation surfaces are done (History + Updates rows, cover dialog, details screen, library, browse/search, notes, and the track dialog); the next unification is the download subsystem (Road B). Detail and sequencing: [docs/dev/plans/unified-content-ui.md](docs/dev/plans/unified-content-ui.md).
@@ -84,14 +86,12 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 
 **Release-type builds are minified, the `debugY2k` dev build is not**, so R8-only bugs are invisible in the normal dev loop. The recurring one: a net-new top-level package that uses Injekt generics (`Injekt.get<T>()`) needs its own proguard `-keep`, or the minified build crashes (Injekt `FullTypeReference`). When adding such a package or code, add the keep and verify a minified `:app:assemblePreview` build. Full rule: [.claude/rules/architecture.md](.claude/rules/architecture.md) "Minification (R8) and net-new packages".
 
-## Current release target (0.3.0, cut)
+## Current release target (next cycle, on `feat/0.4.0`)
 
-`versionName 0.3.0` / `versionCode 183` in `app/build.gradle.kts`. The CHANGELOG is cut: `[0.3.0]` holds the release's entries and a fresh empty `[Unreleased]` sits above it. Notes for continuing sessions:
+**0.3.0 shipped**: tagged `v0.3.0` -> `4b9f0e0c6`, released, and moved to [docs/dev/shipped.md](docs/dev/shipped.md). `app/build.gradle.kts` still reads `versionName 0.3.0` / `versionCode 183`, which is correct until the next cut. Notes for continuing sessions:
 
-- **Remaining step: tag `v0.3.0`.** The tag does not exist yet, locally or on the remote. Per `.claude/rules/workflow.md` "Cutting a release", the `docs/dev/shipped.md` move belongs to the cut as well.
-- `versionCode 183` is the gate for `SetupCategorySortOverrideMigration` (`version = 183f`), which fires for everyone upgrading from `<=182` and seeds the category sort overrides. `VerticalNavigatorMigration` (`version = 181f`) is a separate, earlier migration gated on the 0.3.0-cycle `versionCode 181` bump.
-- New work lands its CHANGELOG entries under the fresh `[Unreleased]` (they belong to the next release, not 0.3.0).
-- The normal rule resumes now that 0.3.0 is cut: bump `versionCode`/`versionName` only at release-cut (see the `feedback_version_bumps` memory).
+- New work lands its CHANGELOG entries under `[Unreleased]`, and bumps nothing: `versionCode` / `versionName` move only at release-cut (see the `feedback_version_bumps` memory).
+- `versionCode 183` is the gate for `SetupCategorySortOverrideMigration` (`version = 183f`), which fires for everyone upgrading from `<=182` and seeds the category sort overrides. `VerticalNavigatorMigration` (`version = 181f`) is a separate, earlier migration gated on the 0.3.0-cycle `versionCode 181` bump. Any new `Setup*Migration` must gate on the NEXT `versionCode`, not 183.
 
 ## Design context
 
