@@ -25,6 +25,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The novel chapter list now has a fast-scroll thumb, like manga.** Drag it down the right edge to jump through a long list of chapters.
 - **Long-press a novel's In-library button to edit its categories.** It opens the same category picker manga details already had on long-press.
 - **Copy a manga's source name by long-pressing it.** Its title and author already copied on long-press; now the source name does too.
+- **You can now switch the related-manga suggestions off completely.** Settings > Library > Recommendations. With it off the details page does none of the searching the suggestions need, so titles open faster on sources that limit how often you can ask them for a page.
 
 **Library & updates**
 
@@ -85,6 +86,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Swiping a novel chapter now does what your swipe setting says.** The left and right actions were reversed on novels, so swiping to mark-as-read bookmarked instead.
 - **A novel's hidden chapters are no longer pulled into bulk downloads, and the Resume button skips them too.** They're skipped just like the chapter list already hides them.
 - **A novel's "Show hidden chapters" menu item now disappears once nothing is hidden.** Unhiding your last hidden chapter used to leave a stale entry in the overflow menu.
+- **Related manga suggestions are now relevant, and chapter lists load faster on slow sources.** Suggestions were searched one word at a time, including words like "the" and "in", which returned unrelated titles and used up a source's request budget while the chapter list was still loading.
 
 **Merged series**
 
@@ -144,7 +146,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - The similar-titles carousel no longer spends a request on sources that can't return related titles, and closes the response it does make. Ported from Komikku.
 - A novel plugin saved incompletely (an interrupted download) now re-downloads itself on next use instead of staying broken.
 - The light-novel plugin runtime now provides Buffer, Blob, Response.arrayBuffer(), fuller response headers, and an X-XSRF-TOKEN header for Laravel-based sources, so plugins that rely on these no longer fail.
-- Settings search now scrolls to and highlights the exact matched row (even when two settings in different content-type groups share a name) and indexes the novel recommendations screen so its options are searchable.
+- Settings search now scrolls to and highlights the exact matched row (even when two settings in different content-type groups share a name) and indexes the recommendations screen so its options are searchable.
 - Formatted the codebase to pass ktlint/spotless, so the formatter runs cleanly and can be enforced going forward.
 - The manga and novel History/Updates rows, cover dialog, details screen, and reader bars now render through shared components instead of near-duplicate copies, so a change to one reaches both. Groundwork for the unified content UI.
 - The manga and novel browse, global-search, and migration result cells now render through one shared browse cell, so the two catalogues stay identical and can't drift.

@@ -165,7 +165,13 @@ interface CatalogueSource : Source {
 
     /**
      * Split and strip a manga title into searchable keywords for the search fallback.
-     * Drops special characters, single-character tokens, and digit-only tokens.
+     * Drops special characters, digit-only tokens, stop words, and tokens too short to be
+     * distinctive, then keeps only the longest few.
+     *
+     * Each keyword costs one search request against the source, so the count is capped: a long
+     * light-novel title would otherwise fan out to a dozen concurrent searches and starve the
+     * chapter list on a rate-limited source. Short and common words are dropped rather than
+     * truncated at random, because searching "the" returns noise, not related manga.
      *
      * @since reikai/extensions-lib 1.6
      */
@@ -182,8 +188,10 @@ interface CatalogueSource : Source {
                 it.replace(regexNumberOnly, "")
                     .lowercase()
             }
-            // exclude single-character tokens
-            .filter { it.length > 1 }
+            .filter { it.length > MIN_KEYWORD_LENGTH && it !in RELATED_SEARCH_STOP_WORDS }
+            .distinct()
+            .sortedByDescending { it.length }
+            .take(MAX_KEYWORDS_FOR_RELATED_MANGAS)
     }
 
     /**
@@ -220,3 +228,30 @@ interface CatalogueSource : Source {
     }
     // RK <--
 }
+
+// RK --> related-mangas keyword-search fallback tuning
+
+/** Tokens at or below this length carry no search signal ("in", "wa", "no"). */
+private const val MIN_KEYWORD_LENGTH = 2
+
+/**
+ * Keyword searches issued per details open, on top of the full-title search. Four is enough to
+ * surface a series' siblings while keeping the burst small enough not to starve the chapter list
+ * on a source that rate-limits itself.
+ */
+private const val MAX_KEYWORDS_FOR_RELATED_MANGAS = 3
+
+/**
+ * Words common enough that searching them returns the source's whole catalogue rather than
+ * anything related. English only: other languages' particles are short enough that
+ * [MIN_KEYWORD_LENGTH] already drops them.
+ */
+private val RELATED_SEARCH_STOP_WORDS = setOf(
+    "the", "and", "for", "with", "from", "into", "onto", "out", "not",
+    "you", "your", "his", "her", "their", "its", "our", "who", "what", "when", "where",
+    "was", "were", "are", "been", "has", "have", "had", "did", "does",
+    "this", "that", "these", "those", "there", "here", "than", "then",
+    "but", "all", "any", "can", "will", "just", "now", "how", "why",
+)
+
+// RK <--

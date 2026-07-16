@@ -305,7 +305,7 @@ private val settingScreens = listOf(
     SettingsEhScreen,
     // RK: MangaDex enhanced-source hub (gated by isEnabled, filtered in getIndex).
     SettingsMangaDexScreen,
-    // RK: novel recommendations settings, previously unreachable from settings search.
+    // RK: recommendations settings, previously unreachable from settings search.
     SettingsRecommendationsScreen,
     SettingsAdvancedScreen,
 )

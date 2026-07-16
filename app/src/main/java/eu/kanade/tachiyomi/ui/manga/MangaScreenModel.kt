@@ -1739,6 +1739,9 @@ class MangaScreenModel(
      *  streams source-native related, marking which candidates are already in the library. */
     fun loadRelatedMangas() {
         if (relatedLoadStarted) return
+        // Gate before any work: the carousel self-hides on an empty pool, so an early return both
+        // hides the row and spares the source every request the load would have made.
+        if (!recommendationPreferences.enableRelatedMangas.get()) return
         val state = successState ?: return
         val source = state.source as? CatalogueSource ?: return
         relatedLoadStarted = true
