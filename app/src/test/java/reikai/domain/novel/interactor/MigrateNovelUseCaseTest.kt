@@ -109,14 +109,14 @@ class MigrateNovelUseCaseTest {
     fun `replace of a merged novel swaps the source out and the target into the group`() = runTest {
         val merge = mockk<NovelMergeManager>(relaxed = true) {
             coEvery { computeRelatedNovelIds(1L, any(), any()) } returns longArrayOf(1L, 3L)
-            every { removeFromGroup(match { it.contentEquals(longArrayOf(1L, 3L)) }, listOf(1L)) } returns
+            coEvery { removeFromGroup(match { it.contentEquals(longArrayOf(1L, 3L)) }, listOf(1L)) } returns
                 longArrayOf(3L)
         }
 
         useCase(novelMergeManager = merge)(novel(1), novel(2), emptySet(), replace = true)
 
-        verify { merge.removeFromGroup(match { it.contentEquals(longArrayOf(1L, 3L)) }, listOf(1L)) }
-        verify { merge.mergeNovels(listOf(3L, 2L)) }
+        coVerify { merge.removeFromGroup(match { it.contentEquals(longArrayOf(1L, 3L)) }, listOf(1L)) }
+        coVerify { merge.mergeNovels(listOf(3L, 2L)) }
     }
 
     @Test
@@ -127,8 +127,8 @@ class MigrateNovelUseCaseTest {
 
         useCase(novelMergeManager = merge)(novel(1), novel(2), emptySet(), replace = false)
 
-        verify { merge.mergeNovels(listOf(1L, 3L, 2L)) }
-        verify(exactly = 0) { merge.removeFromGroup(any(), any()) }
+        coVerify { merge.mergeNovels(listOf(1L, 3L, 2L)) }
+        coVerify(exactly = 0) { merge.removeFromGroup(any(), any()) }
     }
 
     @Test
@@ -139,7 +139,7 @@ class MigrateNovelUseCaseTest {
 
         useCase(novelMergeManager = merge)(novel(1), novel(2), emptySet(), replace = true)
 
-        verify(exactly = 0) { merge.mergeNovels(any()) }
+        coVerify(exactly = 0) { merge.mergeNovels(any()) }
     }
 
     @Test

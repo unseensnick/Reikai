@@ -161,8 +161,10 @@ object SettingsAdvancedScreen : SearchableSettings {
                 title = stringResource(MR.strings.pref_clear_manual_merges_novels),
                 subtitle = stringResource(MR.strings.pref_clear_manual_merges_summary),
                 onClick = {
-                    novelMergeManager.clearManualMerges()
-                    context.toast(MR.strings.merges_cleared)
+                    scope.launch {
+                        novelMergeManager.clearManualMerges()
+                        context.toast(MR.strings.merges_cleared)
+                    }
                 },
             ),
             Preference.PreferenceItem.TextPreference(

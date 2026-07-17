@@ -1,128 +1,78 @@
 package reikai.domain.novel
 
-import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.novel.model.Novel
-import tachiyomi.core.common.preference.Preference
 
+/**
+ * The manager is a thin adapter over [MergeGroupRepository]; its own logic is the master-switch gate and
+ * the group-key mapping. The grouping math is covered by MergeGroupRepositoryTest.
+ */
 class NovelMergeManagerTest {
 
-    private fun novel(id: Long, title: String, author: String?) =
-        Novel.create().copy(id = id, title = title, author = author, favorite = true)
-
-    private fun <T> pref(value: T): Preference<T> = mockk(relaxed = true) { every { get() } returns value }
+    private fun novel(id: Long) = Novel.create().copy(id = id, title = "t$id", favorite = true)
 
     private fun manager(
-        favorites: List<Novel>,
-        merges: Set<String> = emptySet(),
-        unmerges: Set<String> = emptySet(),
-        autoMergeSameTitle: Boolean = true,
-        requireAuthor: Boolean = true,
+        repository: MergeGroupRepository = mockk(relaxed = true),
+        mergingEnabled: Boolean = true,
     ): NovelMergeManager {
         val preferences = mockk<ReikaiLibraryPreferences> {
-            every { novelManualMerges } returns pref(merges)
-            every { novelManualUnmerges } returns pref(unmerges)
-            every { novelAutoMergeSameTitle } returns pref(autoMergeSameTitle)
-            every { novelAutoMergeRequireAuthor } returns pref(requireAuthor)
+            every { seriesMergingEnabled } returns mockk(relaxed = true) { every { get() } returns mergingEnabled }
         }
-        val repo = mockk<NovelRepository>()
-        coEvery { repo.getFavorites() } returns favorites
-        return NovelMergeManager(preferences, repo)
+        return NovelMergeManager(repository, preferences)
     }
 
     @Test
-    fun `same-title same-author auto-groups when the author guard is on`() = runTest {
-        val manager = manager(listOf(novel(1, "A", "X"), novel(2, "A", "X")))
-        manager.computeRelatedNovelIds(1L, "A", "X").toList() shouldContainExactly listOf(1L, 2L)
+    fun `computeRelatedNovelIds returns the group members`() = runTest {
+        val repo = mockk<MergeGroupRepository> {
+            coEvery { getGroupId(ContentType.NOVELS, 1L) } returns 7L
+            coEvery { getMembers(ContentType.NOVELS, 7L) } returns listOf(1L, 2L, 3L)
+        }
+
+        manager(repo).computeRelatedNovelIds(1L, "title", null).toList() shouldBe listOf(1L, 2L, 3L)
     }
 
     @Test
-    fun `same-title different-author does not auto-group with the author guard on`() = runTest {
-        val manager = manager(listOf(novel(1, "A", "X"), novel(2, "A", "Y")))
-        manager.computeRelatedNovelIds(1L, "A", "X").toList() shouldContainExactly listOf(1L)
+    fun `relatedNovelIdsFor returns the group members`() = runTest {
+        val repo = mockk<MergeGroupRepository> {
+            coEvery { getGroupId(ContentType.NOVELS, 1L) } returns 7L
+            coEvery { getMembers(ContentType.NOVELS, 7L) } returns listOf(1L, 2L)
+        }
+
+        manager(repo).relatedNovelIdsFor(1L) shouldBe listOf(1L, 2L)
     }
 
     @Test
-    fun `a blank target author does not auto-group with the guard on`() = runTest {
-        val manager = manager(listOf(novel(1, "A", null), novel(2, "A", null)))
-        manager.computeRelatedNovelIds(1L, "A", null).toList() shouldContainExactly listOf(1L)
+    fun `computeRelatedNovelIds returns just itself when ungrouped`() = runTest {
+        val repo = mockk<MergeGroupRepository> {
+            coEvery { getGroupId(ContentType.NOVELS, 1L) } returns null
+        }
+
+        manager(repo).computeRelatedNovelIds(1L, "title", null).toList() shouldBe listOf(1L)
     }
 
     @Test
-    fun `same-title different-author auto-groups with the guard off`() = runTest {
-        val manager = manager(listOf(novel(1, "A", "X"), novel(2, "A", "Y")), requireAuthor = false)
-        manager.computeRelatedNovelIds(1L, "A", "X").toList() shouldContainExactly listOf(1L, 2L)
+    fun `resolution returns just itself when merging is disabled`() = runTest {
+        manager(mergingEnabled = false).computeRelatedNovelIds(1L, "title", null).toList() shouldBe listOf(1L)
+        manager(mergingEnabled = false).relatedNovelIdsFor(1L) shouldBe listOf(1L)
     }
 
     @Test
-    fun `auto-merge off groups nothing by title`() = runTest {
-        val manager = manager(listOf(novel(1, "A", "X"), novel(2, "A", "X")), autoMergeSameTitle = false)
-        manager.computeRelatedNovelIds(1L, "A", "X").toList() shouldContainExactly listOf(1L)
-    }
+    fun `seriesGroupKeys shares a key within a group and separates the rest`() = runTest {
+        val repo = mockk<MergeGroupRepository> {
+            coEvery { getAllMemberships(ContentType.NOVELS) } returns mapOf(1L to 7L, 2L to 7L)
+        }
 
-    @Test
-    fun `a manual merge groups regardless of title or author`() = runTest {
-        val manager = manager(listOf(novel(1, "A", "X"), novel(5, "B", "Y")), merges = setOf("1,5"))
-        manager.computeRelatedNovelIds(1L, "A", "X").toList() shouldContainExactly listOf(1L, 5L)
-    }
+        val keys = manager(repo).seriesGroupKeys(listOf(novel(1), novel(2), novel(3)))
 
-    @Test
-    fun `an explicit unmerge keeps an auto-grouped novel apart`() = runTest {
-        val manager = manager(listOf(novel(1, "A", "X"), novel(2, "A", "X")), unmerges = setOf("1,2"))
-        manager.computeRelatedNovelIds(1L, "A", "X").toList() shouldContainExactly listOf(1L)
-    }
-
-    // seriesGroupKeys backs the Updates merge-aware grouping: same group => same key.
-
-    @Test
-    fun `seriesGroupKeys gives a merged same-title pair one shared key`() {
-        val favs = listOf(novel(1, "A", "X"), novel(3, "A", "X"))
-        val keys = manager(favs).seriesGroupKeys(favs)
-        keys[1L] shouldBe keys[3L]
-    }
-
-    @Test
-    fun `seriesGroupKeys keeps an unmerged same-title pair in distinct keys`() {
-        val favs = listOf(novel(1, "A", "X"), novel(3, "A", "X"))
-        val keys = manager(favs, unmerges = setOf("1,3")).seriesGroupKeys(favs)
+        keys[1L] shouldBe keys[2L]
         (keys[1L] == keys[3L]) shouldBe false
-    }
-
-    @Test
-    fun `seriesGroupKeys gives unrelated novels distinct keys`() {
-        val favs = listOf(novel(1, "A", "X"), novel(2, "B", "Y"))
-        val keys = manager(favs).seriesGroupKeys(favs)
-        (keys[1L] == keys[2L]) shouldBe false
-    }
-
-    @Test
-    fun `mergeSelectedNovels expands same-title cards so one merge coalesces every source`() = runTest {
-        val mergesPref = mockk<Preference<Set<String>>>(relaxed = true)
-        val unmergesPref = mockk<Preference<Set<String>>>(relaxed = true)
-        every { mergesPref.get() } returns emptySet()
-        every { unmergesPref.get() } returns emptySet()
-        val preferences = mockk<ReikaiLibraryPreferences> {
-            every { novelManualMerges } returns mergesPref
-            every { novelManualUnmerges } returns unmergesPref
-            every { novelAutoMergeSameTitle } returns pref(true)
-            every { novelAutoMergeRequireAuthor } returns pref(true)
-        }
-        val repo = mockk<NovelRepository>()
-        coEvery { repo.getFavorites() } returns
-            listOf(novel(1, "A", "X"), novel(2, "A", "X"), novel(3, "B", "Y"), novel(4, "B", "Y"))
-        val manager = NovelMergeManager(preferences, repo)
-
-        // Select only the two collapsed cards' representatives (1 = card "A/X", 3 = card "B/Y").
-        manager.mergeSelectedNovels(listOf(1L, 3L))
-
-        // Both hidden same-title/author members (2, 4) are pulled in, so one merge records all four.
-        verify { mergesPref.set(setOf("1,2,3,4")) }
     }
 }

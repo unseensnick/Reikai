@@ -689,17 +689,15 @@ class NovelDetailsScreenModel(
      *  an Undo that restores the prior merge prefs + group. */
     fun splitSources(targetIds: List<Long>) {
         if (targetIds.isEmpty()) return
-        val prevMerges = reikaiLibraryPreferences.novelManualMerges.get()
-        val prevUnmerges = reikaiLibraryPreferences.novelManualUnmerges.get()
         val prevRelated = relatedNovelIds.value
-        // copy the group's trackers onto each member so a split source keeps them (Active #8).
-        // Explicit ids (not a re-resolve), so it's race-free against the synchronous split below.
+        // Copy the group's trackers onto each member so a split source keeps them. Explicit ids, so it's
+        // independent of the split below (different tables).
         screenModelScope.launchIO { propagateNovelTrackerLinks.distribute(prevRelated.toList()) }
-        val newIds = mergeManager.splitOrDissolve(prevRelated, targetIds)
-        relatedNovelIds.value = if (newIds.isEmpty()) longArrayOf(anchorNovelId) else newIds
         selectedSourceNovelId.value = null
         dismissDialog()
-        screenModelScope.launchUI {
+        screenModelScope.launchIO {
+            val newIds = mergeManager.splitOrDissolve(prevRelated, targetIds)
+            relatedNovelIds.value = if (newIds.isEmpty()) longArrayOf(anchorNovelId) else newIds
             val result = snackbarHostState.showSnackbar(
                 message = context.stringResource(MR.strings.merge_sources_split),
                 actionLabel = context.stringResource(MR.strings.action_undo),
@@ -707,8 +705,8 @@ class NovelDetailsScreenModel(
                 withDismissAction = true,
             )
             if (result == SnackbarResult.ActionPerformed) {
-                reikaiLibraryPreferences.novelManualMerges.set(prevMerges)
-                reikaiLibraryPreferences.novelManualUnmerges.set(prevUnmerges)
+                // Undo re-merges the original group; the split wrote to the group tables, not prefs.
+                mergeManager.mergeNovels(prevRelated.toList())
                 relatedNovelIds.value = prevRelated
             }
         }
@@ -717,14 +715,12 @@ class NovelDetailsScreenModel(
     /** Split [targetIds] out and unfavorite them, with an Undo that re-favorites + re-groups. */
     fun removeSourcesFromLibrary(targetIds: List<Long>) {
         if (targetIds.isEmpty()) return
-        val prevMerges = reikaiLibraryPreferences.novelManualMerges.get()
-        val prevUnmerges = reikaiLibraryPreferences.novelManualUnmerges.get()
         val prevRelated = relatedNovelIds.value
-        relatedNovelIds.value = mergeManager.removeFromGroup(prevRelated, targetIds)
         selectedSourceNovelId.value = null
         dismissDialog()
         screenModelScope.launchNonCancellable { setFavorites(targetIds, false) }
-        screenModelScope.launchUI {
+        screenModelScope.launchIO {
+            relatedNovelIds.value = mergeManager.removeFromGroup(prevRelated, targetIds)
             val result = snackbarHostState.showSnackbar(
                 message = context.stringResource(MR.strings.merge_sources_removed),
                 actionLabel = context.stringResource(MR.strings.action_undo),
@@ -732,8 +728,8 @@ class NovelDetailsScreenModel(
                 withDismissAction = true,
             )
             if (result == SnackbarResult.ActionPerformed) {
-                reikaiLibraryPreferences.novelManualMerges.set(prevMerges)
-                reikaiLibraryPreferences.novelManualUnmerges.set(prevUnmerges)
+                // Undo re-merges the original group and re-favorites the removed sources.
+                mergeManager.mergeNovels(prevRelated.toList())
                 relatedNovelIds.value = prevRelated
                 screenModelScope.launchNonCancellable { setFavorites(targetIds, true) }
             }
