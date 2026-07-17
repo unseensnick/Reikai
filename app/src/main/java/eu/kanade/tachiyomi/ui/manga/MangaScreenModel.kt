@@ -630,7 +630,15 @@ class MangaScreenModel(
                     val duplicates = getDuplicateLibraryManga(manga)
 
                     if (duplicates.isNotEmpty()) {
-                        updateSuccessState { it.copy(dialog = Dialog.DuplicateManga(manga, duplicates)) }
+                        updateSuccessState {
+                            it.copy(
+                                dialog = Dialog.DuplicateManga(
+                                    manga,
+                                    duplicates,
+                                    reikaiLibraryPreferences.autoMergeSameTitle.get(),
+                                ),
+                            )
+                        }
                         return@launchIO
                     }
                 }
@@ -663,6 +671,17 @@ class MangaScreenModel(
                 // RK: back up newly-favorited E-Hentai galleries to the account.
                 maybeBackupFavoriteToAccount(manga)
             }
+        }
+    }
+
+    // RK: add-time grouping. Favorite the manga (like "add anyway"), then merge it with the shown
+    // duplicates so the new copy joins their group. The row exists already, so the merge is safe even
+    // if the favorite defers to a category choice.
+    fun addToExistingGroup(duplicates: List<MangaWithChapterCount>) {
+        val mangaId = manga?.id ?: return
+        toggleFavorite(onRemoved = {}, checkDuplicate = false)
+        screenModelScope.launchIO {
+            mergeManager.mergeManga(listOf(mangaId) + duplicates.map { it.manga.id })
         }
     }
 
@@ -1591,7 +1610,13 @@ class MangaScreenModel(
             val initialSelection: List<CheckboxState<Category>>,
         ) : Dialog
         data class DeleteChapters(val chapters: List<Chapter>) : Dialog
-        data class DuplicateManga(val manga: Manga, val duplicates: List<MangaWithChapterCount>) : Dialog
+
+        // RK: suggestGroup gates the "add to existing group" action (the same-title suggestion pref).
+        data class DuplicateManga(
+            val manga: Manga,
+            val duplicates: List<MangaWithChapterCount>,
+            val suggestGroup: Boolean,
+        ) : Dialog
         data class Migrate(val target: Manga, val current: Manga) : Dialog
         data class SetFetchInterval(val manga: Manga) : Dialog
         data object SettingsSheet : Dialog

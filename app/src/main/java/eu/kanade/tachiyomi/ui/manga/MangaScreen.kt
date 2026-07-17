@@ -299,6 +299,9 @@ class MangaScreen(
                     onConfirm = { screenModel.toggleFavorite(onRemoved = {}, checkDuplicate = false) },
                     onOpenManga = { navigator.push(MangaScreen(it.id)) },
                     onMigrate = { screenModel.showMigrateDialog(it) },
+                    // RK: offer grouping when the same-title suggestion pref is on.
+                    onAddToGroup = { screenModel.addToExistingGroup(dialog.duplicates) }
+                        .takeIf { dialog.suggestGroup },
                 )
             }
 

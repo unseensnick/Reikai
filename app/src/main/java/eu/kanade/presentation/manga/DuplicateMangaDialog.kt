@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Done
 import androidx.compose.material.icons.outlined.DoneAll
+import androidx.compose.material.icons.outlined.LibraryAdd
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.HorizontalDivider
@@ -84,6 +85,9 @@ fun DuplicateMangaDialog(
     onConfirm: () -> Unit,
     onOpenManga: (manga: Manga) -> Unit,
     onMigrate: (manga: Manga) -> Unit,
+    // RK: favorite the new copy and merge it into the duplicate's group. Null hides the row (the
+    // same-title suggestion pref is off), keeping just "add anyway".
+    onAddToGroup: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val sourceManager = remember { Injekt.get<SourceManager>() }
@@ -137,6 +141,19 @@ fun DuplicateMangaDialog(
 
             Column(modifier = horizontalPaddingModifier) {
                 HorizontalDivider()
+
+                // RK: explicit "add to existing group" (vs the "add anyway" below that keeps it separate).
+                onAddToGroup?.let { addToGroup ->
+                    TextPreferenceWidget(
+                        title = stringResource(MR.strings.action_add_to_group),
+                        icon = Icons.Outlined.LibraryAdd,
+                        onPreferenceClick = {
+                            onDismissRequest()
+                            addToGroup()
+                        },
+                        modifier = Modifier.clip(CircleShape),
+                    )
+                }
 
                 TextPreferenceWidget(
                     title = stringResource(MR.strings.action_add_anyway),

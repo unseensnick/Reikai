@@ -194,6 +194,15 @@ object SettingsLibraryScreen : SearchableSettings {
                     title = stringResource(MR.strings.action_series_merging),
                     subtitle = stringResource(MR.strings.pref_series_merging_summary),
                 ),
+                // RK: same-title grouping suggestion at add time (manga). Novel twin lands with its prompt.
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = reikaiLibraryPreferences.autoMergeSameTitle,
+                    title = contentTypedCategory(
+                        MR.strings.pref_suggest_group_same_title,
+                        MR.strings.content_type_manga,
+                    ),
+                    subtitle = stringResource(MR.strings.pref_suggest_group_same_title_summary),
+                ),
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_preferred_sources),
                     subtitle = stringResource(MR.strings.pref_preferred_sources_summary),
