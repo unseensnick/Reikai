@@ -263,17 +263,12 @@ private fun ColumnScope.NovelDisplayPage(screenModel: LibrarySettingsScreenModel
         screenModel = screenModel,
         showLocalBadge = false,
         mergeToggles = {
+            // RK: master switch (also in Settings). The same-title suggestion + require-author toggles
+            // moved to Settings.
             CheckboxItem(
-                label = stringResource(MR.strings.action_merge_same_title),
-                pref = screenModel.reikaiLibraryPreferences.novelAutoMergeSameTitle,
+                label = stringResource(MR.strings.action_series_merging),
+                pref = screenModel.reikaiLibraryPreferences.seriesMergingEnabled,
             )
-            val autoMergeNovels by screenModel.reikaiLibraryPreferences.novelAutoMergeSameTitle.collectAsState()
-            if (autoMergeNovels) {
-                CheckboxItem(
-                    label = stringResource(MR.strings.action_merge_require_author),
-                    pref = screenModel.reikaiLibraryPreferences.novelAutoMergeRequireAuthor,
-                )
-            }
             CheckboxItem(
                 label = stringResource(MR.strings.action_merge_source_icons),
                 pref = screenModel.reikaiLibraryPreferences.showNovelMergeSourceIcons,

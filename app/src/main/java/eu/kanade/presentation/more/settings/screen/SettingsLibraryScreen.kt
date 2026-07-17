@@ -22,6 +22,7 @@ import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import kotlinx.coroutines.launch
 import reikai.data.novel.update.NovelUpdateJob
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.ResetNovelCategoryFlags
@@ -59,6 +60,8 @@ object SettingsLibraryScreen : SearchableSettings {
         val getCategories = remember { Injekt.get<GetCategories>() }
         val libraryPreferences = remember { Injekt.get<LibraryPreferences>() }
         val novelPreferences = remember { Injekt.get<NovelPreferences>() }
+        // RK: master merging switch, hosted in the Sources group below
+        val reikaiLibraryPreferences = remember { Injekt.get<ReikaiLibraryPreferences>() }
         // RK: novel categories for the novel update-categories filter
         val getNovelCategories = remember { Injekt.get<GetNovelCategories>() }
         val allCategories by getCategories.subscribe().collectAsState(initial = emptyList())
@@ -78,7 +81,7 @@ object SettingsLibraryScreen : SearchableSettings {
             getNovelUpdateGroup(novelPreferences, novelCategories.map { it.toCategory() }),
             getBehaviorGroup(libraryPreferences),
             // RK: merge-group preferred-source ranking
-            getSourcesGroup(LocalNavigator.currentOrThrow),
+            getSourcesGroup(LocalNavigator.currentOrThrow, reikaiLibraryPreferences),
         )
     }
 
@@ -177,10 +180,20 @@ object SettingsLibraryScreen : SearchableSettings {
 
     // RK -->
     @Composable
-    private fun getSourcesGroup(navigator: Navigator): Preference.PreferenceGroup {
+    private fun getSourcesGroup(
+        navigator: Navigator,
+        reikaiLibraryPreferences: ReikaiLibraryPreferences,
+    ): Preference.PreferenceGroup {
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.label_sources),
             preferenceItems = listOf(
+                // RK: master switch for source merging (also in the library display menu). Off resolves
+                // every series standalone and hides the merge UI, keeping the groups.
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = reikaiLibraryPreferences.seriesMergingEnabled,
+                    title = stringResource(MR.strings.action_series_merging),
+                    subtitle = stringResource(MR.strings.pref_series_merging_summary),
+                ),
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_preferred_sources),
                     subtitle = stringResource(MR.strings.pref_preferred_sources_summary),

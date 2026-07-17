@@ -14,6 +14,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Changes
 
+- **Source grouping is now optional, with a "Group series across sources" toggle in the library display menu and Settings > Library.** Off shows each source as its own library entry.
 - **The reader now opens a merged series as either one source's chapters or the whole combined group, depending on where you tapped.** Updates, a source chip, and new-chapter notifications open just that source; the series page, your library, and history open the whole merged group.
 
 ### Fixes

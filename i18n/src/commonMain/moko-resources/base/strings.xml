@@ -178,6 +178,9 @@
     <string name="merge_unified">Unified</string>
     <string name="action_merge_same_title">Merge same-title series across sources</string>
     <string name="action_merge_source_icons">Show source icons on merged covers</string>
+    <!-- RK: master merging switch (Phase 5) -->
+    <string name="action_series_merging">Group series across sources</string>
+    <string name="pref_series_merging_summary">Collapse the same series from different sources into one library entry. Off shows each source separately; your groups are kept.</string>
     <!-- RK: novel merge (P5 S8) -->
     <string name="action_merge_require_author">Also require matching author</string>
     <string name="pref_clear_manual_merges_novels">Clear manual novel merges</string>

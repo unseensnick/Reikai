@@ -280,9 +280,10 @@ private fun ColumnScope.DisplayPage(
         screenModel = screenModel,
         showLocalBadge = true,
         mergeToggles = {
+            // RK: master switch (also in Settings). The same-title suggestion toggle moved to Settings.
             CheckboxItem(
-                label = stringResource(MR.strings.action_merge_same_title),
-                pref = screenModel.reikaiLibraryPreferences.autoMergeSameTitle,
+                label = stringResource(MR.strings.action_series_merging),
+                pref = screenModel.reikaiLibraryPreferences.seriesMergingEnabled,
             )
             CheckboxItem(
                 label = stringResource(MR.strings.action_merge_source_icons),
