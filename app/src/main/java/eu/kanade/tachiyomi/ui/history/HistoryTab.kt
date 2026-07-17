@@ -220,6 +220,8 @@ data object HistoryTab : Tab {
                         navigator.push(NovelScreen(e.source, e.url))
                     is NovelHistoryScreenModel.Event.OpenChapter ->
                         if (e.chapterId != null) {
+                            // RK: group scope (default) so a merged novel's prev/next spans every source
+                            // instead of degrading to the one source of the history entry.
                             navigator.push(NovelReaderScreen(e.novelId, e.chapterId))
                         } else {
                             snackbarHostState.showSnackbar(context.stringResource(MR.strings.no_next_chapter))

@@ -80,7 +80,7 @@ import android.graphics.Color as AndroidColor
 class NovelReaderScreen(
     private val novelId: Long,
     private val initialChapterId: Long,
-    private val orderedChapterIds: LongArray = longArrayOf(),
+    private val sourceScoped: Boolean = false,
 ) : Screen() {
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -88,7 +88,7 @@ class NovelReaderScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val screenModel = rememberScreenModel { NovelReaderScreenModel(novelId, initialChapterId, orderedChapterIds) }
+        val screenModel = rememberScreenModel { NovelReaderScreenModel(novelId, initialChapterId, sourceScoped) }
         val state by screenModel.state.collectAsState()
         val rawSettings by screenModel.settings.collectAsState()
         val overlay by screenModel.overlaySettings.collectAsState()

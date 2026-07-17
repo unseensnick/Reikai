@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
@@ -65,17 +67,18 @@ sealed interface NovelReaderState {
 private const val MAX_CACHED_CHAPTERS = 5
 
 /**
- * Loads novel chapters for the WebView reader. [orderedChapterIds] is the reading order prev/next
- * walks (the details screen's displayed list: a merged novel's unified cross-source order, or a
- * single source's order); when empty, [novelId] resolves the order from its own chapters. Each
- * chapter loads through its own source (resolved per `chapter.novelId`), so a merged session walks
- * across sources. [initialChapterId] is the entry point. Chapters load live via `parseChapter`
- * (offline downloads read from disk). Reading at >=97% auto-marks the chapter read.
+ * Loads novel chapters for the WebView reader. [sourceScoped] picks what prev/next walks: source scope
+ * (Updates, a source chip, notifications) uses just [novelId]'s own chapters; group scope (the default:
+ * details All chip, Library resume, History) resolves the merge group from [novelId] and aggregates the
+ * unified cross-source order in-reader, the novel twin of the manga reader, so no caller passes a list.
+ * Each chapter loads through its own source (resolved per `chapter.novelId`), so a merged session walks
+ * across sources. [initialChapterId] is the entry point. Chapters load live via `parseChapter` (offline
+ * downloads read from disk). Reading at >=97% auto-marks the chapter read.
  */
 class NovelReaderScreenModel(
     private val novelId: Long,
     initialChapterId: Long,
-    private val orderedChapterIds: LongArray = longArrayOf(),
+    private val sourceScoped: Boolean = false,
 ) : StateScreenModel<NovelReaderState>(NovelReaderState.Loading) {
 
     private val chapterRepo: NovelChapterRepository by injectLazy()
@@ -97,6 +100,10 @@ class NovelReaderScreenModel(
     // chapters across a merged novel's sources read on completion (parity with the manga reader).
     private val mergeManager: NovelMergeManager by injectLazy()
     private val libraryPreferences: LibraryPreferences by injectLazy()
+
+    // RK: global novel source ranking, to pick the merge trunk when the reader resolves group scope
+    // (matches the details/library aggregation).
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
 
     // novel trackers (Active #8): push read progress on chapter completion
     private val trackNovelChapter: TrackNovelChapter by injectLazy()
@@ -339,6 +346,21 @@ class NovelReaderScreenModel(
     suspend fun chapterList(): List<NovelChapter> {
         val anchor = chapterRepo.getByNovelId(novelId).associateBy { it.id }
         return orderedIds.mapNotNull { id -> anchor[id] ?: chapterRepo.getById(id) }
+    }
+
+    /** The merge group's unified chapters in reading order (ascending chapter number), the novel twin of
+     *  MergedChapterProvider. A non-merged novel (or merging disabled) is just its own chapters. The
+     *  global preferred-source ranking picks the trunk, matching the details/library aggregation. */
+    private suspend fun resolveGroupChapters(): List<NovelChapter> {
+        val ids = mergeManager.relatedNovelIdsFor(novelId)
+        if (ids.size <= 1) return chapterRepo.getByNovelId(novelId)
+        val byNovel = ids.associateWith { chapterRepo.getByNovelId(it) }
+        val sourceIdByNovel = ids.associateWith { novelRepo.getById(it)?.source.orEmpty() }
+        return NovelChapterAggregation.aggregate(
+            byNovel,
+            sourceIdByNovel,
+            reikaiLibraryPreferences.preferredNovelSources.get(),
+        ).sortedBy { it.chapterNumber }
     }
 
     /** Drop user-hidden chapters from a reading-order id list so prev/next skips them, keeping the
@@ -642,14 +664,24 @@ class NovelReaderScreenModel(
     private suspend fun loadCurrent() {
         mutableState.value = try {
             if (orderedIds.isEmpty()) {
-                val resolved = if (orderedChapterIds.isNotEmpty()) {
-                    orderedChapterIds.toList()
-                } else {
+                // Source scope: just this novel's own chapters. Group scope (default): resolve the merge
+                // group and aggregate the unified order in-reader, so History/Updates/Library need not
+                // pass a list. A group-scoped chapter opened from History can be deduped out of the
+                // unified list, so keep it (placed by chapter number) or prev/next would break.
+                val resolved = if (sourceScoped) {
                     chapterRepo.getByNovelId(novelId).map { it.id }
+                } else {
+                    val chapters = resolveGroupChapters()
+                    val withCurrent = if (chapters.any { it.id == currentId }) {
+                        chapters
+                    } else {
+                        val current = chapterRepo.getById(currentId)
+                        if (current == null) chapters else (chapters + current).sortedBy { it.chapterNumber }
+                    }
+                    withCurrent.map { it.id }
                 }
-                // Skip user-hidden chapters so prev/next matches the details list from every entry
-                // point: details already hands us a filtered list, but history/updates/library-resume
-                // do not, so filter here rather than trust the caller (the manga reader's approach).
+                // Skip user-hidden chapters so prev/next matches the details list; the open chapter is
+                // always kept (filterHiddenChapters guards currentId).
                 orderedIds = filterHiddenChapters(resolved)
             }
             val id = currentId

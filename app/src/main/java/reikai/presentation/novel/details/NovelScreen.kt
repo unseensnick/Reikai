@@ -138,15 +138,15 @@ class NovelScreen(
                 }
                 val onCopy: (String) -> Unit = { text -> context.copyToClipboard(text, text) }
                 val onChapterClick: (NovelChapter) -> Unit = { chapter ->
-                    // Route to the chapter's own source (a unified-list row keeps its owning novelId)
-                    // and hand the reader the chapters in READING order (ascending sourceOrder, the
-                    // restamped cross-source order for a merged group), independent of the details
-                    // display sort, so Next advances forward like the manga reader + library resume.
+                    // Route to the chapter's own source (a unified-list row keeps its owning novelId).
+                    // The All chip opens group scope (the reader resolves + aggregates the merge group);
+                    // a specific source chip opens source scope (that source's own list), matching the
+                    // manga reader.
                     navigator.push(
                         NovelReaderScreen(
                             chapter.novelId,
                             chapter.id,
-                            s.chapters.sortedBy { it.sourceOrder }.map { it.id }.toLongArray(),
+                            sourceScoped = s.selectedSourceNovelId != null,
                         ),
                     )
                 }

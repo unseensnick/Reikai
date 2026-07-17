@@ -119,7 +119,10 @@ data object UpdatesTab : Tab {
                 )
             },
             onClickMangaCover = { navigator.push(MangaScreen(it.update.mangaId)) },
-            onOpenNovelChapter = { navigator.push(NovelReaderScreen(it.update.novelId, it.update.chapterId)) },
+            // RK: Updates opens the chapter's own source list (source scope), not the whole group.
+            onOpenNovelChapter = {
+                navigator.push(NovelReaderScreen(it.update.novelId, it.update.chapterId, sourceScoped = true))
+            },
             onClickNovelCover = { navigator.push(NovelScreen(it.update.source, it.update.novelUrl)) },
         )
 

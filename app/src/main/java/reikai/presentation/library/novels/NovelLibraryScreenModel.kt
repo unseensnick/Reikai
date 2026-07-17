@@ -737,10 +737,10 @@ class NovelLibraryScreenModel :
         }
     }
 
-    /** The chapter to resume + the reading order the reader should walk. For a merged novel this pools
-     *  the whole group (the unified cross-source list the details "All" view shows), so the resume +
-     *  the reader's prev/next span every grouped source, not just the representative one. */
-    suspend fun getResume(repNovelId: Long): NovelResume? {
+    /** The next-unread chapter to resume. For a merged novel this pools the whole group (the unified
+     *  cross-source list the details "All" view shows) to find the first unread; the reader itself
+     *  resolves the group order for prev/next, so only the chapter is returned. */
+    suspend fun getResume(repNovelId: Long): NovelChapter? {
         val rep = novelRepository.getById(repNovelId) ?: return null
         val memberIds = mergeManager.computeRelatedNovelIds(rep.id, rep.title, rep.author).toList()
         val ordered = if (memberIds.size <= 1) {
@@ -756,12 +756,8 @@ class NovelLibraryScreenModel :
                 // chapterNumber is the cross-source reading order (sourceOrder isn't comparable across sources).
                 .sortedBy { it.chapterNumber }
         }
-        val first = ordered.firstOrNull { !it.read } ?: return null
-        return NovelResume(first, ordered.map { it.id })
+        return ordered.firstOrNull { !it.read }
     }
-
-    /** The next-unread chapter to open + the reading-order chapter ids the reader should navigate. */
-    data class NovelResume(val chapter: NovelChapter, val chapterIds: List<Long>)
 
     // --- settings dialog (sort / filter) ---
 
