@@ -14,7 +14,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Changes
 
-- **Source grouping is now optional, with a "Group series across sources" toggle in the library display menu and Settings > Library.** Off shows each source as its own library entry.
+- **Source grouping is now optional, with a "Group series across sources" toggle in the library display menu and Settings -> Library.** Off shows each source as its own library entry.
 - **The reader now opens a merged series as either one source's chapters or the whole combined group, depending on where you tapped.** Updates, a source chip, and new-chapter notifications open just that source; the series page, your library, and history open the whole merged group.
 
 ### Fixes
@@ -25,6 +25,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Other
 
+- Settings -> Advanced: two "clear merges" actions, which did the same thing after the merge rebuild, are now one "Clear all merges" action per content type.
 - Shizuku detection now probes for the Shizuku permission instead of a fixed package name (synced from Mihon, mihonapp/mihon#3565).
 
 ## [0.3.0]

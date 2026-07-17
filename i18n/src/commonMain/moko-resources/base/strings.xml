@@ -183,12 +183,8 @@
     <string name="pref_series_merging_summary">Collapse the same series from different sources into one library entry. Off shows each source separately; your groups are kept.</string>
     <!-- RK: novel merge (P5 S8) -->
     <string name="action_merge_require_author">Also require matching author</string>
-    <string name="pref_clear_manual_merges_novels">Clear manual novel merges</string>
-    <string name="pref_separate_auto_merges_novels">Separate all merged novels</string>
-    <string name="pref_clear_manual_merges">Clear manual merges</string>
-    <string name="pref_clear_manual_merges_summary">Undo every manual source merge. Same-title auto-merging stays on.</string>
-    <string name="pref_separate_auto_merges">Separate all merged series</string>
-    <string name="pref_separate_auto_merges_summary">Split every merged series apart, including same-title auto-merges. New entries can still auto-merge later.</string>
+    <string name="pref_clear_merges">Clear all merges</string>
+    <string name="pref_clear_merges_summary">Split every merged series back into separate per-source entries.</string>
     <string name="merges_cleared">Merged series cleared</string>
     <string name="related_mangas">Related</string>
     <string name="pref_preferred_sources">Preferred sources</string>

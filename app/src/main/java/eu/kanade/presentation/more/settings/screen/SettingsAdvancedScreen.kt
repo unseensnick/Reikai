@@ -135,20 +135,11 @@ object SettingsAdvancedScreen : SearchableSettings {
                 title = stringResource(MR.strings.pref_enable_adult_sources),
                 subtitle = stringResource(MR.strings.pref_enable_adult_sources_summary),
             ),
-            // RK --> clear pref-based merge state
+            // RK --> dissolve every merge group. The old "clear manual" vs "separate auto" split
+            // collapsed after the rebuild (both now clear every group), so it is one action per type.
             Preference.PreferenceItem.TextPreference(
-                title = stringResource(MR.strings.pref_clear_manual_merges),
-                subtitle = stringResource(MR.strings.pref_clear_manual_merges_summary),
-                onClick = {
-                    scope.launch {
-                        mergeManager.clearManualMerges()
-                        context.toast(MR.strings.merges_cleared)
-                    }
-                },
-            ),
-            Preference.PreferenceItem.TextPreference(
-                title = stringResource(MR.strings.pref_separate_auto_merges),
-                subtitle = stringResource(MR.strings.pref_separate_auto_merges_summary),
+                title = contentTypedCategory(MR.strings.pref_clear_merges, MR.strings.content_type_manga),
+                subtitle = stringResource(MR.strings.pref_clear_merges_summary),
                 onClick = {
                     scope.launch {
                         mergeManager.clearAllMergesIncludingAuto()
@@ -156,20 +147,9 @@ object SettingsAdvancedScreen : SearchableSettings {
                     }
                 },
             ),
-            // Novel equivalents (P5 S8).
             Preference.PreferenceItem.TextPreference(
-                title = stringResource(MR.strings.pref_clear_manual_merges_novels),
-                subtitle = stringResource(MR.strings.pref_clear_manual_merges_summary),
-                onClick = {
-                    scope.launch {
-                        novelMergeManager.clearManualMerges()
-                        context.toast(MR.strings.merges_cleared)
-                    }
-                },
-            ),
-            Preference.PreferenceItem.TextPreference(
-                title = stringResource(MR.strings.pref_separate_auto_merges_novels),
-                subtitle = stringResource(MR.strings.pref_separate_auto_merges_summary),
+                title = contentTypedCategory(MR.strings.pref_clear_merges, MR.strings.content_type_novels),
+                subtitle = stringResource(MR.strings.pref_clear_merges_summary),
                 onClick = {
                     scope.launch {
                         novelMergeManager.clearAllMergesIncludingAuto()
