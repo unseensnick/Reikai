@@ -752,6 +752,7 @@ class NovelLibraryScreenModel :
                 byNovel,
                 sourceIdByNovel,
                 reikaiLibraryPreferences.preferredNovelSources.get(),
+                mergeManager.overrideRankingMemberIds(rep.id),
             )
                 // chapterNumber is the cross-source reading order (sourceOrder isn't comparable across sources).
                 .sortedBy { it.chapterNumber }

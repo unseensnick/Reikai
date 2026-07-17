@@ -124,3 +124,21 @@ FROM merge_group_novel;
 deleteGroupsByContentType:
 DELETE FROM merge_group
 WHERE content_type = :contentType;
+
+-- RK: per-group source-ranking override. Manage-sources reorder sets each member's source_priority to
+-- its display position and flips the group's override flag on; Reset-order flips it off. Aggregation
+-- reads the members in source_priority order only while the flag is 1, else the global list wins.
+setOverrideSourceRanking:
+UPDATE merge_group
+SET override_source_ranking = :override
+WHERE _id = :groupId;
+
+setMangaMemberPriority:
+UPDATE merge_group_manga
+SET source_priority = :sourcePriority
+WHERE manga_id = :mangaId;
+
+setNovelMemberPriority:
+UPDATE merge_group_novel
+SET source_priority = :sourcePriority
+WHERE novel_id = :novelId;

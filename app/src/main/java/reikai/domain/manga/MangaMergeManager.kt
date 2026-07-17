@@ -68,6 +68,31 @@ class MangaMergeManager(
         return mangaIds.mapNotNull { id -> memberships[id]?.let { id to it } }.toMap()
     }
 
+    /**
+     * The group of [anchorId] in its own priority order when the group overrides the global source
+     * ranking, else empty (aggregation then falls back to the global list). This is the per-group
+     * override channel: aggregation ranks members by this order directly, so two members sharing a
+     * source still order distinctly (a source-id list could not tell them apart).
+     */
+    suspend fun overrideRankingMemberIds(anchorId: Long): List<Long> {
+        val groupId = repository.getGroupId(ContentType.MANGA, anchorId) ?: return emptyList()
+        if (repository.getGroup(groupId)?.overrideSourceRanking != true) return emptyList()
+        return repository.getMembers(ContentType.MANGA, groupId)
+    }
+
+    /** Persist [orderedMemberIds] as the group's source order (0 = trunk) and turn the override on. The
+     *  ids are the manage-sources rows after a drag; the group is resolved from the first of them. */
+    suspend fun setSourceOrder(orderedMemberIds: List<Long>) {
+        val groupId = orderedMemberIds.firstNotNullOfOrNull { repository.getGroupId(ContentType.MANGA, it) } ?: return
+        repository.setSourceOrder(ContentType.MANGA, groupId, orderedMemberIds)
+    }
+
+    /** Clear the per-group override for [anchorId]'s group (back to the global ranking). */
+    suspend fun clearSourceOrder(anchorId: Long) {
+        val groupId = repository.getGroupId(ContentType.MANGA, anchorId) ?: return
+        repository.clearSourceOrder(ContentType.MANGA, groupId)
+    }
+
     /** Merge the library selection into one group. Each selected id's whole group is absorbed by
      *  [MergeGroupRepository.merge], so passing the collapsed cards' representative ids is enough. */
     suspend fun mergeSelectedManga(ids: List<Long>) {

@@ -57,6 +57,31 @@ class NovelMergeManager(
         return novelIds.mapNotNull { id -> memberships[id]?.let { id to it } }.toMap()
     }
 
+    /**
+     * The group of [anchorId] in its own priority order when the group overrides the global source
+     * ranking, else empty (aggregation then falls back to the global list). This is the per-group
+     * override channel: aggregation ranks members by this order directly, so two members sharing a
+     * source still order distinctly (a source-id list could not tell them apart).
+     */
+    suspend fun overrideRankingMemberIds(anchorId: Long): List<Long> {
+        val groupId = repository.getGroupId(ContentType.NOVELS, anchorId) ?: return emptyList()
+        if (repository.getGroup(groupId)?.overrideSourceRanking != true) return emptyList()
+        return repository.getMembers(ContentType.NOVELS, groupId)
+    }
+
+    /** Persist [orderedMemberIds] as the group's source order (0 = trunk) and turn the override on. The
+     *  ids are the manage-sources rows after a drag; the group is resolved from the first of them. */
+    suspend fun setSourceOrder(orderedMemberIds: List<Long>) {
+        val groupId = orderedMemberIds.firstNotNullOfOrNull { repository.getGroupId(ContentType.NOVELS, it) } ?: return
+        repository.setSourceOrder(ContentType.NOVELS, groupId, orderedMemberIds)
+    }
+
+    /** Clear the per-group override for [anchorId]'s group (back to the global ranking). */
+    suspend fun clearSourceOrder(anchorId: Long) {
+        val groupId = repository.getGroupId(ContentType.NOVELS, anchorId) ?: return
+        repository.clearSourceOrder(ContentType.NOVELS, groupId)
+    }
+
     /** Merge the library selection into one group; each selected id's whole group is absorbed. */
     suspend fun mergeSelectedNovels(ids: List<Long>) {
         repository.merge(ContentType.NOVELS, ids)

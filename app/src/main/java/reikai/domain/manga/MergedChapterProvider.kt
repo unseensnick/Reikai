@@ -57,8 +57,9 @@ class MergedChapterProvider(
     }
 
     /** Aggregate + reading order: stitch the sources into one list, then restamp source order so a
-     *  "by source order" sort reads top to bottom instead of interleaving sources. */
-    fun aggregate(chaptersBySource: Map<Long, List<Chapter>>, sourceIdByManga: Map<Long, Long>): List<Chapter> {
+     *  "by source order" sort reads top to bottom instead of interleaving sources. Suspend because it
+     *  resolves the group's per-source override; both callers (reader load, details flow) already are. */
+    suspend fun aggregate(chaptersBySource: Map<Long, List<Chapter>>, sourceIdByManga: Map<Long, Long>): List<Chapter> {
         // True gallery sources (E-Hentai / ExHentai / nhentai / Pururin / 8Muses / HentaiFox / AsmHentai)
         // treat each chapter as a whole standalone gallery numbered 1, so exempt them from cross-source
         // number dedup: merging two keeps both instead of collapsing on "1". They all implement
@@ -71,15 +72,34 @@ class MergedChapterProvider(
                 sourceId !in MANGADEX_IDS && sourceManager.get(sourceId)?.getMainSource<NamespaceSource>() != null
             }
             .keys
+        // Members are the map keys, so any one resolves the group for its override ranking (empty = none).
+        val memberRanking = chaptersBySource.keys.firstOrNull()
+            ?.let { mergeManager.overrideRankingMemberIds(it) }
+            .orEmpty()
         return ChapterAggregation
             .aggregate(
                 chaptersBySource,
                 sourceIdByManga,
                 reikaiLibraryPreferences.preferredMangaSources.get(),
                 gallerySourceMangaIds,
+                memberRanking,
             )
             .let(::restampReadingOrder)
     }
+
+    /** The member manga ids in trunk order (first = trunk), for ordering the manage-sources rows so the
+     *  primary sits on top. Uses the same ranking as [aggregate]; [memberRanking] is the caller's
+     *  already-resolved per-group override (empty = the global ranking wins). */
+    fun rankedMemberIds(
+        chaptersBySource: Map<Long, List<Chapter>>,
+        sourceIdByManga: Map<Long, Long>,
+        memberRanking: List<Long>,
+    ): List<Long> = ChapterAggregation.rankedMemberIds(
+        chaptersBySource,
+        sourceIdByManga,
+        reikaiLibraryPreferences.preferredMangaSources.get(),
+        memberRanking,
+    )
 
     private fun restampReadingOrder(chapters: List<Chapter>): List<Chapter> =
         chapters.sortedByDescending { it.chapterNumber }

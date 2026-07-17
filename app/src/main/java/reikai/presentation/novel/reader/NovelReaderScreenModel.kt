@@ -360,6 +360,7 @@ class NovelReaderScreenModel(
             byNovel,
             sourceIdByNovel,
             reikaiLibraryPreferences.preferredNovelSources.get(),
+            mergeManager.overrideRankingMemberIds(novelId),
         ).sortedBy { it.chapterNumber }
     }
 

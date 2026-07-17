@@ -63,4 +63,15 @@ interface MergeGroupRepository {
 
     /** Dissolve every group of [contentType]. */
     suspend fun clearAll(contentType: ContentType)
+
+    /**
+     * Set [groupId]'s per-group source ranking: each id in [orderedMemberIds] takes a source priority
+     * equal to its position (0 = trunk), and the group's override flag is turned on so aggregation reads
+     * this order instead of the global preferred-source list. Atomic.
+     */
+    suspend fun setSourceOrder(contentType: ContentType, groupId: Long, orderedMemberIds: List<Long>)
+
+    /** Clear [groupId]'s per-group override: reset every member's priority and turn the flag off, so the
+     *  group falls back to the global ranking again. Atomic. */
+    suspend fun clearSourceOrder(contentType: ContentType, groupId: Long)
 }

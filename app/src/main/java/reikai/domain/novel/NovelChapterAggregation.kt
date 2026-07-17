@@ -28,30 +28,20 @@ object NovelChapterAggregation {
      * @param chaptersByNovel each grouped novel's id mapped to that novel's chapters.
      * @param sourceIdByNovel each grouped novel's id mapped to its source id (for the priority rank).
      * @param preferredSourceIds the global preferred-source ranking, highest priority first.
+     * @param memberRanking a per-group override: the member novel ids in the group's own trunk order.
+     *   When non-empty it ranks members directly (by position here) and [preferredSourceIds] is ignored,
+     *   so two members sharing a source still order distinctly. Empty (the default) uses the source list.
      * @return the unified chapter list (unsorted). For 0 or 1 novel, returns the input unchanged.
      */
     fun aggregate(
         chaptersByNovel: Map<Long, List<NovelChapter>>,
         sourceIdByNovel: Map<Long, String> = emptyMap(),
         preferredSourceIds: List<String> = emptyList(),
+        memberRanking: List<Long> = emptyList(),
     ): List<NovelChapter> {
         if (chaptersByNovel.size <= 1) return chaptersByNovel.values.firstOrNull().orEmpty()
 
-        // Rank by preferred-source priority first (a ranked source wins the trunk regardless of
-        // count), then chapter count desc, then novel id asc for a stable order.
-        val ranked = chaptersByNovel.entries
-            .map { (novelId, chapters) ->
-                val prefRank = sourceIdByNovel[novelId]
-                    ?.let { preferredSourceIds.indexOf(it) }
-                    ?.takeIf { it >= 0 }
-                    ?: Int.MAX_VALUE
-                RankedSource(novelId, chapters, prefRank)
-            }
-            .sortedWith(
-                compareBy<RankedSource> { it.prefRank }
-                    .thenByDescending { it.chapters.size }
-                    .thenBy { it.novelId },
-            )
+        val ranked = rank(chaptersByNovel, sourceIdByNovel, preferredSourceIds, memberRanking)
 
         // No usable keys on the trunk -> no reliable cross-source matching, so just show its full list.
         val trunk = ranked.first()
@@ -77,6 +67,43 @@ object NovelChapterAggregation {
         }
         return unified
     }
+
+    /**
+     * The member novel ids in trunk order (first = trunk), the same ranking [aggregate] applies. Lets the
+     * manage-sources dialog badge the primary source without stitching the whole chapter list.
+     */
+    fun rankedMemberIds(
+        chaptersByNovel: Map<Long, List<NovelChapter>>,
+        sourceIdByNovel: Map<Long, String> = emptyMap(),
+        preferredSourceIds: List<String> = emptyList(),
+        memberRanking: List<Long> = emptyList(),
+    ): List<Long> = rank(chaptersByNovel, sourceIdByNovel, preferredSourceIds, memberRanking).map { it.novelId }
+
+    // Rank by preferred-source priority first (a ranked source wins the trunk regardless of count), then
+    // chapter count desc, then novel id asc for a stable order. A per-group override ranks by member id
+    // directly (memberRanking), bypassing the source list.
+    private fun rank(
+        chaptersByNovel: Map<Long, List<NovelChapter>>,
+        sourceIdByNovel: Map<Long, String>,
+        preferredSourceIds: List<String>,
+        memberRanking: List<Long>,
+    ): List<RankedSource> = chaptersByNovel.entries
+        .map { (novelId, chapters) ->
+            val prefRank = if (memberRanking.isNotEmpty()) {
+                memberRanking.indexOf(novelId).takeIf { it >= 0 } ?: Int.MAX_VALUE
+            } else {
+                sourceIdByNovel[novelId]
+                    ?.let { preferredSourceIds.indexOf(it) }
+                    ?.takeIf { it >= 0 }
+                    ?: Int.MAX_VALUE
+            }
+            RankedSource(novelId, chapters, prefRank)
+        }
+        .sortedWith(
+            compareBy<RankedSource> { it.prefRank }
+                .thenByDescending { it.chapters.size }
+                .thenBy { it.novelId },
+        )
 
     /**
      * The cross-source identity of a chapter, or null when it has none. Prefers the normalized title

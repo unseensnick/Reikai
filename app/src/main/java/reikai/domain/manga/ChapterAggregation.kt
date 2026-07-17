@@ -42,6 +42,9 @@ object ChapterAggregation {
      * @param gallerySourceMangaIds manga ids whose source treats each chapter as a whole standalone
      *   gallery (adult / metadata sources). Their chapters bypass the cross-source number dedup, since
      *   every gallery source numbers its primary chapter 1 and would otherwise collide across sources.
+     * @param memberRanking a per-group override: the member manga ids in the group's own trunk order.
+     *   When non-empty it ranks members directly (by position here) and [preferredSourceIds] is ignored,
+     *   so two members sharing a source still order distinctly. Empty (the default) uses the source list.
      * @return the unified chapter list (unsorted). For 0 or 1 source, returns the input unchanged.
      */
     fun aggregate(
@@ -49,25 +52,11 @@ object ChapterAggregation {
         sourceIdByManga: Map<Long, Long> = emptyMap(),
         preferredSourceIds: List<Long> = emptyList(),
         gallerySourceMangaIds: Set<Long> = emptySet(),
+        memberRanking: List<Long> = emptyList(),
     ): List<Chapter> {
         if (chaptersBySource.size <= 1) return chaptersBySource.values.firstOrNull().orEmpty()
 
-        // Rank by preferred-source priority first (a ranked source wins the trunk regardless of count),
-        // then distinct recognized numbers desc, then manga id asc for a deterministic, stable order.
-        // With no preferred sources every prefRank is MAX_VALUE, so this collapses to the prior rule.
-        val ranked = chaptersBySource.entries
-            .map { (mangaId, chapters) ->
-                val prefRank = sourceIdByManga[mangaId]
-                    ?.let { preferredSourceIds.indexOf(it) }
-                    ?.takeIf { it >= 0 }
-                    ?: Int.MAX_VALUE
-                RankedSource(mangaId, chapters, distinctRecognizedCount(chapters), prefRank)
-            }
-            .sortedWith(
-                compareBy<RankedSource> { it.prefRank }
-                    .thenByDescending { it.distinctCount }
-                    .thenBy { it.mangaId },
-            )
+        val ranked = rank(chaptersBySource, sourceIdByManga, preferredSourceIds, memberRanking)
 
         val unified = mutableListOf<Chapter>()
         val seenNumbers = HashSet<Float>()
@@ -97,6 +86,44 @@ object ChapterAggregation {
         }
         return unified
     }
+
+    /**
+     * The member manga ids in trunk order (first = trunk), the same ranking [aggregate] applies. Lets the
+     * manage-sources dialog badge the primary source without stitching the whole chapter list.
+     */
+    fun rankedMemberIds(
+        chaptersBySource: Map<Long, List<Chapter>>,
+        sourceIdByManga: Map<Long, Long> = emptyMap(),
+        preferredSourceIds: List<Long> = emptyList(),
+        memberRanking: List<Long> = emptyList(),
+    ): List<Long> = rank(chaptersBySource, sourceIdByManga, preferredSourceIds, memberRanking).map { it.mangaId }
+
+    // Rank by preferred-source priority first (a ranked source wins the trunk regardless of count), then
+    // distinct recognized numbers desc, then manga id asc for a deterministic, stable order. With no
+    // preferred sources every prefRank is MAX_VALUE, collapsing to distinct-count. A per-group override
+    // ranks by member id directly (memberRanking), bypassing the source list.
+    private fun rank(
+        chaptersBySource: Map<Long, List<Chapter>>,
+        sourceIdByManga: Map<Long, Long>,
+        preferredSourceIds: List<Long>,
+        memberRanking: List<Long>,
+    ): List<RankedSource> = chaptersBySource.entries
+        .map { (mangaId, chapters) ->
+            val prefRank = if (memberRanking.isNotEmpty()) {
+                memberRanking.indexOf(mangaId).takeIf { it >= 0 } ?: Int.MAX_VALUE
+            } else {
+                sourceIdByManga[mangaId]
+                    ?.let { preferredSourceIds.indexOf(it) }
+                    ?.takeIf { it >= 0 }
+                    ?: Int.MAX_VALUE
+            }
+            RankedSource(mangaId, chapters, distinctRecognizedCount(chapters), prefRank)
+        }
+        .sortedWith(
+            compareBy<RankedSource> { it.prefRank }
+                .thenByDescending { it.distinctCount }
+                .thenBy { it.mangaId },
+        )
 
     private fun distinctRecognizedCount(chapters: List<Chapter>): Int =
         chapters.asSequence()

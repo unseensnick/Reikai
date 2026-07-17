@@ -124,6 +124,28 @@ class MergeGroupRepositoryImpl(
         queries.deleteGroupsByContentType(contentType.toDbValue())
     }
 
+    override suspend fun setSourceOrder(contentType: ContentType, groupId: Long, orderedMemberIds: List<Long>) {
+        database.transaction {
+            orderedMemberIds.forEachIndexed { index, id -> setMemberPriority(contentType, id, index.toLong()) }
+            queries.setOverrideSourceRanking(override = 1L, groupId = groupId)
+        }
+    }
+
+    override suspend fun clearSourceOrder(contentType: ContentType, groupId: Long) {
+        database.transaction {
+            getMembers(contentType, groupId).forEach { setMemberPriority(contentType, it, DEFAULT_SOURCE_PRIORITY) }
+            queries.setOverrideSourceRanking(override = 0L, groupId = groupId)
+        }
+    }
+
+    private suspend fun setMemberPriority(contentType: ContentType, entryId: Long, priority: Long) {
+        when (contentType) {
+            ContentType.MANGA -> queries.setMangaMemberPriority(priority, entryId)
+            ContentType.NOVELS -> queries.setNovelMemberPriority(priority, entryId)
+            ContentType.ALL -> error(ALL_UNSUPPORTED)
+        }
+    }
+
     private suspend fun groupIdsForMembers(contentType: ContentType, ids: List<Long>): List<Long> =
         when (contentType) {
             ContentType.MANGA -> queries.mangaGroupIdsForMembers(ids).awaitAsList()

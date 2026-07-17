@@ -240,6 +240,63 @@ class MergeGroupRepositoryTest {
         repository.getAllMemberships(ContentType.MANGA) shouldBe mapOf(1L to groupId, 2L to groupId)
     }
 
+    @Test
+    fun `setSourceOrder turns the override on and reorders the members`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2, 3))!!
+        repository.getGroup(groupId)!!.overrideSourceRanking shouldBe false
+
+        repository.setSourceOrder(ContentType.MANGA, groupId, listOf(3, 1, 2))
+
+        repository.getGroup(groupId)!!.overrideSourceRanking shouldBe true
+        // getMembers reads ORDER BY source_priority, so it now reflects the persisted order.
+        repository.getMembers(ContentType.MANGA, groupId) shouldBe listOf(3L, 1L, 2L)
+    }
+
+    @Test
+    fun `clearSourceOrder turns the override off and restores insertion order`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+        val groupId = repository.createGroup(ContentType.MANGA, listOf(1, 2, 3))!!
+        repository.setSourceOrder(ContentType.MANGA, groupId, listOf(3, 2, 1))
+
+        repository.clearSourceOrder(ContentType.MANGA, groupId)
+
+        repository.getGroup(groupId)!!.overrideSourceRanking shouldBe false
+        // All priorities reset to 0, so the tie breaks on _id (insertion order) again.
+        repository.getMembers(ContentType.MANGA, groupId) shouldBe listOf(1L, 2L, 3L)
+    }
+
+    @Test
+    fun `setSourceOrder is scoped to its own group`() = runTest {
+        insertManga(1)
+        insertManga(2)
+        insertManga(3)
+        insertManga(4)
+        val target = repository.createGroup(ContentType.MANGA, listOf(1, 2))!!
+        val other = repository.createGroup(ContentType.MANGA, listOf(3, 4))!!
+
+        repository.setSourceOrder(ContentType.MANGA, target, listOf(2, 1))
+
+        repository.getGroup(other)!!.overrideSourceRanking shouldBe false
+        repository.getMembers(ContentType.MANGA, other) shouldBe listOf(3L, 4L)
+    }
+
+    @Test
+    fun `setSourceOrder works for novels`() = runTest {
+        insertNovel(1)
+        insertNovel(2)
+        val groupId = repository.createGroup(ContentType.NOVELS, listOf(1, 2))!!
+
+        repository.setSourceOrder(ContentType.NOVELS, groupId, listOf(2, 1))
+
+        repository.getGroup(groupId)!!.overrideSourceRanking shouldBe true
+        repository.getMembers(ContentType.NOVELS, groupId) shouldBe listOf(2L, 1L)
+    }
+
     // Minimal valid parent rows: only the NOT NULL columns without a default need values.
     private suspend fun insertManga(id: Long) {
         driver.execute(

@@ -197,4 +197,51 @@ class NovelChapterAggregationTest {
 
         withDefaults shouldBe withEmptyPrefs
     }
+
+    @Test
+    fun `member ranking makes the chosen member the trunk over chapter count`() {
+        val source1 = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0), chapter(1L, 4.0), chapter(1L, 5.0))
+        val source2 = listOf(chapter(2L, 1.0), chapter(2L, 2.0), chapter(2L, 3.0))
+
+        val unified = NovelChapterAggregation.aggregate(
+            chaptersByNovel = mapOf(1L to source1, 2L to source2),
+            memberRanking = listOf(2L, 1L),
+        )
+
+        unified.numbers() shouldBe listOf(1.0, 2.0, 3.0, 4.0, 5.0)
+        unified.first { it.chapterNumber == 1.0 }.novelId shouldBe 2L
+        unified.first { it.chapterNumber == 4.0 }.novelId shouldBe 1L
+    }
+
+    @Test
+    fun `member ranking overrides the preferred-source list`() {
+        val source1 = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0))
+        val source2 = listOf(chapter(2L, 1.0), chapter(2L, 2.0))
+
+        val unified = NovelChapterAggregation.aggregate(
+            chaptersByNovel = mapOf(1L to source1, 2L to source2),
+            sourceIdByNovel = mapOf(1L to "src.a", 2L to "src.b"),
+            preferredSourceIds = listOf("src.a"), // would rank member 1 first
+            memberRanking = listOf(2L, 1L), // but the per-group override wins
+        )
+
+        unified.first { it.chapterNumber == 1.0 }.novelId shouldBe 2L
+    }
+
+    @Test
+    fun `member ranking orders two members that share one source`() {
+        // Two library rows from the same source in one group: a source-id ranking cannot tell them
+        // apart, so the override must rank by member id.
+        val first = listOf(chapter(1L, 1.0), chapter(1L, 2.0))
+        val second = listOf(chapter(2L, 1.0), chapter(2L, 2.0), chapter(2L, 3.0))
+        val byNovel = mapOf(1L to first, 2L to second)
+        val sameSource = mapOf(1L to "src.a", 2L to "src.a")
+
+        val member1First = NovelChapterAggregation.aggregate(byNovel, sameSource, memberRanking = listOf(1L, 2L))
+        member1First.first { it.chapterNumber == 1.0 }.novelId shouldBe 1L
+        member1First.first { it.chapterNumber == 3.0 }.novelId shouldBe 2L
+
+        val member2First = NovelChapterAggregation.aggregate(byNovel, sameSource, memberRanking = listOf(2L, 1L))
+        member2First.first { it.chapterNumber == 1.0 }.novelId shouldBe 2L
+    }
 }

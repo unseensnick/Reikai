@@ -1,8 +1,10 @@
 package reikai.domain.manga
 
 import io.kotest.matchers.shouldBe
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.domain.chapter.model.Chapter
@@ -24,14 +26,18 @@ class MergedChapterProviderTest {
         val preferences = mockk<ReikaiLibraryPreferences> {
             every { preferredMangaSources } returns mockk(relaxed = true) { every { get() } returns preferred }
         }
+        // No per-group override in these cases, so the global preferred list drives the ranking.
+        val mergeManager = mockk<MangaMergeManager> {
+            coEvery { overrideRankingMemberIds(any()) } returns emptyList()
+        }
         // Non-gallery sources: a relaxed mock returns null from get(), so these serial-manga cases keep
         // the normal cross-source number dedup.
         val sourceManager = mockk<SourceManager>(relaxed = true)
-        return MergedChapterProvider(mockk(), mockk(), sourceManager, preferences)
+        return MergedChapterProvider(mockk(), mergeManager, sourceManager, preferences)
     }
 
     @Test
-    fun `aggregate orders the unified list newest-first across sources`() {
+    fun `aggregate orders the unified list newest-first across sources`() = runTest {
         val source1 = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0))
         val source2 = listOf(chapter(2L, 3.0), chapter(2L, 4.0)) // 4 gap-fills from the other source
 
@@ -41,7 +47,7 @@ class MergedChapterProviderTest {
     }
 
     @Test
-    fun `aggregate restamps source order to match reading order`() {
+    fun `aggregate restamps source order to match reading order`() = runTest {
         val source1 = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0))
         val source2 = listOf(chapter(2L, 3.0), chapter(2L, 4.0))
 
@@ -56,7 +62,7 @@ class MergedChapterProviderTest {
      * alone, so it has to be renumbered into the unified list's scale or it lands at an arbitrary
      * index and prev/next breaks.
      */
-    private fun dedupedOut(): Pair<List<Chapter>, Chapter> {
+    private suspend fun dedupedOut(): Pair<List<Chapter>, Chapter> {
         val preferred = listOf(chapter(1L, 1.0), chapter(1L, 2.0), chapter(1L, 3.0))
         // Source 2 loses chapter 3 to the preferred source, so opening its own copy re-adds it.
         val opened = chapter(2L, 3.0).copy(sourceOrder = 42L)
@@ -66,7 +72,7 @@ class MergedChapterProviderTest {
     }
 
     @Test
-    fun `a deduped-out opened chapter is re-added to the list`() {
+    fun `a deduped-out opened chapter is re-added to the list`() = runTest {
         val (unified, opened) = dedupedOut()
 
         val chapters = provider().withOpenedChapter(unified, opened)
@@ -77,7 +83,7 @@ class MergedChapterProviderTest {
     }
 
     @Test
-    fun `re-adding an opened chapter renumbers the list into one source order scale`() {
+    fun `re-adding an opened chapter renumbers the list into one source order scale`() = runTest {
         val (unified, opened) = dedupedOut()
 
         val chapters = provider().withOpenedChapter(unified, opened)
