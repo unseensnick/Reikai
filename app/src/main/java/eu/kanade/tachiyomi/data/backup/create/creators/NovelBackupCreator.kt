@@ -1,7 +1,7 @@
 // RK: novel backup (Roadmap 9). Net-new Reikai file: the light-novel twin of MangaBackupCreator,
-// plus the novel categories and the merge/unmerge groups (the latter re-keyed from preference IDs to
-// stable {url, source} refs so they survive restore). Gated by the same BackupOptions toggles as
-// manga (novels are first-class library content, no separate UI toggle).
+// plus the novel categories and the merge groups (serialized from the merge_group tables as stable
+// {url, source} refs so they survive restore). Gated by the same BackupOptions toggles as manga
+// (novels are first-class library content, no separate UI toggle).
 package eu.kanade.tachiyomi.data.backup.create.creators
 
 import app.cash.sqldelight.async.coroutines.awaitAsList
@@ -14,7 +14,8 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
-import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.ContentType
+import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.novel.NovelCategoryRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
@@ -32,7 +33,7 @@ class NovelBackupCreator(
     private val novelChapterRepository: NovelChapterRepository = Injekt.get(),
     private val novelCategoryRepository: NovelCategoryRepository = Injekt.get(),
     private val novelTrackRepository: NovelTrackRepository = Injekt.get(),
-    private val preferences: ReikaiLibraryPreferences = Injekt.get(),
+    private val mergeGroupRepository: MergeGroupRepository = Injekt.get(),
     private val customNovelInfoRepository: CustomNovelInfoRepository = Injekt.get(),
     private val database: Database = Injekt.get(),
 ) {
@@ -41,7 +42,6 @@ class NovelBackupCreator(
         val novels: List<BackupNovel>,
         val categories: List<BackupNovelCategory>,
         val merges: List<BackupNovelMergeGroup>,
-        val unmerges: List<BackupNovelMergeGroup>,
         val customInfo: List<BackupCustomNovelInfo>,
     )
 
@@ -51,16 +51,7 @@ class NovelBackupCreator(
             novels = if (options.libraryEntries) favorites.map { backupNovel(it, options) } else emptyList(),
             categories = if (options.categories) backupNovelCategories() else emptyList(),
             customInfo = if (options.libraryEntries) backupCustomNovelInfo(favorites) else emptyList(),
-            merges = if (options.libraryEntries) {
-                serializeGroups(preferences.novelManualMerges.get(), favorites)
-            } else {
-                emptyList()
-            },
-            unmerges = if (options.libraryEntries) {
-                serializeGroups(preferences.novelManualUnmerges.get(), favorites)
-            } else {
-                emptyList()
-            },
+            merges = if (options.libraryEntries) serializeGroups() else emptyList(),
         )
     }
 
@@ -129,21 +120,21 @@ class NovelBackupCreator(
     }
 
     /**
-     * Translate the preference's comma-joined ID groups into {url, source} refs. A group is dropped
-     * if fewer than two of its members resolve (a one-member group is no longer a merge).
+     * Serialize the persisted novel merge groups as {url, source} refs (reads the merge_group tables,
+     * not the retired prefs). A group is dropped if fewer than two of its members resolve.
      */
-    private suspend fun serializeGroups(groups: Set<String>, favorites: List<Novel>): List<BackupNovelMergeGroup> {
-        if (groups.isEmpty()) return emptyList()
-        val byId = favorites.associateBy { it.id }
-        return groups.mapNotNull { group ->
-            val refs = group.split(",")
-                .mapNotNull { it.trim().toLongOrNull() }
-                .mapNotNull { id ->
-                    val novel = byId[id] ?: novelRepository.getById(id)
-                    novel?.let { BackupNovelSourceRef(url = it.url, source = it.source) }
+    private suspend fun serializeGroups(): List<BackupNovelMergeGroup> {
+        val memberships = mergeGroupRepository.getAllMemberships(ContentType.NOVELS)
+        if (memberships.isEmpty()) return emptyList()
+        return memberships.entries
+            .groupBy({ it.value }, { it.key })
+            .values
+            .mapNotNull { memberIds ->
+                val refs = memberIds.mapNotNull { id ->
+                    novelRepository.getById(id)?.let { BackupNovelSourceRef(url = it.url, source = it.source) }
                 }
-            refs.takeIf { it.size >= 2 }?.let { BackupNovelMergeGroup(refs = it) }
-        }
+                refs.takeIf { it.size >= 2 }?.let { BackupNovelMergeGroup(refs = it) }
+            }
     }
 }
 

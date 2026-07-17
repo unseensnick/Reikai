@@ -1,7 +1,7 @@
 // RK: novel backup (Roadmap 9). Net-new Reikai file: the light-novel twin of MangaRestorer. Matches
 // or inserts each novel by url+source, re-links its chapters (by url), categories (by name), tracks
-// (by tracker id) and history (chapter url -> new chapter id), then rebuilds the merge/unmerge prefs
-// from the backup's {url, source} refs once every novel has its fresh id.
+// (by tracker id) and history (chapter url -> new chapter id), then materializes the merge groups into
+// the merge_group tables from the backup's {url, source} refs once every novel has its fresh id.
 package eu.kanade.tachiyomi.data.backup.restore.restorers
 
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomNovelInfo
@@ -11,7 +11,8 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
-import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.ContentType
+import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.novel.NovelCategoryRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
@@ -30,7 +31,7 @@ class NovelRestorer(
     private val novelChapterRepository: NovelChapterRepository = Injekt.get(),
     private val novelCategoryRepository: NovelCategoryRepository = Injekt.get(),
     private val novelTrackRepository: NovelTrackRepository = Injekt.get(),
-    private val preferences: ReikaiLibraryPreferences = Injekt.get(),
+    private val mergeGroupRepository: MergeGroupRepository = Injekt.get(),
     private val setCustomNovelInfo: SetCustomNovelInfo = Injekt.get(),
     private val database: Database = Injekt.get(),
 ) {
@@ -168,18 +169,19 @@ class NovelRestorer(
     }
 
     /**
-     * Rebuild the merge/unmerge preferences from the backup's stable refs. Each ref is resolved to the
-     * restored novel's fresh id; a group is dropped if fewer than two members resolve. Unions with any
-     * existing entries so a partial restore doesn't wipe device-local merges.
+     * Materialize the backup's novel merge groups into the merge_group tables. Each ref is resolved to
+     * the restored novel's fresh id; a group with fewer than two resolved members is skipped. Additive:
+     * each backup group is merged in via the repository (which absorbs any overlapping local group);
+     * local-only groups are left alone.
      */
-    suspend fun restoreMerges(merges: List<BackupNovelMergeGroup>, unmerges: List<BackupNovelMergeGroup>) {
-        val resolvedMerges = resolveGroups(merges)
-        val resolvedUnmerges = resolveGroups(unmerges)
-        if (resolvedMerges.isNotEmpty()) {
-            preferences.novelManualMerges.set(preferences.novelManualMerges.get() + resolvedMerges)
-        }
-        if (resolvedUnmerges.isNotEmpty()) {
-            preferences.novelManualUnmerges.set(preferences.novelManualUnmerges.get() + resolvedUnmerges)
+    suspend fun restoreMerges(merges: List<BackupNovelMergeGroup>) {
+        merges.forEach { group ->
+            val ids = group.refs
+                .mapNotNull { novelRepository.getByUrlAndSource(it.url, it.source)?.id }
+                .distinct()
+            if (ids.size >= 2) {
+                mergeGroupRepository.merge(ContentType.NOVELS, ids)
+            }
         }
     }
 
@@ -201,16 +203,5 @@ class NovelRestorer(
                 ),
             )
         }
-    }
-
-    private suspend fun resolveGroups(groups: List<BackupNovelMergeGroup>): Set<String> {
-        if (groups.isEmpty()) return emptySet()
-        return groups.mapNotNull { group ->
-            val ids = group.refs
-                .mapNotNull { novelRepository.getByUrlAndSource(it.url, it.source)?.id }
-                .distinct()
-                .sorted()
-            ids.takeIf { it.size >= 2 }?.joinToString(",")
-        }.toSet()
     }
 }

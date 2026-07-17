@@ -142,7 +142,6 @@ class BackupRestorer(
                     backup.backupManga,
                     if (options.categories) backup.backupCategories else emptyList(),
                     backup.backupMangaMerges,
-                    backup.backupMangaUnmerges,
                     backup.backupCustomMangaInfo,
                 )
             }
@@ -194,7 +193,7 @@ class BackupRestorer(
                     }
                     notifier.showRestoreProgress(chunk.last().title, restoreProgress.load(), restoreAmount, isSync)
                 }
-            novelRestorer.restoreMerges(backup.backupNovelMerges, backup.backupNovelUnmerges)
+            novelRestorer.restoreMerges(backup.backupNovelMerges)
             // RK: apply the custom-info overlay, re-keyed from {url,source} to the fresh novel ids.
             novelRestorer.restoreCustomNovelInfo(backup.backupCustomNovelInfo)
         }
@@ -216,9 +215,8 @@ class BackupRestorer(
     private fun CoroutineScope.restoreManga(
         backupMangas: List<BackupManga>,
         backupCategories: List<BackupCategory>,
-        // RK: merge/unmerge groups, rebuilt from {url,source} once the restored manga have fresh IDs.
+        // RK: merge groups, materialized into the merge_group tables once the restored manga have fresh IDs.
         backupMangaMerges: List<BackupMangaMergeGroup>,
-        backupMangaUnmerges: List<BackupMangaMergeGroup>,
         // RK: custom-info overlay, re-keyed from {url,source} to fresh IDs after the manga loop.
         backupCustomMangaInfo: List<BackupCustomMangaInfo>,
     ) = launch {
@@ -242,9 +240,9 @@ class BackupRestorer(
                 notifier.showRestoreProgress(chunk.last().title, restoreProgress.load(), restoreAmount, isSync)
             }
 
-        // RK: with every manga restored (fresh IDs), rebuild the merge prefs from the backup's refs.
+        // RK: with every manga restored (fresh IDs), materialize the backup's merge groups.
         ensureActive()
-        mangaRestorer.restoreMerges(backupMangaMerges, backupMangaUnmerges)
+        mangaRestorer.restoreMerges(backupMangaMerges)
         // RK: and apply the custom-info overlay, re-keyed to those same fresh IDs.
         ensureActive()
         mangaRestorer.restoreCustomInfo(backupCustomMangaInfo)

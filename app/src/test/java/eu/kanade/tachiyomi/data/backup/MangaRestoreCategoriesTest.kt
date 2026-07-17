@@ -69,7 +69,7 @@ class MangaRestoreCategoriesTest {
             getTracks = mockk(relaxed = true),
             insertTrack = mockk(relaxed = true),
             fetchInterval = mockk(relaxed = true),
-            reikaiLibraryPreferences = mockk(relaxed = true),
+            mergeGroupRepository = mockk(relaxed = true),
             mangaMetadataRepository = mockk(relaxed = true),
             setCustomMangaInfo = mockk(relaxed = true),
         )

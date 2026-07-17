@@ -28,7 +28,8 @@ import logcat.LogPriority
 import okio.buffer
 import okio.gzip
 import okio.sink
-import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.ContentType
+import reikai.domain.merge.MergeGroupRepository
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.backup.service.BackupPreferences
@@ -53,8 +54,8 @@ class BackupCreator(
     private val getFavorites: GetFavorites = Injekt.get(),
     private val backupPreferences: BackupPreferences = Injekt.get(),
     private val mangaRepository: MangaRepository = Injekt.get(),
-    // RK: source of the manga merge/unmerge prefs serialized as {url,source} refs.
-    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
+    // RK: source of the persisted manga merge groups, serialized as {url,source} refs.
+    private val mergeGroupRepository: MergeGroupRepository = Injekt.get(),
     // RK: source of the manga custom-info overlay, backed up as {url,source}-keyed entries.
     private val customMangaInfoRepository: CustomMangaInfoRepository = Injekt.get(),
 
@@ -111,18 +112,13 @@ class BackupCreator(
                 backupNovels = novelData.novels,
                 backupNovelCategories = novelData.categories,
                 backupNovelMerges = novelData.merges,
-                backupNovelUnmerges = novelData.unmerges,
+                // RK: unmerge round-trip retired; kept empty so the proto field stays declared.
+                backupNovelUnmerges = emptyList(),
                 backupExtensions = backupExtensions(options),
-                backupMangaMerges = backupMangaMergeGroups(
-                    reikaiLibraryPreferences.mangaManualMerges.get(),
-                    favorites,
-                    options,
-                ),
-                backupMangaUnmerges = backupMangaMergeGroups(
-                    reikaiLibraryPreferences.mangaManualUnmerges.get(),
-                    favorites,
-                    options,
-                ),
+                backupMangaMerges = backupMangaMergeGroups(options),
+                // RK: the unmerge round-trip is retired (membership is explicit now); kept empty so the
+                // proto field stays declared and old backups still decode.
+                backupMangaUnmerges = emptyList(),
                 backupCustomMangaInfo = backupCustomMangaInfo(favorites, options),
                 backupCustomNovelInfo = novelData.customInfo,
                 // RK <--
@@ -180,23 +176,24 @@ class BackupCreator(
         return preferenceBackupCreator.createApp(includePrivatePreferences = options.privateSettings)
     }
 
-    // RK: translate a merge-pref's comma-joined ID groups into stable {url, source} refs (the manga twin
-    // of NovelBackupCreator.serializeGroups). Gated by libraryEntries (merges are meaningless without the
-    // library). A group is dropped if fewer than two members resolve, since a one-member group is no
-    // longer a merge. Merge members are favorites, so the favorites map resolves them all.
-    private fun backupMangaMergeGroups(
-        groups: Set<String>,
-        favorites: List<Manga>,
-        options: BackupOptions,
-    ): List<BackupMangaMergeGroup> {
-        if (!options.libraryEntries || groups.isEmpty()) return emptyList()
-        val byId = favorites.associateBy { it.id }
-        return groups.mapNotNull { group ->
-            val refs = group.split(",")
-                .mapNotNull { it.trim().toLongOrNull() }
-                .mapNotNull { id -> byId[id]?.let { BackupMangaSourceRef(url = it.url, source = it.source) } }
-            refs.takeIf { it.size >= 2 }?.let { BackupMangaMergeGroup(refs = it) }
-        }
+    // RK: serialize the persisted manga merge groups as stable {url, source} refs (the manga twin of
+    // NovelBackupCreator.serializeGroups). Reads the merge_group tables, not the retired prefs; any
+    // member resolves by id (not favorites-only). Gated by libraryEntries (merges are meaningless without
+    // the library). A group is dropped if fewer than two members resolve.
+    private suspend fun backupMangaMergeGroups(options: BackupOptions): List<BackupMangaMergeGroup> {
+        if (!options.libraryEntries) return emptyList()
+        val memberships = mergeGroupRepository.getAllMemberships(ContentType.MANGA)
+        if (memberships.isEmpty()) return emptyList()
+        return memberships.entries
+            .groupBy({ it.value }, { it.key })
+            .values
+            .mapNotNull { memberIds ->
+                val refs = memberIds.map { id ->
+                    val manga = mangaRepository.getMangaById(id)
+                    BackupMangaSourceRef(url = manga.url, source = manga.source)
+                }
+                refs.takeIf { it.size >= 2 }?.let { BackupMangaMergeGroup(refs = it) }
+            }
     }
 
     // RK: back up the manga custom-info overlay as {url, source}-keyed entries (re-keyed to fresh ids on

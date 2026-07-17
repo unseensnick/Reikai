@@ -16,7 +16,8 @@ import exh.metadata.metadata.base.FlatMetadata
 import exh.metadata.sql.models.SearchMetadata
 import exh.metadata.sql.models.SearchTag
 import exh.metadata.sql.models.SearchTitle
-import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.ContentType
+import reikai.domain.merge.MergeGroupRepository
 import tachiyomi.data.Database
 import tachiyomi.data.MemoColumnAdapter
 import tachiyomi.data.UpdateStrategyColumnAdapter
@@ -47,8 +48,8 @@ class MangaRestorer(
     private val getTracks: GetTracks = Injekt.get(),
     private val insertTrack: InsertTrack = Injekt.get(),
     fetchInterval: FetchInterval = Injekt.get(),
-    // RK: target of the rebuilt manga merge/unmerge prefs (see restoreMerges).
-    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
+    // RK: target of the restored manga merge groups (see restoreMerges).
+    private val mergeGroupRepository: MergeGroupRepository = Injekt.get(),
     // RK: restores captured adult/EXH gallery metadata (search_metadata/tags/titles).
     private val mangaMetadataRepository: MangaMetadataRepository = Injekt.get(),
     // RK: applies the restored manga custom-info overlay (re-keyed by url+source).
@@ -367,35 +368,22 @@ class MangaRestorer(
     }
 
     /**
-     * RK: rebuild the manga merge/unmerge prefs from the backup's stable {url, source} refs once the
-     * manga have been restored (their IDs differ from the source device). The manga twin of
-     * NovelRestorer.restoreMerges. Unioned with any device-local entries so a partial restore does not
-     * wipe existing merges. Call this AFTER the manga loop completes.
+     * RK: materialize the backup's manga merge groups into the merge_group tables once the manga have
+     * been restored (their ids differ from the source device). The manga twin of
+     * NovelRestorer.restoreMerges. Additive: each backup group is merged in via the repository (which
+     * absorbs any overlapping local group); local-only groups are left alone. Members resolve from the
+     * backup's stable {url, source} refs; a group with fewer than two resolved members is skipped.
+     * Call this AFTER the manga loop completes.
      */
-    suspend fun restoreMerges(merges: List<BackupMangaMergeGroup>, unmerges: List<BackupMangaMergeGroup>) {
-        val resolvedMerges = resolveMergeGroups(merges)
-        val resolvedUnmerges = resolveMergeGroups(unmerges)
-        if (resolvedMerges.isNotEmpty()) {
-            reikaiLibraryPreferences.mangaManualMerges.set(
-                reikaiLibraryPreferences.mangaManualMerges.get() + resolvedMerges,
-            )
-        }
-        if (resolvedUnmerges.isNotEmpty()) {
-            reikaiLibraryPreferences.mangaManualUnmerges.set(
-                reikaiLibraryPreferences.mangaManualUnmerges.get() + resolvedUnmerges,
-            )
-        }
-    }
-
-    private suspend fun resolveMergeGroups(groups: List<BackupMangaMergeGroup>): Set<String> {
-        if (groups.isEmpty()) return emptySet()
-        return groups.mapNotNull { group ->
+    suspend fun restoreMerges(merges: List<BackupMangaMergeGroup>) {
+        merges.forEach { group ->
             val ids = group.refs
                 .mapNotNull { getMangaByUrlAndSourceId.await(it.url, it.source)?.id }
                 .distinct()
-                .sorted()
-            ids.takeIf { it.size >= 2 }?.joinToString(",")
-        }.toSet()
+            if (ids.size >= 2) {
+                mergeGroupRepository.merge(ContentType.MANGA, ids)
+            }
+        }
     }
 
     // RK: apply the restored manga custom-info overlay. Each entry is re-keyed from its {url, source} ref

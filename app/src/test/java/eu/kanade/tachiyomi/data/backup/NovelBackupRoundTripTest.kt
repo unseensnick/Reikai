@@ -4,33 +4,33 @@ import eu.kanade.tachiyomi.data.backup.create.BackupOptions
 import eu.kanade.tachiyomi.data.backup.create.creators.NovelBackupCreator
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelChapter
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef
 import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
-import io.mockk.every
+import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
-import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.ContentType
+import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
-import tachiyomi.core.common.preference.Preference
 
 class NovelBackupRoundTripTest {
 
     private fun novel(id: Long, url: String, source: String, title: String = "T") =
         Novel.create().copy(id = id, url = url, source = source, title = title, favorite = true)
 
-    private fun <T> pref(value: T): Preference<T> = mockk(relaxed = true) { every { get() } returns value }
-
-    private fun restorer(repo: NovelRepository) = NovelRestorer(
+    private fun restorer(repo: NovelRepository, repository: MergeGroupRepository) = NovelRestorer(
         novelRepository = repo,
         novelChapterRepository = mockk(relaxed = true),
         novelCategoryRepository = mockk(relaxed = true),
         novelTrackRepository = mockk(relaxed = true),
-        preferences = mockk(relaxed = true),
+        mergeGroupRepository = repository,
         setCustomNovelInfo = mockk(relaxed = true),
         database = mockk(relaxed = true),
     )
@@ -48,7 +48,7 @@ class NovelBackupRoundTripTest {
             coEvery { update(capture(written), capture(syncing)) } returns true
         }
 
-        restorer(repo).restore(backup, emptyList())
+        restorer(repo, mockk(relaxed = true)).restore(backup, emptyList())
 
         written.captured.description shouldBe "local"
         written.captured.version shouldBe 5L
@@ -69,7 +69,7 @@ class NovelBackupRoundTripTest {
             coEvery { update(capture(written), any()) } returns true
         }
 
-        restorer(repo).restore(backup, emptyList())
+        restorer(repo, mockk(relaxed = true)).restore(backup, emptyList())
 
         written.captured.description shouldBe "new"
         written.captured.version shouldBe 5L
@@ -78,21 +78,22 @@ class NovelBackupRoundTripTest {
 
     @Test
     fun `merge groups survive an id remap across backup then restore`() = runTest {
-        // Backup side: a manual merge "1,5" over two favorited novels on different sources.
+        // Backup side: a persisted group of two favorited novels on different sources.
         val favorites = listOf(novel(1, "a", "s1"), novel(5, "b", "s2"))
-        val backupPrefs = mockk<ReikaiLibraryPreferences> {
-            every { novelManualMerges } returns pref(setOf("1,5"))
-            every { novelManualUnmerges } returns pref(emptySet())
-        }
         val backupRepo = mockk<NovelRepository> {
             coEvery { getFavorites() } returns favorites
+            coEvery { getById(1L) } returns favorites[0]
+            coEvery { getById(5L) } returns favorites[1]
+        }
+        val backupMergeRepo = mockk<MergeGroupRepository> {
+            coEvery { getAllMemberships(ContentType.NOVELS) } returns mapOf(1L to 100L, 5L to 100L)
         }
         val creator = NovelBackupCreator(
             novelRepository = backupRepo,
             novelChapterRepository = mockk(relaxed = true),
             novelCategoryRepository = mockk(relaxed = true),
             novelTrackRepository = mockk(relaxed = true),
-            preferences = backupPrefs,
+            mergeGroupRepository = backupMergeRepo,
             customNovelInfoRepository = mockk(relaxed = true),
             database = mockk(relaxed = true),
         )
@@ -112,66 +113,34 @@ class NovelBackupRoundTripTest {
             listOf(listOf("a" to "s1", "b" to "s2"))
 
         // Restore side: the same two novels come back with fresh ids 10 and 20.
-        val mergeSlot = slot<Set<String>>()
-        val restorePrefs = mockk<ReikaiLibraryPreferences> {
-            every { novelManualMerges } returns mockk(relaxed = true) {
-                every { get() } returns emptySet()
-                every { set(capture(mergeSlot)) } returns Unit
-            }
-            every { novelManualUnmerges } returns pref(emptySet())
-        }
+        val restoreMergeRepo = mockk<MergeGroupRepository>(relaxed = true)
         val restoreRepo = mockk<NovelRepository> {
             coEvery { getByUrlAndSource("a", "s1") } returns novel(10, "a", "s1")
             coEvery { getByUrlAndSource("b", "s2") } returns novel(20, "b", "s2")
         }
-        val restorer = NovelRestorer(
-            novelRepository = restoreRepo,
-            novelChapterRepository = mockk(relaxed = true),
-            novelCategoryRepository = mockk(relaxed = true),
-            novelTrackRepository = mockk(relaxed = true),
-            preferences = restorePrefs,
-            setCustomNovelInfo = mockk(relaxed = true),
-            database = mockk(relaxed = true),
-        )
 
-        restorer.restoreMerges(data.merges, emptyList())
+        restorer(restoreRepo, restoreMergeRepo).restoreMerges(data.merges)
 
-        // The merge is rebuilt against the restored ids, sorted and comma-joined as the pref expects.
-        mergeSlot.captured shouldBe setOf("10,20")
+        // The group is materialized against the restored ids via the repository.
+        coVerify { restoreMergeRepo.merge(ContentType.NOVELS, listOf(10L, 20L)) }
     }
 
     @Test
     fun `a merge group is dropped when fewer than two members resolve on restore`() = runTest {
-        val restorePrefs = mockk<ReikaiLibraryPreferences> {
-            every { novelManualMerges } returns mockk(relaxed = true) { every { get() } returns emptySet() }
-            every { novelManualUnmerges } returns pref(emptySet())
-        }
+        val restoreMergeRepo = mockk<MergeGroupRepository>(relaxed = true)
         val restoreRepo = mockk<NovelRepository> {
             coEvery { getByUrlAndSource("a", "s1") } returns novel(10, "a", "s1")
             // The second member's novel wasn't restored (e.g. its source wasn't backed up).
             coEvery { getByUrlAndSource("b", "s2") } returns null
         }
-        val restorer = NovelRestorer(
-            novelRepository = restoreRepo,
-            novelChapterRepository = mockk(relaxed = true),
-            novelCategoryRepository = mockk(relaxed = true),
-            novelTrackRepository = mockk(relaxed = true),
-            preferences = restorePrefs,
-            setCustomNovelInfo = mockk(relaxed = true),
-            database = mockk(relaxed = true),
+        val group = BackupNovelMergeGroup(
+            refs = listOf(BackupNovelSourceRef("a", "s1"), BackupNovelSourceRef("b", "s2")),
         )
 
-        val group = eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup(
-            refs = listOf(
-                eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef("a", "s1"),
-                eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef("b", "s2"),
-            ),
-        )
+        restorer(restoreRepo, restoreMergeRepo).restoreMerges(listOf(group))
 
-        restorer.restoreMerges(listOf(group), emptyList())
-
-        // Only one member resolved, so no merge is written (no set() with a non-empty value).
-        io.mockk.verify(exactly = 0) { restorePrefs.novelManualMerges.set(any()) }
+        // Only one member resolved, so no group is created.
+        coVerify(exactly = 0) { restoreMergeRepo.merge(any(), any()) }
     }
 
     @Test
