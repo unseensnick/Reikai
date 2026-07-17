@@ -247,14 +247,28 @@ class HistoryScreenModel(
         }
     }
 
-    // RK: add-time grouping. Merge the manga with the duplicates the user picked, then favorite it
-    // (only the picks: the duplicate list is fuzzy, so merging every match would fuse distinct series).
-    // Seeding first is what makes a deferred category choice open on the group's own categories.
+    // RK: add-time grouping. Merge the manga with the duplicates the user picked, then file it (only the
+    // picks: the duplicate list is fuzzy, so merging every match would fuse distinct series). Seeding
+    // first is what makes a deferred category choice open on the group's own categories.
+    //
+    // Favorites up front (like the novel side), before the possible category choice, so an abandoned
+    // choice can't strand the just-merged member: membership isn't favorite-filtered, so a
+    // merged-but-unfavorited copy would feed chapters into the group while invisible in the library.
     fun addToExistingGroup(manga: Manga, selectedIds: List<Long>) {
         screenModelScope.launchIO {
+            if (!updateManga.awaitUpdateFavorite(manga.id, true)) return@launchIO
             mergeManager.mergeManga(listOf(manga.id) + selectedIds)
             mangaLibraryAdder.seedCategoriesFromGroup(manga.id, selectedIds)
-            addFavorite(manga)
+            addTracks.bindEnhancedTrackers(manga, sourceManager.getOrStub(manga.source))
+
+            val categories = getCategories()
+            val defaultCategoryId = libraryPreferences.defaultCategory.get().toLong()
+            val defaultCategory = categories.find { it.id == defaultCategoryId }
+            when {
+                defaultCategory != null -> moveMangaToCategory(manga.id, defaultCategory)
+                defaultCategoryId == 0L || categories.isEmpty() -> moveMangaToCategory(manga.id, null)
+                else -> showChangeCategoryDialog(manga)
+            }
         }
     }
 

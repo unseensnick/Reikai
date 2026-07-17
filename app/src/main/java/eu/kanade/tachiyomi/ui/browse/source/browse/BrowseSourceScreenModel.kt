@@ -266,7 +266,7 @@ open class BrowseSourceScreenModel(
             when (val result = mangaLibraryAdder.addToExistingGroup(manga, selectedIds)) {
                 AddFavoriteResult.Added -> {}
                 is AddFavoriteResult.NeedsCategoryChoice ->
-                    setDialog(Dialog.ChangeMangaCategory(manga, result.initialSelection))
+                    setDialog(Dialog.ChangeMangaCategory(manga, result.initialSelection, alreadyFavorited = true))
             }
         }
     }
@@ -344,6 +344,9 @@ open class BrowseSourceScreenModel(
         data class ChangeMangaCategory(
             val manga: Manga,
             val initialSelection: List<CheckboxState.State<Category>>,
+            // RK: true when the add-to-group path already favorited up front, so the confirm files
+            // categories without re-toggling the favorite.
+            val alreadyFavorited: Boolean = false,
         ) : Dialog
         data class Migrate(val target: Manga, val current: Manga) : Dialog
     }

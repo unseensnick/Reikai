@@ -243,7 +243,13 @@ abstract class SearchScreenModel(
                 AddFavoriteResult.Added -> {}
                 is AddFavoriteResult.NeedsCategoryChoice ->
                     mutableState.update {
-                        it.copy(dialog = Dialog.ChangeMangaCategory(manga, result.initialSelection))
+                        it.copy(
+                            dialog = Dialog.ChangeMangaCategory(
+                                manga,
+                                result.initialSelection,
+                                alreadyFavorited = true,
+                            ),
+                        )
                     }
             }
         }
@@ -286,6 +292,9 @@ abstract class SearchScreenModel(
         data class ChangeMangaCategory(
             val manga: Manga,
             val initialSelection: List<CheckboxState.State<Category>>,
+            // RK: true when the add-to-group path already favorited up front, so the confirm files
+            // categories without re-toggling the favorite.
+            val alreadyFavorited: Boolean = false,
         ) : Dialog
         // RK <--
     }

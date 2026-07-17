@@ -676,16 +676,32 @@ class MangaScreenModel(
         }
     }
 
-    // RK: add-time grouping. Merge the manga with the duplicates the user picked, then favorite it like
-    // "add anyway". Only the picks: the duplicate list is fuzzy, so merging every match would fuse
-    // distinct series. The row exists already, so the merge is safe even if the favorite defers to a
-    // category choice; seeding first is what makes that choice open on the group's own categories.
+    // RK: add-time grouping. Merge the manga with the duplicates the user picked, then file it. Only the
+    // picks: the duplicate list is fuzzy, so merging every match would fuse distinct series. Seeding first
+    // is what makes a deferred category choice open on the group's own categories.
+    //
+    // Favorites up front (like the novel side), before the possible category choice, so an abandoned
+    // choice can't strand the just-merged member. Membership isn't favorite-filtered, so a
+    // merged-but-unfavorited copy would feed chapters into the group while staying invisible in the
+    // library. The category step below is then non-gating: the favorite has already landed.
     fun addToExistingGroup(selectedIds: List<Long>) {
-        val mangaId = manga?.id ?: return
+        val state = successState ?: return
+        val manga = state.manga
         screenModelScope.launchIO {
-            mergeManager.mergeManga(listOf(mangaId) + selectedIds)
-            mangaLibraryAdder.seedCategoriesFromGroup(mangaId, selectedIds)
-            toggleFavorite(onRemoved = {}, checkDuplicate = false)
+            if (!updateManga.awaitUpdateFavorite(manga.id, true)) return@launchIO
+            mergeManager.mergeManga(listOf(manga.id) + selectedIds)
+            mangaLibraryAdder.seedCategoriesFromGroup(manga.id, selectedIds)
+            addTracks.bindEnhancedTrackers(manga, state.source)
+            maybeBackupFavoriteToAccount(manga)
+
+            val categories = getCategories()
+            val defaultCategoryId = libraryPreferences.defaultCategory.get().toLong()
+            val defaultCategory = categories.find { it.id == defaultCategoryId }
+            when {
+                defaultCategory != null -> moveMangaToCategory(defaultCategory)
+                defaultCategoryId == 0L || categories.isEmpty() -> moveMangaToCategory(null)
+                else -> showChangeCategoryDialog()
+            }
         }
     }
 

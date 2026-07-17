@@ -62,14 +62,21 @@ class MangaLibraryAdder(
     }
 
     /**
-     * RK: merge [manga] with the duplicates the user picked, then favorite it like [resolveAddFavorite].
-     * Only the picks: the duplicate list is fuzzy, so merging every match would fuse distinct series.
-     * Picking one member of a group is enough, since the merge absorbs that member's whole group.
+     * RK: merge [manga] with the duplicates the user picked, then favorite it. Only the picks: the
+     * duplicate list is fuzzy, so merging every match would fuse distinct series. Picking one member of a
+     * group is enough, since the merge absorbs that member's whole group.
+     *
+     * Favorites up front (like the novel adder), before the possible category choice, so an abandoned
+     * choice can't strand the just-merged member. Membership isn't favorite-filtered, so a
+     * merged-but-unfavorited copy would feed chapters into the group while staying invisible in the
+     * library. The returned [AddFavoriteResult.NeedsCategoryChoice] is shown with `alreadyFavorited`, so
+     * its confirm only files categories and doesn't re-toggle the favorite.
      */
     suspend fun addToExistingGroup(manga: Manga, selectedIds: List<Long>): AddFavoriteResult {
+        changeFavorite(manga)
         mergeManager.mergeManga(listOf(manga.id) + selectedIds)
         seedCategoriesFromGroup(manga.id, selectedIds)
-        return resolveAddFavorite(manga)
+        return applyDefaultCategoryOrPrompt(manga)
     }
 
     /**
@@ -103,6 +110,17 @@ class MangaLibraryAdder(
      * the caller can show its own category picker.
      */
     suspend fun resolveAddFavorite(manga: Manga): AddFavoriteResult {
+        val result = applyDefaultCategoryOrPrompt(manga)
+        if (result is AddFavoriteResult.Added) changeFavorite(manga)
+        return result
+    }
+
+    /**
+     * RK: file [manga] into its default category (or none), or return the picker data when the user must
+     * choose. Never toggles favorite: the two add-paths favorite at different points ([resolveAddFavorite]
+     * after, [addToExistingGroup] up front), so favoriting is the caller's job.
+     */
+    private suspend fun applyDefaultCategoryOrPrompt(manga: Manga): AddFavoriteResult {
         val categories = getUserCategories()
         val defaultCategoryId = libraryPreferences.defaultCategory.get()
         val defaultCategory = categories.find { it.id == defaultCategoryId.toLong() }
@@ -110,12 +128,10 @@ class MangaLibraryAdder(
         return when {
             defaultCategory != null -> {
                 moveToCategories(manga, listOf(defaultCategory.id))
-                changeFavorite(manga)
                 AddFavoriteResult.Added
             }
             defaultCategoryId == 0 || categories.isEmpty() -> {
                 moveToCategories(manga, emptyList())
-                changeFavorite(manga)
                 AddFavoriteResult.Added
             }
             else -> {
