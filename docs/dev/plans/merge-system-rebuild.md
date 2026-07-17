@@ -57,7 +57,7 @@ Rollout is big-bang: the cutover flips everything to rows, verified on-device, t
 
 ## Status
 
-**Designed; Phase 0 active.** Decided 2026-07-15 after the audit; scouted and designed 2026-07-16, scope refined 2026-07-17 (per-group source override, the Phase 0 / Phase 3 storage split). Phase 0 (persistence) is the active slice; no code landed yet. Big-bang cutover on its own branch, on-device verified, then a preview release before a stable cut.
+**In progress on `feat/0.4.0`.** Decided 2026-07-15 after the audit; scouted and designed 2026-07-16, scope refined 2026-07-17 (per-group source override, the Phase 0 / Phase 3 storage split). Phases 0-2 are done and on-device verified (2026-07-17): persistence (`6876eb03b`), the one-time migration (`d738013fc`), and the full resolution cutover across repo ops, both managers, and the library collapse (`0a708899e`, `19e3ea816`, `5f117ebbb`, `950660d21`). Grouping now lives in the tables for both content types, the two-definitions bug is closed, browse no longer pre-merges, and the full-library scan is gone; the master merging switch's backend is in (UI pending). Remaining: Phase 3 (ordering + reader scope), Phase 4 (backup, must precede any preview), Phase 5 (unify + add-time prompt + the toggle UIs), then a cleanup pass (prune the now-dead `MergeGroupAlgebra`, retire the old pref-era docs). Big-bang: no preview until Phase 4 lands.
 
 ## Decisions & tradeoffs
 

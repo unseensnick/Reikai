@@ -4,7 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-- **Rebuild the merge system on a real group identity, one system for both content types** `[XL]` - persist the group instead of deriving it per call, which closes a live corruption path (reusable manga ids plus merge prefs that are never GC'd), stops restore silently undoing deliberate unmerges, reconciles the library's and details' disagreeing definitions of a group, stops browse pre-merging copies you never added, drops a full-library scan from every details and reader open, and retires the `sourceOrder` overload. Scoped 2026-07-16; starting Phase 0 (group persistence). [Plan](docs/dev/plans/merge-system-rebuild.md).
+- **Rebuild the merge system on a real group identity, one system for both content types** `[XL]` - persist the group instead of deriving it per call, which closes a live corruption path (reusable manga ids plus merge prefs that are never GC'd), stops restore silently undoing deliberate unmerges, reconciles the library's and details' disagreeing definitions of a group, stops browse pre-merging copies you never added, drops a full-library scan from every details and reader open, and retires the `sourceOrder` overload. [Plan](docs/dev/plans/merge-system-rebuild.md).
 
 ## Next
 
