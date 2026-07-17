@@ -229,7 +229,7 @@ class DomainModule : InjektModule {
         addFactory { SetNovelReadStatus(get(), get()) }
         addFactory { SetNovelChapterFlags(get()) }
         addFactory { SetNovelViewerFlags(get()) }
-        addFactory { NovelLibraryAdder(get(), get(), get(), get(), get(), get()) }
+        addFactory { NovelLibraryAdder(get(), get(), get(), get(), get(), get(), get()) }
         addFactory { GetEnabledNovelSources(get(), get()) }
         // RK: novel custom-info overlay (non-destructive display-layer edits)
         addSingletonFactory<CustomNovelInfoRepository> { CustomNovelInfoRepositoryImpl(get()) }

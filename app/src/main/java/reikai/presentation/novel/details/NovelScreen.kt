@@ -462,6 +462,10 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: No
             onDismissRequest = screenModel::dismissDialog,
             onConfirm = screenModel::addFavoriteAnyway,
             onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
+            groupIdByNovelId = dialog.groupIdByNovelId,
+            onAddToGroup = { selectedIds: List<Long> ->
+                screenModel.addToExistingGroup(selectedIds)
+            }.takeIf { dialog.suggestGroup },
         )
         NovelDetailsDialog.EditInfo -> EntryEditInfoDialog(
             initial = state.displayNovel.withCustomInfo(state.customInfo).toEntryEditInfoUi(),

@@ -38,6 +38,25 @@ class NovelMergeManager(
         repository.merge(ContentType.NOVELS, ids)
     }
 
+    /**
+     * Whether the add-time duplicate dialog offers grouping (the picker and the "add to existing group"
+     * action). Needs the novel same-title suggestion pref and the shared master switch: with grouping
+     * switched off every series resolves standalone, so offering to group would build a hidden group.
+     */
+    val suggestGroupingOnAdd: Boolean
+        get() = preferences.seriesMergingEnabled.get() && preferences.novelAutoMergeSameTitle.get()
+
+    /**
+     * Group id per id in [novelIds] for callers rendering group-collapsed cards (the add-time duplicate
+     * dialog). Ungrouped ids are absent. One batch query rather than a read per id. Empty when merging is
+     * disabled, so nothing collapses while groups are hidden, matching every other resolution path.
+     */
+    suspend fun groupIdsFor(novelIds: List<Long>): Map<Long, Long> {
+        if (!preferences.seriesMergingEnabled.get()) return emptyMap()
+        val memberships = repository.getAllMemberships(ContentType.NOVELS)
+        return novelIds.mapNotNull { id -> memberships[id]?.let { id to it } }.toMap()
+    }
+
     /** Merge the library selection into one group; each selected id's whole group is absorbed. */
     suspend fun mergeSelectedNovels(ids: List<Long>) {
         repository.merge(ContentType.NOVELS, ids)

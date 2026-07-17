@@ -210,11 +210,13 @@ class ReikaiLibraryPreferences(
         emptySet(),
     )
 
-    /** Auto-group favorited novels that share a title across sources (see [novelAutoMergeRequireAuthor]). */
+    /** Whether adding a same-titled novel offers to group it with the match (the novel twin of
+     *  [autoMergeSameTitle]). Repurposed from silent auto-merge: grouping is now an explicit choice. */
     val novelAutoMergeSameTitle: Preference<Boolean> = preferenceStore.getBoolean("novel_auto_merge_same_title", true)
 
-    /** Guard for same-title auto-merge: also require a matching, non-blank author. Off = title-only (the
-     *  legacy behavior). Re-evaluated on every group resolution, so it doubles as metadata healing. */
+    /** Read only by the one-time pref-to-group migration, which honors it when reconstructing the groups
+     *  a same-title auto-merge would have formed. Nothing resolves membership from author any more, so it
+     *  is not surfaced in Settings; it stays declared because that migration still reads it. */
     val novelAutoMergeRequireAuthor: Preference<Boolean> =
         preferenceStore.getBoolean("novel_auto_merge_require_author", true)
 

@@ -182,6 +182,10 @@ data object HistoryTab : Tab {
                     onDismissRequest = onDismissNovelDialog,
                     onConfirm = { novelScreenModel.addFavoriteAnyway(dialog.novelId) },
                     onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
+                    groupIdByNovelId = dialog.groupIdByNovelId,
+                    onAddToGroup = { selectedIds: List<Long> ->
+                        novelScreenModel.addToExistingGroup(dialog.novelId, selectedIds)
+                    }.takeIf { dialog.suggestGroup },
                 )
             }
             is NovelHistoryScreenModel.Dialog.ChangeCategory -> {

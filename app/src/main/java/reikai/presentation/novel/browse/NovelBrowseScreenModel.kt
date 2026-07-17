@@ -132,6 +132,14 @@ class NovelBrowseScreenModel(
         }
     }
 
+    /** "Add to existing group": add, then merge it with the duplicates the user picked. */
+    fun addToExistingGroup(item: NovelItem, selectedIds: List<Long>) {
+        screenModelScope.launchIO {
+            val dialog = libraryAdder.addToExistingGroup(item, sourceId, selectedIds)
+            mutableState.update { it.copy(dialog = dialog) }
+        }
+    }
+
     fun applyCategories(novelId: Long, categoryIds: List<Long>) {
         screenModelScope.launchIO {
             libraryAdder.applyCategories(novelId, categoryIds)
@@ -330,6 +338,10 @@ sealed interface NovelBrowseDialog {
         val sourceNames: Map<String, String>,
         /** Source id -> site, for the cover's Referer; null when the source didn't resolve. */
         val sourceSites: Map<String, String?>,
+        /** Whether to offer add-time grouping (the same-title suggestion pref plus the master switch). */
+        val suggestGroup: Boolean,
+        /** Novel id -> group id, so same-group duplicates collapse into one card. */
+        val groupIdByNovelId: Map<Long, Long>,
     ) : NovelBrowseDialog
     data class ChangeCategory(
         val novelId: Long,

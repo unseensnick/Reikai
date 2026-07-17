@@ -322,6 +322,10 @@ class NovelBrowseScreen(
                 onDismissRequest = screenModel::dismissDialog,
                 onConfirm = { screenModel.addFromDuplicate(dialog.item) },
                 onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
+                groupIdByNovelId = dialog.groupIdByNovelId,
+                onAddToGroup = { selectedIds: List<Long> ->
+                    screenModel.addToExistingGroup(dialog.item, selectedIds)
+                }.takeIf { dialog.suggestGroup },
             )
             is NovelBrowseDialog.ChangeCategory -> NovelCategoryDialog(
                 dialog = NovelDetailsDialog.ChangeCategory(dialog.allCategories, dialog.currentCategoryIds),

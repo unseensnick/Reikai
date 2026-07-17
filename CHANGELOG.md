@@ -12,6 +12,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+### Additions
+
+- **Adding a series from Browse, global search, History or its page now offers to group it with a match in your library: tap the select button, then pick which ones it joins.** The new copy lands in their categories too.
+
 ### Changes
 
 - **Source grouping is now optional, with a "Group series across sources" toggle in the library display menu and Settings -> Library.** Off shows each source as its own library entry.

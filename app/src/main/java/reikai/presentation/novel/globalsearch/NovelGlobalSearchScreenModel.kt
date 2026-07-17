@@ -86,6 +86,14 @@ class NovelGlobalSearchScreenModel(
         }
     }
 
+    /** "Add to existing group": add, then merge it with the duplicates the user picked. */
+    fun addToExistingGroup(item: NovelItem, sourceId: String, selectedIds: List<Long>) {
+        screenModelScope.launchIO {
+            val dialog = libraryAdder.addToExistingGroup(item, sourceId, selectedIds)
+            mutableState.update { it.copy(dialog = dialog) }
+        }
+    }
+
     fun applyCategories(novelId: Long, categoryIds: List<Long>) {
         screenModelScope.launchIO {
             libraryAdder.applyCategories(novelId, categoryIds)

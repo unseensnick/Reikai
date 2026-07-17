@@ -166,6 +166,10 @@ class NovelGlobalSearchScreen(
                 onDismissRequest = screenModel::dismissDialog,
                 onConfirm = { screenModel.addFromDuplicate(dialog.item, dialog.sourceId) },
                 onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
+                groupIdByNovelId = dialog.groupIdByNovelId,
+                onAddToGroup = { selectedIds: List<Long> ->
+                    screenModel.addToExistingGroup(dialog.item, dialog.sourceId, selectedIds)
+                }.takeIf { dialog.suggestGroup },
             )
             is NovelBrowseDialog.ChangeCategory -> NovelCategoryDialog(
                 dialog = NovelDetailsDialog.ChangeCategory(dialog.allCategories, dialog.currentCategoryIds),

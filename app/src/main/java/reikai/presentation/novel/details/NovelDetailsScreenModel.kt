@@ -826,12 +826,15 @@ class NovelDetailsScreenModel(
             if (!novel.favorite) {
                 // Warn on a similarly-named library novel before adding (mirrors MangaScreenModel).
                 novelLibraryAdder.findDuplicates(novel.id, novel.title)?.let { dup ->
+                    val groupIdByNovelId = mergeManager.groupIdsFor(dup.duplicates.map { it.novel.id })
                     updateLoaded {
                         it.copy(
                             dialog = NovelDetailsDialog.DuplicateNovel(
                                 dup.duplicates,
                                 dup.sourceNames,
                                 dup.sourceSites,
+                                mergeManager.suggestGroupingOnAdd,
+                                groupIdByNovelId,
                             ),
                         )
                     }
@@ -848,6 +851,20 @@ class NovelDetailsScreenModel(
     fun addFavoriteAnyway() {
         screenModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
+            addToLibrary(novel)
+        }
+    }
+
+    /**
+     * Add-time grouping. Merge the novel with the duplicates the user picked, then add it like "add
+     * anyway". Only the picks: the duplicate list is fuzzy, so merging every match would fuse distinct
+     * series. Seeding first is what makes the category step open on the group's own categories.
+     */
+    fun addToExistingGroup(selectedIds: List<Long>) {
+        screenModelScope.launchIO {
+            val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
+            mergeManager.mergeNovels(listOf(novel.id) + selectedIds)
+            novelLibraryAdder.seedCategoriesFromGroup(novel.id, selectedIds)
             addToLibrary(novel)
         }
     }
@@ -1352,6 +1369,10 @@ sealed interface NovelDetailsDialog {
         val duplicates: List<NovelWithChapterCount>,
         val sourceNames: Map<String, String>,
         val sourceSites: Map<String, String?>,
+        /** Whether to offer add-time grouping (the same-title suggestion pref plus the master switch). */
+        val suggestGroup: Boolean,
+        /** Novel id -> group id, so same-group duplicates collapse into one card. */
+        val groupIdByNovelId: Map<Long, Long>,
     ) : NovelDetailsDialog
 
     data object ChapterSettings : NovelDetailsDialog

@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import reikai.domain.library.ContentType
+import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNextNovelChapter
@@ -53,6 +54,8 @@ class NovelHistoryScreenModel(
     private val sourcePreferences: ReikaiSourcePreferences = Injekt.get(),
     private val updateNovel: UpdateNovel = Injekt.get(),
     private val novelLibraryAdder: NovelLibraryAdder = Injekt.get(),
+    // RK: add-time grouping (the merge itself; the gate and the group's categories go through the adder).
+    private val novelMergeManager: NovelMergeManager = Injekt.get(),
 ) : StateScreenModel<NovelHistoryScreenModel.State>(State()) {
 
     private val _events: Channel<Event> = Channel(Channel.UNLIMITED)
@@ -118,7 +121,16 @@ class NovelHistoryScreenModel(
         screenModelScope.launchIO {
             val novel = novelRepository.getById(novelId) ?: return@launchIO
             novelLibraryAdder.findDuplicates(novel.id, novel.title)?.let { dup ->
-                setDialog(Dialog.DuplicateNovel(novelId, dup.duplicates, dup.sourceNames, dup.sourceSites))
+                setDialog(
+                    Dialog.DuplicateNovel(
+                        novelId,
+                        dup.duplicates,
+                        dup.sourceNames,
+                        dup.sourceSites,
+                        novelLibraryAdder.suggestGrouping,
+                        novelLibraryAdder.getDuplicateGroupIds(dup.duplicates),
+                    ),
+                )
                 return@launchIO
             }
             addToLibrary(novelId)
@@ -128,6 +140,17 @@ class NovelHistoryScreenModel(
     /** Proceed with the add after the possible-duplicate dialog's "Add anyway". */
     fun addFavoriteAnyway(novelId: Long) {
         screenModelScope.launchIO { addToLibrary(novelId) }
+    }
+
+    /** Add-time grouping. Merge the novel with the duplicates the user picked, then add it (only the
+     *  picks: the duplicate list is fuzzy, so merging every match would fuse distinct series). Seeding
+     *  first is what makes the category step open on the group's own categories. */
+    fun addToExistingGroup(novelId: Long, selectedIds: List<Long>) {
+        screenModelScope.launchIO {
+            novelMergeManager.mergeNovels(listOf(novelId) + selectedIds)
+            novelLibraryAdder.seedCategoriesFromGroup(novelId, selectedIds)
+            addToLibrary(novelId)
+        }
     }
 
     private suspend fun addToLibrary(novelId: Long) {
@@ -179,6 +202,10 @@ class NovelHistoryScreenModel(
             val duplicates: List<NovelWithChapterCount>,
             val sourceNames: Map<String, String>,
             val sourceSites: Map<String, String?>,
+            /** Whether to offer add-time grouping (the same-title suggestion pref plus the master switch). */
+            val suggestGroup: Boolean,
+            /** Novel id -> group id, so same-group duplicates collapse into one card. */
+            val groupIdByNovelId: Map<Long, Long>,
         ) : Dialog
         data class ChangeCategory(
             val novelId: Long,
