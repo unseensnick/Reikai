@@ -12,9 +12,18 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+### Changes
+
+- **The reader now opens a merged series as either one source's chapters or the whole combined group, depending on where you tapped.** Updates, a source chip, and new-chapter notifications open just that source; the series page, your library, and history open the whole merged group.
+
+### Fixes
+
+- **A merged light novel opened from your history now continues through the whole group instead of dropping to a single source.** Previous and next chapters span every grouped source, matching manga.
+- **Opening a title from Browse no longer shows it already grouped with same-named titles in your library.** It appears as just that source's own page until you choose to group it.
+- **Restoring a backup no longer re-merges a pair you deliberately split.** Your grouping comes back the way you left it.
+
 ### Other
 
-- Groundwork for the merge-system rebuild: persisted merge-group storage (tables plus repository), with no behavior change yet.
 - Shizuku detection now probes for the Shizuku permission instead of a fixed package name (synced from Mihon, mihonapp/mihon#3565).
 
 ## [0.3.0]
