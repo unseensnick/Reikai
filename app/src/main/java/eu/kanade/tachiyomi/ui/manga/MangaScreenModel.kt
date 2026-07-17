@@ -83,7 +83,6 @@ import logcat.LogPriority
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
-import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
@@ -97,6 +96,7 @@ import reikai.domain.recommendation.RelatedMangasLoader
 import reikai.domain.recommendation.taste.GetTasteProfile
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteProfile
+import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.details.EntryEditInfoUi
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
@@ -176,9 +176,9 @@ class MangaScreenModel(
     private val updateMangaFromRemote: UpdateMangaFromRemote = Injekt.get(),
     // RK -->
     private val mergeManager: MangaMergeManager = Injekt.get(),
+    private val mangaLibraryAdder: MangaLibraryAdder = Injekt.get(),
     private val mergedChapterProvider: MergedChapterProvider = Injekt.get(),
     private val mangaPreferences: MangaPreferences = Injekt.get(),
-    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
     private val relatedMangasLoader: RelatedMangasLoader = Injekt.get(),
     private val recommendationPreferences: ReikaiRecommendationPreferences = Injekt.get(),
     private val relatedMangaCache: RelatedMangaCache = Injekt.get(),
@@ -630,12 +630,14 @@ class MangaScreenModel(
                     val duplicates = getDuplicateLibraryManga(manga)
 
                     if (duplicates.isNotEmpty()) {
+                        val groupIdByMangaId = mergeManager.groupIdsFor(duplicates.map { it.manga.id })
                         updateSuccessState {
                             it.copy(
                                 dialog = Dialog.DuplicateManga(
                                     manga,
                                     duplicates,
-                                    reikaiLibraryPreferences.autoMergeSameTitle.get(),
+                                    mergeManager.suggestGroupingOnAdd,
+                                    groupIdByMangaId,
                                 ),
                             )
                         }
@@ -674,14 +676,16 @@ class MangaScreenModel(
         }
     }
 
-    // RK: add-time grouping. Favorite the manga (like "add anyway"), then merge it with the shown
-    // duplicates so the new copy joins their group. The row exists already, so the merge is safe even
-    // if the favorite defers to a category choice.
-    fun addToExistingGroup(duplicates: List<MangaWithChapterCount>) {
+    // RK: add-time grouping. Merge the manga with the duplicates the user picked, then favorite it like
+    // "add anyway". Only the picks: the duplicate list is fuzzy, so merging every match would fuse
+    // distinct series. The row exists already, so the merge is safe even if the favorite defers to a
+    // category choice; seeding first is what makes that choice open on the group's own categories.
+    fun addToExistingGroup(selectedIds: List<Long>) {
         val mangaId = manga?.id ?: return
-        toggleFavorite(onRemoved = {}, checkDuplicate = false)
         screenModelScope.launchIO {
-            mergeManager.mergeManga(listOf(mangaId) + duplicates.map { it.manga.id })
+            mergeManager.mergeManga(listOf(mangaId) + selectedIds)
+            mangaLibraryAdder.seedCategoriesFromGroup(mangaId, selectedIds)
+            toggleFavorite(onRemoved = {}, checkDuplicate = false)
         }
     }
 
@@ -1611,11 +1615,13 @@ class MangaScreenModel(
         ) : Dialog
         data class DeleteChapters(val chapters: List<Chapter>) : Dialog
 
-        // RK: suggestGroup gates the "add to existing group" action (the same-title suggestion pref).
+        // RK: suggestGroup gates the "add to existing group" action (the same-title suggestion pref);
+        // groupIdByMangaId collapses same-group duplicates into one card.
         data class DuplicateManga(
             val manga: Manga,
             val duplicates: List<MangaWithChapterCount>,
             val suggestGroup: Boolean,
+            val groupIdByMangaId: Map<Long, Long>,
         ) : Dialog
         data class Migrate(val target: Manga, val current: Manga) : Dialog
         data class SetFetchInterval(val manga: Manga) : Dialog

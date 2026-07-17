@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import reikai.domain.manga.MangaMergeManager
+import reikai.presentation.browse.MangaLibraryAdder
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.core.common.util.lang.launchIO
@@ -60,6 +62,9 @@ class HistoryScreenModel(
     private val updateManga: UpdateManga = Injekt.get(),
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
     private val sourceManager: SourceManager = Injekt.get(),
+    // RK: add-time grouping (the suggestion gate, the merge, and the group's categories).
+    private val mergeManager: MangaMergeManager = Injekt.get(),
+    private val mangaLibraryAdder: MangaLibraryAdder = Injekt.get(),
 ) : StateScreenModel<HistoryScreenModel.State>(State()) {
 
     private val _events: Channel<Event> = Channel(Channel.UNLIMITED)
@@ -193,7 +198,17 @@ class HistoryScreenModel(
 
             val duplicates = getDuplicateLibraryManga(manga)
             if (duplicates.isNotEmpty()) {
-                mutableState.update { it.copy(dialog = Dialog.DuplicateManga(manga, duplicates)) }
+                val groupIdByMangaId = mergeManager.groupIdsFor(duplicates.map { it.manga.id })
+                mutableState.update {
+                    it.copy(
+                        dialog = Dialog.DuplicateManga(
+                            manga,
+                            duplicates,
+                            mergeManager.suggestGroupingOnAdd,
+                            groupIdByMangaId,
+                        ),
+                    )
+                }
                 return@launchIO
             }
 
@@ -232,6 +247,17 @@ class HistoryScreenModel(
         }
     }
 
+    // RK: add-time grouping. Merge the manga with the duplicates the user picked, then favorite it
+    // (only the picks: the duplicate list is fuzzy, so merging every match would fuse distinct series).
+    // Seeding first is what makes a deferred category choice open on the group's own categories.
+    fun addToExistingGroup(manga: Manga, selectedIds: List<Long>) {
+        screenModelScope.launchIO {
+            mergeManager.mergeManga(listOf(manga.id) + selectedIds)
+            mangaLibraryAdder.seedCategoriesFromGroup(manga.id, selectedIds)
+            addFavorite(manga)
+        }
+    }
+
     fun showMigrateDialog(target: Manga, current: Manga) {
         mutableState.update { currentState ->
             currentState.copy(dialog = Dialog.Migrate(target = target, current = current))
@@ -263,7 +289,12 @@ class HistoryScreenModel(
     sealed interface Dialog {
         data object DeleteAll : Dialog
         data class Delete(val history: HistoryWithRelations) : Dialog
-        data class DuplicateManga(val manga: Manga, val duplicates: List<MangaWithChapterCount>) : Dialog
+        data class DuplicateManga(
+            val manga: Manga,
+            val duplicates: List<MangaWithChapterCount>,
+            val suggestGroup: Boolean,
+            val groupIdByMangaId: Map<Long, Long>,
+        ) : Dialog
         data class ChangeCategory(
             val manga: Manga,
             val initialSelection: List<CheckboxState<Category>>,

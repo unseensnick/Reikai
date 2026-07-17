@@ -49,6 +49,25 @@ class MangaMergeManager(
         repository.merge(ContentType.MANGA, ids)
     }
 
+    /**
+     * Whether the add-time duplicate dialog offers grouping (the picker and the "add to existing group"
+     * action). Needs the same-title suggestion pref and the master switch: with grouping switched off
+     * every series resolves standalone, so offering to group would build a group nothing displays.
+     */
+    val suggestGroupingOnAdd: Boolean
+        get() = preferences.seriesMergingEnabled.get() && preferences.autoMergeSameTitle.get()
+
+    /**
+     * Group id per id in [mangaIds] for callers rendering group-collapsed cards (the add-time duplicate
+     * dialog). Ungrouped ids are absent. One batch query rather than a read per id. Empty when merging is
+     * disabled, so nothing collapses while groups are hidden, matching every other resolution path.
+     */
+    suspend fun groupIdsFor(mangaIds: List<Long>): Map<Long, Long> {
+        if (!preferences.seriesMergingEnabled.get()) return emptyMap()
+        val memberships = repository.getAllMemberships(ContentType.MANGA)
+        return mangaIds.mapNotNull { id -> memberships[id]?.let { id to it } }.toMap()
+    }
+
     /** Merge the library selection into one group. Each selected id's whole group is absorbed by
      *  [MergeGroupRepository.merge], so passing the collapsed cards' representative ids is enough. */
     suspend fun mergeSelectedManga(ids: List<Long>) {

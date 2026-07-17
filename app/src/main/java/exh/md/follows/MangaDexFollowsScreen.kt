@@ -137,7 +137,12 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
                                     screenModel.setDialog(BrowseSourceScreenModel.Dialog.RemoveManga(manga))
                                 duplicates.isNotEmpty() ->
                                     screenModel.setDialog(
-                                        BrowseSourceScreenModel.Dialog.AddDuplicateManga(manga, duplicates),
+                                        BrowseSourceScreenModel.Dialog.AddDuplicateManga(
+                                            manga,
+                                            duplicates,
+                                            screenModel.suggestGrouping,
+                                            screenModel.getDuplicateGroupIds(duplicates),
+                                        ),
                                     )
                                 else -> screenModel.addFavorite(manga)
                             }
@@ -160,6 +165,11 @@ class MangaDexFollowsScreen(private val sourceId: Long) : Screen() {
                     onMigrate = {
                         screenModel.setDialog(BrowseSourceScreenModel.Dialog.Migrate(dialog.manga, it))
                     },
+                    // RK: offer grouping when the same-title suggestion pref is on.
+                    groupIdByMangaId = dialog.groupIdByMangaId,
+                    onAddToGroup = { selectedIds: List<Long> ->
+                        screenModel.addToExistingGroup(dialog.manga, selectedIds)
+                    }.takeIf { dialog.suggestGroup },
                 )
             }
             is BrowseSourceScreenModel.Dialog.Migrate -> {

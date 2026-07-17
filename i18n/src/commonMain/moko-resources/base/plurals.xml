@@ -136,6 +136,11 @@
         <item quantity="one">%1$d update failed</item>
         <item quantity="other">%1$d updates failed</item>
     </plurals>
+    <!-- RK: badge on a collapsed group card in the add-time duplicate dialog -->
+    <plurals name="num_grouped_sources">
+        <item quantity="one">%1$d source</item>
+        <item quantity="other">%1$d sources</item>
+    </plurals>
     <!-- RK: opt-in on the library Remove dialog to remove every source in a merged group -->
     <plurals name="action_remove_grouped_sources">
         <item quantity="one">All %1$d grouped source</item>

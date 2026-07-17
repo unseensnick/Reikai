@@ -255,6 +255,22 @@ open class BrowseSourceScreenModel(
         }
     }
 
+    // RK: add-time grouping (see MangaLibraryAdder).
+    val suggestGrouping: Boolean get() = mangaLibraryAdder.suggestGrouping
+
+    suspend fun getDuplicateGroupIds(duplicates: List<MangaWithChapterCount>): Map<Long, Long> =
+        mangaLibraryAdder.getDuplicateGroupIds(duplicates)
+
+    fun addToExistingGroup(manga: Manga, selectedIds: List<Long>) {
+        screenModelScope.launch {
+            when (val result = mangaLibraryAdder.addToExistingGroup(manga, selectedIds)) {
+                AddFavoriteResult.Added -> {}
+                is AddFavoriteResult.NeedsCategoryChoice ->
+                    setDialog(Dialog.ChangeMangaCategory(manga, result.initialSelection))
+            }
+        }
+    }
+
     suspend fun getDuplicateLibraryManga(manga: Manga): List<MangaWithChapterCount> {
         return mangaLibraryAdder.getDuplicates(manga)
     }
@@ -319,7 +335,12 @@ open class BrowseSourceScreenModel(
     sealed interface Dialog {
         data object Filter : Dialog
         data class RemoveManga(val manga: Manga) : Dialog
-        data class AddDuplicateManga(val manga: Manga, val duplicates: List<MangaWithChapterCount>) : Dialog
+        data class AddDuplicateManga(
+            val manga: Manga,
+            val duplicates: List<MangaWithChapterCount>,
+            val suggestGroup: Boolean,
+            val groupIdByMangaId: Map<Long, Long>,
+        ) : Dialog
         data class ChangeMangaCategory(
             val manga: Manga,
             val initialSelection: List<CheckboxState.State<Category>>,

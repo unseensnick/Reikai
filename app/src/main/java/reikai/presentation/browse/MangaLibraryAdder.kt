@@ -5,6 +5,7 @@ import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.util.removeCovers
 import kotlinx.coroutines.flow.firstOrNull
+import reikai.domain.manga.MangaMergeManager
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.domain.category.interactor.GetCategories
@@ -39,7 +40,37 @@ class MangaLibraryAdder(
     private val setMangaDefaultChapterFlags: SetMangaDefaultChapterFlags = Injekt.get(),
     private val updateManga: UpdateManga = Injekt.get(),
     private val addTracks: AddTracks = Injekt.get(),
+    // RK: add-time grouping (the suggestion gate + the merge into the duplicate's group).
+    private val mergeManager: MangaMergeManager = Injekt.get(),
 ) {
+
+    /** RK: whether to offer add-time grouping in the duplicate dialog (see [MangaMergeManager]). */
+    val suggestGrouping: Boolean get() = mergeManager.suggestGroupingOnAdd
+
+    /** RK: group ids for the duplicate dialog, which collapses same-group duplicates into one card. */
+    suspend fun getDuplicateGroupIds(duplicates: List<MangaWithChapterCount>): Map<Long, Long> =
+        mergeManager.groupIdsFor(duplicates.map { it.manga.id })
+
+    /**
+     * RK: file [mangaId] into the categories the group it just joined already uses, so a new source lands
+     * where the rest of the series lives. The category step preselects from the entry's own categories, so
+     * writing them first is what ticks them. No-op when no member is filed anywhere.
+     */
+    suspend fun seedCategoriesFromGroup(mangaId: Long, memberIds: List<Long>) {
+        val categoryIds = memberIds.flatMap { getCategories.await(it) }.map { it.id }.distinct()
+        if (categoryIds.isNotEmpty()) setMangaCategories.await(mangaId, categoryIds.filter { it != 0L })
+    }
+
+    /**
+     * RK: merge [manga] with the duplicates the user picked, then favorite it like [resolveAddFavorite].
+     * Only the picks: the duplicate list is fuzzy, so merging every match would fuse distinct series.
+     * Picking one member of a group is enough, since the merge absorbs that member's whole group.
+     */
+    suspend fun addToExistingGroup(manga: Manga, selectedIds: List<Long>): AddFavoriteResult {
+        mergeManager.mergeManga(listOf(manga.id) + selectedIds)
+        seedCategoriesFromGroup(manga.id, selectedIds)
+        return resolveAddFavorite(manga)
+    }
 
     /**
      * Toggle a manga's favorite state. On favorite: apply default chapter flags + bind enhanced

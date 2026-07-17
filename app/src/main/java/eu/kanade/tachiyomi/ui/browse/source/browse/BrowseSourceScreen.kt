@@ -286,7 +286,12 @@ data class BrowseSourceScreen(
                                     BrowseSourceScreenModel.Dialog.RemoveManga(manga),
                                 )
                                 duplicates.isNotEmpty() -> screenModel.setDialog(
-                                    BrowseSourceScreenModel.Dialog.AddDuplicateManga(manga, duplicates),
+                                    BrowseSourceScreenModel.Dialog.AddDuplicateManga(
+                                        manga,
+                                        duplicates,
+                                        screenModel.suggestGrouping,
+                                        screenModel.getDuplicateGroupIds(duplicates),
+                                    ),
                                 )
                                 else -> screenModel.addFavorite(manga)
                             }
@@ -333,6 +338,11 @@ data class BrowseSourceScreen(
                     onConfirm = { screenModel.addFavorite(dialog.manga) },
                     onOpenManga = { navigator.push(MangaScreen(it.id)) },
                     onMigrate = { screenModel.setDialog(BrowseSourceScreenModel.Dialog.Migrate(dialog.manga, it)) },
+                    // RK: offer grouping when the same-title suggestion pref is on.
+                    groupIdByMangaId = dialog.groupIdByMangaId,
+                    onAddToGroup = { selectedIds: List<Long> ->
+                        screenModel.addToExistingGroup(dialog.manga, selectedIds)
+                    }.takeIf { dialog.suggestGroup },
                 )
             }
 

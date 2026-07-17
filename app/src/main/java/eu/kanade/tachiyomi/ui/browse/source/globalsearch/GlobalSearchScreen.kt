@@ -114,7 +114,12 @@ class GlobalSearchScreen(
                                     screenModel.setDialog(SearchScreenModel.Dialog.RemoveManga(manga))
                                 duplicates.isNotEmpty() ->
                                     screenModel.setDialog(
-                                        SearchScreenModel.Dialog.AddDuplicateManga(manga, duplicates),
+                                        SearchScreenModel.Dialog.AddDuplicateManga(
+                                            manga,
+                                            duplicates,
+                                            screenModel.suggestGrouping,
+                                            screenModel.getDuplicateGroupIds(duplicates),
+                                        ),
                                     )
                                 else -> screenModel.addFavorite(manga)
                             }
@@ -140,6 +145,11 @@ class GlobalSearchScreen(
                     onConfirm = { screenModel.addFavorite(dialog.manga) },
                     onOpenManga = { navigator.push(MangaScreen(it.id)) },
                     onMigrate = { screenModel.setMigrateDialog(it.id, dialog.manga) },
+                    // RK: offer grouping when the same-title suggestion pref is on.
+                    groupIdByMangaId = dialog.groupIdByMangaId,
+                    onAddToGroup = { selectedIds: List<Long> ->
+                        screenModel.addToExistingGroup(dialog.manga, selectedIds)
+                    }.takeIf { dialog.suggestGroup },
                 )
             }
             is SearchScreenModel.Dialog.Migrate -> {

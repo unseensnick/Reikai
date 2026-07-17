@@ -231,6 +231,24 @@ abstract class SearchScreenModel(
         }
     }
 
+    // RK: add-time grouping (see MangaLibraryAdder).
+    val suggestGrouping: Boolean get() = mangaLibraryAdder.suggestGrouping
+
+    suspend fun getDuplicateGroupIds(duplicates: List<MangaWithChapterCount>): Map<Long, Long> =
+        mangaLibraryAdder.getDuplicateGroupIds(duplicates)
+
+    fun addToExistingGroup(manga: Manga, selectedIds: List<Long>) {
+        screenModelScope.launchIO {
+            when (val result = mangaLibraryAdder.addToExistingGroup(manga, selectedIds)) {
+                AddFavoriteResult.Added -> {}
+                is AddFavoriteResult.NeedsCategoryChoice ->
+                    mutableState.update {
+                        it.copy(dialog = Dialog.ChangeMangaCategory(manga, result.initialSelection))
+                    }
+            }
+        }
+    }
+
     fun moveMangaToCategories(manga: Manga, categoryIds: List<Long>) {
         screenModelScope.launchIO { mangaLibraryAdder.moveToCategories(manga, categoryIds) }
     }
@@ -259,7 +277,12 @@ abstract class SearchScreenModel(
 
         // RK --> long-press add-to-library dialogs (rendered by the global search screen)
         data class RemoveManga(val manga: Manga) : Dialog
-        data class AddDuplicateManga(val manga: Manga, val duplicates: List<MangaWithChapterCount>) : Dialog
+        data class AddDuplicateManga(
+            val manga: Manga,
+            val duplicates: List<MangaWithChapterCount>,
+            val suggestGroup: Boolean,
+            val groupIdByMangaId: Map<Long, Long>,
+        ) : Dialog
         data class ChangeMangaCategory(
             val manga: Manga,
             val initialSelection: List<CheckboxState.State<Category>>,

@@ -124,6 +124,11 @@ data object HistoryTab : Tab {
                     onConfirm = { screenModel.addFavorite(dialog.manga) },
                     onOpenManga = { navigator.push(MangaScreen(it.id)) },
                     onMigrate = { screenModel.showMigrateDialog(dialog.manga, it) },
+                    // RK: offer grouping when the same-title suggestion pref is on.
+                    groupIdByMangaId = dialog.groupIdByMangaId,
+                    onAddToGroup = { selectedIds: List<Long> ->
+                        screenModel.addToExistingGroup(dialog.manga, selectedIds)
+                    }.takeIf { dialog.suggestGroup },
                 )
             }
             is HistoryScreenModel.Dialog.ChangeCategory -> {

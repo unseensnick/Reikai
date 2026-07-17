@@ -1,6 +1,7 @@
 package eu.kanade.presentation.manga
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AttachMoney
 import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Done
 import androidx.compose.material.icons.outlined.DoneAll
@@ -34,14 +36,21 @@ import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -71,10 +80,12 @@ import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.Badge
 import tachiyomi.presentation.core.components.BadgeGroup
+import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.secondaryItemAlpha
+import tachiyomi.presentation.core.util.selectedBackground
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -85,15 +96,46 @@ fun DuplicateMangaDialog(
     onConfirm: () -> Unit,
     onOpenManga: (manga: Manga) -> Unit,
     onMigrate: (manga: Manga) -> Unit,
-    // RK: favorite the new copy and merge it into the duplicate's group. Null hides the row (the
+    // RK: group id per duplicate id. Duplicates sharing one collapse into a single card, so joining an
+    // existing group is one pick. Ungrouped duplicates are absent from the map.
+    groupIdByMangaId: Map<Long, Long> = emptyMap(),
+    // RK: favorite the new copy and merge it with the picked duplicates. Null hides the row (the
     // same-title suggestion pref is off), keeping just "add anyway".
-    onAddToGroup: (() -> Unit)? = null,
+    onAddToGroup: ((selectedIds: List<Long>) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val sourceManager = remember { Injekt.get<SourceManager>() }
     val minHeight = LocalPreferenceMinHeight.current
     val horizontalPadding = PaddingValues(horizontal = TabbedDialogPaddings.Horizontal)
     val horizontalPaddingModifier = Modifier.padding(horizontalPadding)
+
+    // RK: duplicate detection is fuzzy (title substring or a shared tracker), so the list can hold a
+    // genuinely different series. Grouping is therefore an explicit pick over these cards, never a
+    // merge of every match. Selection is ephemeral, so it lives here and not in any ScreenModel.
+    val cards = remember(duplicates, groupIdByMangaId) { collapseToCards(duplicates, groupIdByMangaId) }
+    var selectionMode by remember { mutableStateOf(false) }
+    val selection = remember { mutableStateListOf<Long>() }
+    var selectionAnchor by remember { mutableStateOf<Long?>(null) }
+
+    fun toggleSelection(id: Long) {
+        if (!selection.remove(id)) selection.add(id)
+        selectionAnchor = id.takeIf { selection.isNotEmpty() }
+    }
+
+    /** Select every card between the last-toggled anchor and [id] (inclusive), in display order. */
+    fun toggleRangeSelection(id: Long) {
+        val ids = cards.map { it.representative.manga.id }
+        val anchorIndex = selectionAnchor?.let(ids::indexOf) ?: -1
+        val targetIndex = ids.indexOf(id)
+        if (anchorIndex < 0 || targetIndex < 0) {
+            if (id !in selection) selection.add(id)
+        } else {
+            val range = if (anchorIndex <= targetIndex) anchorIndex..targetIndex else targetIndex..anchorIndex
+            range.forEach { ids[it].takeIf { candidate -> candidate !in selection }?.let(selection::add) }
+        }
+        selectionAnchor = id
+        selectionMode = true
+    }
 
     AdaptiveSheet(
         modifier = modifier,
@@ -106,13 +148,42 @@ fun DuplicateMangaDialog(
                 .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.medium),
         ) {
-            Text(
-                text = stringResource(MR.strings.possible_duplicates_title),
-                style = MaterialTheme.typography.headlineMedium,
+            Row(
                 modifier = Modifier
                     .then(horizontalPaddingModifier)
-                    .padding(top = MaterialTheme.padding.small),
-            )
+                    .padding(top = MaterialTheme.padding.small)
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(MR.strings.possible_duplicates_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.weight(1f),
+                )
+
+                // RK: selection toggle, mirroring the browse toolbar's bulk-select action.
+                if (onAddToGroup != null) {
+                    IconButton(
+                        onClick = {
+                            selectionMode = !selectionMode
+                            if (!selectionMode) {
+                                selection.clear()
+                                selectionAnchor = null
+                            }
+                        },
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Checklist,
+                            contentDescription = stringResource(MR.strings.action_bulk_select),
+                            tint = if (selectionMode) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                LocalContentColor.current
+                            },
+                        )
+                    }
+                }
+            }
 
             Text(
                 text = stringResource(MR.strings.possible_duplicates_summary),
@@ -122,19 +193,34 @@ fun DuplicateMangaDialog(
 
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
-                modifier = Modifier.height(getMaximumMangaCardHeight(duplicates)),
+                modifier = Modifier.height(getMaximumMangaCardHeight(cards.map { it.representative })),
                 contentPadding = horizontalPadding,
             ) {
                 items(
-                    items = duplicates,
-                    key = { it.manga.id },
-                ) {
+                    items = cards,
+                    key = { it.representative.manga.id },
+                ) { card ->
+                    val cardId = card.representative.manga.id
                     DuplicateMangaListItem(
-                        duplicate = it,
-                        getSource = { sourceManager.getOrStub(it.manga.source) },
-                        onMigrate = { onMigrate(it.manga) },
-                        onDismissRequest = onDismissRequest,
-                        onOpenManga = { onOpenManga(it.manga) },
+                        duplicate = card.representative,
+                        groupedSourceCount = card.memberIds.size,
+                        getSource = { sourceManager.getOrStub(card.representative.manga.source) },
+                        isSelected = cardId in selection,
+                        onClick = {
+                            if (selectionMode) {
+                                toggleSelection(cardId)
+                            } else {
+                                onDismissRequest()
+                                onMigrate(card.representative.manga)
+                            }
+                        },
+                        onLongClick = {
+                            if (selectionMode) {
+                                toggleRangeSelection(cardId)
+                            } else {
+                                onOpenManga(card.representative.manga)
+                            }
+                        },
                     )
                 }
             }
@@ -143,15 +229,28 @@ fun DuplicateMangaDialog(
                 HorizontalDivider()
 
                 // RK: explicit "add to existing group" (vs the "add anyway" below that keeps it separate).
+                // It merges only the picked cards, so it stays disabled until something is picked.
                 onAddToGroup?.let { addToGroup ->
+                    val hasSelection = selection.isNotEmpty()
                     TextPreferenceWidget(
                         title = stringResource(MR.strings.action_add_to_group),
-                        icon = Icons.Outlined.LibraryAdd,
-                        onPreferenceClick = {
-                            onDismissRequest()
-                            addToGroup()
+                        subtitle = if (hasSelection) {
+                            stringResource(MR.strings.action_add_to_group_selected, selection.size)
+                        } else {
+                            stringResource(MR.strings.action_add_to_group_hint)
                         },
-                        modifier = Modifier.clip(CircleShape),
+                        icon = Icons.Outlined.LibraryAdd,
+                        onPreferenceClick = if (hasSelection) {
+                            {
+                                onDismissRequest()
+                                addToGroup(selection.toList())
+                            }
+                        } else {
+                            null
+                        },
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .alpha(if (hasSelection) 1f else DISABLED_ALPHA),
                     )
                 }
 
@@ -185,13 +284,33 @@ fun DuplicateMangaDialog(
     }
 }
 
+/**
+ * RK: one card in the duplicate dialog. A merged group renders as a single card standing for every
+ * member ([memberIds]), so picking it joins the whole group; an ungrouped duplicate stands for itself.
+ */
+private data class DuplicateCard(
+    val representative: MangaWithChapterCount,
+    val memberIds: List<Long>,
+)
+
+private fun collapseToCards(
+    duplicates: List<MangaWithChapterCount>,
+    groupIdByMangaId: Map<Long, Long>,
+): List<DuplicateCard> = duplicates
+    // Group and manga ids are separate spaces, so the flag keeps a group id from colliding with a manga id.
+    .groupBy { duplicate ->
+        groupIdByMangaId[duplicate.manga.id]?.let { true to it } ?: (false to duplicate.manga.id)
+    }
+    .map { (_, members) -> DuplicateCard(members.first(), members.map { it.manga.id }) }
+
 @Composable
 private fun DuplicateMangaListItem(
     duplicate: MangaWithChapterCount,
+    groupedSourceCount: Int,
     getSource: () -> Source,
-    onDismissRequest: () -> Unit,
-    onOpenManga: () -> Unit,
-    onMigrate: () -> Unit,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
 ) {
     val source = getSource()
     val manga = duplicate.manga
@@ -200,12 +319,24 @@ private fun DuplicateMangaListItem(
             .width(MangaCardWidth)
             .clip(MaterialTheme.shapes.medium)
             .background(MaterialTheme.colorScheme.surface)
-            .combinedClickable(
-                onLongClick = { onOpenManga() },
-                onClick = {
-                    onDismissRequest()
-                    onMigrate()
+            .selectedBackground(isSelected)
+            // RK: the tint alone is invisible here (a full-bleed cover leaves almost no card background
+            // showing), so a selected card also gets a ring. The library grid's solid-fill selected look
+            // is not reusable: GridItemSelectable / selectedOutline are internal to its components.
+            .then(
+                if (isSelected) {
+                    Modifier.border(
+                        width = SelectedCardBorderWidth,
+                        color = MaterialTheme.colorScheme.secondary,
+                        shape = MaterialTheme.shapes.medium,
+                    )
+                } else {
+                    Modifier
                 },
+            )
+            .combinedClickable(
+                onLongClick = onLongClick,
+                onClick = onClick,
             )
             .padding(MaterialTheme.padding.small),
     ) {
@@ -231,6 +362,25 @@ private fun DuplicateMangaListItem(
                         duplicate.chapterCount,
                     ),
                 )
+            }
+            // RK: this card stands for a whole merged group, so say how many sources it covers. It gets
+            // its own group below the chapter count: beside it, the row overflows the card and clips.
+            if (groupedSourceCount > 1) {
+                BadgeGroup(
+                    modifier = Modifier
+                        .padding(4.dp)
+                        .align(Alignment.BottomStart),
+                ) {
+                    Badge(
+                        color = MaterialTheme.colorScheme.tertiary,
+                        textColor = MaterialTheme.colorScheme.onTertiary,
+                        text = pluralStringResource(
+                            MR.plurals.num_grouped_sources,
+                            groupedSourceCount,
+                            groupedSourceCount,
+                        ),
+                    )
+                }
             }
         }
 
@@ -421,3 +571,4 @@ private fun TextMeasurer.measureHeight(
 
 private val MangaCardWidth = 150.dp
 private val MangaDetailsIconWidth = 16.dp
+private val SelectedCardBorderWidth = 2.dp

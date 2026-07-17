@@ -183,6 +183,8 @@
     <string name="pref_series_merging_summary">Collapse the same series from different sources into one library entry. Off shows each source separately; your groups are kept.</string>
     <!-- RK: add-time grouping prompt (Phase 5) -->
     <string name="action_add_to_group">Add to existing group</string>
+    <string name="action_add_to_group_hint">Pick the entries it belongs with</string>
+    <string name="action_add_to_group_selected">%1$d picked</string>
     <string name="pref_suggest_group_same_title">Suggest grouping same-titled series</string>
     <string name="pref_suggest_group_same_title_summary">When you add a series that matches one already in your library, offer to add it to the existing group.</string>
     <!-- RK: novel merge (P5 S8) -->

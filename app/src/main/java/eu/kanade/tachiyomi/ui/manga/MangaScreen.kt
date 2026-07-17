@@ -300,7 +300,8 @@ class MangaScreen(
                     onOpenManga = { navigator.push(MangaScreen(it.id)) },
                     onMigrate = { screenModel.showMigrateDialog(it) },
                     // RK: offer grouping when the same-title suggestion pref is on.
-                    onAddToGroup = { screenModel.addToExistingGroup(dialog.duplicates) }
+                    groupIdByMangaId = dialog.groupIdByMangaId,
+                    onAddToGroup = { selectedIds: List<Long> -> screenModel.addToExistingGroup(selectedIds) }
                         .takeIf { dialog.suggestGroup },
                 )
             }
