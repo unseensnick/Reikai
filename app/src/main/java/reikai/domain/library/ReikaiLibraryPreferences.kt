@@ -160,7 +160,11 @@ class ReikaiLibraryPreferences(
 
     // endregion
 
-    // region Merging (pref-based; no DB join table)
+    // region Merging (persisted group tables; the pref-based keys below are migrated then kept for backup)
+
+    /** Master switch for source merging (manga + novels). Off resolves every series standalone and hides
+     *  the merge UI without deleting groups, so turning it back on restores them. Lives in Settings. */
+    val seriesMergingEnabled: Preference<Boolean> = preferenceStore.getBoolean("series_merging_enabled", true)
 
     /** Manual merge groups: each entry is a comma-joined, sorted manga-id group (e.g. "1,5,9"). */
     val mangaManualMerges: Preference<Set<String>> = preferenceStore.getStringSet(MANGA_MANUAL_MERGES_KEY, emptySet())

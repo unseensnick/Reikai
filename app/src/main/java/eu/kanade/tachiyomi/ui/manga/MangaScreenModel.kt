@@ -1674,14 +1674,12 @@ class MangaScreenModel(
      */
     fun splitSources(targetIds: List<Long>) {
         if (targetIds.isEmpty()) return
-        val prevMerges = reikaiLibraryPreferences.mangaManualMerges.get()
-        val prevUnmerges = reikaiLibraryPreferences.mangaManualUnmerges.get()
         val prevRelated = relatedMangaIds.value
-        val newIds = mergeManager.splitOrDissolve(prevRelated, targetIds)
-        relatedMangaIds.value = if (newIds.isEmpty()) longArrayOf(mangaId) else newIds
         selectedSourceMangaId.value = null
         dismissDialog()
-        screenModelScope.launch {
+        screenModelScope.launchIO {
+            val newIds = mergeManager.splitOrDissolve(prevRelated, targetIds)
+            relatedMangaIds.value = if (newIds.isEmpty()) longArrayOf(mangaId) else newIds
             val result = snackbarHostState.showSnackbar(
                 message = context.stringResource(MR.strings.merge_sources_split),
                 actionLabel = context.stringResource(MR.strings.action_undo),
@@ -1689,8 +1687,8 @@ class MangaScreenModel(
                 withDismissAction = true,
             )
             if (result == SnackbarResult.ActionPerformed) {
-                reikaiLibraryPreferences.mangaManualMerges.set(prevMerges)
-                reikaiLibraryPreferences.mangaManualUnmerges.set(prevUnmerges)
+                // Undo re-merges the original group; the split wrote to the group tables, not prefs.
+                mergeManager.mergeManga(prevRelated.toList())
                 relatedMangaIds.value = prevRelated
             }
         }
@@ -1699,16 +1697,14 @@ class MangaScreenModel(
     /** Split [targetIds] out and unfavorite them, with an Undo that re-favorites and re-groups. */
     fun removeSourcesFromLibrary(targetIds: List<Long>) {
         if (targetIds.isEmpty()) return
-        val prevMerges = reikaiLibraryPreferences.mangaManualMerges.get()
-        val prevUnmerges = reikaiLibraryPreferences.mangaManualUnmerges.get()
         val prevRelated = relatedMangaIds.value
-        relatedMangaIds.value = mergeManager.removeFromGroup(prevRelated, targetIds)
         selectedSourceMangaId.value = null
         dismissDialog()
         screenModelScope.launchNonCancellable {
             targetIds.forEach { updateManga.awaitUpdateFavorite(it, false) }
         }
-        screenModelScope.launch {
+        screenModelScope.launchIO {
+            relatedMangaIds.value = mergeManager.removeFromGroup(prevRelated, targetIds)
             val result = snackbarHostState.showSnackbar(
                 message = context.stringResource(MR.strings.merge_sources_removed),
                 actionLabel = context.stringResource(MR.strings.action_undo),
@@ -1716,8 +1712,8 @@ class MangaScreenModel(
                 withDismissAction = true,
             )
             if (result == SnackbarResult.ActionPerformed) {
-                reikaiLibraryPreferences.mangaManualMerges.set(prevMerges)
-                reikaiLibraryPreferences.mangaManualUnmerges.set(prevUnmerges)
+                // Undo re-merges the original group and re-favorites the removed sources.
+                mergeManager.mergeManga(prevRelated.toList())
                 relatedMangaIds.value = prevRelated
                 screenModelScope.launchNonCancellable {
                     targetIds.forEach { updateManga.awaitUpdateFavorite(it, true) }

@@ -1,324 +1,85 @@
 package reikai.domain.manga
 
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
-import reikai.domain.MergeGroupAlgebra
+import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
-import tachiyomi.domain.manga.interactor.GetFavorites
+import reikai.domain.merge.MergeGroupRepository
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.track.interactor.GetTracks
 
 /**
- * Shared source-grouping (merge / unmerge) operations for the manga details screen. Holds no
- * per-screen state: callers keep their own group ids and pass them in.
+ * Manga source-grouping operations for the details / library screens, backed by the persisted merge
+ * group tables ([MergeGroupRepository]). Holds no per-screen state: callers keep their own group ids and
+ * pass them in. Kept as the caller-facing API so the screens don't depend on the repository directly.
  *
- * Pref-based grouping only (`mangaManualMerges` / `mangaManualUnmerges` / `autoMergeSameTitle`), no
- * parent-child merged-source DB model. A merge entry is a comma-joined id group; an unmerge is a
- * normalized `min,max` pair. The shared group-id math lives in [reikai.domain.MergeGroupAlgebra]; the
- * tracker-based healing ([computeHealing]) stays here in the [Companion] as a pure, testable function.
- *
- * Removing a sibling from the library (unfavorite + cover/download/track cleanup) is intentionally
- * NOT here: that reuses Mihon's own removal flow at the call site. This class owns only the merge
- * pref state.
+ * The [ReikaiLibraryPreferences.seriesMergingEnabled] master switch gates resolution: when off, every
+ * series resolves standalone (groups are preserved, just not shown), so flipping it back on restores them.
  */
 class MangaMergeManager(
+    private val repository: MergeGroupRepository,
     private val preferences: ReikaiLibraryPreferences,
-    private val getFavorites: GetFavorites,
-    private val getTracks: GetTracks,
 ) {
 
-    /** Resolved group ids for a manga, plus how many suspect siblings the healing pass dropped
-     *  (so the caller can surface a one-shot cleanup snackbar). */
+    /** Resolved group ids for a manga. [cleanupCount] is retained for the caller's snackbar contract and
+     *  is always 0 now that stale-pref healing is gone (the FK cascade removes deleted members). */
     class RelatedIdsResult(val ids: LongArray, val cleanupCount: Int)
 
-    /**
-     * Compute the group ids for [targetId]: heal corrupted merge prefs, union the manual-merge
-     * members with same-title favorites (only when `autoMergeSameTitle` is on), then drop any pair
-     * explicitly unmerged. The id set is sorted; the caller decides whether it changed.
-     */
+    /** The group [targetId] belongs to, or just itself when it is ungrouped or merging is disabled. */
     suspend fun computeRelatedMangaIds(targetId: Long, title: String): RelatedIdsResult {
-        val targetTitle = title.lowercase().trim()
-        if (targetTitle.isEmpty()) return RelatedIdsResult(longArrayOf(targetId), 0)
-
-        val (merges, unmerges, cleanupCount) = applyMergePrefHealing(targetId)
-
-        val sameTitle = if (preferences.autoMergeSameTitle.get()) {
-            getFavorites.await()
-                .asSequence()
-                .filter { it.title.trim().equals(targetTitle, ignoreCase = true) }
-                .map { it.id }
-                .toSet()
-        } else {
-            emptySet()
-        }
-
-        return RelatedIdsResult(MergeGroupAlgebra.computeGroupIds(targetId, merges, sameTitle, unmerges), cleanupCount)
+        if (!preferences.seriesMergingEnabled.get()) return RelatedIdsResult(longArrayOf(targetId), 0)
+        val groupId = repository.getGroupId(ContentType.MANGA, targetId)
+            ?: return RelatedIdsResult(longArrayOf(targetId), 0)
+        return RelatedIdsResult(repository.getMembers(ContentType.MANGA, groupId).toLongArray(), 0)
     }
 
     /**
-     * Split [targetIds] out of the group: record each removed id as unmerged from every other group
-     * member, drop merge entries mentioning a removed id, and re-add a single entry for the
-     * survivors so they stay explicitly grouped. Returns the surviving ids (unchanged input on no-op).
+     * Split [targetIds] out of their group, keeping the survivors grouped; the group is dissolved when
+     * fewer than two members remain (the "remove all sources" case). Returns the surviving ids.
      */
-    fun removeFromGroup(relatedMangaIds: LongArray, targetIds: List<Long>): LongArray {
-        val split = MergeGroupAlgebra.computeSplit(
-            relatedIds = relatedMangaIds,
-            targetIds = targetIds,
-            merges = preferences.mangaManualMerges.get(),
-            unmerges = preferences.mangaManualUnmerges.get(),
-        ) ?: return relatedMangaIds
-
-        preferences.mangaManualUnmerges.set(split.newUnmerges)
-        preferences.mangaManualMerges.set(split.newMerges)
-        return split.survivors
-    }
-
-    /**
-     * Manage-sources split. When [targetIds] leave at least one survivor, split them out and keep the
-     * survivors grouped (subset split). When they cover the whole [relatedMangaIds] group, dissolve it
-     * entirely so every member becomes standalone, the "split all sources" case that would otherwise
-     * be a silent no-op. [relatedMangaIds] is the already-resolved group, so dissolving it directly is
-     * complete (its pairwise unmerges also block same-title regrouping). Returns the surviving ids
-     * (empty on a full dissolve).
-     */
-    fun splitOrDissolve(relatedMangaIds: LongArray, targetIds: List<Long>): LongArray {
+    suspend fun removeFromGroup(relatedMangaIds: LongArray, targetIds: List<Long>): LongArray {
         if (targetIds.isEmpty()) return relatedMangaIds
-        val targetSet = targetIds.toSet()
-        val survivesSplit = relatedMangaIds.any { it !in targetSet }
-        if (survivesSplit) return removeFromGroup(relatedMangaIds, targetIds)
-
-        val result = MergeGroupAlgebra.computeDissolve(
-            relatedMangaIds,
-            preferences.mangaManualMerges.get(),
-            preferences.mangaManualUnmerges.get(),
-        )
-        preferences.mangaManualMerges.set(result.newMerges)
-        preferences.mangaManualUnmerges.set(result.newUnmerges)
-        return longArrayOf()
+        return repository.removeFromGroup(ContentType.MANGA, targetIds).toLongArray()
     }
 
-    /**
-     * Walk every merge entry referencing [targetId], pair-check each sibling against the target's
-     * tracker key set, and rewrite the prefs to drop suspect siblings. Returns the post-cleanup
-     * pref snapshots and the dropped-sibling count.
-     */
-    private suspend fun applyMergePrefHealing(targetId: Long): Triple<Set<String>, Set<String>, Int> {
-        val merges = preferences.mangaManualMerges.get()
-        val unmerges = preferences.mangaManualUnmerges.get()
-        if (merges.isEmpty()) return Triple(merges, unmerges, 0)
+    /** Manage-sources split. Same as [removeFromGroup] now that the repository auto-dissolves a group
+     *  left with fewer than two members; kept as a distinct entry point for the manage-sources dialog. */
+    suspend fun splitOrDissolve(relatedMangaIds: LongArray, targetIds: List<Long>): LongArray =
+        removeFromGroup(relatedMangaIds, targetIds)
 
-        val relevantSiblings = merges
-            .asSequence()
-            .map { entry -> entry.split(",").mapNotNull { it.trim().toLongOrNull() } }
-            .filter { ids -> targetId in ids }
-            .flatten()
-            .filterTo(HashSet()) { it != targetId }
-        if (relevantSiblings.isEmpty()) return Triple(merges, unmerges, 0)
-
-        // Parallel tracker lookups: one async per (target + unique sibling), awaited together.
-        val trackerKeys: Map<Long, Set<Pair<Long, Long>>> = coroutineScope {
-            (relevantSiblings + targetId)
-                .map { id -> id to async { trackerKeysFor(id) } }
-                .associate { (id, deferred) -> id to deferred.await() }
-        }
-
-        val result = computeHealing(targetId, merges, unmerges, trackerKeys)
-        return if (result.dropped == 0) {
-            Triple(merges, unmerges, 0)
-        } else {
-            preferences.mangaManualMerges.set(result.newMerges)
-            preferences.mangaManualUnmerges.set(result.newUnmerges)
-            Triple(result.newMerges, result.newUnmerges, result.dropped)
-        }
+    /** Merge [ids] into one group, absorbing any groups they already belong to. No-op for < 2 entries. */
+    suspend fun mergeManga(ids: List<Long>) {
+        repository.merge(ContentType.MANGA, ids)
     }
 
-    /** Local tracker (trackerId, remoteId) set for [mangaId]. Empty when the manga isn't tracked. */
-    private suspend fun trackerKeysFor(mangaId: Long): Set<Pair<Long, Long>> =
-        getTracks.await(mangaId).mapTo(HashSet()) { it.trackerId to it.remoteId }
-
-    /**
-     * Manually merge [ids] into one group: add a merge entry and drop any unmerge pair between them
-     * so they collapse together (even with different titles or auto-merge off). No-op for < 2 ids.
-     */
-    fun mergeManga(ids: List<Long>) {
-        val result = MergeGroupAlgebra.computeMerge(
-            ids,
-            preferences.mangaManualMerges.get(),
-            preferences.mangaManualUnmerges.get(),
-        ) ?: return
-        preferences.mangaManualMerges.set(result.newMerges)
-        preferences.mangaManualUnmerges.set(result.newUnmerges)
-    }
-
-    /**
-     * Merge the library selection into one group. Each selected id is first expanded to its full
-     * resolved group (manual-merge members + same-title favorites when auto-merge is on, minus
-     * existing unmerges), because the library shows one collapsed card per group and a selection only
-     * carries each card's representative id. Without this, merging two collapsed cards records only
-     * the two representatives and strands their hidden same-title members, forcing repeated merges.
-     * Migration calls [mergeManga] directly with an already-resolved id list, so it stays unexpanded.
-     */
+    /** Merge the library selection into one group. Each selected id's whole group is absorbed by
+     *  [MergeGroupRepository.merge], so passing the collapsed cards' representative ids is enough. */
     suspend fun mergeSelectedManga(ids: List<Long>) {
-        val merges = preferences.mangaManualMerges.get()
-        val unmerges = preferences.mangaManualUnmerges.get()
-        val favorites = if (preferences.autoMergeSameTitle.get()) getFavorites.await() else emptyList()
-        val expanded = ids.distinct().flatMapTo(LinkedHashSet<Long>()) { id ->
-            val title = favorites.firstOrNull { it.id == id }?.title?.trim()?.lowercase().orEmpty()
-            MergeGroupAlgebra.computeGroupIds(id, merges, sameTitleIds(favorites, title), unmerges).toList()
-        }
-        mergeManga(expanded.toList())
+        repository.merge(ContentType.MANGA, ids)
     }
 
-    /** Favorited manga ids sharing [title] (already lowercased/trimmed); empty for a blank title. */
-    private fun sameTitleIds(favorites: List<Manga>, title: String): Set<Long> {
-        if (title.isEmpty()) return emptySet()
-        return favorites.asSequence()
-            .filter { it.title.trim().equals(title, ignoreCase = true) }
-            .map { it.id }
-            .toSet()
-    }
-
-    /**
-     * Fully dissolve the merge group of each of [targetIds] (the library bulk "Unmerge"): every
-     * member of the group is separated in one pass, so the user does not have to unmerge a group
-     * source-by-source. Each target's group is resolved against the CURRENT prefs (so dissolving one
-     * group does not act on stale state from a previous iteration), then every pairwise combination
-     * of its members is recorded as unmerged and all merge entries referencing the group are dropped.
-     * Same-title auto-grouped members are included so they cannot re-merge on the next open. Targets
-     * that are not part of a group are skipped.
-     */
+    /** Fully dissolve the group of each of [targetIds] (the library bulk "Unmerge"). Ungrouped targets
+     *  are skipped. */
     suspend fun unmergeManga(targetIds: List<Long>) {
-        val targets = targetIds.distinct()
-        if (targets.isEmpty()) return
-        val autoSameTitle = preferences.autoMergeSameTitle.get()
-        val favorites = if (autoSameTitle) getFavorites.await() else emptyList()
-
-        for (target in targets) {
-            val merges = preferences.mangaManualMerges.get()
-            val unmerges = preferences.mangaManualUnmerges.get()
-            val sameTitle = if (autoSameTitle) {
-                sameTitleIds(favorites, favorites.firstOrNull { it.id == target }?.title?.trim()?.lowercase().orEmpty())
-            } else {
-                emptySet()
-            }
-
-            val group = MergeGroupAlgebra.computeGroupIds(target, merges, sameTitle, unmerges)
-            if (group.size <= 1) continue
-            val result = MergeGroupAlgebra.computeDissolve(group, merges, unmerges)
-            preferences.mangaManualMerges.set(result.newMerges)
-            preferences.mangaManualUnmerges.set(result.newUnmerges)
-        }
+        targetIds.distinct().forEach { repository.dissolve(ContentType.MANGA, it) }
     }
 
     /**
-     * Group key per favorite for display grouping (the Updates group-by-series feature): each merged
-     * series' members share one key (their sorted, comma-joined ids), so all sources of a merged manga
-     * collapse together. Favorites are passed in so the whole map resolves from one DB read. Pure
-     * pref-based grouping: no tracker healing and no pref writes (unlike [computeRelatedMangaIds]).
+     * Group key per favorite for the Updates group-by-series feature: members of one group share a key so
+     * they collapse together, and every ungrouped series gets its own key. Favorites are passed in so the
+     * caller controls the DB read; the memberships come from one batch query.
      */
-    fun seriesGroupKeys(favorites: List<Manga>): Map<Long, String> {
-        val merges = preferences.mangaManualMerges.get()
-        val unmerges = preferences.mangaManualUnmerges.get()
-        val autoMerge = preferences.autoMergeSameTitle.get()
-        val byTitle = if (autoMerge) favorites.groupBy { it.title.trim().lowercase() } else emptyMap()
-        return favorites.associate { manga ->
-            val sameTitle = if (autoMerge && manga.title.isNotBlank()) {
-                byTitle[manga.title.trim().lowercase()]?.mapTo(HashSet()) { it.id }.orEmpty()
-            } else {
-                emptySet()
-            }
-            manga.id to MergeGroupAlgebra.computeGroupIds(manga.id, merges, sameTitle, unmerges).joinToString(",")
-        }
+    suspend fun seriesGroupKeys(favorites: List<Manga>): Map<Long, String> {
+        if (!preferences.seriesMergingEnabled.get()) return favorites.associate { it.id to "m${it.id}" }
+        val memberships = repository.getAllMemberships(ContentType.MANGA)
+        return favorites.associate { manga -> manga.id to (memberships[manga.id]?.let { "g$it" } ?: "m${manga.id}") }
     }
 
-    /** Clear every manual merge entry. Same-title auto-grouping (when on) is left untouched. */
-    fun clearManualMerges() {
-        preferences.mangaManualMerges.set(emptySet())
+    /** Dissolve every manga group. Both Settings "clear" actions map here now that there is no separate
+     *  auto-merge state to distinguish. */
+    suspend fun clearManualMerges() {
+        repository.clearAll(ContentType.MANGA)
     }
 
-    /**
-     * Separate every currently merged series, including same-title auto-groups: clears the manual
-     * merge entries and records an unmerge pair for each same-title duplicate among favorites so
-     * auto-grouping stops re-joining them. Newly added favorites still auto-group on first sight.
-     */
+    /** Dissolve every manga group (see [clearManualMerges]). */
     suspend fun clearAllMergesIncludingAuto() {
-        val byTitle = HashMap<String, MutableList<Long>>()
-        for (manga in getFavorites.await()) {
-            val key = manga.title.trim().lowercase()
-            if (key.isEmpty()) continue
-            byTitle.getOrPut(key) { mutableListOf() } += manga.id
-        }
-        val newUnmerges = buildSet {
-            for ((_, ids) in byTitle) {
-                if (ids.size < 2) continue
-                val sorted = ids.sorted()
-                for (i in sorted.indices) {
-                    for (j in (i + 1) until sorted.size) add("${sorted[i]},${sorted[j]}")
-                }
-            }
-        }
-        preferences.mangaManualMerges.set(emptySet())
-        preferences.mangaManualUnmerges.set(preferences.mangaManualUnmerges.get() + newUnmerges)
-    }
-
-    class HealResult(
-        val newMerges: Set<String>,
-        val newUnmerges: Set<String>,
-        val dropped: Int,
-    )
-
-    companion object {
-
-        /**
-         * Pure healing decision. For each merge entry containing [targetId], keep a sibling unless the
-         * two are tracked on the same service but with different remote ids (evidence they are different
-         * series). Siblings on a different service, or with either side untracked, are kept. A dropped
-         * sibling is recorded as unmerged. Entries not mentioning [targetId] pass through untouched.
-         */
-        fun computeHealing(
-            targetId: Long,
-            merges: Set<String>,
-            unmerges: Set<String>,
-            trackerKeysByMangaId: Map<Long, Set<Pair<Long, Long>>>,
-        ): HealResult {
-            val targetKeys = trackerKeysByMangaId[targetId].orEmpty()
-            val cleaned = LinkedHashSet<String>(merges.size)
-            val added = mutableSetOf<String>()
-            var dropped = 0
-
-            for (entry in merges) {
-                val ids = entry.split(",").mapNotNull { it.trim().toLongOrNull() }
-                if (targetId !in ids) {
-                    cleaned += entry
-                    continue
-                }
-                val verified = mutableListOf<Long>()
-                val suspect = mutableListOf<Long>()
-                for (id in ids) {
-                    if (id == targetId) {
-                        verified += id
-                        continue
-                    }
-                    val siblingKeys = trackerKeysByMangaId[id].orEmpty()
-                    // Only a shared tracker SERVICE with mismatched remote ids is evidence of two
-                    // different series. Entries tracked on different services (e.g. one on AniList, the
-                    // other on MyAnimeList) aren't comparable, so a merge across them is kept, not healed.
-                    val sharesService = targetKeys.any { t -> siblingKeys.any { s -> s.first == t.first } }
-                    val ok = !sharesService || targetKeys.any { it in siblingKeys }
-                    if (ok) {
-                        verified += id
-                    } else {
-                        suspect += id
-                        dropped++
-                    }
-                }
-                for (s in suspect) {
-                    for (v in verified) added += MergeGroupAlgebra.unmergeKey(s, v)
-                }
-                if (verified.size >= 2) cleaned += verified.sorted().joinToString(",")
-            }
-
-            return HealResult(cleaned, unmerges + added, dropped)
-        }
+        repository.clearAll(ContentType.MANGA)
     }
 }
