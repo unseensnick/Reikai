@@ -108,7 +108,15 @@ data object UpdatesTab : Tab {
             hasActiveFilters = state.hasActiveFilters,
             onCalendarClicked = { navigator.push(UpcomingScreen()) },
             onOpenMangaChapter = {
-                context.startActivity(ReaderActivity.newIntent(context, it.update.mangaId, it.update.chapterId))
+                // RK: Updates opens the chapter's own source list (source scope), not the whole group.
+                context.startActivity(
+                    ReaderActivity.newIntent(
+                        context,
+                        it.update.mangaId,
+                        it.update.chapterId,
+                        sourceScoped = true,
+                    ),
+                )
             },
             onClickMangaCover = { navigator.push(MangaScreen(it.update.mangaId)) },
             onOpenNovelChapter = { navigator.push(NovelReaderScreen(it.update.novelId, it.update.chapterId)) },

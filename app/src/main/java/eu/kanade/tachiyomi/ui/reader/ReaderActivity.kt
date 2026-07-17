@@ -118,11 +118,20 @@ class ReaderActivity : BaseActivity() {
     companion object {
         // RK: optional page param jumps the reader to a specific page (gallery page previews);
         // the ViewModel reads it from the "page_index" extra. Null keeps Mihon's default behavior.
-        fun newIntent(context: Context, mangaId: Long?, chapterId: Long?, page: Int? = null): Intent {
+        // sourceScoped narrows the chapter list to the opened source's own chapters (Updates, a
+        // specific source chip); default false = the whole merge group (group scope).
+        fun newIntent(
+            context: Context,
+            mangaId: Long?,
+            chapterId: Long?,
+            page: Int? = null,
+            sourceScoped: Boolean = false,
+        ): Intent {
             return Intent(context, ReaderActivity::class.java).apply {
                 putExtra("manga", mangaId)
                 putExtra("chapter", chapterId)
                 if (page != null) putExtra("page_index", page)
+                if (sourceScoped) putExtra("source_scoped", true)
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
         }
@@ -191,10 +200,12 @@ class ReaderActivity : BaseActivity() {
                 finish()
                 return
             }
+            // RK: scope flag from newIntent; default false keeps group scope.
+            val sourceScoped = intent.extras?.getBoolean("source_scoped", false) ?: false
             NotificationReceiver.dismissNotification(this, manga.hashCode(), Notifications.ID_NEW_CHAPTERS)
 
             lifecycleScope.launch {
-                val initResult = viewModel.init(manga, chapter)
+                val initResult = viewModel.init(manga, chapter, sourceScoped)
                 if (!initResult.getOrDefault(false)) {
                     val exception = initResult.exceptionOrNull() ?: IllegalStateException("Unknown err")
                     withUIContext {

@@ -145,7 +145,8 @@ class MangaScreen(
                 chapterSwipeStartAction = screenModel.chapterSwipeStartAction,
                 chapterSwipeEndAction = screenModel.chapterSwipeEndAction,
                 navigateUp = navigator::pop,
-                onChapterClicked = { openChapter(context, it) },
+                // RK: a specific source chip opens source scope; the All chip (null) opens group scope.
+                onChapterClicked = { openChapter(context, it, successState.selectedSourceMangaId != null) },
                 onDownloadChapter = screenModel::runChapterDownloadActions.takeIf {
                     !successState.source.isLocalOrStub()
                 },
@@ -177,7 +178,13 @@ class MangaScreen(
                 onTagSearch = { scope.launch { performGenreSearch(navigator, it, screenModel.source!!) } },
                 onFilterButtonClicked = screenModel::showSettingsDialog,
                 onRefresh = screenModel::fetchAllFromSource,
-                onContinueReading = { continueReading(context, screenModel.getNextUnreadChapter()) },
+                onContinueReading = {
+                    continueReading(
+                        context,
+                        screenModel.getNextUnreadChapter(),
+                        successState.selectedSourceMangaId != null,
+                    )
+                },
                 onSearch = { query, global -> scope.launch { performSearch(navigator, query, global) } },
                 onCoverClicked = screenModel::showCoverDialog,
                 onShareClicked = { shareManga(context, screenModel.manga, screenModel.source) }.takeIf { isHttpSource },
@@ -426,12 +433,16 @@ class MangaScreen(
         }
     }
 
-    private fun continueReading(context: Context, unreadChapter: Chapter?) {
-        if (unreadChapter != null) openChapter(context, unreadChapter)
+    private fun continueReading(context: Context, unreadChapter: Chapter?, sourceScoped: Boolean) {
+        if (unreadChapter != null) openChapter(context, unreadChapter, sourceScoped)
     }
 
-    private fun openChapter(context: Context, chapter: Chapter) {
-        context.startActivity(ReaderActivity.newIntent(context, chapter.mangaId, chapter.id))
+    // RK: sourceScoped opens just the active source chip's own list; group scope (the All chip, so
+    // no chip selected) opens the whole merge group.
+    private fun openChapter(context: Context, chapter: Chapter, sourceScoped: Boolean) {
+        context.startActivity(
+            ReaderActivity.newIntent(context, chapter.mangaId, chapter.id, sourceScoped = sourceScoped),
+        )
     }
 
     // RK: open the reader at a specific page from a gallery page preview.

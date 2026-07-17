@@ -157,7 +157,9 @@ class NotificationReceiver : BroadcastReceiver() {
         val manga = runBlocking { getManga.await(mangaId) }
         val chapter = runBlocking { getChapter.await(chapterId) }
         if (manga != null && chapter != null) {
-            val intent = ReaderActivity.newIntent(context, manga.id, chapter.id).apply {
+            // RK: a chapter opened from a notification is a specific source's chapter (source scope),
+            // matching Updates rather than the whole merge group.
+            val intent = ReaderActivity.newIntent(context, manga.id, chapter.id, sourceScoped = true).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
             context.startActivity(intent)
@@ -414,7 +416,8 @@ class NotificationReceiver : BroadcastReceiver() {
          * @param chapter chapter that needs to be opened
          */
         internal fun openChapterPendingActivity(context: Context, manga: Manga, chapter: Chapter): PendingIntent {
-            val newIntent = ReaderActivity.newIntent(context, manga.id, chapter.id)
+            // RK: new-chapter notifications open the chapter's own source list (source scope), like Updates.
+            val newIntent = ReaderActivity.newIntent(context, manga.id, chapter.id, sourceScoped = true)
             return PendingIntent.getActivity(
                 context,
                 manga.id.hashCode(),

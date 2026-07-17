@@ -162,6 +162,12 @@ class ReaderViewModel @JvmOverloads constructor(
     // it; for an unmerged manga it holds just that manga and its own chapters.
     private var mergedGroup: MergedChapterProvider.Group? = null
 
+    // RK: source scope narrows chapterList to the opened source's own chapters (Updates / a specific
+    // source chip); group scope (default) shows the whole merge group. Set in init from the intent,
+    // and re-set on a process-death re-init since init re-runs. mergedGroup stays full either way, so
+    // the mark-duplicates-read pass over unfilteredChapterList still reaches sibling sources.
+    private var sourceScoped = false
+
     // RK: resolve a chapter's own manga within the merge group, falling back to the opened manga when
     // unmerged or when the id isn't in the group. Per-chapter side effects (downloads, tracker,
     // delete-on-read) target the chapter's real source instead of the manga the reader was opened from.
@@ -205,13 +211,19 @@ class ReaderViewModel @JvmOverloads constructor(
      */
     private val chapterList by lazy {
         val manga = manga!!
-        // RK: unified cross-source list for a merge group (resolved in init); falls back to the
-        // single-source list if accessed before init. A chapter opened from outside the merged
-        // details view (history, updates) or from a non-preferred source's chip can be deduped out
-        // of the unified list, so re-add it via the provider, which restamps it into the list's own
-        // sourceOrder scale. Appending it raw would misplace it once sorted, breaking prev/next.
-        val merged = mergedGroup?.chapters
-            ?: runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
+        // RK: source scope shows only the opened source's own chapters; group scope (default) shows
+        // the unified cross-source list resolved in init (falling back to the single-source list if
+        // accessed before init). A group-scoped chapter opened from outside the merged view (history)
+        // can be deduped out of the unified list, so it is re-added via withOpenedChapter below, which
+        // restamps it into the list's own sourceOrder scale; appending it raw would misplace it once
+        // sorted, breaking prev/next. In source scope the opened chapter is always present, so that
+        // re-add is a no-op.
+        val merged = if (sourceScoped) {
+            runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
+        } else {
+            mergedGroup?.chapters
+                ?: runBlocking { getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true) }
+        }
         val chapters = mergedChapterProvider.withOpenedChapter(
             merged,
             merged.find { it.id == chapterId }
@@ -351,7 +363,7 @@ class ReaderViewModel @JvmOverloads constructor(
      * Initializes this presenter with the given [mangaId] and [initialChapterId]. This method will
      * fetch the manga from the database and initialize the initial chapter.
      */
-    suspend fun init(mangaId: Long, initialChapterId: Long): Result<Boolean> {
+    suspend fun init(mangaId: Long, initialChapterId: Long, sourceScoped: Boolean = false): Result<Boolean> {
         if (!needsInit()) return Result.success(true)
         return withIOContext {
             try {
@@ -363,6 +375,8 @@ class ReaderViewModel @JvmOverloads constructor(
                     customInfo = getCustomMangaInfo.subscribe(mangaId).first()
                     mutableState.update { it.copy(manga = manga) }
                     if (chapterId == -1L) chapterId = initialChapterId
+                    // RK: set before chapterList (lazy) is first accessed below.
+                    this@ReaderViewModel.sourceScoped = sourceScoped
 
                     val context = Injekt.get<Application>()
                     // RK --> resolve the merge group up front so the chapter list spans every grouped
