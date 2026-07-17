@@ -14,6 +14,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Additions
 
+- **Manage sources on a series' details page now sets which source leads that merged series, overriding your global Preferred sources ranking for it alone.** Drag a source to the top to make it primary and the combined chapter list follows; Reset order goes back to the Preferred sources ranking.
 - **Adding a series from Browse, global search, History or its page now offers to group it with a match in your library: tap the select button, then pick which ones it joins.** The new copy lands in their categories too.
 
 ### Changes

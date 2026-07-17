@@ -52,6 +52,8 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.withCustomInfo
 import reikai.presentation.components.EntryCoverDialog
+import reikai.presentation.components.ManageMergeSourceRow
+import reikai.presentation.components.ManageMergeSourcesDialog
 import reikai.presentation.details.EntryDetailsScaffold
 import reikai.presentation.details.EntryDetailsTwoPaneScaffold
 import reikai.presentation.details.EntryDetailsUiState
@@ -69,6 +71,7 @@ import reikai.presentation.novel.reader.NovelReaderScreen
 import reikai.presentation.track.EntryTrackInfoDialogHomeScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
+import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
@@ -518,9 +521,19 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: No
             onSelect = screenModel::selectPage,
             onDismiss = screenModel::dismissDialog,
         )
-        is NovelDetailsDialog.ManageSources -> NovelManageSourcesDialog(
-            sources = dialog.sources,
+        is NovelDetailsDialog.ManageSources -> ManageMergeSourcesDialog(
+            sources = dialog.sources.map {
+                ManageMergeSourceRow(
+                    id = it.novelId,
+                    sourceName = it.sourceName,
+                    // The novel coverage hint: how many chapters this source contributes.
+                    subtitle = pluralStringResource(MR.plurals.manga_num_chapters, it.chapterCount, it.chapterCount),
+                )
+            },
+            isOverridden = dialog.isOverridden,
             onDismissRequest = screenModel::dismissDialog,
+            onReorder = screenModel::reorderSources,
+            onResetOrder = screenModel::resetSourceOrder,
             onSplit = screenModel::splitSources,
             onRemoveFromLibrary = screenModel::removeSourcesFromLibrary,
             onRemoveAll = screenModel::removeAllSourcesFromLibrary,

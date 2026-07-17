@@ -394,6 +394,7 @@ class NovelDetailsScreenModel(
                 byNovel,
                 sourceIdByNovel,
                 reikaiLibraryPreferences.preferredNovelSources.get(),
+                mergeManager.overrideRankingMemberIds(anchor.id),
             )
             val ordered = restampReadingOrder(aggregated)
             rebuildLoaded(anchor, anchor, ordered, emptyList(), 0, downloadedIdsFor(ordered))
@@ -676,12 +677,44 @@ class NovelDetailsScreenModel(
         screenModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
             if (loaded.mergeSources.size <= 1) return@launchIO
-            // Per-source chapter counts (the coverage hint), resolved on open so the user can see which
-            // source is most complete before splitting.
-            val withCounts = loaded.mergeSources.map {
-                it.copy(chapterCount = chapterRepo.getByNovelId(it.novelId).size)
+            // Per-source chapters, resolved on open for both the coverage-hint counts and the trunk rank.
+            val chaptersByNovel = loaded.mergeSources.associate { it.novelId to chapterRepo.getByNovelId(it.novelId) }
+            val withCounts = loaded.mergeSources.associateBy({ it.novelId }) {
+                it.copy(chapterCount = chaptersByNovel[it.novelId]?.size ?: 0)
             }
-            updateLoaded { it.copy(dialog = NovelDetailsDialog.ManageSources(withCounts)) }
+            // Order the rows by the same ranking aggregation uses, so the primary source opens on top even
+            // under the global order (no override). memberRanking non-empty == override on.
+            val memberRanking = mergeManager.overrideRankingMemberIds(anchorNovelId)
+            val siblings = siblingSources.value
+            val sourceIdByNovel = chaptersByNovel.keys.associateWith { siblings[it]?.id.orEmpty() }
+            val ranked = NovelChapterAggregation.rankedMemberIds(
+                chaptersByNovel,
+                sourceIdByNovel,
+                reikaiLibraryPreferences.preferredNovelSources.get(),
+                memberRanking,
+            )
+            val orderedSources = ranked.mapNotNull { withCounts[it] }
+            updateLoaded {
+                it.copy(dialog = NovelDetailsDialog.ManageSources(orderedSources, memberRanking.isNotEmpty()))
+            }
+        }
+    }
+
+    /** Persist a manage-sources drag as the group's source order, then re-aggregate so the new trunk
+     *  leads the chapter list live (a fresh array re-emits the StateFlow). */
+    fun reorderSources(orderedIds: List<Long>) {
+        screenModelScope.launchIO {
+            mergeManager.setSourceOrder(orderedIds)
+            relatedNovelIds.value = relatedNovelIds.value.copyOf()
+        }
+    }
+
+    /** Clear the per-group source-order override (back to the global ranking) and re-aggregate live. */
+    fun resetSourceOrder() {
+        dismissDialog()
+        screenModelScope.launchIO {
+            mergeManager.clearSourceOrder(anchorNovelId)
+            relatedNovelIds.value = relatedNovelIds.value.copyOf()
         }
     }
 
@@ -1378,7 +1411,10 @@ sealed interface NovelDetailsDialog {
     data object ChapterSettings : NovelDetailsDialog
     data object PageSelector : NovelDetailsDialog
     data object FullCover : NovelDetailsDialog
-    data class ManageSources(val sources: List<NovelMergeSourceInfo>) : NovelDetailsDialog
+    data class ManageSources(
+        val sources: List<NovelMergeSourceInfo>,
+        val isOverridden: Boolean,
+    ) : NovelDetailsDialog
 
     // novel trackers (Active #8). Rendered as a NavigatorAdaptiveSheet, mirroring Mihon's manga sheet.
     data object TrackSheet : NovelDetailsDialog

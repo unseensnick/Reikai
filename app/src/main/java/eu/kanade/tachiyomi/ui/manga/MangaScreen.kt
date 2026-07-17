@@ -62,11 +62,12 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.feature.migration.dialog.MigrateMangaDialog
 import reikai.presentation.components.EntryCoverDialog
+import reikai.presentation.components.ManageMergeSourceRow
+import reikai.presentation.components.ManageMergeSourcesDialog
 import reikai.presentation.details.EntryEditInfoDialog
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.TrackerAutofill
 import reikai.presentation.manga.EhRemoveFavoriteDialog
-import reikai.presentation.manga.ManageSourcesDialog
 import reikai.presentation.manga.MangaMigrationSourcePickScreen
 import reikai.presentation.recommendation.browse.RelatedMangasBrowseScreen
 import reikai.presentation.track.EntryTrackInfoDialogHomeScreen
@@ -76,6 +77,8 @@ import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.manga.model.withCustomInfo // RK
+import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 class MangaScreen(
@@ -270,171 +273,188 @@ class MangaScreen(
         var showScanlatorsDialog by remember { mutableStateOf(false) }
 
         val onDismissRequest = { screenModel.dismissDialog() }
-        when (val dialog = successState.dialog) {
-            null -> {}
-            is MangaScreenModel.Dialog.ChangeCategory -> {
-                ChangeCategoryDialog(
-                    initialSelection = dialog.initialSelection,
-                    onDismissRequest = onDismissRequest,
-                    onEditCategories = { navigator.push(CategoryScreen()) },
-                    onConfirm = { include, _ ->
-                        screenModel.moveMangaToCategoriesAndAddToLibrary(dialog.manga, include)
-                    },
-                )
-            }
-            is MangaScreenModel.Dialog.DeleteChapters -> {
-                DeleteChaptersDialog(
-                    onDismissRequest = onDismissRequest,
-                    onConfirm = {
-                        screenModel.toggleAllSelection(false)
-                        screenModel.deleteChapters(dialog.chapters)
-                    },
-                )
-            }
-
-            is MangaScreenModel.Dialog.DuplicateManga -> {
-                DuplicateMangaDialog(
-                    duplicates = dialog.duplicates,
-                    onDismissRequest = onDismissRequest,
-                    onConfirm = { screenModel.toggleFavorite(onRemoved = {}, checkDuplicate = false) },
-                    onOpenManga = { navigator.push(MangaScreen(it.id)) },
-                    onMigrate = { screenModel.showMigrateDialog(it) },
-                    // RK: offer grouping when the same-title suggestion pref is on.
-                    groupIdByMangaId = dialog.groupIdByMangaId,
-                    onAddToGroup = { selectedIds: List<Long> -> screenModel.addToExistingGroup(selectedIds) }
-                        .takeIf { dialog.suggestGroup },
-                )
-            }
-
-            is MangaScreenModel.Dialog.Migrate -> {
-                MigrateMangaDialog(
-                    current = dialog.current,
-                    target = dialog.target,
-                    // Initiated from the context of [dialog.target] so we show [dialog.current].
-                    onClickTitle = { navigator.push(MangaScreen(dialog.current.id)) },
-                    onDismissRequest = onDismissRequest,
-                )
-            }
-            MangaScreenModel.Dialog.SettingsSheet -> ChapterSettingsDialog(
-                onDismissRequest = onDismissRequest,
-                manga = successState.manga,
-                onDownloadFilterChanged = screenModel::setDownloadedFilter,
-                onUnreadFilterChanged = screenModel::setUnreadFilter,
-                onBookmarkedFilterChanged = screenModel::setBookmarkedFilter,
-                onSortModeChanged = screenModel::setSorting,
-                onDisplayModeChanged = screenModel::setDisplayMode,
-                onSetAsDefault = screenModel::setCurrentSettingsAsDefault,
-                onResetToDefault = screenModel::resetToDefaultSettings,
-                scanlatorFilterActive = successState.scanlatorFilterActive,
-                onScanlatorFilterClicked = { showScanlatorsDialog = true },
-            )
-            MangaScreenModel.Dialog.TrackSheet -> {
-                // RK: remember the screen so frequent state updates (the merge collectors recompose
-                // the details screen) don't rebuild it and reset the sheet's navigator mid-update,
-                // which was cancelling the tracker write (InsertTrack JobCancellationException).
-                // RK: shared manga/novel track dialog (reikai.presentation.track.EntryTrackInfoDialog)
-                val trackScreen = remember(successState.manga.id, successState.source.id) {
-                    EntryTrackInfoDialogHomeScreen(
-                        entryId = successState.manga.id,
-                        entryTitle = successState.manga.title,
-                        sourceId = successState.source.id,
-                        isNovel = false,
+        // RK: tint every details dialog from the cover (when that theme is on), matching the details
+        // content and the novel side; the content wrap above ends before the dialogs, so re-apply it.
+        TachiyomiTheme(seedColor = successState.seedColor.takeIf { screenModel.themeCoverBased }) {
+            when (val dialog = successState.dialog) {
+                null -> {}
+                is MangaScreenModel.Dialog.ChangeCategory -> {
+                    ChangeCategoryDialog(
+                        initialSelection = dialog.initialSelection,
+                        onDismissRequest = onDismissRequest,
+                        onEditCategories = { navigator.push(CategoryScreen()) },
+                        onConfirm = { include, _ ->
+                            screenModel.moveMangaToCategoriesAndAddToLibrary(dialog.manga, include)
+                        },
                     )
                 }
-                NavigatorAdaptiveSheet(
-                    screen = trackScreen,
-                    enableSwipeDismiss = { it.lastItem is EntryTrackInfoDialogHomeScreen },
-                    onDismissRequest = onDismissRequest,
-                )
-            }
-            MangaScreenModel.Dialog.FullCover -> {
-                val sm = rememberScreenModel { MangaCoverScreenModel(successState.manga.id) }
-                val manga by sm.state.collectAsState()
-                if (manga != null) {
-                    val getContent = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {
-                        if (it == null) return@rememberLauncherForActivityResult
-                        sm.editCover(context, it)
-                    }
-                    // RK: shared cover dialog for manga + novels (replaces MangaCoverDialog)
-                    EntryCoverDialog(
-                        cover = manga!!,
-                        snackbarHostState = sm.snackbarHostState,
-                        isCustomCover = remember(manga) { manga!!.hasCustomCover() },
-                        onShareClick = { sm.shareCover(context) },
-                        onSaveClick = { sm.saveCover(context) },
-                        onEditClick = {
-                            when (it) {
-                                EditCoverAction.EDIT -> getContent.launch("image/*")
-                                EditCoverAction.DELETE -> sm.deleteCustomCover(context)
-                            }
+                is MangaScreenModel.Dialog.DeleteChapters -> {
+                    DeleteChaptersDialog(
+                        onDismissRequest = onDismissRequest,
+                        onConfirm = {
+                            screenModel.toggleAllSelection(false)
+                            screenModel.deleteChapters(dialog.chapters)
                         },
+                    )
+                }
+
+                is MangaScreenModel.Dialog.DuplicateManga -> {
+                    DuplicateMangaDialog(
+                        duplicates = dialog.duplicates,
+                        onDismissRequest = onDismissRequest,
+                        onConfirm = { screenModel.toggleFavorite(onRemoved = {}, checkDuplicate = false) },
+                        onOpenManga = { navigator.push(MangaScreen(it.id)) },
+                        onMigrate = { screenModel.showMigrateDialog(it) },
+                        // RK: offer grouping when the same-title suggestion pref is on.
+                        groupIdByMangaId = dialog.groupIdByMangaId,
+                        onAddToGroup = { selectedIds: List<Long> -> screenModel.addToExistingGroup(selectedIds) }
+                            .takeIf { dialog.suggestGroup },
+                    )
+                }
+
+                is MangaScreenModel.Dialog.Migrate -> {
+                    MigrateMangaDialog(
+                        current = dialog.current,
+                        target = dialog.target,
+                        // Initiated from the context of [dialog.target] so we show [dialog.current].
+                        onClickTitle = { navigator.push(MangaScreen(dialog.current.id)) },
                         onDismissRequest = onDismissRequest,
                     )
-                } else {
-                    LoadingScreen(Modifier.systemBarsPadding())
                 }
-            }
-            is MangaScreenModel.Dialog.SetFetchInterval -> {
-                SetIntervalDialog(
-                    interval = dialog.manga.fetchInterval,
-                    nextUpdate = dialog.manga.expectedNextUpdate,
+                MangaScreenModel.Dialog.SettingsSheet -> ChapterSettingsDialog(
                     onDismissRequest = onDismissRequest,
-                    onValueChanged = { interval: Int -> screenModel.setFetchInterval(dialog.manga, interval) }
-                        .takeIf { screenModel.isUpdateIntervalEnabled },
+                    manga = successState.manga,
+                    onDownloadFilterChanged = screenModel::setDownloadedFilter,
+                    onUnreadFilterChanged = screenModel::setUnreadFilter,
+                    onBookmarkedFilterChanged = screenModel::setBookmarkedFilter,
+                    onSortModeChanged = screenModel::setSorting,
+                    onDisplayModeChanged = screenModel::setDisplayMode,
+                    onSetAsDefault = screenModel::setCurrentSettingsAsDefault,
+                    onResetToDefault = screenModel::resetToDefaultSettings,
+                    scanlatorFilterActive = successState.scanlatorFilterActive,
+                    onScanlatorFilterClicked = { showScanlatorsDialog = true },
                 )
-            }
-            // RK -->
-            is MangaScreenModel.Dialog.ManageSources -> {
-                ManageSourcesDialog(
-                    sources = dialog.sources,
-                    onDismissRequest = onDismissRequest,
-                    onSplit = screenModel::splitSources,
-                    onRemoveFromLibrary = screenModel::removeSourcesFromLibrary,
-                    onRemoveAll = screenModel::removeAllSourcesFromLibrary,
-                )
-            }
-            is MangaScreenModel.Dialog.EhRemoveFavorite -> {
-                EhRemoveFavoriteDialog(
-                    onDismissRequest = onDismissRequest,
-                    onConfirm = screenModel::confirmEhRemoveFromLibrary,
-                )
-            }
-            is MangaScreenModel.Dialog.EditMangaInfo -> {
-                EntryEditInfoDialog(
-                    // Seed with the effective (overlaid) values; save diffs each field against the raw
-                    // source manga (dialog.manga), so an unchanged field stores no override.
-                    initial = dialog.manga.withCustomInfo(successState.customInfo).toEntryEditInfoUi(),
-                    source = dialog.manga.toEntryEditInfoUi(),
-                    seedColor = successState.seedColor,
-                    coverModel = { url ->
-                        MangaCover(
-                            mangaId = dialog.manga.id,
-                            sourceId = dialog.manga.source,
-                            isMangaFavorite = dialog.manga.favorite,
-                            url = url.ifBlank { null },
-                            lastModified = dialog.manga.coverLastModified,
+                MangaScreenModel.Dialog.TrackSheet -> {
+                    // RK: remember the screen so frequent state updates (the merge collectors recompose
+                    // the details screen) don't rebuild it and reset the sheet's navigator mid-update,
+                    // which was cancelling the tracker write (InsertTrack JobCancellationException).
+                    // RK: shared manga/novel track dialog (reikai.presentation.track.EntryTrackInfoDialog)
+                    val trackScreen = remember(successState.manga.id, successState.source.id) {
+                        EntryTrackInfoDialogHomeScreen(
+                            entryId = successState.manga.id,
+                            entryTitle = successState.manga.title,
+                            sourceId = successState.source.id,
+                            isNovel = false,
                         )
-                    },
-                    onDismissRequest = onDismissRequest,
-                    onSave = { screenModel.saveMangaInfo(dialog.manga, it) },
-                    onResetAll = { screenModel.resetMangaInfo(dialog.manga) },
-                    autofill = TrackerAutofill(
-                        candidates = screenModel::autofillCandidates,
-                        fetch = screenModel::fetchTrackerMetadata,
-                    ),
+                    }
+                    NavigatorAdaptiveSheet(
+                        screen = trackScreen,
+                        enableSwipeDismiss = { it.lastItem is EntryTrackInfoDialogHomeScreen },
+                        onDismissRequest = onDismissRequest,
+                    )
+                }
+                MangaScreenModel.Dialog.FullCover -> {
+                    val sm = rememberScreenModel { MangaCoverScreenModel(successState.manga.id) }
+                    val manga by sm.state.collectAsState()
+                    if (manga != null) {
+                        val getContent = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {
+                            if (it == null) return@rememberLauncherForActivityResult
+                            sm.editCover(context, it)
+                        }
+                        // RK: shared cover dialog for manga + novels (replaces MangaCoverDialog)
+                        EntryCoverDialog(
+                            cover = manga!!,
+                            snackbarHostState = sm.snackbarHostState,
+                            isCustomCover = remember(manga) { manga!!.hasCustomCover() },
+                            onShareClick = { sm.shareCover(context) },
+                            onSaveClick = { sm.saveCover(context) },
+                            onEditClick = {
+                                when (it) {
+                                    EditCoverAction.EDIT -> getContent.launch("image/*")
+                                    EditCoverAction.DELETE -> sm.deleteCustomCover(context)
+                                }
+                            },
+                            onDismissRequest = onDismissRequest,
+                        )
+                    } else {
+                        LoadingScreen(Modifier.systemBarsPadding())
+                    }
+                }
+                is MangaScreenModel.Dialog.SetFetchInterval -> {
+                    SetIntervalDialog(
+                        interval = dialog.manga.fetchInterval,
+                        nextUpdate = dialog.manga.expectedNextUpdate,
+                        onDismissRequest = onDismissRequest,
+                        onValueChanged = { interval: Int -> screenModel.setFetchInterval(dialog.manga, interval) }
+                            .takeIf { screenModel.isUpdateIntervalEnabled },
+                    )
+                }
+                // RK -->
+                is MangaScreenModel.Dialog.ManageSources -> {
+                    ManageMergeSourcesDialog(
+                        sources = dialog.sources.map {
+                            ManageMergeSourceRow(
+                                id = it.mangaId,
+                                sourceName = it.sourceName,
+                                subtitle = pluralStringResource(
+                                    MR.plurals.manga_num_chapters,
+                                    it.chapterCount,
+                                    it.chapterCount,
+                                ),
+                            )
+                        },
+                        isOverridden = dialog.isOverridden,
+                        onDismissRequest = onDismissRequest,
+                        onReorder = screenModel::reorderSources,
+                        onResetOrder = screenModel::resetSourceOrder,
+                        onSplit = screenModel::splitSources,
+                        onRemoveFromLibrary = screenModel::removeSourcesFromLibrary,
+                        onRemoveAll = screenModel::removeAllSourcesFromLibrary,
+                    )
+                }
+                is MangaScreenModel.Dialog.EhRemoveFavorite -> {
+                    EhRemoveFavoriteDialog(
+                        onDismissRequest = onDismissRequest,
+                        onConfirm = screenModel::confirmEhRemoveFromLibrary,
+                    )
+                }
+                is MangaScreenModel.Dialog.EditMangaInfo -> {
+                    EntryEditInfoDialog(
+                        // Seed with the effective (overlaid) values; save diffs each field against the raw
+                        // source manga (dialog.manga), so an unchanged field stores no override.
+                        initial = dialog.manga.withCustomInfo(successState.customInfo).toEntryEditInfoUi(),
+                        source = dialog.manga.toEntryEditInfoUi(),
+                        seedColor = successState.seedColor,
+                        coverModel = { url ->
+                            MangaCover(
+                                mangaId = dialog.manga.id,
+                                sourceId = dialog.manga.source,
+                                isMangaFavorite = dialog.manga.favorite,
+                                url = url.ifBlank { null },
+                                lastModified = dialog.manga.coverLastModified,
+                            )
+                        },
+                        onDismissRequest = onDismissRequest,
+                        onSave = { screenModel.saveMangaInfo(dialog.manga, it) },
+                        onResetAll = { screenModel.resetMangaInfo(dialog.manga) },
+                        autofill = TrackerAutofill(
+                            candidates = screenModel::autofillCandidates,
+                            fetch = screenModel::fetchTrackerMetadata,
+                        ),
+                    )
+                }
+                // RK <--
+            }
+
+            if (showScanlatorsDialog) {
+                ScanlatorFilterDialog(
+                    availableScanlators = successState.availableScanlators,
+                    excludedScanlators = successState.excludedScanlators,
+                    onDismissRequest = { showScanlatorsDialog = false },
+                    onConfirm = screenModel::setExcludedScanlators,
                 )
             }
-            // RK <--
-        }
-
-        if (showScanlatorsDialog) {
-            ScanlatorFilterDialog(
-                availableScanlators = successState.availableScanlators,
-                excludedScanlators = successState.excludedScanlators,
-                onDismissRequest = { showScanlatorsDialog = false },
-                onConfirm = screenModel::setExcludedScanlators,
-            )
-        }
+        } // RK: end dialogs cover-theme wrap
     }
 
     private fun continueReading(context: Context, unreadChapter: Chapter?, sourceScoped: Boolean) {

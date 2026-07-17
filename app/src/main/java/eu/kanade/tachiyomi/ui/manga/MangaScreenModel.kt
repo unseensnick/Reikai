@@ -1629,8 +1629,12 @@ class MangaScreenModel(
         data object TrackSheet : Dialog
         data object FullCover : Dialog
 
-        // RK: pref-based merge, manage the grouped sources (split / remove from library)
-        data class ManageSources(val sources: List<MergeSourceInfo>) : Dialog
+        // RK: manage the grouped sources (reorder / split / remove). Rows arrive trunk-first (primary on
+        // top); isOverridden gates the reset action.
+        data class ManageSources(
+            val sources: List<MergeSourceInfo>,
+            val isOverridden: Boolean,
+        ) : Dialog
 
         // RK: confirm removing a favorited E-Hentai gallery, with an opt-in "also remove from account".
         data class EhRemoveFavorite(val manga: Manga) : Dialog
@@ -1640,8 +1644,14 @@ class MangaScreenModel(
         data class EditMangaInfo(val manga: Manga) : Dialog
     }
 
-    // RK: a grouped source row shown in the Manage sources dialog.
-    data class MergeSourceInfo(val mangaId: Long, val sourceName: String, val isCurrent: Boolean)
+    // RK: a grouped source row shown in the Manage sources dialog. chapterCount is the coverage hint,
+    // resolved only when the dialog opens (0 in the chip-row uses that don't need it).
+    data class MergeSourceInfo(
+        val mangaId: Long,
+        val sourceName: String,
+        val isCurrent: Boolean,
+        val chapterCount: Int = 0,
+    )
 
     // RK: a related-carousel candidate plus whether it already resolves to a favorited library entry.
     data class RelatedMangaItem(val candidate: RelatedMangaCandidate, val inLibrary: Boolean)
@@ -1695,7 +1705,42 @@ class MangaScreenModel(
         val state = successState ?: return
         // Use the full group (stable) so the dialog works even while viewing a single source chip.
         if (state.mergeSources.size <= 1) return
-        updateSuccessState { it.copy(dialog = Dialog.ManageSources(state.mergeSources)) }
+        screenModelScope.launchIO {
+            val ids = state.mergeSources.map { it.mangaId }
+            // Order the rows by the same ranking aggregation uses, so the primary source opens on top even
+            // under the global order (no override). memberRanking non-empty == override on.
+            val memberRanking = mergeManager.overrideRankingMemberIds(mangaId)
+            val chaptersBySource = ids.associateWith {
+                getMangaAndChapters.awaitChapters(it, applyScanlatorFilter = true)
+            }
+            val sourceIdByManga = ids.associateWith { getMangaAndChapters.awaitManga(it).source }
+            val ranked = mergedChapterProvider.rankedMemberIds(chaptersBySource, sourceIdByManga, memberRanking)
+            val orderedSources = ranked.mapNotNull { id ->
+                state.mergeSources.find { it.mangaId == id }
+                    ?.copy(chapterCount = chaptersBySource[id]?.size ?: 0)
+            }
+            updateSuccessState {
+                it.copy(dialog = Dialog.ManageSources(orderedSources, memberRanking.isNotEmpty()))
+            }
+        }
+    }
+
+    /** Persist a manage-sources drag as the group's source order, then nudge the chapter flow to
+     *  re-aggregate so the new trunk leads the list live (a fresh array re-emits the StateFlow). */
+    fun reorderSources(orderedIds: List<Long>) {
+        screenModelScope.launchIO {
+            mergeManager.setSourceOrder(orderedIds)
+            relatedMangaIds.value = relatedMangaIds.value.copyOf()
+        }
+    }
+
+    /** Clear the per-group source-order override (back to the global ranking) and re-aggregate live. */
+    fun resetSourceOrder() {
+        dismissDialog()
+        screenModelScope.launchIO {
+            mergeManager.clearSourceOrder(mangaId)
+            relatedMangaIds.value = relatedMangaIds.value.copyOf()
+        }
     }
 
     /**
