@@ -3,10 +3,13 @@ package reikai.data.merge
 import app.cash.sqldelight.async.coroutines.awaitAsList
 import app.cash.sqldelight.async.coroutines.awaitAsOne
 import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.model.MergeGroup
 import tachiyomi.data.Database
+import tachiyomi.data.subscribeToList
 
 class MergeGroupRepositoryImpl(
     private val database: Database,
@@ -68,6 +71,15 @@ class MergeGroupRepositoryImpl(
         when (contentType) {
             ContentType.MANGA -> queries.allMangaMemberships { id, groupId -> id to groupId }.awaitAsList().toMap()
             ContentType.NOVELS -> queries.allNovelMemberships { id, groupId -> id to groupId }.awaitAsList().toMap()
+            ContentType.ALL -> error(ALL_UNSUPPORTED)
+        }
+
+    override fun getAllMembershipsAsFlow(contentType: ContentType): Flow<Map<Long, Long>> =
+        when (contentType) {
+            ContentType.MANGA -> queries.allMangaMemberships { id, groupId -> id to groupId }
+                .subscribeToList().map { it.toMap() }
+            ContentType.NOVELS -> queries.allNovelMemberships { id, groupId -> id to groupId }
+                .subscribeToList().map { it.toMap() }
             ContentType.ALL -> error(ALL_UNSUPPORTED)
         }
 

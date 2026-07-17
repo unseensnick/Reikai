@@ -43,10 +43,12 @@ import reikai.domain.category.categoryDiff
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.isHidden
 import reikai.domain.category.matchesCategoryFilter
+import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.sortForCategory
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.PropagateTrackerLinks
+import reikai.domain.merge.MergeGroupRepository
 import reikai.presentation.library.DynItem
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
@@ -121,6 +123,7 @@ class LibraryScreenModel(
     // RK -->
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
     private val mergeManager: MangaMergeManager = Injekt.get(),
+    private val mergeGroupRepository: MergeGroupRepository = Injekt.get(),
     private val propagateTrackerLinks: PropagateTrackerLinks = Injekt.get(),
     // RK <--
 ) : StateScreenModel<LibraryScreenModel.State>(State()) {
@@ -772,14 +775,13 @@ class LibraryScreenModel(
                     ),
                 )
             }
-            // RK: collapse pref-based merge groups into one entry per group. Returns the RAW items:
+            // RK: collapse persisted merge groups into one entry per group. Returns the RAW items:
             //     search, filter and sort in the outer combine all read these, so the display-only
             //     custom-info overlay is applied later, at the per-category display read (see State).
             MangaMergeCollapse.collapse(
                 items = items,
-                manualMerges = mergePrefs.merges,
-                manualUnmerges = mergePrefs.unmerges,
-                autoMergeSameTitle = mergePrefs.autoMergeSameTitle,
+                membership = mergePrefs.membership,
+                mergingEnabled = mergePrefs.mergingEnabled,
                 showMergeSourceIcons = mergePrefs.showMergeSourceIcons,
                 resolveSource = ::resolveMergeSource,
             )
@@ -788,18 +790,16 @@ class LibraryScreenModel(
 
     // RK -->
     private data class MergePrefs(
-        val merges: Set<String>,
-        val unmerges: Set<String>,
-        val autoMergeSameTitle: Boolean,
+        val membership: Map<Long, Long>,
+        val mergingEnabled: Boolean,
         val showMergeSourceIcons: Boolean,
     )
 
     private fun mergePrefsFlow(): Flow<MergePrefs> = combine(
-        reikaiLibraryPreferences.mangaManualMerges.changes(),
-        reikaiLibraryPreferences.mangaManualUnmerges.changes(),
-        reikaiLibraryPreferences.autoMergeSameTitle.changes(),
+        mergeGroupRepository.getAllMembershipsAsFlow(ContentType.MANGA),
+        reikaiLibraryPreferences.seriesMergingEnabled.changes(),
         reikaiLibraryPreferences.showMergeSourceIcons.changes(),
-    ) { merges, unmerges, auto, showIcons -> MergePrefs(merges, unmerges, auto, showIcons) }
+    ) { membership, mergingEnabled, showIcons -> MergePrefs(membership, mergingEnabled, showIcons) }
 
     private fun resolveMergeSource(sourceId: Long): DomainSource {
         val s = sourceManager.getOrStub(sourceId)

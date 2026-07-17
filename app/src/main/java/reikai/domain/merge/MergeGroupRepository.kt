@@ -1,5 +1,6 @@
 package reikai.domain.merge
 
+import kotlinx.coroutines.flow.Flow
 import reikai.domain.library.ContentType
 import reikai.domain.merge.model.MergeGroup
 
@@ -39,6 +40,10 @@ interface MergeGroupRepository {
 
     /** All memberships of [contentType] as entry-id -> group-id, for batch reads (collapse, group-by-series). */
     suspend fun getAllMemberships(contentType: ContentType): Map<Long, Long>
+
+    /** Reactive [getAllMemberships]: re-emits whenever the memberships of [contentType] change, so the
+     *  library re-collapses when a group is created, split, or dissolved. */
+    fun getAllMembershipsAsFlow(contentType: ContentType): Flow<Map<Long, Long>>
 
     /**
      * Merge [ids] into one group, absorbing any groups they already belong to (so merging two collapsed

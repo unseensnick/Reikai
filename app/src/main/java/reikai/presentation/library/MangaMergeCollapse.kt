@@ -1,42 +1,34 @@
 package reikai.presentation.library
 
 import eu.kanade.tachiyomi.ui.library.LibraryItem
-import reikai.domain.MergeGroupAlgebra
 import tachiyomi.domain.source.model.Source
 
 /**
- * Collapses pref-based merge groups in the library so the same series favorited from several
- * sources renders as ONE cover with combined counts. Faithful port of the Yokai-era
- * `MangaLibraryGrouping.collapse`, re-typed onto Mihon's flat pre-grouping [LibraryItem] list.
+ * Collapses persisted merge groups in the library so the same series favorited from several sources
+ * renders as ONE cover with combined counts. Buckets items by their group id (from the merge group
+ * tables); each multi-member bucket keeps a single primary (most chapters, then earliest added) stamped
+ * with the group ids, summed download counts, and the grouped sources for the badge. Ungrouped items and,
+ * when merging is disabled, every item pass through untouched.
  *
- * Buckets items by their canonical merge key (sorted comma id group from `mangaManualMerges`) or,
- * when [autoMergeSameTitle] is on, their lowercase-trimmed title. Each bucket is split into
- * subgroups with no `mangaManualUnmerges` pair between members (greedy first-fit). Each multi-member
- * subgroup keeps a single primary (most chapters, then earliest added) stamped with the group ids,
- * summed unread / download counts, and the grouped sources for the badge.
- *
- * Pure: reads only its arguments and the [resolveSource] lambda.
+ * Pure: reads only its arguments and the [resolveSource] lambda; the caller supplies the [membership] map.
  */
 object MangaMergeCollapse {
 
     fun collapse(
         items: List<LibraryItem>,
-        manualMerges: Set<String>,
-        manualUnmerges: Set<String>,
-        autoMergeSameTitle: Boolean,
+        // Manga id -> group id for grouped items; absent for standalone.
+        membership: Map<Long, Long>,
+        mergingEnabled: Boolean,
         // When false, the group's sources are not resolved and the badge falls back to a count.
         showMergeSourceIcons: Boolean,
         resolveSource: (Long) -> Source,
     ): List<LibraryItem> {
-        if (items.size <= 1) return items
-        val mergeKey = MergeGroupAlgebra.parseMergeKeys(manualMerges)
-        val unmergedPairs = MergeGroupAlgebra.parseUnmergedPairs(manualUnmerges)
+        if (items.size <= 1 || !mergingEnabled) return items
 
         val buckets = LinkedHashMap<String, MutableList<LibraryItem>>()
         for (item in items) {
             val id = item.libraryManga.manga.id
-            val key = mergeKey[id]
-                ?: if (autoMergeSameTitle) item.libraryManga.manga.title.lowercase().trim() else "id:$id"
+            val key = membership[id]?.let { "g$it" } ?: "s$id"
             buckets.getOrPut(key) { mutableListOf() }.add(item)
         }
 
@@ -44,16 +36,8 @@ object MangaMergeCollapse {
         for ((_, bucket) in buckets) {
             if (bucket.size == 1) {
                 result.add(bucket.first())
-                continue
-            }
-            for (subGroup in MergeGroupAlgebra.splitByUnmergedPairs(bucket, unmergedPairs) {
-                it.libraryManga.manga.id
-            }) {
-                if (subGroup.size == 1) {
-                    result.add(subGroup.first())
-                } else {
-                    result.add(mergePrimary(subGroup, showMergeSourceIcons, resolveSource))
-                }
+            } else {
+                result.add(mergePrimary(bucket, showMergeSourceIcons, resolveSource))
             }
         }
         return result

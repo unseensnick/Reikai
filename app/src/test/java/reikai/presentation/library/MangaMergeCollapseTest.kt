@@ -44,10 +44,9 @@ class MangaMergeCollapseTest {
 
     private fun collapse(
         items: List<LibraryItem>,
-        merges: Set<String> = emptySet(),
-        unmerges: Set<String> = emptySet(),
-        auto: Boolean = true,
-    ) = MangaMergeCollapse.collapse(items, merges, unmerges, auto, showMergeSourceIcons = true, resolveSource)
+        membership: Map<Long, Long> = emptyMap(),
+        mergingEnabled: Boolean = true,
+    ) = MangaMergeCollapse.collapse(items, membership, mergingEnabled, showMergeSourceIcons = true, resolveSource)
 
     @Test
     fun `a single item is returned unchanged`() {
@@ -56,12 +55,13 @@ class MangaMergeCollapseTest {
     }
 
     @Test
-    fun `same-title items collapse to one entry with the larger source as primary`() {
+    fun `grouped items collapse to one entry with the most-chapters primary`() {
         val result = collapse(
             listOf(
-                item(1, title = "One Piece", source = 100L, totalChapters = 5, unread = 2),
-                item(2, title = "One Piece", source = 200L, totalChapters = 10, unread = 3),
+                item(1, source = 100L, totalChapters = 5, unread = 2),
+                item(2, source = 200L, totalChapters = 10, unread = 3),
             ),
+            membership = mapOf(1L to 7L, 2L to 7L),
         )
         result.size shouldBe 1
         val merged = result.single()
@@ -72,32 +72,15 @@ class MangaMergeCollapseTest {
     }
 
     @Test
-    fun `auto-merge off keeps same-title items separate`() {
-        val result = collapse(
-            listOf(item(1, title = "Same"), item(2, title = "Same")),
-            auto = false,
-        )
+    fun `ungrouped items stay separate`() {
+        val result = collapse(listOf(item(1), item(2)), membership = emptyMap())
         result.map { it.id } shouldContainExactlyInAnyOrder listOf(1L, 2L)
     }
 
     @Test
-    fun `a manual merge entry collapses items with different titles`() {
-        val result = collapse(
-            listOf(item(1, title = "Alpha"), item(2, title = "Beta")),
-            merges = setOf("1,2"),
-            auto = false,
-        )
-        result.size shouldBe 1
-        result.single().relatedMangaIds shouldContainExactlyInAnyOrder listOf(1L, 2L)
-    }
-
-    @Test
-    fun `an unmerge pair splits a same-title bucket`() {
-        val result = collapse(
-            listOf(item(1, title = "Dupe"), item(2, title = "Dupe")),
-            unmerges = setOf("1,2"),
-        )
-        result.map { it.id } shouldContainExactlyInAnyOrder listOf(1L, 2L)
+    fun `merging disabled returns items unchanged`() {
+        val items = listOf(item(1), item(2))
+        collapse(items, membership = mapOf(1L to 7L, 2L to 7L), mergingEnabled = false) shouldBe items
     }
 
     @Test
@@ -106,9 +89,10 @@ class MangaMergeCollapseTest {
         // must sort by the group max so reading any source bubbles it up.
         val result = collapse(
             listOf(
-                item(1, title = "Saga", totalChapters = 10, lastRead = 100),
-                item(2, title = "Saga", totalChapters = 5, lastRead = 500),
+                item(1, totalChapters = 10, lastRead = 100),
+                item(2, totalChapters = 5, lastRead = 500),
             ),
+            membership = mapOf(1L to 7L, 2L to 7L),
         )
         result.size shouldBe 1
         val merged = result.single()
@@ -120,9 +104,10 @@ class MangaMergeCollapseTest {
     fun `the most recently added wins the primary when chapter counts tie`() {
         val result = collapse(
             listOf(
-                item(1, title = "Tie", totalChapters = 5, dateAdded = 200),
-                item(2, title = "Tie", totalChapters = 5, dateAdded = 100),
+                item(1, totalChapters = 5, dateAdded = 200),
+                item(2, totalChapters = 5, dateAdded = 100),
             ),
+            membership = mapOf(1L to 7L, 2L to 7L),
         )
         result.single().id shouldBe 1L // same chapters; max date_added wins the tiebreak
     }

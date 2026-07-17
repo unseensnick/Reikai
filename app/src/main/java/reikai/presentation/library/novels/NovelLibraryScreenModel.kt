@@ -28,6 +28,7 @@ import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.novel.NovelCategoryRepository
 import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelChapterRepository
@@ -106,6 +107,7 @@ class NovelLibraryScreenModel :
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
     private val sourceManager: NovelSourceManager by injectLazy()
     private val mergeManager: NovelMergeManager by injectLazy()
+    private val mergeGroupRepository: MergeGroupRepository by injectLazy()
     private val propagateNovelTrackerLinks: PropagateNovelTrackerLinks by injectLazy()
     private val installer: LnPluginInstaller by injectLazy()
     private val trackerManager: TrackerManager by injectLazy()
@@ -226,13 +228,11 @@ class NovelLibraryScreenModel :
             )
         }
         val mergeFlow = combine(
-            reikaiLibraryPreferences.novelManualMerges.changes(),
-            reikaiLibraryPreferences.novelManualUnmerges.changes(),
-            reikaiLibraryPreferences.novelAutoMergeSameTitle.changes(),
-            reikaiLibraryPreferences.novelAutoMergeRequireAuthor.changes(),
+            mergeGroupRepository.getAllMembershipsAsFlow(ContentType.NOVELS),
+            reikaiLibraryPreferences.seriesMergingEnabled.changes(),
             reikaiLibraryPreferences.showNovelMergeSourceIcons.changes(),
-        ) { merges, unmerges, auto, requireAuthor, showIcons ->
-            MergeSettings(merges, unmerges, auto, requireAuthor, showIcons)
+        ) { membership, mergingEnabled, showIcons ->
+            MergeSettings(membership, mergingEnabled, showIcons)
         }
         return combine(
             badgePrefsFlow(),
@@ -292,10 +292,8 @@ class NovelLibraryScreenModel :
         // Collapse merged groups into one representative entry (the most-chapters novel).
         val allGroups = NovelMergeCollapse.collapse(
             filtered,
-            settings.merge.manualMerges,
-            settings.merge.manualUnmerges,
-            settings.merge.autoMergeSameTitle,
-            settings.merge.requireAuthor,
+            settings.merge.membership,
+            settings.merge.mergingEnabled,
         )
         // Union each merge group's member tracks (deduped per tracker), keyed by the rep's real novel id,
         // so the tracker filter/sort/group reflect a track bound on ANY grouped source. Synchronous:
@@ -902,10 +900,8 @@ class NovelLibraryScreenModel :
     )
 
     private data class MergeSettings(
-        val manualMerges: Set<String>,
-        val manualUnmerges: Set<String>,
-        val autoMergeSameTitle: Boolean,
-        val requireAuthor: Boolean,
+        val membership: Map<Long, Long>,
+        val mergingEnabled: Boolean,
         val showSourceIcons: Boolean,
     )
 
