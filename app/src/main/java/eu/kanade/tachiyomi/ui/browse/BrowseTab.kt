@@ -65,7 +65,7 @@ data object BrowseTab : Tab {
         val browseScreenModel = rememberScreenModel { ReikaiBrowseScreenModel() }
 
         val tabs = listOf(
-            // RK: chip-switched manga + light-novel sources / extensions (P5 S3a).
+            // RK: chip-switched manga + light-novel sources / extensions.
             reikaiSourcesTab(browseScreenModel),
             reikaiExtensionsTab(extensionsScreenModel, browseScreenModel),
             // RK: chip-switched manga + light-novel migrate-source list.

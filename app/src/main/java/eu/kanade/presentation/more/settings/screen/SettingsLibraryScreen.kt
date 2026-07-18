@@ -85,7 +85,7 @@ object SettingsLibraryScreen : SearchableSettings {
         )
     }
 
-    // RK --> background light-novel chapter updates (P5 S7)
+    // RK --> background light-novel chapter updates
     @Composable
     private fun getNovelUpdateGroup(
         novelPreferences: NovelPreferences,

@@ -98,12 +98,12 @@ class AppModule(val app: Application) : InjektModule {
                 chaptersAdapter = Chapters.Adapter(
                     memoAdapter = MemoColumnAdapter,
                 ),
-                // RK --> light-novel vertical (P5 S1)
+                // RK --> light-novel vertical
                 novelsAdapter = Novels.Adapter(
                     genreAdapter = StringListColumnAdapter,
                     update_strategyAdapter = UpdateStrategyColumnAdapter,
                 ),
-                // RK: manga custom-info overlay (P6)
+                // RK: manga custom-info overlay
                 custom_manga_infoAdapter = Custom_manga_info.Adapter(
                     genreAdapter = StringListColumnAdapter,
                 ),
@@ -142,7 +142,7 @@ class AppModule(val app: Application) : InjektModule {
 
         addSingletonFactory { NetworkHelper(app, get()) }
         addSingletonFactory { JavaScriptEngine(app) }
-        // RK --> light-novel plugin host (P5 S2): runs lnreader plugins on the shared OkHttp client
+        // RK --> light-novel plugin host: runs lnreader plugins on the shared OkHttp client
         addSingletonFactory { LnPluginHost(app, get<NetworkHelper>().client, get()) }
         addSingletonFactory { NovelSourceManager() }
         addSingletonFactory { LnPluginLoader(app, get<NetworkHelper>().client) }
@@ -162,7 +162,7 @@ class AppModule(val app: Application) : InjektModule {
 
         addSingletonFactory { TrackerManager() }
         addSingletonFactory { DelayedTrackingStore(app) }
-        // RK --> novel trackers (Active #8)
+        // RK --> novel trackers
         addSingletonFactory { NovelDelayedTrackingStore(app) }
         // RK <--
 

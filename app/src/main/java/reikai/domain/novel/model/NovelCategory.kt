@@ -7,7 +7,7 @@ import java.io.Serializable
  * Domain mirror of the `novel_categories` table. Parallels [tachiyomi.domain.category.model.Category]
  * with one extra column: [novelOrder] carries the per-category drag order (slash-separated novel
  * ids) or sort-mode char, the same dual encoding the manga side uses on `manga_order`. The
- * library-side resolvers for that encoding land with the Novels library (later stage); S1 stores
+ * library-side resolvers for that encoding land with the Novels library; the domain layer stores
  * it as an opaque [String].
  */
 data class NovelCategory(

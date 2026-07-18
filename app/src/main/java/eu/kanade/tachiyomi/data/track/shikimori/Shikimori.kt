@@ -89,7 +89,7 @@ class Shikimori(id: Long) : BaseTracker(id, "Shikimori"), DeletableTracker {
         return api.search(query)
     }
 
-    // RK --> novel-aware search (Active #8): same GraphQL search, novel kinds instead of manga
+    // RK --> novel-aware search: same GraphQL search, novel kinds instead of manga
     override val supportsNovels = true
 
     override suspend fun searchNovel(query: String): List<TrackSearch> {

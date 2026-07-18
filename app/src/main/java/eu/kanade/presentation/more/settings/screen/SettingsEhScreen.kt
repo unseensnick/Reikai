@@ -76,7 +76,7 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * E-Hentai settings screen. Covers the website account / display options, the server profile upload
- * (uconfig), and the favorited-gallery update checker (Phase 5a). The favorites two-way sync group
+ * (uconfig), and the favorited-gallery update checker. The favorites two-way sync group
  * depends on a later EXH phase and is intentionally omitted for now.
  */
 object SettingsEhScreen : SearchableSettings {

@@ -17,7 +17,7 @@ class ReikaiSourcePreferences(
 
     /**
      * Sticky content-type filter on the Browse tabs (Sources + Extensions). Its own key, distinct
-     * from the Library filter (S6), so each surface remembers its last type independently.
+     * from the Library filter, so each surface remembers its last type independently.
      */
     val browseContentType: Preference<ContentType> =
         preferenceStore.getEnum("browse_content_type", ContentType.ALL)

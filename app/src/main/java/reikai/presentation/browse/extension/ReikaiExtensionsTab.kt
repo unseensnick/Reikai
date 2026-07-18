@@ -31,7 +31,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.plus
 
 /**
- * Reikai wrapper for the Browse "Extensions" tab (P5 S3a). Adds the sticky content-type chip and a
+ * Reikai wrapper for the Browse "Extensions" tab. Adds the sticky content-type chip and a
  * light-novel plugin manager alongside Mihon's manga extensions: the Manga chip reuses Mihon's tab
  * content verbatim, Novels shows [LnPluginManager], All interleaves both under type headers. The tab
  * badge combines Mihon's manga update count with the LN plugin update count. Swapped in for Mihon's

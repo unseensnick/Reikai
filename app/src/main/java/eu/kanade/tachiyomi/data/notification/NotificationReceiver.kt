@@ -249,10 +249,10 @@ class NotificationReceiver : BroadcastReceiver() {
 
         private const val ACTION_CANCEL_LIBRARY_UPDATE = "$ID.$NAME.CANCEL_LIBRARY_UPDATE"
 
-        // RK: cancel the novel chapter downloader (P5 S5)
+        // RK: cancel the novel chapter downloader
         private const val ACTION_CANCEL_NOVEL_DOWNLOAD = "$ID.$NAME.CANCEL_NOVEL_DOWNLOAD"
 
-        // RK: cancel the background novel library update (P5 S7)
+        // RK: cancel the background novel library update
         private const val ACTION_CANCEL_NOVEL_LIBRARY_UPDATE = "$ID.$NAME.CANCEL_NOVEL_LIBRARY_UPDATE"
 
         private const val ACTION_START_APP_UPDATE = "$ID.$NAME.ACTION_START_APP_UPDATE"
@@ -539,7 +539,7 @@ class NotificationReceiver : BroadcastReceiver() {
             )
         }
 
-        // RK --> cancel the novel chapter downloader (P5 S5)
+        // RK --> cancel the novel chapter downloader
         internal fun cancelNovelDownloadPendingBroadcast(context: Context): PendingIntent {
             val intent = Intent(context, NotificationReceiver::class.java).apply {
                 action = ACTION_CANCEL_NOVEL_DOWNLOAD
@@ -553,7 +553,7 @@ class NotificationReceiver : BroadcastReceiver() {
         }
         // RK <--
 
-        // RK --> cancel the background novel library update (P5 S7)
+        // RK --> cancel the background novel library update
         internal fun cancelNovelLibraryUpdatePendingBroadcast(context: Context): PendingIntent {
             val intent = Intent(context, NotificationReceiver::class.java).apply {
                 action = ACTION_CANCEL_NOVEL_LIBRARY_UPDATE

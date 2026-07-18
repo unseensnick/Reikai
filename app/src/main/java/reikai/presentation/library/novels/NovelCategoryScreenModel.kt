@@ -31,7 +31,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 /**
- * The Novels side of the category manager (P5 S6 slice 4). Mirrors [eu.kanade.tachiyomi.ui.category.CategoryScreenModel]
+ * The Novels side of the category manager. Mirrors [eu.kanade.tachiyomi.ui.category.CategoryScreenModel]
  * but over the novel category interactors, and reuses Mihon's [CategoryScreenState] / [CategoryDialog]
  * so the same presentation screen + create/rename/delete dialogs render for both content types behind
  * the Manga/Novels chip. The synthesized Default category (id 0) is filtered out, like the manga side.

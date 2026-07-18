@@ -1338,8 +1338,8 @@ class EHentai(
         // Gallery is considered "aged" (and skipped by auto-update) once older than this.
         private val GALLERY_AGE_TIME = 365.days.inWholeMilliseconds
 
-        // E-Hentai login cookie names. Inlined here for Phase 2b (anonymous browse leaves them
-        // unused); the WebView login that writes them lands in Phase 2c.
+        // E-Hentai login cookie names. Anonymous browse leaves them unused; the WebView login
+        // writes them.
         private const val MEMBER_ID_COOKIE = "ipb_member_id"
         private const val PASS_HASH_COOKIE = "ipb_pass_hash"
         private const val IGNEOUS_COOKIE = "igneous"

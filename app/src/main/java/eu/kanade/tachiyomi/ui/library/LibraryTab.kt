@@ -132,7 +132,7 @@ data object LibraryTab : Tab {
         val settingsScreenModel = rememberScreenModel { LibrarySettingsScreenModel() }
         val state by screenModel.state.collectAsState()
 
-        // RK --> novels in the library behind the Manga/Novels chip (P5 S6). The "active" locals fall
+        // RK --> novels in the library behind the Manga/Novels chip. The "active" locals fall
         // through to the manga `state` when the chip is on Manga, so the manga path is unchanged; on
         // Novels they read the novel screen model, feeding the same views a disguised item list.
         val novelModel = rememberScreenModel { NovelLibraryScreenModel() }
@@ -366,7 +366,7 @@ data object LibraryTab : Tab {
                             novelModel.clearSelection()
                             navigator.push(NovelMigrationSourcePickScreen(ids))
                         },
-                        // RK: manual merge of the selected novels (needs at least two) + unmerge (P5 S8)
+                        // RK: manual merge of the selected novels (needs at least two) + unmerge
                         onMergeClicked = novelModel::mergeSelection.takeIf { novelState.selection.size >= 2 },
                         onUnmergeClicked = novelModel::unmergeSelection.takeIf { novelState.selectionContainsMerged },
                     )
@@ -488,7 +488,7 @@ data object LibraryTab : Tab {
                                 },
                                 // RK: pull-to-refresh on the single-list updates the whole library (= overflow Update library).
                                 onRefresh = { onClickRefresh(null) },
-                                // RK 4.6: per-category header sort (Sort tab scoped to it), refresh, select-all
+                                // RK: per-category header sort (Sort tab scoped to it), refresh, select-all
                                 onClickCategorySort = { category ->
                                     if (isNovels) {
                                         novelModel.openSettingsDialog(category.id, 1)

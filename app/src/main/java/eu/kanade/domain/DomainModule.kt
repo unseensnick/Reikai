@@ -211,10 +211,10 @@ class DomainModule : InjektModule {
         // RK --> shared long-press add-to-library (Browse + global search)
         addFactory { MangaLibraryAdder() }
         // RK <--
-        // RK --> merge-group persistence (rebuild Phase 0; storage only, no consumers yet)
+        // RK --> merge-group persistence (storage only, no consumers yet)
         addSingletonFactory<MergeGroupRepository> { MergeGroupRepositoryImpl(get()) }
         // RK <--
-        // RK --> light-novel vertical (P5 S1: domain/DB foundation)
+        // RK --> light-novel vertical (domain/DB foundation)
         addSingletonFactory<NovelRepository> { NovelRepositoryImpl(get()) }
         addSingletonFactory<NovelChapterRepository> { NovelChapterRepositoryImpl(get()) }
         addSingletonFactory<NovelCategoryRepository> { NovelCategoryRepositoryImpl(get()) }
@@ -236,14 +236,14 @@ class DomainModule : InjektModule {
         addFactory { GetCustomNovelInfo(get()) }
         addFactory { SetCustomNovelInfo(get()) }
         // RK <--
-        // RK --> novel reading history (P5 / Active #5)
+        // RK --> novel reading history
         addSingletonFactory<NovelHistoryRepository> { NovelHistoryRepositoryImpl(get()) }
         addFactory { GetNovelHistory(get()) }
         addFactory { UpsertNovelHistory(get()) }
         addFactory { RemoveNovelHistory(get()) }
         addFactory { GetNextNovelChapter(get()) }
         // RK <--
-        // RK --> novel trackers (Active #8)
+        // RK --> novel trackers
         addSingletonFactory<NovelTrackRepository> { NovelTrackRepositoryImpl(get()) }
         addFactory { GetNovelTracks(get(), get()) }
         addFactory { InsertNovelTrack(get()) }
@@ -254,7 +254,7 @@ class DomainModule : InjektModule {
         addFactory { TrackNovelChapter(get(), get(), get(), get()) }
         addFactory { PropagateNovelTrackerLinks(get(), get(), get(), get(), get()) }
         // RK <--
-        // RK --> pref-based merge (P3 manga, P5 S8 novel)
+        // RK --> merge (manga + novel)
         addSingletonFactory { MangaMergeManager(get(), get()) }
         addSingletonFactory { MergedChapterProvider(get(), get(), get(), get()) }
         addSingletonFactory { PropagateTrackerLinks(get(), get(), get(), get(), get()) }

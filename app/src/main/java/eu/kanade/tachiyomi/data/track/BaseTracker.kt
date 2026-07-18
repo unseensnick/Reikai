@@ -41,7 +41,7 @@ abstract class BaseTracker(
 
     override val supportsPrivateTracking: Boolean = false
 
-    // RK --> novel search capability; overridden true by the novel-capable trackers (Active #8)
+    // RK --> novel search capability; overridden true by the novel-capable trackers
     override val supportsNovels: Boolean = false
     // RK <--
 

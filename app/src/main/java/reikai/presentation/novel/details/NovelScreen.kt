@@ -513,7 +513,7 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: No
             onRemoveFromLibrary = screenModel::removeSourcesFromLibrary,
             onRemoveAll = screenModel::removeAllSourcesFromLibrary,
         )
-        // tracking sheet (Active #8). Remember by novel id so the merge collectors' frequent
+        // tracking sheet. Remember by novel id so the merge collectors' frequent
         // recompositions don't rebuild it and reset its navigator mid-write (the manga side hit an
         // InsertTrack JobCancellationException here).
         NovelDetailsDialog.TrackSheet -> {

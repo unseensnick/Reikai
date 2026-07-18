@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.update
  * stub-source machinery: lnreader plugins are JS files loaded directly, not APKs class-loaded, so
  * there is no "source installed but binary not loaded yet" state to model.
  *
- * In-memory only: the installer (S2c) registers sources here on app start.
+ * In-memory only: the installer registers sources here on app start.
  */
 class NovelSourceManager {
 

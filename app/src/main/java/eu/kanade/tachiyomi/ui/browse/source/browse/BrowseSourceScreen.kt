@@ -107,7 +107,7 @@ data class BrowseSourceScreen(
             return
         }
 
-        // RK: navigate to the random MangaDex title once its id has been fetched (async). (Phase 6)
+        // RK: navigate to the random MangaDex title once its id has been fetched (async).
         LaunchedEffect(state.randomMangaTarget) {
             val target = state.randomMangaTarget ?: return@LaunchedEffect
             screenModel.consumeRandomTarget()
@@ -119,7 +119,7 @@ data class BrowseSourceScreen(
         val uriHandler = LocalUriHandler.current
         val snackbarHostState = remember { SnackbarHostState() }
 
-        // RK: shared bulk-selection (Phase 4)
+        // RK: shared bulk-selection
         val bulkFavoriteScreenModel = rememberScreenModel { BulkFavoriteScreenModel() }
         val bulkFavoriteState by bulkFavoriteScreenModel.state.collectAsState()
         val mangaList = screenModel.mangaPagerFlowFlow.collectAsLazyPagingItems()
@@ -181,7 +181,7 @@ data class BrowseSourceScreen(
                             onHelpClick = onHelpClick,
                             onSettingsClick = { navigator.push(SourcePreferencesScreen(sourceId)) },
                             onSearch = screenModel::search,
-                            // RK: bulk-select entry (Phase 4)
+                            // RK: bulk-select entry
                             onToggleSelectionMode = bulkFavoriteScreenModel::toggleSelectionMode,
                         )
                     }
@@ -299,7 +299,7 @@ data class BrowseSourceScreen(
                         }
                     }
                 },
-                // RK: highlight selected entries (Phase 4)
+                // RK: highlight selected entries
                 selection = bulkFavoriteState.selection,
             )
         }
@@ -313,13 +313,13 @@ data class BrowseSourceScreen(
                     onReset = screenModel::resetFilters,
                     onFilter = { screenModel.search(filters = state.filters) },
                     onUpdate = screenModel::setFilters,
-                    // RK: Follows entry, only for a MangaDex source (Phase 4)
+                    // RK: Follows entry, only for a MangaDex source
                     onMangaDexFollowsClicked = if (screenModel.source.getMainSource<MangaDex>() != null) {
                         { navigator.push(MangaDexFollowsScreen(sourceId)) }
                     } else {
                         null
                     },
-                    // RK: Random entry, only for a MangaDex source (Phase 6). The fetch is async, so
+                    // RK: Random entry, only for a MangaDex source. The fetch is async, so
                     // the click only kicks it off; navigation happens in the LaunchedEffect below.
                     onMangaDexRandomClicked = if (screenModel.source.getMainSource<MangaDex>() != null) {
                         {
@@ -379,7 +379,7 @@ data class BrowseSourceScreen(
             else -> {}
         }
 
-        // RK: bulk-selection dialogs (Phase 4)
+        // RK: bulk-selection dialogs
         BulkFavoriteDialogs(
             bulkFavoriteScreenModel = bulkFavoriteScreenModel,
             dialog = bulkFavoriteState.dialog,

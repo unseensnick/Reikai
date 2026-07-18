@@ -98,8 +98,8 @@ class MangaDex(delegate: HttpSource, val context: Context) :
             input.second,
             input.third,
             // Per-language prefs (cover quality, title-language preference, data-saver, blocked
-            // groups, ...) get their SharedPreferences plumbing and settings UI in Phase 5. Phase 1
-            // uses the defaults: full-quality cover, prefer the extension-language title.
+            // groups, ...) have their SharedPreferences plumbing and settings UI elsewhere; this
+            // call uses the defaults: full-quality cover, prefer the extension-language title.
             coverQuality = "",
             preferExtensionLangTitle = true,
         )

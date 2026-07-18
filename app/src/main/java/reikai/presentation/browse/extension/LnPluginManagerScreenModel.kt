@@ -24,7 +24,7 @@ import uy.kohesive.injekt.api.get
 /**
  * Drives the light-novel plugin manager on the Browse → Extensions tab (Novels chip). Mirrors
  * Mihon's [eu.kanade.tachiyomi.ui.browse.extension.ExtensionsScreenModel] sections (Updates /
- * Installed / Available) over the S2 plugin host: [NovelSourceManager] for what's installed,
+ * Installed / Available) over the plugin host: [NovelSourceManager] for what's installed,
  * [LnPluginInstaller.fetchRepo] across the added repos for what's available, and a version diff for
  * what has updates. Single source of network truth so one fetch feeds both Available and Updates.
  */

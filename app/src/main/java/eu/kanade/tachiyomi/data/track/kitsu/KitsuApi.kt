@@ -167,7 +167,7 @@ class KitsuApi(private val client: OkHttpClient, interceptor: KitsuInterceptor) 
                     .awaitSuccess()
                     .parseAs<KitsuAlgoliaSearchResult>()
                     .hits
-                    // RK --> Kitsu "manga" kind covers light novels via subtype "novel" (Active #8)
+                    // RK --> Kitsu "manga" kind covers light novels via subtype "novel"
                     .filter { (it.subtype == "novel") == novel }
                     // RK <--
                     .map { it.toTrack() }

@@ -295,7 +295,7 @@ open class BrowseSourceScreenModel(
     // RK -->
     // Fetch a random MangaDex title id, then expose it as a one-shot nav target. The fetch is async,
     // so the screen navigates from a LaunchedEffect on the state rather than a direct push in the
-    // click (pushing from an async callback can fail to render). (Phase 6)
+    // click (pushing from an async callback can fail to render).
     fun onMangaDexRandom() {
         screenModelScope.launchIO {
             // A random-endpoint error (rate limit, transient 5xx, dropped connection) must not crash
@@ -357,7 +357,7 @@ open class BrowseSourceScreenModel(
         val filters: FilterList = FilterList(),
         val toolbarQuery: String? = null,
         val dialog: Dialog? = null,
-        // RK: one-shot nav target for the MangaDex "Random" button (an "id:<uuid>" search). (Phase 6)
+        // RK: one-shot nav target for the MangaDex "Random" button (an "id:<uuid>" search).
         val randomMangaTarget: String? = null,
     ) {
         val isUserQuery get() = listing is Listing.Search && !listing.query.isNullOrEmpty()

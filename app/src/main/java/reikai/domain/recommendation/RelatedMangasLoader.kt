@@ -25,7 +25,7 @@ import kotlin.time.Duration.Companion.seconds
  * Orchestrates the related-mangas carousel: fetches candidates from every stream, dedups them into
  * one pool, and ranks it, pushing intermediate snapshots so the UI renders progressively.
  *
- * Two streams run concurrently into a single shared [Accumulator]: the source-native path (the P1
+ * Two streams run concurrently into a single shared [Accumulator]: the source-native path (the
  * `getRelatedMangaList` contract) and the tracker recommendation path ([RecommendationsFetcher],
  * one stream per enabled tracker). Sharing one accumulator means a title surfaced by both a source
  * and a tracker dedups to a single candidate and its cross-stream agreement counts across both.

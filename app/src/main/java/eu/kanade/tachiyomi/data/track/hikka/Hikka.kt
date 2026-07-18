@@ -121,7 +121,7 @@ class Hikka(id: Long) : BaseTracker(id, "Hikka"), DeletableTracker {
 
     override suspend fun search(query: String): List<TrackSearch> = api.searchManga(query)
 
-    // RK --> novel-aware search (Active #8): searches Hikka's separate /novel content tree; the bind,
+    // RK --> novel-aware search: searches Hikka's separate /novel content tree; the bind,
     // update and read paths follow the /novel content type carried by each result's tracking URL.
     override val supportsNovels = true
 

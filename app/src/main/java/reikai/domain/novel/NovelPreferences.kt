@@ -12,7 +12,7 @@ import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
  * Net-new preferences for the light-novel vertical. Only the subset the plugin host / source /
- * install / update layers need lands here (S2); later stages (reader, library, merge) grow this
+ * install / update layers need lands here; later stages (reader, library, merge) grow this
  * holder. Key strings are preserved from the Yōkai-era fork so an in-place upgrade keeps state.
  */
 class NovelPreferences(
@@ -82,7 +82,7 @@ class NovelPreferences(
     fun novelLibraryUpdateLastTimestamp() =
         preferenceStore.getLong(Preference.appStateKey("novel_library_update_last_timestamp"), 0L)
 
-    // Global chapter sort / filter / display defaults (S3c). A novel falls back to these unless its
+    // Global chapter sort / filter / display defaults. A novel falls back to these unless its
     // own `chapterFlags` local bit is set (see [reikai.domain.novel.model.NovelChapterFlags]). Stored
     // as the same bitmask values the per-novel flags use, so "Set as default" is a straight copy.
 
@@ -111,7 +111,7 @@ class NovelPreferences(
      */
     fun hiddenChapters() = preferenceStore.getStringSet("novel_hidden_chapters", emptySet())
 
-    // Reader display + theme (S4). Fed into the WebView reader's `--readerSettings-*` CSS vars and
+    // Reader display + theme. Fed into the WebView reader's `--readerSettings-*` CSS vars and
     // pushed live on change. Key strings preserved from the Yōkai-era fork for upgrade continuity.
 
     fun readerFontSize() = preferenceStore.getInt("ln_reader_font_size_sp", 16)
@@ -245,7 +245,7 @@ class NovelPreferences(
      *  manga's [LibraryPreferences.hideMissingChapters]. The header warning stays regardless. */
     fun hideMissingChapters() = preferenceStore.getBoolean("novel_hide_missing_chapters", false)
 
-    // Downloads (S5). Key strings preserved from the Yōkai-era fork for upgrade continuity.
+    // Downloads. Key strings preserved from the Yōkai-era fork for upgrade continuity.
 
     /** Delete a downloaded chapter's offline copy once it's marked read. */
     fun removeAfterMarkedAsRead() = preferenceStore.getBoolean("novel_remove_after_marked_as_read", false)
@@ -267,8 +267,9 @@ class NovelPreferences(
      *  manga's `autoDownloadWhileReading`. */
     fun autoDownloadWhileReading() = preferenceStore.getInt("novel_auto_download_while_reading", 0)
 
-    /** Auto-download newly fetched chapters when an update is detected. The pref + manager plumbing
-     *  land in S5; the update-detection trigger that consumes it is wired in S7. */
+    /** Auto-download newly fetched chapters when an update is detected. The pref + download-manager
+     *  plumbing exist; the update-detection trigger that consumes it is wired into the background
+     *  update job. */
     fun downloadNewChapters() = preferenceStore.getBoolean("novel_download_new_chapters", false)
 
     /** When auto-downloading, skip a new chapter whose number matches one already read (avoids
@@ -282,7 +283,7 @@ class NovelPreferences(
     fun downloadNewChapterCategoriesExclude() =
         preferenceStore.getStringSet("novel_download_new_categories_exclude", emptySet())
 
-    // Background chapter updates (S7).
+    // Background chapter updates.
 
     /** How often the background novel-update job runs, in hours. 0 = off (the default, matching the
      *  manga library's off-by-default); 12/24/48/72/168 mirror the manga interval options. */

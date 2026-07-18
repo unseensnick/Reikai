@@ -20,7 +20,7 @@ import uy.kohesive.injekt.api.get
  * Lists the installed light-novel sources for the Browse → Sources tab (Novels chip). Loads the
  * persisted plugins once via [LnPluginInstaller.ensureLoaded], then follows [NovelSourceManager],
  * grouping by language like Mihon's manga sources list. Tapping a source is stubbed until per-source
- * novel browse lands (S3b).
+ * novel browse lands.
  */
 class NovelSourcesScreenModel(
     manager: NovelSourceManager = Injekt.get(),

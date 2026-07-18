@@ -44,7 +44,7 @@ class ReikaiLibraryPreferences(
 
     // region Content type
 
-    /** Sticky Manga/Novels switch on the Library tab (P5 S6). Its own key, distinct from the Browse
+    /** Sticky Manga/Novels switch on the Library tab. Its own key, distinct from the Browse
      *  and download-queue content-type filters, so each surface remembers its last type. No ALL on
      *  the library: manga and novels never share one list. */
     val libraryContentType: Preference<ContentType> =
@@ -117,7 +117,7 @@ class ReikaiLibraryPreferences(
 
     // endregion
 
-    // region Novel library sort/filter (P5 S6 slice 4; novel-specific keys, never collide with manga)
+    // region Novel library sort/filter (novel-specific keys, never collide with manga)
 
     /** Sort for the synthesized Default novel category (no DB row) + the seed for new categories.
      *  Stored as a [NovelLibrarySort] flag; per-category sorts live in `NovelCategory.flags`. */
@@ -199,7 +199,7 @@ class ReikaiLibraryPreferences(
     /** Mirror a tracker added to one source onto every favorited member of its merged group. */
     val syncTrackerLinksGrouped: Preference<Boolean> = preferenceStore.getBoolean("sync_tracker_links_grouped", true)
 
-    // Novel merge (P5 S8). Keys preserved from the Yokai era for upgrade continuity.
+    // Novel merge. Keys preserved from the Yokai era for upgrade continuity.
 
     /** Manual novel merge groups: each entry is a comma-joined, sorted novel-id group (e.g. "1,5,9"). */
     val novelManualMerges: Preference<Set<String>> = preferenceStore.getStringSet(NOVEL_MANUAL_MERGES_KEY, emptySet())

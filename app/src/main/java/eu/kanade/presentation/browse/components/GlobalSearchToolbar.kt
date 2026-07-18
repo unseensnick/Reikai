@@ -51,7 +51,7 @@ fun GlobalSearchToolbar(
     onlyShowHasResults: Boolean,
     onToggleResults: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
-    // RK: bulk-selection (Phase 4). onToggleSelectionMode present -> show the Select action.
+    // RK: bulk-selection. onToggleSelectionMode present -> show the Select action.
     onToggleSelectionMode: (() -> Unit)? = null,
     selectionMode: Boolean = false,
     selectedCount: Int = 0,
@@ -76,7 +76,7 @@ fun GlobalSearchToolbar(
                     onClickCloseSearch = navigateUp,
                     navigateUp = navigateUp,
                     scrollBehavior = scrollBehavior,
-                    // RK: bulk-select entry (Phase 4)
+                    // RK: bulk-select entry
                     actions = {
                         if (onToggleSelectionMode != null) {
                             AppBarActions(

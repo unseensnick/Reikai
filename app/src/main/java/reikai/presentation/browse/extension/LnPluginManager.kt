@@ -36,7 +36,7 @@ import tachiyomi.presentation.core.util.plus
 /**
  * Light-novel plugin manager (Browse → Extensions, Novels chip). Mirrors Mihon's
  * [eu.kanade.presentation.browse.ExtensionScreen] section layout (Updates / Installed / Available)
- * over the S2 plugin host, reusing Mihon's `ext_*` strings where they fit. The sections are exposed
+ * over the plugin host, reusing Mihon's `ext_*` strings where they fit. The sections are exposed
  * as a [LazyListScope] extension so the unified "All" Browse view can compose them inline.
  */
 @Composable

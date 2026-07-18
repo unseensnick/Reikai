@@ -162,7 +162,7 @@ class MangaUpdatesApi(
             put("search", query)
             // RK --> manga search filters out novels + drama CDs. Novel search sends no filter_types
             // (returns every type regardless of include/exclude semantics) and is post-filtered by
-            // record type in the caller, so it is robust without confirming the API's filter meaning (Active #8).
+            // record type in the caller, so it is robust without confirming the API's filter meaning.
             if (!novel) {
                 put(
                     "filter_types",

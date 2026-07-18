@@ -54,7 +54,7 @@ import tachiyomi.presentation.core.util.plus
 import tachiyomi.source.local.isLocal
 
 /**
- * Reikai wrapper for the Browse "Sources" tab (P5 S3a): the sticky content-type chip over Mihon's
+ * Reikai wrapper for the Browse "Sources" tab: the sticky content-type chip over Mihon's
  * manga sources list and a net-new installed-novel-sources list. Manga reuses [SourcesScreen]
  * verbatim, Novels shows the LN list, All interleaves both under type headers. No badge, no install
  * affordance (those live on the Extensions tab). Swapped in for Mihon's `sourcesTab()` at the

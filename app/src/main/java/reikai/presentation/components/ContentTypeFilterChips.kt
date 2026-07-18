@@ -17,8 +17,8 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * Sticky `All / Manga / Novels` switch shared by the Browse Sources/Extensions tabs (P5 S3a) and the
- * Library (S6). The single label mapping lives here so callers only pass the selected type. Net-new
+ * Sticky `All / Manga / Novels` switch shared by the Browse Sources/Extensions tabs and the
+ * Library. The single label mapping lives here so callers only pass the selected type. Net-new
  * Reikai UI; mirrors the [reikai.presentation.manga.MergeSourceChips] chip-row pattern.
  */
 @Composable

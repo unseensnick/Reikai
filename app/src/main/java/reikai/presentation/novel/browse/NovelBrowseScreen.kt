@@ -104,7 +104,7 @@ class NovelBrowseScreen(
         val screenModel = rememberScreenModel { NovelBrowseScreenModel(sourceId, initialQuery) }
         val state by screenModel.state.collectAsState()
         val snackbarHostState = remember { SnackbarHostState() }
-        // RK: shared bulk-selection add-to-library (Phase 5)
+        // RK: shared bulk-selection add-to-library
         val bulkModel = rememberScreenModel { NovelBulkFavoriteScreenModel() }
         val bulkState by bulkModel.state.collectAsState()
 
@@ -189,7 +189,7 @@ class NovelBrowseScreen(
                                                 onClick = { selectingDisplayMode = true },
                                             ),
                                         )
-                                        // RK: bulk-select entry (Phase 5)
+                                        // RK: bulk-select entry
                                         add(
                                             AppBar.Action(
                                                 title = stringResource(MR.strings.action_bulk_select),
@@ -340,7 +340,7 @@ class NovelBrowseScreen(
             null -> {}
         }
 
-        // RK: bulk add-to-library category picker (Phase 5), one choice applied to the whole selection.
+        // RK: bulk add-to-library category picker, one choice applied to the whole selection.
         when (val bulkDialog = bulkState.dialog) {
             is NovelBulkFavoriteScreenModel.Dialog.ChangeCategory -> NovelCategoryDialog(
                 dialog = NovelDetailsDialog.ChangeCategory(bulkDialog.categories, emptySet()),

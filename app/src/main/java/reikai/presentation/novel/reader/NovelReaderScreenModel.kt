@@ -105,7 +105,7 @@ class NovelReaderScreenModel(
     // (matches the details/library aggregation).
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
 
-    // novel trackers (Active #8): push read progress on chapter completion
+    // novel trackers: push read progress on chapter completion
     private val trackNovelChapter: TrackNovelChapter by injectLazy()
     private val trackPreferences: TrackPreferences by injectLazy()
 
@@ -625,7 +625,7 @@ class NovelReaderScreenModel(
                     listOfNotNull(chapter)
                 }
                 setNovelReadStatus.await(true, toMark)
-                // push read progress to bound trackers, mirroring ReaderViewModel.updateTrackChapterRead (Active #8)
+                // push read progress to bound trackers, mirroring ReaderViewModel.updateTrackChapterRead
                 if (trackPreferences.autoUpdateTrack.get()) {
                     chapter?.let {
                         trackNovelChapter.await(Injekt.get<Application>(), currentNovelId, it.chapterNumber)

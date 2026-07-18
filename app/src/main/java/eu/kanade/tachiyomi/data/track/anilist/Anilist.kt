@@ -208,7 +208,7 @@ class Anilist(id: Long) : BaseTracker(id, "AniList"), DeletableTracker {
         return api.search(query)
     }
 
-    // RK --> novel-aware search (Active #8)
+    // RK --> novel-aware search
     override val supportsNovels = true
 
     override suspend fun searchNovel(query: String): List<TrackSearch> {

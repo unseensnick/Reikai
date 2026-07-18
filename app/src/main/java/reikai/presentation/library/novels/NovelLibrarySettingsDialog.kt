@@ -42,7 +42,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 
 /**
- * Novel library settings sheet (P5 S6 slice 4). Mirrors Mihon's `LibrarySettingsDialog` with Filter /
+ * Novel library settings sheet. Mirrors Mihon's `LibrarySettingsDialog` with Filter /
  * Sort / Display / Group tabs. Filter + Sort + Group bind to [NovelLibraryScreenModel]; the Display tab
  * edits the shared library display prefs through a [LibrarySettingsScreenModel], so it stays in sync
  * with the manga library's Display tab.

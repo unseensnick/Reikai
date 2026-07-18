@@ -7,7 +7,7 @@ import tachiyomi.domain.manga.model.Manga
 
 /**
  * Disguises a [LibraryNovel] as the library's manga-shaped [LibraryItem] so the existing library
- * views, grids, hopper, badges, and selection render novels with no changes (P5 S6). The synthetic
+ * views, grids, hopper, badges, and selection render novels with no changes. The synthetic
  * [Manga] carries a **negative id** (`-novel.id`): manga ids are positive, so novel and manga
  * selection never collide and tap routing is a one-line `if (id < 0)`. `source` is left at the
  * factory default since novels use a String source id (the language badge is fed [sourceLanguage]

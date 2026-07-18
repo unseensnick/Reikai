@@ -190,7 +190,7 @@ object DownloadQueueScreen : Screen() {
                 )
             },
         ) { contentPadding ->
-            // RK --> chip + one shared card list for manga, novels, or both (the All view) (P5 S5)
+            // RK --> chip + one shared card list for manga, novels, or both (the All view)
             val layoutDirection = LocalLayoutDirection.current
 
             Column(modifier = Modifier.padding(top = contentPadding.calculateTopPadding())) {

@@ -34,7 +34,7 @@ import java.util.TimeZone
 
 // Source-discovery (getEnabledMangaDex) and OAuth (saveOAuth/refreshTokenRequest) land here for the
 // login + MDList tracker. The i18n description helpers (addAltTitleToDesc/addFinalChapterToDesc)
-// arrive with the Phase 5 settings UI and its strings.
+// live here for the settings UI and its strings.
 class MdUtil {
 
     companion object {
@@ -204,8 +204,8 @@ class MdUtil {
             return codeVerifier ?: PkceUtil.generateCodeVerifier().also { codeVerifier = it }
         }
 
-        // Picks the MangaDex enhanced source that drives login and the MDList tracker. Phase 3 uses
-        // the first enabled one; a preferred-language picker arrives with the Phase 5 settings hub.
+        // Picks the MangaDex enhanced source that drives login and the MDList tracker. Uses the
+        // first enabled one; a preferred-language picker lives in the settings hub.
         fun getEnabledMangaDex(
             sourcePreferences: SourcePreferences = Injekt.get(),
             sourceManager: SourceManager = Injekt.get(),

@@ -51,7 +51,7 @@ interface Tracker {
 
     suspend fun search(query: String): List<TrackSearch>
 
-    // RK --> novel-aware search (Active #8). searchNovel defaults to the manga search so trackers
+    // RK --> novel-aware search. searchNovel defaults to the manga search so trackers
     // outside the novel-capable set degrade gracefully; the seven novel-capable trackers override it.
     // supportsNovels gates the novel tracking sheet: only trackers that declare it (the same seven)
     // are offered, so a tracker that can only return manga hits can't be bound to a novel.

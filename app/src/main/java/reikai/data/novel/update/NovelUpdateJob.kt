@@ -54,7 +54,7 @@ import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
 
 /**
- * RK: periodic background check for new chapters in favorited light novels (P5 S7). The novel analog
+ * RK: periodic background check for new chapters in favorited light novels. The novel analog
  * of Mihon's [eu.kanade.tachiyomi.data.library.LibraryUpdateJob]: a configurable WorkManager schedule
  * (interval + device restrictions live in [NovelPreferences]) that re-parses each favorite, syncs its
  * chapter list, optionally auto-downloads the new chapters, and posts progress + result notifications.

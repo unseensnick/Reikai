@@ -164,7 +164,7 @@ class AnilistApi(val client: OkHttpClient, interceptor: AnilistInterceptor) {
 
     suspend fun search(search: String, novel: Boolean = false): List<TrackSearch> {
         return withIOContext {
-            // RK --> light novels are type: MANGA with format: NOVEL, which manga search excludes (Active #8)
+            // RK --> light novels are type: MANGA with format: NOVEL, which manga search excludes
             val formatFilter = if (novel) "format: NOVEL" else "format_not_in: [NOVEL]"
             // RK <--
             val query = $$"""

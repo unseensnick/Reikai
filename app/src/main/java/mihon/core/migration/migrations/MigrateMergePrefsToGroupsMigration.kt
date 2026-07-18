@@ -13,17 +13,17 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.interactor.GetFavorites
 
 /**
- * One-time migration of the pref-based merge grouping into the persisted merge_group tables (Phase 1 of
+ * One-time migration of the pref-based merge grouping into the persisted merge_group tables (part of
  * the merge-system rebuild). Freezes today's groups (manual merges plus same-title auto-groups, honoring
  * deliberate unmerges) as real rows so grouping survives the move off the derive-on-read pref system,
  * with nothing un-grouping.
  *
- * The old prefs are intentionally left intact: they remain the live source of truth until the Phase 2
+ * The old prefs are intentionally left intact: they remain the live source of truth until the
  * resolution cutover, and old backups still carry them. Best-effort per content type, so a failure on
  * one side does not block startup or the other side.
  */
 class MigrateMergePrefsToGroupsMigration : Migration {
-    // RK: fires once when the shipped versionCode crosses 184 (the version this rebuild's Phase 1 ships in).
+    // RK: fires once when the shipped versionCode crosses 184 (the version this rebuild ships in).
     override val version: Float = 184f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {

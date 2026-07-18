@@ -94,7 +94,7 @@ class NovelGlobalSearchScreen(
         val screenModel = rememberScreenModel { NovelGlobalSearchScreenModel(initialQuery) }
         val state by screenModel.state.collectAsState()
         var searchQuery by rememberSaveable { mutableStateOf(initialQuery) }
-        // RK: shared bulk-selection add-to-library (Phase 5)
+        // RK: shared bulk-selection add-to-library
         val bulkModel = rememberScreenModel { NovelBulkFavoriteScreenModel() }
         val bulkState by bulkModel.state.collectAsState()
 
@@ -184,7 +184,7 @@ class NovelGlobalSearchScreen(
             null -> {}
         }
 
-        // RK: bulk add-to-library category picker (Phase 5), one choice applied to the whole selection.
+        // RK: bulk add-to-library category picker, one choice applied to the whole selection.
         when (val bulkDialog = bulkState.dialog) {
             is NovelBulkFavoriteScreenModel.Dialog.ChangeCategory -> NovelCategoryDialog(
                 dialog = NovelDetailsDialog.ChangeCategory(bulkDialog.categories, emptySet()),

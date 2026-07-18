@@ -5,7 +5,7 @@ import uy.kohesive.injekt.injectLazy
 import java.util.Locale
 
 /**
- * Phase 2b subset of TachiyomiSY's debug toggles: only the two flags the E-Hentai source reads
+ * A subset of TachiyomiSY's debug toggles: only the two flags the E-Hentai source reads
  * to decide whether to pull a gallery to its newest version and whether to expose every version
  * as a chapter. The full toggle set (debug overlay, update-frequency limits) lands with later
  * EXH phases.

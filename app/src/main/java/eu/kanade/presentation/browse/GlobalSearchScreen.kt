@@ -33,7 +33,7 @@ fun GlobalSearchScreen(
     onClickSource: (Source) -> Unit,
     onClickItem: (Manga) -> Unit,
     onLongClickItem: (Manga) -> Unit,
-    // RK: bulk-selection state + actions (Phase 4)
+    // RK: bulk-selection state + actions
     selectionMode: Boolean = false,
     selection: List<Manga> = emptyList(),
     onToggleSelectionMode: (() -> Unit)? = null,
@@ -54,7 +54,7 @@ fun GlobalSearchScreen(
                 onlyShowHasResults = state.onlyShowHasResults,
                 onToggleResults = onToggleResults,
                 scrollBehavior = scrollBehavior,
-                // RK: bulk-selection (Phase 4); the toolbar swaps internally, keeping its chips
+                // RK: bulk-selection; the toolbar swaps internally, keeping its chips
                 onToggleSelectionMode = onToggleSelectionMode,
                 selectionMode = selectionMode,
                 selectedCount = selection.size,

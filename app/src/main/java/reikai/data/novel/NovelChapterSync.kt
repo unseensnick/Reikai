@@ -17,7 +17,7 @@ import java.util.TreeSet
  * chapter list against the stored `novel_chapters` rows, in one transaction. Stripped of manga-only
  * concerns (no scanlators, no download-manager hook, no duplicate-read library pref).
  *
- * Re-typed from the Yōkai helper onto the S1 repos + [Database] directly. Chapter-number recognition
+ * Re-typed from the Yōkai helper onto the novel repos + [Database] directly. Chapter-number recognition
  * runs only when the plugin gave none (drives sort + display); plugin-supplied numbers are trusted.
  * A re-added chapter (same recognized number as a just-deleted one) inherits its read/bookmark state
  * and original `dateFetch`, so it doesn't bubble up as "new".

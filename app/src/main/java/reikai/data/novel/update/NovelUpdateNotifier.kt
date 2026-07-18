@@ -21,7 +21,7 @@ import tachiyomi.i18n.MR
  * Notifications for the background novel-update job: an ongoing progress entry (with a Cancel action)
  * while favorited novels are checked, plus a one-shot result entry once any gained new chapters.
  * Sibling of [reikai.novel.download.NovelDownloadNotifier]. The result entry opens the library (there
- * is no dedicated novel-updates surface yet, that is P9).
+ * is no dedicated novel-updates surface yet).
  */
 class NovelUpdateNotifier(private val context: Context) {
 

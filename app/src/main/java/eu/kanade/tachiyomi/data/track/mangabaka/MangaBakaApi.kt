@@ -182,7 +182,7 @@ class MangaBakaApi(
 
     suspend fun search(search: String): List<TrackSearch> = searchByType(search, "type_not", "novel")
 
-    // RK --> novel-aware search (Active #8): same endpoint, include only the novel series type
+    // RK --> novel-aware search: same endpoint, include only the novel series type
     // (the inverse of the manga search's type_not=novel exclusion).
     suspend fun searchNovel(search: String): List<TrackSearch> = searchByType(search, "type", "novel")
     // RK <--

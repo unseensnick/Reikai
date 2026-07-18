@@ -1,7 +1,7 @@
 package reikai.domain.merge
 
 /**
- * Pure reconstruction of today's pref-based grouping into a clean partition, for the Phase 1 one-time
+ * Pure reconstruction of today's pref-based grouping into a clean partition, for the one-time
  * migration ([mihon.core.migration.migrations.MigrateMergePrefsToGroupsMigration]).
  *
  * Builds connected components over the manual-merge entries (which always group, overriding unmerges)

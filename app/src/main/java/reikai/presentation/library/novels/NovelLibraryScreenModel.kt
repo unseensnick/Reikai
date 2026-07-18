@@ -76,7 +76,7 @@ import java.util.Locale
 import kotlin.random.Random
 
 /**
- * Drives the novel half of the Library tab (P5 S6). It reads the favorited novels + novel categories
+ * Drives the novel half of the Library tab. It reads the favorited novels + novel categories
  * reactively, disguises each novel as the library's manga-shaped [LibraryItem] (negative id), filters
  * and per-category-sorts them, and exposes the same accessor surface
  * [eu.kanade.tachiyomi.ui.library.LibraryScreenModel.State] does so `LibraryTab` can feed the existing
@@ -637,7 +637,7 @@ class NovelLibraryScreenModel :
         val ids = state.value.selectedNovelIds
         if (ids.isEmpty()) return
         screenModelScope.launchIO {
-            // copy each group's trackers onto its members before splitting, so each keeps them (Active #8).
+            // copy each group's trackers onto its members before splitting, so each keeps them.
             ids.forEach { propagateNovelTrackerLinks.fromSeed(it) }
             mergeManager.unmergeNovels(ids)
             clearSelection()

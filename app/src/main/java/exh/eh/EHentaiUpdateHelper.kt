@@ -134,7 +134,7 @@ class EHentaiUpdateHelper(context: Context) {
             }
 
             // Komikku also upserts a FavoriteEntryAlternative here for its favorites two-way
-            //     sync (5b). Omitted until that phase ships; reconciliation works without it.
+            //     sync. Omitted for now; reconciliation works without it.
 
             // Copy categories from all chains to accepted manga
 

@@ -88,7 +88,7 @@ class MyAnimeListApi(
                     .awaitSuccess()
                     .parseAs<MALSearchResult>()
                     .data
-                    // RK --> light novels share the /manga endpoint with media_type containing "novel" (Active #8)
+                    // RK --> light novels share the /manga endpoint with media_type containing "novel"
                     .filter { it.node.mediaType.contains("novel") == novel }
                     // RK <--
                     .map { parseSearchItem(it.node) }

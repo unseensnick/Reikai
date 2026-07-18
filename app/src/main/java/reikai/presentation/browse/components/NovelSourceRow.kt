@@ -35,7 +35,7 @@ import tachiyomi.presentation.core.util.secondaryItemAlpha
 /**
  * One row for a light-novel source, mirroring Mihon's [eu.kanade.presentation.browse.components.BaseSourceItem]
  * shape (icon, name + language, trailing action) but typed on the LN side (plain fields, not Mihon's
- * `Source`). Shared by the Sources-tab list and the Extensions-tab plugin manager (P5 S3a).
+ * `Source`). Shared by the Sources-tab list and the Extensions-tab plugin manager.
  */
 @Composable
 fun NovelSourceRow(

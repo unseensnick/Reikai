@@ -31,7 +31,7 @@ object Notifications {
     const val CHANNEL_LIBRARY_ERROR = "library_errors_channel"
     const val ID_LIBRARY_ERROR = -102
 
-    // RK: light-novel chapter update job (P5 S7), grouped with the manga library updater
+    // RK: light-novel chapter update job, grouped with the manga library updater
     const val CHANNEL_NOVEL_LIBRARY_PROGRESS = "novel_library_progress_channel"
     const val ID_NOVEL_LIBRARY_PROGRESS = -104
     const val CHANNEL_NOVEL_LIBRARY_RESULT = "novel_library_result_channel"
@@ -52,7 +52,7 @@ object Notifications {
     const val CHANNEL_DOWNLOADER_ERROR = "downloader_error_channel"
     const val ID_DOWNLOAD_CHAPTER_ERROR = -202
 
-    // RK: light-novel chapter downloader (P5 S5), grouped with the manga downloader
+    // RK: light-novel chapter downloader, grouped with the manga downloader
     const val CHANNEL_NOVEL_DOWNLOADER = "novel_downloader_progress_channel"
     const val ID_NOVEL_DOWNLOADER = -205
 
@@ -105,7 +105,7 @@ object Notifications {
     const val ID_UPDATES_TO_EXTS = -401
     const val ID_EXTENSION_INSTALLER = -402
 
-    // RK: light-novel plugin updates (P5 S3a), grouped with the APK/extension updates.
+    // RK: light-novel plugin updates, grouped with the APK/extension updates.
     const val CHANNEL_LN_PLUGIN_UPDATE = "ln_plugin_update_channel"
     const val ID_LN_PLUGIN_UPDATES = -403
 
@@ -165,7 +165,7 @@ object Notifications {
                     setGroup(GROUP_LIBRARY)
                     setShowBadge(false)
                 },
-                // RK --> light-novel chapter update job (P5 S7)
+                // RK --> light-novel chapter update job
                 buildNotificationChannel(CHANNEL_NOVEL_LIBRARY_PROGRESS, IMPORTANCE_LOW) {
                     setName(context.stringResource(MR.strings.channel_progress))
                     setGroup(GROUP_LIBRARY)
@@ -199,7 +199,7 @@ object Notifications {
                     setGroup(GROUP_DOWNLOADER)
                     setShowBadge(false)
                 },
-                // RK --> light-novel chapter downloader (P5 S5)
+                // RK --> light-novel chapter downloader
                 buildNotificationChannel(CHANNEL_NOVEL_DOWNLOADER, IMPORTANCE_LOW) {
                     setName(context.stringResource(MR.strings.channel_progress))
                     setGroup(GROUP_DOWNLOADER)

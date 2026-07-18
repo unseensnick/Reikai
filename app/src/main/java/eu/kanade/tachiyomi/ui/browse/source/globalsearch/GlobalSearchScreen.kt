@@ -53,7 +53,7 @@ class GlobalSearchScreen(
         }
         val state by screenModel.state.collectAsState()
 
-        // RK: shared bulk-selection (Phase 4)
+        // RK: shared bulk-selection
         val bulkFavoriteScreenModel = rememberScreenModel { BulkFavoriteScreenModel() }
         val bulkFavoriteState by bulkFavoriteScreenModel.state.collectAsState()
         BackHandler(enabled = bulkFavoriteState.selectionMode) {
@@ -127,7 +127,7 @@ class GlobalSearchScreen(
                         }
                     }
                 },
-                // RK: bulk-selection (Phase 4)
+                // RK: bulk-selection
                 selectionMode = bulkFavoriteState.selectionMode,
                 selection = bulkFavoriteState.selection,
                 onToggleSelectionMode = bulkFavoriteScreenModel::toggleSelectionMode,
@@ -184,7 +184,7 @@ class GlobalSearchScreen(
         }
         // RK <--
 
-        // RK: bulk-selection dialogs (Phase 4)
+        // RK: bulk-selection dialogs
         BulkFavoriteDialogs(
             bulkFavoriteScreenModel = bulkFavoriteScreenModel,
             dialog = bulkFavoriteState.dialog,

@@ -97,7 +97,7 @@ class MangaUpdates(id: Long) : BaseTracker(id, "MangaUpdates"), DeletableTracker
             }
     }
 
-    // RK --> novel-aware search (Active #8): keep only "Novel"-type series from the unfiltered results
+    // RK --> novel-aware search: keep only "Novel"-type series from the unfiltered results
     override val supportsNovels = true
 
     override suspend fun searchNovel(query: String): List<TrackSearch> {

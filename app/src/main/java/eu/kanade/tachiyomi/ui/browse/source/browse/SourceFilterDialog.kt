@@ -39,9 +39,9 @@ fun SourceFilterDialog(
     onReset: () -> Unit,
     onFilter: () -> Unit,
     onUpdate: (FilterList) -> Unit,
-    // RK: non-null only for a MangaDex source; opens the follows browse screen. (Phase 4)
+    // RK: non-null only for a MangaDex source; opens the follows browse screen.
     onMangaDexFollowsClicked: (() -> Unit)? = null,
-    // RK: non-null only for a MangaDex source; opens a random title. (Phase 6)
+    // RK: non-null only for a MangaDex source; opens a random title.
     onMangaDexRandomClicked: (() -> Unit)? = null,
 ) {
     val updateFilters = { onUpdate(filters) }
@@ -76,7 +76,7 @@ fun SourceFilterDialog(
             }
 
             // RK: MangaDex browse entries, Random on the left, Follows on the right, only for a
-            // MangaDex source. (Phase 4 + 6)
+            // MangaDex source.
             if (onMangaDexRandomClicked != null || onMangaDexFollowsClicked != null) {
                 item {
                     Row(

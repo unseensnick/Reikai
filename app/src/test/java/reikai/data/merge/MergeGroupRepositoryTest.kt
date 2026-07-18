@@ -22,10 +22,10 @@ import tachiyomi.data.StringListColumnAdapter
 import tachiyomi.data.UpdateStrategyColumnAdapter
 
 /**
- * Phase 0 of the merge-system rebuild: proves the persisted merge-group storage round-trips and that
- * the FK cascade removes membership when a parent entry is deleted (the fix for the pref-era id-reuse
- * capture). Establishes the reusable pattern for testing this schema: a pure-JVM in-memory SQLite DB
- * built from [Database.Schema] with foreign keys enabled, so later phases' schema work can reuse it.
+ * Proves the persisted merge-group storage round-trips and that the FK cascade removes membership when
+ * a parent entry is deleted (the fix for the pref-era id-reuse capture). Establishes the reusable
+ * pattern for testing this schema: a pure-JVM in-memory SQLite DB built from [Database.Schema] with
+ * foreign keys enabled, so later schema work can reuse it.
  */
 class MergeGroupRepositoryTest {
 

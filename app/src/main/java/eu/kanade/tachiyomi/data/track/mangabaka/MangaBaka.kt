@@ -122,7 +122,7 @@ class MangaBaka(id: Long) : BaseTracker(id, "MangaBaka"), DeletableTracker {
         return api.search(query)
     }
 
-    // RK --> novel-aware search (Active #8): same search filtered to the novel series type
+    // RK --> novel-aware search: same search filtered to the novel series type
     override val supportsNovels = true
 
     override suspend fun searchNovel(query: String): List<TrackSearch> {

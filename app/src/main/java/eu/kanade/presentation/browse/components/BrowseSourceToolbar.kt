@@ -37,7 +37,7 @@ fun BrowseSourceToolbar(
     onSettingsClick: () -> Unit,
     onSearch: (String) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior? = null,
-    // RK: enters bulk-selection mode when provided (Phase 4)
+    // RK: enters bulk-selection mode when provided
     onToggleSelectionMode: (() -> Unit)? = null,
 ) {
     // Avoid capturing unstable source in actions lambda
@@ -68,7 +68,7 @@ fun BrowseSourceToolbar(
                             onClick = { selectingDisplayMode = true },
                         ),
                     )
-                    // RK: bulk-select entry (Phase 4)
+                    // RK: bulk-select entry
                     if (onToggleSelectionMode != null) {
                         add(
                             AppBar.Action(

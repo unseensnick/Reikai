@@ -173,7 +173,7 @@ private fun BrowseSourceEHentaiListItem(
                 onClick = onClick,
                 onLongClick = onLongClick,
             )
-            // RK: highlight the row while bulk-selecting (Phase 4)
+            // RK: highlight the row while bulk-selecting
             .selectedBackground(isSelected)
             .padding(4.dp),
         verticalAlignment = Alignment.CenterVertically,

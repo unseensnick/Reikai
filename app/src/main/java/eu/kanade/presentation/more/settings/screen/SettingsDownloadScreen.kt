@@ -41,7 +41,7 @@ object SettingsDownloadScreen : SearchableSettings {
         val downloadPreferences = remember { Injekt.get<DownloadPreferences>() }
         val parallelSourceLimit by downloadPreferences.parallelSourceLimit.collectAsState()
         val parallelPageLimit by downloadPreferences.parallelPageLimit.collectAsState()
-        // RK: light-novel download options (P5 S5)
+        // RK: light-novel download options
         val novelPreferences = remember { Injekt.get<NovelPreferences>() }
         val getNovelCategories = remember { Injekt.get<GetNovelCategories>() }
         val novelCategories by getNovelCategories.subscribe()

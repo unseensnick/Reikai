@@ -81,7 +81,7 @@ class ShikimoriApi(
 
     suspend fun search(search: String): List<TrackSearch> = searchByKind(search, "!light_novel,!novel")
 
-    // RK --> novel-aware search (Active #8): the mangas query spans the ranobe catalog, so the same
+    // RK --> novel-aware search: the mangas query spans the ranobe catalog, so the same
     // GraphQL search returns novels once the kind filter is flipped to the novel kinds.
     suspend fun searchNovel(search: String): List<TrackSearch> = searchByKind(search, "light_novel,novel")
     // RK <--

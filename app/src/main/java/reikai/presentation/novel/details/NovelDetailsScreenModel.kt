@@ -133,7 +133,7 @@ class NovelDetailsScreenModel(
     private val getCustomNovelInfo: GetCustomNovelInfo by injectLazy()
     private val setCustomNovelInfo: SetCustomNovelInfo by injectLazy()
 
-    // novel trackers (Active #8)
+    // novel trackers
     private val getNovelTracks: GetNovelTracks by injectLazy()
     private val refreshNovelTracks: RefreshNovelTracks by injectLazy()
     private val trackNovelChapter: TrackNovelChapter by injectLazy()
@@ -302,7 +302,7 @@ class NovelDetailsScreenModel(
 
     // DB-first: the stored anchor novel + the resolved merge group drive the chapter list. The unified
     // ("All") view pools every grouped source's chapters into one list (no page bar); a selected source
-    // chip (or a non-merged novel) keeps its own per-page lazy list (the S3c/S3d behavior). A change to
+    // chip (or a non-merged novel) keeps its own per-page lazy list. A change to
     // chapterFlags / page / group / selection re-runs this via the combine.
     private fun observeChapters() {
         screenModelScope.launchIO {
@@ -417,7 +417,7 @@ class NovelDetailsScreenModel(
 
     /** Single-source view: the anchor (non-merged or its own chip) or a selected sibling, with that
      *  novel's own per-page lazy list. Auto-fetch only runs for the anchor (its [source] is resolved);
-     *  a selected sibling shows what's stored until a refresh-all (slice D) fills it. */
+     *  a selected sibling shows what's stored until a refresh-all fills it. */
     private suspend fun observeSingleChapters(anchor: Novel, selected: Long?, idx: Int) {
         val isAnchorView = selected == null || selected == anchor.id
         val viewNovel = if (isAnchorView) anchor else (novelRepo.getById(selected!!) ?: anchor)
@@ -1155,7 +1155,7 @@ class NovelDetailsScreenModel(
         return result
     }
 
-    // novel trackers (Active #8)
+    // novel trackers
 
     /** True if any tracker is logged in; gates the toolbar action (sheet vs Settings > Tracking). */
     fun hasLoggedInTrackers(): Boolean = trackerManager.loggedInTrackers().isNotEmpty()
@@ -1309,7 +1309,7 @@ sealed interface NovelDetailsState {
     data class Loaded(
         /** Identity + favorite key. */
         val novel: Novel,
-        /** Metadata shown in the header. Equals [novel] for a single source; the S8 merge seam
+        /** Metadata shown in the header. Equals [novel] for a single source; the merge seam
          *  repoints it at the selected source. */
         val displayNovel: Novel,
         val chapters: List<NovelChapter>,
@@ -1337,7 +1337,7 @@ sealed interface NovelDetailsState {
         /** Chapter ids downloaded on disk, from NovelDownloadCache (replaces the old is_downloaded flag).
          *  A finished download shows DOWNLOADED via membership here, not a queue state. */
         val downloadedChapterIds: Set<Long> = emptySet(),
-        /** Bound trackers on a logged-in service; drives the details action-row Tracking button (Active #8). */
+        /** Bound trackers on a logged-in service; drives the details action-row Tracking button. */
         val trackingCount: Int = 0,
         /** Non-destructive edit-info overlay; the display applies it over [displayNovel] (the raw novel
          *  stays source-accurate). Null when the novel has no edits. */
@@ -1422,6 +1422,6 @@ sealed interface NovelDetailsDialog {
         val isOverridden: Boolean,
     ) : NovelDetailsDialog
 
-    // novel trackers (Active #8). Rendered as a NavigatorAdaptiveSheet, mirroring Mihon's manga sheet.
+    // novel trackers. Rendered as a NavigatorAdaptiveSheet, mirroring Mihon's manga sheet.
     data object TrackSheet : NovelDetailsDialog
 }
