@@ -6,7 +6,6 @@ import androidx.core.graphics.toColorInt
 import exh.metadata.metadata.base.RaisedTag
 import exh.source.NHENTAI_NET_SOURCE_ID
 import exh.source.PURURIN_SOURCE_ID
-import exh.source.eHentaiSourceIds
 import java.util.Locale
 
 object SourceTagsUtil {
@@ -68,7 +67,7 @@ object SourceTagsUtil {
         return when {
             sourceId == NHENTAI_NET_SOURCE_ID -> wrapTagNHentai(parsedNamespace, name)
             sourceId == PURURIN_SOURCE_ID -> name
-            sourceId in eHentaiSourceIds -> wrapTag(parsedNamespace, name)
+            // Every other source (E-Hentai included) uses the E-Hentai tag grammar.
             else -> wrapTag(parsedNamespace, name)
         }
     }

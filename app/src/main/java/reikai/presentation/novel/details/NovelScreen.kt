@@ -154,10 +154,33 @@ class NovelScreen(
                     )
                 }
 
+                // Build the shared header/description state once (in composable scope, so the
+                // merge-unified label resolves via stringResource). Metadata follows the viewed source
+                // (the selected chip, else the anchor); favorite + notes stay on the anchor novel.
+                val display = s.displayNovel.withCustomInfo(s.customInfo)
+                val entrySourceName = if (s.mergeSources.size > 1 && s.selectedSourceNovelId == null) {
+                    stringResource(MR.strings.merge_unified)
+                } else {
+                    s.sourceName
+                }
+                val entryState = EntryDetailsUiState(
+                    header = display.toEntryHeader(sourceName = entrySourceName, sourceSite = s.sourceUrl),
+                    favorite = s.novel.favorite,
+                    trackingCount = s.trackingCount,
+                    showIntervalButton = false,
+                    nextUpdate = null,
+                    isUserIntervalMode = false,
+                    description = display.description,
+                    tags = display.genre,
+                    notes = s.novel.notes,
+                    descriptionDefaultExpanded = false,
+                )
+
                 if (isTabletUi()) {
                     NovelDetailsLargeImpl(
                         s,
                         screenModel,
+                        entryState,
                         navigator::pop,
                         onWebView,
                         onShare,
@@ -172,6 +195,7 @@ class NovelScreen(
                     NovelDetailsSmallImpl(
                         s,
                         screenModel,
+                        entryState,
                         navigator::pop,
                         onWebView,
                         onShare,
@@ -195,6 +219,7 @@ class NovelScreen(
 private fun NovelDetailsSmallImpl(
     state: NovelDetailsState.Loaded,
     screenModel: NovelDetailsScreenModel,
+    entryState: EntryDetailsUiState,
     onBack: () -> Unit,
     onWebView: () -> Unit,
     onShare: () -> Unit,
@@ -206,31 +231,6 @@ private fun NovelDetailsSmallImpl(
     onChapterClick: (NovelChapter) -> Unit,
 ) {
     val listState = rememberLazyListState()
-    // Display-only overlay: show the user's edits over the source metadata; the raw novel stays
-    // source-accurate for refresh, merge, sort, and search.
-    val display = state.displayNovel.withCustomInfo(state.customInfo)
-
-    // Build the shared header/description state in composable scope so the merge-unified label resolves
-    // via stringResource before the shell emits the info group. Metadata follows the viewed source (the
-    // selected chip, else the anchor); favorite + library actions stay on the anchor novel.
-    val entrySourceName = if (state.mergeSources.size > 1 && state.selectedSourceNovelId == null) {
-        stringResource(MR.strings.merge_unified)
-    } else {
-        state.sourceName
-    }
-    val entryState = EntryDetailsUiState(
-        header = display.toEntryHeader(sourceName = entrySourceName, sourceSite = state.sourceUrl),
-        favorite = state.novel.favorite,
-        trackingCount = state.trackingCount,
-        showIntervalButton = false,
-        nextUpdate = null,
-        isUserIntervalMode = false,
-        description = display.description,
-        tags = display.genre,
-        // notes are a user annotation on the favorited anchor row, not the viewed source's metadata.
-        notes = state.novel.notes,
-        descriptionDefaultExpanded = false,
-    )
 
     EntryDetailsScaffold(
         listState = listState,
@@ -284,6 +284,7 @@ private fun NovelDetailsSmallImpl(
 private fun NovelDetailsLargeImpl(
     state: NovelDetailsState.Loaded,
     screenModel: NovelDetailsScreenModel,
+    entryState: EntryDetailsUiState,
     onBack: () -> Unit,
     onWebView: () -> Unit,
     onShare: () -> Unit,
@@ -295,25 +296,6 @@ private fun NovelDetailsLargeImpl(
     onChapterClick: (NovelChapter) -> Unit,
 ) {
     val chapterListState = rememberLazyListState()
-    val display = state.displayNovel.withCustomInfo(state.customInfo)
-
-    val entrySourceName = if (state.mergeSources.size > 1 && state.selectedSourceNovelId == null) {
-        stringResource(MR.strings.merge_unified)
-    } else {
-        state.sourceName
-    }
-    val entryState = EntryDetailsUiState(
-        header = display.toEntryHeader(sourceName = entrySourceName, sourceSite = state.sourceUrl),
-        favorite = state.novel.favorite,
-        trackingCount = state.trackingCount,
-        showIntervalButton = false,
-        nextUpdate = null,
-        isUserIntervalMode = false,
-        description = display.description,
-        tags = display.genre,
-        notes = state.novel.notes,
-        descriptionDefaultExpanded = false,
-    )
 
     EntryDetailsTwoPaneScaffold(
         chapterListState = chapterListState,
@@ -419,15 +401,8 @@ private fun NovelSelectionBar(
     // Only offer the actions that apply to the current selection, mirroring the manga selection bar
     // (SharedMangaBottomActionMenu) instead of always showing every icon.
     val selected = state.chapters.filter { it.id in state.selection }
-    fun isDownloaded(chapter: NovelChapter): Boolean {
-        val downloadState = state.downloadStates[chapter.id]
-            ?: if (chapter.id in state.downloadedChapterIds) {
-                Download.State.DOWNLOADED
-            } else {
-                Download.State.NOT_DOWNLOADED
-            }
-        return downloadState == Download.State.DOWNLOADED
-    }
+    fun isDownloaded(chapter: NovelChapter): Boolean =
+        state.downloadStateOf(chapter.id) == Download.State.DOWNLOADED
 
     MangaBottomActionMenu(
         visible = state.selectionMode,
@@ -721,14 +696,7 @@ private fun NovelChapterRow(
         bookmark = chapter.bookmark,
         selected = chapter.id in state.selection,
         downloadIndicatorEnabled = !state.selectionMode,
-        downloadStateProvider = {
-            state.downloadStates[chapter.id]
-                ?: if (chapter.id in state.downloadedChapterIds) {
-                    Download.State.DOWNLOADED
-                } else {
-                    Download.State.NOT_DOWNLOADED
-                }
-        },
+        downloadStateProvider = { state.downloadStateOf(chapter.id) },
         downloadProgressProvider = { 0 },
         chapterSwipeStartAction = state.chapterSwipeStartAction,
         chapterSwipeEndAction = state.chapterSwipeEndAction,

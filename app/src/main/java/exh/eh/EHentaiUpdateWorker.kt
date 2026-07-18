@@ -103,7 +103,6 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
 
     private suspend fun startUpdating() {
         val startTime = System.currentTimeMillis()
-        val curTime = startTime
 
         val metadataManga = getExhFavoriteMangaWithMetadata.await()
 
@@ -112,7 +111,7 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
             val raisedMeta = meta.raise<EHentaiSearchMetadata>()
 
             // Don't update aged (dead) galleries, nor galleries checked too recently.
-            if (raisedMeta.aged || curTime - raisedMeta.lastUpdateCheck < MIN_BACKGROUND_UPDATE_FREQ) {
+            if (raisedMeta.aged || startTime - raisedMeta.lastUpdateCheck < MIN_BACKGROUND_UPDATE_FREQ) {
                 return@mapNotNull null
             }
 

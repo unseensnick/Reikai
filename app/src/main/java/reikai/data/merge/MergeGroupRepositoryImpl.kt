@@ -91,7 +91,6 @@ class MergeGroupRepositoryImpl(
             // Sorted so a fresh group has a deterministic member order; per-group priority (Phase 3)
             // overrides it later.
             val members = (distinct + groupIds.flatMap { getMembers(contentType, it) }).distinct().sorted()
-            if (members.size < 2) return@transactionWithResult null
             groupIds.forEach { queries.deleteGroup(it) }
             queries.insertGroup(contentType.toDbValue())
             val groupId = queries.selectLastInsertedRowId().awaitAsOne()

@@ -142,7 +142,7 @@ class MangaLibraryAdder(
     }
 
     /** User categories, excluding the system default. */
-    private suspend fun getUserCategories(): List<Category> =
+    suspend fun getUserCategories(): List<Category> =
         getCategories.subscribe().firstOrNull()?.filterNot { it.isSystemCategory }.orEmpty()
 }
 

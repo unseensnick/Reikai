@@ -1765,7 +1765,7 @@ class MangaScreenModel(
         selectedSourceMangaId.value = null
         dismissDialog()
         screenModelScope.launchIO {
-            val newIds = mergeManager.splitOrDissolve(prevRelated, targetIds)
+            val newIds = mergeManager.removeFromGroup(prevRelated, targetIds)
             relatedMangaIds.value = if (newIds.isEmpty()) longArrayOf(mangaId) else newIds
             val result = snackbarHostState.showSnackbar(
                 message = context.stringResource(MR.strings.merge_sources_split),

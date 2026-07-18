@@ -728,7 +728,7 @@ class NovelDetailsScreenModel(
         selectedSourceNovelId.value = null
         dismissDialog()
         screenModelScope.launchIO {
-            val newIds = mergeManager.splitOrDissolve(prevRelated, targetIds)
+            val newIds = mergeManager.removeFromGroup(prevRelated, targetIds)
             relatedNovelIds.value = if (newIds.isEmpty()) longArrayOf(anchorNovelId) else newIds
             val result = snackbarHostState.showSnackbar(
                 message = context.stringResource(MR.strings.merge_sources_split),
@@ -1203,12 +1203,7 @@ class NovelDetailsScreenModel(
             LibraryPreferences.ChapterSwipeAction.ToggleBookmark -> toggleChapterBookmark(chapter)
             LibraryPreferences.ChapterSwipeAction.Download -> {
                 val loaded = state.value as? NovelDetailsState.Loaded
-                val downloadState = loaded?.downloadStates?.get(chapter.id)
-                    ?: if (loaded?.downloadedChapterIds?.contains(chapter.id) == true) {
-                        Download.State.DOWNLOADED
-                    } else {
-                        Download.State.NOT_DOWNLOADED
-                    }
+                val downloadState = loaded?.downloadStateOf(chapter.id) ?: Download.State.NOT_DOWNLOADED
                 val downloadAction = when (downloadState) {
                     Download.State.NOT_DOWNLOADED, Download.State.ERROR -> ChapterDownloadAction.START_NOW
                     Download.State.QUEUE, Download.State.DOWNLOADING -> ChapterDownloadAction.CANCEL
@@ -1382,6 +1377,12 @@ sealed interface NovelDetailsState {
 
         /** More than one page/volume to choose between, so the page selector is shown. */
         val isPaged: Boolean get() = pages.size > 1
+
+        /** A chapter's download state: a live queue state if present, else DOWNLOADED / NOT_DOWNLOADED
+         *  from the on-disk cache. */
+        fun downloadStateOf(chapterId: Long): Download.State =
+            downloadStates[chapterId]
+                ?: if (chapterId in downloadedChapterIds) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED
     }
 }
 

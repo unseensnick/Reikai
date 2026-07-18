@@ -1008,8 +1008,8 @@ class LibraryScreenModel(
         val ids = state.value.selection.toList()
         if (ids.size < 2) return
         screenModelScope.launchIO {
-            // RK: expand each selected card to its full group first, so one merge coalesces every source
-            mergeManager.mergeSelectedManga(ids)
+            // RK: each selected card's whole group is absorbed by the merge, so one call coalesces every source
+            mergeManager.mergeManga(ids)
             // RK: share any existing tracker across the newly merged group
             propagateTrackerLinks.fromSeed(ids.first())
         }

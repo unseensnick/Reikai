@@ -81,11 +81,6 @@ class NovelMergeManager(
         repository.clearSourceOrder(ContentType.NOVELS, groupId)
     }
 
-    /** Merge the library selection into one group; each selected id's whole group is absorbed. */
-    suspend fun mergeSelectedNovels(ids: List<Long>) {
-        repository.merge(ContentType.NOVELS, ids)
-    }
-
     /** Fully dissolve the group of each of [targetIds] (the library bulk "Unmerge"). */
     suspend fun unmergeNovels(targetIds: List<Long>) {
         targetIds.distinct().forEach { repository.dissolve(ContentType.NOVELS, it) }
@@ -99,10 +94,6 @@ class NovelMergeManager(
         if (targetIds.isEmpty()) return relatedNovelIds
         return repository.removeFromGroup(ContentType.NOVELS, targetIds).toLongArray()
     }
-
-    /** Manage-sources split. Same as [removeFromGroup] now that the repository auto-dissolves. */
-    suspend fun splitOrDissolve(relatedNovelIds: LongArray, targetIds: List<Long>): LongArray =
-        removeFromGroup(relatedNovelIds, targetIds)
 
     /** Dissolve every novel group (the Settings "Clear all merges" action). */
     suspend fun clearAllMergesIncludingAuto() {

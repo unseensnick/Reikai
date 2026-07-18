@@ -9,12 +9,10 @@ import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.mutate
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.core.common.util.lang.launchIO
-import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
@@ -32,7 +30,6 @@ import uy.kohesive.injekt.api.get
  */
 class BulkFavoriteScreenModel(
     private val libraryAdder: MangaLibraryAdder = Injekt.get(),
-    private val getCategories: GetCategories = Injekt.get(),
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
 ) : StateScreenModel<BulkFavoriteScreenModel.State>(State()) {
 
@@ -87,7 +84,7 @@ class BulkFavoriteScreenModel(
                 toggleSelectionMode(false)
                 return@launchIO
             }
-            val categories = getUserCategories()
+            val categories = libraryAdder.getUserCategories()
             val defaultCategoryId = libraryPreferences.defaultCategory.get()
             val defaultCategory = categories.find { it.id == defaultCategoryId.toLong() }
             when {
@@ -111,9 +108,6 @@ class BulkFavoriteScreenModel(
         setDialog(null)
         toggleSelectionMode(false)
     }
-
-    private suspend fun getUserCategories(): List<Category> =
-        getCategories.subscribe().firstOrNull()?.filterNot { it.isSystemCategory }.orEmpty()
 
     fun setDialog(dialog: Dialog?) {
         mutableState.update { it.copy(dialog = dialog) }

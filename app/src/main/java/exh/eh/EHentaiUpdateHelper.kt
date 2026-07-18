@@ -92,7 +92,7 @@ class EHentaiUpdateHelper(context: Context) {
 
         return if (toDiscard.isNotEmpty()) {
             // Copy chain chapters to curChapters
-            val (chapterUpdates, newChapters, new) = getChapterList(accepted, toDiscard, chainsAsChapters)
+            val (chapterUpdates, newChapters) = getChapterList(accepted, toDiscard, chainsAsChapters)
 
             toDiscard.forEach {
                 mangaUpdates += MangaUpdate(
@@ -179,15 +179,13 @@ class EHentaiUpdateHelper(context: Context) {
         accepted: ChapterChain,
         toDiscard: List<ChapterChain>,
         chainsAsChapters: List<Chapter>,
-    ): Triple<List<ChapterUpdate>, List<Chapter>, Boolean> {
-        var new = false
+    ): Pair<List<ChapterUpdate>, List<Chapter>> {
+        val newLastPageRead = chainsAsChapters.maxOfOrNull { it.lastPageRead }
         return toDiscard
             .flatMap { chain ->
                 chain.chapters
             }
             .fold(accepted.chapters) { curChapters, chapter ->
-                val newLastPageRead = chainsAsChapters.maxOfOrNull { it.lastPageRead }
-
                 if (curChapters.any { it.url == chapter.url }) {
                     curChapters.map {
                         if (it.url == chapter.url) {
@@ -207,7 +205,6 @@ class EHentaiUpdateHelper(context: Context) {
                         }
                     }
                 } else {
-                    new = true
                     curChapters + Chapter(
                         id = -1,
                         mangaId = accepted.manga.id,
@@ -257,7 +254,7 @@ class EHentaiUpdateHelper(context: Context) {
                         )
                     }
                 }
-                Triple(updates.toList(), newChapters.toList(), new)
+                updates.toList() to newChapters.toList()
             }
     }
 }

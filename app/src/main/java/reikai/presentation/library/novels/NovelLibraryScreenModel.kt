@@ -626,8 +626,8 @@ class NovelLibraryScreenModel :
         val ids = state.value.selectedNovelIds
         if (ids.size < 2) return
         screenModelScope.launchIO {
-            // expand each selected card to its full group first, so one merge coalesces every source
-            mergeManager.mergeSelectedNovels(ids)
+            // each selected card's whole group is absorbed by the merge, so one call coalesces every source
+            mergeManager.mergeNovels(ids)
             clearSelection()
         }
     }

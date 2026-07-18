@@ -2,7 +2,6 @@ package reikai.presentation.reader
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -14,11 +13,9 @@ import androidx.compose.material.icons.outlined.SkipPrevious
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalSlider
-import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,9 +46,7 @@ fun VerticalReaderRail(
     modifier: Modifier = Modifier,
 ) {
     val mainAxisPadding = if (isTabletUi()) 24.dp else 8.dp
-    val backgroundColor = MaterialTheme.colorScheme
-        .surfaceColorAtElevation(3.dp)
-        .copy(alpha = if (isSystemInDarkTheme()) 0.9f else 0.95f)
+    val backgroundColor = readerChromeColor()
     val buttonColor = IconButtonDefaults.filledIconButtonColors(
         containerColor = backgroundColor,
         disabledContainerColor = backgroundColor,

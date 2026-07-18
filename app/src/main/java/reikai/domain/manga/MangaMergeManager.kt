@@ -34,11 +34,6 @@ class MangaMergeManager(
         return repository.removeFromGroup(ContentType.MANGA, targetIds).toLongArray()
     }
 
-    /** Manage-sources split. Same as [removeFromGroup] now that the repository auto-dissolves a group
-     *  left with fewer than two members; kept as a distinct entry point for the manage-sources dialog. */
-    suspend fun splitOrDissolve(relatedMangaIds: LongArray, targetIds: List<Long>): LongArray =
-        removeFromGroup(relatedMangaIds, targetIds)
-
     /** Merge [ids] into one group, absorbing any groups they already belong to. No-op for < 2 entries. */
     suspend fun mergeManga(ids: List<Long>) {
         repository.merge(ContentType.MANGA, ids)
@@ -86,12 +81,6 @@ class MangaMergeManager(
     suspend fun clearSourceOrder(anchorId: Long) {
         val groupId = repository.getGroupId(ContentType.MANGA, anchorId) ?: return
         repository.clearSourceOrder(ContentType.MANGA, groupId)
-    }
-
-    /** Merge the library selection into one group. Each selected id's whole group is absorbed by
-     *  [MergeGroupRepository.merge], so passing the collapsed cards' representative ids is enough. */
-    suspend fun mergeSelectedManga(ids: List<Long>) {
-        repository.merge(ContentType.MANGA, ids)
     }
 
     /** Fully dissolve the group of each of [targetIds] (the library bulk "Unmerge"). Ungrouped targets
