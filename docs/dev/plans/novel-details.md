@@ -33,7 +33,7 @@ Current behavior of the overflow and toolbar: a Filter action (tinted when a fil
 
 ## Key files
 
-All under `E:\Code\yokai-y2k\app\app\src\main\java\reikai\presentation\novel\details\`:
+All under `app/src/main/java/reikai/presentation/novel/details/`:
 
 - `NovelScreen.kt`: the Voyager `Screen` (constructor: `sourceId`, `novelUrl`); phone + tablet layouts, the resume FAB, the selection bar, dialog host, and the `LazyListScope` builders for the info, header, and chapter items.
 - `NovelDetailsScreenModel.kt`: `StateScreenModel<NovelDetailsState>`; injects the novel repos, source manager, plugin installer, category interactors, preferences, merge manager, and (Active 8) the tracker interactors. Owns loading, refresh, favorite/categories, edit-info, sort/filter/display, multi-select, download actions, cover-tint seed, and the merge/tracking seams.

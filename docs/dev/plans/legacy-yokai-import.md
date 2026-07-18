@@ -29,9 +29,9 @@ Because the crash happens at query time before anything writes, an already-brick
 
 ## Key files
 
-- `app/src/main/java/reikai/data/legacy/LegacyYokaiDbImporter.kt` — detection, extraction, backup write, DB-aside.
-- `app/src/main/java/eu/kanade/tachiyomi/App.kt` — `// RK` islands in `onCreate`: `prepareIfLegacyDb` before the DB is first opened, restore enqueue (with `extensionStores = true`) at the end.
-- `i18n/.../base/strings.xml` — `legacy_import_notice`.
+- `app/src/main/java/reikai/data/legacy/LegacyYokaiDbImporter.kt`: detection, extraction, backup write, DB-aside.
+- `app/src/main/java/eu/kanade/tachiyomi/App.kt`: `// RK` islands in `onCreate` (`prepareIfLegacyDb` before the DB is first opened, restore enqueue with `extensionStores = true` at the end).
+- `i18n/.../base/strings.xml`: `legacy_import_notice`.
 - Reuses `eu.kanade.tachiyomi.data.backup.models.*`, `BackupRestoreJob`, `RestoreOptions`, `ReikaiLibraryPreferences`.
 
 ## Status

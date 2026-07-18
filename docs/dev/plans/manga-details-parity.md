@@ -55,7 +55,7 @@ Shipped. P3 is done (Roadmap P3, status done): merge / Manage-sources UI, privat
 - **Patch Mihon, don't fork it.** Everything possible rides Mihon's existing `MangaScreen` / `MangaScreenModel` through `// RK -->` / `// RK <--` islands, with net-new logic (merge, recommendations) in its own `reikai.*` code. This keeps a single details screen for users and keeps upstream syncs to a hand-merge inside the islands rather than reconciling two parallel screens.
 - **Verify parity before porting.** The original Yōkai-era plan scoped a large list of chapter-row, refresh, and description features as work to build. On the Mihon base most of those are upstream-native, so the actual P3 effort collapsed to confirming Mihon covers them and adding only the genuinely Reikai-specific pieces. The plan's build list is therefore superseded by what Mihon already ships.
 - **Cover-accent is opt-out.** The cover-derived theme is gated behind a `themeCoverBased` preference, so users who prefer the static app theme keep it; the screen falls back to the default `TachiyomiTheme` when off or when no color could be extracted.
-- **Tablet two-pane layout deferred.** A side-by-side details layout was the one explicitly out-of-scope item (a large structural change); the screen uses Mihon's existing responsive single-pane behavior.
+- **No bespoke tablet layout.** The screen uses Mihon's existing responsive layout (single pane on phones, two-pane on tablets via `MangaScreenLargeImpl` / `TwoPanelBox`); Reikai did not build a bespoke one.
 
 ## Related plans
 

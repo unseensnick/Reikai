@@ -86,8 +86,8 @@ of work: on the backlog, but no timeline.
 
 That is intentional. When you use Edit info to change a title, author, cover, or other
 details, the change is display-only: it changes how the entry looks on its details page and
-in the library, updates, and history lists. Search, sorting, category grouping, and the
-automatic same-title source grouping all keep using the entry's original source info.
+in the library, updates, and history lists. Search, sorting, category grouping, and
+same-title source grouping all keep using the entry's original source info.
 
 So a renamed entry stays where its original title sorts, still groups with its other sources,
 and is found in search by its original name, not the one you typed. This is deliberate: it

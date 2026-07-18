@@ -18,7 +18,7 @@ Use the methods the program already established: a shared leaf composable plus p
 
 Each phase is its own commit(s), a `CHANGELOG.md` entry, and Fold verification. Sizes are rough. Symbols are cited by name (line numbers rot); the audit record has the exact `file:line`.
 
-### Phase 1: Silent-drift fixes (bugs first) — DONE
+### Phase 1: Silent-drift fixes (bugs first): DONE
 
 All five shipped and Fold-verified (`5314f6674`, `e6f3bffa6`, `ca006ef08`, `cc94913da`, `68db6ae`); the 1b Latest-gate sub-item is parked. Small level-ups and gates, each independently shippable. Priority order.
 
@@ -48,7 +48,7 @@ The enabling decision is already made: the manga grid leaves (`MangaComfortableG
 - *Toolbar:* NOT twins. Manga uses its bespoke `BrowseSourceToolbar`; novel already uses Mihon's shared generic `SearchToolbar` + `AppBarActions` + a `ListingChip` row. Collapsing them would be a rework of one side, not an extraction.
 - *Drifts (the plan's original claim was half wrong):* novel DOES have a retry snackbar ([NovelBrowseScreen.kt](../../../app/src/main/java/reikai/presentation/novel/browse/NovelBrowseScreen.kt), shown when results already exist); the only difference was its duration. **Fixed: bumped novel's browse retry snackbar to `Indefinite` to match manga.** The remaining `label_help` gap is a **deliberate gate**: manga's help action links to a manga-source troubleshooting guide that does not apply to LN plugins, so it is intentionally not ported (revisit only if a novel-specific help target exists).
 
-### Phase 3: Global search collapse `[M]` (depends on 2a) — DONE
+### Phase 3: Global search collapse `[M]` (depends on 2a): DONE
 
 **Done (`b769d285a`, Fold-verified).** Shipped the presentation collapse: `EntrySearchSection` (per-source header + content slot), `EntrySearchCardRow` (generic over item type, `@Composable toUi` so manga keeps its live-badge `getManga`, renders through `EntryBrowseGridCell`), and `EntrySearchSourceFilterChips` (primitives, not either `SourceFilter` enum; one horizontal divider under the row, the manga+novel vertical divider between chips removed). Manga's `GlobalSearchResultItem`/`GlobalSearchCardRow` retired; Loading/Error leaves stay shared/per-type. **Scope trimmed vs the original plan: the generic `GlobalSearchOrchestrator` and shared `SearchItemResult<T>` were NOT built** (the `SearchScreenModel` base is a Manga-coupled Mihon abstract class; re-typing it is high-risk for no user benefit, and the two ScreenModels are a legitimate gate). Also fixed two novel rough edges surfaced in testing: search loaders now use the small shared loading leaf (were default-size), and a blank query clears the list instead of leaving every source spinning forever (matches manga's return-before-populate). Original plan text follows.
 

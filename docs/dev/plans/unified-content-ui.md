@@ -189,7 +189,7 @@ multi-select; per-API novel tracker search (`searchNovel` for Shikimori/Hikka/Ma
 gated); the **reader-chrome unification** (shared top/bottom bars, vertical rail, bar animation/scrim, and
 configurable novel bottom-bar buttons, so a reader-chrome change reaches both readers); the **settings
 content-type reorg** (manga/novel options grouped + labeled per type across Reader / Downloads / Library /
-Advanced via a shared `contentTypedCategory` helper + group-aware search) — this REPLACED the earlier plan for
+Advanced via a shared `contentTypedCategory` helper + group-aware search); this REPLACED the earlier plan for
 a dedicated novel reader-defaults settings page, which tested worse on the Fold; and **reader 7b** (an
 always-on reading percentage, volume-key navigation, and a manga long-strip volume scroll-amount slider).
 Those three reader/settings blocks (chrome unification, settings reorg, 7b reader features) are what the

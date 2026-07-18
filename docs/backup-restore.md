@@ -41,7 +41,7 @@ A backup covers both your manga library and your light-novel library.
 - Saved novels with their chapters, read state, and reading history
 - Novel categories and assignments
 - Tracker bindings for novels
-- Manual novel merge / unmerge groups
+- Manual novel merge groups
 
 **App-wide**
 
@@ -56,6 +56,6 @@ A backup covers both your manga library and your light-novel library.
 | Tracker & source sign-ins | Excluded by default; opt in with **Include sensitive settings** when creating the backup. Otherwise sign in again under Settings → Tracking. |
 | App-level Android permissions | Re-grant on the new install |
 
-## Merge / unmerge groups on restore
+## Merge groups on restore
 
 Multi-source grouping for both manga and novels is saved as stable source-and-address references, so your merged groups are rebuilt correctly when you restore, including onto a fresh install.

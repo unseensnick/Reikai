@@ -6,13 +6,15 @@ Light novels support the same cross-source merge, so a novel available from seve
 
 Each section below leads with the in-app path or trigger so you know exactly where the feature lives.
 
-## Auto grouping
+## Grouping across sources
 
-*No setup: automatic in the library.*
+*Master toggle: **Group series across sources**, in the library display menu (the filter/funnel icon, Display tab) and under Settings → Library.*
 
-When two or more library entries share the same title (case-insensitive), they're rendered as a single card. This is on by default.
+When grouping is on, two or more library entries in the same group are rendered as a single card. Grouping is explicit: an entry only joins a group when you say so, either through the add-time "Add to existing group" prompt (below) or a manual merge. There is no silent same-title force; turning the master toggle off expands every group back to its per-source entries, and turning it on collapses them again.
 
-By default the merged card shows the grouped sources' icons in its corner (up to three, with a "+N" overflow if there are more). If source icons are turned off or unavailable, the card falls back to a numeric count instead.
+**The add-time prompt.** When you add a series (or novel) from browse, global search, history, or MangaDex Follows that matches one already in your library, an "Add to existing group" action appears on the duplicate dialog. You pick the group to join from the duplicate cards shown; the new copy is favorited and merged into the selected match's group. This add-time suggestion is itself toggleable (see Settings, below), and it never groups anything you didn't confirm.
+
+A merged card shows the grouped sources' icons in its corner (up to three, with a "+N" overflow if there are more). If source icons are turned off or unavailable, the card falls back to a numeric count instead.
 
 Grouping is per-category, so the same manga across two categories still shows once per category.
 
@@ -55,17 +57,20 @@ Two paths, both ending at the same confirmation:
 
 Either way, the source you split goes back to being a standalone library entry; the rest of the group stays merged. The split shows an Undo snackbar, so an accidental tap can be reverted within the grace period.
 
-Manual merge / unmerge state is included in app backups, so it survives a backup-and-restore.
+Merge grouping is included in app backups, so it survives a backup-and-restore.
 
 ## Manage sources dialog
 
 *Manga details → overflow menu (⋮) → Manage sources.*
 
-This dialog shows every source currently grouped with the open manga and offers three actions:
+This shared dialog (the same one for manga and novels) shows every source currently grouped with the open entry and offers:
 
+- **Drag to reorder**: each source row has a drag handle. Reordering sets which source leads the group, a per-group override of the global **Preferred sources** ranking. The top row is the group's lead and carries a **primary** badge; reordering applies live and re-aggregates the chapter list.
+- **Reset order**: clears the per-group override so the group falls back to the global Preferred sources ranking.
 - **Split**: detaches a source from the group (same effect as long-pressing its chip), leaving it as a standalone library entry.
 - **Remove from library**: unfavorites a source outright, deleting its downloaded chapters and covers. Useful when you want to drop an unwanted source duplicate entirely rather than just splitting it off.
 - **Remove all from library**: unfavorites every source in the merged group at once. This is the only way to remove a whole group in one action.
+- **Long-press multi-select**: long-pressing a source row enters selection mode for batch Split or Remove across several sources at once.
 
 Split and remove actions show an Undo snackbar, so an accidental tap can be reverted within the grace period.
 
@@ -79,4 +84,9 @@ You can also remove an entire merged group from the details screen with **Remove
 
 ## Settings
 
-There's no dedicated settings screen for grouping. The grouping toggles live in the library display settings, and the manual merge / unmerge actions are driven entirely through the chip and multi-select interactions described above.
+Two settings govern grouping, both under **Settings → Library**:
+
+- **Group series across sources**: the master toggle (also in the library display menu). Off expands every group to its per-source entries; on collapses them.
+- **Suggest grouping for same-title series**: gates the add-time "Add to existing group" prompt. When off, adding a same-title series never suggests joining an existing group.
+
+The manual merge and split actions themselves are driven through the chip and multi-select interactions described above.

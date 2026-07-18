@@ -13,12 +13,12 @@
 - **One-time migration.** `NovelDownloadRekeyMigration` (version `182f`) relocates existing `novel_downloads/<novelId>/<chapterId>.html` files into the new layout (resolve the novel + chapter from the DB, write at the new path, delete the old, prune the empty numeric dir). Best-effort per file: an unresolvable row is left in place (no data loss).
 
 **Key files.**
-- `reikai/novel/download/NovelDownloadProvider.kt` — path scheme, string + typed name API, temp-then-rename, `renameChapter`.
-- `reikai/novel/download/NovelDownloadCache.kt` — disk-scan tree, `changes`, renew + storage-move invalidation.
-- `reikai/novel/download/NovelDownloadManager.kt` — routes through the cache, `renameChapter`, no flag writes.
-- `reikai/data/novel/NovelChapterSync.kt` (+ `NovelPageWalk.kt`, `NovelRefresh.kt`) — rename-on-sync threading.
-- `data/.../view/novelLibraryView.sq`, `novelUpdatesView.sq`, migration `29.sqm` — views recreated without the download columns (the `is_downloaded` column is kept).
-- `mihon/core/migration/migrations/NovelDownloadRekeyMigration.kt` — the one-time file relocation.
+- `reikai/novel/download/NovelDownloadProvider.kt`: path scheme, string + typed name API, temp-then-rename, `renameChapter`.
+- `reikai/novel/download/NovelDownloadCache.kt`: disk-scan tree, `changes`, renew + storage-move invalidation.
+- `reikai/novel/download/NovelDownloadManager.kt`: routes through the cache, `renameChapter`, no flag writes.
+- `reikai/data/novel/NovelChapterSync.kt` (+ `NovelPageWalk.kt`, `NovelRefresh.kt`): rename-on-sync threading.
+- `data/.../view/novelLibraryView.sq`, `novelUpdatesView.sq`, migration `29.sqm`: views recreated without the download columns (the `is_downloaded` column is kept).
+- `mihon/core/migration/migrations/NovelDownloadRekeyMigration.kt`: the one-time file relocation.
 
 **Status.** Shipped in 0.3.0 (commit `004c8ce16`). Verified on-device: downloads survive reinstall and backup restore; storage-move shares the same disk-scan path and was not separately exercised. Unit tests cover the rename-on-sync wiring; the disk-scan cache and the relocation migration are Android file-I/O and were validated on-device.
 
