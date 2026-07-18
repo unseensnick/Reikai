@@ -164,7 +164,7 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
 
                 // Find accepted root and discard others.
                 val (acceptedRoot, discardedRoots, exhNew) =
-                    updateHelper.findAcceptedRootAndDiscardOthers(manga.source, chapters)
+                    updateHelper.findAcceptedRootAndDiscardOthers(manga.source, chapters) ?: continue
 
                 if (new.isNotEmpty() && manga.id == acceptedRoot.manga.id) {
                     libraryPreferences.newUpdatesCount.getAndSet { it + new.size }

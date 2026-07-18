@@ -47,12 +47,13 @@ class EHentaiUpdateHelper(context: Context) {
     /**
      * @param chapters Cannot be an empty list!
      *
-     * @return Triple<Accepted, Discarded, HasNew>
+     * @return Triple<Accepted, Discarded, HasNew>, or null when no persisted same-source chain resolves
+     *  from [chapters] (nothing to reconcile).
      */
     suspend fun findAcceptedRootAndDiscardOthers(
         sourceId: Long,
         chapters: List<Chapter>,
-    ): Triple<ChapterChain, List<ChapterChain>, List<Chapter>> {
+    ): Triple<ChapterChain, List<ChapterChain>, List<Chapter>>? {
         // Find other chains
         val chains = chapters
             .flatMap { chapter ->
@@ -79,8 +80,9 @@ class EHentaiUpdateHelper(context: Context) {
             }
             .filter { it.manga.source == sourceId }
 
-        // Accept oldest chain
-        val accepted = chains.minBy { it.manga.id }
+        // Accept oldest chain. Empty only when no chapter resolves to a persisted same-source manga
+        // (nothing to reconcile); bail rather than throw on the empty min.
+        val accepted = chains.minByOrNull { it.manga.id } ?: return null
 
         val toDiscard = chains.filter { it.manga.favorite && it.manga.id != accepted.manga.id }
         val mangaUpdates = mutableListOf<MangaUpdate>()

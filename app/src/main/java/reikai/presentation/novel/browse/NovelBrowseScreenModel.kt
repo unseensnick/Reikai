@@ -5,6 +5,7 @@ import androidx.compose.runtime.setValue
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.core.preference.asState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.JsonElement
@@ -246,6 +247,8 @@ class NovelBrowseScreenModel(
                         )
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Throwable) {
                 // Don't latch endReached on a transient error: a single network hiccup mid-scroll must
                 // not permanently kill paging. Keep the page retryable and surface the error instead.
@@ -271,6 +274,8 @@ class NovelBrowseScreenModel(
     private inline fun runFetch(error: (Throwable) -> Unit, block: () -> Unit) {
         try {
             block()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Throwable) {
             error(e)
         }

@@ -2,6 +2,7 @@ package reikai.domain.novel.interactor
 
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.CancellationException
+import logcat.LogPriority
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.model.Novel
@@ -10,8 +11,10 @@ import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.hasCustomCover
 import reikai.novel.download.NovelDownloadManager
+import tachiyomi.core.common.util.system.logcat
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.time.Instant
 
 /**
  * Move a favorited novel's state onto a [target] novel from another source, the novel twin of
@@ -100,6 +103,10 @@ class MigrateNovelUseCase(
                 NovelUpdate(
                     id = target.id,
                     favorite = true,
+                    // Inherit the source's added-date on a replace, else stamp now, matching manga
+                    // migration; this favorite path bypasses awaitUpdateFavorite, which is the only
+                    // other place dateAdded is set, so without this a migrated novel sorts to epoch 0.
+                    dateAdded = if (replace) current.dateAdded else Instant.now().toEpochMilli(),
                     // Carry the chapter-list (sort/filter/display) and reader (orientation) flags onto
                     // the target unconditionally, matching manga migration.
                     chapterFlags = current.chapterFlags,
@@ -124,8 +131,11 @@ class MigrateNovelUseCase(
             } else if (group.size > 1) {
                 novelMergeManager.mergeNovels(group.toList() + target.id)
             }
-        } catch (e: CancellationException) {
-            throw e
+        } catch (e: Throwable) {
+            if (e is CancellationException) throw e
+            // A failed migration was previously swallowed silently; surface it in the log (matching
+            // manga migration) rather than letting the whole batch fail opaquely.
+            logcat(LogPriority.ERROR, e) { "Novel migration failed (${current.id} -> ${target.id})" }
         }
     }
 }

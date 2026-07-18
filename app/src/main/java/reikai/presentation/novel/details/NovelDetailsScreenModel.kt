@@ -1091,10 +1091,16 @@ class NovelDetailsScreenModel(
     fun markPreviousRead(read: Boolean) {
         screenModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
-            // Query the viewed source (displayNovel), not the anchor: on a non-anchor source chip the
-            // selection ids belong to the sibling, so an anchor query never matches. expandToGroup then
-            // folds the result across the merge group.
-            val ascending = chapterRepo.getByNovelId(loaded.displayNovel.id).sortedBy { it.sourceOrder }
+            // In the unified ("All") view the selection can be a sibling-source chapter that the anchor's
+            // own rows don't contain, so operate over the pooled display list (which spans every grouped
+            // source, unpaginated). A single source (or a selected chip) uses its own stored rows, which
+            // span all fetched pages, not just what's on screen. expandToGroup folds across the group.
+            val unifiedView = loaded.mergeSources.size > 1 && loaded.selectedSourceNovelId == null
+            val ascending = if (unifiedView) {
+                loaded.chapters.sortedBy { it.sourceOrder }
+            } else {
+                chapterRepo.getByNovelId(loaded.displayNovel.id).sortedBy { it.sourceOrder }
+            }
             val earliest = ascending.indexOfFirst { it.id in loaded.selection }
             if (earliest > 0) {
                 val previous = expandToGroup(ascending.subList(0, earliest))

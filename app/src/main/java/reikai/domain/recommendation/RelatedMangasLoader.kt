@@ -175,16 +175,21 @@ class RelatedMangasLoader(
         suspend fun add(candidates: List<RelatedMangaCandidate>): List<RelatedMangaCandidate>? =
             mutex.withLock {
                 var added = false
+                // Count each title key at most once per push, not once per candidate: a stream that
+                // lists the same series twice in one batch (e.g. MangaUpdates' recommendations +
+                // categoryRecommendations) must not manufacture cross-source agreement the ranker rewards.
+                val batchKeys = HashSet<String>()
                 for (candidate in candidates) {
                     if (candidate.manga.url == selfUrl) continue
                     val keys = candidate.titleKeys()
                     if (keys.isEmpty()) continue
-                    keys.forEach { agreementByKey.merge(it, 1, Int::plus) }
+                    batchKeys += keys
                     if (keys.any { it in seenTitleKeys }) continue
                     if (!accumulated.add(candidate)) continue // url already present
                     seenTitleKeys += keys
                     added = true
                 }
+                batchKeys.forEach { agreementByKey.merge(it, 1, Int::plus) }
                 if (added) rankSnapshot() else null
             }
 

@@ -31,15 +31,19 @@ suspend fun inlineChapterImages(html: String, baseSite: String, client: OkHttpCl
             client.newCall(Request.Builder().url(absolute).build()).execute().use { response ->
                 if (!response.isSuccessful) return@use
                 val body = response.body
-                val length = body.contentLength()
-                if (length in 1..MAX_INLINE_BYTES || length == -1L) {
-                    val bytes = body.bytes()
-                    if (bytes.isEmpty() || bytes.size > MAX_INLINE_BYTES) return@use
-                    val mime = response.header("Content-Type")?.substringBefore(';')?.takeIf { it.startsWith("image/") }
-                        ?: "image/jpeg"
-                    val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
-                    img.attr("src", "data:$mime;base64,$encoded")
-                }
+                // Bound the read itself, not just the post-read size: a lying or unknown (-1)
+                // content-length would otherwise let body.bytes() pull an arbitrarily large image
+                // fully into memory before any size check could reject it.
+                if (body.contentLength() > MAX_INLINE_BYTES) return@use
+                val source = body.source()
+                source.request(MAX_INLINE_BYTES + 1)
+                if (source.buffer.size > MAX_INLINE_BYTES) return@use
+                val bytes = source.readByteArray()
+                if (bytes.isEmpty()) return@use
+                val mime = response.header("Content-Type")?.substringBefore(';')?.takeIf { it.startsWith("image/") }
+                    ?: "image/jpeg"
+                val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                img.attr("src", "data:$mime;base64,$encoded")
             }
         }
     }

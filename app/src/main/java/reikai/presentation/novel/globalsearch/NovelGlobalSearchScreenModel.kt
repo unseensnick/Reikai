@@ -2,6 +2,7 @@ package reikai.presentation.novel.globalsearch
 
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -133,6 +134,8 @@ class NovelGlobalSearchScreenModel(
                     val result = semaphore.withPermit {
                         try {
                             SearchState.Success(source.searchNovels(query, 1))
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Throwable) {
                             SearchState.Error("${e.javaClass.simpleName}: ${e.message ?: ""}")
                         }

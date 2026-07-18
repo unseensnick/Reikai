@@ -536,6 +536,9 @@ class NovelLibraryScreenModel :
             categorySortOrder = settings.categorySortOrder,
             sourceMeta = sourceMeta,
             languageCodes = languageCodes,
+            // Render the group-by-language header as the full name ("English"), not the bare code,
+            // matching the manga library; the cover badge still uses the short code separately.
+            languageDisplay = { code -> Locale.forLanguageTag(code).displayName.ifBlank { code } },
             statusNames = statusNames,
             trackStatuses = trackStatuses,
         )

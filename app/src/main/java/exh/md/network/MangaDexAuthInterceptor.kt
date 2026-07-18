@@ -16,8 +16,12 @@ class MangaDexAuthInterceptor(
     private val mdList: MdList,
 ) : Interceptor {
 
+    // Volatile so a refresh on one OkHttp thread is visible to others (avoids a stale-token read).
+    // A double refresh from two threads racing the expiry check is still possible but benign.
+    @Volatile
     var token = trackPreferences.trackToken(mdList).get().nullIfBlank()
 
+    @Volatile
     private var oauth: MALOAuth? = null
 
     override fun intercept(chain: Interceptor.Chain): Response {

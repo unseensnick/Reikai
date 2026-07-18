@@ -1,5 +1,6 @@
 package reikai.domain.recommendation.taste
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -15,8 +16,8 @@ import tachiyomi.core.common.util.system.logcat
  * recomputed locally from the cache ([GetTasteProfile]).
  *
  * Registered as a singleton so the [mutex] and the staleness check coalesce concurrent triggers
- * (e.g. several details screens opening at once) into a single pull. R4c layers the user-facing
- * schedule (never / 7d / 30d) and a manual "refresh now" with cooldown on top of [await].
+ * (e.g. several details screens opening at once) into a single pull. A user schedule (never / 7d /
+ * 30d) and a cooldown-guarded manual [refreshNow] sit on top of [await].
  */
 class RefreshTrackerLibrary(
     private val fetchers: List<TrackerLibraryFetcher>,
@@ -31,14 +32,16 @@ class RefreshTrackerLibrary(
     }
 
     /** Manual "refresh now" with a short cooldown so the button can't be spammed. Returns false (and
-     *  does nothing) when pressed again within [cooldownMs]. */
-    suspend fun refreshNow(cooldownMs: Long = MANUAL_COOLDOWN_MS): Boolean {
-        val now = System.currentTimeMillis()
-        if (now - lastManualRefresh < cooldownMs) return false
-        lastManualRefresh = now
-        await()
-        return true
-    }
+     *  does nothing) when pressed again within [cooldownMs]. The cooldown check-and-set runs under the
+     *  [mutex] with the pull, so two near-simultaneous taps can't both slip past the gate. */
+    suspend fun refreshNow(cooldownMs: Long = MANUAL_COOLDOWN_MS): Boolean =
+        mutex.withLock {
+            val now = System.currentTimeMillis()
+            if (now - lastManualRefresh < cooldownMs) return@withLock false
+            lastManualRefresh = now
+            runPull(fetchers.filter { it.isEnabled() })
+            true
+        }
 
     /** Pull only if an enabled tracker has never been pulled or its cache is older than [maxAgeMs].
      *  Used to bootstrap the profile lazily on first use without re-pulling on every details open. */
@@ -61,6 +64,7 @@ class RefreshTrackerLibrary(
                     runCatching { fetcher.fetchLibrary() }
                         .onSuccess { repository.replaceTracker(fetcher.trackerId, it, now) }
                         .onFailure { e ->
+                            if (e is CancellationException) throw e
                             logcat(LogPriority.WARN, e) { "Tracker library pull failed (${fetcher.trackerId})" }
                         }
                 }
