@@ -4,7 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-- **Content layer architecture (manga/novel unification, deep seam)** `[XL]` - one Reikai-owned shared behavior + UI layer over a neutral `Entry` vocabulary, with thin adapters: the manga `ScreenModel` stays live and synced, the novel one dissolves. Extends the shipped Entry* UI-leaf seam down into the ScreenModel behavior (the two details models are ~70-75% duplicate today), swaps the keep-inert dead-file policy for delete-and-manifest, and folds in the reader migration as the final phase. One surface at a time, verified: details, then library, browse, migrate/search, then reader. Starting with details. [Plan](docs/dev/plans/content-layer-architecture.md).
+- **Content layer architecture (manga/novel unification, deep seam)** `[XL]` - one Reikai-owned shared behavior + UI layer over a neutral `Entry` vocabulary, with thin adapters: the manga `ScreenModel` stays live and synced, the novel one dissolves. Extends the shipped Entry* UI-leaf seam down into the ScreenModel behavior (the two details models are ~70-75% duplicate today), swaps the keep-inert dead-file policy for delete-and-manifest, and folds in the reader migration as the final phase. One surface at a time, verified: details, then library, browse, migrate/search, then reader. Details first ([surface plan](docs/dev/plans/content-layer-details-surface.md)). [Plan](docs/dev/plans/content-layer-architecture.md).
 
 The merge system rebuild is built and on-device verified (ships in 0.4.0; see [shipped.md](docs/dev/shipped.md) and its [plan](docs/dev/plans/merge-system-rebuild.md)), including its final slice (the source-switcher chips are now one shared component).
 
@@ -45,6 +45,7 @@ From the 2026-07-04 Komikku parity audit (missing features + gestures on the det
 - **Per-chapter source label on merged entries** `[M]` - show which source each chapter came from in a merged series.
 - **Details overflow polish** `[S]` - per-entry disable-auto-update, clear-data (downloads + cached chapters), open folder, jump to source settings.
 - **AMOLED-aware adult tag-chip borders** `[S]` - weighted / pure-black-dark-mode borders on the adult gallery-info tag chips (copying metadata already works via the metadata viewer).
+- **Recommendations in the overflow menu (option)** `[S]` - an option to move the details recommendations into the three-dot menu (Komikku-style) to reduce main-screen clutter, distinct from the existing full on/off toggle in Settings -> Library -> Recommendations. Pending clarification on whether it should hide the inline carousel (menu-only) or just duplicate the existing disable ([unseensnick/Reikai#51](https://github.com/unseensnick/Reikai/issues/51)).
 
 ### Browse & sources
 
