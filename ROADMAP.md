@@ -81,7 +81,7 @@ Dedicated LN trackers are shippable via WebView session-scraping (no official AP
 
 ### UI & design
 
-- **Reikai design refresh (off stock Material 3)** `[L]` - the manga/novel/adult surfaces are now collapsed onto shared `Entry*` components (History/Updates rows, cover dialog, details screen, browse, global search, library settings, sort), so the structural unification is largely done. The remaining forward work is owning the pixels: a Reikai theme (color / typography / shape / component defaults through the single `TachiyomiTheme` -> `MaterialExpressiveTheme` entry point) layered over the shared components, seeding tokens in `DESIGN.md` first (brand in `PRODUCT.md`: quiet, dense, deliberate). Complementary to, not a replacement for, the structural work. [Plan](docs/dev/plans/unified-content-ui.md).
+- **Reikai design refresh (off stock Material 3)** `[L]` - move Reikai's look off the stock Material 3 aesthetic (shape, typography, component styling, spacing, layout) across the shared `Entry*` surfaces, while keeping Mihon's existing theme system in Appearance settings intact: the user-selectable color themes, light/dark, AMOLED, and Theme-based-on-cover all stay, and the redesign renders under whichever the user picked. It owns component styling and layout through the `TachiyomiTheme` -> `MaterialExpressiveTheme` entry point, not the color-palette picker, and must preserve both the phone and tablet (two-pane) layouts Reikai inherited from Mihon. Seed tokens in `DESIGN.md` first (brand in `PRODUCT.md`: quiet, dense, deliberate). Exploratory. [Plan](docs/dev/plans/unified-content-ui.md).
 
 ## Parked / not building
 
