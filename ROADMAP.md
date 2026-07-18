@@ -4,12 +4,14 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-_Nothing actively in progress. The merge system rebuild is built and on-device verified (ships in 0.4.0; see [shipped.md](docs/dev/shipped.md) and its [plan](docs/dev/plans/merge-system-rebuild.md)), including its final slice (the source-switcher chips are now one shared component; the merge managers already share the group repository and the collapse helpers are deliberately per-type). Next up is the download-subsystem unification below._
+- **Content layer architecture (manga/novel unification, deep seam)** `[XL]` - one Reikai-owned shared behavior + UI layer over a neutral `Entry` vocabulary, with thin adapters: the manga `ScreenModel` stays live and synced, the novel one dissolves. Extends the shipped Entry* UI-leaf seam down into the ScreenModel behavior (the two details models are ~70-75% duplicate today), swaps the keep-inert dead-file policy for delete-and-manifest, and folds in the reader migration as the final phase. One surface at a time, verified: details, then library, browse, migrate/search, then reader. Starting with details. [Plan](docs/dev/plans/content-layer-architecture.md).
+
+The merge system rebuild is built and on-device verified (ships in 0.4.0; see [shipped.md](docs/dev/shipped.md) and its [plan](docs/dev/plans/merge-system-rebuild.md)), including its final slice (the source-switcher chips are now one shared component).
 
 ## Next
 
-- **Unify the download subsystem across manga and novels (Road B)** `[L]` - collapse the parallel novel download cache/provider into one shared disk-scan layer serving both types, keyed on shared primitives, so they can't drift (Tsundoku's single-subsystem model). The novel download re-key deliberately mirrored the manga scheme + cache shape so this is a code merge, not a data migration. Touches Mihon's shipped download files (`// RK`).
-- The reader **tsundoku track** (seamless novel-reader transitions, later the native-reader migration); detail under Later -> Reader.
+- **Unify the download subsystem across manga and novels (Road B)** `[L]` - collapse the parallel novel download cache/provider into one shared disk-scan layer serving both types, keyed on shared primitives, so they can't drift (Tsundoku's single-subsystem model). The novel download re-key deliberately mirrored the manga scheme + cache shape so this is a code merge, not a data migration. Touches Mihon's shipped download files (`// RK`). Now sequenced within the content-layer program (it settles the manga/novel download-state reconciliation the shared behavior needs); see its [plan](docs/dev/plans/content-layer-architecture.md).
+- The reader **tsundoku track** (seamless novel-reader transitions, later the native-reader migration) is now the **final phase** of the content-layer program above, not a separate branch; detail under Later -> Reader and in [content-layer-architecture.md](docs/dev/plans/content-layer-architecture.md).
 
 ## Later
 

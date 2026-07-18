@@ -85,6 +85,8 @@ the details screen (the large, highest-impact surface) in phases P1-P6. The down
 
 ## Status
 
+**The forward architecture now lives in [content-layer-architecture.md](content-layer-architecture.md).** This doc records the shipped UI-leaf seam (the Entry* composables both content types render); the deeper unification that extends that seam down into the ScreenModel behavior, the delete-and-manifest dead-file policy, and the folded-in reader migration are specified there. Read that first for anything forward-looking; the record below is the foundation it builds on.
+
 **In progress. List surfaces + cover dialog shipped; the details screen is collapsing in phases (P1-P5
 done; P6 editor + custom-info overlay + Fill-from-tracker shipped).** Captured from a design discussion (2026-07-05) while finishing the MD
 enhanced-source port; a code-research pass (2026-07-07) confirmed the list surfaces already carried the
