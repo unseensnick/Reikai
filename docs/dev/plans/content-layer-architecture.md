@@ -51,7 +51,7 @@ Nothing is built yet, so these are the target homes and the current twins to col
 
 ## Status
 
-Designed 2026-07-18, not started. Grounded by an integration-pattern analysis of the Reikai-versus-Mihon duplication and a feasibility comparison of the two details ScreenModels (~70-75% congruent, with a small bounded set of per-type capabilities). This is a deliberate refactor sprint, explicitly exempted from the no-standalone-refactor rule by the project owner because the current per-type duplication is not sustainable for a solo developer. First surface: details.
+Designed 2026-07-18, not started. Grounded by an integration-pattern analysis of the Reikai-versus-Mihon duplication and a feasibility comparison of the two details ScreenModels (~70-75% congruent, with a small bounded set of per-type capabilities). This is a deliberate refactor sprint, explicitly exempted from the no-standalone-refactor rule by the project owner because the current per-type duplication is not sustainable for a solo developer. First surface: details, planned in [content-layer-details-surface.md](content-layer-details-surface.md).
 
 ## Decisions & tradeoffs
 
