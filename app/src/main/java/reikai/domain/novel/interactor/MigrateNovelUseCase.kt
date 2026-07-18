@@ -3,6 +3,8 @@ package reikai.domain.novel.interactor
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
+import reikai.domain.entry.EntryId
+import reikai.domain.entry.coverCacheKey
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.model.Novel
@@ -86,8 +88,9 @@ class MigrateNovelUseCase(
             }
 
             if (NovelMigrationFlag.COVER in flags && current.hasCustomCover(coverCache)) {
-                coverCache.getCustomCoverFile(-current.id).inputStream().use { input ->
-                    coverCache.getCustomCoverFile(-target.id).outputStream().use { output -> input.copyTo(output) }
+                coverCache.getCustomCoverFile(EntryId.Novel(current.id).coverCacheKey()).inputStream().use { input ->
+                    coverCache.getCustomCoverFile(EntryId.Novel(target.id).coverCacheKey())
+                        .outputStream().use { output -> input.copyTo(output) }
                 }
                 // Bump the target's coverLastModified so coil reloads, mirroring NovelCoverScreenModel.
                 updateNovel.awaitUpdateCoverLastModified(target.id)

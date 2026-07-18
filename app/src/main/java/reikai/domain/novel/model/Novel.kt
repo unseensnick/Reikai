@@ -4,6 +4,8 @@ import androidx.compose.runtime.Immutable
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import reikai.domain.entry.EntryId
+import reikai.domain.entry.coverCacheKey
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.Serializable
@@ -101,4 +103,4 @@ val Novel.readerOrientation: Long
  * `Manga.hasCustomCover`.
  */
 fun Novel.hasCustomCover(coverCache: CoverCache = Injekt.get()): Boolean =
-    coverCache.getCustomCoverFile(-id).exists()
+    coverCache.getCustomCoverFile(EntryId.Novel(id).coverCacheKey()).exists()

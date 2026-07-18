@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import reikai.data.coil.NovelCover
+import reikai.domain.entry.EntryId
+import reikai.domain.entry.coverCacheKey
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
@@ -61,7 +63,7 @@ class NovelCoverScreenModel(
     /** True when the novel has a user-set custom cover (drives the edit/delete dropdown). */
     fun hasCustomCover(): Boolean {
         val novel = state.value ?: return false
-        return coverCache.getCustomCoverFile(-novel.id).exists()
+        return coverCache.getCustomCoverFile(EntryId.Novel(novel.id).coverCacheKey()).exists()
     }
 
     fun saveCover(context: Context) {
@@ -120,7 +122,8 @@ class NovelCoverScreenModel(
         screenModelScope.launchIO {
             try {
                 context.contentResolver.openInputStream(data)?.use { input ->
-                    coverCache.getCustomCoverFile(-novel.id).outputStream().use { output -> input.copyTo(output) }
+                    coverCache.getCustomCoverFile(EntryId.Novel(novel.id).coverCacheKey())
+                        .outputStream().use { output -> input.copyTo(output) }
                 }
                 updateNovel.awaitUpdateCoverLastModified(novel.id)
                 notifyCoverUpdated(context)
@@ -134,7 +137,7 @@ class NovelCoverScreenModel(
         val novel = state.value ?: return
         screenModelScope.launchIO {
             try {
-                coverCache.deleteCustomCover(-novel.id)
+                coverCache.deleteCustomCover(EntryId.Novel(novel.id).coverCacheKey())
                 updateNovel.awaitUpdateCoverLastModified(novel.id)
                 notifyCoverUpdated(context)
             } catch (e: Exception) {
