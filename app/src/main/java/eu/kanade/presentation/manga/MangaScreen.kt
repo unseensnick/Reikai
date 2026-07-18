@@ -35,6 +35,8 @@ import eu.kanade.tachiyomi.ui.manga.MangaScreenModel
 import eu.kanade.tachiyomi.ui.manga.PagePreviewState // RK
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import reikai.domain.recommendation.RelatedMangaCandidate // RK
+import reikai.presentation.components.ManageMergeSourceRow // RK
+import reikai.presentation.components.MergeSourceChips // RK
 import reikai.presentation.details.EntryActionRow // RK
 import reikai.presentation.details.EntryDetailsScaffold // RK
 import reikai.presentation.details.EntryDetailsTwoPaneScaffold // RK
@@ -43,7 +45,6 @@ import reikai.presentation.details.EntryInfoBox // RK
 import reikai.presentation.details.EntryToolbar // RK
 import reikai.presentation.details.entryInfoItems // RK
 import reikai.presentation.details.toEntryHeader // RK
-import reikai.presentation.manga.MergeSourceChips // RK
 import reikai.presentation.recommendation.RelatedMangaCarousel // RK
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.service.missingChaptersCount
@@ -427,8 +428,10 @@ private fun MangaScreenSmallImpl(
         if (state.mergeSources.size > 1) {
             item(key = "rk-merge-source-chips") {
                 MergeSourceChips(
-                    sources = state.mergeSources,
-                    selectedSourceMangaId = state.selectedSourceMangaId,
+                    sources = state.mergeSources.map {
+                        ManageMergeSourceRow(id = it.mangaId, sourceName = it.sourceName)
+                    },
+                    selectedId = state.selectedSourceMangaId,
                     onSelect = onSelectSource,
                     onSplitSource = onSplitSource,
                 )
@@ -708,8 +711,10 @@ fun MangaScreenLargeImpl(
             if (state.mergeSources.size > 1) {
                 item(key = "rk-merge-source-chips") {
                     MergeSourceChips(
-                        sources = state.mergeSources,
-                        selectedSourceMangaId = state.selectedSourceMangaId,
+                        sources = state.mergeSources.map {
+                            ManageMergeSourceRow(id = it.mangaId, sourceName = it.sourceName)
+                        },
+                        selectedId = state.selectedSourceMangaId,
                         onSelect = onSelectSource,
                         onSplitSource = onSplitSource,
                     )

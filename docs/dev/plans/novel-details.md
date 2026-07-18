@@ -41,7 +41,7 @@ All under `app/src/main/java/reikai/presentation/novel/details/`:
 - `NovelInfoBox.kt`: net-new cover, backdrop, title, source, status header (Mihon's `MangaInfoBox` is `Manga`-typed), plus the `NovelActionRow` (favorite / tracking / web-view actions).
 - `NovelDetailsDialogs.kt`: `NovelCategoryDialog`, `EditNovelInfoDialog`, and `NovelChapterSettingsDialog`.
 - `NovelCoverScreenModel.kt`: drives the full-cover viewer (save/share/edit); the viewer itself is the shared `reikai/presentation/components/EntryCoverDialog.kt`, hosted here by `NovelCoverDialogHost`.
-- `NovelMergeSourceChips.kt` / the shared `ManageMergeSourcesDialog`: the merge source switcher and Manage-sources sheet (see merge-system-rebuild.md).
+- The shared `reikai/presentation/components/MergeSourceChips.kt` / `ManageMergeSourcesDialog`: the merge source switcher and Manage-sources sheet, both shared with manga (see merge-system-rebuild.md).
 - `NovelPageSelectorSheet.kt`: the paged-source page picker.
 
 ## Status

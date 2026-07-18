@@ -1,4 +1,4 @@
-package reikai.presentation.manga
+package reikai.presentation.components
 
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -21,25 +21,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
-import eu.kanade.tachiyomi.ui.manga.MangaScreenModel.MergeSourceInfo
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * Switcher chips for a merged manga group: an "All" chip for the unified chapter list plus one chip
- * per grouped source. Tap to view a source; long-press a source chip to split it out (confirmed).
- * Net-new Reikai UI; renders nothing for a non-merged manga.
+ * Source-switcher chips for a merged group (manga or novel): an "All" chip for the unified chapter
+ * list plus one chip per grouped source. Tap to view a source; long-press a source chip to split it
+ * out (confirmed). The single shared chip row for both content types, keyed on the member entry id
+ * (a Long for both) via the neutral [ManageMergeSourceRow]; renders nothing for a single source.
  */
 @Composable
 fun MergeSourceChips(
-    sources: List<MergeSourceInfo>,
-    selectedSourceMangaId: Long?,
+    sources: List<ManageMergeSourceRow>,
+    selectedId: Long?,
     onSelect: (Long?) -> Unit,
     onSplitSource: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (sources.size <= 1) return
-    var splitTarget by remember { mutableStateOf<MergeSourceInfo?>(null) }
+    var splitTarget by remember { mutableStateOf<ManageMergeSourceRow?>(null) }
 
     Row(
         modifier = modifier
@@ -49,17 +49,17 @@ fun MergeSourceChips(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         FilterChip(
-            selected = selectedSourceMangaId == null,
+            selected = selectedId == null,
             onClick = { onSelect(null) },
             label = { Text(stringResource(MR.strings.merge_sources_all)) },
         )
         sources.forEach { source ->
             FilterChip(
-                selected = selectedSourceMangaId == source.mangaId,
-                onClick = { onSelect(source.mangaId) },
+                selected = selectedId == source.id,
+                onClick = { onSelect(source.id) },
                 label = { Text(source.sourceName) },
-                // Long-press to unmerge this source (does not consume the tap, so selection still works).
-                modifier = Modifier.pointerInput(source.mangaId) {
+                // Long-press to split this source out (does not consume the tap, so selection works).
+                modifier = Modifier.pointerInput(source.id) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         if (awaitLongPressOrCancellation(down.id) != null) {
@@ -79,7 +79,7 @@ fun MergeSourceChips(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        onSplitSource(target.mangaId)
+                        onSplitSource(target.id)
                         splitTarget = null
                     },
                 ) {

@@ -54,6 +54,7 @@ import reikai.domain.novel.model.withCustomInfo
 import reikai.presentation.components.EntryCoverDialog
 import reikai.presentation.components.ManageMergeSourceRow
 import reikai.presentation.components.ManageMergeSourcesDialog
+import reikai.presentation.components.MergeSourceChips
 import reikai.presentation.details.EntryDetailsScaffold
 import reikai.presentation.details.EntryDetailsTwoPaneScaffold
 import reikai.presentation.details.EntryDetailsUiState
@@ -581,9 +582,11 @@ private fun LazyListScope.novelChapterHeaderItems(
 ) {
     if (state.mergeSources.size > 1) {
         item(key = "source-chips") {
-            NovelMergeSourceChips(
-                sources = state.mergeSources,
-                selectedSourceNovelId = state.selectedSourceNovelId,
+            MergeSourceChips(
+                sources = state.mergeSources.map {
+                    ManageMergeSourceRow(id = it.novelId, sourceName = it.sourceName)
+                },
+                selectedId = state.selectedSourceNovelId,
                 onSelect = screenModel::selectSource,
                 onSplitSource = { screenModel.splitSources(listOf(it)) },
             )

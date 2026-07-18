@@ -32,6 +32,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 ### Other
 
 - Settings -> Advanced: two "clear merges" actions, which did the same thing after the merge rebuild, are now one "Clear all merges" action per content type.
+- The merged-series source-switcher chips, previously a duplicated manga and novel component, are now one shared component.
 - Shizuku detection now probes for the Shizuku permission instead of a fixed package name (synced from Mihon, mihonapp/mihon#3565).
 
 ## [0.3.0]
