@@ -681,17 +681,21 @@ class MangaScreenModel(
         screenModelScope.launchIO {
             if (!updateManga.awaitUpdateFavorite(manga.id, true)) return@launchIO
             mergeManager.mergeManga(listOf(manga.id) + selectedIds)
-            mangaLibraryAdder.seedCategoriesFromGroup(manga.id, selectedIds)
+            val seeded = mangaLibraryAdder.seedCategoriesFromGroup(manga.id, selectedIds)
             addTracks.bindEnhancedTrackers(manga, state.source)
             maybeBackupFavoriteToAccount(manga)
 
-            val categories = getCategories()
-            val defaultCategoryId = libraryPreferences.defaultCategory.get().toLong()
-            val defaultCategory = categories.find { it.id == defaultCategoryId }
-            when {
-                defaultCategory != null -> moveMangaToCategory(defaultCategory)
-                defaultCategoryId == 0L || categories.isEmpty() -> moveMangaToCategory(null)
-                else -> showChangeCategoryDialog()
+            // The group's categories win: only fall back to the default (or the picker) when the group
+            // is uncategorized, so the new source lands where the rest of the series lives.
+            if (!seeded) {
+                val categories = getCategories()
+                val defaultCategoryId = libraryPreferences.defaultCategory.get().toLong()
+                val defaultCategory = categories.find { it.id == defaultCategoryId }
+                when {
+                    defaultCategory != null -> moveMangaToCategory(defaultCategory)
+                    defaultCategoryId == 0L || categories.isEmpty() -> moveMangaToCategory(null)
+                    else -> showChangeCategoryDialog()
+                }
             }
         }
     }

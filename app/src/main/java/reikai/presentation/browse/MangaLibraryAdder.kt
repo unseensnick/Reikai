@@ -52,30 +52,28 @@ class MangaLibraryAdder(
         mergeManager.groupIdsFor(duplicates.map { it.manga.id })
 
     /**
-     * RK: file [mangaId] into the categories the group it just joined already uses, so a new source lands
-     * where the rest of the series lives. The category step preselects from the entry's own categories, so
-     * writing them first is what ticks them. No-op when no member is filed anywhere.
+     * RK: file [mangaId] into the categories its new group already uses, so a new source lands where the
+     * rest of the series lives. Returns whether it filed any (false when the group is uncategorized).
      */
-    suspend fun seedCategoriesFromGroup(mangaId: Long, memberIds: List<Long>) {
-        val categoryIds = memberIds.flatMap { getCategories.await(it) }.map { it.id }.distinct()
-        if (categoryIds.isNotEmpty()) setMangaCategories.await(mangaId, categoryIds.filter { it != 0L })
+    suspend fun seedCategoriesFromGroup(mangaId: Long, memberIds: List<Long>): Boolean {
+        val categoryIds = memberIds.flatMap { getCategories.await(it) }.map { it.id }.filter { it != 0L }.distinct()
+        if (categoryIds.isEmpty()) return false
+        setMangaCategories.await(mangaId, categoryIds)
+        return true
     }
 
     /**
-     * RK: merge [manga] with the duplicates the user picked, then favorite it. Only the picks: the
-     * duplicate list is fuzzy, so merging every match would fuse distinct series. Picking one member of a
-     * group is enough, since the merge absorbs that member's whole group.
-     *
-     * Favorites up front (like the novel adder), before the possible category choice, so an abandoned
-     * choice can't strand the just-merged member. Membership isn't favorite-filtered, so a
-     * merged-but-unfavorited copy would feed chapters into the group while staying invisible in the
-     * library. The returned [AddFavoriteResult.NeedsCategoryChoice] is shown with `alreadyFavorited`, so
-     * its confirm only files categories and doesn't re-toggle the favorite.
+     * RK: merge [manga] with the user's picked duplicates, then favorite it. Only the picks: the duplicate
+     * list is fuzzy, and one member is enough since the merge absorbs that member's whole group.
+     * Favorites up front (before any category choice) so an abandoned choice can't leave a merged-but-
+     * unfavorited copy feeding chapters into the group while invisible in the library. The new source
+     * joins the group's own categories when it has any; only an uncategorized group falls back to the
+     * default (or the picker, shown with `alreadyFavorited` so its confirm doesn't re-toggle the favorite).
      */
     suspend fun addToExistingGroup(manga: Manga, selectedIds: List<Long>): AddFavoriteResult {
         changeFavorite(manga)
         mergeManager.mergeManga(listOf(manga.id) + selectedIds)
-        seedCategoriesFromGroup(manga.id, selectedIds)
+        if (seedCategoriesFromGroup(manga.id, selectedIds)) return AddFavoriteResult.Added
         return applyDefaultCategoryOrPrompt(manga)
     }
 

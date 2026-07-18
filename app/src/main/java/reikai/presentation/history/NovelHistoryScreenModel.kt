@@ -148,8 +148,14 @@ class NovelHistoryScreenModel(
     fun addToExistingGroup(novelId: Long, selectedIds: List<Long>) {
         screenModelScope.launchIO {
             novelMergeManager.mergeNovels(listOf(novelId) + selectedIds)
-            novelLibraryAdder.seedCategoriesFromGroup(novelId, selectedIds)
-            addToLibrary(novelId)
+            val seeded = novelLibraryAdder.seedCategoriesFromGroup(novelId, selectedIds)
+            updateNovel.awaitUpdateFavorite(novelId, favorite = true)
+            // Group categories win: only fall back to the default (or picker) for an uncategorized group.
+            if (!seeded) {
+                novelLibraryAdder.applyDefaultCategoryOrPrompt(novelId)?.let { prompt ->
+                    setDialog(Dialog.ChangeCategory(novelId, prompt.categories, prompt.currentIds))
+                }
+            }
         }
     }
 

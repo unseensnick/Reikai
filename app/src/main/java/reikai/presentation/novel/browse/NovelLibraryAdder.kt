@@ -88,22 +88,25 @@ class NovelLibraryAdder(
         mergeManager.groupIdsFor(duplicates.map { it.novel.id })
 
     /**
-     * File [novelId] into the categories the group it just joined already uses, so a new source lands
-     * where the rest of the series lives. [applyDefaultCategoryOrPrompt] preselects from the novel's own
-     * categories, so writing them first is what ticks them. No-op when no member is filed anywhere.
+     * File [novelId] into the categories its new group already uses, so a new source lands where the rest
+     * of the series lives. Returns whether it filed any (false when the group is uncategorized).
      */
-    suspend fun seedCategoriesFromGroup(novelId: Long, memberIds: List<Long>) {
+    suspend fun seedCategoriesFromGroup(novelId: Long, memberIds: List<Long>): Boolean {
         val categoryIds = memberIds
             .flatMap { getNovelCategories.awaitByNovelId(it) }
             .map { it.id }
+            .filter { it > 0L }
             .distinct()
-        if (categoryIds.isNotEmpty()) setNovelCategories.await(novelId, categoryIds)
+        if (categoryIds.isEmpty()) return false
+        setNovelCategories.await(novelId, categoryIds)
+        return true
     }
 
     /**
      * Add the item and merge it into the group of the duplicates the user picked. Only the picks: the
-     * duplicate list is fuzzy, so merging every match would fuse distinct series. Picking one member of
-     * a group is enough, since the merge absorbs that member's whole group.
+     * duplicate list is fuzzy, and one member is enough since the merge absorbs that member's whole group.
+     * The new source joins the group's own categories when it has any; only an uncategorized group falls
+     * back to the default (or the picker).
      *
      * Favorites first, unlike the manga twin: a browse item has no library row until [favoriteReturningId]
      * inserts one, and both the merge and the category seeding need its id.
@@ -111,7 +114,7 @@ class NovelLibraryAdder(
     suspend fun addToExistingGroup(item: NovelItem, sourceId: String, selectedIds: List<Long>): NovelBrowseDialog? {
         val storedId = favoriteReturningId(item, sourceId) ?: return null
         mergeManager.mergeNovels(listOf(storedId) + selectedIds)
-        seedCategoriesFromGroup(storedId, selectedIds)
+        if (seedCategoriesFromGroup(storedId, selectedIds)) return null
         return applyDefaultCategoryOrPrompt(storedId)?.let { prompt ->
             NovelBrowseDialog.ChangeCategory(storedId, prompt.categories, prompt.currentIds)
         }
