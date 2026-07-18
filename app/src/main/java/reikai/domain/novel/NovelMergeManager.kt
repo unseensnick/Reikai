@@ -3,6 +3,7 @@ package reikai.domain.novel
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.MergeGroupRepository
+import reikai.domain.merge.MergeManager
 import reikai.domain.novel.model.Novel
 
 /**
@@ -16,7 +17,7 @@ import reikai.domain.novel.model.Novel
 class NovelMergeManager(
     private val repository: MergeGroupRepository,
     private val preferences: ReikaiLibraryPreferences,
-) {
+) : MergeManager {
 
     /** The group [targetId] belongs to, or just itself when ungrouped or merging is disabled. */
     suspend fun computeRelatedNovelIds(targetId: Long): LongArray {
@@ -36,6 +37,8 @@ class NovelMergeManager(
     suspend fun mergeNovels(ids: List<Long>) {
         repository.merge(ContentType.NOVELS, ids)
     }
+
+    override suspend fun merge(ids: List<Long>) = mergeNovels(ids)
 
     /**
      * Whether the add-time duplicate dialog offers grouping (the picker and the "add to existing group"
@@ -70,13 +73,13 @@ class NovelMergeManager(
 
     /** Persist [orderedMemberIds] as the group's source order (0 = trunk) and turn the override on. The
      *  ids are the manage-sources rows after a drag; the group is resolved from the first of them. */
-    suspend fun setSourceOrder(orderedMemberIds: List<Long>) {
+    override suspend fun setSourceOrder(orderedMemberIds: List<Long>) {
         val groupId = orderedMemberIds.firstNotNullOfOrNull { repository.getGroupId(ContentType.NOVELS, it) } ?: return
         repository.setSourceOrder(ContentType.NOVELS, groupId, orderedMemberIds)
     }
 
     /** Clear the per-group override for [anchorId]'s group (back to the global ranking). */
-    suspend fun clearSourceOrder(anchorId: Long) {
+    override suspend fun clearSourceOrder(anchorId: Long) {
         val groupId = repository.getGroupId(ContentType.NOVELS, anchorId) ?: return
         repository.clearSourceOrder(ContentType.NOVELS, groupId)
     }
@@ -90,8 +93,8 @@ class NovelMergeManager(
      * Split [targetIds] out of their group, keeping the survivors grouped; the group is dissolved when
      * fewer than two members remain. Returns the surviving ids.
      */
-    suspend fun removeFromGroup(relatedNovelIds: LongArray, targetIds: List<Long>): LongArray {
-        if (targetIds.isEmpty()) return relatedNovelIds
+    override suspend fun removeFromGroup(relatedIds: LongArray, targetIds: List<Long>): LongArray {
+        if (targetIds.isEmpty()) return relatedIds
         return repository.removeFromGroup(ContentType.NOVELS, targetIds).toLongArray()
     }
 

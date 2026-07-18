@@ -84,6 +84,7 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.details.EntryMergeActionHost
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.novel.selectChaptersForDownloadAction
 import tachiyomi.core.common.i18n.stringResource
@@ -667,6 +668,22 @@ class NovelDetailsScreenModel(
 
     // --- Merge: source switcher + split ---
 
+    // Shared split / remove / reorder actions. Novels write favorite-only (so the merge-undo keeps the
+    // original dateAdded) and propagate tracker links onto each member before a split. selectSource +
+    // showManageSourcesDialog stay below: their bodies genuinely diverge.
+    private val mergeActions = EntryMergeActionHost(
+        scope = screenModelScope,
+        snackbarHostState = snackbarHostState,
+        context = context,
+        relatedIds = relatedNovelIds,
+        anchorId = { anchorNovelId },
+        mergeManager = mergeManager,
+        onClearSelectedSource = { selectedSourceNovelId.value = null },
+        dismissDialog = ::dismissDialog,
+        setFavorite = { ids, favorite -> ids.forEach { updateNovel.await(NovelUpdate(id = it, favorite = favorite)) } },
+        onBeforeSplit = { ids -> propagateNovelTrackerLinks.distribute(ids) },
+    )
+
     /** Switch the chapter view between the unified list (null) and a single grouped source's list. */
     fun selectSource(novelId: Long?) {
         if (selectedSourceNovelId.value == novelId) return
@@ -702,85 +719,15 @@ class NovelDetailsScreenModel(
         }
     }
 
-    /** Persist a manage-sources drag as the group's source order, then re-aggregate so the new trunk
-     *  leads the chapter list live (a fresh array re-emits the StateFlow). */
-    fun reorderSources(orderedIds: List<Long>) {
-        screenModelScope.launchIO {
-            mergeManager.setSourceOrder(orderedIds)
-            relatedNovelIds.value = relatedNovelIds.value.copyOf()
-        }
-    }
+    fun reorderSources(orderedIds: List<Long>) = mergeActions.reorderSources(orderedIds)
 
-    /** Clear the per-group source-order override (back to the global ranking) and re-aggregate live. */
-    fun resetSourceOrder() {
-        dismissDialog()
-        screenModelScope.launchIO {
-            mergeManager.clearSourceOrder(anchorNovelId)
-            relatedNovelIds.value = relatedNovelIds.value.copyOf()
-        }
-    }
+    fun resetSourceOrder() = mergeActions.resetSourceOrder()
 
-    /** Split the given grouped sources out (subset split; full dissolve if they cover the group), with
-     *  an Undo that restores the prior merge prefs + group. */
-    fun splitSources(targetIds: List<Long>) {
-        if (targetIds.isEmpty()) return
-        val prevRelated = relatedNovelIds.value
-        // Copy the group's trackers onto each member so a split source keeps them. Explicit ids, so it's
-        // independent of the split below (different tables).
-        screenModelScope.launchIO { propagateNovelTrackerLinks.distribute(prevRelated.toList()) }
-        selectedSourceNovelId.value = null
-        dismissDialog()
-        screenModelScope.launchIO {
-            val newIds = mergeManager.removeFromGroup(prevRelated, targetIds)
-            relatedNovelIds.value = if (newIds.isEmpty()) longArrayOf(anchorNovelId) else newIds
-            val result = snackbarHostState.showSnackbar(
-                message = context.stringResource(MR.strings.merge_sources_split),
-                actionLabel = context.stringResource(MR.strings.action_undo),
-                duration = SnackbarDuration.Short,
-                withDismissAction = true,
-            )
-            if (result == SnackbarResult.ActionPerformed) {
-                // Undo re-merges the original group; the split wrote to the group tables, not prefs.
-                mergeManager.mergeNovels(prevRelated.toList())
-                relatedNovelIds.value = prevRelated
-            }
-        }
-    }
+    fun splitSources(targetIds: List<Long>) = mergeActions.splitSources(targetIds)
 
-    /** Split [targetIds] out and unfavorite them, with an Undo that re-favorites + re-groups. */
-    fun removeSourcesFromLibrary(targetIds: List<Long>) {
-        if (targetIds.isEmpty()) return
-        val prevRelated = relatedNovelIds.value
-        selectedSourceNovelId.value = null
-        dismissDialog()
-        screenModelScope.launchNonCancellable { setFavorites(targetIds, false) }
-        screenModelScope.launchIO {
-            relatedNovelIds.value = mergeManager.removeFromGroup(prevRelated, targetIds)
-            val result = snackbarHostState.showSnackbar(
-                message = context.stringResource(MR.strings.merge_sources_removed),
-                actionLabel = context.stringResource(MR.strings.action_undo),
-                duration = SnackbarDuration.Short,
-                withDismissAction = true,
-            )
-            if (result == SnackbarResult.ActionPerformed) {
-                // Undo re-merges the original group and re-favorites the removed sources.
-                mergeManager.mergeNovels(prevRelated.toList())
-                relatedNovelIds.value = prevRelated
-                screenModelScope.launchNonCancellable { setFavorites(targetIds, true) }
-            }
-        }
-    }
+    fun removeSourcesFromLibrary(targetIds: List<Long>) = mergeActions.removeSourcesFromLibrary(targetIds)
 
-    /** Remove the whole merge group from the library at once (Manage Sources "Remove all"). */
-    fun removeAllSourcesFromLibrary() {
-        removeSourcesFromLibrary(relatedNovelIds.value.toList())
-    }
-
-    // Favorite-only (not awaitUpdateFavorite): the merge-source undo restores a removed group, so the
-    // original dateAdded must survive instead of being re-stamped.
-    private suspend fun setFavorites(ids: List<Long>, favorite: Boolean) {
-        ids.forEach { id -> updateNovel.await(NovelUpdate(id = id, favorite = favorite)) }
-    }
+    fun removeAllSourcesFromLibrary() = mergeActions.removeAllSourcesFromLibrary()
 
     /** Renumber sourceOrder over the unified list (ascending by chapter number = reading order) so a
      *  "by source order" sort doesn't interleave sources. Copies; each source's own order is untouched. */

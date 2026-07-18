@@ -98,6 +98,7 @@ import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteProfile
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.details.EntryEditInfoUi
+import reikai.presentation.details.EntryMergeActionHost
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.TriState
@@ -1707,6 +1708,20 @@ class MangaScreenModel(
     suspend fun fetchTrackerMetadata(track: Track, tracker: Tracker): TrackMangaMetadata =
         tracker.getMangaMetadata(track)
 
+    // RK: shared source split / remove / reorder actions (the snackbar-with-undo logic both details
+    // models run). selectSource + showManageSourcesDialog stay here: their bodies genuinely diverge.
+    private val mergeActions = EntryMergeActionHost(
+        scope = screenModelScope,
+        snackbarHostState = snackbarHostState,
+        context = context,
+        relatedIds = relatedMangaIds,
+        anchorId = { mangaId },
+        mergeManager = mergeManager,
+        onClearSelectedSource = { selectedSourceMangaId.value = null },
+        dismissDialog = ::dismissDialog,
+        setFavorite = { ids, favorite -> ids.forEach { updateManga.awaitUpdateFavorite(it, favorite) } },
+    )
+
     /** Switch the chapter list to a single grouped source, or null for the unified merged view. */
     fun selectSource(sourceMangaId: Long?) {
         selectedSourceMangaId.value = sourceMangaId
@@ -1736,84 +1751,16 @@ class MangaScreenModel(
         }
     }
 
-    /** Persist a manage-sources drag as the group's source order, then nudge the chapter flow to
-     *  re-aggregate so the new trunk leads the list live (a fresh array re-emits the StateFlow). */
-    fun reorderSources(orderedIds: List<Long>) {
-        screenModelScope.launchIO {
-            mergeManager.setSourceOrder(orderedIds)
-            relatedMangaIds.value = relatedMangaIds.value.copyOf()
-        }
-    }
+    fun reorderSources(orderedIds: List<Long>) = mergeActions.reorderSources(orderedIds)
 
-    /** Clear the per-group source-order override (back to the global ranking) and re-aggregate live. */
-    fun resetSourceOrder() {
-        dismissDialog()
-        screenModelScope.launchIO {
-            mergeManager.clearSourceOrder(mangaId)
-            relatedMangaIds.value = relatedMangaIds.value.copyOf()
-        }
-    }
+    fun resetSourceOrder() = mergeActions.resetSourceOrder()
 
-    /**
-     * Split [targetIds] out of the merge group, with an Undo that restores the prior merge prefs.
-     * Selecting every source dissolves the whole group (each manga becomes standalone, still in the
-     * library) instead of no-opping. Undo restores the prefs + group either way.
-     */
-    fun splitSources(targetIds: List<Long>) {
-        if (targetIds.isEmpty()) return
-        val prevRelated = relatedMangaIds.value
-        selectedSourceMangaId.value = null
-        dismissDialog()
-        screenModelScope.launchIO {
-            val newIds = mergeManager.removeFromGroup(prevRelated, targetIds)
-            relatedMangaIds.value = if (newIds.isEmpty()) longArrayOf(mangaId) else newIds
-            val result = snackbarHostState.showSnackbar(
-                message = context.stringResource(MR.strings.merge_sources_split),
-                actionLabel = context.stringResource(MR.strings.action_undo),
-                duration = SnackbarDuration.Short,
-                withDismissAction = true,
-            )
-            if (result == SnackbarResult.ActionPerformed) {
-                // Undo re-merges the original group; the split wrote to the group tables, not prefs.
-                mergeManager.mergeManga(prevRelated.toList())
-                relatedMangaIds.value = prevRelated
-            }
-        }
-    }
+    fun splitSources(targetIds: List<Long>) = mergeActions.splitSources(targetIds)
 
-    /** Split [targetIds] out and unfavorite them, with an Undo that re-favorites and re-groups. */
-    fun removeSourcesFromLibrary(targetIds: List<Long>) {
-        if (targetIds.isEmpty()) return
-        val prevRelated = relatedMangaIds.value
-        selectedSourceMangaId.value = null
-        dismissDialog()
-        screenModelScope.launchNonCancellable {
-            targetIds.forEach { updateManga.awaitUpdateFavorite(it, false) }
-        }
-        screenModelScope.launchIO {
-            relatedMangaIds.value = mergeManager.removeFromGroup(prevRelated, targetIds)
-            val result = snackbarHostState.showSnackbar(
-                message = context.stringResource(MR.strings.merge_sources_removed),
-                actionLabel = context.stringResource(MR.strings.action_undo),
-                duration = SnackbarDuration.Short,
-                withDismissAction = true,
-            )
-            if (result == SnackbarResult.ActionPerformed) {
-                // Undo re-merges the original group and re-favorites the removed sources.
-                mergeManager.mergeManga(prevRelated.toList())
-                relatedMangaIds.value = prevRelated
-                screenModelScope.launchNonCancellable {
-                    targetIds.forEach { updateManga.awaitUpdateFavorite(it, true) }
-                }
-            }
-        }
-    }
+    fun removeSourcesFromLibrary(targetIds: List<Long>) = mergeActions.removeSourcesFromLibrary(targetIds)
+
+    fun removeAllSourcesFromLibrary() = mergeActions.removeAllSourcesFromLibrary()
     // RK <--
-
-    // RK: remove the whole merge group from the library at once (Manage Sources shortcut)
-    fun removeAllSourcesFromLibrary() {
-        removeSourcesFromLibrary(relatedMangaIds.value.toList())
-    }
 
     // RK --> related-mangas carousel (recommendations)
     private var relatedLoadStarted = false

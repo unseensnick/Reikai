@@ -3,6 +3,7 @@ package reikai.domain.manga
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.MergeGroupRepository
+import reikai.domain.merge.MergeManager
 import tachiyomi.domain.manga.model.Manga
 
 /**
@@ -16,7 +17,7 @@ import tachiyomi.domain.manga.model.Manga
 class MangaMergeManager(
     private val repository: MergeGroupRepository,
     private val preferences: ReikaiLibraryPreferences,
-) {
+) : MergeManager {
 
     /** The group [targetId] belongs to, or just itself when it is ungrouped or merging is disabled. */
     suspend fun computeRelatedMangaIds(targetId: Long): LongArray {
@@ -29,8 +30,8 @@ class MangaMergeManager(
      * Split [targetIds] out of their group, keeping the survivors grouped; the group is dissolved when
      * fewer than two members remain (the "remove all sources" case). Returns the surviving ids.
      */
-    suspend fun removeFromGroup(relatedMangaIds: LongArray, targetIds: List<Long>): LongArray {
-        if (targetIds.isEmpty()) return relatedMangaIds
+    override suspend fun removeFromGroup(relatedIds: LongArray, targetIds: List<Long>): LongArray {
+        if (targetIds.isEmpty()) return relatedIds
         return repository.removeFromGroup(ContentType.MANGA, targetIds).toLongArray()
     }
 
@@ -38,6 +39,8 @@ class MangaMergeManager(
     suspend fun mergeManga(ids: List<Long>) {
         repository.merge(ContentType.MANGA, ids)
     }
+
+    override suspend fun merge(ids: List<Long>) = mergeManga(ids)
 
     /**
      * Whether the add-time duplicate dialog offers grouping (the picker and the "add to existing group"
@@ -72,13 +75,13 @@ class MangaMergeManager(
 
     /** Persist [orderedMemberIds] as the group's source order (0 = trunk) and turn the override on. The
      *  ids are the manage-sources rows after a drag; the group is resolved from the first of them. */
-    suspend fun setSourceOrder(orderedMemberIds: List<Long>) {
+    override suspend fun setSourceOrder(orderedMemberIds: List<Long>) {
         val groupId = orderedMemberIds.firstNotNullOfOrNull { repository.getGroupId(ContentType.MANGA, it) } ?: return
         repository.setSourceOrder(ContentType.MANGA, groupId, orderedMemberIds)
     }
 
     /** Clear the per-group override for [anchorId]'s group (back to the global ranking). */
-    suspend fun clearSourceOrder(anchorId: Long) {
+    override suspend fun clearSourceOrder(anchorId: Long) {
         val groupId = repository.getGroupId(ContentType.MANGA, anchorId) ?: return
         repository.clearSourceOrder(ContentType.MANGA, groupId)
     }
