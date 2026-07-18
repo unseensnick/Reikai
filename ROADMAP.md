@@ -45,7 +45,7 @@ From the 2026-07-04 Komikku parity audit (missing features + gestures on the det
 - **Per-chapter source label on merged entries** `[M]` - show which source each chapter came from in a merged series.
 - **Details overflow polish** `[S]` - per-entry disable-auto-update, clear-data (downloads + cached chapters), open folder, jump to source settings.
 - **AMOLED-aware adult tag-chip borders** `[S]` - weighted / pure-black-dark-mode borders on the adult gallery-info tag chips (copying metadata already works via the metadata viewer).
-- **Recommendations in the overflow menu (option)** `[S]` - an option to move the details recommendations into the three-dot menu (Komikku-style) to reduce main-screen clutter, distinct from the existing full on/off toggle in Settings -> Library -> Recommendations. Pending clarification on whether it should hide the inline carousel (menu-only) or just duplicate the existing disable ([unseensnick/Reikai#51](https://github.com/unseensnick/Reikai/issues/51)).
+- **Recommendations in the overflow menu (option)** `[S]` - a setting to move the details recommendations into the three-dot menu and hide the inline carousel (Komikku-style, so the feature stays reachable without eating body space; requester-confirmed, [unseensnick/Reikai#51](https://github.com/unseensnick/Reikai/issues/51)), distinct from the existing full on/off toggle in Settings -> Library -> Recommendations. Lands with content-layer details Step 4 as a placement mode on the manga related-carousel slot ([plan](docs/dev/plans/content-layer-details-surface.md)).
 
 ### Browse & sources
 
