@@ -113,8 +113,7 @@ class NovelUpdatesScreenModel(
         libraryPreferences.novelManualMerges.changes(),
         libraryPreferences.novelManualUnmerges.changes(),
         libraryPreferences.novelAutoMergeSameTitle.changes(),
-        libraryPreferences.novelAutoMergeRequireAuthor.changes(),
-    ) { on, _, _, _, _ ->
+    ) { on, _, _, _ ->
         if (on) novelMergeManager.seriesGroupKeys(novelRepo.getFavorites()) else emptyMap()
     }.stateIn(screenModelScope, SharingStarted.Eagerly, emptyMap())
 

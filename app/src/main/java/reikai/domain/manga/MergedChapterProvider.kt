@@ -41,7 +41,7 @@ class MergedChapterProvider(
     }
 
     suspend fun load(anchor: Manga): Group {
-        val ids = mergeManager.computeRelatedMangaIds(anchor.id, anchor.title).ids
+        val ids = mergeManager.computeRelatedMangaIds(anchor.id)
         if (ids.size <= 1) {
             return Group(
                 mangaById = mapOf(anchor.id to anchor),

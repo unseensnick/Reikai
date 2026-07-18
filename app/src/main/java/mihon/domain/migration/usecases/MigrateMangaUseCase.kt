@@ -54,7 +54,7 @@ class MigrateMangaUseCase(
         try {
             // RK: capture the source's merge group before the target is favorited, so it's the source
             // plus its existing siblings (not the target, which shares the title on a clean match).
-            val mergeGroup = mangaMergeManager.computeRelatedMangaIds(current.id, current.title).ids
+            val mergeGroup = mangaMergeManager.computeRelatedMangaIds(current.id)
 
             updateMangaFromRemote(target, fetchChapters = true).getOrThrow()
 

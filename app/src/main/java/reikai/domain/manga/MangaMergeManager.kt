@@ -18,16 +18,11 @@ class MangaMergeManager(
     private val preferences: ReikaiLibraryPreferences,
 ) {
 
-    /** Resolved group ids for a manga. [cleanupCount] is retained for the caller's snackbar contract and
-     *  is always 0 now that stale-pref healing is gone (the FK cascade removes deleted members). */
-    class RelatedIdsResult(val ids: LongArray, val cleanupCount: Int)
-
     /** The group [targetId] belongs to, or just itself when it is ungrouped or merging is disabled. */
-    suspend fun computeRelatedMangaIds(targetId: Long, title: String): RelatedIdsResult {
-        if (!preferences.seriesMergingEnabled.get()) return RelatedIdsResult(longArrayOf(targetId), 0)
-        val groupId = repository.getGroupId(ContentType.MANGA, targetId)
-            ?: return RelatedIdsResult(longArrayOf(targetId), 0)
-        return RelatedIdsResult(repository.getMembers(ContentType.MANGA, groupId).toLongArray(), 0)
+    suspend fun computeRelatedMangaIds(targetId: Long): LongArray {
+        if (!preferences.seriesMergingEnabled.get()) return longArrayOf(targetId)
+        val groupId = repository.getGroupId(ContentType.MANGA, targetId) ?: return longArrayOf(targetId)
+        return repository.getMembers(ContentType.MANGA, groupId).toLongArray()
     }
 
     /**
@@ -116,13 +111,7 @@ class MangaMergeManager(
         return favorites.associate { manga -> manga.id to (memberships[manga.id]?.let { "g$it" } ?: "m${manga.id}") }
     }
 
-    /** Dissolve every manga group. Both Settings "clear" actions map here now that there is no separate
-     *  auto-merge state to distinguish. */
-    suspend fun clearManualMerges() {
-        repository.clearAll(ContentType.MANGA)
-    }
-
-    /** Dissolve every manga group (see [clearManualMerges]). */
+    /** Dissolve every manga group (the Settings "Clear all merges" action). */
     suspend fun clearAllMergesIncludingAuto() {
         repository.clearAll(ContentType.MANGA)
     }

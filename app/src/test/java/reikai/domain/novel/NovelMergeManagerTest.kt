@@ -36,7 +36,7 @@ class NovelMergeManagerTest {
             coEvery { getMembers(ContentType.NOVELS, 7L) } returns listOf(1L, 2L, 3L)
         }
 
-        manager(repo).computeRelatedNovelIds(1L, "title", null).toList() shouldBe listOf(1L, 2L, 3L)
+        manager(repo).computeRelatedNovelIds(1L).toList() shouldBe listOf(1L, 2L, 3L)
     }
 
     @Test
@@ -55,12 +55,12 @@ class NovelMergeManagerTest {
             coEvery { getGroupId(ContentType.NOVELS, 1L) } returns null
         }
 
-        manager(repo).computeRelatedNovelIds(1L, "title", null).toList() shouldBe listOf(1L)
+        manager(repo).computeRelatedNovelIds(1L).toList() shouldBe listOf(1L)
     }
 
     @Test
     fun `resolution returns just itself when merging is disabled`() = runTest {
-        manager(mergingEnabled = false).computeRelatedNovelIds(1L, "title", null).toList() shouldBe listOf(1L)
+        manager(mergingEnabled = false).computeRelatedNovelIds(1L).toList() shouldBe listOf(1L)
         manager(mergingEnabled = false).relatedNovelIdsFor(1L) shouldBe listOf(1L)
     }
 

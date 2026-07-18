@@ -401,19 +401,10 @@ class MangaScreenModel(
 
         screenModelScope.launchIO {
             val manga = getMangaAndChapters.awaitManga(mangaId)
-            // RK --> resolve + heal the merge group so the combined chapter list builds on open
-            val related = mergeManager.computeRelatedMangaIds(mangaId, manga.title)
-            relatedMangaIds.value = related.ids
-            if (related.cleanupCount > 0) {
-                screenModelScope.launch {
-                    snackbarHostState.showSnackbar(
-                        message = context.stringResource(MR.strings.merge_sources_healed),
-                        duration = SnackbarDuration.Short,
-                        withDismissAction = true,
-                    )
-                }
-            }
-            val mergeChips = buildMergeSources(related.ids)
+            // RK --> resolve the merge group so the combined chapter list builds on open
+            val related = mergeManager.computeRelatedMangaIds(mangaId)
+            relatedMangaIds.value = related
+            val mergeChips = buildMergeSources(related)
             // RK <--
             val chapterItems = getMangaAndChapters.awaitChapters(mangaId, applyScanlatorFilter = true)
                 .toChapterListItems(manga)

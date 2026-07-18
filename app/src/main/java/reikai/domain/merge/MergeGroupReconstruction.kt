@@ -1,7 +1,5 @@
 package reikai.domain.merge
 
-import reikai.domain.MergeGroupAlgebra
-
 /**
  * Pure reconstruction of today's pref-based grouping into a clean partition, for the Phase 1 one-time
  * migration ([mihon.core.migration.migrations.MigrateMergePrefsToGroupsMigration]).
@@ -57,7 +55,7 @@ object MergeGroupReconstruction {
 
         // Same-title auto-grouping, honoring the author guard and the unmerge exclusions.
         if (autoMergeByTitle) {
-            val unmergedPairs = MergeGroupAlgebra.parseUnmergedPairs(unmerges)
+            val unmergedPairs = parseUnmergedPairs(unmerges)
             val buckets = HashMap<String, MutableList<Long>>()
             for (candidate in candidates) {
                 val key = autoKey(candidate, requireAuthor) ?: continue
@@ -82,6 +80,18 @@ object MergeGroupReconstruction {
             .filter { it.size >= 2 }
             .map { it.sorted() }
             .sortedBy { it.first() }
+    }
+
+    // Normalized "min,max" unmerge pairs parsed from the pref set; malformed entries are dropped.
+    private fun parseUnmergedPairs(unmerges: Set<String>): Set<Pair<Long, Long>> {
+        if (unmerges.isEmpty()) return emptySet()
+        return unmerges.mapNotNullTo(HashSet()) { entry ->
+            val parts = entry.split(",")
+            if (parts.size != 2) return@mapNotNullTo null
+            val a = parts[0].trim().toLongOrNull() ?: return@mapNotNullTo null
+            val b = parts[1].trim().toLongOrNull() ?: return@mapNotNullTo null
+            if (a < b) a to b else b to a
+        }
     }
 
     // Mirrors the live same-title key: title alone, or title + author when the guard is on and the

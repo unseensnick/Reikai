@@ -28,8 +28,7 @@ class PropagateTrackerLinks(
     /** Resolve [seedMangaId]'s group and mirror each shared tracker onto every favorited member. */
     suspend fun fromSeed(seedMangaId: Long) {
         if (!preferences.syncTrackerLinksGrouped.get()) return
-        val seed = getManga.await(seedMangaId) ?: return
-        val groupIds = mergeManager.computeRelatedMangaIds(seedMangaId, seed.title).ids
+        val groupIds = mergeManager.computeRelatedMangaIds(seedMangaId)
         if (groupIds.size < 2) return
 
         // Don't link a tracker onto a manga that has left the library.

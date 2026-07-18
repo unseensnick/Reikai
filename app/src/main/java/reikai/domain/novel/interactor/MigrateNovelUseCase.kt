@@ -47,7 +47,7 @@ class MigrateNovelUseCase(
         try {
             // Capture the source's merge group up front, before the target is favorited, so it's the
             // source plus its existing siblings, not the target (which shares the title on a clean match).
-            val group = novelMergeManager.computeRelatedNovelIds(current.id, current.title, current.author)
+            val group = novelMergeManager.computeRelatedNovelIds(current.id)
 
             // Fetch the source's chapters once when either the chapter-state carry or the
             // remove-download flag needs them.

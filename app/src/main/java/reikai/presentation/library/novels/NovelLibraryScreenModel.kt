@@ -742,7 +742,7 @@ class NovelLibraryScreenModel :
      *  resolves the group order for prev/next, so only the chapter is returned. */
     suspend fun getResume(repNovelId: Long): NovelChapter? {
         val rep = novelRepository.getById(repNovelId) ?: return null
-        val memberIds = mergeManager.computeRelatedNovelIds(rep.id, rep.title, rep.author).toList()
+        val memberIds = mergeManager.computeRelatedNovelIds(rep.id).toList()
         val ordered = if (memberIds.size <= 1) {
             novelChapterRepository.getByNovelId(repNovelId).sortedBy { it.sourceOrder }
         } else {

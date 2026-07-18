@@ -36,7 +36,7 @@ class MangaMergeManagerTest {
             coEvery { getMembers(ContentType.MANGA, 7L) } returns listOf(1L, 2L, 3L)
         }
 
-        manager(repo).computeRelatedMangaIds(1L, "title").ids.toList() shouldBe listOf(1L, 2L, 3L)
+        manager(repo).computeRelatedMangaIds(1L).toList() shouldBe listOf(1L, 2L, 3L)
     }
 
     @Test
@@ -45,13 +45,13 @@ class MangaMergeManagerTest {
             coEvery { getGroupId(ContentType.MANGA, 1L) } returns null
         }
 
-        manager(repo).computeRelatedMangaIds(1L, "title").ids.toList() shouldBe listOf(1L)
+        manager(repo).computeRelatedMangaIds(1L).toList() shouldBe listOf(1L)
     }
 
     @Test
     fun `computeRelatedMangaIds returns just itself when merging is disabled`() = runTest {
         // The repository must not be consulted when the master switch is off.
-        manager(mergingEnabled = false).computeRelatedMangaIds(1L, "title").ids.toList() shouldBe listOf(1L)
+        manager(mergingEnabled = false).computeRelatedMangaIds(1L).toList() shouldBe listOf(1L)
     }
 
     @Test

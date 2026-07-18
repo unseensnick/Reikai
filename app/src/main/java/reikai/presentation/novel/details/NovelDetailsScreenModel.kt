@@ -342,12 +342,11 @@ class NovelDetailsScreenModel(
                 reikaiLibraryPreferences.novelManualMerges.changes(),
                 reikaiLibraryPreferences.novelManualUnmerges.changes(),
                 reikaiLibraryPreferences.novelAutoMergeSameTitle.changes(),
-                reikaiLibraryPreferences.novelAutoMergeRequireAuthor.changes(),
-            ) { anchor, _, _, _, _ -> anchor }
+            ) { anchor, _, _, _ -> anchor }
                 .collectLatest { anchor ->
                     if (anchor == null) return@collectLatest
                     anchorNovelId = anchor.id
-                    relatedNovelIds.value = mergeManager.computeRelatedNovelIds(anchor.id, anchor.title, anchor.author)
+                    relatedNovelIds.value = mergeManager.computeRelatedNovelIds(anchor.id)
                 }
         }
     }

@@ -71,7 +71,7 @@ class NovelMigrationSourcePickScreenModel(
             val memberIds = LinkedHashSet<Long>()
             novelIds.forEach { id ->
                 val novel = novelRepository.getById(id) ?: return@forEach
-                mergeManager.computeRelatedNovelIds(novel.id, novel.title, novel.author).forEach { memberIds += it }
+                mergeManager.computeRelatedNovelIds(novel.id).forEach { memberIds += it }
             }
             // No merged entries: the members are exactly the selection, so there's nothing to choose.
             if (memberIds == LinkedHashSet(novelIds)) {

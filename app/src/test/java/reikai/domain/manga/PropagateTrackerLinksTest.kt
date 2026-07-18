@@ -53,8 +53,7 @@ class PropagateTrackerLinksTest {
 
     private fun group(vararg ids: Long) {
         every { syncPref.get() } returns true
-        coEvery { mergeManager.computeRelatedMangaIds(any(), any()) } returns
-            MangaMergeManager.RelatedIdsResult(ids, 0)
+        coEvery { mergeManager.computeRelatedMangaIds(any()) } returns ids
     }
 
     @Test

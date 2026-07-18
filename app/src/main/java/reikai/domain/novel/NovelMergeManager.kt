@@ -18,9 +18,8 @@ class NovelMergeManager(
     private val preferences: ReikaiLibraryPreferences,
 ) {
 
-    /** The group [targetId] belongs to, or just itself when ungrouped or merging is disabled. [title] /
-     *  [author] are kept for the call-site signature; membership no longer derives from them. */
-    suspend fun computeRelatedNovelIds(targetId: Long, title: String, author: String?): LongArray {
+    /** The group [targetId] belongs to, or just itself when ungrouped or merging is disabled. */
+    suspend fun computeRelatedNovelIds(targetId: Long): LongArray {
         if (!preferences.seriesMergingEnabled.get()) return longArrayOf(targetId)
         val groupId = repository.getGroupId(ContentType.NOVELS, targetId) ?: return longArrayOf(targetId)
         return repository.getMembers(ContentType.NOVELS, groupId).toLongArray()
@@ -105,12 +104,7 @@ class NovelMergeManager(
     suspend fun splitOrDissolve(relatedNovelIds: LongArray, targetIds: List<Long>): LongArray =
         removeFromGroup(relatedNovelIds, targetIds)
 
-    /** Dissolve every novel group. Both Settings "clear" actions map here. */
-    suspend fun clearManualMerges() {
-        repository.clearAll(ContentType.NOVELS)
-    }
-
-    /** Dissolve every novel group (see [clearManualMerges]). */
+    /** Dissolve every novel group (the Settings "Clear all merges" action). */
     suspend fun clearAllMergesIncludingAuto() {
         repository.clearAll(ContentType.NOVELS)
     }
