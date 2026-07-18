@@ -736,16 +736,19 @@ class LibraryScreenModel(
             val tagsByManga = getSearchTags.awaitAll().groupBy { it.mangaId }
             val titlesByManga = getSearchTitles.awaitAll().groupBy { it.mangaId }
             val items = libraryManga.map { manga ->
+                // RK: resolve the download count once (it walks the download-cache tree); reused for the
+                //     field and the badge instead of two identical traversals per manga per emit.
+                val downloadCount = downloadManager.getDownloadCount(manga.manga)
                 LibraryItem(
                     libraryManga = manga,
-                    downloadCount = downloadManager.getDownloadCount(manga.manga),
+                    downloadCount = downloadCount,
                     unreadCount = manga.unreadCount,
                     searchTags = tagsByManga[manga.id],
                     searchTitles = titlesByManga[manga.id],
                     isLocal = manga.manga.isLocal(),
                     badges = LibraryItem.Badges(
                         downloadCount = if (preferences.downloadBadge) {
-                            downloadManager.getDownloadCount(manga.manga)
+                            downloadCount
                         } else {
                             0
                         },

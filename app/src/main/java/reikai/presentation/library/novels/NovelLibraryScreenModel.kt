@@ -1043,11 +1043,17 @@ private fun LibraryNovel.matchesQuery(query: String): Boolean {
  * Reduce an lnreader language value to a 2-char ISO 639-1 code for the library badge. Plugins mostly
  * declare a full English name ("English", "Turkish"); reverse-map it. Values already short (a code) pass
  * through; an unmatched name falls back to its first two chars.
+ *
+ * Memoized: the name to code mapping is static, but this runs for every novel on every library rebuild
+ * (including each selection tap), and the reverse-map scans ~180 ISO languages per uncached name.
  */
+private val languageCodeCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
 private fun languageCodeOf(value: String): String {
     if (value.isBlank() || value.length <= 3) return value
-    val match = Locale.getISOLanguages().firstOrNull {
-        Locale.forLanguageTag(it).getDisplayLanguage(Locale.ENGLISH).equals(value, ignoreCase = true)
+    return languageCodeCache.getOrPut(value) {
+        Locale.getISOLanguages().firstOrNull {
+            Locale.forLanguageTag(it).getDisplayLanguage(Locale.ENGLISH).equals(value, ignoreCase = true)
+        } ?: value.take(2)
     }
-    return match ?: value.take(2)
 }
