@@ -99,6 +99,9 @@ import reikai.domain.recommendation.taste.TasteProfile
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.EntryMergeActionHost
+import reikai.presentation.details.buildTrackerAutofillCandidates
+import reikai.presentation.details.hiddenChapterIdsIn
+import reikai.presentation.details.resolveHiddenChapterView
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.TriState
@@ -1063,19 +1066,10 @@ class MangaScreenModel(
         mangaBySource: Map<Long, Manga>,
     ): HiddenChapters {
         val hidden = hiddenChaptersPref.get()
-        val hasHidden = hidden.isNotEmpty() && items.any { hiddenKey(it.chapter, manga, mangaBySource) in hidden }
-        val showHidden = showHiddenFlow.value && hasHidden
-        val chapters = if (showHidden || !hasHidden) {
-            items
-        } else {
-            items.filterNot { hiddenKey(it.chapter, manga, mangaBySource) in hidden }
-        }
-        val hiddenChapterIds = if (showHidden) {
-            chapters.filter { hiddenKey(it.chapter, manga, mangaBySource) in hidden }.mapTo(HashSet()) { it.id }
-        } else {
-            emptySet()
-        }
-        return HiddenChapters(chapters, showHidden, hasHidden, hiddenChapterIds)
+        val keyOf = { item: ChapterList.Item -> hiddenKey(item.chapter, manga, mangaBySource) }
+        val view = resolveHiddenChapterView(items, hidden, showHiddenFlow.value, keyOf)
+        val hiddenChapterIds = hiddenChapterIdsIn(view.visible, hidden, view.showHidden, keyOf) { it.id }
+        return HiddenChapters(view.visible, view.showHidden, view.hasHidden, hiddenChapterIds)
     }
 
     /** Hide the selected chapters, then clear the selection. */
@@ -1701,9 +1695,7 @@ class MangaScreenModel(
 
     /** Bound trackers eligible for "Fill from tracker" (self-hosted enhanced trackers can't autofill). */
     suspend fun autofillCandidates(): List<Pair<Track, Tracker>> =
-        getTracks.await(mangaId)
-            .mapNotNull { track -> trackerManager.get(track.trackerId)?.let { track to it } }
-            .filterNot { (_, tracker) -> tracker is EnhancedTracker }
+        buildTrackerAutofillCandidates(getTracks.await(mangaId), trackerManager)
 
     suspend fun fetchTrackerMetadata(track: Track, tracker: Tracker): TrackMangaMetadata =
         tracker.getMangaMetadata(track)

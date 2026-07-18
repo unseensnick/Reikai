@@ -20,7 +20,6 @@ import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.coil.getBestColor
 import eu.kanade.tachiyomi.data.download.model.Download
-import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
@@ -85,6 +84,9 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.details.EntryMergeActionHost
+import reikai.presentation.details.buildTrackerAutofillCandidates
+import reikai.presentation.details.hiddenChapterIdsIn
+import reikai.presentation.details.resolveHiddenChapterView
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.novel.selectChaptersForDownloadAction
 import tachiyomi.core.common.i18n.stringResource
@@ -463,15 +465,13 @@ class NovelDetailsScreenModel(
         downloadedChapterIds: Set<Long>,
     ) {
         val hidden = hiddenChaptersPref.get()
-        val hasHiddenChapters = hidden.isNotEmpty() && chapters.any { hiddenKey(it) in hidden }
-        // Show-hidden only holds while this entry still has hidden chapters, so unhiding the last one
-        // collapses the mode instead of leaving a stale "Hide hidden chapters" toggle in the overflow.
-        val showHidden = showHiddenFlow.value && hasHiddenChapters
+        val view = resolveHiddenChapterView(chapters, hidden, showHiddenFlow.value, ::hiddenKey)
+        val hasHiddenChapters = view.hasHidden
+        val showHidden = view.showHidden
         // Hidden chapters are always excluded from the resume target (and downloads); showing hidden only
         // reveals them (dimmed) in the list so they can be unhidden.
         val nonHidden = if (hidden.isEmpty()) chapters else chapters.filterNot { hiddenKey(it) in hidden }
-        val visible = if (showHidden) chapters else nonHidden
-        val display = visible.sortedAndFiltered(anchor, novelPreferences, downloadedChapterIds)
+        val display = view.visible.sortedAndFiltered(anchor, novelPreferences, downloadedChapterIds)
         val sortDescending = anchor.effectiveSortDescending(novelPreferences)
         // Header total is always shown when > 0; the inline gap separators are gated by the pref.
         val missingChapterCount = display.map { it.chapterNumber }.missingChaptersCount()
@@ -482,13 +482,7 @@ class NovelDetailsScreenModel(
         }
         val resume = nonHidden.sortedBy { it.sourceOrder }.firstOrNull { !it.read }
         // When showing hidden, mark which displayed rows are hidden (dimmed + drives Hide/Unhide).
-        val hiddenChapterIds = if (showHidden) {
-            display.filter {
-                hiddenKey(it) in hidden
-            }.mapTo(HashSet()) { it.id }
-        } else {
-            emptySet()
-        }
+        val hiddenChapterIds = hiddenChapterIdsIn(display, hidden, showHidden, ::hiddenKey) { it.id }
         val viewSource = siblingSources.value[viewNovel.id]
         mutableState.update { prev ->
             val loaded = prev as? NovelDetailsState.Loaded
@@ -926,9 +920,7 @@ class NovelDetailsScreenModel(
     /** Bound trackers eligible for "Fill from tracker", spanning the merge group (mirrors RefreshNovelTracks). */
     suspend fun autofillCandidates(): List<Pair<Track, Tracker>> {
         val novelId = (state.value as? NovelDetailsState.Loaded)?.novel?.id ?: return emptyList()
-        return getNovelTracks.awaitGroup(novelId)
-            .mapNotNull { nt -> trackerManager.get(nt.trackerId)?.let { nt.toUiTrack() to it } }
-            .filterNot { (_, tracker) -> tracker is EnhancedTracker }
+        return buildTrackerAutofillCandidates(getNovelTracks.awaitGroup(novelId).map { it.toUiTrack() }, trackerManager)
     }
 
     suspend fun fetchTrackerMetadata(track: Track, tracker: Tracker): TrackMangaMetadata =
