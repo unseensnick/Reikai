@@ -9,9 +9,8 @@ import java.util.concurrent.ConcurrentHashMap
  * tracker endpoints every time. Each entry carries its fetch timestamp so the caller can serve a
  * fresh entry untouched and refresh a stale one in the background ("cache, then refresh").
  *
- * In-memory only: cleared on process death (a longer-lived disk cache for the raw tracker responses
- * lands in R2). A stale entry is still served immediately while a background fetch updates it,
- * bounding how out-of-date the carousel can look to [FRESH_MS].
+ * In-memory only: cleared on process death. A stale entry is still served immediately while a
+ * background fetch updates it, bounding how out-of-date the carousel can look to [FRESH_MS].
  */
 class RelatedMangaCache {
     data class Entry(

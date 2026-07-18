@@ -90,8 +90,8 @@ import tachiyomi.presentation.core.util.plus
  * Per-source light-novel browse, rebuilt on Mihon's manga-browse primitives so it is visually
  * cohesive with the catalogue: an in-toolbar search, a Popular / Latest / Filter chip row, the same
  * empty / loading states, and the same comfortable grid cell. The source is pre-picked (constructor
- * arg, serializable); state lives in [NovelBrowseScreenModel]. Tapping a result is stubbed until the
- * novel details screen lands.
+ * arg, serializable); state lives in [NovelBrowseScreenModel]. Tapping a result opens the novel details
+ * screen.
  */
 class NovelBrowseScreen(
     private val sourceId: String,

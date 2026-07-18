@@ -25,7 +25,8 @@ import uy.kohesive.injekt.api.get
  * progress notification) while [NovelDownloadManager.runQueue] downloads chapter text, so downloads
  * survive backgrounding; WorkManager re-runs it after a restart, where [NovelDownloadManager] restores
  * the persisted queue and resumes. Sibling of the manga
- * [eu.kanade.tachiyomi.data.download.DownloadJob], minus connectivity gating (text is tiny).
+ * [eu.kanade.tachiyomi.data.download.DownloadJob]; [NovelDownloadManager] applies the offline and
+ * Wi-Fi-only pauses.
  */
 class NovelDownloadJob(context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {

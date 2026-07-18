@@ -7,7 +7,7 @@ import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.InsertNovelTrack
 
 /**
- * Novel twin of [reikai.domain.manga.PropagateTrackerLinks], materialised lazily. Group-aware reads
+ * Novel twin of [reikai.domain.manga.PropagateTrackerLinks]. Group-aware reads
  * already share one track row across a merged group, so we keep a single row while merged and only copy
  * it onto each member when the group is split, so every source keeps the tracker after an unmerge.
  * Copy-on-write (each member ends up with its own row), gated by

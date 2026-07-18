@@ -27,7 +27,7 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * Bulk enable/disable screen for light-novel sources, the novel twin of Mihon's manga sources filter.
  * Every installed source is listed under its language heading with a checkbox; unchecking one disables
  * it (hidden from the Sources tab and global search). Novels have no per-language enable model, so the
- * headings are plain navigation labels, not language toggles.
+ * headings are plain section labels, not language toggles.
  */
 class NovelSourcesFilterScreen : Screen() {
 

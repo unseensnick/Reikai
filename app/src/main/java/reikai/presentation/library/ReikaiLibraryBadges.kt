@@ -40,11 +40,6 @@ import tachiyomi.source.local.LocalSource
  * grids). Kept in their own file so the badge logic stays out of Mihon's components.
  */
 
-/**
- * Source/extension icon badge. Ported from Komikku's `SourceIconBadge`, re-typed onto Reikai's
- * domain [Source]. Resolves the icon via [Source.icon] (an ExtensionManager lookup); reading it in
- * the composable is the same Injekt-in-composable idiom Mihon/Komikku use for source icons.
- */
 private const val MAX_MERGE_ICONS = 3
 
 /**

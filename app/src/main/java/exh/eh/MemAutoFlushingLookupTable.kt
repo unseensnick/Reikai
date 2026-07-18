@@ -110,7 +110,7 @@ class MemAutoFlushingLookupTable<T>(
                 withContext(NonCancellable) {
                     writeSynchronously()
 
-                    // Yes there is a race here, no it's isn't critical
+                    // Race here is intentional and non-critical.
                     if (id == writeCounter) flushed = true
                 }
             }

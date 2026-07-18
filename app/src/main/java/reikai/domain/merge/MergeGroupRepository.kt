@@ -5,12 +5,9 @@ import reikai.domain.library.ContentType
 import reikai.domain.merge.model.MergeGroup
 
 /**
- * Storage for persisted merge groups (Phase 0 of the merge-system rebuild). One repository for both
- * content types, parameterized by [ContentType]; the manga and novel members live in separate tables
- * (they FK-cascade to their own entry table), but the group identity and this API are shared.
- *
- * Nothing in the app resolves groups through this yet: the pref-based path still runs. The resolution
- * cutover (Phase 2) moves callers here. [ContentType.ALL] is not a valid group type.
+ * Storage for persisted merge groups, the live resolution path for both content types. Parameterized by
+ * [ContentType]; the manga and novel members live in separate tables (they FK-cascade to their own entry
+ * table), but the group identity and this API are shared. [ContentType.ALL] is not a valid group type.
  */
 interface MergeGroupRepository {
 

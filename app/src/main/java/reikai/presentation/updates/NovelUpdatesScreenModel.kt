@@ -52,8 +52,8 @@ import java.time.ZonedDateTime
  * [eu.kanade.tachiyomi.ui.updates.UpdatesScreenModel]. Subscribes to the recent-novel-updates feed
  * (chapters fetched after the novel was added) and the download queue, exposing a flat list the
  * combined [ReikaiUpdatesScreen] groups by date. Chapter-read/bookmark/download actions reuse the
- * novel repos + [NovelDownloadManager]. The unread-count badge is reset by the manga screen model on
- * tab open, so there is nothing to reset here.
+ * novel repos + [NovelDownloadManager]. Novels rely on the manga tab's unread-count badge reset, so
+ * there is nothing to reset here.
  */
 class NovelUpdatesScreenModel(
     private val novelRepo: NovelRepository = Injekt.get(),
