@@ -11,6 +11,7 @@ The format these follow, and the rule for what earns a doc here, live in [.claud
 - [Reikai → Mihon rebase overview](rebase-overview.md): why Reikai moved off Yōkai onto Mihon, the phased structure (P0-P9), the `// RK` patch convention, and the decisions behind it.
 - [ViewModel migration](viewmodel-migration.md): taking Mihon's move off Voyager `ScreenModel` onto AndroidX `ViewModel` across Reikai's own screens too, phased so each cluster ships compiling, with the R8 risk proven up front. Deferred (attempted once, reverted, parked pending an upstream release).
 - [Legacy Yōkai database import](legacy-yokai-import.md): recovering a user's manga + novel library when they update in place from a pre-rebase Yōkai build, instead of crashing on the now-incompatible shared `tachiyomi.db`.
+- [FlareSolverr Cloudflare bypass integration](flaresolverr-integration.md): the optional bypass proxy (Solverr / Byparr / FlareSolverr) as a WebView fallback for Cloudflare-gated sources, proxy-mode not cookie-replay, with all mechanics in a net-new `FlareSolverrClient` and a minimal `// RK` detection island.
 
 ## Library & shell
 
@@ -21,9 +22,8 @@ The format these follow, and the rule for what earns a doc here, live in [.claud
 ## Manga
 
 - [Manga details parity (P3)](manga-details-parity.md): reaching parity on Mihon's manga details screen: cover-accent backdrop, swipe-to-refresh, two-finger range select, and the merge / Manage-sources additions.
-- [Manga merge engine (P4)](manga-merge-engine.md): pref-based multi-source manga merge (group algebra, distinct-count trunk + float-keyed chapter pooling, copy-on-write tracker mirroring) plus the FlareSolverr Cloudflare escape hatch.
-- [Merge-aware manga reader](merge-aware-manga-reader.md): read a merged manga straight through all its sources in the reader (unified list with per-source labels, cross-source prev/next, per-source side effects), via a thin Reikai layer over Mihon's reader.
-- [Merge system rebuild](merge-system-rebuild.md): why the pref-derived merge is being replaced by a persisted group identity shared across manga and novels (silent membership corruption, unmerges lost on restore, two disagreeing group definitions, a library scan per reader open). Planned.
+- [Merge-aware manga reader](merge-aware-manga-reader.md): read a merged manga straight through all its sources in the reader (unified list with per-source labels, cross-source prev/next, per-source side effects), via a thin Reikai layer over Mihon's reader. The reader-layer record; reader scope-by-context is covered by the merge system rebuild.
+- [Merge system rebuild](merge-system-rebuild.md): the multi-source merge (manga + novels) rebuilt onto a persisted group identity (the `merge_group` + per-type member tables) instead of a per-call derivation from preferences, fixing silent membership corruption, unmerges lost on restore, two disagreeing group definitions, browse pre-merging by title, and a library scan per open. Supersedes the pref-era merge-engine records. Shipped.
 - [Recommendations & related carousel (P6)](recommendations.md): five suggestion streams merged, taste-reranked, tracker-gated cross-recs, and a See-all bulk-add grid.
 - [MangaDex enhanced source](md-enhanced-source.md): wrap the installed MangaDex extension with metadata, OAuth login, an MDList tracker, follows sync, and a settings hub, reusing the EXH enhancement machinery. Feature-complete; the rest of Phase 6 was evaluated and deliberately dropped.
 
@@ -42,7 +42,6 @@ The format these follow, and the rule for what earns a doc here, live in [.claud
 - [Headless LN plugin host (QuickJS)](novel-plugin-host.md): why and how novel sources run in a headless QuickJS runtime instead of a WebView, so they work in the background, with polyfill completeness as the make-or-break constraint.
 - [Novel categories & hopper](novel-categories.md): the Novels tab gains its own categories, the shared category hopper + jump-to-category sheet, a tab-aware Display sheet, and LN plugin update detection.
 - [Novel background update job](novel-update-job.md): the WorkManager worker that refreshes favorited novels on a schedule, with per-category gating and a smart-update skip filter, the novel twin of Mihon's library updater.
-- [Novel cross-source merge](novel-merge.md): how merged novels pool chapters across sources via the shared `MergeGroupAlgebra`, title-first stitching, a per-source switcher, and split / dissolve.
 - [Novel tracking](novel-tracking.md): bind novels to any of the seven trackers that can tell novels apart and sync reading progress, reusing Mihon's trackers, group-aware across merged sources.
 - [Novel backup & restore](novel-backup.md): light novels ride the same backup file as manga (chapters, history, tracks, categories, id-remapped merges) plus an installed-sources record that reinstalls extensions and re-downloads plugins on restore.
 - [Novel parity backlog (shipped)](novel-parity-backlog.md): the manga↔novel parity features (history, migration, library modes, reader, stats, browse) that make novels feel native, with per-item commit SHAs and the deliberate trims.

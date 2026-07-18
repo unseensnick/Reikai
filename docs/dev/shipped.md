@@ -61,8 +61,9 @@ Cut and tagged `v0.1.0`-`v0.3.0`. Stale inherited Yokai `v*` tags were pruned; s
 
 ## Merging & multi-source
 
-- Pref-based multi-source merge engine + preferred-source ranking + tracker-link mirroring + FlareSolverr. See [manga-merge-engine.md](plans/manga-merge-engine.md).
-- Cross-source novel merge + dynamic grouping. See [novel-merge.md](plans/novel-merge.md).
+- Multi-source merge (manga + novels): cross-source chapter pooling, preferred-source ranking, tracker-link mirroring, dynamic grouping (0.1.x, pref-based). See [merge-system-rebuild.md](plans/merge-system-rebuild.md).
+- Merge system rebuild (manga + novels, 0.4.0): the pref-derived merge replaced by a persisted group identity (the `merge_group` + per-type member tables), fixing id-reuse membership corruption, restore-dropped unmerges, the two disagreeing group definitions, browse pre-merging by title, and the full-library scan on every open. Adds a master on/off switch, an add-time grouping prompt, a per-group source-ranking override with a redesigned shared Manage-sources modal, and reader scope-by-context. See [merge-system-rebuild.md](plans/merge-system-rebuild.md).
+- FlareSolverr Cloudflare bypass. See [flaresolverr-integration.md](plans/flaresolverr-integration.md).
 - Merge coalescing fix (0.1.5): one tap merges every source of a series, manga + novels.
 - Merge-aware reader: read a merged manga through all its sources (`d30cce03d`, `4bd3ca823`, `5b9f6d778`). See [merge-aware-manga-reader.md](plans/merge-aware-manga-reader.md).
 - Merge-aware migration (manga + novel): migrating a merged entry keeps the merge and carries tracker links (`ae0dbc191`); a source picker chooses which grouped source(s) to migrate (`dd0173b22`).

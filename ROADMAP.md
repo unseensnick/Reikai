@@ -4,11 +4,12 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-- **Rebuild the merge system on a real group identity, one system for both content types** `[XL]` - persist the group instead of deriving it per call, which closes a live corruption path (reusable manga ids plus merge prefs that are never GC'd), stops restore silently undoing deliberate unmerges, reconciles the library's and details' disagreeing definitions of a group, stops browse pre-merging copies you never added, drops a full-library scan from every details and reader open, and makes grouping a deliberate choice you can see, control, and turn off. [Plan](docs/dev/plans/merge-system-rebuild.md).
+_Nothing actively in progress. The merge system rebuild is built and on-device verified (ships in 0.4.0; see [shipped.md](docs/dev/shipped.md) and its [plan](docs/dev/plans/merge-system-rebuild.md)); its one deferred follow-on is queued in Next. Next up is the download-subsystem unification below._
 
 ## Next
 
 - **Unify the download subsystem across manga and novels (Road B)** `[L]` - collapse the parallel novel download cache/provider into one shared disk-scan layer serving both types, keyed on shared primitives, so they can't drift (Tsundoku's single-subsystem model). The novel download re-key deliberately mirrored the manga scheme + cache shape so this is a code merge, not a data migration. Touches Mihon's shipped download files (`// RK`).
+- **Collapse the parallel manga/novel merge components onto the shared Entry seam** `[M]` - fold the twin merge managers, collapse helpers, and source-switcher chips onto the shared `Entry*` UI-model seam (the Manage-sources modal is already shared), the last structural-unification step of the merge rebuild, deferred to a fresh deep-researched session. [Plan](docs/dev/plans/merge-system-rebuild.md).
 - The reader **tsundoku track** (seamless novel-reader transitions, later the native-reader migration); detail under Later -> Reader.
 
 ## Later

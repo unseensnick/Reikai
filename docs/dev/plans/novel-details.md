@@ -41,7 +41,7 @@ All under `E:\Code\yokai-y2k\app\app\src\main\java\reikai\presentation\novel\det
 - `NovelInfoBox.kt`: net-new cover, backdrop, title, source, status header (Mihon's `MangaInfoBox` is `Manga`-typed), plus the `NovelActionRow` (favorite / tracking / web-view actions).
 - `NovelDetailsDialogs.kt`: `NovelCategoryDialog`, `EditNovelInfoDialog`, and `NovelChapterSettingsDialog`.
 - `NovelCoverScreenModel.kt`: drives the full-cover viewer (save/share/edit); the viewer itself is the shared `reikai/presentation/components/EntryCoverDialog.kt`, hosted here by `NovelCoverDialogHost`.
-- `NovelMergeSourceChips.kt` / `NovelManageSourcesDialog.kt`: the merge source switcher and Manage-sources sheet (see novel-merge.md).
+- `NovelMergeSourceChips.kt` / the shared `ManageMergeSourcesDialog`: the merge source switcher and Manage-sources sheet (see merge-system-rebuild.md).
 - `NovelPageSelectorSheet.kt`: the paged-source page picker.
 
 ## Status
@@ -55,4 +55,4 @@ Shipped and on-device verified. The screen carries the full manga-parity feature
 - **Metadata follows the viewed source; library state stays on the anchor.** For a merged novel, the header and description read the selected source (or the anchor when viewing "All"), but favorite, categories, and notes always act on the favorited anchor row, so switching source chips never moves library state.
 - **Reader gets reading-order chapter ids, not the display order.** Decoupling the reader's chapter sequence from the details sort means "next" advances forward regardless of how the list is sorted on screen.
 
-Features that attach to this screen but are documented separately, to avoid duplication: the reader launched from a chapter tap (novel-reader.md), multi-source merge and the Manage-sources flow (novel-merge.md), the Tracking sheet and auto-sync (novel-tracking.md), and the remaining parity items including per-novel Notes, source migration, and the bulk-download dropdown (novel-parity-backlog.md).
+Features that attach to this screen but are documented separately, to avoid duplication: the reader launched from a chapter tap (novel-reader.md), multi-source merge and the Manage-sources flow (merge-system-rebuild.md), the Tracking sheet and auto-sync (novel-tracking.md), and the remaining parity items including per-novel Notes, source migration, and the bulk-download dropdown (novel-parity-backlog.md).
