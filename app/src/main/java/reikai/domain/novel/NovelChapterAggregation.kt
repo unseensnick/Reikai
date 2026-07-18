@@ -107,9 +107,9 @@ object NovelChapterAggregation {
 
     /**
      * The cross-source identity of a chapter, or null when it has none. Prefers the normalized title
-     * text (drops "chapter"/"vol" label words, standalone numbers, and punctuation); falls back to the
-     * recognized chapter number for numeric-only names. Used for both the unified merge and the
-     * read/bookmark propagation across grouped sources.
+     * text (drops "chapter"/"vol" label words, the leading chapter-number tokens, and punctuation);
+     * falls back to the recognized chapter number for numeric-only names. Used for both the unified merge
+     * and the read/bookmark propagation across grouped sources.
      */
     fun matchKey(chapter: NovelChapter): String? {
         val title = normalizedTitle(chapter.name)
@@ -124,13 +124,26 @@ object NovelChapterAggregation {
     private val numberToken = Regex("""^[0-9]+(\.[0-9]+)?$""")
     private val nonAlphanumeric = Regex("""[^a-z0-9]+""")
 
-    private fun normalizedTitle(name: String): String =
-        name.lowercase()
-            .replace(nonAlphanumeric, " ")
-            .trim()
-            .split(' ')
-            .filter { it.isNotEmpty() && it !in labelWords && !numberToken.matches(it) }
-            .joinToString(" ")
+    // Drops label words anywhere and only the LEADING chapter-number tokens; a number that follows a
+    // title word is kept, so "Pleasureful Repeats 2" stays distinct from "Pleasureful Repeats" (else a
+    // sequel-titled sibling chapter collides and gets deduped out of the unified list), while
+    // "Chapter 1 - 0 Surviving Just to Die" and "0 Surviving Just to Die" still both reduce to
+    // "surviving just to die".
+    private fun normalizedTitle(name: String): String {
+        val out = mutableListOf<String>()
+        var seenWord = false
+        for (token in name.lowercase().replace(nonAlphanumeric, " ").trim().split(' ')) {
+            when {
+                token.isEmpty() || token in labelWords -> {}
+                numberToken.matches(token) -> if (seenWord) out.add(token)
+                else -> {
+                    out.add(token)
+                    seenWord = true
+                }
+            }
+        }
+        return out.joinToString(" ")
+    }
 
     private class RankedSource(
         val novelId: Long,

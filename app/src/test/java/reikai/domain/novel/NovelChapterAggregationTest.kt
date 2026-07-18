@@ -123,6 +123,27 @@ class NovelChapterAggregationTest {
     }
 
     @Test
+    fun `keeps a sibling sequel chapter that differs only by a trailing number`() {
+        // "Pleasureful Repeats 2" must stay distinct from "Pleasureful Repeats": the trailing number is
+        // part of the title, so a sibling's sequel chapter must survive gap-fill, not be deduped out (the
+        // bug that showed the chapter present per-source but "missing" in the unified view).
+        val trunk = listOf(
+            chapter(1L, 1.0, "Pleasureful Repeats"),
+            chapter(1L, 2.0, "Missing Book"),
+            chapter(1L, 3.0, "Trouble Itself"),
+        )
+        val other = listOf(chapter(2L, 1.0, "Pleasureful Repeats"), chapter(2L, 1.5, "Pleasureful Repeats 2"))
+
+        val unified = NovelChapterAggregation.aggregate(mapOf(1L to trunk, 2L to other))
+
+        // The sibling's "Pleasureful Repeats" repeats the trunk's key and drops; "Pleasureful Repeats 2"
+        // keys distinctly and is gap-filled in.
+        unified.map { it.name }.toSet() shouldBe
+            setOf("Pleasureful Repeats", "Missing Book", "Trouble Itself", "Pleasureful Repeats 2")
+        unified.size shouldBe 4
+    }
+
+    @Test
     fun `unnumbered novels show the fullest source's full list unchanged`() {
         // Both sources leave every chapter unnumbered (0.0), the common lnreader case. There's no
         // cross-source key, so the unified view is just the source with the most chapters.

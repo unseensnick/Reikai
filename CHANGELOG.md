@@ -27,6 +27,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A merged light novel opened from your history now continues through the whole group instead of dropping to a single source.** Previous and next chapters span every grouped source, matching manga.
 - **Opening a title from Browse no longer shows it already grouped with same-named titles in your library.** It appears as just that source's own page until you choose to group it.
 - **Restoring a backup no longer re-merges a pair you deliberately split.** Your grouping comes back the way you left it.
+- **A merged novel's combined chapter list no longer hides a chapter whose title only differs by a trailing number.** A sequel-style chapter like "Pleasureful Repeats 2" was being treated as the same as "Pleasureful Repeats" and dropped from the "All" view; it now shows.
 
 ### Other
 
