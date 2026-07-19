@@ -1,5 +1,7 @@
 package reikai.domain.merge
 
+import kotlinx.coroutines.flow.Flow
+
 /**
  * The merge-group operations the shared details merge actions need, so one
  * [reikai.presentation.details.EntryMergeActionHost] can drive source split / remove / reorder for either
@@ -20,4 +22,8 @@ interface MergeManager {
 
     /** Merge [ids] into one group, absorbing any groups they already belong to. No-op for < 2 entries. */
     suspend fun merge(ids: List<Long>)
+
+    /** Emits on every membership change for this content type (add / remove / split / dissolve), so a
+     *  details screen can refresh its group live. Backed by the group-member table, not the retired prefs. */
+    fun membershipChanges(): Flow<Map<Long, Long>>
 }

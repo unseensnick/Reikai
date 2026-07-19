@@ -340,16 +340,15 @@ class NovelDetailsScreenModel(
         }
     }
 
-    /** Resolve the merge group whenever the anchor or the merge prefs change (the author guard is
-     *  re-applied each time = metadata healing). Drives [relatedNovelIds]; chips + chapters react. */
+    /** Resolve the merge group whenever the anchor row or the group membership changes. The membership
+     *  flow is the group-member table (a real change signal), not the retired merge prefs; the anchor flow
+     *  stays to resolve the anchor id from url + source. Drives [relatedNovelIds]; chips + chapters react. */
     private fun observeMergeGroup() {
         screenModelScope.launchIO {
             combine(
                 novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId),
-                reikaiLibraryPreferences.novelManualMerges.changes(),
-                reikaiLibraryPreferences.novelManualUnmerges.changes(),
-                reikaiLibraryPreferences.novelAutoMergeSameTitle.changes(),
-            ) { anchor, _, _, _ -> anchor }
+                mergeManager.membershipChanges(),
+            ) { anchor, _ -> anchor }
                 .collectLatest { anchor ->
                     if (anchor == null) return@collectLatest
                     anchorNovelId = anchor.id

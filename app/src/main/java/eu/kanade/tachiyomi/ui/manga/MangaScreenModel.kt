@@ -391,17 +391,14 @@ class MangaScreenModel(
                 updateSuccessState { it.copy(mergeSources = chips) }
             }
         }
-        // Refresh the group when the merge prefs change from outside this screen (e.g. adding a source to
-        // the group from global search), so the new source chip appears without reopening. Mirrors the
-        // novel model's observeMergeGroup; the chip collector above reacts to relatedMangaIds. `.changes()`
-        // emits the current value on start, so this fires once immediately (re-seeding the same group) too.
+        // Refresh the group when its membership changes from outside this screen (e.g. adding a source to
+        // the group from global search), so the new source chip appears without reopening. The signal is
+        // the group-member table (a real change), not the retired merge prefs; the chip collector above
+        // reacts to relatedMangaIds. Fires once on subscription too, re-seeding the same group.
         screenModelScope.launchIO {
-            combine(
-                reikaiLibraryPreferences.mangaManualMerges.changes(),
-                reikaiLibraryPreferences.mangaManualUnmerges.changes(),
-                reikaiLibraryPreferences.autoMergeSameTitle.changes(),
-            ) { _, _, _ -> }
-                .collectLatest { relatedMangaIds.value = mergeManager.computeRelatedMangaIds(mangaId) }
+            mergeManager.membershipChanges().collectLatest {
+                relatedMangaIds.value = mergeManager.computeRelatedMangaIds(mangaId)
+            }
         }
         screenModelScope.launchIO {
             selectedSourceMangaId.collectLatest { selected ->

@@ -1,5 +1,6 @@
 package reikai.domain.novel
 
+import kotlinx.coroutines.flow.Flow
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.MergeGroupRepository
@@ -39,6 +40,9 @@ class NovelMergeManager(
     }
 
     override suspend fun merge(ids: List<Long>) = mergeNovels(ids)
+
+    override fun membershipChanges(): Flow<Map<Long, Long>> =
+        repository.getAllMembershipsAsFlow(ContentType.NOVELS)
 
     /**
      * Whether the add-time duplicate dialog offers grouping (the picker and the "add to existing group"
