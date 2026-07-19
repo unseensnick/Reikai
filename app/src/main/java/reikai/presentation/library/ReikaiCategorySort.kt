@@ -11,12 +11,29 @@ import tachiyomi.domain.category.model.Category
  * (uncategorized) category is always pinned to the top. Sorts by display name so it works for both
  * real DB categories and synthetic dynamic-grouping categories.
  */
-fun reikaiSortCategories(categories: List<Category>, sortOrder: Int): List<Category> {
+fun reikaiSortCategories(categories: List<Category>, sortOrder: Int): List<Category> =
+    reikaiSortCategories(
+        categories = categories,
+        sortOrder = sortOrder,
+        isSystem = { it.isSystemCategory },
+        displayName = { ReikaiDynamicCategory.displayName(it) },
+    )
+
+/**
+ * Generic form of [reikaiSortCategories] for any category-like type (the novel `NovelCategory` keeps its
+ * own model), so both content types order their category pickers by the same rule instead of drifting.
+ */
+fun <T> reikaiSortCategories(
+    categories: List<T>,
+    sortOrder: Int,
+    isSystem: (T) -> Boolean,
+    displayName: (T) -> String,
+): List<T> {
     if (sortOrder == 0 || categories.isEmpty()) return categories
-    val (system, rest) = categories.partition { it.isSystemCategory }
+    val (system, rest) = categories.partition(isSystem)
     val orderedRest = when (sortOrder) {
-        1 -> rest.sortedBy { ReikaiDynamicCategory.displayName(it).lowercase() }
-        2 -> rest.sortedByDescending { ReikaiDynamicCategory.displayName(it).lowercase() }
+        1 -> rest.sortedBy { displayName(it).lowercase() }
+        2 -> rest.sortedByDescending { displayName(it).lowercase() }
         else -> rest
     }
     return system + orderedRest

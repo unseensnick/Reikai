@@ -31,6 +31,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Restoring a backup no longer re-merges a pair you deliberately split.** Your grouping comes back the way you left it.
 - **A merged novel's combined chapter list no longer hides a chapter whose title only differs by a trailing number.** A sequel-style chapter like "Pleasureful Repeats 2" was being treated as the same as "Pleasureful Repeats" and dropped from the "All" view; it now shows.
 - **Migrating a novel with "remove downloads" on no longer re-downloads those chapters onto the new source.** With it off, your downloads still follow the novel to the new source.
+- **The Edit categories picker on a details page now respects your category sort order.** Opening it from the overflow menu or a long-press on the library button used to ignore the order the library and other category pickers already follow.
 
 ### Other
 

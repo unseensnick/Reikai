@@ -88,6 +88,7 @@ import reikai.presentation.details.EntryMergeActionHost
 import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.resolveHiddenChapterView
+import reikai.presentation.library.reikaiSortCategories
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.novel.selectChaptersForDownloadAction
 import tachiyomi.core.common.i18n.stringResource
@@ -857,7 +858,12 @@ class NovelDetailsScreenModel(
 
     private suspend fun addToLibrary(novel: Novel) {
         updateNovel.awaitUpdateFavorite(novel.id, favorite = true)
-        val categories = getNovelCategories.await().filter { it.id > 0L }
+        val categories = reikaiSortCategories(
+            categories = getNovelCategories.await().filter { it.id > 0L },
+            sortOrder = reikaiLibraryPreferences.categorySortOrder.get(),
+            isSystem = { it.id <= 0L },
+            displayName = { it.name },
+        )
         if (categories.isNotEmpty()) {
             val current = getNovelCategories.awaitByNovelId(novel.id).map { it.id }.toSet()
             updateLoaded { it.copy(dialog = NovelDetailsDialog.ChangeCategory(categories, current)) }
@@ -867,7 +873,13 @@ class NovelDetailsScreenModel(
     fun showChangeCategoryDialog() {
         screenModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
-            val categories = getNovelCategories.await().filter { it.id > 0L }
+            // RK: order the picker by the category sort-order pref, matching the library and its pickers.
+            val categories = reikaiSortCategories(
+                categories = getNovelCategories.await().filter { it.id > 0L },
+                sortOrder = reikaiLibraryPreferences.categorySortOrder.get(),
+                isSystem = { it.id <= 0L },
+                displayName = { it.name },
+            )
             if (categories.isEmpty()) return@launchIO
             val current = getNovelCategories.awaitByNovelId(novel.id).map { it.id }.toSet()
             updateLoaded { it.copy(dialog = NovelDetailsDialog.ChangeCategory(categories, current)) }

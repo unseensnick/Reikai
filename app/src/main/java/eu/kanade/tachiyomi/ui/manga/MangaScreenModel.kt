@@ -84,6 +84,7 @@ import logcat.LogPriority
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
@@ -103,6 +104,7 @@ import reikai.presentation.details.EntryMergeActionHost
 import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.resolveHiddenChapterView
+import reikai.presentation.library.reikaiSortCategories
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.TriState
@@ -173,6 +175,8 @@ class MangaScreenModel(
     private val updateChapter: UpdateChapter = Injekt.get(),
     private val updateManga: UpdateManga = Injekt.get(),
     private val getCategories: GetCategories = Injekt.get(),
+    // RK: orders the change-category picker by the category sort-order pref, like the library.
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
     private val getTracks: GetTracks = Injekt.get(),
     private val addTracks: AddTracks = Injekt.get(),
     private val setMangaCategories: SetMangaCategories = Injekt.get(),
@@ -755,7 +759,8 @@ class MangaScreenModel(
     fun showChangeCategoryDialog() {
         val manga = successState?.manga ?: return
         screenModelScope.launch {
-            val categories = getCategories()
+            // RK: order the picker by the category sort-order pref, matching the library and its pickers.
+            val categories = reikaiSortCategories(getCategories(), reikaiLibraryPreferences.categorySortOrder.get())
             val selection = getMangaCategoryIds(manga)
             updateSuccessState { successState ->
                 successState.copy(
