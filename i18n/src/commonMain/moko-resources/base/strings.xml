@@ -244,10 +244,12 @@
     <string name="recs_browse_empty">No related manga to show. Reopen the manga to load suggestions.</string>
     <string name="recs_group_toggle">Group by source</string>
     <string name="recs_show_hidden">Show hidden</string>
-    <string name="recs_group_source_native">From this source</string>
+    <string name="recs_group_source_native">From %s</string>
     <string name="recs_group_tracker">From your %s recommendations</string>
     <string name="recs_group_cross_rec">Because you\'re reading %s</string>
     <string name="recs_group_tag_search">Matching your taste: %s</string>
+    <string name="recs_origin_because_of">Because of %s</string>
+    <string name="recs_origin_tag">Tag: %s</string>
     <string name="bulk_added_to_library">Added %d to library</string>
     <string name="bulk_added_with_skipped">Added %1$d to library, skipped %2$d</string>
     <string name="action_install">Install</string>

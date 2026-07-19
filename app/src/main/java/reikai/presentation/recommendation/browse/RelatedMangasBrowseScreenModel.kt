@@ -57,13 +57,20 @@ class RelatedMangasBrowseScreenModel(
 
     init {
         screenModelScope.launchIO {
-            val pool = relatedMangaCache.get(mangaId)?.fullPool.orEmpty()
             val favoriteKeys = currentFavoriteKeys()
             val hideFilter = buildRecommendationHideFilter.await()
-            val items = pool.map {
-                BrowseItem(it, (it.manga.url to it.sourceId) in favoriteKeys, hidden = hideFilter.shouldHide(it))
+            // Render live off the cache so a grid opened mid-load (the menu placement opens it before the
+            // background load finishes) fills to the full pool as it streams, instead of freezing on the
+            // partial snapshot present at open. "See all" is tapped after the carousel, so it starts full.
+            relatedMangaCache.observe(mangaId).collect { entry ->
+                val pool = entry?.fullPool.orEmpty()
+                val items = pool.map {
+                    BrowseItem(it, (it.manga.url to it.sourceId) in favoriteKeys, hidden = hideFilter.shouldHide(it))
+                }
+                mutableState.update {
+                    it.copy(items = items, loading = pool.isEmpty() && entry?.isComplete != true)
+                }
             }
-            mutableState.update { it.copy(items = items, loading = false) }
         }
     }
 

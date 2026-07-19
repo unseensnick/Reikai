@@ -70,7 +70,7 @@ class RelatedMangasLoader(
                                 sourceId = source.id,
                                 trackerName = null,
                                 manga = m,
-                                origin = RecommendationOrigin.SourceNative,
+                                origin = RecommendationOrigin.SourceNative(source.name),
                             )
                         }
                         accumulator.add(candidates)?.let { onUpdate(it) }

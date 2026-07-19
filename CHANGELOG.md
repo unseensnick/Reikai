@@ -24,6 +24,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Source grouping is now optional, with a "Group series across sources" toggle in the library display menu and Settings -> Library.** Off shows each source as its own library entry.
 - **The reader now opens a merged series as either one source's chapters or the whole combined group, depending on where you tapped.** Updates, a source chip, and new-chapter notifications open just that source; the series page, your library, and history open the whole merged group.
 - **Bulk-deleting downloaded novel chapters now asks you to confirm first, matching manga.**
+- **Related-manga suggestions now show where each one came from.** A small label on each pick, in the details carousel and the full grid, names the source, the tracker, or the taste reason behind it, so a mixed list is easier to make sense of.
 
 ### Fixes
 

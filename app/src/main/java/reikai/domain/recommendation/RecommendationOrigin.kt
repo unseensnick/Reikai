@@ -5,8 +5,9 @@ package reikai.domain.recommendation
  * explainable sections ("From your AniList recommendations", "Because you're reading X").
  */
 sealed interface RecommendationOrigin {
-    /** The current source's own related / keyword-search suggestions. */
-    data object SourceNative : RecommendationOrigin
+    /** A source's own related / keyword-search suggestions; [sourceName] is that source, so the label is
+     *  unambiguous away from the details page (the browse grid) and in a merged group. */
+    data class SourceNative(val sourceName: String) : RecommendationOrigin
 
     /** A tracker's per-manga recommendation endpoint (AniList, MAL, MangaUpdates, Shikimori). */
     data class Tracker(val trackerName: String) : RecommendationOrigin

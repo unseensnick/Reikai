@@ -26,7 +26,7 @@ class RelatedMangaCandidate(
     val trackerName: String?,
     val manga: SManga,
     val altTitles: List<String> = emptyList(),
-    val origin: RecommendationOrigin = RecommendationOrigin.SourceNative,
+    val origin: RecommendationOrigin,
     val trackerId: Long? = null,
     val remoteId: Long? = null,
 ) {

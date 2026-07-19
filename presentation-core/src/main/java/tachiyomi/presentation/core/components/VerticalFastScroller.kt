@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
@@ -216,13 +217,20 @@ fun VerticalFastScroller(
                             Modifier
                         },
                     )
+                    // RK: the wide transparent touch target; the visible thumb (child) stays 12.dp.
                     .height(ThumbLength)
-                    .padding(horizontal = 8.dp)
                     .padding(end = endContentPadding)
-                    .width(ThumbThickness)
-                    .alpha(alpha.value)
-                    .background(color = thumbColor, shape = ThumbShape),
-            )
+                    .width(ThumbTouchThickness)
+                    .alpha(alpha.value),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                Box(
+                    Modifier
+                        .height(ThumbLength)
+                        .width(ThumbThickness)
+                        .background(color = thumbColor, shape = ThumbShape),
+                )
+            }
         }.map { it.measure(scrollerConstraints) }
         val scrollerWidth = scrollerPlaceable.fastMaxBy { it.width }?.width ?: 0
 
@@ -406,12 +414,20 @@ fun VerticalGridFastScroller(
                             Modifier
                         },
                     )
+                    // RK: the wide transparent touch target; the visible thumb (child) stays 12.dp.
                     .height(ThumbLength)
                     .padding(end = endContentPadding)
-                    .width(ThumbThickness)
-                    .alpha(alpha.value)
-                    .background(color = thumbColor, shape = ThumbShape),
-            )
+                    .width(ThumbTouchThickness)
+                    .alpha(alpha.value),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                Box(
+                    Modifier
+                        .height(ThumbLength)
+                        .width(ThumbThickness)
+                        .background(color = thumbColor, shape = ThumbShape),
+                )
+            }
         }.map { it.measure(scrollerConstraints) }
         val scrollerWidth = scrollerPlaceable.fastMaxBy { it.width }?.width ?: 0
 
@@ -463,6 +479,10 @@ object Scroller {
 
 private val ThumbLength = 48.dp
 private val ThumbThickness = 12.dp
+
+// RK: a transparent touch target wider than the visible thumb, so both scrollers are as easy to grab as
+// the library's own (which uses the same 32.dp). Mihon's draggable area was only the 12.dp visible thumb.
+private val ThumbTouchThickness = 32.dp
 private val ThumbShape = RoundedCornerShape(ThumbThickness / 2)
 private val ScrollBarVisibilityDuration = 2.seconds
 private val ImmediateFadeOutAnimationSpec = tween<Float>(

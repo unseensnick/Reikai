@@ -1,6 +1,10 @@
 package reikai.domain.recommendation
 
-import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 
 /**
  * App-scoped, in-memory cache of the related-mangas carousel pool, keyed by manga id.
@@ -22,9 +26,16 @@ class RelatedMangaCache {
         val isComplete: Boolean = true,
     )
 
-    private val entries = ConcurrentHashMap<Long, Entry>()
+    private val entries = MutableStateFlow<Map<Long, Entry>>(emptyMap())
 
-    fun get(mangaId: Long): Entry? = entries[mangaId]
+    fun get(mangaId: Long): Entry? = entries.value[mangaId]
+
+    /**
+     * Observe a manga's cached pool as it streams in and completes. The "See all" grid renders live off
+     * this, so it fills to the full pool even when opened mid-load (the menu placement opens it before the
+     * background load finishes, unlike "See all" which is tapped after the carousel is already loaded).
+     */
+    fun observe(mangaId: Long): Flow<Entry?> = entries.map { it[mangaId] }.distinctUntilChanged()
 
     fun put(
         mangaId: Long,
@@ -32,7 +43,8 @@ class RelatedMangaCache {
         fullPool: List<RelatedMangaCandidate>,
         isComplete: Boolean = true,
     ) {
-        entries[mangaId] = Entry(carousel, fullPool, System.currentTimeMillis(), isComplete)
+        val entry = Entry(carousel, fullPool, System.currentTimeMillis(), isComplete)
+        entries.update { it + (mangaId to entry) }
     }
 
     /** True while [entry] is within the freshness window and can be served without a refresh. */
