@@ -24,6 +24,10 @@ sealed interface EntryDetailsScreenState {
         val chapters: EntryChapterListUiState,
         /** Typed per-type slots; each adapter fills only what its type supports. */
         val capabilities: EntryCapabilities,
+        /** The grouped sources for the switcher chips (empty or size 1 = not a merged group). */
+        val mergeSources: List<EntryMergeSource>,
+        /** The active source chip; null = the unified ("All") view. */
+        val selectedSourceId: Long?,
         /** Drives the toolbar filter tint; the concrete filter/sort values stay per-type for now. */
         val hasActiveFilter: Boolean,
         val isRefreshing: Boolean,
@@ -31,12 +35,23 @@ sealed interface EntryDetailsScreenState {
         val selection: Set<Long>,
         /** The chapter the resume FAB opens; null hides the FAB. */
         val resumeChapterId: Long?,
+        /** At least one chapter is read, so the FAB reads "Resume" rather than "Start". */
+        val hasStarted: Boolean,
+        /** Downloads apply to this entry (false for a local/stub source); gates the download UI. */
+        val chaptersDownloadable: Boolean,
+        /** Show each chapter row as "Chapter N" rather than its title (manga display mode / novel hide-titles). */
+        val showChapterNumberOnly: Boolean,
         /** Cover-derived header tint; null when off or not yet extracted. */
         val seedColor: Color?,
     ) : EntryDetailsScreenState {
         val selectionMode: Boolean get() = selection.isNotEmpty()
+        val isMerged: Boolean get() = mergeSources.size > 1
     }
 }
+
+/** One grouped source in the merge switcher chips + manage-sources dialog. */
+@Immutable
+data class EntryMergeSource(val id: Long, val sourceName: String)
 
 /**
  * The chapter region: the rendered rows (chapters interleaved with "N missing" separators) plus the
@@ -104,7 +119,9 @@ data class EntryCapabilities(
     // keeping this shared file free of manga-package imports. Null for novels.
     val mangaPagePreviews: MangaPagePreviewsCapability? = null,
     val mangaRelatedCarousel: MangaRelatedCarouselCapability? = null,
-    val mangaGalleryMetadata: MangaGalleryMetadataCapability? = null,
+    // Non-null for every manga (novels have no namespaced tags/gallery), carrying the inputs for the
+    // grouped tag chips + the gallery-info card; both render nothing for a normal (non-adult) manga.
+    val mangaGallery: MangaGalleryCapability? = null,
 )
 
 /**

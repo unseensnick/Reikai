@@ -404,8 +404,8 @@ private fun NovelSelectionBar(
     screenModel: NovelDetailsScreenModel,
     modifier: Modifier,
 ) {
-    // Only offer the actions that apply to the current selection, mirroring the manga selection bar
-    // (SharedMangaBottomActionMenu) instead of always showing every icon.
+    // Only offer the actions that apply to the current selection, mirroring the shared selection bar
+    // (EntryDetailsSelectionBar) instead of always showing every icon.
     val selected = state.chapters.filter { it.id in state.selection }
     fun isDownloaded(chapter: NovelChapter): Boolean =
         state.downloadStateOf(chapter.id) == Download.State.DOWNLOADED

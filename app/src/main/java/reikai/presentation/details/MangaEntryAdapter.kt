@@ -6,6 +6,7 @@ import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
+import eu.kanade.tachiyomi.source.isLocalOrStub
 import eu.kanade.tachiyomi.ui.manga.ChapterList
 import eu.kanade.tachiyomi.ui.manga.MangaScreenModel
 import eu.kanade.tachiyomi.ui.manga.PagePreviewState
@@ -16,7 +17,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.entry.EntryId
 import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.chapter.service.missingChaptersCount
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.withCustomInfo
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.track.model.Track
@@ -43,7 +46,8 @@ class MangaEntryAdapter(
     override val state: StateFlow<EntryDetailsScreenState> =
         model.state
             .map { it.toNeutral() }
-            .stateIn(model.screenModelScope, SharingStarted.Eagerly, EntryDetailsScreenState.Loading)
+            // Seed with the current mapped value so a screen collecting this renders without a Loading frame.
+            .stateIn(model.screenModelScope, SharingStarted.Eagerly, model.state.value.toNeutral())
 
     private fun MangaScreenModel.State.toNeutral(): EntryDetailsScreenState = when (this) {
         MangaScreenModel.State.Loading -> EntryDetailsScreenState.Loading
@@ -75,29 +79,41 @@ class MangaEntryAdapter(
             ),
             chapters = EntryChapterListUiState(
                 items = chapterListItems.map { it.toNeutralItem() },
-                // Manga has no scalar missing count; sum the interspersed separators (0 when missing hidden).
-                missingChapterCount = chapterListItems
-                    .filterIsInstance<ChapterList.MissingCount>()
-                    .sumOf { it.count },
+                // Match the chapter header: the real gap count across the processed list, computed from the
+                // chapter numbers (unchanged when the "hide missing" pref drops the separators from the rows).
+                missingChapterCount = processedChapters.map { it.chapter.chapterNumber }.missingChaptersCount(),
                 showHidden = showHidden,
                 hasHiddenChapters = hasHiddenChapters,
                 hiddenChapterIds = hiddenChapterIds,
             ),
             capabilities = EntryCapabilities(
-                mangaPagePreviews = pagePreviewsState
-                    .takeIf { it !is PagePreviewState.Unused }
-                    ?.let { MangaPagePreviewsCapability(state = it, rowCount = previewsRowCount) },
+                mangaPagePreviews = if (pagePreviewsState !is PagePreviewState.Unused && previewsRowCount > 0) {
+                    MangaPagePreviewsCapability(state = pagePreviewsState, rowCount = previewsRowCount)
+                } else {
+                    null
+                },
                 mangaRelatedCarousel = if (relatedLoading || relatedItems.isNotEmpty()) {
                     MangaRelatedCarouselCapability(relatedItems, relatedTotalCount, relatedLoading)
                 } else {
                     null
                 },
-                mangaGalleryMetadata = galleryMetadata?.let { MangaGalleryMetadataCapability(it) },
+                // Always present for manga: the chips render from a namespaced genre even before the
+                // metadata object loads, and return nothing for a normal manga.
+                mangaGallery = MangaGalleryCapability(
+                    sourceId = displaySource.id,
+                    rawGenre = manga.genre,
+                    metadata = galleryMetadata,
+                ),
             ),
+            mergeSources = mergeSources.map { EntryMergeSource(id = it.mangaId, sourceName = it.sourceName) },
+            selectedSourceId = selectedSourceMangaId,
             hasActiveFilter = filterActive,
             isRefreshing = isRefreshingData,
             selection = chapters.filter { it.selected }.mapTo(mutableSetOf()) { it.id },
             resumeChapterId = model.getNextUnreadChapter()?.id,
+            hasStarted = chapters.any { it.chapter.read },
+            chaptersDownloadable = !source.isLocalOrStub(),
+            showChapterNumberOnly = manga.displayMode == Manga.CHAPTER_DISPLAY_NUMBER,
             seedColor = seedColor,
         )
     }
@@ -286,8 +302,14 @@ data class MangaRelatedCarouselCapability(
     val isLoading: Boolean,
 )
 
-/** Raised gallery metadata for an adult/metadata source; drives the namespaced tag chips + gallery card. */
+/**
+ * A manga's namespaced-tag + gallery inputs. Present for every manga; the grouped tag chips build from
+ * [rawGenre] (an adult source stores genre as "namespace:tag") even before [metadata] loads, and the
+ * gallery-info card renders only once [metadata] is non-null. Both produce nothing for a normal manga.
+ */
 @Immutable
-data class MangaGalleryMetadataCapability(
-    val metadata: RaisedSearchMetadata,
+data class MangaGalleryCapability(
+    val sourceId: Long,
+    val rawGenre: List<String>?,
+    val metadata: RaisedSearchMetadata?,
 )

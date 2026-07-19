@@ -35,7 +35,8 @@ class NovelEntryAdapter(
     override val state: StateFlow<EntryDetailsScreenState> =
         model.state
             .map { it.toNeutral() }
-            .stateIn(model.screenModelScope, SharingStarted.Eagerly, EntryDetailsScreenState.Loading)
+            // Seed with the current mapped value so a screen collecting this renders without a Loading frame.
+            .stateIn(model.screenModelScope, SharingStarted.Eagerly, model.state.value.toNeutral())
 
     private fun NovelDetailsState.toNeutral(): EntryDetailsScreenState = when (this) {
         NovelDetailsState.Loading -> EntryDetailsScreenState.Loading
@@ -73,10 +74,16 @@ class NovelEntryAdapter(
                     null
                 },
             ),
+            mergeSources = mergeSources.map { EntryMergeSource(id = it.novelId, sourceName = it.sourceName) },
+            selectedSourceId = selectedSourceNovelId,
             hasActiveFilter = readFilter != 0L || bookmarkedFilter != 0L || downloadedFilter != 0L,
             isRefreshing = isRefreshing,
             selection = selection,
             resumeChapterId = resumeChapter?.id,
+            hasStarted = hasStarted,
+            // Novels have no local/stub source concept, so downloads always apply.
+            chaptersDownloadable = true,
+            showChapterNumberOnly = hideChapterTitles,
             seedColor = seedColor,
         )
     }
