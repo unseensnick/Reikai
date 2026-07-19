@@ -9,11 +9,12 @@ Reikai is built on [Mihon](https://github.com/mihonapp/mihon) but is a standalon
 ## How to sync
 
 1. **Find the new commits:** `git -C refs/mihon log --oneline <last-synced>..HEAD` (the last-synced SHA is the top ledger row below). Pull `refs/mihon` first; the clones live in the parent dir `refs/`, not inside `app/`.
-2. **Port each commit** by the [method](#porting-method): verbatim-copy marker-free files, hand-merge `// RK` files.
-3. **Drift-check** the hand-merges.
-4. **Compile** (`:app:compileReleaseKotlin`) and on-device verify anything user-facing.
-5. **Commit** with the [convention](#commit-convention).
-6. **Append a ledger row** recording the new base and what was ported or skipped.
+2. **Check off-path files:** `pwsh scripts/off-path-check.ps1 -MihonBase <last-synced>`. It fails if the range touched any file in the [off-path manifest](off-path-manifest.md) (a deleted Mihon UI file whose twin Reikai renders); reconcile each flagged change into its replacement twin by hand.
+3. **Port each commit** by the [method](#porting-method): verbatim-copy marker-free files, hand-merge `// RK` files.
+4. **Drift-check** the hand-merges.
+5. **Compile** (`:app:compileReleaseKotlin`) and on-device verify anything user-facing.
+6. **Commit** with the [convention](#commit-convention).
+7. **Append a ledger row** recording the new base and what was ported or skipped.
 
 Port every new commit by default. Only skip one for a concrete, defensible reason (it re-implements something Reikai deliberately rewrote and would contradict live behaviour, or it is N/A like a Mihon version-code bump). Surface a skip as a choice, never decide it silently.
 
@@ -30,8 +31,8 @@ Reference upstream PRs/issues as **`mihonapp/mihon#<n>`** (a cross-repo link). A
 - **Marker-free file (no `// RK`):** copy the upstream post-commit blob verbatim. Confirm Reikai sits at Mihon's pre-commit base first (`diff` the file); a clean match means the copy is safe.
 - **`// RK`-patched file:** re-apply the upstream hunks by hand around the RK islands. Never let an upstream change land inside or clobber an island.
 - **Drift-check:** `diff` each hand-merged file against the upstream post-commit blob. A faithful port leaves only RK-attributable hunks (an RK island, an RK-supporting import, an RK-fenced line). Any other hunk is drift, a dropped or mis-applied change.
-- **Collapsing a Mihon file onto a Reikai twin: copy, never move.** When a Mihon file is unified into a Reikai-owned replacement (`reikai.*`), leave the Mihon original in place and mark it `// RK: inert` naming the replacement, as `MangaCoverDialog`, `TrackInfoDialog`, and `GlobalSearchCardRow` do. The original is what upstream's future changes land on verbatim, so the port becomes a diff of upstream-before against upstream-after, applied deliberately into the twin. Move it instead and that reference is gone: the next sync has to re-aim the change by hand against a file that has already diverged. Keep the retained copy verbatim upstream; Reikai behaviour belongs in the twin, never in the reference. A partially collapsed file is different: keep its live remainder and note what moved out (`GlobalSearchResultItems`, `GlobalSearchToolbar`).
-- **Review for it:** a move is near-invisible. `git` records it as a rename only above its 50 percent similarity default, so a heavily rewritten twin reads as an unrelated delete plus add, and a pathspec limited to `eu/` cannot pair a rename landing in `reikai/` at all. Audit with `git log -M20% --find-copies-harder --name-status` over the whole source tree.
+- **Collapsing a Mihon file onto a Reikai twin: delete pure-UI, keep engine + partial.** When a Mihon file's UI is *fully* replaced by a Reikai-owned twin (`reikai.*`), **delete** the Mihon original and record it in the [off-path manifest](off-path-manifest.md), rather than keeping it `// RK: inert`. A solo+AI workflow cannot afford a dead file an edit might silently land in; the `refs/mihon` clone holds the pre-delete blob as the diff base, and the manifest's sync check (`off-path-check.ps1`, step 2 of [How to sync](#how-to-sync)) fails loudly if upstream later changes the file, so a buried change is impossible. This supersedes the old keep-inert rule for pure-UI files (the `// RK: inert` tombstones `MangaCoverDialog`, `TrackInfoDialog`, `GlobalSearchCardRow` were deleted and manifested). Two things still stay live, never deleted: an **engine** file (a ScreenModel, repository, source manager) is minimally patched on the render path (e.g. `DownloadQueueScreenModel`, awaiting Road B); and a **partially collapsed** file keeps its live remainder in place, marked `// RK` with what moved out (`MangaInfoHeader` keeps the live `ExpandableMangaDescription` while `MangaInfoBox` / `MangaActionRow` moved to the Entry* twins), so it is not manifested.
+- **Review for it:** the manifest is the enforcement, but a *new* reroute that skips it is invisible. Whenever a sync or a feature reroutes a Mihon file to a `reikai.*` twin, add it to the manifest (or the next sync silently misses upstream's change to it). Periodically audit for un-manifested reroutes with `git log -M20% --find-copies-harder --name-status` over the whole source tree: `git` records a move as a rename only above its 50 percent similarity default, so a heavily rewritten twin reads as an unrelated delete plus add, and a pathspec limited to `eu/` cannot pair a rename landing in `reikai/` at all.
 
 ## Recurring gotchas
 

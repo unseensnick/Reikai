@@ -1,5 +1,11 @@
 package eu.kanade.presentation.manga.components
 
+// RK: partially collapsed. MangaInfoBox and MangaActionRow moved out to the shared
+// reikai.presentation.details.EntryInfoBox / EntryActionRow (serving manga + novels) and have no call
+// sites; they are kept here verbatim as the upstream-sync reference to diff future Mihon changes into
+// those twins. ExpandableMangaDescription below is the live remainder (still rendered by the shared
+// EntryDetailsColumn), so this file stays on the render path and is not off-path-manifested.
+
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
