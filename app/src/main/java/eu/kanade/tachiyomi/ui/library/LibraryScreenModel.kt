@@ -1012,7 +1012,7 @@ class LibraryScreenModel(
         if (ids.size < 2) return
         screenModelScope.launchIO {
             // RK: each selected card's whole group is absorbed by the merge, so one call coalesces every source
-            mergeManager.mergeManga(ids)
+            mergeManager.merge(ids)
             // RK: share any existing tracker across the newly merged group
             propagateTrackerLinks.fromSeed(ids.first())
         }
@@ -1023,7 +1023,7 @@ class LibraryScreenModel(
     fun unmergeSelection() {
         val ids = state.value.selection.toList()
         if (ids.isEmpty()) return
-        screenModelScope.launchIO { mergeManager.unmergeManga(ids) }
+        screenModelScope.launchIO { mergeManager.unmerge(ids) }
         clearSelection()
     }
 

@@ -257,7 +257,7 @@ class HistoryScreenModel(
     fun addToExistingGroup(manga: Manga, selectedIds: List<Long>) {
         screenModelScope.launchIO {
             if (!updateManga.awaitUpdateFavorite(manga.id, true)) return@launchIO
-            mergeManager.mergeManga(listOf(manga.id) + selectedIds)
+            mergeManager.merge(listOf(manga.id) + selectedIds)
             val seeded = mangaLibraryAdder.seedCategoriesFromGroup(manga.id, selectedIds)
             addTracks.bindEnhancedTrackers(manga, sourceManager.getOrStub(manga.source))
 

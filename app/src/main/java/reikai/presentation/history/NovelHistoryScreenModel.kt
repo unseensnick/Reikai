@@ -151,7 +151,7 @@ class NovelHistoryScreenModel(
      *  first is what makes the category step open on the group's own categories. */
     fun addToExistingGroup(novelId: Long, selectedIds: List<Long>) {
         screenModelScope.launchIO {
-            novelMergeManager.mergeNovels(listOf(novelId) + selectedIds)
+            novelMergeManager.merge(listOf(novelId) + selectedIds)
             val seeded = novelLibraryAdder.seedCategoriesFromGroup(novelId, selectedIds)
             updateNovel.awaitUpdateFavorite(novelId, favorite = true)
             // Group categories win: only fall back to the default (or picker) for an uncategorized group.

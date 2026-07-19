@@ -59,7 +59,7 @@ class MigrateNovelUseCase(
         try {
             // Capture the source's merge group up front, before the target is favorited, so it's the
             // source plus its existing siblings, not the target (which shares the title on a clean match).
-            val group = novelMergeManager.computeRelatedNovelIds(current.id)
+            val group = novelMergeManager.computeRelatedIds(current.id)
 
             // Fetch the target's chapters from its source first, so read progress can match onto them
             // (parity with MigrateMangaUseCase.updateMangaFromRemote). This lets the migrate work from any
@@ -156,10 +156,10 @@ class MigrateNovelUseCase(
                 updateNovel.await(NovelUpdate(id = current.id, favorite = false))
                 if (group.size > 1) {
                     val survivors = novelMergeManager.removeFromGroup(group, listOf(current.id))
-                    novelMergeManager.mergeNovels(survivors.toList() + target.id)
+                    novelMergeManager.merge(survivors.toList() + target.id)
                 }
             } else if (group.size > 1) {
-                novelMergeManager.mergeNovels(group.toList() + target.id)
+                novelMergeManager.merge(group.toList() + target.id)
             }
         } catch (e: Throwable) {
             if (e is CancellationException) throw e

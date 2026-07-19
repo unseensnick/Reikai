@@ -352,7 +352,7 @@ class NovelDetailsScreenModel(
                 .collectLatest { anchor ->
                     if (anchor == null) return@collectLatest
                     anchorNovelId = anchor.id
-                    relatedNovelIds.value = mergeManager.computeRelatedNovelIds(anchor.id)
+                    relatedNovelIds.value = mergeManager.computeRelatedIds(anchor.id)
                 }
         }
     }
@@ -849,7 +849,7 @@ class NovelDetailsScreenModel(
     fun addToExistingGroup(selectedIds: List<Long>) {
         screenModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
-            mergeManager.mergeNovels(listOf(novel.id) + selectedIds)
+            mergeManager.merge(listOf(novel.id) + selectedIds)
             novelLibraryAdder.seedCategoriesFromGroup(novel.id, selectedIds)
             addToLibrary(novel)
         }

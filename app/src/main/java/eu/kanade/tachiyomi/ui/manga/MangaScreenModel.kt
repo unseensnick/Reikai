@@ -397,7 +397,7 @@ class MangaScreenModel(
         // reacts to relatedMangaIds. Fires once on subscription too, re-seeding the same group.
         screenModelScope.launchIO {
             mergeManager.membershipChanges().collectLatest {
-                relatedMangaIds.value = mergeManager.computeRelatedMangaIds(mangaId)
+                relatedMangaIds.value = mergeManager.computeRelatedIds(mangaId)
             }
         }
         screenModelScope.launchIO {
@@ -426,7 +426,7 @@ class MangaScreenModel(
         screenModelScope.launchIO {
             val manga = getMangaAndChapters.awaitManga(mangaId)
             // RK --> resolve the merge group so the combined chapter list builds on open
-            val related = mergeManager.computeRelatedMangaIds(mangaId)
+            val related = mergeManager.computeRelatedIds(mangaId)
             relatedMangaIds.value = related
             val mergeChips = buildMergeSources(related)
             // RK <--
@@ -704,7 +704,7 @@ class MangaScreenModel(
         val manga = state.manga
         screenModelScope.launchIO {
             if (!updateManga.awaitUpdateFavorite(manga.id, true)) return@launchIO
-            mergeManager.mergeManga(listOf(manga.id) + selectedIds)
+            mergeManager.merge(listOf(manga.id) + selectedIds)
             val seeded = mangaLibraryAdder.seedCategoriesFromGroup(manga.id, selectedIds)
             addTracks.bindEnhancedTrackers(manga, state.source)
             maybeBackupFavoriteToAccount(manga)

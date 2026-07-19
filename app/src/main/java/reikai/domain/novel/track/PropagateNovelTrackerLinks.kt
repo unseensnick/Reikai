@@ -23,7 +23,7 @@ class PropagateNovelTrackerLinks(
 ) {
 
     /** Resolve [seedNovelId]'s group and copy each shared tracker onto every favorited member. */
-    suspend fun fromSeed(seedNovelId: Long) = distribute(mergeManager.relatedNovelIdsFor(seedNovelId))
+    suspend fun fromSeed(seedNovelId: Long) = distribute(mergeManager.relatedIdsList(seedNovelId))
 
     /** Ensure every favorited member of [groupIds] carries each tracker bound anywhere in the group. */
     suspend fun distribute(groupIds: List<Long>) {

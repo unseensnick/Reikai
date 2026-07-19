@@ -69,7 +69,7 @@ class MangaMigrationSourcePickScreenModel(
             val memberIds = LinkedHashSet<Long>()
             mangaIds.forEach { id ->
                 val manga = getManga.await(id) ?: return@forEach
-                mangaMergeManager.computeRelatedMangaIds(manga.id).forEach { memberIds += it }
+                mangaMergeManager.computeRelatedIds(manga.id).forEach { memberIds += it }
             }
             if (memberIds == LinkedHashSet(mangaIds)) {
                 mutableState.update { it.copy(loading = false, skip = true) }

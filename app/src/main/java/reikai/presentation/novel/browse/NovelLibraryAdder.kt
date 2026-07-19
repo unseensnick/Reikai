@@ -113,7 +113,7 @@ class NovelLibraryAdder(
      */
     suspend fun addToExistingGroup(item: NovelItem, sourceId: String, selectedIds: List<Long>): NovelBrowseDialog? {
         val storedId = favoriteReturningId(item, sourceId) ?: return null
-        mergeManager.mergeNovels(listOf(storedId) + selectedIds)
+        mergeManager.merge(listOf(storedId) + selectedIds)
         if (seedCategoriesFromGroup(storedId, selectedIds)) return null
         return applyDefaultCategoryOrPrompt(storedId)?.let { prompt ->
             NovelBrowseDialog.ChangeCategory(storedId, prompt.categories, prompt.currentIds)

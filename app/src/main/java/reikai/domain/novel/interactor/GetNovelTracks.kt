@@ -50,7 +50,7 @@ class GetNovelTracks(
      * by [reikai.domain.novel.track.PropagateNovelTrackerLinks]) still counts/shows once.
      */
     suspend fun awaitGroup(novelId: Long): List<NovelTrack> =
-        mergeManager.relatedNovelIdsFor(novelId).flatMap { await(it) }.distinctBy { it.trackerId }
+        mergeManager.relatedIdsList(novelId).flatMap { await(it) }.distinctBy { it.trackerId }
 
     /**
      * Reactive [awaitGroup]. Emits this novel's own tracks immediately, so the details tracking icon
@@ -60,7 +60,7 @@ class GetNovelTracks(
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     fun subscribeGroup(novelId: Long): Flow<List<NovelTrack>> =
-        flow { emit(mergeManager.relatedNovelIdsFor(novelId)) }
+        flow { emit(mergeManager.relatedIdsList(novelId)) }
             .onStart { emit(listOf(novelId)) }
             .distinctUntilChanged()
             .flatMapLatest { groupIds ->

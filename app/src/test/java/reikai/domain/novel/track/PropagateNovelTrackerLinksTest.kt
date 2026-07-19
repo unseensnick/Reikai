@@ -56,7 +56,7 @@ class PropagateNovelTrackerLinksTest {
 
     private fun group(vararg ids: Long) {
         every { syncPref.get() } returns true
-        coEvery { mergeManager.relatedNovelIdsFor(any()) } returns ids.toList()
+        coEvery { mergeManager.relatedIdsList(any()) } returns ids.toList()
     }
 
     @Test

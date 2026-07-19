@@ -34,7 +34,7 @@ class MigrateNovelUseCaseTest {
     // Relaxed mockk can't synthesize a primitive LongArray return, so stub the always-called resolver
     // to an empty group (no merge) by default; merge tests override it.
     private fun defaultMerge() = mockk<NovelMergeManager>(relaxed = true) {
-        coEvery { computeRelatedNovelIds(any()) } returns longArrayOf()
+        coEvery { computeRelatedIds(any()) } returns longArrayOf()
     }
 
     private fun useCase(
@@ -113,7 +113,7 @@ class MigrateNovelUseCaseTest {
     @Test
     fun `replace of a merged novel swaps the source out and the target into the group`() = runTest {
         val merge = mockk<NovelMergeManager>(relaxed = true) {
-            coEvery { computeRelatedNovelIds(1L) } returns longArrayOf(1L, 3L)
+            coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 3L)
             coEvery { removeFromGroup(match { it.contentEquals(longArrayOf(1L, 3L)) }, listOf(1L)) } returns
                 longArrayOf(3L)
         }
@@ -121,30 +121,30 @@ class MigrateNovelUseCaseTest {
         useCase(novelMergeManager = merge)(novel(1), novel(2), emptySet(), replace = true)
 
         coVerify { merge.removeFromGroup(match { it.contentEquals(longArrayOf(1L, 3L)) }, listOf(1L)) }
-        coVerify { merge.mergeNovels(listOf(3L, 2L)) }
+        coVerify { merge.merge(listOf(3L, 2L)) }
     }
 
     @Test
     fun `copy of a merged novel adds the target alongside the source`() = runTest {
         val merge = mockk<NovelMergeManager>(relaxed = true) {
-            coEvery { computeRelatedNovelIds(1L) } returns longArrayOf(1L, 3L)
+            coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 3L)
         }
 
         useCase(novelMergeManager = merge)(novel(1), novel(2), emptySet(), replace = false)
 
-        coVerify { merge.mergeNovels(listOf(1L, 3L, 2L)) }
+        coVerify { merge.merge(listOf(1L, 3L, 2L)) }
         coVerify(exactly = 0) { merge.removeFromGroup(any(), any()) }
     }
 
     @Test
     fun `an unmerged novel is never grouped on migration`() = runTest {
         val merge = mockk<NovelMergeManager>(relaxed = true) {
-            coEvery { computeRelatedNovelIds(1L) } returns longArrayOf(1L)
+            coEvery { computeRelatedIds(1L) } returns longArrayOf(1L)
         }
 
         useCase(novelMergeManager = merge)(novel(1), novel(2), emptySet(), replace = true)
 
-        coVerify(exactly = 0) { merge.mergeNovels(any()) }
+        coVerify(exactly = 0) { merge.merge(any()) }
     }
 
     @Test

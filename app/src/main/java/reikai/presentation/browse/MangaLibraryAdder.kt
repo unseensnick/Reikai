@@ -72,7 +72,7 @@ class MangaLibraryAdder(
      */
     suspend fun addToExistingGroup(manga: Manga, selectedIds: List<Long>): AddFavoriteResult {
         changeFavorite(manga)
-        mergeManager.mergeManga(listOf(manga.id) + selectedIds)
+        mergeManager.merge(listOf(manga.id) + selectedIds)
         if (seedCategoriesFromGroup(manga.id, selectedIds)) return AddFavoriteResult.Added
         return applyDefaultCategoryOrPrompt(manga)
     }

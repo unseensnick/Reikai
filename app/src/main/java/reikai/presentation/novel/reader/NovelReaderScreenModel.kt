@@ -352,7 +352,7 @@ class NovelReaderScreenModel(
      *  MergedChapterProvider. A non-merged novel (or merging disabled) is just its own chapters. The
      *  global preferred-source ranking picks the trunk, matching the details/library aggregation. */
     private suspend fun resolveGroupChapters(): List<NovelChapter> {
-        val ids = mergeManager.relatedNovelIdsFor(novelId)
+        val ids = mergeManager.relatedIdsList(novelId)
         if (ids.size <= 1) return chapterRepo.getByNovelId(novelId)
         val byNovel = ids.associateWith { chapterRepo.getByNovelId(it) }
         val sourceIdByNovel = ids.associateWith { novelRepo.getById(it)?.source.orEmpty() }
@@ -607,12 +607,12 @@ class NovelReaderScreenModel(
                 val chapter = chapterRepo.getById(id)
                 // Mark same-numbered unread chapters across the merged group read too, mirroring the
                 // manga reader (ReaderViewModel.updateChapterProgressOnComplete), gated on the shared
-                // markDuplicateReadChapterAsRead pref. relatedNovelIdsFor returns just this novel when
+                // markDuplicateReadChapterAsRead pref. relatedIdsList returns just this novel when
                 // it isn't merged, so a single-source read is unchanged.
                 val markDupes = libraryPreferences.markDuplicateReadChapterAsRead.get()
                     .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_EXISTING)
                 val toMark = if (chapter != null && markDupes) {
-                    val siblings = mergeManager.relatedNovelIdsFor(novelId)
+                    val siblings = mergeManager.relatedIdsList(novelId)
                         .takeIf { it.size > 1 }
                         ?.flatMap { chapterRepo.getByNovelId(it) }
                         ?.filter {

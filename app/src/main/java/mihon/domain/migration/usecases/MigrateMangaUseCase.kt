@@ -54,7 +54,7 @@ class MigrateMangaUseCase(
         try {
             // RK: capture the source's merge group before the target is favorited, so it's the source
             // plus its existing siblings (not the target, which shares the title on a clean match).
-            val mergeGroup = mangaMergeManager.computeRelatedMangaIds(current.id)
+            val mergeGroup = mangaMergeManager.computeRelatedIds(current.id)
 
             updateMangaFromRemote(target, fetchChapters = true).getOrThrow()
 
@@ -147,10 +147,10 @@ class MigrateMangaUseCase(
             if (replace) {
                 if (mergeGroup.size > 1) {
                     val survivors = mangaMergeManager.removeFromGroup(mergeGroup, listOf(current.id))
-                    mangaMergeManager.mergeManga(survivors.toList() + target.id)
+                    mangaMergeManager.merge(survivors.toList() + target.id)
                 }
             } else if (mergeGroup.size > 1) {
-                mangaMergeManager.mergeManga(mergeGroup.toList() + target.id)
+                mangaMergeManager.merge(mergeGroup.toList() + target.id)
             }
             // RK <--
         } catch (e: Throwable) {

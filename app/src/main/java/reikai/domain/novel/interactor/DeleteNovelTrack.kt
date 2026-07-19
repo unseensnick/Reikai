@@ -24,6 +24,6 @@ class DeleteNovelTrack(
      * sources (a merged novel) is fully unbound rather than reappearing from a sibling's row.
      */
     suspend fun awaitGroup(novelId: Long, trackerId: Long) {
-        mergeManager.relatedNovelIdsFor(novelId).forEach { await(it, trackerId) }
+        mergeManager.relatedIdsList(novelId).forEach { await(it, trackerId) }
     }
 }

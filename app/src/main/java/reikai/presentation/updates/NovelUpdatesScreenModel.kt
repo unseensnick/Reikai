@@ -105,7 +105,7 @@ class NovelUpdatesScreenModel(
         libraryPreferences.mangaManualUnmerges.changes(),
         libraryPreferences.autoMergeSameTitle.changes(),
     ) { on, _, _, _ ->
-        if (on) mangaMergeManager.seriesGroupKeys(getFavorites.await()) else emptyMap()
+        if (on) mangaMergeManager.seriesGroupKeys(getFavorites.await().map { it.id }) else emptyMap()
     }.stateIn(screenModelScope, SharingStarted.Eagerly, emptyMap())
 
     val novelSeriesKeys: StateFlow<Map<Long, String>> = combine(
@@ -114,7 +114,7 @@ class NovelUpdatesScreenModel(
         libraryPreferences.novelManualUnmerges.changes(),
         libraryPreferences.novelAutoMergeSameTitle.changes(),
     ) { on, _, _, _ ->
-        if (on) novelMergeManager.seriesGroupKeys(novelRepo.getFavorites()) else emptyMap()
+        if (on) novelMergeManager.seriesGroupKeys(novelRepo.getFavorites().map { it.id }) else emptyMap()
     }.stateIn(screenModelScope, SharingStarted.Eagerly, emptyMap())
 
     private val selectedChapterIds = HashSet<Long>()

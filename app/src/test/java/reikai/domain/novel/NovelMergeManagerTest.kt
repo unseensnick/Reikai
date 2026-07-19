@@ -9,15 +9,12 @@ import org.junit.jupiter.api.Test
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.MergeGroupRepository
-import reikai.domain.novel.model.Novel
 
 /**
  * The manager is a thin adapter over [MergeGroupRepository]; its own logic is the master-switch gate and
  * the group-key mapping. The grouping math is covered by MergeGroupRepositoryTest.
  */
 class NovelMergeManagerTest {
-
-    private fun novel(id: Long) = Novel.create().copy(id = id, title = "t$id", favorite = true)
 
     private fun manager(
         repository: MergeGroupRepository = mockk(relaxed = true),
@@ -30,38 +27,38 @@ class NovelMergeManagerTest {
     }
 
     @Test
-    fun `computeRelatedNovelIds returns the group members`() = runTest {
+    fun `computeRelatedIds returns the group members`() = runTest {
         val repo = mockk<MergeGroupRepository> {
             coEvery { getGroupId(ContentType.NOVELS, 1L) } returns 7L
             coEvery { getMembers(ContentType.NOVELS, 7L) } returns listOf(1L, 2L, 3L)
         }
 
-        manager(repo).computeRelatedNovelIds(1L).toList() shouldBe listOf(1L, 2L, 3L)
+        manager(repo).computeRelatedIds(1L).toList() shouldBe listOf(1L, 2L, 3L)
     }
 
     @Test
-    fun `relatedNovelIdsFor returns the group members`() = runTest {
+    fun `relatedIdsList returns the group members`() = runTest {
         val repo = mockk<MergeGroupRepository> {
             coEvery { getGroupId(ContentType.NOVELS, 1L) } returns 7L
             coEvery { getMembers(ContentType.NOVELS, 7L) } returns listOf(1L, 2L)
         }
 
-        manager(repo).relatedNovelIdsFor(1L) shouldBe listOf(1L, 2L)
+        manager(repo).relatedIdsList(1L) shouldBe listOf(1L, 2L)
     }
 
     @Test
-    fun `computeRelatedNovelIds returns just itself when ungrouped`() = runTest {
+    fun `computeRelatedIds returns just itself when ungrouped`() = runTest {
         val repo = mockk<MergeGroupRepository> {
             coEvery { getGroupId(ContentType.NOVELS, 1L) } returns null
         }
 
-        manager(repo).computeRelatedNovelIds(1L).toList() shouldBe listOf(1L)
+        manager(repo).computeRelatedIds(1L).toList() shouldBe listOf(1L)
     }
 
     @Test
     fun `resolution returns just itself when merging is disabled`() = runTest {
-        manager(mergingEnabled = false).computeRelatedNovelIds(1L).toList() shouldBe listOf(1L)
-        manager(mergingEnabled = false).relatedNovelIdsFor(1L) shouldBe listOf(1L)
+        manager(mergingEnabled = false).computeRelatedIds(1L).toList() shouldBe listOf(1L)
+        manager(mergingEnabled = false).relatedIdsList(1L) shouldBe listOf(1L)
     }
 
     @Test
@@ -70,7 +67,7 @@ class NovelMergeManagerTest {
             coEvery { getAllMemberships(ContentType.NOVELS) } returns mapOf(1L to 7L, 2L to 7L)
         }
 
-        val keys = manager(repo).seriesGroupKeys(listOf(novel(1), novel(2), novel(3)))
+        val keys = manager(repo).seriesGroupKeys(listOf(1L, 2L, 3L))
 
         keys[1L] shouldBe keys[2L]
         (keys[1L] == keys[3L]) shouldBe false
