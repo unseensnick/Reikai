@@ -2,6 +2,8 @@
 
 The light-novel details screen (`NovelScreen`), the novel twin of the manga details screen, at feature parity for everything that makes sense for novels: chapter list, downloads, description and tinted backdrop, and the overflow actions.
 
+> **Since Step 5 the details screen renders through the shared content layer.** `NovelScreen` now builds a `NovelEntryAdapter` and delegates its body to the shared `EntryDetailsContent`, so the layout, toolbar, info box, description, selection bar and the common dialogs are the same components the manga screen renders (see [content-layer-details-surface.md](content-layer-details-surface.md)). The **Approach** and **What it mirrors** sections below are kept as the original design history; **Key files** and the novel-specific divergences (paged sources, reading-order routing, notes-on-anchor) are current.
+
 ## Goal
 
 Give a light novel its own details screen that feels identical to the manga one: open a novel from browse, search, the library, or History, and land on a screen with the cover and backdrop up top, an expandable description, and the chapter list below, with the same toolbar, multi-select bar, download controls, and overflow menu a manga reader already knows. A user should not be able to tell, by feel, that they are looking at a novel rather than a manga.
@@ -35,12 +37,10 @@ Current behavior of the overflow and toolbar: a Filter action (tinted when a fil
 
 All under `app/src/main/java/reikai/presentation/novel/details/`:
 
-- `NovelScreen.kt`: the Voyager `Screen` (constructor: `sourceId`, `novelUrl`); phone + tablet layouts, the resume FAB, the selection bar, dialog host, and the `LazyListScope` builders for the info, header, and chapter items.
-- `NovelDetailsScreenModel.kt`: `StateScreenModel<NovelDetailsState>`; injects the novel repos, source manager, plugin installer, category interactors, preferences, merge manager, and (Active 8) the tracker interactors. Owns loading, refresh, favorite/categories, edit-info, sort/filter/display, multi-select, download actions, cover-tint seed, and the merge/tracking seams.
-- `NovelToolbar.kt`: the `MangaToolbar` twin: filter action, overflow, download dropdown, action-mode controls, scroll-driven title/background fade.
-- `NovelInfoBox.kt`: net-new cover, backdrop, title, source, status header (Mihon's `MangaInfoBox` is `Manga`-typed), plus the `NovelActionRow` (favorite / tracking / web-view actions).
-- `NovelDetailsDialogs.kt`: `NovelCategoryDialog`, `EditNovelInfoDialog`, and `NovelChapterSettingsDialog`.
-- `NovelCoverScreenModel.kt`: drives the full-cover viewer (save/share/edit); the viewer itself is the shared `reikai/presentation/components/EntryCoverDialog.kt`, hosted here by `NovelCoverDialogHost`.
+- `NovelScreen.kt`: the Voyager `Screen` (constructor: `sourceId`, `novelUrl`); builds a `NovelEntryAdapter`, delegates its whole body to the shared `EntryDetailsContent`, and hosts the novel per-type dialogs alongside the shared `EntryDetailsDialogHost`.
+- `NovelDetailsScreenModel.kt`: `StateScreenModel<NovelDetailsState>`; injects the novel repos, source manager, plugin installer, category interactors, preferences, merge manager, and the tracker interactors. Owns loading, refresh, favorite/categories, edit-info, sort/filter/display, multi-select, download actions, cover-tint seed, and the merge/tracking seams. `NovelEntryAdapter` (in `reikai/presentation/details/`) maps its state to the neutral `EntryDetailsScreenState` the shared body renders. The layout, toolbar and info box that were once `NovelToolbar` / `NovelInfoBox` are now the shared `EntryToolbar` / `EntryInfoBox`.
+- `NovelDetailsDialogs.kt`: the novel per-type dialogs (`NovelCategoryDialog`, `NovelChapterSettingsDialog`); edit-info, cover, manage-sources, track and delete-chapters render through the shared `EntryDetailsDialogHost`.
+- `NovelCoverScreenModel.kt`: a subclass of the shared `reikai/presentation/details/EntryCoverScreenModel` backing the full-cover viewer (`EntryCoverDialog`), rendered by the shared dialog host.
 - The shared `reikai/presentation/components/MergeSourceChips.kt` / `ManageMergeSourcesDialog`: the merge source switcher and Manage-sources sheet, both shared with manga (see merge-system-rebuild.md).
 - `NovelPageSelectorSheet.kt`: the paged-source page picker.
 
