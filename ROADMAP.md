@@ -4,7 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## Now
 
-- **Content layer architecture (manga/novel unification, deep seam)** `[XL]` - one Reikai-owned shared behavior + UI layer over a neutral `Entry` vocabulary, with thin adapters: the manga `ScreenModel` stays live and synced, the novel one dissolves. Extends the shipped Entry* UI-leaf seam down into the ScreenModel behavior (the two details models are ~70-75% duplicate today), swaps the keep-inert dead-file policy for delete-and-manifest, and folds in the reader migration as the final phase. One surface at a time, verified: details, then library, browse, migrate/search, then reader. Details first ([surface plan](docs/dev/plans/content-layer-details-surface.md)). [Plan](docs/dev/plans/content-layer-architecture.md).
+- **Content layer architecture (manga/novel unification, deep seam)** `[XL]` - one Reikai-owned shared behavior + UI layer over a neutral `Entry` vocabulary, with thin adapters: the manga `ScreenModel` stays live and synced, the novel one dissolves. Extends the shipped Entry* UI-leaf seam down into the ScreenModel behavior (the two details models are ~70-75% duplicate today), swaps the keep-inert dead-file policy for delete-and-manifest, and folds in the reader migration as the final phase. One surface at a time, verified: library next (the "All" chip + shared category axis), then browse, migrate/global-search, then reader, following the details surface plan as the pattern ([surface plan](docs/dev/plans/content-layer-details-surface.md)). [Plan](docs/dev/plans/content-layer-architecture.md).
 
 ## Next
 
