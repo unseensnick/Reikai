@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 /**
  * Persistence for adult/EXH gallery metadata (tags, titles, raw extra) keyed by manga id.
  *
- * Ported from Komikku's EXH subsystem (Phase 1). The favorites-join queries
+ * Ported from Komikku's EXH subsystem. The favorites-join queries
  * (getExhFavoriteMangaWithMetadata / getIdsOfFavoriteMangaWithMetadata) are deferred to the
  * E-Hentai favorites-sync phase, since they depend on the E-Hentai source ids and custom
  * mangas.sq queries that ship with that phase.

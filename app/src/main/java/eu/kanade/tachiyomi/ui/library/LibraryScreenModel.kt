@@ -188,8 +188,8 @@ class LibraryScreenModel(
                 //     sortingMode fresh). Pairing it into the distinct key is what re-fires the pipeline.
                 libraryPreferences.sortingMode.changes(),
             ) { s, globalSort -> s to globalSort }
-                // RK --> branch on the Reikai grouping mode; dynamic grouping (Y3) and category
-                // order (R3) replace Mihon's plain category bucketing. The distinct key includes
+                // RK --> branch on the Reikai grouping mode; dynamic grouping and category
+                // order replace Mihon's plain category bucketing. The distinct key includes
                 // only the grouping-relevant Reikai fields so badge/hopper changes don't re-group.
                 .map { (it, globalSort) ->
                     Triple(
@@ -389,13 +389,13 @@ class LibraryScreenModel(
         showHiddenCategories = showHiddenCategories,
     )
 
-    /** R3: order the category buckets (0 = manual/DB order, 1 = A->Z, 2 = Z->A; system pinned on top). */
+    /** Order the category buckets (0 = manual/DB order, 1 = A->Z, 2 = Z->A; system pinned on top). */
     private fun Map<Category, List<Long>>.reorderReikaiCategories(categorySortOrder: Int): Map<Category, List<Long>> {
         if (categorySortOrder == 0 || isEmpty()) return this
         return reikaiSortCategories(keys.toList(), categorySortOrder).associateWith { getValue(it) }
     }
 
-    /** Y3: bucket the library into synthetic dynamic categories, resolving per-manga metadata. */
+    /** Bucket the library into synthetic dynamic categories, resolving per-manga metadata. */
     private fun buildReikaiDynamicGrouping(data: LibraryData, grouping: GroupingInputs): Map<Category, List<Long>> {
         val context = Injekt.get<Application>()
         val groupType = grouping.groupLibraryBy
@@ -1221,7 +1221,7 @@ class LibraryScreenModel(
         // RK <--
         private val activeCategoryIndex: Int = 0,
         // RK --> ordered list, not a Map: Map.equals() ignores key order, so a category reorder
-        // (R3 sort / move-dynamic-to-bottom) would compare equal and StateFlow would dedupe it,
+        // (category sort / move-dynamic-to-bottom) would compare equal and StateFlow would dedupe it,
         // leaving the UI unchanged. A List has order-sensitive equality, so reorders propagate.
         private val groupedFavorites: List<Pair<Category, List</* LibraryItem */ Long>>> = emptyList(),
         // RK <--

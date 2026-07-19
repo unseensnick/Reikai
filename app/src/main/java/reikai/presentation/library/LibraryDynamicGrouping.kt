@@ -18,7 +18,7 @@ data class DynItem(
 )
 
 /**
- * Buckets library items into synthetic categories for dynamic grouping (Y3): group by source,
+ * Buckets library items into synthetic categories for dynamic grouping: group by source,
  * language, tag, author, status, or tracking status. Re-typed onto Mihon's immutable models from
  * the Yōkai-era `MangaLibraryDynamicGrouping`, and generalized over [DynItem] so the manga and novel
  * libraries share one kernel.
@@ -105,7 +105,7 @@ object LibraryDynamicGrouping {
             )
         }
 
-        // Step 3: order categories by the user's category-sort-order (R3). Z->A reverses;
+        // Step 3: order categories by the user's category-sort-order. Z->A reverses;
         // off/A->Z is alphabetical by display name. BY_TRACK_STATUS keeps the caller's intent
         // order (Reading first, Dropped last) only when the sort is left on its default (off).
         val sorted = if (categorySortOrder == 2) {

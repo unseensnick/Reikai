@@ -52,7 +52,7 @@ fun LibrarySettingsDialog(
         stringResource(MR.strings.action_filter),
         stringResource(MR.strings.action_sort),
         stringResource(MR.strings.action_display),
-        // RK: Y3 dynamic grouping (Reikai category/hopper settings live under Display)
+        // RK: dynamic grouping (Reikai category/hopper settings live under Display)
         stringResource(MR.strings.group),
     )
     TabbedDialog(

@@ -28,7 +28,7 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * Jump-to-category picker opened from the hopper's center button (Y2). Works for both real DB
+ * Jump-to-category picker opened from the hopper's center button. Works for both real DB
  * categories and synthetic dynamic-grouping categories (names decoded via [ReikaiDynamicCategory]).
  */
 @OptIn(ExperimentalMaterial3Api::class)

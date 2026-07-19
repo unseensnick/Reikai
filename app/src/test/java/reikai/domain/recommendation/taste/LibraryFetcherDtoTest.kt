@@ -10,7 +10,7 @@ import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Test
 
 /**
- * Contract tests for the R4b tracker-library pull DTOs: guard the genres + status + score + id
+ * Contract tests for the tracker-library pull DTOs: guard the genres + status + score + id
  * mappings the taste profile depends on, especially the net-new Shikimori GraphQL and Bangumi
  * shapes. Parser mirrors the app's production [Json] config.
  */

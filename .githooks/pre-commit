@@ -6,6 +6,8 @@
 #     (Other is exempt), under a length cap.
 #   ROADMAP.md - forward-only backlog stays name-clean: no content-source names, no em dash, no
 #     bare #N (use "Roadmap N" or owner/repo#N). Shipped detail lives in docs/dev/shipped.md.
+#   .kt comments - no plan/roadmap codename markers (Phase N, P5 S5, Y3, R3, Active #N, plan-style
+#     Step N) in newly added lines; they rot. State the durable fact instead (R8 and M3 are spared).
 # Tracked here as the source of truth; activate on a clone with:
 #   cp .githooks/pre-commit .git/hooks/ && chmod +x .git/hooks/pre-commit
 set -u
@@ -97,6 +99,24 @@ if staged docs/dev/upstream-sync.md; then
     echo "$hn"
     fail=1
   fi
+fi
+
+# ===== .kt code comments: no plan/roadmap codename markers (they rot; state the fact instead) =====
+# Only newly added comment lines (// or a KDoc *-line) are scanned, across every staged .kt file. The
+# project's planning codenames are caught: Phase N, the P<phase> / P5 S5 shorthand, Y<n> Yokai-era
+# feature refs, R<n> roadmap refs, and Active #N. A colon-led algorithm step ("Step 1:") is allowed; a
+# plan-style "Step 3" is not. Deliberately spared: R8 (the code shrinker; R uses [0-79] so 8 is skipped)
+# and M3 (Material 3; M is not matched).
+codenames=$(git diff --cached -U0 --diff-filter=ACM -- '*.kt' \
+  | grep -E '^\+' | grep -vE '^\+\+\+' \
+  | grep -E '(//|/\*|^\+[[:space:]]*\*)' \
+  | grep -E '(Phase[[:space:]]*[0-9]|Active[[:space:]]*#[0-9]|\b[PY][0-9][a-z]?\b|\bR[0-79][a-z]?\b|Step [0-9])' \
+  | grep -vE 'Step [0-9]:' || true)
+if [ -n "$codenames" ]; then
+  echo "code comments: drop plan/roadmap codename markers (Phase N, P5 S5, Y3, R3, Active #N, plan Step N),"
+  echo "state the durable fact instead:"
+  echo "$codenames"
+  fail=1
 fi
 
 if [ "$fail" -ne 0 ]; then

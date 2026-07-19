@@ -12,7 +12,7 @@ import eu.kanade.tachiyomi.source.model.SManga
  * slots fairly across trackers. [altTitles] carries the alternative titles / synonyms a tracker
  * reported (AniList romaji/english/native + synonyms, Jikan title_synonyms, MangaUpdates associated
  * names), so [titleKeys] can dedup the same series listed under different titles across sources.
- * [origin] is the provenance for the R5 browse-screen grouping.
+ * [origin] is the provenance for the recommendations browse-screen grouping.
  *
  * [trackerId] + [remoteId] are the candidate's stable tracker identity when it came from a tracker
  * recs endpoint (null for source-native / tag-search candidates, which carry only a title). They let

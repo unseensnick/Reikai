@@ -19,6 +19,7 @@ alwaysApply: true
 - Don't refactor adjacent code while fixing a bug.
 - No dead code or commented-out blocks. Git has history.
 - Comments, KDoc, and docstrings exist for contributors and maintainers. Keep them short and concise without losing context. Explain WHY, not WHAT (rename if a WHAT comment is needed). Reserve KDoc for module boundaries (public APIs of `source-api`, repository interfaces), not every internal function. Never a wall of text.
+- No plan/roadmap codename markers in code comments (`Phase N`, the `P5 S5` phase/slice shorthand, `Y3` Yōkai-era feature refs, `R3` roadmap refs, `Active #N`, or a plan-style `Step 3` reference). They rot as the plan moves on and become noise that has to be stripped later. State the durable fact instead. A colon-led algorithm step (`Step 1:`) is fine. Enforced by the `pre-commit` hook, which spares `R8` (the code shrinker) and `M3` (Material 3).
 - No em dashes (—) in prose, comments, commit messages, or PR bodies. Use commas, parentheses, periods, or colons. Em dashes are a Claude stylistic tic that flags writing as AI-generated.
 - No AI-generated watermarks. Don't add "Co-Authored-By: Claude", "Generated with Claude Code", robot emoji footers, or similar tags to commits, PRs, code, or docs.
 

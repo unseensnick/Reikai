@@ -711,7 +711,7 @@ data object LibraryTab : Tab {
                     // toolbar open (null id) leaves it null = the GLOBAL sort scope (Model A), not a stale
                     // active category.
                     category = dialog.categoryId?.let { id -> state.libraryData.categories.find { it.id == id } },
-                    // RK --> full category list for the include/exclude filter (sorted per R3) + route to category manager
+                    // RK --> full category list for the include/exclude filter (sorted by the category order) + route to category manager
                     categories = reikaiSortCategories(state.libraryData.categories, state.reikai.categorySortOrder),
                     onManageCategories = {
                         onDismissRequest()

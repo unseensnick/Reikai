@@ -22,9 +22,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 
 /**
- * Floating category jump control for the single-list library (Y2): previous category / scroll to
+ * Floating category jump control for the single-list library: previous category / scroll to
  * top / next category. The center button also fires a configurable [onCenterLongClick] on long
- * press (Y6 hopper long-press action).
+ * press (hopper long-press action).
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

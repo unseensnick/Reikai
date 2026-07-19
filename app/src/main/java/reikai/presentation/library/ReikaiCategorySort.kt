@@ -3,7 +3,7 @@ package reikai.presentation.library
 import tachiyomi.domain.category.model.Category
 
 /**
- * Orders a category list by the Reikai category-sort-order pref (R3), so every surface that lists
+ * Orders a category list by the Reikai category-sort-order pref, so every surface that lists
  * categories (library sections, jump-to-category, the filter include/exclude picker, the category
  * manager) shows them in the same order.
  *

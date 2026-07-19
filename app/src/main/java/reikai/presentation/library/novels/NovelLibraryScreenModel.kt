@@ -421,7 +421,7 @@ class NovelLibraryScreenModel :
                 category to ids.sortedWith { a, b -> comparator.compare(novelById.getValue(a), novelById.getValue(b)) }
             }
         } else {
-            // Y3: dynamic grouping (by source / tag / author / language / status) replaces categories.
+            // Dynamic grouping (by source / tag / author / language / status) replaces categories.
             buildNovelDynamicGrouping(
                 items,
                 novelById,
@@ -459,7 +459,7 @@ class NovelLibraryScreenModel :
         if (categoryId == NovelCategory.UNCATEGORIZED_ID) default else NovelLibrarySort.forCategory(flags, default)
 
     /**
-     * Y3: bucket the novel library into synthetic dynamic categories via the shared kernel, resolving
+     * Bucket the novel library into synthetic dynamic categories via the shared kernel, resolving
      * per-novel metadata (source / language / status / tracking status) into id-keyed maps. Operates on
      * the merge-collapsed representatives, keyed by the negative synthetic item id so the result lines up
      * with [State.favoritesById]. Tracking-status uses each rep's unioned merge-group tracks.

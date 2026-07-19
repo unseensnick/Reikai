@@ -1,7 +1,7 @@
 package reikai.presentation.library
 
 /**
- * Library grouping modes (dynamic grouping, Y3). Values are kept identical to the Yōkai-era fork
+ * Library grouping modes (dynamic grouping). Values are kept identical to the Yōkai-era fork
  * so the persisted `group_library_by` preference round-trips on an in-place upgrade.
  *
  * Only the constants are ported here; the group-picker's string/drawable resources are wired in

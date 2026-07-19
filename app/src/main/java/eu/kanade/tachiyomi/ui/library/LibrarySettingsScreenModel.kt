@@ -74,7 +74,7 @@ class LibrarySettingsScreenModel(
 
     // RK --> Reikai settings-sheet actions (Stage 4): dynamic grouping + net-new filter dims
 
-    /** Y3: set the dynamic grouping mode (see reikai.presentation.library.LibraryGroup). */
+    /** Set the dynamic grouping mode (see reikai.presentation.library.LibraryGroup). */
     fun setGrouping(value: Int) {
         reikaiLibraryPreferences.groupLibraryBy.set(value)
     }
@@ -94,7 +94,7 @@ class LibrarySettingsScreenModel(
         reikaiLibraryPreferences.filterCategoriesExclude.set(exclude.map { it.toString() }.toSet())
     }
 
-    /** R3: category list order (0 = manual, 1 = A->Z, 2 = Z->A). */
+    /** Category list order (0 = manual, 1 = A->Z, 2 = Z->A). */
     fun setCategorySortOrder(value: Int) {
         reikaiLibraryPreferences.categorySortOrder.set(value)
     }

@@ -30,7 +30,7 @@ import tachiyomi.presentation.core.util.collectAsState
 
 /**
  * Reikai-specific settings-sheet pieces grafted into Mihon's `LibrarySettingsDialog` (Stage 4):
- * a Group tab (Y3 dynamic grouping) and the include/exclude category filter (ported from Komikku's
+ * a Group tab (dynamic grouping) and the include/exclude category filter (ported from Komikku's
  * `CategoriesFilter`, re-typed onto Mihon's `Category` + Reikai prefs). The category picker's Edit
  * also reaches Mihon's full category management screen via [onManageCategories].
  *

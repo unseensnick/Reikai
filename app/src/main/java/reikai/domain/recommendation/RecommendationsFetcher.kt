@@ -21,7 +21,7 @@ import kotlin.time.Duration.Companion.seconds
  *
  * Dispatch per tracker: if the user already tracks this manga on it, use that track's remote id
  * directly; otherwise resolve the id via a single title search. Kitsu and Bangumi have no
- * recommendations endpoint and register no provider (their contribution is taste-profile-only, R4).
+ * recommendations endpoint and register no provider (their contribution is taste-profile-only).
  */
 class RecommendationsFetcher(
     private val trackerManager: TrackerManager = Injekt.get(),

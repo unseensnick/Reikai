@@ -15,7 +15,7 @@ import uy.kohesive.injekt.injectLazy
  * authenticated client (Shikimori's would throw for a logged-out user, see [ShikimoriRecommendations]).
  *
  * Candidates are tagged [RECOMMENDS_SOURCE] (their URL belongs to no installed extension, so a tap
- * routes through global search) and carry [RecommendationOrigin.Tracker] for the R5 grouping.
+ * routes through global search) and carry [RecommendationOrigin.Tracker] for the recommendations grouping.
  */
 abstract class TrackerRecommendations {
 

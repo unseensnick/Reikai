@@ -1,11 +1,11 @@
 package exh.source
 
-// Delegated lewd source IDs. Trimmed from Komikku's SourceIds to the sources Reikai enhances
-// in Phase 1. MangaDex ids are below (MANGADEX_IDS); Comick ids come with their later phase.
+// Delegated lewd source IDs. Trimmed from Komikku's SourceIds to the sources Reikai enhances.
+// MangaDex ids are below (MANGADEX_IDS); Comick ids come with their later phase.
 const val PURURIN_SOURCE_ID = 2221515250486218861L
 const val EIGHTMUSES_SOURCE_ID = 1802675169972965535L
 
-// E-Hentai / ExHentai built-in source IDs (Phase 2). The "Multi" (all-languages) variants
+// E-Hentai / ExHentai built-in source IDs. The "Multi" (all-languages) variants
 // double as the built-in source IDs; the language-specific entries map the stock E-Hentai
 // extension's per-language sources so installs carrying them resolve to the enhanced source.
 const val EH_SOURCE_ID = 1713178126840476467L // LEWD_SOURCE_SERIES + 1

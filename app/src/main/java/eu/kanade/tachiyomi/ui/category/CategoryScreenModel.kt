@@ -54,7 +54,7 @@ class CategoryScreenModel(
 
     init {
         screenModelScope.launch {
-            // RK --> show the manage list in the same order as every other category surface (R3).
+            // RK --> show the manage list in the same order as every other category surface.
             // Drag-reorder is only offered in Manual (off) mode; the screen hides the drag handle
             // when sorted A->Z / Z->A, since those override the manual order anyway.
             combine(
