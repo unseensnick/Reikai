@@ -18,7 +18,7 @@ What it mirrors from manga details:
 
 - **Layout.** `NovelDetailsSmallImpl` / `NovelDetailsLargeImpl` mirror Mihon's `MangaScreenSmallImpl` / `MangaScreenLargeImpl`: phone `LazyColumn` of info box, action row, description, chapter header, then chapters; tablet `TwoPanelBox` with info on the left and chapters on the right.
 - **Backdrop and cover tint.** The info box renders a blurred cover backdrop that bleeds edge-to-edge behind the toolbar; the screen wraps content in `TachiyomiTheme(seedColor = ...)` so the palette is extracted from the cover, the novel twin of the manga per-cover theming.
-- **Reused composables.** `ExpandableMangaDescription`, `ChapterHeader`, `MangaChapterListItem`, and `MangaBottomActionMenu` are Mihon's, consumed directly because they take primitives (strings, lambdas) not domain types.
+- **Reused composables.** `ChapterHeader`, `MangaChapterListItem`, and `MangaBottomActionMenu` are Mihon's, consumed directly because they take primitives (strings, lambdas) not domain types; the expandable description is now Reikai's shared `ExpandableEntryDescription`.
 - **Resume FAB.** `NovelResumeFab` is the twin of the manga resume button: jumps to the first unread chapter, collapses to an icon on scroll, hides when everything is read or in selection mode.
 - **DB-first loading.** The ScreenModel observes the stored novel and its chapters; the source plugin is only hit on first open (no local chapters yet) or an explicit pull-to-refresh, exactly like the manga screen reads from the database and refreshes on demand.
 

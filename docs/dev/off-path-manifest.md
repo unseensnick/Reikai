@@ -7,7 +7,7 @@ When the check flags a path, open its **Replacement** and reconcile the upstream
 ## What is NOT here
 
 - **Engine files** (a ScreenModel, repository, or the source manager) are never deleted; they stay live and minimally patched on the render path, and sync normally. Example still pending its surface: `eu/kanade/tachiyomi/ui/download/DownloadQueueScreenModel.kt` (replaced by `MangaDownloadQueueScreenModel`) is a dead ScreenModel kept `// RK: inert` until the download-subsystem unification (Road B) retires it there.
-- **Partially collapsed files** keep their live remainder in place, marked `// RK` with what moved out, so they are still on the render path. Example: `eu/kanade/presentation/manga/components/MangaInfoHeader.kt` keeps the live `ExpandableMangaDescription` while `MangaInfoBox` / `MangaActionRow` moved to `EntryInfoBox` / `EntryActionRow`.
+- **Partially collapsed files** keep their live remainder in place, marked `// RK` with what moved out, so they stay on the render path and are not listed here. Once nothing live remains, the file moves to the manifest below, as `MangaInfoHeader` did once its last live piece (the expandable description) became `ExpandableEntryDescription`.
 
 ## Manifest
 
@@ -21,3 +21,4 @@ The path is relative to the repo root and matches the `refs/` clone layout. `Ups
 | app/src/main/java/eu/kanade/presentation/browse/components/GlobalSearchCardRow.kt | mihon | reikai/presentation/browse/EntrySearchCardRow.kt |
 | app/src/main/java/eu/kanade/tachiyomi/ui/manga/track/TrackInfoDialog.kt | mihon | reikai/presentation/track/EntryTrackInfoDialog.kt |
 | app/src/main/java/eu/kanade/tachiyomi/ui/manga/MangaCoverScreenModel.kt | mihon | reikai/presentation/details/EntryCoverScreenModel.kt |
+| app/src/main/java/eu/kanade/presentation/manga/components/MangaInfoHeader.kt | mihon | reikai/presentation/details/EntryInfoBox.kt |

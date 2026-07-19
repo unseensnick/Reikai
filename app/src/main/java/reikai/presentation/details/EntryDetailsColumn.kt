@@ -3,7 +3,6 @@ package reikai.presentation.details
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.Dp
-import eu.kanade.presentation.manga.components.ExpandableMangaDescription
 import eu.kanade.presentation.manga.components.SearchMetadataChips
 import java.time.Instant
 
@@ -81,7 +80,7 @@ fun LazyListScope.entryInfoItems(
         item(key = "entry-above-description") { aboveDescription() }
     }
     item(key = "entry-description") {
-        ExpandableMangaDescription(
+        ExpandableEntryDescription(
             defaultExpandState = state.descriptionDefaultExpanded,
             description = state.description,
             tagsProvider = { state.tags },
