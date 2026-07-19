@@ -16,11 +16,13 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Manage sources on a series' details page now sets which source leads that merged series, overriding your global Preferred sources ranking for it alone.** Drag a source to the top to make it primary and the combined chapter list follows; Reset order goes back to the Preferred sources ranking.
 - **Adding a series from Browse, global search, History or its page now offers to group it with a match in your library: tap the select button, then pick which ones it joins.** The new copy lands in their categories too.
+- **Adding a novel that matches one already in your library now offers a one-tap Migrate.** Tap the matching card in the duplicate prompt to move your reading progress, categories, cover and tracking onto the new source, from Browse, global search, History or the novel's page.
 
 ### Changes
 
 - **Source grouping is now optional, with a "Group series across sources" toggle in the library display menu and Settings -> Library.** Off shows each source as its own library entry.
 - **The reader now opens a merged series as either one source's chapters or the whole combined group, depending on where you tapped.** Updates, a source chip, and new-chapter notifications open just that source; the series page, your library, and history open the whole merged group.
+- **Bulk-deleting downloaded novel chapters now asks you to confirm first, matching manga.**
 
 ### Fixes
 
@@ -28,6 +30,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Opening a title from Browse no longer shows it already grouped with same-named titles in your library.** It appears as just that source's own page until you choose to group it.
 - **Restoring a backup no longer re-merges a pair you deliberately split.** Your grouping comes back the way you left it.
 - **A merged novel's combined chapter list no longer hides a chapter whose title only differs by a trailing number.** A sequel-style chapter like "Pleasureful Repeats 2" was being treated as the same as "Pleasureful Repeats" and dropped from the "All" view; it now shows.
+- **Migrating a novel with "remove downloads" on no longer re-downloads those chapters onto the new source.** With it off, your downloads still follow the novel to the new source.
 
 ### Other
 

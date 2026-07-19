@@ -83,6 +83,7 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.EntryMergeActionHost
 import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.hiddenChapterIdsIn
@@ -686,6 +687,15 @@ class NovelDetailsScreenModel(
         selectedSourceNovelId.value = novelId
     }
 
+    /** Header source label: the localized unified ("All") label for the merged all-view, else the source
+     *  name. Resolved here (the model has the context) so the neutral-state mapping needs no composable. */
+    fun headerSourceName(loaded: NovelDetailsState.Loaded): String =
+        if (loaded.mergeSources.size > 1 && loaded.selectedSourceNovelId == null) {
+            context.stringResource(MR.strings.merge_unified)
+        } else {
+            loaded.sourceName
+        }
+
     fun showManageSourcesDialog() {
         screenModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
@@ -880,32 +890,15 @@ class NovelDetailsScreenModel(
 
     /** Apply Edit-info as a non-destructive overlay: store a value only when it differs from the source
      *  row (a blank field, or an Unknown status, stores nothing, so that field tracks the source again).
-     *  The novels row is never touched, so Reset restores the source cleanly. */
-    fun updateNovelInfo(
-        title: String,
-        author: String,
-        artist: String,
-        description: String,
-        genre: List<String>,
-        status: Long,
-        thumbnailUrl: String,
-    ) {
-        screenModelScope.launchIO {
-            val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
-            setCustomNovelInfo.set(
-                CustomNovelInfo(
-                    novelId = n.id,
-                    title = title.trim().takeIf { it.isNotEmpty() && it != n.title },
-                    author = author.trim().takeIf { it.isNotEmpty() && it != n.author.orEmpty() },
-                    artist = artist.trim().takeIf { it.isNotEmpty() && it != n.artist.orEmpty() },
-                    description = description.takeIf { it.isNotBlank() && it != n.description.orEmpty() },
-                    genre = genre.filter { it.isNotBlank() }.takeIf { it.isNotEmpty() && it != n.genre.orEmpty() },
-                    status = status.takeIf { it != n.status && it != NovelStatusCode.UNKNOWN.toLong() },
-                    thumbnailUrl = thumbnailUrl.trim().takeIf { it.isNotEmpty() && it != n.thumbnailUrl.orEmpty() },
-                ),
-            )
-            dismissDialog()
+     *  The novels row is never touched, so Reset restores the source cleanly. Takes the neutral
+     *  [EntryEditInfoUi] (as the manga side already does) and runs non-cancellable, so a mid-write screen
+     *  close does not drop the edit (mirrors MangaScreenModel.saveMangaInfo). */
+    fun saveNovelInfo(edited: EntryEditInfoUi) {
+        val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return
+        screenModelScope.launchNonCancellable {
+            setCustomNovelInfo.set(edited.toCustomNovelInfo(n))
         }
+        dismissDialog()
     }
 
     /** Clear every override; the source row shows through again (no re-fetch needed, it was never overwritten). */
@@ -1228,7 +1221,20 @@ class NovelDetailsScreenModel(
         }
     }
 
-    fun deleteSelected() = withSelection { downloadManager.deleteChapters(it) }
+    /** Confirm before bulk-deleting the selected downloads (parity with manga); confirm calls
+     *  [deleteChapters]. */
+    fun deleteSelected() {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        val chapters = loaded.chapters.filter { it.id in loaded.selection }
+        if (chapters.isNotEmpty()) updateLoaded { it.copy(dialog = NovelDetailsDialog.DeleteChapters(chapters)) }
+    }
+
+    /** Delete the confirmed downloads, then clear the selection and dismiss the dialog. */
+    fun deleteChapters(chapters: List<NovelChapter>) {
+        screenModelScope.launchIO { downloadManager.deleteChapters(chapters) }
+        clearSelection()
+        dismissDialog()
+    }
 
     private fun NovelDownload.State.toDownloadState(): Download.State = when (this) {
         NovelDownload.State.QUEUE -> Download.State.QUEUE
@@ -1242,6 +1248,22 @@ class NovelDetailsScreenModel(
         mutableState.update { (it as? NovelDetailsState.Loaded)?.let(transform) ?: it }
     }
 }
+
+/**
+ * RK: per-field override, store a value only when it differs from the current source value; a blank field
+ * (or "Unknown" status) stores nothing, so that field tracks the source again. The novel twin of
+ * MangaScreenModel's EntryEditInfoUi.toCustomMangaInfo (blanks preserve the source, drop empty genres).
+ */
+private fun EntryEditInfoUi.toCustomNovelInfo(source: Novel) = CustomNovelInfo(
+    novelId = source.id,
+    title = title.trim().takeIf { it.isNotEmpty() && it != source.title },
+    author = author.trim().takeIf { it.isNotEmpty() && it != source.author.orEmpty() },
+    artist = artist.trim().takeIf { it.isNotEmpty() && it != source.artist.orEmpty() },
+    description = description.takeIf { it.isNotBlank() && it != source.description.orEmpty() },
+    genre = genre.filter { it.isNotBlank() }.takeIf { it.isNotEmpty() && it != source.genre.orEmpty() },
+    status = status.takeIf { it != source.status && it != NovelStatusCode.UNKNOWN.toLong() },
+    thumbnailUrl = thumbnailUrl.trim().takeIf { it.isNotEmpty() && it != source.thumbnailUrl.orEmpty() },
+)
 
 sealed interface NovelDetailsState {
     data object Loading : NovelDetailsState
@@ -1355,6 +1377,8 @@ sealed interface NovelDetailsDialog {
         /** Novel id -> group id, so same-group duplicates collapse into one card. */
         val groupIdByNovelId: Map<Long, Long>,
     ) : NovelDetailsDialog
+
+    data class DeleteChapters(val chapters: List<NovelChapter>) : NovelDetailsDialog
 
     data object ChapterSettings : NovelDetailsDialog
     data object PageSelector : NovelDetailsDialog

@@ -37,6 +37,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -54,6 +55,7 @@ import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.LocaleHelper
+import kotlinx.coroutines.launch
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSource
 import reikai.presentation.browse.EntryBrowseGridCell
@@ -72,6 +74,8 @@ import reikai.presentation.novel.details.NovelCategoryDialog
 import reikai.presentation.novel.details.NovelDetailsDialog
 import reikai.presentation.novel.details.NovelScreen
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreenModel.SourceFilter
+import reikai.presentation.novel.migrate.NovelMigrateHost
+import reikai.presentation.novel.migrate.rememberNovelMigrateController
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -158,6 +162,8 @@ class NovelGlobalSearchScreen(
             )
         }
 
+        val migrateScope = rememberCoroutineScope()
+        val migrateController = rememberNovelMigrateController()
         when (val dialog = state.dialog) {
             is NovelBrowseDialog.AddDuplicate -> DuplicateNovelDialog(
                 duplicates = dialog.duplicates,
@@ -166,6 +172,12 @@ class NovelGlobalSearchScreen(
                 onDismissRequest = screenModel::dismissDialog,
                 onConfirm = { screenModel.addFromDuplicate(dialog.item, dialog.sourceId) },
                 onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
+                onMigrate = { dup ->
+                    migrateScope.launch {
+                        screenModel.materializeForMigrate(dialog.item, dialog.sourceId)
+                            ?.let { migrateController.start(dup, it) }
+                    }
+                },
                 groupIdByNovelId = dialog.groupIdByNovelId,
                 onAddToGroup = { selectedIds: List<Long> ->
                     screenModel.addToExistingGroup(dialog.item, dialog.sourceId, selectedIds)
@@ -183,6 +195,7 @@ class NovelGlobalSearchScreen(
             )
             null -> {}
         }
+        NovelMigrateHost(migrateController)
 
         // RK: bulk add-to-library category picker, one choice applied to the whole selection.
         when (val bulkDialog = bulkState.dialog) {

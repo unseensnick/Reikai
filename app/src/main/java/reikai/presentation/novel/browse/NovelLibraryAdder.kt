@@ -137,6 +137,18 @@ class NovelLibraryAdder(
         return stored.id
     }
 
+    /** Insert-or-get the browsed [item] as a library row and return it, without favoriting, for the
+     *  migrate-from-duplicate flow (the migrate use case favorites + chapter-syncs the target itself). */
+    suspend fun materialize(item: NovelItem, sourceId: String): Novel? {
+        val base = Novel.create().copy(
+            source = sourceId,
+            url = item.path,
+            title = item.name,
+            thumbnailUrl = item.cover,
+        )
+        return novelRepository.insertOrGet(base)
+    }
+
     /**
      * Shared "land a freshly favorited novel in the right category" step, the novel twin of the manga
      * default-category branch (MangaLibraryAdder / MangaScreenModel.toggleFavorite). Applies the

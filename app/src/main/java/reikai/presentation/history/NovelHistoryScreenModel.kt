@@ -27,6 +27,7 @@ import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.GetNovelHistory
 import reikai.domain.novel.interactor.RemoveNovelHistory
 import reikai.domain.novel.interactor.UpdateNovel
+import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.novel.model.NovelWithChapterCount
@@ -141,6 +142,9 @@ class NovelHistoryScreenModel(
     fun addFavoriteAnyway(novelId: Long) {
         screenModelScope.launchIO { addToLibrary(novelId) }
     }
+
+    /** The target for the migrate-from-duplicate flow: a history novel is already a chapter-synced row. */
+    suspend fun novelForMigrate(novelId: Long): Novel? = novelRepository.getById(novelId)
 
     /** Add-time grouping. Merge the novel with the duplicates the user picked, then add it (only the
      *  picks: the duplicate list is fuzzy, so merging every match would fuse distinct series). Seeding

@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -36,6 +37,7 @@ import eu.kanade.presentation.components.NavigatorAdaptiveSheet
 import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.manga.EditCoverAction
 import eu.kanade.presentation.manga.components.ChapterHeader
+import eu.kanade.presentation.manga.components.DeleteChaptersDialog
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.manga.components.MangaChapterListItem
 import eu.kanade.presentation.manga.components.MissingChapterCountListItem
@@ -66,7 +68,9 @@ import reikai.presentation.details.entryInfoItems
 import reikai.presentation.details.toEntryHeader
 import reikai.presentation.novel.browse.DuplicateNovelDialog
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
+import reikai.presentation.novel.migrate.NovelMigrateHost
 import reikai.presentation.novel.migrate.NovelMigrationSourcePickScreen
+import reikai.presentation.novel.migrate.rememberNovelMigrateController
 import reikai.presentation.novel.notes.NovelNotesScreen
 import reikai.presentation.novel.reader.NovelReaderScreen
 import reikai.presentation.track.EntryTrackInfoDialogHomeScreen
@@ -92,7 +96,8 @@ class NovelScreen(
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
         val screenModel = rememberScreenModel { NovelDetailsScreenModel(sourceId, novelUrl) }
-        val state by screenModel.state.collectAsState()
+        // Lifecycle-aware so collection pauses when the screen is not resumed (parity with MangaScreen).
+        val state by screenModel.state.collectAsStateWithLifecycle()
 
         when (val s = state) {
             NovelDetailsState.Loading -> LoadingScreen()
@@ -426,8 +431,9 @@ private fun NovelSelectionBar(
 }
 
 @Composable
-private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: NovelDetailsScreenModel) {
+private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: NovelDetailsScreenModel) {
     val navigator = LocalNavigator.currentOrThrow
+    val migrateController = rememberNovelMigrateController()
     when (val dialog = state.dialog) {
         is NovelDetailsDialog.ChangeCategory -> NovelCategoryDialog(
             dialog = dialog,
@@ -441,6 +447,7 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: No
             onDismissRequest = screenModel::dismissDialog,
             onConfirm = screenModel::addFavoriteAnyway,
             onOpenNovel = { navigator.push(NovelScreen(it.source, it.url)) },
+            onMigrate = { migrateController.start(current = it, target = state.novel) },
             groupIdByNovelId = dialog.groupIdByNovelId,
             onAddToGroup = { selectedIds: List<Long> ->
                 screenModel.addToExistingGroup(selectedIds)
@@ -460,22 +467,16 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: No
                 )
             },
             onDismissRequest = screenModel::dismissDialog,
-            onSave = {
-                screenModel.updateNovelInfo(
-                    title = it.title,
-                    author = it.author,
-                    artist = it.artist,
-                    description = it.description,
-                    genre = it.genre,
-                    status = it.status,
-                    thumbnailUrl = it.thumbnailUrl,
-                )
-            },
+            onSave = { screenModel.saveNovelInfo(it) },
             onResetAll = screenModel::resetNovelInfo,
             autofill = TrackerAutofill(
                 candidates = screenModel::autofillCandidates,
                 fetch = screenModel::fetchTrackerMetadata,
             ),
+        )
+        is NovelDetailsDialog.DeleteChapters -> DeleteChaptersDialog(
+            onDismissRequest = screenModel::dismissDialog,
+            onConfirm = { screenModel.deleteChapters(dialog.chapters) },
         )
         NovelDetailsDialog.ChapterSettings -> NovelChapterSettingsDialog(
             sorting = state.sorting,
@@ -536,6 +537,7 @@ private fun NovelDetailsDialogs(state: NovelDetailsState.Loaded, screenModel: No
         NovelDetailsDialog.FullCover -> Unit
         null -> {}
     }
+    NovelMigrateHost(migrateController)
 }
 
 /** Full-cover dialog host. A `Screen` extension so `rememberScreenModel` resolves (it needs a Screen

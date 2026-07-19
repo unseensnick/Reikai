@@ -13,6 +13,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.source.ReikaiSourcePreferences
@@ -132,6 +133,9 @@ class NovelBrowseScreenModel(
             mutableState.update { it.copy(dialog = libraryAdder.addToLibrary(item, sourceId)) }
         }
     }
+
+    /** Materialize a browsed item as a target row for the migrate-from-duplicate flow. */
+    suspend fun materializeForMigrate(item: NovelItem): Novel? = libraryAdder.materialize(item, sourceId)
 
     /** "Add to existing group": add, then merge it with the duplicates the user picked. */
     fun addToExistingGroup(item: NovelItem, selectedIds: List<Long>) {

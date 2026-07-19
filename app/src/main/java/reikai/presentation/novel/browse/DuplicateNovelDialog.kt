@@ -73,8 +73,9 @@ import tachiyomi.presentation.core.util.selectedBackground
 
 /**
  * Novel twin of `DuplicateMangaDialog`: shown when a similarly-named novel is already in the library.
- * Each card opens the existing novel on tap (novels have no migration, so there is no migrate action);
- * "Add anyway" proceeds with the add. Trimmed vs the manga dialog (no per-card text-measured height).
+ * Tapping a card migrates that duplicate onto the novel being added (like manga) when [onMigrate] is set,
+ * else it opens the duplicate; long-press opens it. "Add anyway" proceeds with the add. Trimmed vs the
+ * manga dialog (no per-card text-measured height).
  *
  * Grouping mirrors the manga twin: same-group duplicates collapse into one card and the user picks which
  * ones the new copy belongs with, since duplicate matching is fuzzy enough to list a different series.
@@ -87,6 +88,9 @@ fun DuplicateNovelDialog(
     onDismissRequest: () -> Unit,
     onConfirm: () -> Unit,
     onOpenNovel: (Novel) -> Unit,
+    // Tapping a card migrates that duplicate onto the novel being added (mirrors manga). Null (browse /
+    // global search, which have no novel-being-added) keeps the tap-opens-the-novel behaviour.
+    onMigrate: ((Novel) -> Unit)? = null,
     // Group id per duplicate id. Duplicates sharing one collapse into a single card, so joining an
     // existing group is one pick. Ungrouped duplicates are absent from the map.
     groupIdByNovelId: Map<Long, Long> = emptyMap(),
@@ -196,10 +200,17 @@ fun DuplicateNovelDialog(
                                 toggleSelection(cardId)
                             } else {
                                 onDismissRequest()
+                                if (onMigrate != null) onMigrate(novel) else onOpenNovel(novel)
+                            }
+                        },
+                        onLongClick = {
+                            if (selectionMode) {
+                                toggleRangeSelection(cardId)
+                            } else if (onMigrate != null) {
+                                onDismissRequest()
                                 onOpenNovel(novel)
                             }
                         },
-                        onLongClick = { if (selectionMode) toggleRangeSelection(cardId) },
                     )
                 }
             }

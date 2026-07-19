@@ -3,17 +3,21 @@ package reikai.domain.novel.interactor
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
+import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.coverCacheKey
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
+import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.hasCustomCover
 import reikai.novel.download.NovelDownloadManager
+import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.data.Database
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.time.Instant
@@ -40,6 +44,9 @@ class MigrateNovelUseCase(
     private val coverCache: CoverCache = Injekt.get(),
     private val getNovelTracks: GetNovelTracks = Injekt.get(),
     private val insertNovelTrack: InsertNovelTrack = Injekt.get(),
+    private val sourceManager: NovelSourceManager = Injekt.get(),
+    private val novelRepository: NovelRepository = Injekt.get(),
+    private val database: Database = Injekt.get(),
 ) {
 
     suspend operator fun invoke(
@@ -53,6 +60,23 @@ class MigrateNovelUseCase(
             // Capture the source's merge group up front, before the target is favorited, so it's the
             // source plus its existing siblings, not the target (which shares the title on a clean match).
             val group = novelMergeManager.computeRelatedNovelIds(current.id)
+
+            // Fetch the target's chapters from its source first, so read progress can match onto them
+            // (parity with MigrateMangaUseCase.updateMangaFromRemote). This lets the migrate work from any
+            // add-path, including browse / global search where the target is a fresh, unsynced row.
+            // Best-effort: skip when the source is unavailable, and never let a fetch failure abort.
+            sourceManager.get(target.source)?.let { targetSource ->
+                runCatching {
+                    refreshNovelFromSource(
+                        target,
+                        targetSource,
+                        novelChapterRepository,
+                        novelRepository,
+                        database,
+                        novelDownloadManager,
+                    )
+                }
+            }
 
             // Fetch the source's chapters once when either the chapter-state carry or the
             // remove-download flag needs them.
@@ -75,11 +99,14 @@ class MigrateNovelUseCase(
                     novelChapterRepository.update(it)
                 }
                 // Re-queue downloads for the target chapters that were offline on the old source (the
-                // file isn't copied, it's re-fetched, like LNReader). downloadChapters skips ones the
-                // target already has.
-                chaptersToRedownload(currentChapters, targetChapters, currentDownloadedIds)
-                    .takeIf { it.isNotEmpty() }
-                    ?.let { novelDownloadManager.downloadChapters(it) }
+                // file isn't copied, it's re-fetched, like LNReader), so downloads follow the migration.
+                // Skipped when the user also chose remove-download: otherwise the delete below would be
+                // instantly undone by re-downloading the same chapters onto the target.
+                if (NovelMigrationFlag.REMOVE_DOWNLOAD !in flags) {
+                    chaptersToRedownload(currentChapters, targetChapters, currentDownloadedIds)
+                        .takeIf { it.isNotEmpty() }
+                        ?.let { novelDownloadManager.downloadChapters(it) }
+                }
             }
 
             if (NovelMigrationFlag.CATEGORY in flags) {

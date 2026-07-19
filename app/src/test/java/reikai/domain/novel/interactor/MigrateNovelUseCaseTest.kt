@@ -55,6 +55,11 @@ class MigrateNovelUseCaseTest {
         coverCache = coverCache,
         getNovelTracks = getNovelTracks,
         insertNovelTrack = insertNovelTrack,
+        // Relaxed source manager returns null for get(), so the target-sync step is skipped and these
+        // tests keep asserting against the pre-synced target chapters they set up.
+        sourceManager = mockk(relaxed = true),
+        novelRepository = mockk(relaxed = true),
+        database = mockk(relaxed = true),
     )
 
     @Test
@@ -183,6 +188,27 @@ class MigrateNovelUseCaseTest {
         )
 
         verify { downloadManager.deleteChapters(match { chapters -> chapters.map { it.id } == listOf(1L) }) }
+    }
+
+    @Test
+    fun `with remove-download the chapter re-download is skipped so the delete isn't undone`() = runTest {
+        val repo = mockk<NovelChapterRepository>(relaxed = true) {
+            coEvery { getByNovelId(1L) } returns listOf(chapter(1, 1.0))
+            coEvery { getByNovelId(2L) } returns listOf(chapter(3, 1.0))
+        }
+        val downloadManager = mockk<NovelDownloadManager>(relaxed = true) {
+            every { isChapterDownloaded(any(), match { it.id == 1L }) } returns true
+        }
+
+        useCase(novelChapterRepository = repo, novelDownloadManager = downloadManager)(
+            novel(1),
+            novel(2),
+            setOf(NovelMigrationFlag.CHAPTER, NovelMigrationFlag.REMOVE_DOWNLOAD),
+            replace = false,
+        )
+
+        verify(exactly = 0) { downloadManager.downloadChapters(any()) }
+        verify { downloadManager.deleteChapters(any()) }
     }
 
     private fun chapter(
