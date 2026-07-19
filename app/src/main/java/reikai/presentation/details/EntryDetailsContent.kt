@@ -1,12 +1,24 @@
 package reikai.presentation.details
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -58,6 +70,8 @@ data class EntryDetailsNavigation(
     val onMigrate: (() -> Unit)? = null,
     /** Fetch-interval editor; manga-only. */
     val onEditInterval: (() -> Unit)? = null,
+    /** Opens the novel page/volume selector sheet; novel-only. */
+    val onOpenPageSelector: (() -> Unit)? = null,
     // Manga capability taps.
     val onRelatedClick: (RelatedMangaCandidate) -> Unit = {},
     val onRelatedSeeAll: () -> Unit = {},
@@ -365,12 +379,25 @@ private fun LazyListScope.chapterHeaderItem(
     nav: EntryDetailsNavigation,
 ) {
     item(key = "entry-chapter-header") {
-        ChapterHeader(
-            enabled = !state.selectionMode,
-            chapterCount = state.chapters.items.count { it is EntryChapterListItem.Chapter },
-            missingChapterCount = state.chapters.missingChapterCount,
-            onClick = nav.onOpenFilterSettings,
-        )
+        Column {
+            ChapterHeader(
+                enabled = !state.selectionMode,
+                chapterCount = state.chapters.items.count { it is EntryChapterListItem.Chapter },
+                missingChapterCount = state.chapters.missingChapterCount,
+                onClick = nav.onOpenFilterSettings,
+            )
+            // A paged novel's "Page n / N" bar sits under the header, opening the page selector. The
+            // count above is the current page's, so the paged scope stays visible (sort/filter are paged).
+            state.capabilities.novelPageSelector?.let { page ->
+                NovelPageBar(
+                    pageIndex = page.pageIndex,
+                    pageCount = page.pages.size,
+                    isLoading = page.isPageLoading,
+                    enabled = !state.selectionMode,
+                    onClick = { nav.onOpenPageSelector?.invoke() },
+                )
+            }
+        }
     }
 }
 
@@ -400,7 +427,7 @@ private fun LazyListScope.entryChapterItems(
                     modifier = Modifier.alpha(
                         if (item.id in state.chapters.hiddenChapterIds) HIDDEN_CHAPTER_ALPHA else 1f,
                     ),
-                    title = if (state.showChapterNumberOnly) {
+                    title = if (state.showChapterNumberOnly && item.isRecognizedNumber) {
                         stringResource(MR.strings.display_mode_chapter, formatChapterNumber(item.chapterNumber))
                     } else {
                         item.name
@@ -432,5 +459,39 @@ private fun LazyListScope.entryChapterItems(
                 )
             }
         }
+    }
+}
+
+/** Compact "Page n / N" row under the chapter header for a paged novel; opens the page selector sheet. */
+@Composable
+private fun NovelPageBar(
+    pageIndex: Int,
+    pageCount: Int,
+    isLoading: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = "Page ${pageIndex + 1} / $pageCount",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f),
+        )
+        if (isLoading) {
+            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+        }
+        Icon(
+            imageVector = Icons.Default.ArrowDropDown,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+        )
     }
 }

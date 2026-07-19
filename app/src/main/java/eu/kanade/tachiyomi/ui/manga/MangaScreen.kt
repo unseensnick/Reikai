@@ -1,12 +1,8 @@
 package eu.kanade.tachiyomi.ui.manga
 
 import android.content.Context
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,11 +22,8 @@ import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.domain.manga.model.hasCustomCover
 import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
-import eu.kanade.presentation.components.NavigatorAdaptiveSheet
 import eu.kanade.presentation.manga.ChapterSettingsDialog
 import eu.kanade.presentation.manga.DuplicateMangaDialog
-import eu.kanade.presentation.manga.EditCoverAction
-import eu.kanade.presentation.manga.components.DeleteChaptersDialog
 import eu.kanade.presentation.manga.components.ScanlatorFilterDialog
 import eu.kanade.presentation.manga.components.SetIntervalDialog
 import eu.kanade.presentation.theme.TachiyomiTheme
@@ -58,20 +51,17 @@ import exh.ui.metadata.MetadataViewScreen
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.feature.migration.dialog.MigrateMangaDialog
-import reikai.presentation.components.EntryCoverDialog
-import reikai.presentation.components.ManageMergeSourceRow
-import reikai.presentation.components.ManageMergeSourcesDialog
 import reikai.presentation.details.EntryDetailsContent
+import reikai.presentation.details.EntryDetailsDialog
+import reikai.presentation.details.EntryDetailsDialogHost
 import reikai.presentation.details.EntryDetailsNavigation
 import reikai.presentation.details.EntryDetailsScreenState
-import reikai.presentation.details.EntryEditInfoDialog
 import reikai.presentation.details.EntryEditInfoUi
+import reikai.presentation.details.EntryManageSourceInfo
 import reikai.presentation.details.MangaEntryAdapter
-import reikai.presentation.details.TrackerAutofill
 import reikai.presentation.manga.EhRemoveFavoriteDialog
 import reikai.presentation.manga.MangaMigrationSourcePickScreen
 import reikai.presentation.recommendation.browse.RelatedMangasBrowseScreen
-import reikai.presentation.track.EntryTrackInfoDialogHomeScreen
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.model.Chapter
@@ -79,7 +69,6 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.manga.model.withCustomInfo // RK
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 class MangaScreen(
@@ -243,8 +232,8 @@ class MangaScreen(
         // RK: tint every details dialog from the cover (when that theme is on), matching the details
         // content and the novel side; the content wrap above ends before the dialogs, so re-apply it.
         TachiyomiTheme(seedColor = successState.seedColor.takeIf { screenModel.themeCoverBased }) {
+            EntryDetailsDialogHost(successState.toSharedDetailsDialog(), adapter, onDismissRequest)
             when (val dialog = successState.dialog) {
-                null -> {}
                 is MangaScreenModel.Dialog.ChangeCategory -> {
                     ChangeCategoryDialog(
                         initialSelection = dialog.initialSelection,
@@ -255,16 +244,6 @@ class MangaScreen(
                         },
                     )
                 }
-                is MangaScreenModel.Dialog.DeleteChapters -> {
-                    DeleteChaptersDialog(
-                        onDismissRequest = onDismissRequest,
-                        onConfirm = {
-                            screenModel.toggleAllSelection(false)
-                            screenModel.deleteChapters(dialog.chapters)
-                        },
-                    )
-                }
-
                 is MangaScreenModel.Dialog.DuplicateManga -> {
                     DuplicateMangaDialog(
                         duplicates = dialog.duplicates,
@@ -301,52 +280,6 @@ class MangaScreen(
                     scanlatorFilterActive = successState.scanlatorFilterActive,
                     onScanlatorFilterClicked = { showScanlatorsDialog = true },
                 )
-                MangaScreenModel.Dialog.TrackSheet -> {
-                    // RK: remember the screen so frequent state updates (the merge collectors recompose
-                    // the details screen) don't rebuild it and reset the sheet's navigator mid-update,
-                    // which was cancelling the tracker write (InsertTrack JobCancellationException).
-                    // RK: shared manga/novel track dialog (reikai.presentation.track.EntryTrackInfoDialog)
-                    val trackScreen = remember(successState.manga.id, successState.source.id) {
-                        EntryTrackInfoDialogHomeScreen(
-                            entryId = successState.manga.id,
-                            entryTitle = successState.manga.title,
-                            sourceId = successState.source.id,
-                            isNovel = false,
-                        )
-                    }
-                    NavigatorAdaptiveSheet(
-                        screen = trackScreen,
-                        enableSwipeDismiss = { it.lastItem is EntryTrackInfoDialogHomeScreen },
-                        onDismissRequest = onDismissRequest,
-                    )
-                }
-                MangaScreenModel.Dialog.FullCover -> {
-                    val sm = rememberScreenModel { MangaCoverScreenModel(successState.manga.id) }
-                    val manga by sm.state.collectAsState()
-                    if (manga != null) {
-                        val getContent = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {
-                            if (it == null) return@rememberLauncherForActivityResult
-                            sm.editCover(context, it)
-                        }
-                        // RK: shared cover dialog for manga + novels (replaces MangaCoverDialog)
-                        EntryCoverDialog(
-                            cover = manga!!,
-                            snackbarHostState = sm.snackbarHostState,
-                            isCustomCover = remember(manga) { manga!!.hasCustomCover() },
-                            onShareClick = { sm.shareCover(context) },
-                            onSaveClick = { sm.saveCover(context) },
-                            onEditClick = {
-                                when (it) {
-                                    EditCoverAction.EDIT -> getContent.launch("image/*")
-                                    EditCoverAction.DELETE -> sm.deleteCustomCover(context)
-                                }
-                            },
-                            onDismissRequest = onDismissRequest,
-                        )
-                    } else {
-                        LoadingScreen(Modifier.systemBarsPadding())
-                    }
-                }
                 is MangaScreenModel.Dialog.SetFetchInterval -> {
                     SetIntervalDialog(
                         interval = dialog.manga.fetchInterval,
@@ -357,60 +290,14 @@ class MangaScreen(
                     )
                 }
                 // RK -->
-                is MangaScreenModel.Dialog.ManageSources -> {
-                    ManageMergeSourcesDialog(
-                        sources = dialog.sources.map {
-                            ManageMergeSourceRow(
-                                id = it.mangaId,
-                                sourceName = it.sourceName,
-                                subtitle = pluralStringResource(
-                                    MR.plurals.manga_num_chapters,
-                                    it.chapterCount,
-                                    it.chapterCount,
-                                ),
-                            )
-                        },
-                        isOverridden = dialog.isOverridden,
-                        onDismissRequest = onDismissRequest,
-                        onReorder = screenModel::reorderSources,
-                        onResetOrder = screenModel::resetSourceOrder,
-                        onSplit = screenModel::splitSources,
-                        onRemoveFromLibrary = screenModel::removeSourcesFromLibrary,
-                        onRemoveAll = screenModel::removeAllSourcesFromLibrary,
-                    )
-                }
                 is MangaScreenModel.Dialog.EhRemoveFavorite -> {
                     EhRemoveFavoriteDialog(
                         onDismissRequest = onDismissRequest,
                         onConfirm = screenModel::confirmEhRemoveFromLibrary,
                     )
                 }
-                is MangaScreenModel.Dialog.EditMangaInfo -> {
-                    EntryEditInfoDialog(
-                        // Seed with the effective (overlaid) values; save diffs each field against the raw
-                        // source manga (dialog.manga), so an unchanged field stores no override.
-                        initial = dialog.manga.withCustomInfo(successState.customInfo).toEntryEditInfoUi(),
-                        source = dialog.manga.toEntryEditInfoUi(),
-                        seedColor = successState.seedColor,
-                        coverModel = { url ->
-                            MangaCover(
-                                mangaId = dialog.manga.id,
-                                sourceId = dialog.manga.source,
-                                isMangaFavorite = dialog.manga.favorite,
-                                url = url.ifBlank { null },
-                                lastModified = dialog.manga.coverLastModified,
-                            )
-                        },
-                        onDismissRequest = onDismissRequest,
-                        onSave = { screenModel.saveMangaInfo(dialog.manga, it) },
-                        onResetAll = { screenModel.resetMangaInfo(dialog.manga) },
-                        autofill = TrackerAutofill(
-                            candidates = screenModel::autofillCandidates,
-                            fetch = screenModel::fetchTrackerMetadata,
-                        ),
-                    )
-                }
                 // RK <--
+                else -> {}
             }
 
             if (showScanlatorsDialog) {
@@ -539,3 +426,37 @@ private fun Manga.toEntryEditInfoUi() = EntryEditInfoUi(
     status = status,
     thumbnailUrl = thumbnailUrl.orEmpty(),
 )
+
+// RK: map a manga dialog to the shared union for the dialogs both content types render (EntryDetailsDialogHost);
+// the per-type ones (change-category, duplicate, chapter-settings, migrate, fetch-interval, ...) stay above.
+private fun MangaScreenModel.State.Success.toSharedDetailsDialog(): EntryDetailsDialog? =
+    when (val d = dialog) {
+        is MangaScreenModel.Dialog.EditMangaInfo -> EntryDetailsDialog.EditInfo(
+            // Seed with the effective (overlaid) values; save diffs each field against the raw source manga.
+            initial = d.manga.withCustomInfo(customInfo).toEntryEditInfoUi(),
+            source = d.manga.toEntryEditInfoUi(),
+            seedColor = seedColor,
+            coverModel = { url ->
+                MangaCover(
+                    mangaId = d.manga.id,
+                    sourceId = d.manga.source,
+                    isMangaFavorite = d.manga.favorite,
+                    url = url.ifBlank { null },
+                    lastModified = d.manga.coverLastModified,
+                )
+            },
+        )
+        MangaScreenModel.Dialog.FullCover -> EntryDetailsDialog.Cover
+        is MangaScreenModel.Dialog.ManageSources -> EntryDetailsDialog.ManageSources(
+            sources = d.sources.map { EntryManageSourceInfo(it.mangaId, it.sourceName, it.chapterCount) },
+            isOverridden = d.isOverridden,
+        )
+        MangaScreenModel.Dialog.TrackSheet -> EntryDetailsDialog.TrackSheet(
+            entryId = manga.id,
+            entryTitle = manga.title,
+            sourceId = source.id,
+            isNovel = false,
+        )
+        is MangaScreenModel.Dialog.DeleteChapters -> EntryDetailsDialog.DeleteChapters(d.chapters.map { it.id })
+        else -> null
+    }

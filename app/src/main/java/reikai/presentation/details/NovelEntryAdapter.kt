@@ -13,6 +13,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterListEntry
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.withCustomInfo
+import reikai.presentation.novel.details.NovelCoverScreenModel
 import reikai.presentation.novel.details.NovelDetailsScreenModel
 import reikai.presentation.novel.details.NovelDetailsState
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -159,6 +160,10 @@ class NovelEntryAdapter(
         model.deleteSelected()
     }
 
+    override fun deleteChapters(chapterIds: List<Long>) {
+        model.deleteChapters(chapterIds.mapNotNull { chapterById(it) })
+    }
+
     override fun chapterSwipe(chapterId: Long, action: LibraryPreferences.ChapterSwipeAction) {
         chapterById(chapterId)?.let { model.chapterSwipe(it, action) }
     }
@@ -180,6 +185,14 @@ class NovelEntryAdapter(
     }
     override fun showCoverDialog() {
         model.showCoverDialog()
+    }
+    override fun createCoverScreenModel(): EntryCoverScreenModel<*> {
+        val loaded = model.state.value as? NovelDetailsState.Loaded
+        return NovelCoverScreenModel(
+            novelUrl = loaded?.displayNovel?.url.orEmpty(),
+            novelSource = loaded?.displayNovel?.source.orEmpty(),
+            site = loaded?.sourceUrl,
+        )
     }
     override fun showEditInfoDialog() {
         model.showEditNovelInfoDialog()

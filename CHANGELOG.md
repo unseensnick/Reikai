@@ -34,10 +34,13 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A merged novel's combined chapter list no longer hides a chapter whose title only differs by a trailing number.** A sequel-style chapter like "Pleasureful Repeats 2" was being treated as the same as "Pleasureful Repeats" and dropped from the "All" view; it now shows.
 - **Migrating a novel with "remove downloads" on no longer re-downloads those chapters onto the new source.** With it off, your downloads still follow the novel to the new source.
 - **The Edit categories picker on a details page now respects your category sort order.** Opening it from the overflow menu or a long-press on the library button used to ignore the order the library and other category pickers already follow.
+- **A novel set to show chapter numbers instead of titles now labels them in your app language, like manga.** The word "Chapter" was hardcoded in English; it now follows the app locale.
+- **Adding a manga to an existing merged group now updates its details page right away, like novels.** The new source chip used to appear only after leaving the page and reopening it.
 
 ### Other
 
 - Settings -> Advanced: two "clear merges" actions, which did the same thing after the merge rebuild, are now one "Clear all merges" action per content type.
+- The light-novel details screen, its dialogs, and the cover viewer now render through the same shared layer as manga, so future details changes reach both content types.
 - The merged-series source-switcher chips, previously a duplicated manga and novel component, are now one shared component.
 - Shizuku detection now probes for the Shizuku permission instead of a fixed package name (synced from Mihon, mihonapp/mihon#3565).
 

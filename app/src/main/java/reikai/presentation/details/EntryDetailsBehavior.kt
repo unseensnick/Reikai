@@ -43,6 +43,9 @@ interface EntryDetailsBehavior {
     fun onChapterDownloadAction(chapterId: Long, action: ChapterDownloadAction)
     fun downloadSelected()
     fun deleteSelected()
+
+    /** Confirm the bulk delete (the chapter ids captured when the confirm dialog opened). */
+    fun deleteChapters(chapterIds: List<Long>)
     fun chapterSwipe(chapterId: Long, action: LibraryPreferences.ChapterSwipeAction)
 
     // Hidden chapters.
@@ -56,6 +59,9 @@ interface EntryDetailsBehavior {
 
     // Cover and custom-info edit.
     fun showCoverDialog()
+
+    /** The per-type full-cover ScreenModel, resolved by the shared dialog host. */
+    fun createCoverScreenModel(): EntryCoverScreenModel<*>
     fun showEditInfoDialog()
     fun saveInfo(edited: EntryEditInfoUi)
     fun resetInfo()

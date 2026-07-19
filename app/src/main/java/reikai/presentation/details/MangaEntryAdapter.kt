@@ -205,6 +205,11 @@ class MangaEntryAdapter(
         model.showDeleteChapterDialog(selectedChapters())
     }
 
+    override fun deleteChapters(chapterIds: List<Long>) {
+        model.toggleAllSelection(false)
+        model.deleteChapters(chapterIds.mapNotNull { chapterById(it) })
+    }
+
     override fun chapterSwipe(chapterId: Long, action: LibraryPreferences.ChapterSwipeAction) {
         itemById(chapterId)?.let { model.chapterSwipe(it, action) }
     }
@@ -230,6 +235,8 @@ class MangaEntryAdapter(
     override fun showCoverDialog() {
         model.showCoverDialog()
     }
+    override fun createCoverScreenModel(): EntryCoverScreenModel<*> =
+        MangaCoverScreenModel(successState()?.manga?.id ?: 0L)
     override fun showEditInfoDialog() {
         model.showEditMangaInfoDialog()
     }
