@@ -30,10 +30,11 @@ interface EntryDetailsBehavior {
 
     // Mark read / bookmark. The per-chapter calls key on the neutral chapter id; each adapter resolves it
     // back to its own chapter type. markPreviousRead is selection-based (mark everything before the single
-    // selected chapter), not per-chapter, matching both models.
+    // selected chapter), not per-chapter, matching both models. It takes no flag: neither content type's UI
+    // offers a "mark previous as unread", and the manga engine only supports marking previous as read.
     fun markSelectedRead(read: Boolean)
     fun bookmarkSelected(bookmark: Boolean)
-    fun markPreviousRead(read: Boolean)
+    fun markPreviousRead()
     fun markChapterRead(chapterId: Long, read: Boolean)
     fun toggleChapterBookmark(chapterId: Long)
 

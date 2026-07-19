@@ -91,13 +91,20 @@ sealed interface EntryChapterListItem {
 
 /**
  * Per-type capability payloads for the details screen: typed slots, never nullable soup, each content type
- * filling only what it supports. The novel adapter fills [novelPageSelector]. Manga's slots (page previews,
- * related carousel, gallery metadata, E-Hentai account, scanlator filter) are additive nullable slots that
- * land with the manga adapter; adding one then is not a breaking change to the shared spine.
+ * filling only what it supports. The novel adapter fills [novelPageSelector]; the manga adapter fills the
+ * three manga slots. E-Hentai account and scanlator filter are deliberately not slots here: the EH backup
+ * lives inside the favourite toggle (already on the behaviour), and scanlator filtering is a filter-sheet
+ * concern that stays per-type until the settings sheet unifies, so neither carries a display payload yet.
+ * Adding a slot later is additive, not a breaking change to the shared spine.
  */
 @Immutable
 data class EntryCapabilities(
     val novelPageSelector: NovelPageSelectorCapability? = null,
+    // Manga-only. Their payload types are defined with MangaEntryAdapter (they carry manga-engine types),
+    // keeping this shared file free of manga-package imports. Null for novels.
+    val mangaPagePreviews: MangaPagePreviewsCapability? = null,
+    val mangaRelatedCarousel: MangaRelatedCarouselCapability? = null,
+    val mangaGalleryMetadata: MangaGalleryMetadataCapability? = null,
 )
 
 /**

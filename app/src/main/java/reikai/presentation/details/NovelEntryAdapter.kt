@@ -125,8 +125,8 @@ class NovelEntryAdapter(
     override fun bookmarkSelected(bookmark: Boolean) {
         model.bookmarkSelected(bookmark)
     }
-    override fun markPreviousRead(read: Boolean) {
-        model.markPreviousRead(read)
+    override fun markPreviousRead() {
+        model.markPreviousRead(true)
     }
 
     override fun markChapterRead(chapterId: Long, read: Boolean) {

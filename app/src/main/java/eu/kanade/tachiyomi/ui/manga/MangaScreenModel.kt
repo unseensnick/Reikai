@@ -50,6 +50,7 @@ import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.PagePreviewSource
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.all.EHentai
@@ -1718,6 +1719,24 @@ class MangaScreenModel(
     fun selectSource(sourceMangaId: Long?) {
         selectedSourceMangaId.value = sourceMangaId
     }
+
+    /** Header source label: the localized unified ("All") label for the merged all-view, else the active
+     *  source's display name. Resolved here (the model has the context) so MangaEntryAdapter's neutral-state
+     *  mapping needs no composable. Mirrors NovelDetailsScreenModel.headerSourceName. */
+    fun headerSourceName(state: State.Success): String =
+        if (state.mergeSources.size > 1 && state.selectedSourceMangaId == null) {
+            context.stringResource(MR.strings.merge_unified)
+        } else {
+            (state.mergeDisplaySource ?: state.source).getNameForMangaInfo()
+        }
+
+    /** The localized "Page N" resume hint for a started-but-unread chapter, else null. Resolved here (needs
+     *  the context) so MangaEntryAdapter can pre-format the neutral chapter row's readProgress without a
+     *  composable, the way the chapter row builds it inline today. */
+    fun readProgressLabel(chapter: Chapter): String? =
+        chapter.lastPageRead
+            .takeIf { !chapter.read && it > 0L }
+            ?.let { context.stringResource(MR.strings.chapter_progress, it + 1) }
 
     fun showManageSourcesDialog() {
         val state = successState ?: return
