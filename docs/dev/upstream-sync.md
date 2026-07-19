@@ -45,7 +45,9 @@ Reference upstream PRs/issues as **`mihonapp/mihon#<n>`** (a cross-repo link). A
 
 ## Deliberate divergences from upstream
 
-Cases where Reikai knowingly does not match `refs/mihon`, so a future syncer does not "fix" them back. Revisit each when upstream settles. None are active right now.
+Cases where Reikai knowingly does not match `refs/mihon`, so a future syncer does not "fix" them back. Revisit each when upstream settles.
+
+- **Backup create / validate / restore are streamed, not whole-file.** `BackupCreator`, `BackupFileValidator`, and `BackupRestorer` diverge from Mihon's `encodeToByteArray(Backup.serializer(), backup)` / `decode()` (which build the whole `Backup` in memory and OOM on a large library, unseensnick/Reikai#53). Reikai writes each top-level protobuf field to the gzip sink and reads it back one field at a time (`BackupProtoWriter` / `BackupProtoReader`), so a future sync of these three files is a hand-merge inside the `// RK` islands, never a verbatim copy. The wire format is unchanged (same field numbers), so backups stay cross-compatible with upstream.
 
 _Previously:_
 

@@ -70,6 +70,10 @@ From the same audit.
 
 - **Novel download/update pacing controls** `[S-M]` - per-source throttle, update staggering, and a per-source override map for novel scrapers (tsundoku's `NovelDownloadPreferences`), a more complete anti-detection pacing layer than Reikai's current per-chapter backoff. Independent of Road B.
 
+### Data & backup
+
+- **Unify backup into one Entry-level emitter** `[M]` - collapse the twin manga/novel backup creators into one neutral emitter over `EntryId` so each backup field is written once for both content types, not by a per-type creator pair. Rides on the content-layer `EntryId` seam; the streamed create/validate/restore mechanism already lives once in the orchestrator, so this is the model-level half. [Plan](docs/dev/plans/content-layer-architecture.md).
+
 ### Trackers
 
 Dedicated LN trackers are shippable via WebView session-scraping (no official API needed), which overturns the earlier park for RanobeDB / NovelList.

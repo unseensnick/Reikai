@@ -2,14 +2,20 @@ package eu.kanade.tachiyomi.data.backup.restore
 
 import android.content.Context
 import android.net.Uri
-import eu.kanade.tachiyomi.data.backup.BackupDecoder
 import eu.kanade.tachiyomi.data.backup.BackupNotifier
-import eu.kanade.tachiyomi.data.backup.models.Backup
+import eu.kanade.tachiyomi.data.backup.BackupProtoReader
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomMangaInfo
+import eu.kanade.tachiyomi.data.backup.models.BackupCustomNovelInfo
+import eu.kanade.tachiyomi.data.backup.models.BackupExtension
+import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
+import eu.kanade.tachiyomi.data.backup.models.BackupNovel
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
+import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
 import eu.kanade.tachiyomi.data.backup.restore.restorers.CategoriesRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.ExtensionRestorer
@@ -24,6 +30,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.serialization.protobuf.ProtoBuf
 import logcat.LogPriority
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
@@ -51,6 +58,7 @@ class BackupRestorer(
     private val preferenceRestorer: PreferenceRestorer = PreferenceRestorer(context),
     private val extensionStoreRestorer: ExtensionStoreRestorer = ExtensionStoreRestorer(),
     private val mangaRestorer: MangaRestorer = MangaRestorer(),
+    private val parser: ProtoBuf = Injekt.get(),
     // RK -->
     private val novelRestorer: NovelRestorer = NovelRestorer(),
     private val extensionRestorer: ExtensionRestorer = ExtensionRestorer(),
@@ -94,15 +102,18 @@ class BackupRestorer(
         )
     }
 
+    // RK: restore streams the backup instead of decoding the whole file into memory (which OOMs on a
+    // large library, the read side of Issue #53). Pass 1 (readBackupSummary) gathers the small fields
+    // and counts the library entries; the entries themselves are streamed and restored one bounded
+    // batch at a time in restoreMangaStream / restoreNovelsStream.
     private suspend fun restoreFromFile(uri: Uri, options: RestoreOptions) {
-        val backup = BackupDecoder(context).decode(uri)
+        val summary = readBackupSummary(uri)
 
         // Store source mapping for error messages
-        val backupMaps = backup.backupSources
-        sourceMapping = backupMaps.associate { it.sourceId to it.name }
+        sourceMapping = summary.backupSources.associate { it.sourceId to it.name }
 
         if (options.libraryEntries) {
-            restoreAmount += backup.backupManga.size
+            restoreAmount += summary.mangaCount + summary.novelCount
         }
         if (options.categories) {
             restoreAmount += 1
@@ -111,14 +122,10 @@ class BackupRestorer(
             restoreAmount += 1
         }
         if (options.extensionStores) {
-            restoreAmount += backup.backupExtensionStores.size
+            restoreAmount += summary.backupExtensionStores.size
         }
         if (options.sourceSettings) {
             restoreAmount += 1
-        }
-        // RK: count restored novels toward progress.
-        if (options.libraryEntries) {
-            restoreAmount += backup.backupNovels.size
         }
 
         coroutineScope {
@@ -129,27 +136,27 @@ class BackupRestorer(
             // Default category (a long-standing Tachiyomi-lineage race: a random count slips through each
             // run). Awaiting the categories job first fixes it; everything below stays parallel.
             if (options.categories) {
-                restoreCategories(backup.backupCategories).join()
+                restoreCategories(summary.backupCategories).join()
             }
             if (options.appSettings) {
-                restoreAppPreferences(backup.backupPreferences, backup.backupCategories.takeIf { options.categories })
+                restoreAppPreferences(summary.backupPreferences, summary.backupCategories.takeIf { options.categories })
             }
             if (options.sourceSettings) {
-                restoreSourcePreferences(backup.backupSourcePreferences)
+                restoreSourcePreferences(summary.backupSourcePreferences)
             }
             if (options.libraryEntries) {
-                restoreManga(
-                    backup.backupManga,
-                    if (options.categories) backup.backupCategories else emptyList(),
-                    backup.backupMangaMerges,
-                    backup.backupCustomMangaInfo,
+                restoreMangaStream(
+                    uri,
+                    if (options.categories) summary.backupCategories else emptyList(),
+                    summary.backupMangaMerges,
+                    summary.backupCustomMangaInfo,
                 )
             }
             if (options.extensionStores) {
-                restoreExtensionStores(backup)
+                restoreExtensionStores(summary.backupExtensionStores, summary.backupExtensions)
             }
             // RK -->
-            restoreNovels(backup, options)
+            restoreNovelsStream(uri, summary, options)
             // RK: novel plugins are NOT reinstalled here. Their install state (URLs + metadata) rides
             // the preference backup, so the normal lazy loader re-downloads them on the next novel-
             // screen open. A restore-time reinstall just duplicated that work and stalled on any
@@ -168,34 +175,117 @@ class BackupRestorer(
         }
     }
 
-    // RK: restore the light-novel library. Self-contained and sequential (categories first, then each
-    // novel, then the merge prefs) so it doesn't race the parallel manga/preference restore jobs.
-    private fun CoroutineScope.restoreNovels(backup: Backup, options: RestoreOptions) = launch {
+    // RK: pass 1. Decode only the small fields (kilobytes) and count the streamed library entries, so
+    // the restore never has to hold every manga / novel and their chapters in memory at once.
+    private suspend fun readBackupSummary(uri: Uri): BackupSummary {
+        val backupCategories = mutableListOf<BackupCategory>()
+        val backupSources = mutableListOf<BackupSource>()
+        val backupPreferences = mutableListOf<BackupPreference>()
+        val backupSourcePreferences = mutableListOf<BackupSourcePreferences>()
+        val backupExtensionStores = mutableListOf<BackupExtensionStore>()
+        val backupExtensions = mutableListOf<BackupExtension>()
+        val backupMangaMerges = mutableListOf<BackupMangaMergeGroup>()
+        val backupCustomMangaInfo = mutableListOf<BackupCustomMangaInfo>()
+        val backupNovelCategories = mutableListOf<BackupNovelCategory>()
+        val backupNovelMerges = mutableListOf<BackupNovelMergeGroup>()
+        val backupCustomNovelInfo = mutableListOf<BackupCustomNovelInfo>()
+        var mangaCount = 0
+        var novelCount = 0
+
+        BackupProtoReader(context).read(uri) { fieldNumber, data ->
+            when (fieldNumber) {
+                1 -> mangaCount++
+                700 -> novelCount++
+                2 -> backupCategories.add(parser.decodeFromByteArray(BackupCategory.serializer(), data))
+                101 -> backupSources.add(parser.decodeFromByteArray(BackupSource.serializer(), data))
+                104 -> backupPreferences.add(parser.decodeFromByteArray(BackupPreference.serializer(), data))
+                105 -> backupSourcePreferences.add(
+                    parser.decodeFromByteArray(BackupSourcePreferences.serializer(), data),
+                )
+                106 -> backupExtensionStores.add(parser.decodeFromByteArray(BackupExtensionStore.serializer(), data))
+                710 -> backupExtensions.add(parser.decodeFromByteArray(BackupExtension.serializer(), data))
+                711 -> backupMangaMerges.add(parser.decodeFromByteArray(BackupMangaMergeGroup.serializer(), data))
+                713 -> backupCustomMangaInfo.add(parser.decodeFromByteArray(BackupCustomMangaInfo.serializer(), data))
+                701 -> backupNovelCategories.add(parser.decodeFromByteArray(BackupNovelCategory.serializer(), data))
+                702 -> backupNovelMerges.add(parser.decodeFromByteArray(BackupNovelMergeGroup.serializer(), data))
+                714 -> backupCustomNovelInfo.add(parser.decodeFromByteArray(BackupCustomNovelInfo.serializer(), data))
+            }
+        }
+
+        return BackupSummary(
+            mangaCount = mangaCount,
+            novelCount = novelCount,
+            backupCategories = backupCategories,
+            backupSources = backupSources,
+            backupPreferences = backupPreferences,
+            backupSourcePreferences = backupSourcePreferences,
+            backupExtensionStores = backupExtensionStores,
+            backupExtensions = backupExtensions,
+            backupMangaMerges = backupMangaMerges,
+            backupCustomMangaInfo = backupCustomMangaInfo,
+            backupNovelCategories = backupNovelCategories,
+            backupNovelMerges = backupNovelMerges,
+            backupCustomNovelInfo = backupCustomNovelInfo,
+        )
+    }
+
+    private data class BackupSummary(
+        val mangaCount: Int,
+        val novelCount: Int,
+        val backupCategories: List<BackupCategory>,
+        val backupSources: List<BackupSource>,
+        val backupPreferences: List<BackupPreference>,
+        val backupSourcePreferences: List<BackupSourcePreferences>,
+        val backupExtensionStores: List<BackupExtensionStore>,
+        val backupExtensions: List<BackupExtension>,
+        val backupMangaMerges: List<BackupMangaMergeGroup>,
+        val backupCustomMangaInfo: List<BackupCustomMangaInfo>,
+        val backupNovelCategories: List<BackupNovelCategory>,
+        val backupNovelMerges: List<BackupNovelMergeGroup>,
+        val backupCustomNovelInfo: List<BackupCustomNovelInfo>,
+    )
+
+    // RK: restore the light-novel library, streamed. Categories first, then each novel in bounded
+    // batches, then the merge groups + custom-info overlay (both re-keyed from {url,source}).
+    private fun CoroutineScope.restoreNovelsStream(
+        uri: Uri,
+        summary: BackupSummary,
+        options: RestoreOptions,
+    ) = launch {
         if (options.categories) {
             ensureActive()
-            novelRestorer.restoreCategories(backup.backupNovelCategories)
+            novelRestorer.restoreCategories(summary.backupNovelCategories)
         }
         if (options.libraryEntries) {
-            backup.backupNovels
-                .chunked(100)
-                .forEach { chunk ->
-                    database.transaction {
-                        chunk.forEach { backupNovel ->
-                            ensureActive()
-                            try {
-                                novelRestorer.restore(backupNovel, backup.backupNovelCategories)
-                            } catch (e: Exception) {
-                                errors.add(Date() to "${backupNovel.title} [${backupNovel.source}]: ${e.message}")
-                            }
-
-                            restoreProgress.incrementAndFetch()
+            val batch = ArrayList<BackupNovel>(RESTORE_CHUNK)
+            suspend fun flush() {
+                if (batch.isEmpty()) return
+                database.transaction {
+                    batch.forEach { backupNovel ->
+                        ensureActive()
+                        try {
+                            novelRestorer.restore(backupNovel, summary.backupNovelCategories)
+                        } catch (e: Exception) {
+                            errors.add(Date() to "${backupNovel.title} [${backupNovel.source}]: ${e.message}")
                         }
+                        restoreProgress.incrementAndFetch()
                     }
-                    notifier.showRestoreProgress(chunk.last().title, restoreProgress.load(), restoreAmount, isSync)
                 }
-            novelRestorer.restoreMerges(backup.backupNovelMerges)
+                notifier.showRestoreProgress(batch.last().title, restoreProgress.load(), restoreAmount, isSync)
+                batch.clear()
+            }
+
+            BackupProtoReader(context).read(uri) { fieldNumber, data ->
+                if (fieldNumber != 700) return@read
+                ensureActive()
+                batch.add(parser.decodeFromByteArray(BackupNovel.serializer(), data))
+                if (batch.size >= RESTORE_CHUNK) flush()
+            }
+            flush()
+
+            novelRestorer.restoreMerges(summary.backupNovelMerges)
             // RK: apply the custom-info overlay, re-keyed from {url,source} to the fresh novel ids.
-            novelRestorer.restoreCustomNovelInfo(backup.backupCustomNovelInfo)
+            novelRestorer.restoreCustomNovelInfo(summary.backupCustomNovelInfo)
         }
     }
 
@@ -212,33 +302,42 @@ class BackupRestorer(
         )
     }
 
-    private fun CoroutineScope.restoreManga(
-        backupMangas: List<BackupManga>,
+    // RK: pass 2 for manga. Streams field 1, restoring bounded batches inside a DB transaction (each
+    // restore also opens its own, harmlessly nested), then materializes the merge groups + custom-info
+    // once every manga has a fresh id. The old whole-list sortByNew is dropped: entries restore
+    // independently and merges resolve by {url,source} after the loop, so file order is fine.
+    private fun CoroutineScope.restoreMangaStream(
+        uri: Uri,
         backupCategories: List<BackupCategory>,
-        // RK: merge groups, materialized into the merge_group tables once the restored manga have fresh IDs.
         backupMangaMerges: List<BackupMangaMergeGroup>,
-        // RK: custom-info overlay, re-keyed from {url,source} to fresh IDs after the manga loop.
         backupCustomMangaInfo: List<BackupCustomMangaInfo>,
     ) = launch {
-        mangaRestorer.sortByNew(backupMangas)
-            .chunked(100)
-            .forEach { chunk ->
-                database.transaction {
-                    chunk.forEach {
-                        ensureActive()
-
-                        try {
-                            mangaRestorer.restore(it, backupCategories)
-                        } catch (e: Exception) {
-                            val sourceName = sourceMapping[it.source] ?: it.source.toString()
-                            errors.add(Date() to "${it.title} [$sourceName]: ${e.message}")
-                        }
-
-                        restoreProgress.incrementAndFetch()
+        val batch = ArrayList<BackupManga>(RESTORE_CHUNK)
+        suspend fun flush() {
+            if (batch.isEmpty()) return
+            database.transaction {
+                batch.forEach { backupManga ->
+                    ensureActive()
+                    try {
+                        mangaRestorer.restore(backupManga, backupCategories)
+                    } catch (e: Exception) {
+                        val sourceName = sourceMapping[backupManga.source] ?: backupManga.source.toString()
+                        errors.add(Date() to "${backupManga.title} [$sourceName]: ${e.message}")
                     }
+                    restoreProgress.incrementAndFetch()
                 }
-                notifier.showRestoreProgress(chunk.last().title, restoreProgress.load(), restoreAmount, isSync)
             }
+            notifier.showRestoreProgress(batch.last().title, restoreProgress.load(), restoreAmount, isSync)
+            batch.clear()
+        }
+
+        BackupProtoReader(context).read(uri) { fieldNumber, data ->
+            if (fieldNumber != 1) return@read
+            ensureActive()
+            batch.add(parser.decodeFromByteArray(BackupManga.serializer(), data))
+            if (batch.size >= RESTORE_CHUNK) flush()
+        }
+        flush()
 
         // RK: with every manga restored (fresh IDs), materialize the backup's merge groups.
         ensureActive()
@@ -281,10 +380,11 @@ class BackupRestorer(
     }
 
     private fun CoroutineScope.restoreExtensionStores(
-        backup: Backup,
+        backupExtensionStores: List<BackupExtensionStore>,
+        backupExtensions: List<BackupExtension>,
     ) = launch {
-        backup.backupExtensionStores
-            .chunked(100)
+        backupExtensionStores
+            .chunked(RESTORE_CHUNK)
             .forEach { chunk ->
                 database.transaction {
                     chunk.forEach {
@@ -311,7 +411,7 @@ class BackupRestorer(
         // missing can't be matched; log them so the user knows what to reinstall by hand.
         ensureActive()
         try {
-            extensionRestorer.restore(backup.backupExtensions).forEach { name ->
+            extensionRestorer.restore(backupExtensions).forEach { name ->
                 errors.add(Date() to "Extension not reinstalled (repo missing): $name")
             }
         } catch (e: Exception) {
@@ -336,5 +436,11 @@ class BackupRestorer(
             // Empty
         }
         return File("")
+    }
+
+    companion object {
+        // RK: entries per DB transaction while streaming; also the memory bound (only this many
+        // entries + their chapters are resident at once).
+        private const val RESTORE_CHUNK = 100
     }
 }

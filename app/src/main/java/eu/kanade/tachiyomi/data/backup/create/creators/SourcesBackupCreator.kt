@@ -20,6 +20,14 @@ class SourcesBackupCreator(
             .map { it.toBackupSource() }
             .toList()
     }
+
+    // RK: build the source list from ids collected during the streaming manga pass, so the whole
+    // List<BackupManga> never has to be resident just to derive sources.
+    fun forSourceIds(sourceIds: Set<Long>): List<BackupSource> {
+        return sourceIds
+            .map(sourceManager::getOrStub)
+            .map { it.toBackupSource() }
+    }
 }
 
 private fun Source.toBackupSource() =

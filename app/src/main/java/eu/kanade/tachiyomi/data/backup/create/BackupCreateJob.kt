@@ -56,7 +56,9 @@ class BackupCreateJob(private val context: Context, workerParams: WorkerParamete
                 notifier.showBackupComplete(UniFile.fromUri(context, location.toUri())!!)
             }
             Result.success()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+            // Throwable, not Exception: an out-of-memory backup fails with an Error, which the old
+            // Exception-only catch skipped, so the job died silently with no error shown (Issue #53).
             logcat(LogPriority.ERROR, e)
             if (!isAutoBackup) notifier.showBackupError(e.message)
             Result.failure()

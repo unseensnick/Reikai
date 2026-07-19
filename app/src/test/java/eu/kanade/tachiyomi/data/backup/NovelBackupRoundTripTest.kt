@@ -106,10 +106,10 @@ class NovelBackupRoundTripTest {
             history = false,
         )
 
-        val data = creator(options)
+        val merges = creator.novelMerges(options)
 
         // The group is serialized as stable {url, source} refs, not the raw ids.
-        data.merges.map { group -> group.refs.map { it.url to it.source } } shouldContainExactly
+        merges.map { group -> group.refs.map { it.url to it.source } } shouldContainExactly
             listOf(listOf("a" to "s1", "b" to "s2"))
 
         // Restore side: the same two novels come back with fresh ids 10 and 20.
@@ -119,7 +119,7 @@ class NovelBackupRoundTripTest {
             coEvery { getByUrlAndSource("b", "s2") } returns novel(20, "b", "s2")
         }
 
-        restorer(restoreRepo, restoreMergeRepo).restoreMerges(data.merges)
+        restorer(restoreRepo, restoreMergeRepo).restoreMerges(merges)
 
         // The group is materialized against the restored ids via the repository.
         coVerify { restoreMergeRepo.merge(ContentType.NOVELS, listOf(10L, 20L)) }

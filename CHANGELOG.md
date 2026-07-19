@@ -18,6 +18,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Adding a series from Browse, global search, History or its page now offers to group it with a match in your library: tap the select button, then pick which ones it joins.** The new copy lands in their categories too.
 - **Adding a novel that matches one already in your library now offers a one-tap Migrate.** Tap the matching card in the duplicate prompt to move your reading progress, categories, cover and tracking onto the new source, from Browse, global search, History or the novel's page.
 - **A new Settings > Library > Recommendations option moves the related-manga suggestions into the three-dot menu.** The details page then hides the inline carousel and adds a Recommendations action that opens the full grid instead.
+- **Create backup now lets you pick Manga, Novels, and Custom entry info separately.** Back up just one content type (which also makes the file smaller), or leave the custom title/cover edits out.
 
 ### Changes
 
@@ -36,6 +37,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The Edit categories picker on a details page now respects your category sort order.** Opening it from the overflow menu or a long-press on the library button used to ignore the order the library and other category pickers already follow.
 - **A novel set to show chapter numbers instead of titles now labels them in your app language, like manga.** The word "Chapter" was hardcoded in English; it now follows the app locale.
 - **Adding a manga to an existing merged group now updates its details page right away, like novels.** The new source chip used to appear only after leaving the page and reopening it.
+- **Backing up a large library with chapters enabled works again instead of leaving an empty file.** Restoring one no longer runs out of memory either, and a backup that does fail now reports the error instead of quietly stopping.
 
 ### Other
 

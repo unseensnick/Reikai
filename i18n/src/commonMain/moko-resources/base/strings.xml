@@ -268,6 +268,8 @@
     <string name="content_type_all">All</string>
     <string name="content_type_manga">Manga</string>
     <string name="content_type_novels">Novels</string>
+    <!-- RK: backup toggle for the non-destructive custom-info overlay (title/author/cover edits) -->
+    <string name="custom_entry_info">Custom entry info</string>
     <!-- RK: Updates group-by-series -->
     <string name="updates_group_by_series">Group by series</string>
     <string name="updates_group_chapter_count">%1$d new chapters</string>

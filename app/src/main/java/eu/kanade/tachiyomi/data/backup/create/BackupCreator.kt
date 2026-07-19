@@ -12,17 +12,22 @@ import eu.kanade.tachiyomi.data.backup.create.creators.MangaBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.NovelBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.PreferenceBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.SourcesBackupCreator
-import eu.kanade.tachiyomi.data.backup.models.Backup
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomMangaInfo
+import eu.kanade.tachiyomi.data.backup.models.BackupCustomNovelInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaSourceRef
+import eu.kanade.tachiyomi.data.backup.models.BackupNovel
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
+import kotlinx.coroutines.yield
+import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.protobuf.ProtoBuf
 import logcat.LogPriority
 import okio.buffer
@@ -41,6 +46,7 @@ import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.FileOutputStream
+import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.time.Instant
 import java.util.Date
@@ -70,6 +76,16 @@ class BackupCreator(
     // RK <--
 ) {
 
+    // RK: set once any field is written, so a selection that produces no content (e.g. Library
+    // entries on but Manga + Novels + everything else off) is rejected instead of writing a useless
+    // near-empty file, matching the old empty_backup_error guard the one-shot encode had.
+    private var wroteAnything = false
+
+    // RK: the backup is streamed field by field straight to the gzip sink instead of building the
+    // whole Backup object graph and encoding it in one ByteArray. The one-shot encode peaked at
+    // (object graph + a ~2x transient copy) and OutOfMemoryError'd on large chapter counts
+    // (Issue #53). A protobuf message is just its length-delimited fields concatenated in any order,
+    // so per-field streaming is wire-identical: old backups still decode, new ones stay in-format.
     suspend fun backup(uri: Uri, options: BackupOptions): String {
         var file: UniFile? = null
         try {
@@ -94,52 +110,103 @@ class BackupCreator(
                 throw IllegalStateException(context.stringResource(MR.strings.create_backup_file_error))
             }
 
-            val favorites = getFavorites.await()
-            val nonFavoriteManga = if (options.readEntries) mangaRepository.getReadMangaNotInLibrary() else emptyList()
-            val backupManga = backupMangas(favorites + nonFavoriteManga, options)
+            // Favorites carry no chapters, so the metadata list is light even for a big library; the
+            // chapters (the OOM driver) are only ever resident one batch at a time via the stream.
+            val includeManga = options.libraryEntries && options.includeManga
+            val includeNovels = options.libraryEntries && options.includeNovels
+            val favorites = if (includeManga) getFavorites.await() else emptyList()
 
-            // RK: the light-novel library (favorites + chapters/categories/tracks/history + merges).
-            val novelData = novelBackupCreator(options)
+            val outputStream = file.openOutputStream()
+            // Force overwrite old file
+            (outputStream as? FileOutputStream)?.channel?.truncate(0)
+            val gzipOut = outputStream.sink().gzip().buffer()
 
-            val backup = Backup(
-                backupManga = backupManga,
-                backupCategories = backupCategories(options),
-                backupSources = backupSources(backupManga),
-                backupPreferences = backupAppPreferences(options),
-                backupExtensionStores = backupExtensionStores(options),
-                backupSourcePreferences = backupSourcePreferences(options),
+            try {
+                val out = gzipOut.outputStream()
+                val sourceIds = mutableSetOf<Long>()
+
+                // Field 1: manga, streamed. Each is encoded and written on its own, then collected.
+                if (includeManga) {
+                    val nonFavorite = if (options.readEntries) {
+                        mangaRepository.getReadMangaNotInLibrary()
+                    } else {
+                        emptyList()
+                    }
+                    (favorites + nonFavorite).chunked(MANGA_BATCH_SIZE).forEach { batch ->
+                        mangaBackupCreator.backupMangaStream(batch, options).collect { manga ->
+                            sourceIds.add(manga.source)
+                            BackupProtoWriter.writeField(
+                                out,
+                                1,
+                                parser.encodeToByteArray(BackupManga.serializer(), manga),
+                            )
+                            wroteAnything = true
+                        }
+                        // Push the batch's deflated bytes to disk so nothing accumulates across a big backup.
+                        gzipOut.flush()
+                        yield()
+                    }
+                }
+
+                // Field 700 (RK): novels, streamed the same way.
+                if (includeNovels) {
+                    var written = 0
+                    novelBackupCreator.streamNovels(options).collect { novel ->
+                        BackupProtoWriter.writeField(
+                            out,
+                            700,
+                            parser.encodeToByteArray(BackupNovel.serializer(), novel),
+                        )
+                        wroteAnything = true
+                        if (++written % MANGA_BATCH_SIZE == 0) {
+                            gzipOut.flush()
+                            yield()
+                        }
+                    }
+                    gzipOut.flush()
+                }
+
+                // Remaining fields are small (no per-entry chapter payload), so they are gathered and
+                // written after the streamed entries. Field order is irrelevant to the decoder.
+                writeEach(out, 2, BackupCategory.serializer(), backupCategories(options))
+                writeEach(out, 101, BackupSource.serializer(), sourcesBackupCreator.forSourceIds(sourceIds))
+                writeEach(out, 104, BackupPreference.serializer(), backupAppPreferences(options))
+                writeEach(out, 105, BackupSourcePreferences.serializer(), backupSourcePreferences(options))
+                writeEach(out, 106, BackupExtensionStore.serializer(), backupExtensionStores(options))
                 // RK -->
-                backupNovels = novelData.novels,
-                backupNovelCategories = novelData.categories,
-                backupNovelMerges = novelData.merges,
-                // RK: unmerge round-trip retired; kept empty so the proto field stays declared.
-                backupNovelUnmerges = emptyList(),
-                backupExtensions = backupExtensions(options),
-                backupMangaMerges = backupMangaMergeGroups(options),
-                // RK: the unmerge round-trip is retired (membership is explicit now); kept empty so the
-                // proto field stays declared and old backups still decode.
-                backupMangaUnmerges = emptyList(),
-                backupCustomMangaInfo = backupCustomMangaInfo(favorites, options),
-                backupCustomNovelInfo = novelData.customInfo,
+                writeEach(out, 710, BackupExtension.serializer(), backupExtensions(options))
+                if (includeManga) {
+                    writeEach(out, 711, BackupMangaMergeGroup.serializer(), backupMangaMergeGroups(options))
+                    if (options.customInfo) {
+                        writeEach(
+                            out,
+                            713,
+                            BackupCustomMangaInfo.serializer(),
+                            backupCustomMangaInfo(favorites, options),
+                        )
+                    }
+                }
+                if (includeNovels) {
+                    writeEach(out, 701, BackupNovelCategory.serializer(), novelBackupCreator.novelCategories(options))
+                    writeEach(out, 702, BackupNovelMergeGroup.serializer(), novelBackupCreator.novelMerges(options))
+                    if (options.customInfo) {
+                        writeEach(out, 714, BackupCustomNovelInfo.serializer(), novelBackupCreator.novelCustomInfo())
+                    }
+                }
                 // RK <--
-            )
 
-            val byteArray = parser.encodeToByteArray(Backup.serializer(), backup)
-            if (byteArray.isEmpty()) {
+                gzipOut.flush()
+            } finally {
+                gzipOut.close()
+            }
+
+            if (!wroteAnything) {
                 throw IllegalStateException(context.stringResource(MR.strings.empty_backup_error))
             }
 
-            file.openOutputStream()
-                .also {
-                    // Force overwrite old file
-                    (it as? FileOutputStream)?.channel?.truncate(0)
-                }
-                .sink().gzip().buffer().use {
-                    it.write(byteArray)
-                }
             val fileUri = file.uri
 
-            // Make sure it's a valid backup file
+            // Make sure it's a valid backup file (streamed, so it doesn't re-inflate the whole file).
             BackupFileValidator(context).validate(fileUri)
 
             if (isAutoBackup) {
@@ -147,27 +214,34 @@ class BackupCreator(
             }
 
             return fileUri.toString()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+            // Throwable, not Exception: an OutOfMemoryError is an Error, and catching only Exception
+            // left the blank half-written file behind and swallowed the failure (Issue #53).
             logcat(LogPriority.ERROR, e)
-            file?.delete()
+            try {
+                file?.delete()
+            } catch (deleteError: Exception) {
+                logcat(LogPriority.WARN, deleteError) { "Failed to delete partial backup file" }
+            }
             throw e
         }
+    }
+
+    /** Encode each item and write it as a repeated length-delimited field. */
+    private fun <T> writeEach(
+        out: OutputStream,
+        fieldNumber: Int,
+        serializer: SerializationStrategy<T>,
+        items: List<T>,
+    ) {
+        if (items.isNotEmpty()) wroteAnything = true
+        items.forEach { BackupProtoWriter.writeField(out, fieldNumber, parser.encodeToByteArray(serializer, it)) }
     }
 
     private suspend fun backupCategories(options: BackupOptions): List<BackupCategory> {
         if (!options.categories) return emptyList()
 
         return categoriesBackupCreator()
-    }
-
-    private suspend fun backupMangas(mangas: List<Manga>, options: BackupOptions): List<BackupManga> {
-        if (!options.libraryEntries) return emptyList()
-
-        return mangaBackupCreator(mangas, options)
-    }
-
-    private fun backupSources(mangas: List<BackupManga>): List<BackupSource> {
-        return sourcesBackupCreator(mangas)
     }
 
     private fun backupAppPreferences(options: BackupOptions): List<BackupPreference> {
@@ -242,6 +316,11 @@ class BackupCreator(
 
     companion object {
         private const val MAX_AUTO_BACKUPS: Int = 4
+
+        // RK: how many entries to stream before flushing the gzip buffer to disk, so buffered bytes
+        // don't pile up across a very large backup.
+        private const val MANGA_BATCH_SIZE: Int = 20
+
         private val FILENAME_REGEX = """${BuildConfig.APPLICATION_ID}_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}.tachibk""".toRegex()
 
         fun getFilename(): String {

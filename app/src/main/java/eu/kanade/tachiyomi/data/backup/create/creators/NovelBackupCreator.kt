@@ -14,6 +14,9 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.yield
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.novel.NovelCategoryRepository
@@ -38,29 +41,29 @@ class NovelBackupCreator(
     private val database: Database = Injekt.get(),
 ) {
 
-    data class NovelBackupData(
-        val novels: List<BackupNovel>,
-        val categories: List<BackupNovelCategory>,
-        val merges: List<BackupNovelMergeGroup>,
-        val customInfo: List<BackupCustomNovelInfo>,
-    )
-
-    suspend operator fun invoke(options: BackupOptions): NovelBackupData {
-        val favorites = if (options.libraryEntries) novelRepository.getFavorites() else emptyList()
-        return NovelBackupData(
-            novels = if (options.libraryEntries) favorites.map { backupNovel(it, options) } else emptyList(),
-            categories = if (options.categories) backupNovelCategories() else emptyList(),
-            customInfo = if (options.libraryEntries) backupCustomNovelInfo(favorites) else emptyList(),
-            merges = if (options.libraryEntries) serializeGroups() else emptyList(),
-        )
+    // Emit one BackupNovel at a time so the caller streams each straight to the backup, instead of
+    // materialising every novel and all its chapters at once (the novel twin of backupMangaStream).
+    fun streamNovels(options: BackupOptions): Flow<BackupNovel> = flow {
+        if (!options.libraryEntries) return@flow
+        for (novel in novelRepository.getFavorites()) {
+            emit(backupNovel(novel, options))
+            yield()
+        }
     }
 
+    suspend fun novelCategories(options: BackupOptions): List<BackupNovelCategory> =
+        if (options.categories) backupNovelCategories() else emptyList()
+
+    suspend fun novelMerges(options: BackupOptions): List<BackupNovelMergeGroup> =
+        if (options.libraryEntries) serializeGroups() else emptyList()
+
     // Back up the novel custom-info overlay as {url, source}-keyed entries (re-keyed to fresh ids on
-    // restore). The favorites map resolves each row's novel; a row for a non-favorite is dropped.
-    private suspend fun backupCustomNovelInfo(favorites: List<Novel>): List<BackupCustomNovelInfo> {
-        val byId = favorites.associateBy { it.id }
+    // restore). Resolves each row's novel by id (no favorites map needed, so it doesn't force the
+    // whole favorites list to stay resident during the streamed backup). A row whose novel is gone
+    // is dropped. The caller gates this on the include-novels + custom-info toggles.
+    suspend fun novelCustomInfo(): List<BackupCustomNovelInfo> {
         return customNovelInfoRepository.getAll().mapNotNull { info ->
-            val novel = byId[info.novelId] ?: return@mapNotNull null
+            val novel = novelRepository.getById(info.novelId) ?: return@mapNotNull null
             BackupCustomNovelInfo(
                 source = novel.source,
                 url = novel.url,
