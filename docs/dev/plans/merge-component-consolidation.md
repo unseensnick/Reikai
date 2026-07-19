@@ -60,7 +60,9 @@ Composition: `MangaScreenModel` builds the host inside a `// RK` island (its mer
 
 ## Status
 
-Planned, not started. Grounded by a deep scout across both managers and every caller, both ScreenModels' merge read wiring, the existing `EntryMergeActionHost`, the collapse helpers, the DI, and the test suite. The membership-observer live-refresh fix that motivated this (adding the same observer to both models by hand) is the concrete example of the duplication being removed.
+**Phase A shipped** (`be37f01f0`): the two managers are now thin subclasses of one `EntryMergeManager(contentType, ...)`, with neutral method names swept across the ~20 callers; the manager tests were rewritten as the regression net and pass. No behaviour change (the managers are pure adapters over the merge group tables).
+
+**Phase B not started** (the read/observe host). Grounded by a deep scout across both ScreenModels' merge read wiring, the existing `EntryMergeActionHost`, the collapse helpers, and the neutral chip types. It is the delicate half: it rewires the live manga model's reactive chapter combine + metadata load and the novel model's `observeMergeGroup` / `observeMergeSourceChips` / `siblingSources` (the sibling map is load-bearing beyond chips: ranking, chapter source routing, the reader), so it needs on-device verification of both merged manga and merged novel details + reader before it lands.
 
 ## Decisions & tradeoffs
 
