@@ -59,6 +59,8 @@ class MangaEntryAdapter(
         // raw `manga`. The merge-display anchor collapses to a single entry + source, mirroring the manga UI.
         val displayManga = manga.withCustomInfo(customInfo)
         val displaySource = mergeDisplaySource ?: source
+        // The inline carousel shows only for inline placement; in-menu still loads the pool, just hides it.
+        val showInlineRelated = !model.recommendationsInMenu && (relatedLoading || relatedItems.isNotEmpty())
         return EntryDetailsScreenState.Loaded(
             entryId = EntryId.Manga(manga.id),
             details = EntryDetailsUiState(
@@ -92,7 +94,7 @@ class MangaEntryAdapter(
                 } else {
                     null
                 },
-                mangaRelatedCarousel = if (relatedLoading || relatedItems.isNotEmpty()) {
+                mangaRelatedCarousel = if (showInlineRelated) {
                     MangaRelatedCarouselCapability(relatedItems, relatedTotalCount, relatedLoading)
                 } else {
                     null

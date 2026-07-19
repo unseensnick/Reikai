@@ -64,6 +64,8 @@ data class EntryDetailsNavigation(
     val onOpenPagePreview: (Int) -> Unit = {},
     val onMorePreviews: () -> Unit = {},
     val onMetadataViewer: (() -> Unit)? = null,
+    /** "Recommendations" overflow action; non-null only when related suggestions are placed in the menu. */
+    val onRecommendations: (() -> Unit)? = null,
 )
 
 /**
@@ -225,6 +227,7 @@ private fun EntryDetailsToolbar(
         onClickMigrate = nav.onMigrate,
         onClickDownload = if (state.chaptersDownloadable) behavior::runDownloadAction else null,
         onClickMetadataViewer = nav.onMetadataViewer,
+        onClickRecommendations = nav.onRecommendations,
         onHide = behavior::hideSelected,
         onUnhide = behavior::unhideSelected,
         onToggleShowHidden = behavior::toggleShowHidden,

@@ -95,6 +95,7 @@ import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.RelatedMangaCache
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.RelatedMangasLoader
+import reikai.domain.recommendation.RelatedPlacement
 import reikai.domain.recommendation.taste.GetTasteProfile
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteProfile
@@ -264,6 +265,11 @@ class MangaScreenModel(
 
     // RK --> cover-based theming (Y11)
     val themeCoverBased = uiPreferences.themeCoverBased.get()
+
+    // RK: recommendations are enabled but placed in the three-dot menu, so the screen shows a
+    // "Recommendations" overflow action instead of the inline carousel. Read once, like themeCoverBased.
+    val recommendationsInMenu = recommendationPreferences.enableRelatedMangas.get() &&
+        recommendationPreferences.relatedPlacement.get() == RelatedPlacement.MENU
 
     /**
      * Seed the details theme from the cover's vibrant color. Reuses the color a prior Library/Browse
@@ -1795,7 +1801,8 @@ class MangaScreenModel(
     fun loadRelatedMangas() {
         if (relatedLoadStarted) return
         // Gate before any work: the carousel self-hides on an empty pool, so an early return both
-        // hides the row and spares the source every request the load would have made.
+        // hides the row and spares the source every request the load would have made. In-menu placement
+        // still loads (the recommendations screen reads the same cache); only the inline row is hidden.
         if (!recommendationPreferences.enableRelatedMangas.get()) return
         val state = successState ?: return
         val source = state.source as? CatalogueSource ?: return

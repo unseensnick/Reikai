@@ -207,6 +207,9 @@
     <string name="pref_recommendation_sources">Sources</string>
     <string name="pref_enable_related_mangas">Show related manga</string>
     <string name="pref_enable_related_mangas_summary">Suggest similar manga on the details page. Turning this off also stops the searches it makes, which can speed up slow sources</string>
+    <string name="pref_related_placement">Related manga placement</string>
+    <string name="pref_related_placement_inline">On the details page</string>
+    <string name="pref_related_placement_menu">In the three-dot menu</string>
     <string name="pref_include_tracker_recommendations">Tracker recommendations</string>
     <string name="pref_include_tracker_recommendations_summary">Suggest similar manga from your trackers</string>
     <string name="pref_taste_profile">Taste profile</string>

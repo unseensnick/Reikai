@@ -1,8 +1,21 @@
 package reikai.domain.recommendation
 
+import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
+import tachiyomi.core.common.preference.getEnum
+import tachiyomi.i18n.MR
+
+/** Where the details screen surfaces the related-manga carousel when it is enabled. */
+enum class RelatedPlacement(val titleRes: StringResource) {
+    /** The inline body carousel (the original behaviour). */
+    INLINE(MR.strings.pref_related_placement_inline),
+
+    /** A three-dot overflow-menu action that opens the recommendations screen; no inline carousel and
+     *  no inline search, so the details page opens without the suggestion request. */
+    MENU(MR.strings.pref_related_placement_menu),
+}
 
 /**
  * Net-new preferences for the recommendation carousel + taste profile. Key strings are preserved
@@ -26,6 +39,10 @@ class ReikaiRecommendationPreferences(
      */
     val enableRelatedMangas: Preference<Boolean> =
         preferenceStore.getBoolean("pref_enable_related_mangas", true)
+
+    /** Inline body carousel vs a three-dot menu action; only meaningful while [enableRelatedMangas] is on. */
+    val relatedPlacement: Preference<RelatedPlacement> =
+        preferenceStore.getEnum("pref_related_placement", RelatedPlacement.INLINE)
 
     /** Master switch for tracker-origin recommendation candidates. */
     val includeTrackerRecommendations: Preference<Boolean> =

@@ -54,6 +54,8 @@ fun EntryToolbar(
     onClickEditInfo: (() -> Unit)? = null,
     // Gallery metadata viewer, non-null only for adult/metadata manga sources.
     onClickMetadataViewer: (() -> Unit)? = null,
+    // Recommendations, non-null only when a manga's related suggestions are placed in this menu.
+    onClickRecommendations: (() -> Unit)? = null,
 
     // For action mode
     actionModeCounter: Int,
@@ -216,6 +218,14 @@ fun EntryToolbar(
                             AppBar.OverflowAction(
                                 title = stringResource(MR.strings.action_metadata_viewer),
                                 onClick = onClickMetadataViewer,
+                            ),
+                        )
+                    }
+                    if (onClickRecommendations != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.pref_recommendations),
+                                onClick = onClickRecommendations,
                             ),
                         )
                     }

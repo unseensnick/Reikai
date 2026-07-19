@@ -202,6 +202,11 @@ class MangaScreen(
                         onRelatedSeeAll = {
                             navigator.push(RelatedMangasBrowseScreen(successState.manga.id, successState.manga.title))
                         },
+                        // Recommendations moved to the overflow menu (Settings > Library > Recommendations):
+                        // open the same browse grid "See all" uses. Null keeps it off when placed inline.
+                        onRecommendations = {
+                            navigator.push(RelatedMangasBrowseScreen(successState.manga.id, successState.manga.title))
+                        }.takeIf { screenModel.recommendationsInMenu },
                         onOpenPagePreview = { page ->
                             openPagePreview(
                                 context,

@@ -18,6 +18,7 @@ import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
 import reikai.data.recommendation.taste.TrackerLibraryRefreshJob
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
+import reikai.domain.recommendation.RelatedPlacement
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteLibraryRepository
 import tachiyomi.i18n.MR
@@ -106,6 +107,11 @@ object SettingsRecommendationsScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_enable_related_mangas),
                     subtitle = stringResource(MR.strings.pref_enable_related_mangas_summary),
                 ),
+                Preference.PreferenceItem.ListPreference(
+                    preference = prefs.relatedPlacement,
+                    entries = RelatedPlacement.entries.associateWith { stringResource(it.titleRes) },
+                    title = stringResource(MR.strings.pref_related_placement),
+                ).takeIf { relatedEnabled },
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.includeTrackerRecommendations,
                     title = stringResource(MR.strings.pref_include_tracker_recommendations),

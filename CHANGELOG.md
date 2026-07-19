@@ -17,6 +17,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Manage sources on a series' details page now sets which source leads that merged series, overriding your global Preferred sources ranking for it alone.** Drag a source to the top to make it primary and the combined chapter list follows; Reset order goes back to the Preferred sources ranking.
 - **Adding a series from Browse, global search, History or its page now offers to group it with a match in your library: tap the select button, then pick which ones it joins.** The new copy lands in their categories too.
 - **Adding a novel that matches one already in your library now offers a one-tap Migrate.** Tap the matching card in the duplicate prompt to move your reading progress, categories, cover and tracking onto the new source, from Browse, global search, History or the novel's page.
+- **A new Settings > Library > Recommendations option moves the related-manga suggestions into the three-dot menu.** The details page then hides the inline carousel and adds a Recommendations action that opens the full grid instead.
 
 ### Changes
 
