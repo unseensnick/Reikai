@@ -13,7 +13,12 @@ class RecommendationRankerTest {
             this.url = url
             this.title = title
         }
-        return RelatedMangaCandidate(sourceId = 1L, trackerName = null, manga = manga)
+        return RelatedMangaCandidate(
+            sourceId = 1L,
+            trackerName = null,
+            manga = manga,
+            origin = RecommendationOrigin.SourceNative("test"),
+        )
     }
 
     @Test

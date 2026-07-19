@@ -19,6 +19,7 @@ class RecommendationHideFilterTest {
             },
             trackerId = trackerId,
             remoteId = remoteId,
+            origin = RecommendationOrigin.SourceNative("test"),
         )
 
     private fun index(
