@@ -31,9 +31,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import reikai.data.coil.NovelCover
 import reikai.data.novel.NovelStatusCode
@@ -84,7 +86,10 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.details.EntryEditInfoUi
+import reikai.presentation.details.EntryManageSourceInfo
 import reikai.presentation.details.EntryMergeActionHost
+import reikai.presentation.details.EntryMergeGroupHost
+import reikai.presentation.details.EntryMergeSource
 import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.resolveHiddenChapterView
@@ -167,18 +172,30 @@ class NovelDetailsScreenModel(
     /** The page (index into [NovelDetailsState.Loaded.pages]) the chapter list is showing. */
     private val pageIndex = MutableStateFlow(0)
 
-    /** Merge-group novel ids (this novel + grouped siblings); 0/1 element when not merged. */
-    private val relatedNovelIds = MutableStateFlow(longArrayOf())
-
-    /** The grouped source chip the user is viewing; null = the unified ("All") list. */
-    private val selectedSourceNovelId = MutableStateFlow<Long?>(null)
-
-    /** novelId -> resolved source for every grouped sibling (unified rank, chips, reader routing). */
+    /** novelId -> resolved source for every grouped sibling (unified rank, chips, reader routing). Novel-only
+     *  (manga has no analogue), so it stays here and is populated inside the host's source resolver. */
     private val siblingSources = MutableStateFlow<Map<Long, NovelSource>>(emptyMap())
 
-    /** Source-switcher chips for the current group; held here (not only in state) so the chapter
-     *  rebuild always reads them regardless of which collector resolves first. Empty when not merged. */
-    private val mergeChips = MutableStateFlow<List<NovelMergeSourceInfo>>(emptyList())
+    /**
+     * Shared merge read/observe wiring: the group ids, the selected source chip, the membership observer,
+     * and the switcher chips. Written once in [EntryMergeGroupHost] (the manga model composes the same host),
+     * so the read wiring can't drift between content types the way it did before. The two per-type seams:
+     * [EntryMergeGroupHost.observe]'s anchor flow resolves the novel's anchor from url + source (and updates
+     * [anchorNovelId]) before recomputing the group, and the source resolver does the async plugin-load,
+     * builds [siblingSources], and returns the chips.
+     */
+    private val mergeGroup = EntryMergeGroupHost(
+        mergeManager = mergeManager,
+        initialIds = longArrayOf(),
+        anchorChanges = combine(
+            novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId),
+            mergeManager.membershipChanges(),
+        ) { anchor, _ -> anchor }
+            .filterNotNull()
+            .onEach { anchorNovelId = it.id }
+            .map { it.id },
+        resolveSources = { ids -> resolveMergeSources(ids) },
+    )
 
     /** User-hidden chapters, keyed `"<source>|<chapterUrl>"` (restore-stable). Filtered out of the
      *  list unless [showHiddenFlow] is on (then shown dimmed). */
@@ -204,8 +221,7 @@ class NovelDetailsScreenModel(
     private var currentCustomInfo: CustomNovelInfo? = null
 
     init {
-        observeMergeGroup()
-        observeMergeSourceChips()
+        mergeGroup.observe(screenModelScope)
         observeChapters()
         observeDownloadQueue()
         observeTrackingCount()
@@ -316,11 +332,11 @@ class NovelDetailsScreenModel(
             combine(
                 combine(
                     novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId),
-                    relatedNovelIds,
-                    selectedSourceNovelId,
+                    mergeGroup.relatedIds,
+                    mergeGroup.selectedSource,
                     pageIndex,
                     // In the combine only to re-emit (re-running rebuildLoaded with the chips) once they resolve.
-                    mergeChips,
+                    mergeGroup.chips,
                 ) { anchor, related, selected, idx, _ -> ChapterInputs(anchor, related, selected, idx) },
                 // Re-emit so a hide/unhide or the show-hidden toggle rebuilds the chapter list.
                 hiddenChaptersPref.changes(),
@@ -340,47 +356,29 @@ class NovelDetailsScreenModel(
         }
     }
 
-    /** Resolve the merge group whenever the anchor row or the group membership changes. The membership
-     *  flow is the group-member table (a real change signal), not the retired merge prefs; the anchor flow
-     *  stays to resolve the anchor id from url + source. Drives [relatedNovelIds]; chips + chapters react. */
-    private fun observeMergeGroup() {
-        screenModelScope.launchIO {
-            combine(
-                novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId),
-                mergeManager.membershipChanges(),
-            ) { anchor, _ -> anchor }
-                .collectLatest { anchor ->
-                    if (anchor == null) return@collectLatest
-                    anchorNovelId = anchor.id
-                    relatedNovelIds.value = mergeManager.computeRelatedIds(anchor.id)
-                }
+    /**
+     * Resolve each grouped source + build the switcher chips (the host's per-type source resolver). Async:
+     * the plugin host must be loaded before a source resolves. Also populates [siblingSources] (the map the
+     * unified ranking + reader routing read), which has no manga analogue, before returning the chips, so the
+     * chips-change that re-emits the chapter combine already sees the up-to-date map. Empty (and clears the
+     * sibling map) when not merged.
+     */
+    private suspend fun resolveMergeSources(ids: LongArray): List<EntryMergeSource> {
+        if (ids.size <= 1) {
+            siblingSources.value = emptyMap()
+            return emptyList()
         }
-    }
-
-    /** Resolve each grouped source + build the switcher chips whenever the group changes. */
-    private fun observeMergeSourceChips() {
-        screenModelScope.launchIO {
-            relatedNovelIds.collectLatest { ids ->
-                if (ids.size <= 1) {
-                    siblingSources.value = emptyMap()
-                    mergeChips.value = emptyList()
-                    return@collectLatest
-                }
-                runCatching { installer.ensureLoaded() }
-                val resolved = HashMap<Long, NovelSource>()
-                val chips = mutableListOf<NovelMergeSourceInfo>()
-                for (id in ids) {
-                    val novel = novelRepo.getById(id) ?: continue
-                    val src = sourceManager.get(novel.source)
-                    if (src != null) resolved[id] = src
-                    chips += NovelMergeSourceInfo(id, src?.name ?: novel.source, id == anchorNovelId)
-                }
-                // Sources first, then chips: the chips change re-emits the chapter combine, which reads
-                // the now-populated siblingSources for the unified ranking.
-                siblingSources.value = resolved
-                mergeChips.value = chips
-            }
+        runCatching { installer.ensureLoaded() }
+        val resolved = HashMap<Long, NovelSource>()
+        val chips = mutableListOf<EntryMergeSource>()
+        for (id in ids) {
+            val novel = novelRepo.getById(id) ?: continue
+            val src = sourceManager.get(novel.source)
+            if (src != null) resolved[id] = src
+            chips += EntryMergeSource(id, src?.name ?: novel.source)
         }
+        siblingSources.value = resolved
+        return chips
     }
 
     /** Unified ("All") view: pool every grouped source's chapters into one aggregated, reading-ordered
@@ -518,8 +516,8 @@ class NovelDetailsScreenModel(
                 bookmarkedFilter = anchor.effectiveBookmarkedFilter(novelPreferences),
                 downloadedFilter = anchor.effectiveDownloadedFilter(novelPreferences),
                 hideChapterTitles = anchor.effectiveHideChapterTitles(novelPreferences),
-                mergeSources = mergeChips.value,
-                selectedSourceNovelId = selectedSourceNovelId.value,
+                mergeSources = mergeGroup.chips.value,
+                selectedSourceNovelId = mergeGroup.selectedSource.value,
                 // RK: match manga's swipe mapping (MangaScreenModel): the start/end action fields cross
                 // the swipeToEnd/swipeToStart prefs, so a right-swipe reads the same on both content types.
                 chapterSwipeStartAction = libraryPreferences.swipeToEndAction.get(),
@@ -670,10 +668,10 @@ class NovelDetailsScreenModel(
         scope = screenModelScope,
         snackbarHostState = snackbarHostState,
         context = context,
-        relatedIds = relatedNovelIds,
+        relatedIds = mergeGroup.relatedIds,
         anchorId = { anchorNovelId },
         mergeManager = mergeManager,
-        onClearSelectedSource = { selectedSourceNovelId.value = null },
+        onClearSelectedSource = { mergeGroup.selectedSource.value = null },
         dismissDialog = ::dismissDialog,
         setFavorite = { ids, favorite -> ids.forEach { updateNovel.await(NovelUpdate(id = it, favorite = favorite)) } },
         onBeforeSplit = { ids -> propagateNovelTrackerLinks.distribute(ids) },
@@ -681,10 +679,10 @@ class NovelDetailsScreenModel(
 
     /** Switch the chapter view between the unified list (null) and a single grouped source's list. */
     fun selectSource(novelId: Long?) {
-        if (selectedSourceNovelId.value == novelId) return
+        if (mergeGroup.selectedSource.value == novelId) return
         clearSelection()
         pageIndex.value = 0
-        selectedSourceNovelId.value = novelId
+        mergeGroup.selectedSource.value = novelId
     }
 
     /** Header source label: the localized unified ("All") label for the merged all-view, else the source
@@ -701,9 +699,9 @@ class NovelDetailsScreenModel(
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
             if (loaded.mergeSources.size <= 1) return@launchIO
             // Per-source chapters, resolved on open for both the coverage-hint counts and the trunk rank.
-            val chaptersByNovel = loaded.mergeSources.associate { it.novelId to chapterRepo.getByNovelId(it.novelId) }
-            val withCounts = loaded.mergeSources.associateBy({ it.novelId }) {
-                it.copy(chapterCount = chaptersByNovel[it.novelId]?.size ?: 0)
+            val chaptersByNovel = loaded.mergeSources.associate { it.id to chapterRepo.getByNovelId(it.id) }
+            val withCounts = loaded.mergeSources.associateBy({ it.id }) {
+                EntryManageSourceInfo(it.id, it.sourceName, chaptersByNovel[it.id]?.size ?: 0)
             }
             // Order the rows by the same ranking aggregation uses, so the primary source opens on top even
             // under the global order (no override). memberRanking non-empty == override on.
@@ -756,7 +754,7 @@ class NovelDetailsScreenModel(
                 // Refresh the anchor first (its refreshed novel drives the viewed-page fix below), then
                 // every other grouped source so the unified list picks up new chapters everywhere.
                 val anchorUpdated = refreshNovel(anchorSrc, loaded.novel)
-                for (id in relatedNovelIds.value) {
+                for (id in mergeGroup.relatedIds.value) {
                     if (id == loaded.novel.id) continue
                     val novel = novelRepo.getById(id) ?: continue
                     val src = siblingSources.value[id] ?: continue
@@ -1087,7 +1085,7 @@ class NovelDetailsScreenModel(
      *  MangaScreenModel.expandToGroup; the recognized-number predicate is `chapterNumber >= 0.0`,
      *  matching manga's `Chapter.isRecognizedNumber` (NovelChapter has no such property). */
     private suspend fun expandToGroup(chapters: List<NovelChapter>): List<NovelChapter> {
-        val ids = relatedNovelIds.value
+        val ids = mergeGroup.relatedIds.value
         if (ids.size <= 1) return chapters
         val numbers = chapters.asSequence().filter { it.chapterNumber >= 0.0 }.map { it.chapterNumber }.toHashSet()
         if (numbers.isEmpty()) return chapters
@@ -1339,7 +1337,7 @@ sealed interface NovelDetailsState {
         val downloadedFilter: Long = 0L,
         val hideChapterTitles: Boolean = false,
         /** Source-switcher chips for a merged group (empty/single = not merged, chips hidden). */
-        val mergeSources: List<NovelMergeSourceInfo> = emptyList(),
+        val mergeSources: List<EntryMergeSource> = emptyList(),
         /** The selected source chip's novelId; null = the unified ("All") view. */
         val selectedSourceNovelId: Long? = null,
         /** Chapter swipe actions, read from the shared (manga) library prefs so novels match manga. */
@@ -1360,16 +1358,6 @@ sealed interface NovelDetailsState {
                 ?: if (chapterId in downloadedChapterIds) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED
     }
 }
-
-/** One grouped source of a merged novel. [isCurrent] marks the opened (anchor) source; [chapterCount]
- *  is the coverage hint shown in the Manage-sources dialog (0 in the lighter chip list). */
-@Immutable
-data class NovelMergeSourceInfo(
-    val novelId: Long,
-    val sourceName: String,
-    val isCurrent: Boolean,
-    val chapterCount: Int = 0,
-)
 
 sealed interface NovelDetailsDialog {
     data class ChangeCategory(
@@ -1395,7 +1383,7 @@ sealed interface NovelDetailsDialog {
     data object PageSelector : NovelDetailsDialog
     data object FullCover : NovelDetailsDialog
     data class ManageSources(
-        val sources: List<NovelMergeSourceInfo>,
+        val sources: List<EntryManageSourceInfo>,
         val isOverridden: Boolean,
     ) : NovelDetailsDialog
 

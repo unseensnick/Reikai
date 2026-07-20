@@ -57,7 +57,6 @@ import reikai.presentation.details.EntryDetailsDialogHost
 import reikai.presentation.details.EntryDetailsNavigation
 import reikai.presentation.details.EntryDetailsScreenState
 import reikai.presentation.details.EntryEditInfoUi
-import reikai.presentation.details.EntryManageSourceInfo
 import reikai.presentation.details.MangaEntryAdapter
 import reikai.presentation.manga.EhRemoveFavoriteDialog
 import reikai.presentation.manga.MangaMigrationSourcePickScreen
@@ -448,7 +447,7 @@ private fun MangaScreenModel.State.Success.toSharedDetailsDialog(): EntryDetails
         )
         MangaScreenModel.Dialog.FullCover -> EntryDetailsDialog.Cover
         is MangaScreenModel.Dialog.ManageSources -> EntryDetailsDialog.ManageSources(
-            sources = d.sources.map { EntryManageSourceInfo(it.mangaId, it.sourceName, it.chapterCount) },
+            sources = d.sources,
             isOverridden = d.isOverridden,
         )
         MangaScreenModel.Dialog.TrackSheet -> EntryDetailsDialog.TrackSheet(

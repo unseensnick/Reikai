@@ -28,7 +28,6 @@ import reikai.presentation.details.EntryDetailsDialogHost
 import reikai.presentation.details.EntryDetailsNavigation
 import reikai.presentation.details.EntryDetailsScreenState
 import reikai.presentation.details.EntryEditInfoUi
-import reikai.presentation.details.EntryManageSourceInfo
 import reikai.presentation.details.NovelEntryAdapter
 import reikai.presentation.novel.browse.DuplicateNovelDialog
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchScreen
@@ -220,7 +219,7 @@ private fun NovelDetailsState.Loaded.toSharedDetailsDialog(): EntryDetailsDialog
         )
         NovelDetailsDialog.FullCover -> EntryDetailsDialog.Cover
         is NovelDetailsDialog.ManageSources -> EntryDetailsDialog.ManageSources(
-            sources = d.sources.map { EntryManageSourceInfo(it.novelId, it.sourceName, it.chapterCount) },
+            sources = d.sources,
             isOverridden = d.isOverridden,
         )
         NovelDetailsDialog.TrackSheet -> EntryDetailsDialog.TrackSheet(

@@ -75,7 +75,7 @@ class NovelEntryAdapter(
                     null
                 },
             ),
-            mergeSources = mergeSources.map { EntryMergeSource(id = it.novelId, sourceName = it.sourceName) },
+            mergeSources = mergeSources,
             selectedSourceId = selectedSourceNovelId,
             hasActiveFilter = readFilter != 0L || bookmarkedFilter != 0L || downloadedFilter != 0L,
             isRefreshing = isRefreshing,

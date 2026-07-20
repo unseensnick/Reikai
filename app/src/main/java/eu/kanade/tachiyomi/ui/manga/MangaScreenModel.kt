@@ -101,7 +101,10 @@ import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteProfile
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.details.EntryEditInfoUi
+import reikai.presentation.details.EntryManageSourceInfo
 import reikai.presentation.details.EntryMergeActionHost
+import reikai.presentation.details.EntryMergeGroupHost
+import reikai.presentation.details.EntryMergeSource
 import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.resolveHiddenChapterView
@@ -238,12 +241,17 @@ class MangaScreenModel(
     private val selectedPositions: Array<Int> = arrayOf(-1, -1) // first and last selected index in list
     private val selectedChapterIds: HashSet<Long> = HashSet()
 
-    // RK --> merge group ids for this manga (just its own id when not grouped). Drives the combined
-    // chapter list; updated on open (same-title + manual merges, healed) and after a split.
-    private val relatedMangaIds = MutableStateFlow(longArrayOf(mangaId))
-
-    // The grouped source the user is viewing via the chips, or null for the unified merged list.
-    private val selectedSourceMangaId = MutableStateFlow<Long?>(null)
+    // RK --> shared merge read/observe wiring: the group ids (just this manga when ungrouped), the selected
+    // source chip, the membership observer, and the switcher chips. Written once in EntryMergeGroupHost so a
+    // manga/novel drift like the old missing-refresh bug can't recur; the novel model composes the same host.
+    // Manga's anchor is constant, so anchorChanges is just membershipChanges re-emitting mangaId; source
+    // resolution is the synchronous getOrStub in buildMergeSources.
+    private val mergeGroup = EntryMergeGroupHost(
+        mergeManager = mergeManager,
+        initialIds = longArrayOf(mangaId),
+        anchorChanges = mergeManager.membershipChanges().map { mangaId },
+        resolveSources = { ids -> buildMergeSources(ids) },
+    )
 
     // Hide/unhide chapters (twin of the novel mechanism). The pref is the persisted/backed-up set of
     // hidden chapter keys; showHiddenFlow is the transient "temporarily reveal hidden chapters" toggle.
@@ -307,8 +315,8 @@ class MangaScreenModel(
             combine(
                 combine(
                     getMangaAndChapters.subscribe(mangaId, applyScanlatorFilter = true).distinctUntilChanged(),
-                    relatedMangaIds,
-                    selectedSourceMangaId,
+                    mergeGroup.relatedIds,
+                    mergeGroup.selectedSource,
                     downloadCache.changes,
                     downloadManager.queueState,
                 ) { mangaAndChapters, relatedIds, selectedSource, _, _ ->
@@ -383,25 +391,18 @@ class MangaScreenModel(
 
         observeDownloads()
 
-        // RK --> keep the source-switcher chip list + selection mirrored into state. The eager
-        // load below seeds the initial chips into State.Success; this handles later changes (splits).
+        // RK --> start the shared merge read wiring (membership -> relatedIds -> chips), then mirror the
+        // host's chips + selection into state. The eager load below seeds the initial chips into
+        // State.Success; the host handles every later change (a split, or a source added to the group from
+        // global search) with no reopening, and the observer lives in the host so it can't drift per type.
+        mergeGroup.observe(screenModelScope)
         screenModelScope.launchIO {
-            relatedMangaIds.collectLatest { ids ->
-                val chips = buildMergeSources(ids)
+            mergeGroup.chips.collectLatest { chips ->
                 updateSuccessState { it.copy(mergeSources = chips) }
             }
         }
-        // Refresh the group when its membership changes from outside this screen (e.g. adding a source to
-        // the group from global search), so the new source chip appears without reopening. The signal is
-        // the group-member table (a real change), not the retired merge prefs; the chip collector above
-        // reacts to relatedMangaIds. Fires once on subscription too, re-seeding the same group.
         screenModelScope.launchIO {
-            mergeManager.membershipChanges().collectLatest {
-                relatedMangaIds.value = mergeManager.computeRelatedIds(mangaId)
-            }
-        }
-        screenModelScope.launchIO {
-            selectedSourceMangaId.collectLatest { selected ->
+            mergeGroup.selectedSource.collectLatest { selected ->
                 updateSuccessState { it.copy(selectedSourceMangaId = selected) }
             }
         }
@@ -411,7 +412,7 @@ class MangaScreenModel(
         // without needing to back out and re-enter. Also refreshes on a source-chip switch or when
         // a gallery-update rewrites the metadata.
         screenModelScope.launchIO {
-            selectedSourceMangaId
+            mergeGroup.selectedSource
                 .flatMapLatest { selected ->
                     val targetId = selected ?: mangaId
                     getFlatMetadataById.subscribe(targetId).map { flat -> targetId to flat }
@@ -426,9 +427,7 @@ class MangaScreenModel(
         screenModelScope.launchIO {
             val manga = getMangaAndChapters.awaitManga(mangaId)
             // RK --> resolve the merge group so the combined chapter list builds on open
-            val related = mergeManager.computeRelatedIds(mangaId)
-            relatedMangaIds.value = related
-            val mergeChips = buildMergeSources(related)
+            val mergeChips = mergeGroup.seed(mangaId)
             // RK <--
             val chapterItems = getMangaAndChapters.awaitChapters(mangaId, applyScanlatorFilter = true)
                 .toChapterListItems(manga)
@@ -541,7 +540,7 @@ class MangaScreenModel(
         //     chip stays stale on refresh; each member goes through its own source's fetch (the same
         //     path Browse uses), populating details, chapters and gallery metadata. Just the primary
         //     when not merged, so non-grouped entries behave exactly as before.
-        val groupIds = relatedMangaIds.value
+        val groupIds = mergeGroup.relatedIds.value
         try {
             withUIContext {
                 val newChapters = mutableListOf<Chapter>()
@@ -1004,7 +1003,7 @@ class MangaScreenModel(
      *  grouped source, so read / bookmark applies across the whole merge group. No-op when not
      *  merged or when none of the chapters have a recognized number. */
     private suspend fun expandToGroup(chapters: List<Chapter>): List<Chapter> {
-        val ids = relatedMangaIds.value
+        val ids = mergeGroup.relatedIds.value
         if (ids.size <= 1) return chapters
         val numbers = chapters.asSequence().filter { it.isRecognizedNumber }.map { it.chapterNumber }.toHashSet()
         if (numbers.isEmpty()) return chapters
@@ -1035,12 +1034,12 @@ class MangaScreenModel(
     }
 
     /** Resolve the source-switcher chips for the full group (empty when not merged). */
-    private suspend fun buildMergeSources(ids: LongArray): List<MergeSourceInfo> {
+    private suspend fun buildMergeSources(ids: LongArray): List<EntryMergeSource> {
         if (ids.size <= 1) return emptyList()
         val sourceManager = Injekt.get<SourceManager>()
         return ids.map { id ->
             val sourceManga = getMangaAndChapters.awaitManga(id)
-            MergeSourceInfo(id, sourceManager.getOrStub(sourceManga.source).name, id == mangaId)
+            EntryMergeSource(id, sourceManager.getOrStub(sourceManga.source).name)
         }
     }
 
@@ -1659,7 +1658,7 @@ class MangaScreenModel(
         // RK: manage the grouped sources (reorder / split / remove). Rows arrive trunk-first (primary on
         // top); isOverridden gates the reset action.
         data class ManageSources(
-            val sources: List<MergeSourceInfo>,
+            val sources: List<EntryManageSourceInfo>,
             val isOverridden: Boolean,
         ) : Dialog
 
@@ -1670,15 +1669,6 @@ class MangaScreenModel(
         // differs from these).
         data class EditMangaInfo(val manga: Manga) : Dialog
     }
-
-    // RK: a grouped source row shown in the Manage sources dialog. chapterCount is the coverage hint,
-    // resolved only when the dialog opens (0 in the chip-row uses that don't need it).
-    data class MergeSourceInfo(
-        val mangaId: Long,
-        val sourceName: String,
-        val isCurrent: Boolean,
-        val chapterCount: Int = 0,
-    )
 
     // RK: a related-carousel candidate plus whether it already resolves to a favorited library entry.
     data class RelatedMangaItem(val candidate: RelatedMangaCandidate, val inLibrary: Boolean)
@@ -1727,17 +1717,17 @@ class MangaScreenModel(
         scope = screenModelScope,
         snackbarHostState = snackbarHostState,
         context = context,
-        relatedIds = relatedMangaIds,
+        relatedIds = mergeGroup.relatedIds,
         anchorId = { mangaId },
         mergeManager = mergeManager,
-        onClearSelectedSource = { selectedSourceMangaId.value = null },
+        onClearSelectedSource = { mergeGroup.selectedSource.value = null },
         dismissDialog = ::dismissDialog,
         setFavorite = { ids, favorite -> ids.forEach { updateManga.awaitUpdateFavorite(it, favorite) } },
     )
 
     /** Switch the chapter list to a single grouped source, or null for the unified merged view. */
     fun selectSource(sourceMangaId: Long?) {
-        selectedSourceMangaId.value = sourceMangaId
+        mergeGroup.selectedSource.value = sourceMangaId
     }
 
     /** Header source label: the localized unified ("All") label for the merged all-view, else the active
@@ -1763,7 +1753,7 @@ class MangaScreenModel(
         // Use the full group (stable) so the dialog works even while viewing a single source chip.
         if (state.mergeSources.size <= 1) return
         screenModelScope.launchIO {
-            val ids = state.mergeSources.map { it.mangaId }
+            val ids = state.mergeSources.map { it.id }
             // Order the rows by the same ranking aggregation uses, so the primary source opens on top even
             // under the global order (no override). memberRanking non-empty == override on.
             val memberRanking = mergeManager.overrideRankingMemberIds(mangaId)
@@ -1773,8 +1763,8 @@ class MangaScreenModel(
             val sourceIdByManga = ids.associateWith { getMangaAndChapters.awaitManga(it).source }
             val ranked = mergedChapterProvider.rankedMemberIds(chaptersBySource, sourceIdByManga, memberRanking)
             val orderedSources = ranked.mapNotNull { id ->
-                state.mergeSources.find { it.mangaId == id }
-                    ?.copy(chapterCount = chaptersBySource[id]?.size ?: 0)
+                state.mergeSources.find { it.id == id }
+                    ?.let { EntryManageSourceInfo(it.id, it.sourceName, chaptersBySource[id]?.size ?: 0) }
             }
             updateSuccessState {
                 it.copy(dialog = Dialog.ManageSources(orderedSources, memberRanking.isNotEmpty()))
@@ -1920,7 +1910,7 @@ class MangaScreenModel(
             // chapter actions (download/delete) target each chapter's own source.
             val mergedMangaById: Map<Long, Manga> = emptyMap(),
             // RK: the grouped sources for the switcher chips, and the selected one (null = unified).
-            val mergeSources: List<MergeSourceInfo> = emptyList(),
+            val mergeSources: List<EntryMergeSource> = emptyList(),
             val selectedSourceMangaId: Long? = null,
             // RK: per-source metadata for the info box when a chip is active (null = unified -> primary).
             val mergeDisplayManga: Manga? = null,

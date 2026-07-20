@@ -107,7 +107,7 @@ class MangaEntryAdapter(
                     metadata = galleryMetadata,
                 ),
             ),
-            mergeSources = mergeSources.map { EntryMergeSource(id = it.mangaId, sourceName = it.sourceName) },
+            mergeSources = mergeSources,
             selectedSourceId = selectedSourceMangaId,
             hasActiveFilter = filterActive,
             isRefreshing = isRefreshingData,
