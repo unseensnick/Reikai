@@ -19,6 +19,7 @@ import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.manga.components.MangaChapterListItem
+import eu.kanade.presentation.reader.toSwipeDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownload
@@ -30,7 +31,8 @@ import tachiyomi.domain.library.service.LibraryPreferences
  * dot, date, bookmark, download button) match the novel details list and the manga reader exactly.
  * Tap to jump, swipe to bookmark, start/cancel/delete a download from the row. For a merged novel the
  * unified cross-source list shows a per-source label ([sourceNames]); single-source novels pass an
- * empty map, so no label appears.
+ * empty map, so no label appears. Swipe runs the configured chapter-swipe action (mark read/unread,
+ * bookmark, or download, per direction), matching the details and manga-reader lists.
  */
 @Composable
 fun NovelReaderChapterListDialog(
@@ -41,7 +43,10 @@ fun NovelReaderChapterListDialog(
     downloadQueue: List<NovelDownload>,
     downloadedChapterIds: Set<Long>,
     onClickChapter: (NovelChapter) -> Unit,
-    onBookmark: (NovelChapter) -> Unit,
+    onBookmark: (NovelChapter, Boolean) -> Unit,
+    onMarkRead: (NovelChapter, Boolean) -> Unit,
+    chapterSwipeStartAction: LibraryPreferences.ChapterSwipeAction,
+    chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
     onDownloadAction: (NovelChapter, ChapterDownloadAction) -> Unit,
 ) {
     AdaptiveSheet(onDismissRequest = onDismissRequest) {
@@ -52,9 +57,19 @@ fun NovelReaderChapterListDialog(
             return@AdaptiveSheet
         }
         val listState = rememberLazyListState(chapters.indexOfFirst { it.id == currentChapterId }.coerceAtLeast(0))
-        // Optimistic per-chapter override: deleteChapters runs async and the row reads the disk-download
-        // snapshot ([downloadedChapterIds]), so without this a delete would leave the row showing as downloaded.
+        // Optimistic per-chapter overrides so a swipe updates the row live (the snapshot list isn't observed
+        // here): download because deleteChapters runs async and the row reads the disk snapshot, read/bookmark
+        // because their writes are async too. Each swipe sets its override and passes the new target on.
         val stateOverrides = remember { mutableStateMapOf<Long, Download.State>() }
+        val readOverrides = remember { mutableStateMapOf<Long, Boolean>() }
+        val bookmarkOverrides = remember { mutableStateMapOf<Long, Boolean>() }
+        fun runDownloadAction(chapter: NovelChapter, action: ChapterDownloadAction) {
+            when (action) {
+                ChapterDownloadAction.DELETE -> stateOverrides[chapter.id] = Download.State.NOT_DOWNLOADED
+                else -> stateOverrides.remove(chapter.id)
+            }
+            onDownloadAction(chapter, action)
+        }
         // Merged novels show a source label, which can make a row two lines: top-align so titles and
         // the download icon line up (matches the novel details list).
         val merged = sourceNames.isNotEmpty()
@@ -72,31 +87,40 @@ fun NovelReaderChapterListDialog(
                     chapter.id in downloadedChapterIds -> Download.State.DOWNLOADED
                     else -> Download.State.NOT_DOWNLOADED
                 }
+                val read = readOverrides[chapter.id] ?: chapter.read
+                val bookmark = bookmarkOverrides[chapter.id] ?: chapter.bookmark
                 MangaChapterListItem(
                     title = chapter.name,
                     date = chapter.dateUpload.takeIf { it > 0L }?.let { relativeDateText(it) },
                     readProgress = (chapter.lastTextProgress / 100L).toInt()
-                        .takeIf { !chapter.read && it > 0 }?.let { "$it%" },
+                        .takeIf { !read && it > 0 }?.let { "$it%" },
                     scanlator = sourceNames[chapter.novelId],
-                    read = chapter.read,
-                    bookmark = chapter.bookmark,
+                    read = read,
+                    bookmark = bookmark,
                     selected = false,
                     downloadIndicatorEnabled = true,
                     downloadStateProvider = { downloadState },
                     downloadProgressProvider = { 0 },
-                    chapterSwipeStartAction = LibraryPreferences.ChapterSwipeAction.ToggleBookmark,
-                    chapterSwipeEndAction = LibraryPreferences.ChapterSwipeAction.ToggleBookmark,
+                    chapterSwipeStartAction = chapterSwipeStartAction,
+                    chapterSwipeEndAction = chapterSwipeEndAction,
                     onLongClick = {},
                     onClick = { onClickChapter(chapter) },
-                    onDownloadClick = { action ->
-                        if (action == ChapterDownloadAction.DELETE) {
-                            stateOverrides[chapter.id] = Download.State.NOT_DOWNLOADED
-                        } else {
-                            stateOverrides.remove(chapter.id)
+                    onDownloadClick = { action -> runDownloadAction(chapter, action) },
+                    onChapterSwipe = { action ->
+                        when (action) {
+                            LibraryPreferences.ChapterSwipeAction.ToggleRead -> {
+                                readOverrides[chapter.id] = !read
+                                onMarkRead(chapter, !read)
+                            }
+                            LibraryPreferences.ChapterSwipeAction.ToggleBookmark -> {
+                                bookmarkOverrides[chapter.id] = !bookmark
+                                onBookmark(chapter, !bookmark)
+                            }
+                            LibraryPreferences.ChapterSwipeAction.Download ->
+                                runDownloadAction(chapter, downloadState.toSwipeDownloadAction())
+                            LibraryPreferences.ChapterSwipeAction.Disabled -> {}
                         }
-                        onDownloadAction(chapter, action)
                     },
-                    onChapterSwipe = { onBookmark(chapter) },
                     verticalAlignment = if (merged) Alignment.Top else Alignment.CenterVertically,
                 )
             }

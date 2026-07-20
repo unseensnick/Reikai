@@ -503,13 +503,18 @@ class NovelReaderScreen(
             var chapters by remember { mutableStateOf<List<NovelChapter>?>(null) }
             var sourceNames by remember { mutableStateOf<Map<Long, String>>(emptyMap()) }
             var downloadedChapterIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+            val downloadQueue by screenModel.downloadQueue.collectAsState()
             LaunchedEffect(Unit) {
                 val list = screenModel.chapterList()
                 sourceNames = screenModel.chapterSourceNames(list)
-                downloadedChapterIds = screenModel.downloadedChapterIds(list)
                 chapters = list
             }
-            val downloadQueue by screenModel.downloadQueue.collectAsState()
+            // Re-derive the downloaded set whenever the queue changes (a finished download leaves it), so a
+            // chapter downloaded from the sheet flips to "downloaded" without reopening, like the manga sheet
+            // (whose row re-checks the disk on every recomposition the queue change triggers).
+            LaunchedEffect(chapters, downloadQueue) {
+                chapters?.let { downloadedChapterIds = screenModel.downloadedChapterIds(it) }
+            }
             NovelReaderChapterListDialog(
                 onDismissRequest = { chaptersOpen = false },
                 chapters = chapters,
@@ -521,7 +526,10 @@ class NovelReaderScreen(
                     chaptersOpen = false
                     screenModel.goToChapter(ch.id)
                 },
-                onBookmark = { ch -> screenModel.setChapterBookmark(ch.id, !ch.bookmark) },
+                onBookmark = { ch, bookmarked -> screenModel.setChapterBookmark(ch.id, bookmarked) },
+                onMarkRead = { ch, read -> screenModel.setChapterReadStatus(ch, read) },
+                chapterSwipeStartAction = screenModel.chapterSwipeStartAction,
+                chapterSwipeEndAction = screenModel.chapterSwipeEndAction,
                 onDownloadAction = { ch, action -> screenModel.onChapterDownloadAction(ch, action) },
             )
         }

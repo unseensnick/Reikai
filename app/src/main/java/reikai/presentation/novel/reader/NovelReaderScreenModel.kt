@@ -386,9 +386,20 @@ class NovelReaderScreenModel(
     }
 
     /** Toggle the current chapter's bookmark (the top-bar action). */
+    // RK: the chapters-sheet swipe actions follow the same prefs as the details and manga-reader lists,
+    // with start/end crossed so a given swipe direction does the same thing everywhere.
+    val chapterSwipeStartAction = libraryPreferences.swipeToEndAction.get()
+    val chapterSwipeEndAction = libraryPreferences.swipeToStartAction.get()
+
     fun toggleBookmark() {
         val loaded = state.value as? NovelReaderState.Loaded ?: return
         setChapterBookmark(currentId, !loaded.bookmarked)
+    }
+
+    /** Set the read state of an arbitrary chapter from the chapters sheet's swipe; uses SetNovelReadStatus
+     *  so tracker sync + delete-after-read fire like the details "mark as read". */
+    fun setChapterReadStatus(chapter: NovelChapter, read: Boolean) {
+        screenModelScope.launchIO { setNovelReadStatus.await(read, listOf(chapter)) }
     }
 
     /** Set [bookmark] on chapter [id] (the chapters sheet's swipe/toggle); reflects in the top bar when
@@ -428,9 +439,10 @@ class NovelReaderScreenModel(
         }
     }
 
-    /** Which of [chapters] are downloaded on disk (from NovelDownloadCache, via the manager). A snapshot
-     *  at sheet-open, matching how the sheet captures the chapter list once. Resolves each chapter's
-     *  owning novel (a merged read spans several). Replaces the old is_downloaded flag on the row. */
+    /** Which of [chapters] are downloaded on disk (from NovelDownloadCache, via the manager). Re-queried by
+     *  the sheet whenever the download queue changes, so a completed download shows without reopening.
+     *  Resolves each chapter's owning novel (a merged read spans several). Replaces the old is_downloaded
+     *  flag on the row. */
     suspend fun downloadedChapterIds(chapters: List<NovelChapter>): Set<Long> {
         val novelsById = chapters.map { it.novelId }.distinct()
             .mapNotNull { id -> novelRepo.getById(id)?.let { id to it } }

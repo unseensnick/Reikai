@@ -34,15 +34,19 @@ import java.time.ZoneId
 
 /**
  * Reikai (R-feature): in-reader "view all chapters" sheet. Ported from Komikku, decoupled from its
- * reader-settings ScreenModel and E-Hentai date handling. Jump to a chapter on tap, bookmark on
- * swipe, and start/cancel/delete a download from the row.
+ * reader-settings ScreenModel and E-Hentai date handling. Jump to a chapter on tap, swipe to run the
+ * configured chapter-swipe action (mark read/unread, bookmark, or download, per direction, matching the
+ * details list), and start/cancel/delete a download from the row.
  */
 @Composable
 fun ChapterListDialog(
     onDismissRequest: () -> Unit,
     chapters: ImmutableList<ReaderChapterItem>,
     onClickChapter: (Chapter) -> Unit,
-    onBookmark: (Chapter) -> Unit,
+    onBookmark: (Chapter, Boolean) -> Unit,
+    onMarkRead: (Chapter, Boolean) -> Unit,
+    chapterSwipeStartAction: LibraryPreferences.ChapterSwipeAction,
+    chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
     onDownloadAction: (Chapter, ChapterDownloadAction) -> Unit,
     dateRelativeTime: Boolean,
 ) {
@@ -50,9 +54,19 @@ fun ChapterListDialog(
     val listState = rememberLazyListState(chapters.indexOfFirst { it.isCurrent }.coerceAtLeast(0))
     val downloadManager: DownloadManager = remember { Injekt.get() }
     val downloadQueueState by downloadManager.queueState.collectAsState()
-    // Optimistic per-chapter state overrides: deleteChapters runs async and the download cache is not
-    // observed here, so a delete would otherwise leave the row showing as downloaded.
+    // Optimistic per-chapter overrides so a swipe updates the row live (the snapshot list isn't observed
+    // here): download because deleteChapters runs async and the cache isn't watched, read/bookmark because
+    // their writes are async too. Each swipe sets its override and passes the new target to the callback.
     val stateOverrides = remember { mutableStateMapOf<Long, Download.State>() }
+    val readOverrides = remember { mutableStateMapOf<Long, Boolean>() }
+    val bookmarkOverrides = remember { mutableStateMapOf<Long, Boolean>() }
+    fun runDownloadAction(chapter: Chapter, action: ChapterDownloadAction) {
+        when (action) {
+            ChapterDownloadAction.DELETE -> stateOverrides[chapter.id] = Download.State.NOT_DOWNLOADED
+            else -> stateOverrides.remove(chapter.id)
+        }
+        onDownloadAction(chapter, action)
+    }
 
     AdaptiveSheet(onDismissRequest = onDismissRequest) {
         LazyColumn(
@@ -89,6 +103,8 @@ fun ChapterListDialog(
                     downloaded -> Download.State.DOWNLOADED
                     else -> Download.State.NOT_DOWNLOADED
                 }
+                val read = readOverrides[chapterItem.chapter.id] ?: chapterItem.chapter.read
+                val bookmark = bookmarkOverrides[chapterItem.chapter.id] ?: chapterItem.chapter.bookmark
                 MangaChapterListItem(
                     title = chapterItem.chapter.name,
                     date = chapterItem.chapter.dateUpload
@@ -103,27 +119,43 @@ fun ChapterListDialog(
                     scanlator = listOfNotNull(chapterItem.sourceName, chapterItem.chapter.scanlator)
                         .joinToString(" • ")
                         .ifEmpty { null },
-                    read = chapterItem.chapter.read,
-                    bookmark = chapterItem.chapter.bookmark,
+                    read = read,
+                    bookmark = bookmark,
                     selected = false,
                     downloadIndicatorEnabled = true,
                     downloadStateProvider = { downloadState },
                     downloadProgressProvider = { progress },
-                    chapterSwipeStartAction = LibraryPreferences.ChapterSwipeAction.ToggleBookmark,
-                    chapterSwipeEndAction = LibraryPreferences.ChapterSwipeAction.ToggleBookmark,
+                    chapterSwipeStartAction = chapterSwipeStartAction,
+                    chapterSwipeEndAction = chapterSwipeEndAction,
                     onLongClick = {},
                     onClick = { onClickChapter(chapterItem.chapter) },
-                    onDownloadClick = { action ->
+                    onDownloadClick = { action -> runDownloadAction(chapterItem.chapter, action) },
+                    onChapterSwipe = { action ->
                         when (action) {
-                            ChapterDownloadAction.DELETE ->
-                                stateOverrides[chapterItem.chapter.id] = Download.State.NOT_DOWNLOADED
-                            else -> stateOverrides.remove(chapterItem.chapter.id)
+                            LibraryPreferences.ChapterSwipeAction.ToggleRead -> {
+                                readOverrides[chapterItem.chapter.id] = !read
+                                onMarkRead(chapterItem.chapter, !read)
+                            }
+                            LibraryPreferences.ChapterSwipeAction.ToggleBookmark -> {
+                                bookmarkOverrides[chapterItem.chapter.id] = !bookmark
+                                onBookmark(chapterItem.chapter, !bookmark)
+                            }
+                            LibraryPreferences.ChapterSwipeAction.Download ->
+                                runDownloadAction(chapterItem.chapter, downloadState.toSwipeDownloadAction())
+                            LibraryPreferences.ChapterSwipeAction.Disabled -> {}
                         }
-                        onDownloadAction(chapterItem.chapter, action)
                     },
-                    onChapterSwipe = { onBookmark(chapterItem.chapter) },
                 )
             }
         }
     }
+}
+
+/** Which download action a Download-configured swipe runs, given the row's current state; matches the
+ *  details chapter list (start-now when absent, cancel while queued/downloading, delete when downloaded).
+ *  Shared with the novel reader's chapter sheet. */
+internal fun Download.State.toSwipeDownloadAction(): ChapterDownloadAction = when (this) {
+    Download.State.ERROR, Download.State.NOT_DOWNLOADED -> ChapterDownloadAction.START_NOW
+    Download.State.QUEUE, Download.State.DOWNLOADING -> ChapterDownloadAction.CANCEL
+    Download.State.DOWNLOADED -> ChapterDownloadAction.DELETE
 }

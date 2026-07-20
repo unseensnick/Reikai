@@ -8,6 +8,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.base.BasePreferences
+import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.domain.chapter.model.toDbChapter
 import eu.kanade.domain.manga.interactor.SetMangaViewerFlags
 import eu.kanade.domain.manga.model.readerOrientation
@@ -118,6 +119,7 @@ class ReaderViewModel @JvmOverloads constructor(
     private val uiPreferences: UiPreferences = Injekt.get(),
     private val mergedChapterProvider: MergedChapterProvider = Injekt.get(),
     private val mangaPreferences: MangaPreferences = Injekt.get(),
+    private val setReadStatus: SetReadStatus = Injekt.get(),
     // RK <--
 ) : ViewModel() {
 
@@ -974,6 +976,11 @@ class ReaderViewModel @JvmOverloads constructor(
         }
     }
 
+    // RK: the chapter-list swipe actions follow the same prefs as the details list, with start/end crossed
+    // to match those screens so a given swipe direction does the same thing everywhere.
+    val chapterSwipeStartAction = libraryPreferences.swipeToEndAction.get()
+    val chapterSwipeEndAction = libraryPreferences.swipeToStartAction.get()
+
     /** Toggle the bookmark of an arbitrary chapter from the chapter dialog (Y10). */
     fun toggleBookmark(chapterId: Long, bookmarked: Boolean) {
         val chapter = chapterList.find { it.chapter.id == chapterId }?.chapter ?: return
@@ -985,6 +992,15 @@ class ReaderViewModel @JvmOverloads constructor(
                     bookmark = bookmarked,
                 ),
             )
+        }
+    }
+
+    /** Set the read state of an arbitrary chapter from the chapter dialog. Uses SetReadStatus so tracker
+     *  sync + delete-after-read fire like the details "mark as read", not just a raw read-flag write. */
+    fun setChapterReadStatus(chapter: Chapter, read: Boolean) {
+        chapterList.find { it.chapter.id == chapter.id }?.chapter?.let { it.read = read }
+        viewModelScope.launchNonCancellable {
+            setReadStatus.await(read, chapter)
         }
     }
 

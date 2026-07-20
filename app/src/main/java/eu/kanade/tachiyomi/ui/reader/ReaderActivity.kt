@@ -371,7 +371,10 @@ class ReaderActivity : BaseActivity() {
                             viewModel.loadNewChapterFromDialog(it)
                             onDismissRequest()
                         },
-                        onBookmark = { viewModel.toggleBookmark(it.id, !it.bookmark) },
+                        onBookmark = { chapter, bookmarked -> viewModel.toggleBookmark(chapter.id, bookmarked) },
+                        onMarkRead = { chapter, read -> viewModel.setChapterReadStatus(chapter, read) },
+                        chapterSwipeStartAction = viewModel.chapterSwipeStartAction,
+                        chapterSwipeEndAction = viewModel.chapterSwipeEndAction,
                         onDownloadAction = viewModel::handleChapterDownload,
                         dateRelativeTime = uiPreferences.relativeTime.get(),
                     )
