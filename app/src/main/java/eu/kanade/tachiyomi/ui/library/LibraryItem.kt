@@ -8,6 +8,7 @@ import exh.search.Namespace
 import exh.search.QueryComponent
 import exh.search.Text
 import exh.source.getMainSource
+import reikai.domain.entry.EntryId
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.source.model.Source
 import tachiyomi.domain.source.service.SourceManager
@@ -30,6 +31,11 @@ data class LibraryItem(
     // RK: the gallery's indexed alt-titles (japanese / english / short), so a tag-search term can
     // match a title variant other than the displayed one. Null for ordinary manga.
     val searchTitles: List<SearchTitle>? = null,
+    // RK: neutral identity for the shared content layer's decision sites (cover model, badges), so
+    // they read the content type here instead of branching on the sign of `id`. Defaults to the manga
+    // id; the novel disguise (NovelLibraryItem.toLibraryItem) overrides it with the real positive novel
+    // id. The leaf row still keys on `id` (negative for novels); 2b retires that disguise.
+    val entryId: EntryId = EntryId.Manga(libraryManga.id),
 ) {
     val id: Long = libraryManga.id
 

@@ -1,6 +1,7 @@
 package reikai.presentation.library.novels
 
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import reikai.domain.entry.EntryId
 import reikai.domain.novel.model.LibraryNovel
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.model.Manga
@@ -53,6 +54,9 @@ fun LibraryNovel.toLibraryItem(
     )
     return LibraryItem(
         libraryManga = libraryManga,
+        // The leaf row disguises this novel as a negative-id Manga (above); the neutral identity
+        // carries its real positive id, so the shared decision sites never read the sign.
+        entryId = EntryId.Novel(n.id),
         downloadCount = downloadCount.toInt(),
         unreadCount = unreadCount,
         isLocal = false,

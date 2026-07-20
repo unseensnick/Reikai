@@ -30,6 +30,7 @@ import exh.source.NHENTAI_NET_SOURCE_ID
 import exh.source.PURURIN_SOURCE_ID
 import exh.source.eHentaiSourceIds
 import reikai.data.coil.NovelCover
+import reikai.domain.entry.EntryId
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.source.model.Source
 import tachiyomi.presentation.core.components.Badge
@@ -197,19 +198,21 @@ fun NovelSourceIconBadge(iconUrl: String?) {
 
 /**
  * Cover data for a library row: a [NovelCover] (carries the source site as a Referer, loaded through
- * the novel cover pipeline) for a disguised novel (negative id), else the manga [MangaCover]. Returns
- * [Any] because the shared grid cells accept either model as coil data.
+ * the novel cover pipeline) for a novel, else the manga [MangaCover]. Returns [Any] because the shared
+ * grid cells accept either model as coil data.
  */
 fun libraryCoverModel(item: LibraryItem): Any {
     val manga = item.libraryManga.manga
-    return if (manga.id < 0L) {
+    val entryId = item.entryId
+    return if (entryId is EntryId.Novel) {
         NovelCover(
             url = manga.thumbnailUrl,
             site = item.badges.coverSite,
             isNovelFavorite = manga.favorite,
             lastModified = manga.coverLastModified,
-            // The library disguises a novel as a negative-id Manga; recover the real novel id.
-            novelId = -manga.id,
+            // The neutral identity carries the real novel id; the leaf row still disguises it as a
+            // negative-id Manga (2b retires that), so read the id here, not from `manga.id`.
+            novelId = entryId.rawId,
         )
     } else {
         MangaCover(
@@ -227,12 +230,13 @@ fun libraryCoverModel(item: LibraryItem): Any {
  *  every library cell renders it identically. */
 @Composable
 fun LibraryCoverEndBadge(item: LibraryItem) {
+    val isNovel = item.entryId is EntryId.Novel
     when {
-        // A merged novel (negative id) renders coil-loaded source icons; a merged manga the bitmap ones.
-        item.relatedMangaIds.size > 1 && item.libraryManga.manga.id < 0L ->
+        // A merged novel renders coil-loaded source icons; a merged manga the bitmap ones.
+        item.relatedMangaIds.size > 1 && isNovel ->
             NovelMergeBadge(item.relatedMangaIds, item.badges.mergedSourceIconUrls)
         item.relatedMangaIds.size > 1 -> MergeBadge(item.relatedMangaIds, item.badges.mergedSources)
-        item.libraryManga.manga.id < 0L -> NovelSourceIconBadge(item.badges.sourceIconUrl)
+        isNovel -> NovelSourceIconBadge(item.badges.sourceIconUrl)
         else -> SourceIconBadge(item.badges.source)
     }
 }
