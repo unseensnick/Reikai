@@ -42,11 +42,9 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Other
 
-- Settings -> Advanced: two "clear merges" actions, which did the same thing after the merge rebuild, are now one "Clear all merges" action per content type.
-- The light-novel details screen, its dialogs, and the cover viewer now render through the same shared layer as manga, so future details changes reach both content types.
-- The merged-series source-switcher chips, previously a duplicated manga and novel component, are now one shared component.
-- The manga and novel source-grouping (merge) managers, previously line-for-line duplicates, are now one shared implementation, so a grouping change reaches both content types at once.
-- The manga and novel details screens now share the merge read/observe wiring (the grouped-source state and its live-refresh observer), so that logic is written once instead of hand-kept in sync per content type.
+- Settings -> Advanced now offers a single "Clear all merges" action per content type, replacing the two that did the same thing after the merge rebuild.
+- The light-novel details screen, its dialogs, and the cover viewer now render through the same shared components as manga, so a details change reaches both content types.
+- The manga and novel source-grouping (merge) system is now shared code (the manager, the source-switcher chips, and the details read/observe wiring) instead of near-duplicate copies, so a grouping change reaches both content types and they can't drift apart.
 - Shizuku detection now probes for the Shizuku permission instead of a fixed package name (synced from Mihon, mihonapp/mihon#3565).
 
 ## [0.3.0]
