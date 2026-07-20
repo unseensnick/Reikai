@@ -34,7 +34,11 @@ Three phases, lowest-risk first, each independently shippable and on-device veri
 
 ## Status
 
-Planned; Phase 1 in progress. Grounded by a deep code-research pass across both library ScreenModels, the shared library plumbing, the details template, the manga/novel feature gaps, and the novel plugin ecosystem (for the lewd-filter viability check).
+**Phase 1 shipped; Phase 2 next.** Grounded by a deep code-research pass across both library ScreenModels, the shared library plumbing, the details template, the manga/novel feature gaps, and the novel plugin ecosystem (the lewd-filter viability check).
+
+Phase 1 (the type-agnostic slices) shipped: the novel library lewd filter (`1feb87988`, genre-based `Novel.isLewd` reusing a `hasLewdGenre` helper extracted from `MangaLewd`) and the manga tracker filter + tracker-score sort merge-group-awareness fix (`9953f2680`, both now union member tracks via `relatedMangaIds`, matching the novel library). The deep pipeline comparison resolved the two open questions (`getTracksPerManga` groups per-manga, hence the tracker fix; `NovelLibrarySort`/`LibrarySort` diverge in persisted category-flags bits plus a novel-only `CUSTOMIZED` sentinel, so unifying needs a flags migration) and showed the sort/tracker pure dedup only shares a skeleton over the current types, so it folds into Phase 2's neutral row rather than a low-value current-type extraction.
+
+Phase 2 (neutral state + adapters + `EntryId`) is the large, risky piece and has not started. Its reconcile list (collapse position, the sort-enum bit divergence, the collapsed-set representation, the `LibraryItem`-typed-filter reorder) and seams (merge-collapse, download-count, tracker resolution, category source, filter-set, sort-type) are recorded above; start it with its own investigation and a plan before the identity churn.
 
 ## Decisions & tradeoffs
 
