@@ -30,6 +30,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 ### Fixes
 
 - **The novel library now has the adult-content filter the manga library already had.** It classifies a novel from its genre tags (adult, mature, smut, and similar), since novel sources carry no dedicated adult flag.
+- **A merged manga is now filtered and sorted by a tracker bound on any of its grouped sources, not only its main one.** This matches the novel library; before, a tracker on a non-primary source was ignored by the library's tracker filter and tracker-score sort.
 - **Swiping a chapter in the reader's chapter list now runs your configured swipe action instead of always bookmarking.** Mark read/unread, bookmark, or download per swipe direction (in both the manga and novel readers), and the row updates right away.
 - **A merged light novel opened from your history now continues through the whole group instead of dropping to a single source.** Previous and next chapters span every grouped source, matching manga.
 - **Opening a title from Browse no longer shows it already grouped with same-named titles in your library.** It appears as just that source's own page until you choose to group it.

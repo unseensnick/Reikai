@@ -522,7 +522,11 @@ class LibraryScreenModel(
         val filterFnTracking: (LibraryItem) -> Boolean = tracking@{ item ->
             if (isNotLoggedInAnyTrack || trackFiltersIsIgnored) return@tracking true
 
-            val mangaTracks = trackMap[item.id].orEmpty().map { it.trackerId }
+            // RK: union tracks across the merged group (relatedMangaIds), so a tracker bound on any
+            // grouped source counts toward the filter, matching the novel library. relatedMangaIds is
+            // empty for a non-merged entry, so it falls back to the entry's own id.
+            val groupIds = item.relatedMangaIds.ifEmpty { listOf(item.id) }
+            val mangaTracks = groupIds.flatMap { trackMap[it].orEmpty() }.map { it.trackerId }
 
             val isExcluded = excludedTracks.isNotEmpty() && mangaTracks.fastAny { it in excludedTracks }
             val isIncluded = includedTracks.isEmpty() || mangaTracks.fastAny { it in includedTracks }
@@ -597,14 +601,15 @@ class LibraryScreenModel(
         val defaultTrackerScoreSortValue = -1.0
         val trackerScores by lazy {
             val trackerMap = trackerManager.getAll(loggedInTrackerIds).associateBy { e -> e.id }
-            trackMap.mapValues { entry ->
-                when {
-                    entry.value.isEmpty() -> null
-                    else ->
-                        entry.value
-                            .mapNotNull { trackerMap[it.trackerId]?.get10PointScore(it) }
-                            .average()
-                }
+            // RK: score each entry over its whole merged group (relatedMangaIds), so a tracker on any
+            // grouped source contributes to the mean, matching the novel library. Keyed by the entry's
+            // own id (the group primary); non-merged entries fall back to their own id.
+            favoritesById.values.associate { item ->
+                val ids = item.relatedMangaIds.ifEmpty { listOf(item.id) }
+                val tracks = ids.flatMap { trackMap[it].orEmpty() }
+                item.id to tracks.mapNotNull { trackerMap[it.trackerId]?.get10PointScore(it) }
+                    .takeIf { tracks.isNotEmpty() }
+                    ?.average()
             }
         }
 
