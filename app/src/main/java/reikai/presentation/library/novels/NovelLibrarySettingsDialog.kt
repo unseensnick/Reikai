@@ -135,6 +135,8 @@ private fun ColumnScope.FilterPage(
         MR.strings.label_started to screenModel.filterStarted,
         MR.strings.completed to screenModel.filterCompleted,
         MR.strings.action_filter_bookmarked to screenModel.filterBookmarked,
+        // Adult-content filter, genre-tag based for novels (novel sources carry no nsfw flag); above Tracked.
+        MR.strings.lewd to screenModel.filterLewd,
     )
     filters.forEach { (labelRes, pref) ->
         val state by pref.collectAsState()

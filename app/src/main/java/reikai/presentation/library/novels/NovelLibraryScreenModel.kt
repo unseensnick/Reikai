@@ -40,6 +40,7 @@ import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.UpdateNovel
+import reikai.domain.novel.isLewd
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.NovelCategory
@@ -220,9 +221,15 @@ class NovelLibraryScreenModel :
             categoryFilterFlow,
             basePreferences.downloadedOnly.changes(),
             trackingFilterFlow(),
-        ) { base, (active, inc, exc), downloadedOnly, trackingFilter ->
+            reikaiLibraryPreferences.novelLibraryFilterLewd.changes(),
+        ) { base, (active, inc, exc), downloadedOnly, trackingFilter, lewd ->
             FilterSettings(
-                base.copy(categoriesActive = active, categoriesInclude = inc, categoriesExclude = exc),
+                base.copy(
+                    lewd = lewd,
+                    categoriesActive = active,
+                    categoriesInclude = inc,
+                    categoriesExclude = exc,
+                ),
                 downloadedOnly,
                 trackingFilter,
             )
@@ -820,6 +827,7 @@ class NovelLibraryScreenModel :
     val filterStarted: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterStarted
     val filterCompleted: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterCompleted
     val filterBookmarked: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterBookmarked
+    val filterLewd: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterLewd
 
     /** Logged-in trackers, for the settings sheet's per-tracker filter rows + the tracker-score sort gate. */
     val trackersFlow: StateFlow<List<Tracker>> = trackerManager.loggedInTrackersFlow()
@@ -886,6 +894,7 @@ class NovelLibraryScreenModel :
         val started: TriState,
         val completed: TriState,
         val bookmarked: TriState,
+        val lewd: TriState = TriState.DISABLED,
         val categoriesActive: Boolean = false,
         val categoriesInclude: Set<Long> = emptySet(),
         val categoriesExclude: Set<Long> = emptySet(),
@@ -933,11 +942,12 @@ class NovelLibraryScreenModel :
             started.matches(n.hasStarted) &&
             completed.matches(n.novel.status == NovelStatusCode.COMPLETED.toLong()) &&
             bookmarked.matches(n.bookmarkCount > 0) &&
+            lewd.matches(n.novel.isLewd()) &&
             (!categoriesActive || matchesCategoryFilter(n.categories, categoriesInclude, categoriesExclude))
 
     private val NovelFilters.hasActive: Boolean
         get() = categoriesActive ||
-            listOf(downloaded, unread, started, completed, bookmarked).any { it != TriState.DISABLED }
+            listOf(downloaded, unread, started, completed, bookmarked, lewd).any { it != TriState.DISABLED }
 
     sealed interface Dialog {
         data class ChangeCategory(val novelIds: List<Long>, val preselected: List<CheckboxState<Category>>) : Dialog

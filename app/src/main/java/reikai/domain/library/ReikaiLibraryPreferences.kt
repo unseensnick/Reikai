@@ -138,6 +138,12 @@ class ReikaiLibraryPreferences(
     val novelLibraryFilterBookmarked: Preference<TriState> =
         preferenceStore.getEnum("novel_library_filter_bookmarked", TriState.DISABLED)
 
+    /** Adult-content filter for the novel library. Novel sources carry no nsfw flag, so lewdness is
+     *  derived from adult genre tags only (see reikai.domain.novel.isLewd); the manga source-name
+     *  heuristic does not apply. Held under its own key so it never bleeds across content types. */
+    val novelLibraryFilterLewd: Preference<TriState> =
+        preferenceStore.getEnum("novel_library_filter_lewd", TriState.DISABLED)
+
     /**
      * Per-tracker novel library filter (tri-state), keyed by tracker id. Held under a separate key from
      * manga's `pref_filter_library_tracked_*` so a tracker filtered on one content type doesn't bleed
