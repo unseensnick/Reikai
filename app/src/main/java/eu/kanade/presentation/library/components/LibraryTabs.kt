@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import eu.kanade.presentation.category.visualName
+import reikai.presentation.library.ReikaiDynamicCategory
 import tachiyomi.domain.category.model.Category
 import tachiyomi.presentation.core.components.material.TabText
 
@@ -35,8 +36,14 @@ internal fun LibraryTabs(
                     selected = currentPageIndex == index,
                     onClick = { onTabItemClick(index) },
                     text = {
+                        // RK: dynamic-grouping categories store an encoded name; show the decoded label.
+                        val label = if (ReikaiDynamicCategory.isDynamic(category)) {
+                            ReikaiDynamicCategory.displayName(category)
+                        } else {
+                            category.visualName
+                        }
                         TabText(
-                            text = category.visualName,
+                            text = label,
                             badgeCount = getItemCountForCategory(category),
                         )
                     },
