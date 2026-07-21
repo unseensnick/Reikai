@@ -43,6 +43,7 @@ import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
 import reikai.domain.library.updateerror.UpsertLibraryUpdateError
+import reikai.domain.merge.ReconcileChapterMatchKeys
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.core.common.util.lang.withIOContext
@@ -95,6 +96,9 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get()
     private val upsertLibraryUpdateError: UpsertLibraryUpdateError = Injekt.get()
     private val deleteLibraryUpdateErrors: DeleteLibraryUpdateErrors = Injekt.get()
+
+    // RK: keeps a merged entry's deduplicated unread count in step with newly fetched chapters
+    private val reconcileChapterMatchKeys: ReconcileChapterMatchKeys = Injekt.get()
 
     private val notifier = LibraryUpdateNotifier(context)
 
@@ -330,6 +334,10 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
         notifier.cancelProgressNotification()
 
         if (newUpdates.isNotEmpty()) {
+            // RK: new chapters change what a merged entry's deduplicated unread count should be, so
+            //     bring the stored cross-source identities back in step. Cheap when nothing changed,
+            //     and only covers merged entries.
+            reconcileChapterMatchKeys.await()
             notifier.showUpdateNotifications(newUpdates)
             if (hasDownloads.load()) {
                 downloadManager.startDownloads()

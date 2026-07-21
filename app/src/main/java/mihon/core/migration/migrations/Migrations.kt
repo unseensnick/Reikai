@@ -17,5 +17,6 @@ val migrations: List<Migration>
         NovelDownloadRekeyMigration(),
         SetupCategorySortOverrideMigration(),
         MigrateMergePrefsToGroupsMigration(),
+        BackfillChapterMatchKeysMigration(),
         // RK <--
     )

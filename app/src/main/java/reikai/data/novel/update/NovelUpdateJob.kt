@@ -29,6 +29,7 @@ import logcat.LogPriority
 import reikai.data.novel.NovelStatusCode
 import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.merge.ReconcileChapterMatchKeys
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -79,6 +80,10 @@ class NovelUpdateJob(
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get()
     private val upsertNovelUpdateError: UpsertNovelUpdateError = Injekt.get()
     private val deleteNovelUpdateErrors: DeleteNovelUpdateErrors = Injekt.get()
+
+    // Keeps a merged entry's deduplicated unread count in step with newly fetched chapters
+    private val reconcileChapterMatchKeys: ReconcileChapterMatchKeys = Injekt.get()
+
     private val notifier = NovelUpdateNotifier(context)
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
@@ -162,6 +167,10 @@ class NovelUpdateJob(
         // Feed the shared Updates-icon badge (manga + novel share one total; reset on Updates open).
         if (newChapterTotal > 0) {
             libraryPreferences.newUpdatesCount.getAndSet { it + newChapterTotal }
+            // New chapters change what a merged entry's deduplicated unread count should be, so bring
+            // the stored cross-source identities back in step. Cheap when nothing changed, and only
+            // covers merged entries.
+            reconcileChapterMatchKeys.await()
         }
         notifier.showResults(updates)
     }

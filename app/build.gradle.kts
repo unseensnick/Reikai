@@ -39,10 +39,12 @@ android {
         // versionCode must keep climbing and stay above the last Yokai-based build (168) so installs upgrade in place.
         applicationId = "eu.kanade.tachiyomi"
 
-        // versionCode bumped to 184 ahead of the 0.4.0 cut (versionName stays 0.3.0 until release): the
-        // merge-system rebuild's Phase 1 data migration gates on 184 and must actually fire in dev/preview
-        // builds to be testable. A deliberate exception to the bump-only-at-release-cut rule; see CLAUDE.md.
-        versionCode = 184
+        // versionCode bumped mid-cycle ahead of the 0.4.0 cut (versionName stays 0.3.0 until release),
+        // because a version-gated data migration is a no-op until the shipped versionCode reaches its
+        // gate, so it cannot be exercised in dev/preview builds otherwise. A deliberate exception to the
+        // bump-only-at-release-cut rule; see CLAUDE.md. 184 gated the merge-system rebuild's Phase 1
+        // migration; 185 gates the chapter-match-key backfill. Any further migration takes 186 or above.
+        versionCode = 185
         versionName = "0.3.0"
         // RK <--
 
