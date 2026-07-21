@@ -1026,17 +1026,25 @@ class MangaScreenModel(
 
     /** Expand [chapters] to include the matching chapter (same recognized number) from every
      *  grouped source, so read / bookmark applies across the whole merge group. No-op when not
-     *  merged or when none of the chapters have a recognized number. */
+     *  merged or when none of the chapters have a recognized number.
+     *
+     *  Matched on the number narrowed to [Float], the identity the merged chapter list, the reader and
+     *  the library's deduplicated unread count all use: a source that reports its own number hands back
+     *  a 32-bit float while a parsed one is a double, and the two differ by about 2.4e-8, so comparing
+     *  exact doubles silently failed to match a fractional chapter across sources. */
     private suspend fun expandToGroup(chapters: List<Chapter>): List<Chapter> {
         val ids = mergeGroup.relatedIds.value
         if (ids.size <= 1) return chapters
-        val numbers = chapters.asSequence().filter { it.isRecognizedNumber }.map { it.chapterNumber }.toHashSet()
+        val numbers = chapters.asSequence()
+            .filter { it.isRecognizedNumber }
+            .map { it.chapterNumber.toFloat() }
+            .toHashSet()
         if (numbers.isEmpty()) return chapters
         val result = chapters.toMutableList()
         val seen = chapters.mapTo(HashSet()) { it.id }
         for (sibId in ids) {
             getMangaAndChapters.awaitChapters(sibId).forEach { c ->
-                if (c.isRecognizedNumber && c.chapterNumber in numbers && seen.add(c.id)) result += c
+                if (c.isRecognizedNumber && c.chapterNumber.toFloat() in numbers && seen.add(c.id)) result += c
             }
         }
         return result
