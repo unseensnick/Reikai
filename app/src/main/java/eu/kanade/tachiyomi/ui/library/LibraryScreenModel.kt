@@ -870,7 +870,7 @@ class LibraryScreenModel(
         //     details screen shows, and each chapter keeps its own mangaId so the reader opens the right
         //     source. Falls through to the plain per-manga list when the entry is not merged.
         val group = mergedChapterProvider.load(manga)
-        return group.chapters.getNextUnread(manga, downloadManager)
+        return group.chapters.getNextUnread(manga, downloadManager, group.readInOtherSources)
     }
 
     /**

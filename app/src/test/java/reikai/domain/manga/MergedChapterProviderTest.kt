@@ -99,4 +99,71 @@ class MergedChapterProviderTest {
 
         chapters shouldBe single
     }
+
+    @Test
+    fun `a chapter read on another source is reported as read for the group`() {
+        // Source 1 leads and its chapter 2 is unread; source 2's copy of chapter 2 is read.
+        val leadUnread = chapter(1, 2.0)
+        val chaptersBySource = mapOf(
+            1L to listOf(chapter(1, 1.0), leadUnread),
+            2L to listOf(chapter(2, 1.0), chapter(2, 2.0).copy(read = true)),
+        )
+        val unified = listOf(chaptersBySource.getValue(1L)[0], leadUnread)
+
+        val result = provider().readInOtherSources(
+            chaptersBySource,
+            sourceIdByManga = mapOf(1L to 10L, 2L to 20L),
+            unified = unified,
+        )
+
+        result shouldBe setOf(leadUnread.id)
+    }
+
+    @Test
+    fun `a chapter nobody has read is not reported`() {
+        val chaptersBySource = mapOf(
+            1L to listOf(chapter(1, 1.0)),
+            2L to listOf(chapter(2, 1.0)),
+        )
+        val unified = listOf(chaptersBySource.getValue(1L)[0])
+
+        val result = provider().readInOtherSources(
+            chaptersBySource,
+            sourceIdByManga = mapOf(1L to 10L, 2L to 20L),
+            unified = unified,
+        )
+
+        result.isEmpty() shouldBe true
+    }
+
+    @Test
+    fun `an unmerged entry reports nothing`() {
+        val chaptersBySource = mapOf(1L to listOf(chapter(1, 1.0)))
+
+        val result = provider().readInOtherSources(
+            chaptersBySource,
+            sourceIdByManga = mapOf(1L to 10L),
+            unified = chaptersBySource.getValue(1L),
+        )
+
+        result.isEmpty() shouldBe true
+    }
+
+    @Test
+    fun `an unrecognized chapter number cannot stand in for another source's`() {
+        // A negative number has no cross-source identity, so a read one elsewhere proves nothing.
+        val leadUnread = chapter(1, -1.0)
+        val chaptersBySource = mapOf(
+            1L to listOf(leadUnread),
+            2L to listOf(chapter(2, -1.0).copy(read = true)),
+        )
+
+        val result = provider().readInOtherSources(
+            chaptersBySource,
+            sourceIdByManga = mapOf(1L to 10L, 2L to 20L),
+            unified = listOf(leadUnread),
+        )
+
+        result.isEmpty() shouldBe true
+    }
 }

@@ -34,8 +34,42 @@ class MergedChapterProvider(
         val mangaById: Map<Long, Manga>,
         val chapters: List<Chapter>,
         val sourceNameByMangaId: Map<Long, String>,
+        /** Chapters unread on their own row but already read on another grouped source. */
+        val readInOtherSources: Set<Long> = emptySet(),
     ) {
         val isMerged: Boolean get() = mangaById.size > 1
+    }
+
+    /**
+     * Ids of [unified] chapters whose own row is unread but which another grouped source has already
+     * read. The aggregation keeps one row per cross-source chapter and drops the rest, so without this
+     * the list would show a chapter as unread purely because the copy that won happens to be the unread
+     * one. Uses the same identity as the library's unread count, so the list and the badge agree.
+     *
+     * Empty for an unmerged entry, and for chapters with no cross-source identity (they cannot be
+     * matched, so nothing can stand in for them).
+     */
+    fun readInOtherSources(
+        chaptersBySource: Map<Long, List<Chapter>>,
+        sourceIdByManga: Map<Long, Long>,
+        unified: List<Chapter>,
+    ): Set<Long> {
+        if (chaptersBySource.size <= 1) return emptySet()
+        val galleryMangaIds = sourceIdByManga
+            .filterValues { sourceId -> ChapterMatchKeys.isGallerySource(sourceId, sourceManager) }
+            .keys
+        fun keyOf(chapter: Chapter): String? =
+            ChapterMatchKeys.manga(chapter.chapterNumber, chapter.mangaId in galleryMangaIds)
+
+        val readKeys = chaptersBySource.values.asSequence()
+            .flatten()
+            .filter { it.read }
+            .mapNotNullTo(HashSet()) { keyOf(it) }
+        if (readKeys.isEmpty()) return emptySet()
+
+        return unified.asSequence()
+            .filter { !it.read && keyOf(it) in readKeys }
+            .mapTo(HashSet()) { it.id }
     }
 
     suspend fun load(anchor: Manga): Group {
@@ -51,7 +85,13 @@ class MergedChapterProvider(
         val chaptersBySource = ids.associateWith { getMangaWithChapters.awaitChapters(it, applyScanlatorFilter = true) }
         val sourceIdByManga = mangaById.mapValues { it.value.source }
         val sourceNameByMangaId = mangaById.mapValues { sourceManager.getOrStub(it.value.source).name }
-        return Group(mangaById, aggregate(chaptersBySource, sourceIdByManga), sourceNameByMangaId)
+        val unified = aggregate(chaptersBySource, sourceIdByManga)
+        return Group(
+            mangaById = mangaById,
+            chapters = unified,
+            sourceNameByMangaId = sourceNameByMangaId,
+            readInOtherSources = readInOtherSources(chaptersBySource, sourceIdByManga, unified),
+        )
     }
 
     /** Aggregate + reading order: stitch the sources into one list, then restamp source order so a

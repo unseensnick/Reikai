@@ -338,7 +338,7 @@ class MangaScreenModel(
                 }
                 .flowWithLifecycle(lifecycle)
                 .collectLatest { mc ->
-                    val items = mc.chapters.toChapterListItems(mc.manga, mc.mangaBySource)
+                    val items = mc.chapters.toChapterListItems(mc.manga, mc.mangaBySource, mc.readInOtherSources)
                     val hidden = applyHiddenChapters(items, mc.manga, mc.mangaBySource)
                     updateSuccessState {
                         it.copy(
@@ -927,6 +927,8 @@ class MangaScreenModel(
         // RK: for merged groups, each chapter's own source-manga, so download status resolves
         // against the source it actually came from (key: mangaId). Empty for non-merged manga.
         mangaBySource: Map<Long, Manga> = emptyMap(),
+        // RK: chapters another grouped source has already read (see MergedChapters.readInOtherSources).
+        readInOtherSources: Set<Long> = emptySet(),
     ): List<ChapterList.Item> {
         return map { chapter ->
             val owner = mangaBySource[chapter.mangaId] ?: manga
@@ -958,6 +960,7 @@ class MangaScreenModel(
                 downloadState = downloadState,
                 downloadProgress = activeDownload?.progress ?: 0,
                 selected = chapter.id in selectedChapterIds,
+                readInAnotherSource = chapter.id in readInOtherSources,
             )
         }
     }
@@ -978,6 +981,9 @@ class MangaScreenModel(
         val manga: Manga,
         val chapters: List<Chapter>,
         val mangaBySource: Map<Long, Manga>,
+        // RK: ids of chapters whose own row is unread but which another grouped source has read. Empty
+        // when unmerged or when a single source chip is selected (there is no other source in view).
+        val readInOtherSources: Set<Long> = emptySet(),
         // RK: per-source metadata shown in the info box when a source chip is active (null = unified).
         // Kept separate from [manga] so favorite / tracking / chapter-flag actions stay on the primary.
         val displayManga: Manga? = null,
@@ -1057,7 +1063,16 @@ class MangaScreenModel(
             val sourceIdByManga = siblings.associate { (id, manga, _) -> id to manga.source }
             // The aggregate + reading-order policy is shared with the reader via MergedChapterProvider.
             val aggregated = mergedChapterProvider.aggregate(chaptersBySource, sourceIdByManga)
-            MergedChapters(displayManga, aggregated, mangaBySource)
+            MergedChapters(
+                manga = displayManga,
+                chapters = aggregated,
+                mangaBySource = mangaBySource,
+                readInOtherSources = mergedChapterProvider.readInOtherSources(
+                    chaptersBySource,
+                    sourceIdByManga,
+                    aggregated,
+                ),
+            )
         }
     }
 
@@ -2032,9 +2047,17 @@ sealed class ChapterList {
         val downloadState: Download.State,
         val downloadProgress: Int,
         val selected: Boolean = false,
+        // RK: another grouped source's copy of this chapter is read. Kept separate from chapter.read,
+        // which stays the row's own DB truth because tracker sync, delete-after-read and mark-unread all
+        // act on the real row.
+        val readInAnotherSource: Boolean = false,
     ) : ChapterList() {
         val id = chapter.id
         val isDownloaded = downloadState == Download.State.DOWNLOADED
+
+        // RK: read as the user sees it. The list shows one row per chapter across the group, so a
+        // chapter read on any source reads as read here, matching the library's unread count.
+        val isRead = chapter.read || readInAnotherSource
     }
 }
 

@@ -9,12 +9,18 @@ import tachiyomi.domain.manga.model.Manga
 /**
  * Gets next unread chapter with filters and sorting applied
  */
-fun List<Chapter>.getNextUnread(manga: Manga, downloadManager: DownloadManager): Chapter? {
+fun List<Chapter>.getNextUnread(
+    manga: Manga,
+    downloadManager: DownloadManager,
+    // RK: chapters whose own row is unread but which another grouped source has read. Skipped, so
+    // resuming a merged series does not reopen something the library already counts as read.
+    readInOtherSources: Set<Long> = emptySet(),
+): Chapter? {
     return applyFilters(manga, downloadManager).let { chapters ->
         if (manga.sortDescending()) {
-            chapters.findLast { !it.read }
+            chapters.findLast { !it.read && it.id !in readInOtherSources }
         } else {
-            chapters.find { !it.read }
+            chapters.find { !it.read && it.id !in readInOtherSources }
         }
     }
 }
@@ -25,9 +31,9 @@ fun List<Chapter>.getNextUnread(manga: Manga, downloadManager: DownloadManager):
 fun List<ChapterList.Item>.getNextUnread(manga: Manga): Chapter? {
     return applyFilters(manga).let { chapters ->
         if (manga.sortDescending()) {
-            chapters.findLast { !it.chapter.read }
+            chapters.findLast { !it.isRead }
         } else {
-            chapters.find { !it.chapter.read }
+            chapters.find { !it.isRead }
         }
     }?.chapter
 }
