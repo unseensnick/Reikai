@@ -211,7 +211,18 @@ class ReaderViewModel @JvmOverloads constructor(
      * Chapter list for the active manga. It's retrieved lazily and should be accessed for the first
      * time in a background thread to avoid blocking the UI.
      */
-    private val chapterList by lazy {
+    // RK: the skip-filtered set. It is no longer what the reader pages over (see [fullChapterList]); it
+    // only says which chapters a FORWARD step is allowed to land on.
+    private val chapterList by lazy { buildChapterList(applyReadFilter = true) }
+
+    // RK: every chapter, and the list the reader actually navigates and the chapter sheet renders.
+    // "Skip chapters marked read" means do not stop on a read chapter as you move forward, not make it
+    // unreachable, so going back must always reach the chapter you just finished. Sharing
+    // [buildChapterList] keeps this the same deduplicated cross-source list, so the sheet, the reader and
+    // the merged details list all agree on what exists.
+    private val fullChapterList by lazy { buildChapterList(applyReadFilter = false) }
+
+    private fun buildChapterList(applyReadFilter: Boolean): List<ReaderChapter> {
         val manga = manga!!
         // RK: source scope shows only the opened source's own chapters; group scope (default) shows
         // the unified cross-source list resolved in init (falling back to the single-source list if
@@ -237,7 +248,8 @@ class ReaderViewModel @JvmOverloads constructor(
             ?: error("Requested chapter of id $chapterId not found in chapter list")
 
         val chaptersForReader = when {
-            (readerPreferences.skipRead.get() || readerPreferences.skipFiltered.get()) -> {
+            applyReadFilter &&
+                (readerPreferences.skipRead.get() || readerPreferences.skipFiltered.get()) -> {
                 val filteredChapters = chapters.filterNot {
                     // RK: the filter PREFS stay the opened manga's (the user's current context), but
                     // the downloaded check resolves to each chapter's OWN source so a merged chapter
@@ -284,7 +296,7 @@ class ReaderViewModel @JvmOverloads constructor(
             else -> chapters
         }
 
-        chaptersForReader
+        return chaptersForReader
             // RK --> drop user-hidden chapters so reader navigation skips them (twin of the details
             // filter); keep the opened chapter so opening a hidden one directly still resolves.
             .run {
@@ -388,7 +400,9 @@ class ReaderViewModel @JvmOverloads constructor(
                     loader = MergedChapterLoader(context, downloadManager, downloadProvider, group.mangaById)
                     // RK <--
 
-                    loadChapter(loader!!, chapterList.first { chapterId == it.chapter.id })
+                    // RK: from the full list, so the reader pages within one instance space (prev/next
+                    //     are resolved there too) rather than mixing it with the skip-filtered set.
+                    loadChapter(loader!!, fullChapterList.first { chapterId == it.chapter.id })
                     Result.success(true)
                 } else {
                     // Unlikely but okay
@@ -413,11 +427,18 @@ class ReaderViewModel @JvmOverloads constructor(
     ): ViewerChapters {
         loader.loadChapter(chapter)
 
-        val chapterPos = chapterList.indexOf(chapter)
+        // RK: page over the full list so BACK always reaches the chapter just finished, even once it is
+        // marked read. Forward still honours the reader's skip filters by stepping to the next chapter
+        // that survived them, so "skip chapters marked read" keeps working in the direction it means.
+        // Matched by id, not instance: the two lists are built separately and hold different objects.
+        val chapterPos = fullChapterList.indexOfFirst { it.chapter.id == chapter.chapter.id }
+        val forwardIds = chapterList.mapTo(HashSet()) { it.chapter.id }
         val newChapters = ViewerChapters(
             chapter,
-            chapterList.getOrNull(chapterPos - 1),
-            chapterList.getOrNull(chapterPos + 1),
+            fullChapterList.getOrNull(chapterPos - 1),
+            fullChapterList.asSequence()
+                .drop(chapterPos + 1)
+                .firstOrNull { it.chapter.id in forwardIds },
         )
 
         withUIContext {
@@ -620,8 +641,14 @@ class ReaderViewModel @JvmOverloads constructor(
         if (removeAfterReadSlots == -1) return
 
         // Determine which chapter should be deleted and enqueue
-        val currentChapterPosition = chapterList.indexOf(currentChapter)
-        val chapterToDelete = chapterList.getOrNull(currentChapterPosition - removeAfterReadSlots)
+        // RK: positioned in the full list, matched by id. The reader pages over that list, so indexing
+        //     the skip-filtered one would not find the current chapter at all and silently never delete.
+        val currentChapterPosition = fullChapterList.indexOfFirst { it.chapter.id == currentChapter.chapter.id }
+        val chapterToDelete = if (currentChapterPosition < 0) {
+            null
+        } else {
+            fullChapterList.getOrNull(currentChapterPosition - removeAfterReadSlots)
+        }
 
         // If chapter is completely read, no need to download it
         chapterToDownload = null
@@ -956,7 +983,9 @@ class ReaderViewModel @JvmOverloads constructor(
         // RK: in a merged group each row carries its OWN source's manga (so the download indicator is
         // correct) and a source-name label; an unmerged manga gets no label, as before.
         val merged = mergedGroup?.isMerged == true
-        return chapterList.map {
+        // RK: the sheet lists every chapter, including ones the reader's skip-read navigation steps
+        // over. Filtering them out here made already-read chapters look like they did not exist.
+        return fullChapterList.map {
             val dbChapter = it.chapter
             ReaderChapterItem(
                 chapter = dbChapter.toDomainChapter()!!,
@@ -971,7 +1000,10 @@ class ReaderViewModel @JvmOverloads constructor(
     /** Jump to an arbitrary chapter chosen in the chapter dialog (Y10). */
     fun loadNewChapterFromDialog(chapter: Chapter) {
         viewModelScope.launchIO {
-            val newChapter = chapterList.firstOrNull { it.chapter.id == chapter.id } ?: return@launchIO
+            // RK: resolve against the sheet's list, so tapping an already-read chapter actually opens it
+            // instead of silently doing nothing when skip-read has removed it from the navigation list.
+            val newChapter = fullChapterList.firstOrNull { it.chapter.id == chapter.id }
+                ?: return@launchIO
             loadAdjacent(newChapter)
         }
     }
@@ -981,10 +1013,20 @@ class ReaderViewModel @JvmOverloads constructor(
     val chapterSwipeStartAction = libraryPreferences.swipeToEndAction.get()
     val chapterSwipeEndAction = libraryPreferences.swipeToStartAction.get()
 
+    // RK: the sheet's list and the navigation list are built separately, so they hold different chapter
+    // instances for the same row, and a chapter the navigation list skipped (read, with skip-read on)
+    // is only in the sheet's. A dialog action therefore has to update every copy it finds, or the change
+    // shows in one list and not the other, or silently does nothing for a read chapter.
+    private fun chapterCopies(chapterId: Long) = listOfNotNull(
+        chapterList.find { it.chapter.id == chapterId }?.chapter,
+        fullChapterList.find { it.chapter.id == chapterId }?.chapter,
+    )
+
     /** Toggle the bookmark of an arbitrary chapter from the chapter dialog (Y10). */
     fun toggleBookmark(chapterId: Long, bookmarked: Boolean) {
-        val chapter = chapterList.find { it.chapter.id == chapterId }?.chapter ?: return
-        chapter.bookmark = bookmarked
+        val copies = chapterCopies(chapterId)
+        if (copies.isEmpty()) return
+        copies.forEach { it.bookmark = bookmarked }
         viewModelScope.launchNonCancellable {
             updateChapter.await(
                 ChapterUpdate(
@@ -998,7 +1040,7 @@ class ReaderViewModel @JvmOverloads constructor(
     /** Set the read state of an arbitrary chapter from the chapter dialog. Uses SetReadStatus so tracker
      *  sync + delete-after-read fire like the details "mark as read", not just a raw read-flag write. */
     fun setChapterReadStatus(chapter: Chapter, read: Boolean) {
-        chapterList.find { it.chapter.id == chapter.id }?.chapter?.let { it.read = read }
+        chapterCopies(chapter.id).forEach { it.read = read }
         viewModelScope.launchNonCancellable {
             setReadStatus.await(read, chapter)
         }
