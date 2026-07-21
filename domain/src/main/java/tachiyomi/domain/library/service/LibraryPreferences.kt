@@ -61,9 +61,12 @@ class LibraryPreferences(
         false,
     )
 
+    // RK: on by default, unlike upstream. Reikai groups several sources of one series into a single
+    // library entry, where the same chapter exists once per source, so leaving this off means reading a
+    // chapter leaves its copies unread and every source-specific count drifts from what you have read.
     val markDuplicateReadChapterAsRead: Preference<Set<String>> = preferenceStore.getStringSet(
         "mark_duplicate_read_chapter_read",
-        emptySet(),
+        setOf(MARK_DUPLICATE_CHAPTER_READ_NEW, MARK_DUPLICATE_CHAPTER_READ_EXISTING),
     )
 
     // region Filter
