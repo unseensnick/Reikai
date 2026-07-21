@@ -23,6 +23,7 @@ keystore.properties
 # Claude tooling (local / globally-installed; not Reikai-specific)
 .agents/
 .claude/launch.json
+.claude/settings.local.json
 .claude/skills/impeccable/
 skills-lock.json
 
