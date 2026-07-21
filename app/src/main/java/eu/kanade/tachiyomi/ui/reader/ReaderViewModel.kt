@@ -1022,27 +1022,41 @@ class ReaderViewModel @JvmOverloads constructor(
         fullChapterList.find { it.chapter.id == chapterId }?.chapter,
     )
 
+    // RK: every source's copy of a chapter within the merge group, so a read or bookmark from the chapter
+    // sheet applies group-wide like the details screen's does, instead of only to the source the row came
+    // from. Matched on the chapter number narrowed to Float, the same identity the reader's
+    // mark-duplicates-read pass and the library's deduplicated unread count use. Falls back to the
+    // chapter alone when unmerged or when its number is unrecognised and so cannot be matched.
+    private fun groupCopyIds(chapterId: Long): List<Long> {
+        val chapter = unfilteredChapterList.find { it.id == chapterId } ?: return listOf(chapterId)
+        if (mergedGroup?.isMerged != true || !chapter.isRecognizedNumber) return listOf(chapterId)
+        val number = chapter.chapterNumber.toFloat()
+        return unfilteredChapterList
+            .filter { it.isRecognizedNumber && it.chapterNumber.toFloat() == number }
+            .map { it.id }
+            .ifEmpty { listOf(chapterId) }
+    }
+
     /** Toggle the bookmark of an arbitrary chapter from the chapter dialog (Y10). */
     fun toggleBookmark(chapterId: Long, bookmarked: Boolean) {
-        val copies = chapterCopies(chapterId)
+        val ids = groupCopyIds(chapterId)
+        val copies = ids.flatMap { chapterCopies(it) }
         if (copies.isEmpty()) return
         copies.forEach { it.bookmark = bookmarked }
         viewModelScope.launchNonCancellable {
-            updateChapter.await(
-                ChapterUpdate(
-                    id = chapterId,
-                    bookmark = bookmarked,
-                ),
-            )
+            updateChapter.awaitAll(ids.map { ChapterUpdate(id = it, bookmark = bookmarked) })
         }
     }
 
     /** Set the read state of an arbitrary chapter from the chapter dialog. Uses SetReadStatus so tracker
      *  sync + delete-after-read fire like the details "mark as read", not just a raw read-flag write. */
     fun setChapterReadStatus(chapter: Chapter, read: Boolean) {
-        chapterCopies(chapter.id).forEach { it.read = read }
+        val ids = groupCopyIds(chapter.id)
+        ids.forEach { id -> chapterCopies(id).forEach { it.read = read } }
         viewModelScope.launchNonCancellable {
-            setReadStatus.await(read, chapter)
+            val targets = ids.mapNotNull { id -> unfilteredChapterList.find { it.id == id } }
+                .ifEmpty { listOf(chapter) }
+            setReadStatus.await(read, *targets.toTypedArray())
         }
     }
 

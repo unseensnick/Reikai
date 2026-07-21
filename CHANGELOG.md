@@ -32,6 +32,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 ### Fixes
 
 - **Chapters you have read no longer disappear from the reader's chapter list, and swiping back reaches them again.**
+- **Bookmarking or marking a chapter read from the reader's chapter list now applies to every source of a grouped series, matching the series page.**
 - **A chapter you have read now shows as read under every source of a grouped series.**
 - **A grouped series' unread count now counts each chapter once across its sources, not just the leading source's.** The unread filter, sort and Continue button follow the same number.
 - **Marking a grouped series read, or moving it between categories, now applies to every source in the group.**
