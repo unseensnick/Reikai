@@ -35,9 +35,12 @@ fun DeleteLibraryMangaDialog(
             },
         )
     }
-    // RK: opt-in to apply the removal to every source in a merged group, not just the primary cover
-    var removeGrouped by remember { mutableStateOf(false) }
+    // RK: apply the removal to every source in a merged group, not just the primary cover. Defaults
+    //     on for a merged selection, since removing only the primary leaves the other sources
+    //     favorited but collapsed out of view, so the entry appears to half-vanish. Still a checkbox
+    //     rather than automatic, because the removal is destructive.
     val showGroupedOption = groupedSourceCount > 0
+    var removeGrouped by remember { mutableStateOf(showGroupedOption) }
     AlertDialog(
         onDismissRequest = onDismissRequest,
         dismissButton = {

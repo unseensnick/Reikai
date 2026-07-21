@@ -100,7 +100,8 @@ class LibraryScreenModel(
     private val getLibraryManga: GetLibraryManga = Injekt.get(),
     // RK: per-entry custom title/cover overrides, overlaid on the displayed rows (display-only)
     private val getCustomMangaInfo: GetCustomMangaInfo = Injekt.get(),
-    // RK: resolve merged-away group members by id for the "remove all grouped sources" delete option
+    // RK: resolve merged-away group members by id, so a bulk action reaches every source of a merge
+    //     group and not just the collapsed primary
     private val getManga: GetManga = Injekt.get(),
     private val getCategories: GetCategories = Injekt.get(),
     // RK: gallery tags + alt-titles for the library tag-search engine
@@ -852,6 +853,21 @@ class LibraryScreenModel(
         clearSelection()
     }
 
+    // RK --> a merged cover is one selected row standing for its whole group, so a bulk action has to
+    // act on every member, not just the collapsed primary. The members are collapsed out of the
+    // library state, so they resolve from the DB by id. Ids are captured by the caller before the
+    // selection clears (LibraryTab clears it as soon as the action returns), never inside the
+    // coroutine, which would race that and come back empty.
+    private suspend fun resolveSelectedGroupManga(memberIds: List<Long>): List<Manga> =
+        memberIds.mapNotNull { getManga.await(it) }
+    // RK <--
+
+    // RK: downloads deliberately do NOT fan out across a merge group. The grouped sources carry the
+    //     same chapters, so downloading every member would fetch each chapter once per source and
+    //     waste the storage on near-duplicates. The right target is the group's deduplicated chapter
+    //     list (what the details "All" view shows), which the library cannot build without the
+    //     aggregation; until it does, this stays on the collapsed primary, which becomes the user's
+    //     chosen trunk once the collapse honours the persisted source ranking.
     private fun downloadNextChapters(amount: Int?) {
         val mangas = state.value.selectedManga
         screenModelScope.launchNonCancellable {
@@ -898,9 +914,11 @@ class LibraryScreenModel(
      * Marks mangas' chapters read status.
      */
     fun markReadSelection(read: Boolean) {
-        val selection = state.value.selectedManga
+        // RK: mark every source of a merge group, so a merged series doesn't stay part-read on the
+        //     sources that aren't the collapsed primary.
+        val memberIds = state.value.selectedMemberIds
         screenModelScope.launchNonCancellable {
-            selection.forEach { manga ->
+            resolveSelectedGroupManga(memberIds).forEach { manga ->
                 setReadStatus.await(
                     manga = manga,
                     read = read,
@@ -967,15 +985,22 @@ class LibraryScreenModel(
      * @param removeCategories the categories to remove in all mangas.
      */
     fun setMangaCategories(mangaList: List<Manga>, addCategories: List<Long>, removeCategories: List<Long>) {
+        // RK: apply to every source of a merge group, so members can't drift into different
+        //     categories and make the entry vanish from a category the user moved it to. Works on
+        //     ids, so the merged-away members need no DB round-trip.
+        val favoritesById = state.value.libraryData.favoritesById
+        val memberIds = mangaList.flatMap { manga ->
+            favoritesById[manga.id]?.relatedMangaIds?.ifEmpty { listOf(manga.id) } ?: listOf(manga.id)
+        }.distinct()
         screenModelScope.launchNonCancellable {
-            mangaList.forEach { manga ->
-                val categoryIds = getCategories.await(manga.id)
+            memberIds.forEach { mangaId ->
+                val categoryIds = getCategories.await(mangaId)
                     .map { it.id }
                     .subtract(removeCategories.toSet())
                     .plus(addCategories)
                     .toList()
 
-                setMangaCategories.await(manga.id, categoryIds)
+                setMangaCategories.await(mangaId, categoryIds)
             }
         }
     }

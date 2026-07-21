@@ -652,7 +652,9 @@ class NovelLibraryScreenModel :
     }
 
     fun markReadSelection(read: Boolean) {
-        val novelIds = state.value.selectedNovelIds
+        // Mark every source of a merge group, so a merged series doesn't stay part-read on the
+        // sources that aren't the representative.
+        val novelIds = state.value.selectedNovelIdsExpanded
         screenModelScope.launchIO {
             // The interactor groups by novel for delete-after-read, so pass every selected novel's chapters.
             val chapters = novelIds.flatMap { novelChapterRepository.getByNovelId(it) }
@@ -662,6 +664,12 @@ class NovelLibraryScreenModel :
     }
 
     fun performDownloadAction(action: DownloadAction) {
+        // Deliberately NOT expanded: grouped sources carry the same chapters, so downloading every
+        // member would fetch each chapter once per source and waste the storage on near-duplicates.
+        // The right target is the group's deduplicated list (the details "All" view), which the
+        // library cannot build without the aggregation; until it does, this stays on the
+        // representative, which becomes the user's chosen trunk once the collapse honours the
+        // persisted source ranking.
         val novelIds = state.value.selectedNovelIds
         screenModelScope.launchIO {
             novelIds.forEach { id ->
@@ -682,7 +690,10 @@ class NovelLibraryScreenModel :
 
     fun openChangeCategoryDialog() {
         screenModelScope.launchIO {
-            val novelIds = state.value.selectedNovelIds
+            // Expanded, so the checkboxes reflect the whole merge group and the write below reaches
+            // every member; otherwise members drift into different categories and the entry can
+            // vanish from a category the user moved it to.
+            val novelIds = state.value.selectedNovelIdsExpanded
             // All non-default categories, not just the ones currently shown (empty categories are
             // hidden from the library grid but must still be assignable here).
             val categories = getNovelCategories.await().filterNot { it.isSystemCategory }.map { it.toCategory() }

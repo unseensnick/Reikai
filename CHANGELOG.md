@@ -24,11 +24,13 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Source grouping is now optional, with a "Group series across sources" toggle in the library display menu and Settings -> Library.** Off shows each source as its own library entry.
 - **The reader now opens a merged series as either one source's chapters or the whole combined group, depending on where you tapped.** Updates, a source chip, and new-chapter notifications open just that source; the series page, your library, and history open the whole merged group.
+- **Removing a grouped series from your library now ticks "all grouped sources" by default.** Untick it to remove only the source shown on the cover; leaving the others behind used to be the default, which made the entry look like it had half-vanished.
 - **Bulk-deleting downloaded novel chapters now asks you to confirm first, matching manga.**
 - **Related-manga suggestions now show where each one came from.** A small label on each pick, in the details carousel and the full grid, names the source, the tracker, or the taste reason behind it, so a mixed list is easier to make sense of.
 
 ### Fixes
 
+- **Marking a grouped series read, or moving it between categories, now applies to every source in the group.** These used to touch only the source shown on the cover, so you had to open the series and visit each other source by hand.
 - **Grouping the library by source now shows clean source names on the category tabs.** The tabbed view was displaying the raw internal key (a stray separator plus the source id); the tabs now read the same tidy name the toolbar and single-list view already showed.
 - **The novel library now has the adult-content filter the manga library already had.** It classifies a novel from its genre tags (adult, mature, smut, and similar), since novel sources carry no dedicated adult flag.
 - **A merged manga is now filtered and sorted by a tracker bound on any of its grouped sources, not only its main one.** This matches the novel library; before, a tracker on a non-primary source was ignored by the library's tracker filter and tracker-score sort.
