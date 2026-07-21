@@ -1,9 +1,7 @@
 package reikai.domain.manga
 
-import eu.kanade.tachiyomi.source.online.NamespaceSource
-import exh.source.MANGADEX_IDS
-import exh.source.getMainSource
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.merge.ChapterMatchKeys
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.interactor.GetMangaWithChapters
 import tachiyomi.domain.manga.model.Manga
@@ -62,15 +60,10 @@ class MergedChapterProvider(
     suspend fun aggregate(chaptersBySource: Map<Long, List<Chapter>>, sourceIdByManga: Map<Long, Long>): List<Chapter> {
         // True gallery sources (E-Hentai / ExHentai / nhentai / Pururin / 8Muses / HentaiFox / AsmHentai)
         // treat each chapter as a whole standalone gallery numbered 1, so exempt them from cross-source
-        // number dedup: merging two keeps both instead of collapsing on "1". They all implement
-        // NamespaceSource, but so does the enhanced MangaDex, which has normal sequential chapters that
-        // MUST dedup like any other source (otherwise a MangaDex + other-source merge never dedups). There
-        // is no clean positive id-set for every gallery (installed extensions vary), so gate on
-        // NamespaceSource and exclude MangaDex by its known ids.
+        // number dedup: merging two keeps both instead of collapsing on "1". The predicate is shared with
+        // the match-key reconciliation, so the stored key and this list agree on what dedups.
         val gallerySourceMangaIds = sourceIdByManga
-            .filterValues { sourceId ->
-                sourceId !in MANGADEX_IDS && sourceManager.get(sourceId)?.getMainSource<NamespaceSource>() != null
-            }
+            .filterValues { sourceId -> ChapterMatchKeys.isGallerySource(sourceId, sourceManager) }
             .keys
         // Members are the map keys, so any one resolves the group for its override ranking (empty = none).
         val memberRanking = chaptersBySource.keys.firstOrNull()
