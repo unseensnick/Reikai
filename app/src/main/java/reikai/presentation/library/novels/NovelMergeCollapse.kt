@@ -16,6 +16,14 @@ object NovelMergeCollapse {
         /** Real novel ids of every group member (size 1 = not merged). */
         val memberIds: List<Long>,
         val totalDownloadCount: Long,
+        /**
+         * The group's unread count. Starts as the representative's own, and the caller replaces it with
+         * the deduplicated cross-source count once that is available. It lives here rather than being
+         * written back into [representative] because `LibraryNovel.unreadCount` is derived from
+         * `totalChapters - readCount`, and a group can cover more chapters than its representative (the
+         * other sources gap-fill), which would make that subtraction negative and break `hasStarted`.
+         */
+        val unreadCount: Long,
     )
 
     fun collapse(
@@ -25,7 +33,7 @@ object NovelMergeCollapse {
         mergingEnabled: Boolean,
     ): List<CollapsedNovel> {
         if (library.size <= 1 || !mergingEnabled) {
-            return library.map { CollapsedNovel(it, listOf(it.novel.id), it.downloadCount) }
+            return library.map { CollapsedNovel(it, listOf(it.novel.id), it.downloadCount, it.unreadCount) }
         }
 
         val buckets = LinkedHashMap<String, MutableList<LibraryNovel>>()
@@ -52,6 +60,9 @@ object NovelMergeCollapse {
                     representative = representative,
                     memberIds = bucket.map { it.novel.id },
                     totalDownloadCount = bucket.sumOf { it.downloadCount },
+                    // The representative's own count until the caller supplies the deduplicated one.
+                    // Never a sum: the grouped sources share chapters, so summing double-counts them.
+                    unreadCount = representative.unreadCount,
                 ),
             )
         }

@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -28,7 +29,9 @@ import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.merge.ChapterMatchKeyRepository
 import reikai.domain.merge.MergeGroupRepository
+import reikai.domain.merge.ReconcileChapterMatchKeys
 import reikai.domain.novel.NovelCategoryRepository
 import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelChapterRepository
@@ -62,6 +65,7 @@ import reikai.presentation.library.DynItem
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.ReikaiDynamicCategory
+import reikai.presentation.library.novels.NovelMergeCollapse.CollapsedNovel
 import reikai.presentation.library.reikaiSortCategories
 import reikai.presentation.novel.selectChaptersForDownloadAction
 import tachiyomi.core.common.i18n.stringResource
@@ -109,6 +113,8 @@ class NovelLibraryScreenModel :
     private val sourceManager: NovelSourceManager by injectLazy()
     private val mergeManager: NovelMergeManager by injectLazy()
     private val mergeGroupRepository: MergeGroupRepository by injectLazy()
+    private val chapterMatchKeyRepository: ChapterMatchKeyRepository by injectLazy()
+    private val reconcileChapterMatchKeys: ReconcileChapterMatchKeys by injectLazy()
     private val propagateNovelTrackerLinks: PropagateNovelTrackerLinks by injectLazy()
     private val installer: LnPluginInstaller by injectLazy()
     private val trackerManager: TrackerManager by injectLazy()
@@ -139,6 +145,14 @@ class NovelLibraryScreenModel :
         // Load the plugin host so the library can resolve each novel's source (lang + source-icon
         // badges); the source flow below re-emits buildState once the sources register.
         screenModelScope.launchIO { runCatching { installer.ensureLoaded() } }
+        // A newly grouped entry's chapters have no cross-source identities yet, so the deduplicated
+        // unread count would be wrong until something wrote them. Reconciling off the membership flow
+        // covers every merge and unmerge from one place, and costs one indexed query when nothing changed.
+        screenModelScope.launchIO {
+            mergeGroupRepository.getAllMembershipsAsFlow(ContentType.NOVELS)
+                .distinctUntilChanged()
+                .collectLatest { reconcileChapterMatchKeys.await() }
+        }
         screenModelScope.launchIO {
             combine(
                 getNovelCategories.subscribe(),
@@ -276,7 +290,7 @@ class NovelLibraryScreenModel :
             }
         }
 
-    private fun buildState(
+    private suspend fun buildState(
         categories: List<NovelCategory>,
         library: List<LibraryNovel>,
         customInfo: List<CustomNovelInfo>,
@@ -292,16 +306,40 @@ class NovelLibraryScreenModel :
         val withCounts = library.map {
             it.copy(downloadCount = novelDownloadCache.getDownloadCount(it.novel).toLong())
         }
-        val filtered = withCounts.filter { novel ->
-            (query.isNullOrBlank() || novel.matchesQuery(query)) &&
-                settings.filters.matches(novel, settings.downloadedOnly)
-        }
-        // Collapse merged groups into one representative entry (the most-chapters novel).
-        val allGroups = NovelMergeCollapse.collapse(
-            filtered,
+        // Collapse merged groups into one representative entry (the most-chapters novel) BEFORE
+        // filtering, matching the manga library. Filtering first would test each source separately, so a
+        // group could survive on a member the user never sees, and the representative would be picked
+        // from whichever members happened to pass, changing the cover as filters change.
+        val collapsedAll = NovelMergeCollapse.collapse(
+            withCounts,
             settings.merge.membership,
             settings.merge.mergingEnabled,
         )
+        // Replace each group's unread with the deduplicated cross-source count: one unit per chapter the
+        // group covers, unread only when no source's copy is read. Absent from the map means everything
+        // is read; an empty map means the identities are not written yet, so the group keeps the
+        // representative's own count rather than reporting a wrong one.
+        val mergedUnread = if (settings.merge.mergingEnabled) {
+            chapterMatchKeyRepository.getMergedUnreadCountsNovel()
+        } else {
+            emptyMap()
+        }
+        val groups = if (mergedUnread.isEmpty()) {
+            collapsedAll
+        } else {
+            collapsedAll.map { group ->
+                val groupId = settings.merge.membership[group.representative.novel.id]
+                if (group.memberIds.size > 1 && groupId != null) {
+                    group.copy(unreadCount = mergedUnread[groupId] ?: 0L)
+                } else {
+                    group
+                }
+            }
+        }
+        val allGroups = groups.filter { group ->
+            (query.isNullOrBlank() || group.representative.matchesQuery(query)) &&
+                settings.filters.matches(group, settings.downloadedOnly)
+        }
         // Union each merge group's member tracks (deduped per tracker), keyed by the rep's real novel id,
         // so the tracker filter/sort/group reflect a track bound on ANY grouped source. Synchronous:
         // reads the in-memory group members, never the suspend awaitGroup.
@@ -341,6 +379,9 @@ class NovelLibraryScreenModel :
         }
         // Keyed by the representative's negative synthetic id (== the LibraryItem id), for the comparator.
         val novelById = collapsed.associate { -it.representative.novel.id to it.representative }
+        // Real novel id -> the group's unread count, so the UnreadCount sort ranks a merged entry by what
+        // its badge shows rather than by the representative's own chapters.
+        val unreadByNovelId = collapsed.associate { it.representative.novel.id to it.unreadCount }
         // novelId -> source id, to resolve each grouped source's icon for the merge badge.
         val sourceByNovelId = library.associate { it.novel.id to it.novel.source }
         // Display-only custom-info overlay. Applied to the representative's display copy only (below),
@@ -374,9 +415,13 @@ class NovelLibraryScreenModel :
                 }
                 item.copy(
                     downloadCount = group.totalDownloadCount.toInt(),
+                    // The group's deduplicated unread, so the badge, the continue button, the filter and
+                    // the sort all report the same number for a merged entry.
+                    unreadCount = group.unreadCount,
                     relatedMangaIds = group.memberIds.map { -it },
                     badges = item.badges.copy(
                         downloadCount = if (settings.badges.download) group.totalDownloadCount.toInt() else 0,
+                        unreadCount = if (settings.badges.unread) group.unreadCount else 0,
                         mergedSourceIconUrls = iconUrls,
                     ),
                 )
@@ -424,7 +469,7 @@ class NovelLibraryScreenModel :
             allCategories.mapNotNull { category ->
                 val ids = byCategory[category.id] ?: return@mapNotNull null
                 val sort = sortFor(category.id, flagsByCat[category.id] ?: 0L, defaultSort)
-                val comparator = sort.comparator(settings.randomSeed, trackerMeanScores)
+                val comparator = sort.comparator(settings.randomSeed, trackerMeanScores, unreadByNovelId)
                 category to ids.sortedWith { a, b -> comparator.compare(novelById.getValue(a), novelById.getValue(b)) }
             }
         } else {
@@ -438,6 +483,7 @@ class NovelLibraryScreenModel :
                 atBottom,
                 tracksByRep,
                 trackerMeanScores,
+                unreadByNovelId,
             )
         }
 
@@ -480,6 +526,7 @@ class NovelLibraryScreenModel :
         atBottom: Boolean,
         tracksByRep: Map<Long, List<NovelTrack>>,
         trackerMeanScores: Map<Long, Double>,
+        unreadByNovelId: Map<Long, Long>,
     ): List<Pair<Category, List<Long>>> {
         val groupType = settings.groupBy
         val dynItems = items.mapNotNull { item ->
@@ -551,7 +598,7 @@ class NovelLibraryScreenModel :
         )
 
         // Dynamic groups have no per-category sort, so they all use the library default sort.
-        val comparator = defaultSort.comparator(settings.randomSeed, trackerMeanScores)
+        val comparator = defaultSort.comparator(settings.randomSeed, trackerMeanScores, unreadByNovelId)
         return groups.map { (category, ids) ->
             category to ids.sortedWith { a, b -> comparator.compare(novelById.getValue(a), novelById.getValue(b)) }
         }
@@ -947,14 +994,22 @@ class NovelLibraryScreenModel :
         val trackingFilter: Map<Long, TriState>,
     )
 
-    private fun NovelFilters.matches(n: LibraryNovel, forceDownloaded: Boolean): Boolean =
-        (if (forceDownloaded) TriState.ENABLED_IS else downloaded).matches(n.downloadCount > 0) &&
-            unread.matches(n.unreadCount > 0) &&
+    /**
+     * Tests a collapsed group, so a merged entry is filtered as the one thing the user sees. Downloads
+     * and unread come from the group (summed, and deduplicated respectively); everything else reads the
+     * representative, matching how the manga library filters its collapsed item.
+     */
+    private fun NovelFilters.matches(group: CollapsedNovel, forceDownloaded: Boolean): Boolean {
+        val n = group.representative
+        return (if (forceDownloaded) TriState.ENABLED_IS else downloaded)
+            .matches(group.totalDownloadCount > 0) &&
+            unread.matches(group.unreadCount > 0) &&
             started.matches(n.hasStarted) &&
             completed.matches(n.novel.status == NovelStatusCode.COMPLETED.toLong()) &&
             bookmarked.matches(n.bookmarkCount > 0) &&
             lewd.matches(n.novel.isLewd()) &&
             (!categoriesActive || matchesCategoryFilter(n.categories, categoriesInclude, categoriesExclude))
+    }
 
     private val NovelFilters.hasActive: Boolean
         get() = categoriesActive ||

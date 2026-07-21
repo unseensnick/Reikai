@@ -47,8 +47,11 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.sortForCategory
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.PropagateTrackerLinks
+import reikai.domain.merge.ChapterMatchKeyRepository
 import reikai.domain.merge.MergeGroupRepository
+import reikai.domain.merge.ReconcileChapterMatchKeys
 import reikai.presentation.library.DynItem
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
@@ -126,6 +129,9 @@ class LibraryScreenModel(
     private val mergeManager: MangaMergeManager = Injekt.get(),
     private val mergeGroupRepository: MergeGroupRepository = Injekt.get(),
     private val propagateTrackerLinks: PropagateTrackerLinks = Injekt.get(),
+    private val chapterMatchKeyRepository: ChapterMatchKeyRepository = Injekt.get(),
+    private val mergedChapterProvider: MergedChapterProvider = Injekt.get(),
+    private val reconcileChapterMatchKeys: ReconcileChapterMatchKeys = Injekt.get(),
     // RK <--
 ) : StateScreenModel<LibraryScreenModel.State>(State()) {
 
@@ -137,6 +143,16 @@ class LibraryScreenModel(
         mutableState.update { state ->
             state.copy(activeCategoryIndex = libraryPreferences.lastUsedCategory.get())
         }
+        // RK: a newly grouped entry's chapters have no cross-source identities yet, so the deduplicated
+        //     unread count would be wrong until something wrote them. Reconciling off the membership
+        //     flow covers every merge and unmerge from one place, instead of hooking each action, and
+        //     costs one indexed query when nothing changed.
+        screenModelScope.launchIO {
+            mergeGroupRepository.getAllMembershipsAsFlow(ContentType.MANGA)
+                .distinctUntilChanged()
+                .collectLatest { reconcileChapterMatchKeys.await() }
+        }
+
         screenModelScope.launchIO {
             combine(
                 state.map { it.searchQuery }.distinctUntilChanged().debounce(0.25.seconds),
@@ -497,7 +513,9 @@ class LibraryScreenModel(
         }
 
         val filterFnUnread: (LibraryItem) -> Boolean = {
-            applyFilter(filterUnread) { it.libraryManga.unreadCount > 0 }
+            // RK: LibraryItem.unreadCount, not the LibraryManga's, so a merged entry filters on its
+            //     deduplicated group count. Identical for an unmerged entry.
+            applyFilter(filterUnread) { it.unreadCount > 0 }
         }
 
         val filterFnStarted: (LibraryItem) -> Boolean = {
@@ -625,12 +643,14 @@ class LibraryScreenModel(
                 LibrarySort.Type.LastUpdate -> {
                     manga1.libraryManga.manga.lastUpdate.compareTo(manga2.libraryManga.manga.lastUpdate)
                 }
+                // RK: LibraryItem.unreadCount, not the LibraryManga's, so a merged entry sorts by its
+                //     deduplicated group count. Identical for an unmerged entry.
                 LibrarySort.Type.UnreadCount -> when {
                     // Ensure unread content comes first
-                    manga1.libraryManga.unreadCount == manga2.libraryManga.unreadCount -> 0
-                    manga1.libraryManga.unreadCount == 0L -> if (this.isAscending) 1 else -1
-                    manga2.libraryManga.unreadCount == 0L -> if (this.isAscending) -1 else 1
-                    else -> manga1.libraryManga.unreadCount.compareTo(manga2.libraryManga.unreadCount)
+                    manga1.unreadCount == manga2.unreadCount -> 0
+                    manga1.unreadCount == 0L -> if (this.isAscending) 1 else -1
+                    manga2.unreadCount == 0L -> if (this.isAscending) -1 else 1
+                    else -> manga1.unreadCount.compareTo(manga2.unreadCount)
                 }
                 LibrarySort.Type.TotalChapters -> {
                     manga1.libraryManga.totalChapters.compareTo(manga2.libraryManga.totalChapters)
@@ -793,6 +813,14 @@ class LibraryScreenModel(
                 mergingEnabled = mergePrefs.mergingEnabled,
                 showMergeSourceIcons = mergePrefs.showMergeSourceIcons,
                 resolveSource = ::resolveMergeSource,
+                // RK: read fresh on every emission rather than cached, so finishing a chapter updates
+                //     the badge immediately: this flow already re-fires on any chapter change.
+                mergedUnreadByGroup = if (mergePrefs.mergingEnabled) {
+                    chapterMatchKeyRepository.getMergedUnreadCounts()
+                } else {
+                    emptyMap()
+                },
+                showUnreadBadge = preferences.unreadBadge,
             )
         }
     }
@@ -835,7 +863,14 @@ class LibraryScreenModel(
     }
 
     suspend fun getNextUnreadChapter(manga: Manga): Chapter? {
-        return getChaptersByMangaId.await(manga.id, applyScanlatorFilter = true).getNextUnread(manga, downloadManager)
+        // RK: resume over the whole merge group, not just the entry's own source. The badge counts a
+        //     chapter as read when any source's copy is read, so resolving the next unread from one
+        //     source alone could reopen something the badge already considers finished, or find nothing
+        //     while the badge still shows unread. The provider returns the same deduplicated list the
+        //     details screen shows, and each chapter keeps its own mangaId so the reader opens the right
+        //     source. Falls through to the plain per-manga list when the entry is not merged.
+        val group = mergedChapterProvider.load(manga)
+        return group.chapters.getNextUnread(manga, downloadManager)
     }
 
     /**

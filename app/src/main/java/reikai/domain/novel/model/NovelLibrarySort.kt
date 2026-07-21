@@ -71,12 +71,16 @@ data class NovelLibrarySort(
 fun NovelLibrarySort.comparator(
     randomSeed: Long = 0L,
     trackerMeanScores: Map<Long, Double> = emptyMap(),
+    // Novel id -> the group's deduplicated unread count, for merged entries. Passed in rather than read
+    // off the novel because LibraryNovel derives unreadCount from its own chapter counts, which describe
+    // one source. Falls back to the novel's own count when absent.
+    unreadCounts: Map<Long, Long> = emptyMap(),
 ): Comparator<LibraryNovel> {
     val base: Comparator<LibraryNovel> = when (type) {
         NovelLibrarySort.Type.Alphabetical -> compareBy { it.novel.title.lowercase() }
         NovelLibrarySort.Type.LastRead -> compareBy { it.lastRead }
         NovelLibrarySort.Type.LastUpdate -> compareBy { it.novel.lastUpdate }
-        NovelLibrarySort.Type.UnreadCount -> compareBy { it.unreadCount }
+        NovelLibrarySort.Type.UnreadCount -> compareBy { unreadCounts[it.novel.id] ?: it.unreadCount }
         NovelLibrarySort.Type.TotalChapters -> compareBy { it.totalChapters }
         NovelLibrarySort.Type.LatestChapter -> compareBy { it.latestUpload }
         NovelLibrarySort.Type.ChapterFetchDate -> compareBy { it.chapterFetchedAt }
