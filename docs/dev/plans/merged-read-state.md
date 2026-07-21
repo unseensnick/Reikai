@@ -46,7 +46,13 @@ Fixing only the visible surfaces would make it worse, not better: a badge readin
 
 ## Status
 
-**Designed, not started.** Sequenced after the [content-layer library surface](content-layer-library-surface.md), which establishes the shared library pipeline this builds on. Grounded by a deep pass over both aggregators, both library models, the reader and history paths, and the merge-group schema.
+**Library and details halves shipped; reader-adjacent remainder open.** Pulled forward ahead of the rest of the library surface at the owner's request, so it landed before the shared pipeline rather than after.
+
+Shipped and on-device verified: the `chapter_match_key` schema and migration 31 (`004077165`), the reconciliation that computes and maintains the identities plus the shared key rules (`8a88a6109`), the update-job triggers and the `185f` backfill migration with `versionCode` 185 (`cb37e887e`), the deduplicated count wired into both library models with the novel collapse-before-filter reorder (`7fba8e5f2`), the details "All" list read flag (`116f74ca5`), source chips reporting group read state (`e45bdf483`), the reader chapter sheet keeping read chapters and back-navigation reaching them (`508bf14ff`), group-wide read/bookmark from the sheet (`82aebf3cb`), and the details `expandToGroup` matching on the same Float key (`d1f0dafb8`).
+
+**Still open:** reader next-chapter and history resume are still per-manga; library download-next is still the collapsed primary rather than the group's deduplicated list; bookmark and downloaded state are still whichever copy won the dedup; and whether the Updates feed should hide a sibling's copy of an already-read chapter is undecided.
+
+**Known gap in the shipped part:** neither `expandToGroup` nor the reader's `groupCopyIds` excludes gallery sources, which number every standalone work as chapter 1. Merging a gallery source into a normal group can therefore spread a read mark to an unrelated gallery. The library's count already handles this through `ChapterMatchKeys.isGallerySource`; wiring the same into those two needs per-sibling source resolution and a `SourceManager`.
 
 ## Decisions & tradeoffs
 
