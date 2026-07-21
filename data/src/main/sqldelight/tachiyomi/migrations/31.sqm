@@ -1,0 +1,29 @@
+-- RK: precomputed cross-source chapter identity, backing the deduplicated unread count on a merged
+-- library entry. See data/chapter_match_key.sq for the full rationale. These CREATE statements
+-- mirror that file exactly: fresh installs build from the .sq via Schema.create(), existing installs
+-- reach the same schema through this migration.
+--
+-- No backfill here: seeding in a migration is against the project's database rules. The keys are
+-- derived data, and the app's reconciliation pass fills them, which is the same code that keeps them
+-- up to date afterwards rather than a second implementation.
+--
+-- An existing install therefore starts with these tables EMPTY, and empty does not degrade to the
+-- old behaviour: with no keys every chapter falls back to its own row id, becomes its own unit, and
+-- a merged entry's count reads as the sum across its sources rather than the deduplicated total. So
+-- the count must not be surfaced before the first reconciliation has run.
+CREATE TABLE chapter_match_key (
+    chapter_id INTEGER NOT NULL PRIMARY KEY,
+    match_key TEXT,
+    derived_number REAL NOT NULL,
+    FOREIGN KEY(chapter_id) REFERENCES chapters (_id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE novel_chapter_match_key (
+    chapter_id INTEGER NOT NULL PRIMARY KEY,
+    match_key TEXT,
+    derived_name TEXT NOT NULL,
+    derived_number REAL NOT NULL,
+    FOREIGN KEY(chapter_id) REFERENCES novel_chapters (_id)
+    ON DELETE CASCADE
+);

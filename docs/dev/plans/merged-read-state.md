@@ -27,6 +27,8 @@ Fixing only the visible surfaces would make it worse, not better: a badge readin
 
 **Teach the next-unread family about groups.** The details resume button already runs over the aggregated list and agrees for free. The other four (library continue-reading, library download-next, reader next-chapter plus its download-next, history resume) each call a per-manga interactor and need the group resolved first.
 
+**Group-aware download means the deduplicated list, never a fan-out.** Downloading every member would fetch each chapter once per source and waste the storage on near-duplicates, so the target is one row per canonical chapter, downloaded from its own source. The details screen already does exactly this, acting on the visible list and grouping by each chapter's `mangaId`. Library download-next inherits the same treatment once this work gives the library a group-aware next-unread over the canonical set; until then it stays on the collapsed primary.
+
 **The unread count moves as a set.** The badge, the unread filter predicate and the unread sort all read the same number. They change together or the library contradicts itself.
 
 **The count is cached as a mapping, never as a count.** Read status is not an input to either aggregator, so reading can never change which chapters are duplicates, but it changes the count constantly. Persist a canonical-chapter set per merge group (a new table beside `merge_group_manga`, with a novel twin), rebuilt only on chapter-list changes, membership changes, source-order override changes, preferred-source changes and excluded-scanlator changes. The count is then a live SQL join over that set and the `read` column, the same cost class as the aggregates `libraryView` already computes.
