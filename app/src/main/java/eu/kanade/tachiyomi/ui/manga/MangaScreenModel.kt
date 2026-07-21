@@ -329,7 +329,7 @@ class MangaScreenModel(
                 .flatMapLatest { (manga, ownChapters, relatedIds, selectedSource) ->
                     when {
                         selectedSource != null && relatedIds.size > 1 ->
-                            singleSourceChaptersFlow(manga, selectedSource)
+                            singleSourceChaptersFlow(manga, selectedSource, relatedIds)
                         relatedIds.size <= 1 ->
                             flowOf(MergedChapters(manga, ownChapters, emptyMap()))
                         else ->
@@ -990,19 +990,38 @@ class MangaScreenModel(
         val displaySource: Source? = null,
     )
 
-    /** Chapters of a single grouped source (chip selection), keyed for download by its own manga. */
-    private suspend fun singleSourceChaptersFlow(displayManga: Manga, sourceMangaId: Long): Flow<MergedChapters> {
+    /** Chapters of a single grouped source (chip selection), keyed for download by its own manga.
+     *  Subscribes to the whole group even though it only shows one source's chapters, so a chapter
+     *  read on a sibling still reads as read here: "have I read this chapter" is a property of the
+     *  story, not of the source's own row, and the All view would otherwise disagree with the chip. */
+    private suspend fun singleSourceChaptersFlow(
+        displayManga: Manga,
+        sourceMangaId: Long,
+        relatedIds: LongArray,
+    ): Flow<MergedChapters> {
         val sourceManager = Injekt.get<SourceManager>()
-        return getMangaAndChapters.subscribe(sourceMangaId, applyScanlatorFilter = true)
-            .map { (sourceManga, chapters) ->
-                MergedChapters(
-                    manga = displayManga,
-                    chapters = chapters,
-                    mangaBySource = mapOf(sourceManga.id to sourceManga),
-                    displayManga = sourceManga,
-                    displaySource = sourceManager.getOrStub(sourceManga.source),
-                )
-            }
+        val perSibling = relatedIds.map { id ->
+            getMangaAndChapters.subscribe(id, applyScanlatorFilter = true)
+                .map { (manga, chapters) -> Triple(id, manga, chapters) }
+        }
+        return combine(perSibling) { siblings ->
+            val chaptersBySource = siblings.associate { (id, _, chapters) -> id to chapters }
+            val sourceIdByManga = siblings.associate { (id, manga, _) -> id to manga.source }
+            val sourceManga = siblings.first { (id, _, _) -> id == sourceMangaId }.second
+            val ownChapters = chaptersBySource[sourceMangaId].orEmpty()
+            MergedChapters(
+                manga = displayManga,
+                chapters = ownChapters,
+                mangaBySource = mapOf(sourceManga.id to sourceManga),
+                displayManga = sourceManga,
+                displaySource = sourceManager.getOrStub(sourceManga.source),
+                readInOtherSources = mergedChapterProvider.readInOtherSources(
+                    chaptersBySource,
+                    sourceIdByManga,
+                    ownChapters,
+                ),
+            )
+        }
     }
 
     /** Expand [chapters] to include the matching chapter (same recognized number) from every
