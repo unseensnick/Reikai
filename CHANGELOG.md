@@ -14,40 +14,40 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Additions
 
-- **Manage sources on a series' details page now sets which source leads that merged series, overriding your global Preferred sources ranking for it alone.** Drag a source to the top to make it primary and the combined chapter list follows; Reset order goes back to the Preferred sources ranking.
-- **Adding a series from Browse, global search, History or its page now offers to group it with a match in your library: tap the select button, then pick which ones it joins.** The new copy lands in their categories too.
-- **Adding a novel that matches one already in your library now offers a one-tap Migrate.** Tap the matching card in the duplicate prompt to move your reading progress, categories, cover and tracking onto the new source, from Browse, global search, History or the novel's page.
-- **A new Settings > Library > Recommendations option moves the related-manga suggestions into the three-dot menu.** The details page then hides the inline carousel and adds a Recommendations action that opens the full grid instead.
-- **Create backup now lets you pick Manga, Novels, and Custom entry info separately.** Back up just one content type (which also makes the file smaller), or leave the custom title/cover edits out.
+- **Drag a source to the top of Manage sources on a series' page to make it lead that merged series.** The combined chapter list follows it; Reset order returns to your global Preferred sources ranking.
+- **Adding a series from Browse, global search or History now offers to group it with a match already in your library.** Tap select, choose which ones it joins, and it lands in their categories too.
+- **Adding a duplicate novel now offers a one-tap Migrate, moving progress, categories, cover and tracking to the new source.**
+- **Settings > Library > Recommendations can now move the related-manga carousel off the details page into its three-dot menu.**
+- **Create backup now lets you include Manga, Novels and custom entry info separately.** Backing up one content type also makes the file smaller.
 
 ### Changes
 
-- **Source grouping is now optional, with a "Group series across sources" toggle in the library display menu and Settings -> Library.** Off shows each source as its own library entry.
-- **The reader now opens a merged series as either one source's chapters or the whole combined group, depending on where you tapped.** Updates, a source chip, and new-chapter notifications open just that source; the series page, your library, and history open the whole merged group.
-- **Reading a chapter now marks the same chapter read on your other sources for that series, by default.** Turn it off under Settings -> Reader if you would rather each source tracked its own progress.
-- **Removing a grouped series from your library now ticks "all grouped sources" by default.** Untick it to remove only the source shown on the cover; leaving the others behind used to be the default, which made the entry look like it had half-vanished.
+- **Source grouping is now optional, via "Group series across sources" in the library display menu or Settings -> Library.** Off shows each source as its own library entry.
+- **The reader now opens either one source's chapters or the whole merged group, depending on where you tapped.** Updates, source chips and new-chapter notifications open one source; your library, the series page and history open the group.
+- **Reading a chapter now marks it read on the series' other sources too, by default.** Switch it off under Settings -> Reader.
+- **Removing a grouped series now ticks "all grouped sources" by default.** Untick it to remove only the source shown on the cover.
 - **Bulk-deleting downloaded novel chapters now asks you to confirm first, matching manga.**
-- **Related-manga suggestions now show where each one came from.** A small label on each pick, in the details carousel and the full grid, names the source, the tracker, or the taste reason behind it, so a mixed list is easier to make sense of.
+- **Related-manga suggestions now label where each one came from, in both the carousel and the full grid.** The source, the tracker, or the taste reason behind the pick.
 
 ### Fixes
 
-- **Chapters you have already read no longer disappear from the reader's chapter list.** The list showed only unread chapters, which made earlier chapters look like they did not exist, and swiping back from a chapter you had just finished said there was no previous chapter.
-- **A chapter you have read now shows as read under every source of a grouped series, not just the one you read it on.**
-- **A grouped series now shows how many chapters you actually have left, counting each chapter once instead of just the leading source's.** A chapter counts as read once you have read it on any of the grouped sources, and the unread filter, sort and Continue button all follow the same number.
-- **Marking a grouped series read, or moving it between categories, now applies to every source in the group.** These used to touch only the source shown on the cover, so you had to open the series and visit each other source by hand.
-- **Grouping the library by source now shows clean source names on the category tabs.** The tabbed view was displaying the raw internal key (a stray separator plus the source id); the tabs now read the same tidy name the toolbar and single-list view already showed.
-- **The novel library now has the adult-content filter the manga library already had.** It classifies a novel from its genre tags (adult, mature, smut, and similar), since novel sources carry no dedicated adult flag.
-- **A merged manga is now filtered and sorted by a tracker bound on any of its grouped sources, not only its main one.** This matches the novel library; before, a tracker on a non-primary source was ignored by the library's tracker filter and tracker-score sort.
-- **Swiping a chapter in the reader's chapter list now runs your configured swipe action instead of always bookmarking.** Mark read/unread, bookmark, or download per swipe direction (in both the manga and novel readers), and the row updates right away.
-- **A merged light novel opened from your history now continues through the whole group instead of dropping to a single source.** Previous and next chapters span every grouped source, matching manga.
-- **Opening a title from Browse no longer shows it already grouped with same-named titles in your library.** It appears as just that source's own page until you choose to group it.
-- **Restoring a backup no longer re-merges a pair you deliberately split.** Your grouping comes back the way you left it.
-- **A merged novel's combined chapter list no longer hides a chapter whose title only differs by a trailing number.** A sequel-style chapter like "Pleasureful Repeats 2" was being treated as the same as "Pleasureful Repeats" and dropped from the "All" view; it now shows.
-- **Migrating a novel with "remove downloads" on no longer re-downloads those chapters onto the new source.** With it off, your downloads still follow the novel to the new source.
-- **The Edit categories picker on a details page now respects your category sort order.** Opening it from the overflow menu or a long-press on the library button used to ignore the order the library and other category pickers already follow.
-- **A novel set to show chapter numbers instead of titles now labels them in your app language, like manga.** The word "Chapter" was hardcoded in English; it now follows the app locale.
-- **Adding a manga to an existing merged group now updates its details page right away, like novels.** The new source chip used to appear only after leaving the page and reopening it.
-- **Backing up a large library with chapters enabled works again instead of leaving an empty file.** Restoring one no longer runs out of memory either, and a backup that does fail now reports the error instead of quietly stopping.
+- **Chapters you have read no longer disappear from the reader's chapter list, and swiping back reaches them again.**
+- **A chapter you have read now shows as read under every source of a grouped series.**
+- **A grouped series' unread count now counts each chapter once across its sources, not just the leading source's.** The unread filter, sort and Continue button follow the same number.
+- **Marking a grouped series read, or moving it between categories, now applies to every source in the group.**
+- **Grouping the library by source now shows clean source names on the category tabs.** They were showing the raw internal key.
+- **The novel library now has the adult-content filter the manga library already had.** It classifies novels from their genre tags, since novel sources carry no adult flag.
+- **A merged manga is now filtered and sorted by a tracker bound on any of its sources, not just its main one.**
+- **Swiping a chapter in either reader's chapter list now runs your configured swipe action instead of always bookmarking.**
+- **A merged light novel opened from history now continues through the whole group instead of one source.**
+- **Opening a title from Browse no longer shows it pre-grouped with same-named titles in your library.**
+- **Restoring a backup no longer re-merges a pair you deliberately split.**
+- **A merged novel's combined chapter list no longer hides a chapter whose title differs only by a trailing number.**
+- **Migrating a novel with "remove downloads" on no longer re-downloads those chapters onto the new source.**
+- **The Edit categories picker on a details page now respects your category sort order.**
+- **A novel showing chapter numbers instead of titles now labels them in your app language, like manga.**
+- **Adding a manga to an existing merged group now updates its details page right away, like novels.**
+- **Backing up a large library with chapters enabled works again instead of leaving an empty file.** Restoring no longer runs out of memory, and a failed backup now reports the error.
 
 ### Other
 
