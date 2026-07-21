@@ -17,6 +17,7 @@ The format these follow, and the rule for what earns a doc here, live in [.claud
 
 - [Library screen carry (P2)](library-screen-carry.md): how Reikai's single-list hopper library, multi-select actions, and opt-in update-errors screen ride Mihon's data pipeline via a parallel `reikai.*` renderer plus `// RK` islands.
 - [Library tabbed shell (Manga + Novels)](library-tabbed-shell.md): one Library and Browse surface for both manga and novels via a content-type chip, with novels routed through Mihon's existing views.
+- [Browse Feed tab (+ saved searches)](browse-feed-tab.md): rows of a source's latest / popular / saved-search results as a Browse surface, ported from Komikku (whose saved-search layer is TachiyomiSY's, absent from Mihon entirely). Staged so saved searches can ship without the feed. Not started.
 - [Library sort: global + per-category overrides](library-sort-overrides.md): with "Per-category setting for sort" on, one global sort every category follows unless explicitly overridden, via a manga `CUSTOMIZED` flag bit mirroring novels, override-aware reads, a shared effective-sort header, and a reset-to-global action.
 
 ## Manga
