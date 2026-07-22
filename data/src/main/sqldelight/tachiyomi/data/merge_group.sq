@@ -120,6 +120,25 @@ allNovelMemberships:
 SELECT novel_id, group_id
 FROM merge_group_novel;
 
+-- RK: per-group source-ranking overrides for the library collapse (group id -> members in trunk order),
+-- only for groups whose override_source_ranking is on. Lets the collapsed library row lead on the same
+-- source the details chapter list trunks on. The JOIN makes the query reactive over BOTH tables, so a
+-- reorder (writes source_priority + flips the flag) and a reset (clears the flag) both re-collapse the
+-- library. Groups without an override are absent, so the collapse falls back to the global preferred list.
+mangaOverrideRankings:
+SELECT mgm.group_id, mgm.manga_id
+FROM merge_group_manga AS mgm
+JOIN merge_group AS mg ON mg._id = mgm.group_id
+WHERE mg.override_source_ranking = 1
+ORDER BY mgm.group_id, mgm.source_priority, mgm._id;
+
+novelOverrideRankings:
+SELECT mgn.group_id, mgn.novel_id
+FROM merge_group_novel AS mgn
+JOIN merge_group AS mg ON mg._id = mgn.group_id
+WHERE mg.override_source_ranking = 1
+ORDER BY mgn.group_id, mgn.source_priority, mgn._id;
+
 -- Dissolve every group of a content type (members cascade); the Settings "clear all merges" action.
 deleteGroupsByContentType:
 DELETE FROM merge_group

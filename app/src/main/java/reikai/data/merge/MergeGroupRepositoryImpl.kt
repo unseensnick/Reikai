@@ -83,6 +83,16 @@ class MergeGroupRepositoryImpl(
             ContentType.ALL -> error(ALL_UNSUPPORTED)
         }
 
+    override fun getOverrideRankingsAsFlow(contentType: ContentType): Flow<Map<Long, List<Long>>> =
+        when (contentType) {
+            // Rows arrive already in (group, source_priority) order, so groupBy preserves the trunk order.
+            ContentType.MANGA -> queries.mangaOverrideRankings { groupId, mangaId -> groupId to mangaId }
+                .subscribeToList().map { rows -> rows.groupBy({ it.first }, { it.second }) }
+            ContentType.NOVELS -> queries.novelOverrideRankings { groupId, novelId -> groupId to novelId }
+                .subscribeToList().map { rows -> rows.groupBy({ it.first }, { it.second }) }
+            ContentType.ALL -> error(ALL_UNSUPPORTED)
+        }
+
     override suspend fun merge(contentType: ContentType, ids: List<Long>): Long? {
         val distinct = ids.distinct()
         if (distinct.size < 2) return null

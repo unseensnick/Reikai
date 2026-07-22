@@ -252,8 +252,10 @@ class NovelLibraryScreenModel :
             mergeGroupRepository.getAllMembershipsAsFlow(ContentType.NOVELS),
             reikaiLibraryPreferences.seriesMergingEnabled.changes(),
             reikaiLibraryPreferences.showNovelMergeSourceIcons.changes(),
-        ) { membership, mergingEnabled, showIcons ->
-            MergeSettings(membership, mergingEnabled, showIcons)
+            mergeGroupRepository.getOverrideRankingsAsFlow(ContentType.NOVELS),
+            reikaiLibraryPreferences.preferredNovelSources.changes(),
+        ) { membership, mergingEnabled, showIcons, overrideRankings, preferredSources ->
+            MergeSettings(membership, mergingEnabled, showIcons, overrideRankings, preferredSources)
         }
         return combine(
             badgePrefsFlow(),
@@ -314,6 +316,8 @@ class NovelLibraryScreenModel :
             withCounts,
             settings.merge.membership,
             settings.merge.mergingEnabled,
+            settings.merge.overrideRankings,
+            settings.merge.preferredSources,
         )
         // Replace each group's unread with the deduplicated cross-source count: one unit per chapter the
         // group covers, unread only when no source's copy is read. Absent from the map means everything
@@ -970,6 +974,10 @@ class NovelLibraryScreenModel :
         val membership: Map<Long, Long>,
         val mergingEnabled: Boolean,
         val showSourceIcons: Boolean,
+        // Per-group source-order overrides and the global preferred novel-source list, so the collapsed
+        // row leads on the user's chosen trunk. A reorder writes these and re-collapses the library live.
+        val overrideRankings: Map<Long, List<Long>>,
+        val preferredSources: List<String>,
     )
 
     /** Carries the per-session filters plus the global Downloaded-only mode out of the filter sub-flow. */

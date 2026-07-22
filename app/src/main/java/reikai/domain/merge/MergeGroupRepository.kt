@@ -43,6 +43,15 @@ interface MergeGroupRepository {
     fun getAllMembershipsAsFlow(contentType: ContentType): Flow<Map<Long, Long>>
 
     /**
+     * Per-group source-ranking overrides (group id -> member ids in trunk order), only for groups whose
+     * override is on. Reactive: re-emits when a group is reordered or its override cleared, so the library
+     * re-collapses onto the new trunk. Groups without an override are absent, so the collapse falls back to
+     * the global preferred-source list for those. This is the library-wide, chapter-free equivalent of the
+     * per-group [reikai.domain.merge.EntryMergeManager.overrideRankingMemberIds].
+     */
+    fun getOverrideRankingsAsFlow(contentType: ContentType): Flow<Map<Long, List<Long>>>
+
+    /**
      * Merge [ids] into one group, absorbing any groups they already belong to (so merging two collapsed
      * cards pulls in every hidden member). Atomic. Returns the resulting group id, or null when fewer
      * than two distinct entries would take part.

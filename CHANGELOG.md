@@ -36,6 +36,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A chapter you have read now shows as read under every source of a grouped series.**
 - **A grouped series' unread count now counts each chapter once across its sources, not just the leading source's.** The unread filter, sort and Continue button follow the same number.
 - **Marking a grouped series read, or moving it between categories, now applies to every source in the group.**
+- **A grouped series' library cover, title and unread count now follow the source you set as its lead.** Reordering sources on the series page used to change only the combined chapter list; the library kept showing whichever source had the most chapters.
 - **Grouping the library by source now shows clean source names on the category tabs.** They were showing the raw internal key.
 - **The novel library now has the adult-content filter the manga library already had.** It classifies novels from their genre tags, since novel sources carry no adult flag.
 - **A merged manga is now filtered and sorted by a tracker bound on any of its sources, not just its main one.**

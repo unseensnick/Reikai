@@ -821,6 +821,8 @@ class LibraryScreenModel(
                     emptyMap()
                 },
                 showUnreadBadge = preferences.unreadBadge,
+                overrideRankings = mergePrefs.overrideRankings,
+                preferredSourceIds = mergePrefs.preferredSources,
             )
         }
     }
@@ -830,13 +832,21 @@ class LibraryScreenModel(
         val membership: Map<Long, Long>,
         val mergingEnabled: Boolean,
         val showMergeSourceIcons: Boolean,
+        // Per-group source-order overrides and the global preferred-source list, so the collapsed row
+        // leads on the user's chosen trunk. A reorder writes these tables/prefs and re-collapses live.
+        val overrideRankings: Map<Long, List<Long>>,
+        val preferredSources: List<Long>,
     )
 
     private fun mergePrefsFlow(): Flow<MergePrefs> = combine(
         mergeGroupRepository.getAllMembershipsAsFlow(ContentType.MANGA),
         reikaiLibraryPreferences.seriesMergingEnabled.changes(),
         reikaiLibraryPreferences.showMergeSourceIcons.changes(),
-    ) { membership, mergingEnabled, showIcons -> MergePrefs(membership, mergingEnabled, showIcons) }
+        mergeGroupRepository.getOverrideRankingsAsFlow(ContentType.MANGA),
+        reikaiLibraryPreferences.preferredMangaSources.changes(),
+    ) { membership, mergingEnabled, showIcons, overrideRankings, preferredSources ->
+        MergePrefs(membership, mergingEnabled, showIcons, overrideRankings, preferredSources)
+    }
 
     private fun resolveMergeSource(sourceId: Long): DomainSource {
         val s = sourceManager.getOrStub(sourceId)
