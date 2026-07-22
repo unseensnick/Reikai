@@ -21,7 +21,6 @@ import okio.Source
 import okio.buffer
 import okio.sink
 import reikai.domain.entry.EntryId
-import reikai.domain.entry.coverCacheKey
 import reikai.novel.network.applyNovelDefaults
 import reikai.novel.network.deviceWebViewUserAgent
 import tachiyomi.core.common.util.system.logcat
@@ -217,9 +216,9 @@ class NovelCoverFetcher(
                 isLibraryNovel = data.isNovelFavorite,
                 options = options,
                 coverFileLazy = lazy { coverCache.getCoverFile(data.url) },
-                // Custom cover cached under the content-neutral cover-cache key (avoids manga-id collision).
+                // Custom cover cached under the entry's namespaced name (avoids manga-id collision).
                 customCoverFileLazy = lazy {
-                    coverCache.getCustomCoverFile(EntryId.Novel(data.novelId).coverCacheKey())
+                    coverCache.getCustomCoverFile(EntryId.Novel(data.novelId))
                 },
                 diskCacheKeyLazy = lazy { imageLoader.components.key(data, options)!! },
                 callFactoryLazy = callFactoryLazy,

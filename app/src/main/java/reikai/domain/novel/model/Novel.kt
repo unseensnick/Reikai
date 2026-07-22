@@ -5,7 +5,6 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import reikai.domain.entry.EntryId
-import reikai.domain.entry.coverCacheKey
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.Serializable
@@ -99,8 +98,8 @@ val Novel.readerOrientation: Long
 
 /**
  * True when the user set a custom cover for this novel. The cover lives in the shared [CoverCache]
- * keyed by the negated id (so it can't collide with a same-id manga); the novel twin of
+ * under the entry's own namespaced name (so it can't collide with a same-id manga); the novel twin of
  * `Manga.hasCustomCover`.
  */
 fun Novel.hasCustomCover(coverCache: CoverCache = Injekt.get()): Boolean =
-    coverCache.getCustomCoverFile(EntryId.Novel(id).coverCacheKey()).exists()
+    coverCache.getCustomCoverFile(EntryId.Novel(id)).exists()

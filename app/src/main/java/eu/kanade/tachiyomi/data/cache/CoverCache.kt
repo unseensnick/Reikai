@@ -2,6 +2,8 @@ package eu.kanade.tachiyomi.data.cache
 
 import android.content.Context
 import eu.kanade.tachiyomi.util.storage.DiskUtil
+import reikai.domain.entry.EntryId // RK
+import reikai.domain.entry.customCoverKey // RK
 import tachiyomi.domain.manga.model.Manga
 import java.io.File
 import java.io.IOException
@@ -97,6 +99,20 @@ class CoverCache(private val context: Context) {
             it.exists() && it.delete()
         }
     }
+
+    // RK --> both content types share this one directory, so a custom cover is named by the entry's
+    // identity rather than a bare id (a manga and a novel can carry the same row id). A manga's name is
+    // unchanged, so only novels needed a one-time move (MigrateNovelCustomCoverKeysMigration).
+    fun getCustomCoverFile(entryId: EntryId): File {
+        return File(customCoverCacheDir, DiskUtil.hashKeyForDisk(entryId.customCoverKey()))
+    }
+
+    fun deleteCustomCover(entryId: EntryId): Boolean {
+        return getCustomCoverFile(entryId).let {
+            it.exists() && it.delete()
+        }
+    }
+    // RK <--
 
     private fun getCacheDir(dir: String): File {
         return context.getExternalFilesDir(dir)

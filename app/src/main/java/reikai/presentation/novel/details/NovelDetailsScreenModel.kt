@@ -44,7 +44,7 @@ import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.data.novel.toNovel
 import reikai.domain.entry.EntryId
-import reikai.domain.entry.coverCacheKey
+import reikai.domain.entry.vibrantColorKey
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelChapterListEntry
@@ -527,17 +527,14 @@ class NovelDetailsScreenModel(
         updateSeedColor(viewNovel)
     }
 
-    /** Extract the cover's vibrant color once and seed the header tint. Keyed by `-novel.id` so the
-     *  shared (manga) color cache never collides a novel with a same-id manga. */
+    /** Extract the cover's vibrant color once and seed the header tint. */
     private fun updateSeedColor(novel: Novel) {
         if (seedExtracted || !uiPreferences.themeCoverBased.get()) return
         val url = novel.thumbnailUrl?.takeIf { it.isNotBlank() } ?: return
         if (novel.id <= 0L) return
         seedExtracted = true
-        // Color cache keyed by the content-neutral cover-cache key (novels negated so they never
-        // collide with a same-id manga's color).
         val cover = MangaCover(
-            mangaId = EntryId.Novel(novel.id).coverCacheKey(),
+            mangaId = EntryId.Novel(novel.id).vibrantColorKey(),
             sourceId = 0L,
             isMangaFavorite = false,
             url = url,

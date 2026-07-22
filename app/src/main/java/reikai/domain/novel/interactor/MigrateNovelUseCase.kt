@@ -5,7 +5,6 @@ import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
 import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.entry.EntryId
-import reikai.domain.entry.coverCacheKey
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
@@ -115,8 +114,8 @@ class MigrateNovelUseCase(
             }
 
             if (NovelMigrationFlag.COVER in flags && current.hasCustomCover(coverCache)) {
-                coverCache.getCustomCoverFile(EntryId.Novel(current.id).coverCacheKey()).inputStream().use { input ->
-                    coverCache.getCustomCoverFile(EntryId.Novel(target.id).coverCacheKey())
+                coverCache.getCustomCoverFile(EntryId.Novel(current.id)).inputStream().use { input ->
+                    coverCache.getCustomCoverFile(EntryId.Novel(target.id))
                         .outputStream().use { output -> input.copyTo(output) }
                 }
                 // Bump the target's coverLastModified so coil reloads, mirroring NovelCoverScreenModel.

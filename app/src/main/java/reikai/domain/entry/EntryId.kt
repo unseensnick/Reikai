@@ -25,12 +25,24 @@ sealed interface EntryId {
 }
 
 /**
- * The [Long] key a content entry uses in the shared, Long-keyed cover caches (the custom-cover file in
- * `CoverCache` and `MangaCover.vibrantCoverColorMap`). Manga keep their positive row id; novels are
- * negated so a novel can never collide with a same-id manga. Centralises the negation that was spread
- * inline as `-novelId`, so the one cover-cache disguise lives behind a named projection.
+ * The name a content entry's custom cover file is stored under in the shared `CoverCache`. Both content
+ * types share one directory, so the name is namespaced by type: a manga keeps its plain row id (the
+ * upstream name, unchanged on disk), a novel is prefixed. Never derive this from the id alone; a manga
+ * and a novel can carry the same row id, and they would then overwrite each other's cover.
  */
-fun EntryId.coverCacheKey(): Long = when (this) {
+fun EntryId.customCoverKey(): String = when (this) {
+    is EntryId.Manga -> rawId.toString()
+    is EntryId.Novel -> "novel:$rawId"
+}
+
+/**
+ * The key a content entry uses in `MangaCover.vibrantCoverColorMap`, the cover-derived theme colour
+ * cache. That map is upstream and keyed by [Long], so novels stay negated here rather than patching
+ * Mihon for a cache that rebuilds itself on the next cover load. This is the one place the negated-id
+ * projection deliberately survives, and it is safe precisely because nothing persists beyond a colour
+ * that can be recomputed.
+ */
+fun EntryId.vibrantColorKey(): Long = when (this) {
     is EntryId.Manga -> rawId
     is EntryId.Novel -> -rawId
 }

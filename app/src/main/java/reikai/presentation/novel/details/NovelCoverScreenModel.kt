@@ -5,7 +5,6 @@ import eu.kanade.tachiyomi.data.saver.ImageSaver
 import kotlinx.coroutines.flow.Flow
 import reikai.data.coil.NovelCover
 import reikai.domain.entry.EntryId
-import reikai.domain.entry.coverCacheKey
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
@@ -37,17 +36,17 @@ class NovelCoverScreenModel(
 
     override fun hasCustomCover(): Boolean {
         val novel = entry.value ?: return false
-        return coverCache.getCustomCoverFile(EntryId.Novel(novel.id).coverCacheKey()).exists()
+        return coverCache.getCustomCoverFile(EntryId.Novel(novel.id)).exists()
     }
 
     override suspend fun persistCustomCover(entry: Novel, stream: InputStream) {
-        coverCache.getCustomCoverFile(EntryId.Novel(entry.id).coverCacheKey())
+        coverCache.getCustomCoverFile(EntryId.Novel(entry.id))
             .outputStream().use { output -> stream.copyTo(output) }
         updateNovel.awaitUpdateCoverLastModified(entry.id)
     }
 
     override suspend fun removeCustomCover(entry: Novel) {
-        coverCache.deleteCustomCover(EntryId.Novel(entry.id).coverCacheKey())
+        coverCache.deleteCustomCover(EntryId.Novel(entry.id))
         updateNovel.awaitUpdateCoverLastModified(entry.id)
     }
 

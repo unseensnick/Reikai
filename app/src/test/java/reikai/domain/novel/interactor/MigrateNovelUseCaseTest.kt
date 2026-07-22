@@ -11,6 +11,7 @@ import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.model.Novel
@@ -73,8 +74,8 @@ class MigrateNovelUseCaseTest {
             deleteOnExit()
         }
         val coverCache = mockk<CoverCache> {
-            every { getCustomCoverFile(-1L) } returns src
-            every { getCustomCoverFile(-2L) } returns dst
+            every { getCustomCoverFile(EntryId.Novel(1L)) } returns src
+            every { getCustomCoverFile(EntryId.Novel(2L)) } returns dst
         }
         val updateNovel = mockk<UpdateNovel>(relaxed = true)
 
@@ -106,7 +107,7 @@ class MigrateNovelUseCaseTest {
         useCase(coverCache, updateNovel)(novel(1, notes = "my note"), novel(2), emptySet(), replace = false)
 
         update.captured.notes shouldBe null
-        verify(exactly = 0) { coverCache.getCustomCoverFile(any()) }
+        verify(exactly = 0) { coverCache.getCustomCoverFile(any<EntryId>()) }
         coVerify(exactly = 0) { updateNovel.awaitUpdateCoverLastModified(any()) }
     }
 

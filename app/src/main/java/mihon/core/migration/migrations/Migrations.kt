@@ -18,5 +18,6 @@ val migrations: List<Migration>
         SetupCategorySortOverrideMigration(),
         MigrateMergePrefsToGroupsMigration(),
         BackfillChapterMatchKeysMigration(),
+        MigrateNovelCustomCoverKeysMigration(),
         // RK <--
     )
