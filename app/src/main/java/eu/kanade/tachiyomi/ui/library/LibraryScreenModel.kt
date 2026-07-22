@@ -524,7 +524,11 @@ class LibraryScreenModel(
             started = preferences.filterStarted,
             bookmarked = preferences.filterBookmarked,
             completed = preferences.filterCompleted,
-            intervalCustom = if (preferences.skipOutsideReleasePeriod) preferences.filterIntervalCustom else TriState.DISABLED,
+            intervalCustom = if (preferences.skipOutsideReleasePeriod) {
+                preferences.filterIntervalCustom
+            } else {
+                TriState.DISABLED
+            },
             lewd = preferences.filterLewd,
             includedTracks = trackingFilter.filterValues { it == TriState.ENABLED_IS }.keys,
             excludedTracks = trackingFilter.filterValues { it == TriState.ENABLED_NOT }.keys,

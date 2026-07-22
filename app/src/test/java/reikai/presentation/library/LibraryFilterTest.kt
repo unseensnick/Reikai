@@ -99,11 +99,15 @@ class LibraryFilterTest {
 
     @Test
     fun `category filter keeps included and drops excluded, only when active`() {
-        passes(Row(categoryIds = listOf(1L)), prefs(categoriesActive = true, categoriesInclude = setOf(1L))) shouldBe true
-        passes(Row(categoryIds = listOf(5L)), prefs(categoriesActive = true, categoriesInclude = setOf(1L))) shouldBe false
-        passes(Row(categoryIds = listOf(5L)), prefs(categoriesActive = true, categoriesExclude = setOf(5L))) shouldBe false
+        passes(Row(categoryIds = listOf(1L)), prefs(categoriesActive = true, categoriesInclude = setOf(1L))) shouldBe
+            true
+        passes(Row(categoryIds = listOf(5L)), prefs(categoriesActive = true, categoriesInclude = setOf(1L))) shouldBe
+            false
+        passes(Row(categoryIds = listOf(5L)), prefs(categoriesActive = true, categoriesExclude = setOf(5L))) shouldBe
+            false
         // Inactive: the sets are ignored.
-        passes(Row(categoryIds = listOf(5L)), prefs(categoriesActive = false, categoriesInclude = setOf(1L))) shouldBe true
+        passes(Row(categoryIds = listOf(5L)), prefs(categoriesActive = false, categoriesInclude = setOf(1L))) shouldBe
+            true
     }
 
     @Test
