@@ -11,6 +11,7 @@ import eu.kanade.presentation.library.components.LazyLibraryGrid
 import eu.kanade.presentation.library.components.UnreadBadge
 import eu.kanade.presentation.library.components.globalSearchItem
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import reikai.domain.entry.EntryId
 import tachiyomi.domain.library.model.LibraryManga
 
 /**
@@ -23,7 +24,7 @@ fun ReikaiLibraryComfortableGridPanorama(
     items: List<LibraryItem>,
     columns: Int,
     contentPadding: PaddingValues,
-    selection: Set<Long>,
+    selection: Set<EntryId>,
     onClick: (LibraryManga) -> Unit,
     onLongClick: (LibraryManga) -> Unit,
     onClickContinueReading: ((LibraryManga) -> Unit)?,
@@ -43,7 +44,7 @@ fun ReikaiLibraryComfortableGridPanorama(
         ) { libraryItem ->
             val manga = libraryItem.libraryManga.manga
             ReikaiComfortableGridPanoramaItem(
-                isSelected = manga.id in selection,
+                isSelected = libraryItem.entryId in selection,
                 title = manga.title,
                 coverData = libraryCoverModel(libraryItem), // NovelCover for novels, else MangaCover
                 coverBadgeStart = {

@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import reikai.domain.entry.EntryId // RK
 import reikai.presentation.library.LibraryCoverEndBadge // RK
 import reikai.presentation.library.libraryCoverModel // RK
 import tachiyomi.domain.library.model.LibraryManga
@@ -16,7 +17,7 @@ internal fun LibraryCompactGrid(
     showTitle: Boolean,
     columns: Int,
     contentPadding: PaddingValues,
-    selection: Set<Long>,
+    selection: Set<EntryId>, // RK: neutral identity, a manga and a novel can share a row id
     onClick: (LibraryManga) -> Unit,
     onLongClick: (LibraryManga) -> Unit,
     onClickContinueReading: ((LibraryManga) -> Unit)?,
@@ -36,7 +37,7 @@ internal fun LibraryCompactGrid(
         ) { libraryItem ->
             val manga = libraryItem.libraryManga.manga
             MangaCompactGridItem(
-                isSelected = manga.id in selection,
+                isSelected = libraryItem.entryId in selection, // RK
                 title = manga.title.takeIf { showTitle },
                 coverData = libraryCoverModel(libraryItem), // RK: NovelCover for novels, else MangaCover
                 coverBadgeStart = {

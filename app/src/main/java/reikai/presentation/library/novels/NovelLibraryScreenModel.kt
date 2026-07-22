@@ -86,13 +86,13 @@ import kotlin.random.Random
 
 /**
  * Drives the novel half of the Library tab. It reads the favorited novels + novel categories
- * reactively, disguises each novel as the library's manga-shaped [LibraryItem] (negative id), filters
+ * reactively, shapes each novel into the library's manga-shaped [LibraryItem], filters
  * and per-category-sorts them, and exposes the same accessor surface
  * [eu.kanade.tachiyomi.ui.library.LibraryScreenModel.State] does so `LibraryTab` can feed the existing
  * views from either model based on the content-type chip. Mihon's library core is untouched.
  *
- * Selection is keyed by the negative synthetic id; [State.selectedNovelIds] maps back to real novel ids
- * for the multi-select actions (download / delete / change-category / mark-read). Display settings stay
+ * Selection is keyed by the representative's novel id; [State.selectedNovelIds] hands those to the
+ * multi-select actions (download / delete / change-category / mark-read). Display settings stay
  * shared with manga; tracker filter/sort/group reuse the shared tracker machinery via [getNovelTracks].
  */
 class NovelLibraryScreenModel :
@@ -401,8 +401,8 @@ class NovelLibraryScreenModel :
             (query.isNullOrBlank() || rep.matchesQuery(query, novelSourceName(rep.novel.source))) &&
                 libraryFilterMatches(group, filterPrefs, filterFields)
         }
-        // Keyed by the representative's negative synthetic id (== the LibraryItem id), for the comparator.
-        val novelById = collapsed.associate { -it.representative.novel.id to it.representative }
+        // Keyed by the representative's novel id (== the LibraryItem id), for the comparator.
+        val novelById = collapsed.associate { it.representative.novel.id to it.representative }
         // Real novel id -> the group's unread count, so the UnreadCount sort ranks a merged entry by what
         // its badge shows rather than by the representative's own chapters.
         val unreadByNovelId = collapsed.associate { it.representative.novel.id to it.unreadCount }
@@ -428,7 +428,7 @@ class NovelLibraryScreenModel :
                 sourceIconUrl = source?.iconUrl,
             )
             if (group.memberIds.size > 1) {
-                // Stamp the merge badge (group member ids, negative) + summed downloads onto the rep.
+                // Stamp the merge badge (group member ids) + summed downloads onto the rep.
                 // When the merge-icon setting is on, also resolve each grouped source's icon URL.
                 val iconUrls = if (settings.merge.showSourceIcons) {
                     group.memberIds
@@ -442,7 +442,7 @@ class NovelLibraryScreenModel :
                     // The group's deduplicated unread, so the badge, the continue button, the filter and
                     // the sort all report the same number for a merged entry.
                     unreadCount = group.unreadCount,
-                    relatedMangaIds = group.memberIds.map { -it },
+                    relatedMangaIds = group.memberIds,
                     badges = item.badges.copy(
                         downloadCount = if (settings.badges.download) group.totalDownloadCount.toInt() else 0,
                         unreadCount = if (settings.badges.unread) group.unreadCount else 0,
@@ -511,9 +511,9 @@ class NovelLibraryScreenModel :
             )
         }
 
-        // Item id (negative) -> (source, url) so LibraryTab can open the (representative) novel.
+        // Item id -> (source, url) so LibraryTab can open the (representative) novel.
         val routes = collapsed.associate {
-            -it.representative.novel.id to NovelRoute(it.representative.novel.source, it.representative.novel.url)
+            it.representative.novel.id to NovelRoute(it.representative.novel.source, it.representative.novel.url)
         }
 
         return State(
@@ -538,7 +538,7 @@ class NovelLibraryScreenModel :
     /**
      * Bucket the novel library into synthetic dynamic categories via the shared kernel, resolving
      * per-novel metadata (source / language / status / tracking status) into id-keyed maps. Operates on
-     * the merge-collapsed representatives, keyed by the negative synthetic item id so the result lines up
+     * the merge-collapsed representatives, keyed by the item id so the result lines up
      * with [State.favoritesById]. Tracking-status uses each rep's unioned merge-group tracks.
      */
     private fun buildNovelDynamicGrouping(
@@ -1073,21 +1073,21 @@ class NovelLibraryScreenModel :
 
         val selectionMode = selection.isNotEmpty()
 
-        val selectedNovelIds: List<Long> by lazy { selection.map { -it } }
+        val selectedNovelIds: List<Long> by lazy { selection.toList() }
 
         /** Any selected entry is a merge group (drives the bulk Unmerge action). */
         val selectionContainsMerged: Boolean by lazy {
             selection.any { (favoritesById[it]?.relatedMangaIds?.size ?: 0) > 1 }
         }
 
-        /** Every grouped source-novel behind the selection, as real novel ids. A merged cover is one
-         *  selected synthetic id standing for its whole group (relatedMangaIds, in synthetic ids);
-         *  this expands each to all members. Equals selectedNovelIds when nothing is merged. */
+        /** Every grouped source-novel behind the selection. A merged cover is one selected id standing
+         *  for its whole group (relatedMangaIds); this expands each to all members. Equals
+         *  selectedNovelIds when nothing is merged. */
         val selectedNovelIdsExpanded: List<Long> by lazy {
             selection.flatMap { id ->
                 val item = favoritesById[id] ?: return@flatMap emptyList<Long>()
                 item.relatedMangaIds.ifEmpty { listOf(id) }
-            }.distinct().map { -it }
+            }.distinct()
         }
 
         fun getItemsForCategory(category: Category): List<LibraryItem> =
@@ -1095,7 +1095,7 @@ class NovelLibraryScreenModel :
 
         fun getItemCountForCategory(category: Category): Int? = groupedById[category.id]?.size
 
-        /** Ordered item ids (negative) for a category, for range/select-all; null id = active category. */
+        /** Ordered item ids for a category, for range/select-all; null id = active category. */
         fun itemIdsForCategory(categoryId: Long?): List<Long> =
             categoryId?.let { groupedById[it] }.orEmpty()
 
@@ -1112,7 +1112,7 @@ class NovelLibraryScreenModel :
             }
         }
 
-        /** (source, url) for the disguised item id (negative), to open the novel details screen. */
+        /** (source, url) for the item id, to open the novel details screen. */
         fun routeFor(itemId: Long): NovelRoute? = novelRoutes[itemId]
 
         /** A random favorited novel's route (the hopper "random, global" action). */

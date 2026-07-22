@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import eu.kanade.core.preference.PreferenceMutableState
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import reikai.domain.entry.EntryId // RK
 import reikai.presentation.library.ReikaiLibraryComfortableGridPanorama // RK
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
@@ -33,7 +34,7 @@ fun LibraryPager(
     state: PagerState,
     contentPadding: PaddingValues,
     hasActiveFilters: Boolean,
-    selection: Set<Long>,
+    selection: Set<EntryId>, // RK: neutral identity, a manga and a novel can share a row id
     searchQuery: String?,
     onGlobalSearchClicked: () -> Unit,
     getCategoryForPage: (Int) -> Category,

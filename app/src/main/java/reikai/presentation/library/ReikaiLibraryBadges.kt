@@ -210,8 +210,6 @@ fun libraryCoverModel(item: LibraryItem): Any {
             site = item.badges.coverSite,
             isNovelFavorite = manga.favorite,
             lastModified = manga.coverLastModified,
-            // The neutral identity carries the real novel id; the leaf row still disguises it as a
-            // negative-id Manga (2b retires that), so read the id here, not from `manga.id`.
             novelId = entryId.rawId,
         )
     } else {

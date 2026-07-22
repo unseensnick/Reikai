@@ -1,6 +1,7 @@
 package reikai.presentation.library
 
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import reikai.domain.entry.EntryId
 import tachiyomi.domain.category.model.Category
 
 /**
@@ -21,8 +22,11 @@ data class LibraryScreenState(
     val isLibraryEmpty: Boolean,
     val searchQuery: String?,
     val hasActiveFilters: Boolean,
-    /** Selected leaf-row ids (still the negative synthetic id for novels until 2b's leaf re-key). */
-    val selection: Set<Long>,
+    /**
+     * The selected entries, by neutral identity. Typed rather than raw ids because a manga and a novel
+     * can share a row id, so an untyped set could not name a mixed selection unambiguously.
+     */
+    val selection: Set<EntryId>,
     val selectionMode: Boolean,
     /** Any selected entry is a merge group; drives the bulk Unmerge action. */
     val selectionContainsMerged: Boolean,

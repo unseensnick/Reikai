@@ -7,12 +7,12 @@ import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.model.Manga
 
 /**
- * Disguises a [LibraryNovel] as the library's manga-shaped [LibraryItem] so the existing library
- * views, grids, hopper, badges, and selection render novels with no changes. The synthetic
- * [Manga] carries a **negative id** (`-novel.id`): manga ids are positive, so novel and manga
- * selection never collide and tap routing is a one-line `if (id < 0)`. `source` is left at the
- * factory default since novels use a String source id (the language badge is fed [sourceLanguage]
- * resolved by the screen model instead).
+ * Shapes a [LibraryNovel] into the library's manga-shaped [LibraryItem] so the existing library
+ * views, grids, hopper, badges, and selection render novels with no changes. The synthetic [Manga]
+ * carries the novel's own real id; identity across content types comes from [EntryId], never from
+ * the raw id, since a manga and a novel may share one. `source` is left at the factory default
+ * since novels use a String source id (the language badge is fed [sourceLanguage] resolved by the
+ * screen model instead).
  */
 fun LibraryNovel.toLibraryItem(
     downloadBadge: Boolean,
@@ -25,7 +25,7 @@ fun LibraryNovel.toLibraryItem(
 ): LibraryItem {
     val n = novel
     val synthetic = Manga.create().copy(
-        id = -n.id,
+        id = n.id,
         favorite = true,
         url = n.url,
         title = n.title,
@@ -54,8 +54,8 @@ fun LibraryNovel.toLibraryItem(
     )
     return LibraryItem(
         libraryManga = libraryManga,
-        // The leaf row disguises this novel as a negative-id Manga (above); the neutral identity
-        // carries its real positive id, so the shared decision sites never read the sign.
+        // The neutral identity every shared decision site keys on; the manga-shaped row above is a
+        // rendering convenience, not an identity.
         entryId = EntryId.Novel(n.id),
         downloadCount = downloadCount.toInt(),
         unreadCount = unreadCount,

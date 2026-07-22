@@ -32,10 +32,10 @@ data class LibraryItem(
     // RK: the gallery's indexed alt-titles (japanese / english / short), so a tag-search term can
     // match a title variant other than the displayed one. Null for ordinary manga.
     val searchTitles: List<SearchTitle>? = null,
-    // RK: neutral identity for the shared content layer's decision sites (cover model, badges), so
-    // they read the content type here instead of branching on the sign of `id`. Defaults to the manga
-    // id; the novel disguise (NovelLibraryItem.toLibraryItem) overrides it with the real positive novel
-    // id. The leaf row still keys on `id` (negative for novels); 2b retires that disguise.
+    // RK: neutral identity for the shared content layer's decision sites (cover model, badges,
+    // selection). Every cross-type comparison keys on this, never on `id`, since a manga and a novel
+    // can carry the same row id. Defaults to the manga id; NovelLibraryItem.toLibraryItem sets the
+    // novel case.
     val entryId: EntryId = EntryId.Manga(libraryManga.id),
 ) {
     val id: Long = libraryManga.id

@@ -20,6 +20,7 @@ import eu.kanade.core.preference.PreferenceMutableState
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import reikai.domain.entry.EntryId // RK
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryManga
@@ -30,7 +31,7 @@ import kotlin.time.Duration.Companion.seconds
 fun LibraryContent(
     categories: List<Category>,
     searchQuery: String?,
-    selection: Set<Long>,
+    selection: Set<EntryId>, // RK: neutral identity, a manga and a novel can share a row id
     contentPadding: PaddingValues,
     // RK: pagerState hoisted to the caller so the category hopper can drive it directly
     pagerState: PagerState,

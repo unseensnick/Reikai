@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import reikai.domain.entry.EntryId
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.source.local.isLocal
@@ -33,7 +34,9 @@ class MangaLibraryAdapter(
         isLibraryEmpty = isLibraryEmpty,
         searchQuery = searchQuery,
         hasActiveFilters = hasActiveFilters,
-        selection = selection,
+        // The model keeps upstream's raw-id selection; the content type is stamped on here, since an
+        // adapter always knows its own.
+        selection = selection.mapTo(mutableSetOf()) { EntryId.Manga(it) },
         selectionMode = selectionMode,
         selectionContainsMerged = selectionContainsMerged,
         canDownloadSelection = selectedManga.fastAll { !it.isLocal() },

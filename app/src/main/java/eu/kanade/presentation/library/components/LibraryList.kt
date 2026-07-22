@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import reikai.domain.entry.EntryId // RK
 import reikai.presentation.library.LibraryCoverEndBadge // RK
 import reikai.presentation.library.libraryCoverModel // RK
 import tachiyomi.domain.library.model.LibraryManga
@@ -18,7 +19,7 @@ import tachiyomi.presentation.core.util.plus
 internal fun LibraryList(
     items: List<LibraryItem>,
     contentPadding: PaddingValues,
-    selection: Set<Long>,
+    selection: Set<EntryId>, // RK: neutral identity, a manga and a novel can share a row id
     onClick: (LibraryManga) -> Unit,
     onLongClick: (LibraryManga) -> Unit,
     onClickContinueReading: ((LibraryManga) -> Unit)?,
@@ -45,7 +46,7 @@ internal fun LibraryList(
         ) { libraryItem ->
             val manga = libraryItem.libraryManga.manga
             MangaListItem(
-                isSelected = manga.id in selection,
+                isSelected = libraryItem.entryId in selection, // RK
                 title = manga.title,
                 coverData = libraryCoverModel(libraryItem), // RK: NovelCover for novels, else MangaCover
                 badge = {

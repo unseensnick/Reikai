@@ -30,6 +30,7 @@ import eu.kanade.presentation.library.components.UnreadBadge
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import reikai.domain.entry.EntryId
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryManga
@@ -127,7 +128,7 @@ fun ReikaiLibraryContent(
     showItemCounts: Boolean,
     displayMode: LibraryDisplayMode,
     columns: Int,
-    selection: Set<Long>,
+    selection: Set<EntryId>,
     searchQuery: String?,
     gridState: LazyGridState,
     contentPadding: PaddingValues,
@@ -244,7 +245,7 @@ fun ReikaiLibraryContent(
                                 if (dynamic) onToggleDynamicCollapse(headerKey) else onToggleDefaultCollapse(headerKey)
                             },
                             selectionMode = selection.isNotEmpty(),
-                            allSelected = items.isNotEmpty() && items.all { it.id in selection },
+                            allSelected = items.isNotEmpty() && items.all { it.entryId in selection },
                             onToggleSelectAll = { onSelectAllInCategory(category) },
                             // Dynamic groups have no real category to sort/refresh.
                             sortLabel = if (dynamic) null else sortLabelFor?.invoke(category),
@@ -265,12 +266,13 @@ fun ReikaiLibraryContent(
                     if (!collapsed) {
                         items(
                             items = items,
-                            // A manga can belong to several categories, so qualify the key by category.
-                            key = { "reikai_cell_${category.id}_${it.id}" },
+                            // An entry can belong to several categories, so qualify the key by category,
+                            // and by content type since a manga and a novel can share a row id.
+                            key = { "reikai_cell_${category.id}_${it.entryId.contentType}_${it.entryId.rawId}" },
                             contentType = { cellContentType },
                         ) { libraryItem ->
                             val manga = libraryItem.libraryManga.manga
-                            val isSelected = manga.id in selection
+                            val isSelected = libraryItem.entryId in selection
                             val coverData = libraryCoverModel(libraryItem) // NovelCover for novels, else MangaCover
                             val onClick = { onClickManga(category, libraryItem.libraryManga) }
                             val onLongClick = { onLongClickManga(category, libraryItem.libraryManga) }

@@ -62,6 +62,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - The light-novel details screen, its dialogs, and the cover viewer now render through the same shared components as manga, so a details change reaches both content types.
 - The manga and novel libraries now sort through one shared comparator, so a sort change reaches both content types instead of being written twice.
 - The manga and novel libraries now filter and search through one shared implementation, so a filter or search change reaches both content types instead of being written twice.
+- Library selection now identifies an entry by its content type rather than by the sign of its id, so a manga and a novel that share a row number can never be confused for each other.
 - The manga and novel source-grouping (merge) system is now shared code (the manager, the source-switcher chips, and the details read/observe wiring) instead of near-duplicate copies, so a grouping change reaches both content types and they can't drift apart.
 - Shizuku detection now probes for the Shizuku permission instead of a fixed package name (synced from Mihon, mihonapp/mihon#3565).
 

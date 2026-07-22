@@ -3,8 +3,8 @@ package reikai.domain.novel.model
 /**
  * Novel twin of [tachiyomi.domain.library.model.LibraryManga]: a favorited [Novel] plus the chapter
  * counts the library needs (unread badge, download badge, sort keys). Built from the `novelLibraryView`
- * SQLDelight view. The library renders novels by disguising each one as a manga `LibraryItem`
- * (see the NovelLibraryItem mapper), so this model only carries the novel-side data, not the UI shape.
+ * SQLDelight view. The library renders novels through the manga-shaped `LibraryItem` (see the
+ * NovelLibraryItem mapper), so this model only carries the novel-side data, not the UI shape.
  */
 data class LibraryNovel(
     val novel: Novel,
