@@ -9,6 +9,7 @@ import exh.search.QueryComponent
 import exh.search.Text
 import exh.source.getMainSource
 import reikai.domain.entry.EntryId
+import reikai.presentation.library.libraryQueryMatches
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.source.model.Source
 import tachiyomi.domain.source.service.SourceManager
@@ -53,38 +54,38 @@ data class LibraryItem(
         sourceManager: SourceManager,
     ): Boolean {
         val source = sourceManager.getOrStub(libraryManga.manga.source)
-        val sourceName by lazy { source.getNameForMangaInfo() }
-        if (constraint.startsWith("id:", true)) {
-            return id == constraint.substringAfter("id:").toLongOrNull()
-        } else if (constraint.startsWith("src:", true)) {
-            val querySource = constraint.substringAfter("src:")
-            return if (querySource.equals(LOCAL_SOURCE_ID_ALIAS, ignoreCase = true)) {
-                source.id == LocalSource.ID
-            } else {
-                source.id == querySource.toLongOrNull()
-            }
-        }
-        // RK --> tag-search engine for adult/metadata sources: every parsed component must match
-        //        (implicit AND). namespace:tag matches the gallery's indexed tags; plain text
-        //        matches title / author / tags / alt-titles; wildcards honoured via Text.asRegex.
-        if (source.getMainSource<MetadataSource<*, *>>() != null) {
+        val sourceName = source.getNameForMangaInfo()
+        // RK --> tag-search engine for adult/metadata sources: a non-prefix query on a gallery source is
+        //        matched by the structured grammar (namespace:tag, wildcards, exclusion), manga-only.
+        //        A prefix query (id:/src:) still falls through to the shared matcher below, as before.
+        if (!constraint.startsWith("id:", true) &&
+            !constraint.startsWith("src:", true) &&
+            source.getMainSource<MetadataSource<*, *>>() != null
+        ) {
             return parsedQuery.all { matchesComponent(it, sourceName) }
         }
         // RK <--
-        return libraryManga.manga.title.contains(constraint, true) ||
-            (libraryManga.manga.author?.contains(constraint, true) ?: false) ||
-            (libraryManga.manga.artist?.contains(constraint, true) ?: false) ||
-            (libraryManga.manga.description?.contains(constraint, true) ?: false) ||
-            // RK: match the gallery's indexed EXH tags by name (inverted tag search)
-            (searchTags?.any { it.name.contains(constraint, true) } ?: false) ||
-            constraint.split(",").map { it.trim() }.all { subconstraint ->
-                checkNegatableConstraint(subconstraint) {
-                    sourceName.contains(it, true) ||
-                        (libraryManga.manga.genre?.any { genre -> genre.equals(it, true) } ?: false) ||
-                        // RK: also let each comma-separated constraint match an EXH tag name
-                        (searchTags?.any { tag -> tag.name.contains(it, true) } ?: false)
+        // RK: the plain-text / id: / src: grammar is shared with the novel library
+        //     (reikai.presentation.library.libraryQueryMatches). searchTags matching stays in the
+        //     metadata branch above: a non-metadata manga never carries them, so nothing is lost here.
+        val manga = libraryManga.manga
+        return libraryQueryMatches(
+            query = constraint,
+            id = id,
+            title = manga.title,
+            author = manga.author,
+            artist = manga.artist,
+            description = manga.description,
+            genre = manga.genre,
+            sourceName = sourceName,
+            matchesSourceTerm = { term ->
+                if (term.equals(LOCAL_SOURCE_ID_ALIAS, ignoreCase = true)) {
+                    source.id == LocalSource.ID
+                } else {
+                    source.id == term.toLongOrNull()
                 }
-            }
+            },
+        )
     }
 
     // RK --> match one parsed query component against this entry, honouring its excluded flag. A
@@ -116,25 +117,6 @@ data class LibraryItem(
         return matched != component.excluded
     }
     // RK <--
-
-    /**
-     * Checks a predicate on a negatable constraint. If the constraint starts with a minus character,
-     * the minus is stripped and the result of the predicate is inverted.
-     *
-     * @param constraint the argument to the predicate. Inverts the predicate if it starts with '-'.
-     * @param predicate the check to be run against the constraint.
-     * @return !predicate(x) if constraint = "-x", otherwise predicate(constraint)
-     */
-    private fun checkNegatableConstraint(
-        constraint: String,
-        predicate: (String) -> Boolean,
-    ): Boolean {
-        return if (constraint.startsWith("-")) {
-            !predicate(constraint.substringAfter("-").trimStart())
-        } else {
-            predicate(constraint)
-        }
-    }
 
     data class Badges(
         val downloadCount: Int,

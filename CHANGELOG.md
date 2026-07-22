@@ -44,6 +44,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The library's tracking-status groups now always read in reading-progress order (Reading first, Not tracked last), instead of being sorted alphabetically by your category sort.**
 - **The novel library now sorts exactly like the manga library.** Ties stay A to Z under a descending sort, fully-read novels sort to the bottom by unread, and titles order by your device language.
 - **Sorting the library by tracker score is now accurate.** Entries whose only trackers are signed out no longer float above your rated ones, and a merged series counts each tracker once instead of doubling it across sources.
+- **Searching the novel library now understands the same queries as the manga library.** `id:`, `src:`, a description or source-name match, and comma-separated terms you can negate with a leading minus, on top of title, author and genre.
 - **Swiping a chapter in either reader's chapter list now runs your configured swipe action instead of always bookmarking.**
 - **A merged light novel opened from history now continues through the whole group instead of one source.**
 - **Opening a title from Browse no longer shows it pre-grouped with same-named titles in your library.**
@@ -60,6 +61,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - Settings -> Advanced now offers a single "Clear all merges" action per content type, replacing the two that did the same thing after the merge rebuild.
 - The light-novel details screen, its dialogs, and the cover viewer now render through the same shared components as manga, so a details change reaches both content types.
 - The manga and novel libraries now sort through one shared comparator, so a sort change reaches both content types instead of being written twice.
+- The manga and novel libraries now filter and search through one shared implementation, so a filter or search change reaches both content types instead of being written twice.
 - The manga and novel source-grouping (merge) system is now shared code (the manager, the source-switcher chips, and the details read/observe wiring) instead of near-duplicate copies, so a grouping change reaches both content types and they can't drift apart.
 - Shizuku detection now probes for the Shizuku permission instead of a fixed package name (synced from Mihon, mihonapp/mihon#3565).
 

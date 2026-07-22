@@ -26,7 +26,6 @@ import reikai.data.novel.NovelStatusCode
 import reikai.domain.category.CATEGORY_HIDDEN_MASK
 import reikai.domain.category.categoryDiff
 import reikai.domain.category.categoryFilterActive
-import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ChapterMatchKeyRepository
@@ -63,9 +62,13 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.category.toLongIdSet
 import reikai.presentation.library.DynItem
 import reikai.presentation.library.LibraryDynamicGrouping
+import reikai.presentation.library.LibraryFilterFields
+import reikai.presentation.library.LibraryFilterPrefs
 import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.LibraryTrackingStatusOrder
 import reikai.presentation.library.ReikaiDynamicCategory
+import reikai.presentation.library.libraryFilterMatches
+import reikai.presentation.library.libraryQueryMatches
 import reikai.presentation.library.novels.NovelMergeCollapse.CollapsedNovel
 import reikai.presentation.library.reikaiSortCategories
 import reikai.presentation.novel.selectChaptersForDownloadAction
@@ -341,15 +344,11 @@ class NovelLibraryScreenModel :
                 }
             }
         }
-        val allGroups = groups.filter { group ->
-            (query.isNullOrBlank() || group.representative.matchesQuery(query)) &&
-                settings.filters.matches(group, settings.downloadedOnly)
-        }
         // Union each merge group's member tracks (deduped per tracker), keyed by the rep's real novel id,
-        // so the tracker filter/sort/group reflect a track bound on ANY grouped source. Synchronous:
-        // reads the in-memory group members, never the suspend awaitGroup.
+        // so the shared filter's tracker axis and the sort's mean score both read a track bound on ANY
+        // grouped source. Synchronous: reads the in-memory group members, never the suspend awaitGroup.
         val loggedInTrackerIds = settings.trackingFilter.keys
-        val tracksByRep: Map<Long, List<NovelTrack>> = allGroups.associate { group ->
+        val tracksByRep: Map<Long, List<NovelTrack>> = groups.associate { group ->
             group.representative.novel.id to group.memberIds
                 .flatMap { tracks[it].orEmpty() }
                 .distinctBy { it.trackerId }
@@ -368,19 +367,39 @@ class NovelLibraryScreenModel :
                 if (scores.isNotEmpty()) put(repId, scores.average())
             }
         }
-        // Tracker-status filter (merge-aware, post-collapse): drop groups whose unioned trackers fail the
-        // include/exclude tri-state, mirroring the manga library's filterFnTracking.
-        val excludedTrackers = settings.trackingFilter.filterValues { it == TriState.ENABLED_NOT }.keys
-        val includedTrackers = settings.trackingFilter.filterValues { it == TriState.ENABLED_IS }.keys
-        val collapsed = if (excludedTrackers.isEmpty() && includedTrackers.isEmpty()) {
-            allGroups
-        } else {
-            allGroups.filter { group ->
-                val trackerIds = tracksByRep[group.representative.novel.id].orEmpty().map { it.trackerId }
-                val isExcluded = excludedTrackers.isNotEmpty() && trackerIds.any { it in excludedTrackers }
-                val isIncluded = includedTrackers.isEmpty() || trackerIds.any { it in includedTrackers }
-                !isExcluded && isIncluded
-            }
+        // The one shared library filter (tracker axis folded in), so a filter change reaches manga and
+        // novels at once. The per-type seams live in the accessors: novels have no local-source or
+        // fetch-interval concept, and their lewd check is genre-only.
+        val f = settings.filters
+        val filterPrefs = LibraryFilterPrefs(
+            downloaded = if (settings.downloadedOnly) TriState.ENABLED_IS else f.downloaded,
+            unread = f.unread,
+            started = f.started,
+            bookmarked = f.bookmarked,
+            completed = f.completed,
+            intervalCustom = TriState.DISABLED,
+            lewd = f.lewd,
+            includedTracks = settings.trackingFilter.filterValues { it == TriState.ENABLED_IS }.keys,
+            excludedTracks = settings.trackingFilter.filterValues { it == TriState.ENABLED_NOT }.keys,
+            categoriesActive = f.categoriesActive,
+            categoriesInclude = f.categoriesInclude,
+            categoriesExclude = f.categoriesExclude,
+        )
+        val filterFields = LibraryFilterFields<CollapsedNovel>(
+            isDownloaded = { it.totalDownloadCount > 0 },
+            isUnread = { it.unreadCount > 0 },
+            hasStarted = { it.representative.hasStarted },
+            hasBookmarks = { it.representative.bookmarkCount > 0 },
+            isCompleted = { it.representative.novel.status == NovelStatusCode.COMPLETED.toLong() },
+            matchesIntervalCustom = { false },
+            isLewd = { it.representative.novel.isLewd() },
+            trackerIds = { group -> tracksByRep[group.representative.novel.id].orEmpty().map { it.trackerId } },
+            categoryIds = { it.representative.categories },
+        )
+        val collapsed = groups.filter { group ->
+            val rep = group.representative
+            (query.isNullOrBlank() || rep.matchesQuery(query, novelSourceName(rep.novel.source))) &&
+                libraryFilterMatches(group, filterPrefs, filterFields)
         }
         // Keyed by the representative's negative synthetic id (== the LibraryItem id), for the comparator.
         val novelById = collapsed.associate { -it.representative.novel.id to it.representative }
@@ -949,11 +968,8 @@ class NovelLibraryScreenModel :
         )
     }
 
-    private fun TriState.matches(value: Boolean): Boolean = when (this) {
-        TriState.DISABLED -> true
-        TriState.ENABLED_IS -> value
-        TriState.ENABLED_NOT -> !value
-    }
+    /** A novel's human-readable source name for search, or the raw slug when the plugin isn't installed. */
+    private fun novelSourceName(source: String): String = sourceManager.get(source)?.name ?: source
 
     private data class BadgePrefs(
         val download: Boolean,
@@ -1013,23 +1029,6 @@ class NovelLibraryScreenModel :
         // Per-logged-in-tracker filter (trackerId -> tri-state); keys are the logged-in tracker ids.
         val trackingFilter: Map<Long, TriState>,
     )
-
-    /**
-     * Tests a collapsed group, so a merged entry is filtered as the one thing the user sees. Downloads
-     * and unread come from the group (summed, and deduplicated respectively); everything else reads the
-     * representative, matching how the manga library filters its collapsed item.
-     */
-    private fun NovelFilters.matches(group: CollapsedNovel, forceDownloaded: Boolean): Boolean {
-        val n = group.representative
-        return (if (forceDownloaded) TriState.ENABLED_IS else downloaded)
-            .matches(group.totalDownloadCount > 0) &&
-            unread.matches(group.unreadCount > 0) &&
-            started.matches(n.hasStarted) &&
-            completed.matches(n.novel.status == NovelStatusCode.COMPLETED.toLong()) &&
-            bookmarked.matches(n.bookmarkCount > 0) &&
-            lewd.matches(n.novel.isLewd()) &&
-            (!categoriesActive || matchesCategoryFilter(n.categories, categoriesInclude, categoriesExclude))
-    }
 
     private val NovelFilters.hasActive: Boolean
         get() = categoriesActive ||
@@ -1127,12 +1126,22 @@ class NovelLibraryScreenModel :
     data class NovelRoute(val source: String, val url: String)
 }
 
-private fun LibraryNovel.matchesQuery(query: String): Boolean {
+// Levels novel search up to the manga library's grammar via the shared matcher: id:, src: (by source
+// slug), description, source name, and comma-separated negatable terms, on top of title/author/artist/
+// genre. [sourceName] is resolved by the caller (novels have no Mihon Source to read it off).
+private fun LibraryNovel.matchesQuery(query: String, sourceName: String): Boolean {
     val n = novel
-    return n.title.contains(query, true) ||
-        (n.author?.contains(query, true) ?: false) ||
-        (n.artist?.contains(query, true) ?: false) ||
-        (n.genre?.any { it.contains(query, true) } ?: false)
+    return libraryQueryMatches(
+        query = query,
+        id = n.id,
+        title = n.title,
+        author = n.author,
+        artist = n.artist,
+        description = n.description,
+        genre = n.genre,
+        sourceName = sourceName,
+        matchesSourceTerm = { term -> n.source.equals(term, ignoreCase = true) },
+    )
 }
 
 /**

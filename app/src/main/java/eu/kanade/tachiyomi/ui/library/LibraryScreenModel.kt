@@ -2,7 +2,6 @@ package eu.kanade.tachiyomi.ui.library
 
 import android.app.Application
 import androidx.compose.runtime.Immutable
-import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastFilter
 import androidx.compose.ui.util.fastMap
 import cafe.adriel.voyager.core.model.StateScreenModel
@@ -42,7 +41,6 @@ import mihon.core.common.utils.mutate
 import reikai.domain.category.categoryDiff
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.isHidden
-import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibrarySortFields
 import reikai.domain.library.LibrarySortMode
@@ -57,11 +55,14 @@ import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.ReconcileChapterMatchKeys
 import reikai.presentation.library.DynItem
 import reikai.presentation.library.LibraryDynamicGrouping
+import reikai.presentation.library.LibraryFilterFields
+import reikai.presentation.library.LibraryFilterPrefs
 import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.LibraryTrackingStatusOrder
 import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.ReikaiLibraryState
+import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.reikaiSortCategories
 import reikai.util.isLewd
 import tachiyomi.core.common.i18n.stringResource
@@ -88,7 +89,6 @@ import tachiyomi.domain.manga.interactor.GetSearchTitles
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
-import tachiyomi.domain.manga.model.applyFilter
 import tachiyomi.domain.manga.model.withCustomInfo
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
@@ -505,104 +505,54 @@ class LibraryScreenModel(
         java.util.Locale.forLanguageTag(code).displayName.ifBlank { code }
     // RK <--
 
+    // RK -->
+    // Manga library filter, routed through the shared reikai.presentation.library.libraryFilterMatches so
+    // a filter behaviour change is written once for manga and novels. The per-type seams (downloaded's
+    // local-source concept, lewd's source-name check, the merge-group tracker union) live in the accessors.
     private fun List<LibraryItem>.applyFilters(
         trackMap: Map<Long, List<Track>>,
         trackingFilter: Map<Long, TriState>,
         preferences: ItemPreferences,
     ): List<LibraryItem> {
-        val downloadedOnly = preferences.globalFilterDownloaded
-        val skipOutsideReleasePeriod = preferences.skipOutsideReleasePeriod
-        val filterDownloaded = if (downloadedOnly) TriState.ENABLED_IS else preferences.filterDownloaded
-        val filterUnread = preferences.filterUnread
-        val filterStarted = preferences.filterStarted
-        val filterBookmarked = preferences.filterBookmarked
-        val filterCompleted = preferences.filterCompleted
-        val filterIntervalCustom = preferences.filterIntervalCustom
-
-        val isNotLoggedInAnyTrack = trackingFilter.isEmpty()
-
-        val excludedTracks = trackingFilter.mapNotNull { if (it.value == TriState.ENABLED_NOT) it.key else null }
-        val includedTracks = trackingFilter.mapNotNull { if (it.value == TriState.ENABLED_IS) it.key else null }
-        val trackFiltersIsIgnored = includedTracks.isEmpty() && excludedTracks.isEmpty()
-
-        val filterFnDownloaded: (LibraryItem) -> Boolean = {
-            applyFilter(filterDownloaded) { it.isLocal || it.downloadCount > 0 }
-        }
-
-        val filterFnUnread: (LibraryItem) -> Boolean = {
-            // RK: LibraryItem.unreadCount, not the LibraryManga's, so a merged entry filters on its
-            //     deduplicated group count. Identical for an unmerged entry.
-            applyFilter(filterUnread) { it.unreadCount > 0 }
-        }
-
-        val filterFnStarted: (LibraryItem) -> Boolean = {
-            applyFilter(filterStarted) { it.libraryManga.hasStarted }
-        }
-
-        val filterFnBookmarked: (LibraryItem) -> Boolean = {
-            applyFilter(filterBookmarked) { it.libraryManga.hasBookmarks }
-        }
-
-        val filterFnCompleted: (LibraryItem) -> Boolean = {
-            applyFilter(filterCompleted) { it.libraryManga.manga.status.toInt() == SManga.COMPLETED }
-        }
-
-        val filterFnIntervalCustom: (LibraryItem) -> Boolean = {
-            if (skipOutsideReleasePeriod) {
-                applyFilter(filterIntervalCustom) { it.libraryManga.manga.fetchInterval < 0 }
-            } else {
-                true
-            }
-        }
-
-        val filterFnTracking: (LibraryItem) -> Boolean = tracking@{ item ->
-            if (isNotLoggedInAnyTrack || trackFiltersIsIgnored) return@tracking true
-
-            // RK: union tracks across the merged group (relatedMangaIds), so a tracker bound on any
-            // grouped source counts toward the filter, matching the novel library. relatedMangaIds is
-            // empty for a non-merged entry, so it falls back to the entry's own id.
-            val groupIds = item.relatedMangaIds.ifEmpty { listOf(item.id) }
-            val mangaTracks = groupIds.flatMap { trackMap[it].orEmpty() }.map { it.trackerId }
-
-            val isExcluded = excludedTracks.isNotEmpty() && mangaTracks.fastAny { it in excludedTracks }
-            val isIncluded = includedTracks.isEmpty() || mangaTracks.fastAny { it in includedTracks }
-
-            !isExcluded && isIncluded
-        }
-
-        // RK --> net-new Reikai filter dims (lewd + include/exclude category)
-        val filterLewd = preferences.filterLewd
         val includeCategories = preferences.filterCategoriesInclude
         val excludeCategories = preferences.filterCategoriesExclude
-        val filterCategoriesActive =
-            categoryFilterActive(preferences.filterCategories, includeCategories, excludeCategories)
-
-        val filterFnLewd: (LibraryItem) -> Boolean = {
-            applyFilter(filterLewd) {
-                it.libraryManga.manga.isLewd(sourceManager.getOrStub(it.libraryManga.manga.source).name)
-            }
-        }
-
-        val filterFnCategories: (LibraryItem) -> Boolean = catFilter@{ item ->
-            if (!filterCategoriesActive) return@catFilter true
-            matchesCategoryFilter(item.libraryManga.categories, includeCategories, excludeCategories)
-        }
-        // RK <--
-
-        return fastFilter {
-            filterFnDownloaded(it) &&
-                filterFnUnread(it) &&
-                filterFnStarted(it) &&
-                filterFnBookmarked(it) &&
-                filterFnCompleted(it) &&
-                filterFnIntervalCustom(it) &&
-                filterFnTracking(it) &&
-                // RK -->
-                filterFnLewd(it) &&
-                filterFnCategories(it)
-            // RK <--
-        }
+        val prefs = LibraryFilterPrefs(
+            // Fold the global Downloaded-only mode in, and disable the interval axis when the
+            // release-period gate is off, so the shared predicate stays a plain applyFilter.
+            downloaded = if (preferences.globalFilterDownloaded) TriState.ENABLED_IS else preferences.filterDownloaded,
+            unread = preferences.filterUnread,
+            started = preferences.filterStarted,
+            bookmarked = preferences.filterBookmarked,
+            completed = preferences.filterCompleted,
+            intervalCustom = if (preferences.skipOutsideReleasePeriod) preferences.filterIntervalCustom else TriState.DISABLED,
+            lewd = preferences.filterLewd,
+            includedTracks = trackingFilter.filterValues { it == TriState.ENABLED_IS }.keys,
+            excludedTracks = trackingFilter.filterValues { it == TriState.ENABLED_NOT }.keys,
+            categoriesActive = categoryFilterActive(preferences.filterCategories, includeCategories, excludeCategories),
+            categoriesInclude = includeCategories,
+            categoriesExclude = excludeCategories,
+        )
+        val fields = LibraryFilterFields<LibraryItem>(
+            isDownloaded = { it.isLocal || it.downloadCount > 0 },
+            // LibraryItem.unreadCount (the deduplicated group count), not the LibraryManga's.
+            isUnread = { it.unreadCount > 0 },
+            hasStarted = { it.libraryManga.hasStarted },
+            hasBookmarks = { it.libraryManga.hasBookmarks },
+            isCompleted = { it.libraryManga.manga.status.toInt() == SManga.COMPLETED },
+            matchesIntervalCustom = { it.libraryManga.manga.fetchInterval < 0 },
+            isLewd = { it.libraryManga.manga.isLewd(sourceManager.getOrStub(it.libraryManga.manga.source).name) },
+            // Union tracks across the merged group (relatedMangaIds), so a tracker on any grouped source
+            // counts; empty relatedMangaIds falls back to the entry's own id.
+            trackerIds = { item ->
+                item.relatedMangaIds.ifEmpty { listOf(item.id) }
+                    .flatMap { trackMap[it].orEmpty() }
+                    .map { it.trackerId }
+            },
+            categoryIds = { it.libraryManga.categories },
+        )
+        return fastFilter { libraryFilterMatches(it, prefs, fields) }
     }
+    // RK <--
 
     private fun List<LibraryItem>.applyGrouping(
         categories: List<Category>,
