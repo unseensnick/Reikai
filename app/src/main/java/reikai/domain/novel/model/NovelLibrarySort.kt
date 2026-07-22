@@ -1,6 +1,8 @@
 package reikai.domain.novel.model
 
-import kotlin.random.Random
+import reikai.domain.library.LibrarySortFields
+import reikai.domain.library.LibrarySortMode
+import reikai.domain.library.librarySortComparator
 
 /**
  * Per-category novel library sort. Mirrors Mihon's [tachiyomi.domain.library.model.LibrarySort] bit
@@ -60,35 +62,47 @@ data class NovelLibrarySort(
     }
 }
 
+private fun NovelLibrarySort.Type.toSortMode(): LibrarySortMode = when (this) {
+    NovelLibrarySort.Type.Alphabetical -> LibrarySortMode.Alphabetical
+    NovelLibrarySort.Type.LastRead -> LibrarySortMode.LastRead
+    NovelLibrarySort.Type.LastUpdate -> LibrarySortMode.LastUpdate
+    NovelLibrarySort.Type.UnreadCount -> LibrarySortMode.UnreadCount
+    NovelLibrarySort.Type.TotalChapters -> LibrarySortMode.TotalChapters
+    NovelLibrarySort.Type.LatestChapter -> LibrarySortMode.LatestChapter
+    NovelLibrarySort.Type.ChapterFetchDate -> LibrarySortMode.ChapterFetchDate
+    NovelLibrarySort.Type.DateAdded -> LibrarySortMode.DateAdded
+    NovelLibrarySort.Type.Downloaded -> LibrarySortMode.Downloaded
+    NovelLibrarySort.Type.TrackerMean -> LibrarySortMode.TrackerMean
+    NovelLibrarySort.Type.Random -> LibrarySortMode.Random
+}
+
 /**
- * Comparator over [LibraryNovel] for this sort. [randomSeed] only matters for
- * [NovelLibrarySort.Type.Random] (a stable per-seed shuffle, so the order holds across re-emits until
- * the seed changes). [trackerMeanScores] (rep novel id -> mean 0-10 score) only matters for
- * [NovelLibrarySort.Type.TrackerMean]; unscored novels fall to a default so they group at one end. The
- * comparator is a pure top-level function, so tracker scores are precomputed by the caller and passed in
- * rather than read off the novel. Title is the stable tiebreak for every mode.
+ * Comparator over [LibraryNovel] for this sort, a thin adapter over the shared [librarySortComparator]
+ * (the novel side of the one comparator both libraries use). [randomSeed] only matters for
+ * [NovelLibrarySort.Type.Random]; [trackerMeanScores] (rep novel id -> mean 0-10 score, unscored omitted)
+ * only for [NovelLibrarySort.Type.TrackerMean]; [unreadCounts] (novel id -> the group's deduplicated
+ * unread count) overrides the novel's own single-source count for merged entries. All are precomputed by
+ * the caller so the comparator stays pure.
  */
 fun NovelLibrarySort.comparator(
     randomSeed: Long = 0L,
     trackerMeanScores: Map<Long, Double> = emptyMap(),
-    // Novel id -> the group's deduplicated unread count, for merged entries. Passed in rather than read
-    // off the novel because LibraryNovel derives unreadCount from its own chapter counts, which describe
-    // one source. Falls back to the novel's own count when absent.
     unreadCounts: Map<Long, Long> = emptyMap(),
-): Comparator<LibraryNovel> {
-    val base: Comparator<LibraryNovel> = when (type) {
-        NovelLibrarySort.Type.Alphabetical -> compareBy { it.novel.title.lowercase() }
-        NovelLibrarySort.Type.LastRead -> compareBy { it.lastRead }
-        NovelLibrarySort.Type.LastUpdate -> compareBy { it.novel.lastUpdate }
-        NovelLibrarySort.Type.UnreadCount -> compareBy { unreadCounts[it.novel.id] ?: it.unreadCount }
-        NovelLibrarySort.Type.TotalChapters -> compareBy { it.totalChapters }
-        NovelLibrarySort.Type.LatestChapter -> compareBy { it.latestUpload }
-        NovelLibrarySort.Type.ChapterFetchDate -> compareBy { it.chapterFetchedAt }
-        NovelLibrarySort.Type.DateAdded -> compareBy { it.novel.dateAdded }
-        NovelLibrarySort.Type.Downloaded -> compareBy { it.downloadCount }
-        NovelLibrarySort.Type.TrackerMean -> compareBy { trackerMeanScores[it.novel.id] ?: -1.0 }
-        NovelLibrarySort.Type.Random -> compareBy { Random(randomSeed + it.id).nextInt() }
-    }
-    val withTiebreak = base.thenBy { it.novel.title.lowercase() }
-    return if (isAscending) withTiebreak else withTiebreak.reversed()
-}
+): Comparator<LibraryNovel> = librarySortComparator(
+    mode = type.toSortMode(),
+    isAscending = isAscending,
+    randomSeed = randomSeed,
+    fields = LibrarySortFields(
+        id = { it.id },
+        title = { it.novel.title },
+        lastRead = { it.lastRead },
+        lastUpdate = { it.novel.lastUpdate },
+        unreadCount = { unreadCounts[it.novel.id] ?: it.unreadCount },
+        totalChapters = { it.totalChapters },
+        latestUpload = { it.latestUpload },
+        chapterFetchedAt = { it.chapterFetchedAt },
+        dateAdded = { it.novel.dateAdded },
+        downloadCount = { it.downloadCount },
+        trackerMean = { trackerMeanScores[it.novel.id] ?: -1.0 },
+    ),
+)

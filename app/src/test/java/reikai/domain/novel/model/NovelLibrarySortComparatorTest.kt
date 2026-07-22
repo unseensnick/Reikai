@@ -4,11 +4,12 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 
 /**
- * Characterisation tests for the novel library sort comparator: they pin what it does TODAY so the
- * content-layer pipeline share can tell an intended behaviour change from an accidental one. Three
- * cases below (the reversed tiebreak, zero-unread ordering, and the Random form) are known divergences
- * from the manga library that the shared comparator will reconcile; each is marked, and the test is
- * expected to be updated, not deleted, when that lands.
+ * Characterisation tests for the novel library sort comparator, now a thin adapter over the shared
+ * [reikai.domain.library.librarySortComparator]. What were three known divergences from the manga library
+ * (the reversed tiebreak, zero-unread ordering, and the Random form) are reconciled: the tiebreak stays
+ * A to Z under a descending sort and zero-unread entries sort last regardless of direction, both matching
+ * the manga form. The shared comparator itself is pinned in `LibrarySortComparatorTest`; these cases keep
+ * the novel adapter honest.
  */
 class NovelLibrarySortComparatorTest {
 
@@ -153,36 +154,28 @@ class NovelLibrarySortComparatorTest {
         sortedIds(novels, NovelLibrarySort.Type.TotalChapters) shouldBe listOf(2L, 1L)
     }
 
-    /**
-     * Known divergence from the manga library, pinned deliberately. Novels reverse the whole
-     * comparator including the title tiebreak, so ties run Z to A under a descending sort; manga
-     * appends the tiebreak after reversing, keeping ties A to Z. The shared comparator adopts the
-     * manga form, at which point this expectation flips.
-     */
     @Test
-    fun `descending currently reverses the title tiebreak too`() {
+    fun `descending keeps the title tiebreak A to Z`() {
+        // Reconciled to the manga form: the tiebreak is appended after the reversal, so equal-chapter
+        // entries still run A to Z even under a descending sort.
         val novels = listOf(
             libNovel(1, title = "alpha", totalChapters = 5),
             libNovel(2, title = "zeta", totalChapters = 5),
         )
 
-        sortedIds(novels, NovelLibrarySort.Type.TotalChapters, ascending = false) shouldBe listOf(2L, 1L)
+        sortedIds(novels, NovelLibrarySort.Type.TotalChapters, ascending = false) shouldBe listOf(1L, 2L)
     }
 
-    /**
-     * Known divergence from the manga library, pinned deliberately. Manga forces zero-unread entries
-     * last regardless of direction so unread content always leads, which only shows under an ascending
-     * sort (descending sinks them anyway). Novels compare the raw number, so a fully-read novel leads.
-     * The shared comparator adopts the manga form, at which point this expectation flips to 1 then 2.
-     */
     @Test
-    fun `unread count currently lets a fully-read novel lead when ascending`() {
+    fun `unread count sinks a fully-read novel last when ascending`() {
+        // Reconciled to the manga form: a zero-unread (fully-read) novel sorts last regardless of
+        // direction, so unread content always leads.
         val novels = listOf(
             libNovel(1, title = "a", totalChapters = 10, readCount = 4),
             libNovel(2, title = "b", totalChapters = 10, readCount = 10),
         )
 
-        sortedIds(novels, NovelLibrarySort.Type.UnreadCount) shouldBe listOf(2L, 1L)
+        sortedIds(novels, NovelLibrarySort.Type.UnreadCount) shouldBe listOf(1L, 2L)
     }
 
     @Test

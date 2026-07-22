@@ -44,7 +44,10 @@ import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.isHidden
 import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ContentType
+import reikai.domain.library.LibrarySortFields
+import reikai.domain.library.LibrarySortMode
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.librarySortComparator
 import reikai.domain.library.sortForCategory
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MergedChapterProvider
@@ -64,7 +67,6 @@ import reikai.util.isLewd
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.TriState
-import tachiyomi.core.common.util.lang.compareToWithCollator
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.domain.category.interactor.GetCategories
@@ -96,7 +98,6 @@ import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
 import tachiyomi.domain.source.model.Source as DomainSource
 
@@ -622,97 +623,72 @@ class LibraryScreenModel(
             .associateWith { groupCache[it.id]?.toList().orEmpty() }
     }
 
+    // RK -->
+    // Manga library sort, routed through the shared reikai.domain.library.librarySortComparator so a sort
+    // behaviour change is written once for manga and novels. Manga keeps its OWN LibrarySort bit decoder
+    // (sortForCategory), because manga and novels store the TrackerMean / Downloaded sorts on swapped bits.
     private fun Map<Category, List</* LibraryItem */ Long>>.applySort(
         favoritesById: Map<Long, LibraryItem>,
         trackMap: Map<Long, List<Track>>,
         loggedInTrackerIds: Set<Long>,
     ): Map<Category, List</* LibraryItem */ Long>> {
-        val sortAlphabetically: (LibraryItem, LibraryItem) -> Int = { manga1, manga2 ->
-            val title1 = manga1.libraryManga.manga.title.lowercase()
-            val title2 = manga2.libraryManga.manga.title.lowercase()
-            title1.compareToWithCollator(title2)
-        }
-
-        val defaultTrackerScoreSortValue = -1.0
+        // Score each entry over its whole merged group (relatedMangaIds), deduped by tracker and dropping
+        // unrated (<= 0) scores, so a tracker on any grouped source contributes once, matching the novel
+        // library. Keyed by the entry's own id; unscored entries are absent and fall back to the -1.0
+        // default. Guarding on the mapped scores (not the raw track list) fixes the upstream bug where an
+        // all-logged-out track list averaged to NaN and sorted above every real score.
         val trackerScores by lazy {
-            val trackerMap = trackerManager.getAll(loggedInTrackerIds).associateBy { e -> e.id }
-            // RK: score each entry over its whole merged group (relatedMangaIds), so a tracker on any
-            // grouped source contributes to the mean, matching the novel library. Keyed by the entry's
-            // own id (the group primary); non-merged entries fall back to their own id.
-            favoritesById.values.associate { item ->
-                val ids = item.relatedMangaIds.ifEmpty { listOf(item.id) }
-                val tracks = ids.flatMap { trackMap[it].orEmpty() }
-                item.id to tracks.mapNotNull { trackerMap[it.trackerId]?.get10PointScore(it) }
-                    .takeIf { tracks.isNotEmpty() }
-                    ?.average()
-            }
-        }
-
-        fun LibrarySort.comparator(): Comparator<LibraryItem> = Comparator { manga1, manga2 ->
-            when (this.type) {
-                LibrarySort.Type.Alphabetical -> {
-                    sortAlphabetically(manga1, manga2)
-                }
-                LibrarySort.Type.LastRead -> {
-                    manga1.libraryManga.lastRead.compareTo(manga2.libraryManga.lastRead)
-                }
-                LibrarySort.Type.LastUpdate -> {
-                    manga1.libraryManga.manga.lastUpdate.compareTo(manga2.libraryManga.manga.lastUpdate)
-                }
-                // RK: LibraryItem.unreadCount, not the LibraryManga's, so a merged entry sorts by its
-                //     deduplicated group count. Identical for an unmerged entry.
-                LibrarySort.Type.UnreadCount -> when {
-                    // Ensure unread content comes first
-                    manga1.unreadCount == manga2.unreadCount -> 0
-                    manga1.unreadCount == 0L -> if (this.isAscending) 1 else -1
-                    manga2.unreadCount == 0L -> if (this.isAscending) -1 else 1
-                    else -> manga1.unreadCount.compareTo(manga2.unreadCount)
-                }
-                LibrarySort.Type.TotalChapters -> {
-                    manga1.libraryManga.totalChapters.compareTo(manga2.libraryManga.totalChapters)
-                }
-                LibrarySort.Type.LatestChapter -> {
-                    manga1.libraryManga.latestUpload.compareTo(manga2.libraryManga.latestUpload)
-                }
-                LibrarySort.Type.ChapterFetchDate -> {
-                    manga1.libraryManga.chapterFetchedAt.compareTo(manga2.libraryManga.chapterFetchedAt)
-                }
-                LibrarySort.Type.DateAdded -> {
-                    manga1.libraryManga.manga.dateAdded.compareTo(manga2.libraryManga.manga.dateAdded)
-                }
-                LibrarySort.Type.TrackerMean -> {
-                    val item1Score = trackerScores[manga1.id] ?: defaultTrackerScoreSortValue
-                    val item2Score = trackerScores[manga2.id] ?: defaultTrackerScoreSortValue
-                    item1Score.compareTo(item2Score)
-                }
-                // RK --> download-count sort (parity with the novel library's Downloaded sort)
-                LibrarySort.Type.Downloaded -> {
-                    manga1.downloadCount.compareTo(manga2.downloadCount)
-                }
-                // RK <--
-                LibrarySort.Type.Random -> {
-                    error("Why Are We Still Here? Just To Suffer?")
+            val trackerMap = trackerManager.getAll(loggedInTrackerIds).associateBy { it.id }
+            buildMap {
+                favoritesById.values.forEach { item ->
+                    val ids = item.relatedMangaIds.ifEmpty { listOf(item.id) }
+                    val scores = ids.flatMap { trackMap[it].orEmpty() }
+                        .distinctBy { it.trackerId }
+                        .mapNotNull { trackerMap[it.trackerId]?.get10PointScore(it)?.takeIf { s -> s > 0.0 } }
+                    if (scores.isNotEmpty()) put(item.id, scores.average())
                 }
             }
         }
 
-        // RK: a category follows the global sort unless it has a per-category override (CUSTOMIZED bit).
+        val fields = LibrarySortFields<LibraryItem>(
+            id = { it.id },
+            title = { it.libraryManga.manga.title },
+            lastRead = { it.libraryManga.lastRead },
+            lastUpdate = { it.libraryManga.manga.lastUpdate },
+            // LibraryItem.unreadCount (the deduplicated group count), not the LibraryManga's.
+            unreadCount = { it.unreadCount },
+            totalChapters = { it.libraryManga.totalChapters },
+            latestUpload = { it.libraryManga.latestUpload },
+            chapterFetchedAt = { it.libraryManga.chapterFetchedAt },
+            dateAdded = { it.libraryManga.manga.dateAdded },
+            downloadCount = { it.downloadCount.toLong() },
+            trackerMean = { trackerScores[it.id] ?: -1.0 },
+        )
+
+        // A category follows the global sort unless it has a per-category override (CUSTOMIZED bit).
         val globalSort = libraryPreferences.sortingMode.get()
+        val randomSeed = libraryPreferences.randomSortSeed.get().toLong()
         return mapValues { (key, value) ->
             val sort = sortForCategory(key.flags, globalSort)
-            if (sort.type == LibrarySort.Type.Random) {
-                return@mapValues value.shuffled(Random(libraryPreferences.randomSortSeed.get()))
-            }
-
-            val manga = value.mapNotNull { favoritesById[it] }
-
-            val comparator = sort.comparator()
-                .let { if (sort.isAscending) it else it.reversed() }
-                .thenComparator(sortAlphabetically)
-
-            manga.sortedWith(comparator).map { it.id }
+            val comparator = librarySortComparator(sort.type.toSortMode(), sort.isAscending, randomSeed, fields)
+            value.mapNotNull { favoritesById[it] }.sortedWith(comparator).map { it.id }
         }
     }
+
+    private fun LibrarySort.Type.toSortMode(): LibrarySortMode = when (this) {
+        LibrarySort.Type.Alphabetical -> LibrarySortMode.Alphabetical
+        LibrarySort.Type.LastRead -> LibrarySortMode.LastRead
+        LibrarySort.Type.LastUpdate -> LibrarySortMode.LastUpdate
+        LibrarySort.Type.UnreadCount -> LibrarySortMode.UnreadCount
+        LibrarySort.Type.TotalChapters -> LibrarySortMode.TotalChapters
+        LibrarySort.Type.LatestChapter -> LibrarySortMode.LatestChapter
+        LibrarySort.Type.ChapterFetchDate -> LibrarySortMode.ChapterFetchDate
+        LibrarySort.Type.DateAdded -> LibrarySortMode.DateAdded
+        LibrarySort.Type.TrackerMean -> LibrarySortMode.TrackerMean
+        LibrarySort.Type.Downloaded -> LibrarySortMode.Downloaded
+        LibrarySort.Type.Random -> LibrarySortMode.Random
+    }
+    // RK <--
 
     private fun getLibraryItemPreferencesFlow(): Flow<ItemPreferences> {
         return combine(
