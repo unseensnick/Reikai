@@ -44,11 +44,26 @@ class LibraryDynamicGroupingTest {
     }
 
     @Test
-    fun `categorySortOrder Z to A reverses BY_TRACK_STATUS groups`() {
+    fun `BY_TRACK_STATUS keeps progress order under an A to Z category sort`() {
+        // A->Z would alphabetize to Completed, Reading; track status stays in reading-progress order.
         val result = build(
             listOf(libraryManga(1), libraryManga(2)),
             LibraryGroup.BY_TRACK_STATUS,
             trackStatuses = mapOf(1L to "Completed", 2L to "Reading"),
+            trackingStatusOrder = { mapOf("Reading" to "1", "Completed" to "5")[it] ?: "9" },
+            categorySortOrder = 1,
+        )
+        result.keys.map { ReikaiDynamicCategory.displayName(it) } shouldContainExactly listOf("Reading", "Completed")
+    }
+
+    @Test
+    fun `BY_TRACK_STATUS keeps progress order under a Z to A category sort`() {
+        // Z->A no longer reverses track status: it stays in reading-progress order, not reversed.
+        val result = build(
+            listOf(libraryManga(1), libraryManga(2)),
+            LibraryGroup.BY_TRACK_STATUS,
+            trackStatuses = mapOf(1L to "Completed", 2L to "Reading"),
+            trackingStatusOrder = { mapOf("Reading" to "1", "Completed" to "5")[it] ?: "9" },
             categorySortOrder = 2,
         )
         result.keys.map { ReikaiDynamicCategory.displayName(it) } shouldContainExactly listOf("Reading", "Completed")

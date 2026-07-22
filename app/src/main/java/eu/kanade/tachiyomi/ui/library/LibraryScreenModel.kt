@@ -55,6 +55,7 @@ import reikai.domain.merge.ReconcileChapterMatchKeys
 import reikai.presentation.library.DynItem
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
+import reikai.presentation.library.LibraryTrackingStatusOrder
 import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.ReikaiLibraryState
@@ -444,16 +445,30 @@ class LibraryScreenModel(
         }
 
         val trackStatuses = if (groupType == LibraryGroup.BY_TRACK_STATUS) {
-            library.mapNotNull { lm ->
-                val track = data.tracksMap[lm.manga.id].orEmpty()
+            data.favorites.mapNotNull { item ->
+                val mangaId = item.libraryManga.manga.id
+                // RK: union tracks across the merged group (relatedMangaIds), so a status bound on any
+                // grouped source groups the row, matching the tracker filter/sort and the novel library.
+                val groupIds = item.relatedMangaIds.ifEmpty { listOf(mangaId) }
+                val track = groupIds.flatMap { data.tracksMap[it].orEmpty() }
                     .firstOrNull { it.trackerId in data.loggedInTrackerIds }
                     ?: return@mapNotNull null
                 val statusRes = trackerManager.get(track.trackerId)?.getStatus(track.status)
                     ?: return@mapNotNull null
-                lm.manga.id to context.stringResource(statusRes)
+                mangaId to context.stringResource(statusRes)
             }.toMap()
         } else {
             emptyMap()
+        }
+
+        // RK: order the track-status buckets by each tracker's own status list (Reading first, Dropped
+        // last) instead of alphabetically; identity for other groupings, which the kernel ignores anyway.
+        val trackingStatusOrder: (String) -> String = if (groupType == LibraryGroup.BY_TRACK_STATUS) {
+            LibraryTrackingStatusOrder.build(
+                data.loggedInTrackerIds.mapNotNull { trackerManager.get(it) },
+            ) { context.stringResource(it) }
+        } else {
+            { it }
         }
 
         return LibraryDynamicGrouping.build(
@@ -471,6 +486,7 @@ class LibraryScreenModel(
             languageCodes = languageCodes,
             statusNames = statusNames,
             languageDisplay = { code -> displayLanguage(code) },
+            trackingStatusOrder = trackingStatusOrder,
         )
     }
 

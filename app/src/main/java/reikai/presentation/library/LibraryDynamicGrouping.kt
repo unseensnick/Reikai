@@ -105,21 +105,19 @@ object LibraryDynamicGrouping {
             )
         }
 
-        // Step 3: order categories by the user's category-sort-order. Z->A reverses;
-        // off/A->Z is alphabetical by display name. BY_TRACK_STATUS keeps the caller's intent
-        // order (Reading first, Dropped last) only when the sort is left on its default (off).
-        val sorted = if (categorySortOrder == 2) {
+        // Step 3: order the category buckets. Tracking status has an inherent reading-progress order
+        // (Reading first, Not tracked last), so it always uses that and ignores the alphabetical category
+        // sort, which is meant for name-keyed groupings (source / tag / author / language). For those,
+        // Z->A reverses and off / A->Z is alphabetical by display name.
+        val sorted = if (groupType == LibraryGroup.BY_TRACK_STATUS) {
+            categories.sortedWith(
+                compareBy(String.CASE_INSENSITIVE_ORDER) { trackingStatusOrder(ReikaiDynamicCategory.displayName(it)) },
+            )
+        } else if (categorySortOrder == 2) {
             categories.sortedByDescending { ReikaiDynamicCategory.displayName(it).lowercase() }
         } else {
             categories.sortedWith(
-                compareBy(String.CASE_INSENSITIVE_ORDER) { category ->
-                    val display = ReikaiDynamicCategory.displayName(category)
-                    if (groupType == LibraryGroup.BY_TRACK_STATUS && categorySortOrder == 0) {
-                        trackingStatusOrder(display)
-                    } else {
-                        display
-                    }
-                },
+                compareBy(String.CASE_INSENSITIVE_ORDER) { ReikaiDynamicCategory.displayName(it) },
             )
         }
 

@@ -64,6 +64,7 @@ import reikai.presentation.category.toLongIdSet
 import reikai.presentation.library.DynItem
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
+import reikai.presentation.library.LibraryTrackingStatusOrder
 import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.novels.NovelMergeCollapse.CollapsedNovel
 import reikai.presentation.library.reikaiSortCategories
@@ -582,6 +583,16 @@ class NovelLibraryScreenModel :
             emptyMap()
         }
 
+        // Order the track-status buckets by each tracker's own status list (Reading first, Dropped last)
+        // instead of alphabetically, sharing the manga library's helper; identity for other groupings.
+        val trackingStatusOrder: (String) -> String = if (groupType == LibraryGroup.BY_TRACK_STATUS) {
+            LibraryTrackingStatusOrder.build(
+                loggedInTrackerIds.mapNotNull { trackerManager.get(it) },
+            ) { context.stringResource(it) }
+        } else {
+            { it }
+        }
+
         val groups = LibraryDynamicGrouping.build(
             items = dynItems,
             groupType = groupType,
@@ -599,6 +610,7 @@ class NovelLibraryScreenModel :
             languageDisplay = { code -> Locale.forLanguageTag(code).displayName.ifBlank { code } },
             statusNames = statusNames,
             trackStatuses = trackStatuses,
+            trackingStatusOrder = trackingStatusOrder,
         )
 
         // Dynamic groups have no per-category sort, so they all use the library default sort.
