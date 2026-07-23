@@ -42,7 +42,6 @@ import reikai.domain.category.categoryDiff
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.isHidden
 import reikai.domain.library.ContentType
-import reikai.domain.library.LibrarySortFields
 import reikai.domain.library.LibrarySortMode
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.librarySortComparator
@@ -55,7 +54,6 @@ import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.ReconcileChapterMatchKeys
 import reikai.presentation.library.DynItem
 import reikai.presentation.library.LibraryDynamicGrouping
-import reikai.presentation.library.LibraryFilterFields
 import reikai.presentation.library.LibraryFilterPrefs
 import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.LibraryTrackingStatusOrder
@@ -63,8 +61,9 @@ import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.ReikaiLibraryState
 import reikai.presentation.library.libraryFilterMatches
+import reikai.presentation.library.libraryItemFilterFields
+import reikai.presentation.library.libraryItemSortFields
 import reikai.presentation.library.reikaiSortCategories
-import reikai.util.isLewd
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.TriState
@@ -536,15 +535,8 @@ class LibraryScreenModel(
             categoriesInclude = includeCategories,
             categoriesExclude = excludeCategories,
         )
-        val fields = LibraryFilterFields<LibraryItem>(
-            isDownloaded = { it.isLocal || it.downloadCount > 0 },
-            // LibraryItem.unreadCount (the deduplicated group count), not the LibraryManga's.
-            isUnread = { it.unreadCount > 0 },
-            hasStarted = { it.libraryManga.hasStarted },
-            hasBookmarks = { it.libraryManga.hasBookmarks },
-            isCompleted = { it.libraryManga.manga.status.toInt() == SManga.COMPLETED },
-            matchesIntervalCustom = { it.libraryManga.manga.fetchInterval < 0 },
-            isLewd = { it.libraryManga.manga.isLewd(sourceManager.getOrStub(it.libraryManga.manga.source).name) },
+        val fields = libraryItemFilterFields(
+            lewdSourceName = { sourceManager.getOrStub(it.libraryManga.manga.source).name },
             // Union tracks across the merged group (relatedMangaIds), so a tracker on any grouped source
             // counts; empty relatedMangaIds falls back to the entry's own id.
             trackerIds = { item ->
@@ -552,7 +544,6 @@ class LibraryScreenModel(
                     .flatMap { trackMap[it].orEmpty() }
                     .map { it.trackerId }
             },
-            categoryIds = { it.libraryManga.categories },
         )
         return fastFilter { libraryFilterMatches(it, prefs, fields) }
     }
@@ -604,20 +595,7 @@ class LibraryScreenModel(
             }
         }
 
-        val fields = LibrarySortFields<LibraryItem>(
-            id = { it.id },
-            title = { it.libraryManga.manga.title },
-            lastRead = { it.libraryManga.lastRead },
-            lastUpdate = { it.libraryManga.manga.lastUpdate },
-            // LibraryItem.unreadCount (the deduplicated group count), not the LibraryManga's.
-            unreadCount = { it.unreadCount },
-            totalChapters = { it.libraryManga.totalChapters },
-            latestUpload = { it.libraryManga.latestUpload },
-            chapterFetchedAt = { it.libraryManga.chapterFetchedAt },
-            dateAdded = { it.libraryManga.manga.dateAdded },
-            downloadCount = { it.downloadCount.toLong() },
-            trackerMean = { trackerScores[it.id] ?: -1.0 },
-        )
+        val fields = libraryItemSortFields(trackerMean = { trackerScores[it.id] ?: -1.0 })
 
         // A category follows the global sort unless it has a per-category override (CUSTOMIZED bit).
         val globalSort = libraryPreferences.sortingMode.get()
