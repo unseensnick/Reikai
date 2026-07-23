@@ -61,6 +61,9 @@ class LnPluginHost(
     private val mutex = Mutex()
     private var qjs: QuickJs? = null
 
+    // Distinguishes each call's result slot. Only ever touched under [mutex].
+    private var callSeq = 0L
+
     /** Create the engine and load the vendor bundles + runtime once. Caller must hold [mutex]. */
     private suspend fun engine(): QuickJs {
         qjs?.let { return it }
@@ -214,17 +217,37 @@ class LnPluginHost(
         mutex.withLock {
             val q = engine()
             val argsJson = JSON.encodeToString(ListSerializer(JsonElement.serializer()), args)
-            // __lnCallMethod is async (it fetches). evaluate returns the Promise, not its value, so
-            // stash the settled result on a global the engine fills while evaluate pumps the job
-            // queue (including the suspend __lnFetch binding), then read it back. The mutex makes the
-            // shared global safe.
+            // __lnCallMethod is async (it fetches). evaluate returns the Promise, not its value, so the
+            // settled result is parked on a global that the engine fills while evaluate pumps the job
+            // queue (including the suspend __lnFetch binding), then read back.
+            //
+            // Each call parks in its OWN slot, keyed by a call id. A single shared slot was not safe
+            // despite the mutex: a promise outlives the call that created it, so a slow call that gave
+            // up could settle later and land in the slot the NEXT call then read, handing one novel the
+            // parsed metadata of another and writing it over that novel's row. Keying by call id makes
+            // a late settle land somewhere nobody reads.
+            val callId = "c${++callSeq}"
             q.evaluate<Any?>(
-                "globalThis.__lnPending='__pending__';" +
+                "globalThis.__lnResults=globalThis.__lnResults||{};" +
+                    // A call that timed out never collects its slot; bound the leak.
+                    "if(Object.keys(globalThis.__lnResults).length>$MAX_PENDING_SLOTS)" +
+                    "globalThis.__lnResults={};" +
                     "globalThis.__lnCallMethod(${jsStr(pluginId)}, ${jsStr(method)}, ${jsStr(argsJson)})" +
-                    ".then(function(r){globalThis.__lnPending=r;}," +
-                    "function(e){globalThis.__lnPending=JSON.stringify({ok:false,error:String((e&&e.message)||e)});});",
+                    ".then(function(r){globalThis.__lnResults[${jsStr(callId)}]=r;}," +
+                    "function(e){globalThis.__lnResults[${jsStr(callId)}]=" +
+                    "JSON.stringify({ok:false,error:String((e&&e.message)||e)});});",
             )
-            val resultJson = q.evaluate<String>("String(globalThis.__lnPending)")
+            // Read this call's slot, and keep pumping the job queue until it settles. Reading once and
+            // trusting whatever was there is what allowed a stale result to be taken as the answer;
+            // waiting turns a not-yet-settled call into the enclosing timeout instead of wrong data.
+            val read = "(function(){var v=globalThis.__lnResults[${jsStr(callId)}];" +
+                "return v===undefined?$PENDING_JS:String(v);})()"
+            var resultJson = q.evaluate<String>(read)
+            while (resultJson == PENDING) {
+                delay(CALL_POLL_MS)
+                resultJson = q.evaluate<String>(read)
+            }
+            q.evaluate<Any?>("delete globalThis.__lnResults[${jsStr(callId)}];")
             val result = JSON.decodeFromString(LnCallResult.serializer(), resultJson)
             if (!result.ok) throw LnPluginException(result.error ?: "$method failed without message")
             result.value ?: JsonNull
@@ -247,6 +270,19 @@ class LnPluginHost(
         // backoffs (usually 5-30s) while staying well under CALL_TIMEOUT_MS, which remains the backstop
         // against a plugin that asks to sleep far longer.
         private const val MAX_TIMER_DELAY_MS = 30_000L
+
+        // Sentinel for "this call's slot is still empty". Compared in Kotlin and produced by the JS
+        // read, so the two spellings have to agree.
+        private const val PENDING = "__pending__"
+        private const val PENDING_JS = "'$PENDING'"
+
+        // How long to wait between pumps while a call settles. The first evaluate usually drives the
+        // promise to completion, so this only costs anything on a genuinely slow fetch.
+        private const val CALL_POLL_MS = 25L
+
+        // Slots are collected by the call that made them, so this only grows when a call times out and
+        // never comes back for its result. Well above any realistic in-flight count.
+        private const val MAX_PENDING_SLOTS = 64
         val JSON: Json = Json {
             ignoreUnknownKeys = true
             isLenient = true

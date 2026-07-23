@@ -31,6 +31,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Fixes
 
+- **Updating your novel library can no longer save one novel's title and cover onto a different novel.** A slow chapter check could hand its result to the next novel in the run, overwriting that entry's details; refreshing an affected entry restores it.
 - **"Open random manga" now opens a novel when the Novels library is showing.** It always opened a manga, whichever chip was selected.
 - **Updating a single category from the Novels library now updates the category you are looking at.** It was picking the category by the manga library's position instead.
 - **Chapters you have read no longer disappear from the reader's chapter list, and swiping back reaches them again.**
