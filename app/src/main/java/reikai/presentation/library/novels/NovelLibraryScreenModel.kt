@@ -745,8 +745,7 @@ class NovelLibraryScreenModel :
     // --- multi-select actions ---
 
     /** Manually merge the selected novels into one group (covers both library views). */
-    fun mergeSelection() {
-        val ids = state.value.selectedNovelIds
+    fun mergeSelection(ids: List<Long>) {
         if (ids.size < 2) return
         screenModelScope.launchIO {
             // each selected card's whole group is absorbed by the merge, so one call coalesces every source
@@ -756,8 +755,7 @@ class NovelLibraryScreenModel :
     }
 
     /** Split the selected novels out of their merge groups (no-op for non-merged selections). */
-    fun unmergeSelection() {
-        val ids = state.value.selectedNovelIds
+    fun unmergeSelection(ids: List<Long>) {
         if (ids.isEmpty()) return
         screenModelScope.launchIO {
             // copy each group's trackers onto its members before splitting, so each keeps them.
@@ -767,10 +765,10 @@ class NovelLibraryScreenModel :
         }
     }
 
-    fun markReadSelection(read: Boolean) {
+    fun markReadSelection(ids: List<Long>, read: Boolean) {
         // Mark every source of a merge group, so a merged series doesn't stay part-read on the
         // sources that aren't the representative.
-        val novelIds = state.value.selectedNovelIdsExpanded
+        val novelIds = state.value.memberIdsFor(ids)
         screenModelScope.launchIO {
             // The interactor groups by novel for delete-after-read, so pass every selected novel's chapters.
             val chapters = novelIds.flatMap { novelChapterRepository.getByNovelId(it) }
@@ -779,14 +777,14 @@ class NovelLibraryScreenModel :
         }
     }
 
-    fun performDownloadAction(action: DownloadAction) {
+    fun performDownloadAction(ids: List<Long>, action: DownloadAction) {
         // Deliberately NOT expanded: grouped sources carry the same chapters, so downloading every
         // member would fetch each chapter once per source and waste the storage on near-duplicates.
         // The right target is the group's deduplicated list (the details "All" view), which the
         // library cannot build without the aggregation; until it does, this stays on the
         // representative, which becomes the user's chosen trunk once the collapse honours the
         // persisted source ranking.
-        val novelIds = state.value.selectedNovelIds
+        val novelIds = ids
         screenModelScope.launchIO {
             novelIds.forEach { id ->
                 val novel = novelRepository.getById(id) ?: return@forEach
@@ -804,12 +802,12 @@ class NovelLibraryScreenModel :
         }
     }
 
-    fun openChangeCategoryDialog() {
+    fun openChangeCategoryDialog(ids: List<Long>) {
         screenModelScope.launchIO {
             // Expanded, so the checkboxes reflect the whole merge group and the write below reaches
             // every member; otherwise members drift into different categories and the entry can
             // vanish from a category the user moved it to.
-            val novelIds = state.value.selectedNovelIdsExpanded
+            val novelIds = state.value.memberIdsFor(ids)
             // All non-default categories, not just the ones currently shown (empty categories are
             // hidden from the library grid but must still be assignable here).
             val categories = getNovelCategories.await().filterNot { it.isSystemCategory }.map { it.toCategory() }
@@ -838,11 +836,11 @@ class NovelLibraryScreenModel :
         }
     }
 
-    fun openDeleteDialog() {
+    fun openDeleteDialog(ids: List<Long>) {
         val current = state.value
         // N grouped sources to offer removing, when the selection includes a merged cover (else 0).
-        val groupedCount = if (current.selectionContainsMerged) current.selectedNovelIdsExpanded.size else 0
-        mutableDialog.value = Dialog.Delete(current.selectedNovelIds, groupedCount)
+        val groupedCount = if (current.containsMerged(ids)) current.memberIdsFor(ids).size else 0
+        mutableDialog.value = Dialog.Delete(ids, groupedCount)
     }
 
     fun removeNovels(
@@ -1109,22 +1107,25 @@ class NovelLibraryScreenModel :
 
         val selectionMode = selection.isNotEmpty()
 
-        val selectedNovelIds: List<Long> by lazy { selection.toList() }
+        // These resolve an explicit id set rather than reading the selection, so a bulk action is driven
+        // by the ids its caller passes. That is what lets the shared engine own a selection spanning both
+        // content types and hand each provider only its own ids. Mirrors the manga library.
 
-        /** Any selected entry is a merge group (drives the bulk Unmerge action). */
-        val selectionContainsMerged: Boolean by lazy {
-            selection.any { (favoritesById[it]?.relatedMangaIds?.size ?: 0) > 1 }
-        }
+        /** Any of [ids] is a merge group (drives the bulk Unmerge action). */
+        fun containsMerged(ids: Collection<Long>): Boolean =
+            ids.any { (favoritesById[it]?.relatedMangaIds?.size ?: 0) > 1 }
 
-        /** Every grouped source-novel behind the selection. A merged cover is one selected id standing
-         *  for its whole group (relatedMangaIds); this expands each to all members. Equals
-         *  selectedNovelIds when nothing is merged. */
-        val selectedNovelIdsExpanded: List<Long> by lazy {
-            selection.flatMap { id ->
+        /** Every grouped source-novel behind [ids]. A merged cover is one id standing for its whole
+         *  group (relatedMangaIds); this expands each to all members. Equals [ids] when none is merged. */
+        fun memberIdsFor(ids: Collection<Long>): List<Long> =
+            ids.flatMap { id ->
                 val item = favoritesById[id] ?: return@flatMap emptyList<Long>()
                 item.relatedMangaIds.ifEmpty { listOf(id) }
             }.distinct()
-        }
+
+        val selectedNovelIds: List<Long> get() = selection.toList()
+        val selectionContainsMerged get() = containsMerged(selection)
+        val selectedNovelIdsExpanded get() = memberIdsFor(selection)
 
         // Apply the display-only custom-info overlay here, the sole render path, so the overrides never
         // reach the raw rows that filter, sort, grouping and search read. Mirrors the manga library.

@@ -52,6 +52,7 @@ import eu.kanade.presentation.library.DeleteLibraryMangaDialog
 import eu.kanade.presentation.library.LibrarySettingsDialog
 import eu.kanade.presentation.library.components.LibraryContent
 import eu.kanade.presentation.library.components.LibraryToolbar
+import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.LibraryBottomActionMenu
 import eu.kanade.presentation.more.onboarding.GETTING_STARTED_URL
 import eu.kanade.presentation.util.Tab
@@ -377,12 +378,15 @@ data object LibraryTab : Tab {
                 // per-type source-pick screen over each type's own id space.
                 LibraryBottomActionMenu(
                     visible = activeSelectionMode,
-                    onChangeCategoryClicked = behavior::openChangeCategoryDialog,
-                    onMarkAsReadClicked = { behavior.markReadSelection(true) },
-                    onMarkAsUnreadClicked = { behavior.markReadSelection(false) },
+                    onChangeCategoryClicked = { behavior.openChangeCategoryDialog(activeSelection) },
+                    onMarkAsReadClicked = { behavior.markReadSelection(activeSelection, true) },
+                    onMarkAsUnreadClicked = { behavior.markReadSelection(activeSelection, false) },
                     // RK: manga hides Download when every selected entry is local; novels never do.
-                    onDownloadClicked = behavior::performDownloadAction.takeIf { libState.canDownloadSelection },
-                    onDeleteClicked = behavior::openDeleteDialog,
+                    onDownloadClicked = { action: DownloadAction ->
+                        behavior.performDownloadAction(activeSelection, action)
+                    }
+                        .takeIf { libState.canDownloadSelection },
+                    onDeleteClicked = { behavior.openDeleteDialog(activeSelection) },
                     onMigrateClicked = {
                         if (isNovels) {
                             val ids = novelState.selectedNovelIds
@@ -397,8 +401,10 @@ data object LibraryTab : Tab {
                     },
                     // RK: manual merge of the selected entries (needs at least two) + unmerge (only when the
                     // selection includes a merged one).
-                    onMergeClicked = behavior::mergeSelection.takeIf { activeSelection.size >= 2 },
-                    onUnmergeClicked = behavior::unmergeSelection.takeIf { libState.selectionContainsMerged },
+                    onMergeClicked = { behavior.mergeSelection(activeSelection) }
+                        .takeIf { activeSelection.size >= 2 },
+                    onUnmergeClicked = { behavior.unmergeSelection(activeSelection) }
+                        .takeIf { libState.selectionContainsMerged },
                 )
             },
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },

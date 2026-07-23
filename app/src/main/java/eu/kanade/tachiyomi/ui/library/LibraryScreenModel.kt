@@ -643,14 +643,15 @@ class LibraryScreenModel(
     /**
      * Queues the amount specified of unread chapters from the list of selected manga
      */
-    fun performDownloadAction(action: DownloadAction) {
+    fun performDownloadAction(ids: List<Long>, action: DownloadAction) {
+        val mangas = state.value.mangaFor(ids)
         when (action) {
-            DownloadAction.NEXT_1_CHAPTER -> downloadNextChapters(1)
-            DownloadAction.NEXT_5_CHAPTERS -> downloadNextChapters(5)
-            DownloadAction.NEXT_10_CHAPTERS -> downloadNextChapters(10)
-            DownloadAction.NEXT_25_CHAPTERS -> downloadNextChapters(25)
-            DownloadAction.UNREAD_CHAPTERS -> downloadNextChapters(null)
-            DownloadAction.BOOKMARKED_CHAPTERS -> downloadBookmarkedChapters()
+            DownloadAction.NEXT_1_CHAPTER -> downloadNextChapters(mangas, 1)
+            DownloadAction.NEXT_5_CHAPTERS -> downloadNextChapters(mangas, 5)
+            DownloadAction.NEXT_10_CHAPTERS -> downloadNextChapters(mangas, 10)
+            DownloadAction.NEXT_25_CHAPTERS -> downloadNextChapters(mangas, 25)
+            DownloadAction.UNREAD_CHAPTERS -> downloadNextChapters(mangas, null)
+            DownloadAction.BOOKMARKED_CHAPTERS -> downloadBookmarkedChapters(mangas)
         }
         clearSelection()
     }
@@ -670,8 +671,7 @@ class LibraryScreenModel(
     //     list (what the details "All" view shows), which the library cannot build without the
     //     aggregation; until it does, this stays on the collapsed primary, which becomes the user's
     //     chosen trunk once the collapse honours the persisted source ranking.
-    private fun downloadNextChapters(amount: Int?) {
-        val mangas = state.value.selectedManga
+    private fun downloadNextChapters(mangas: List<Manga>, amount: Int?) {
         screenModelScope.launchNonCancellable {
             mangas.forEach { manga ->
                 val chapters = getNextChapters.await(manga.id)
@@ -692,8 +692,7 @@ class LibraryScreenModel(
         }
     }
 
-    private fun downloadBookmarkedChapters() {
-        val mangas = state.value.selectedManga
+    private fun downloadBookmarkedChapters(mangas: List<Manga>) {
         screenModelScope.launchNonCancellable {
             mangas.forEach { manga ->
                 val chapters = getBookmarkedChaptersByMangaId.await(manga.id)
@@ -715,10 +714,10 @@ class LibraryScreenModel(
     /**
      * Marks mangas' chapters read status.
      */
-    fun markReadSelection(read: Boolean) {
+    fun markReadSelection(ids: List<Long>, read: Boolean) {
         // RK: mark every source of a merge group, so a merged series doesn't stay part-read on the
         //     sources that aren't the collapsed primary.
-        val memberIds = state.value.selectedMemberIds
+        val memberIds = state.value.memberIdsFor(ids)
         screenModelScope.launchNonCancellable {
             resolveSelectedGroupManga(memberIds).forEach { manga ->
                 setReadStatus.await(
@@ -839,8 +838,7 @@ class LibraryScreenModel(
     }
 
     // RK: manually merge the selected manga into one group (covers both library views)
-    fun mergeSelection() {
-        val ids = state.value.selection.toList()
+    fun mergeSelection(ids: List<Long>) {
         if (ids.size < 2) return
         screenModelScope.launchIO {
             // RK: each selected card's whole group is absorbed by the merge, so one call coalesces every source
@@ -852,8 +850,7 @@ class LibraryScreenModel(
     }
 
     // RK: split the selected manga out of their merge groups (no-op for non-merged selections)
-    fun unmergeSelection() {
-        val ids = state.value.selection.toList()
+    fun unmergeSelection(ids: List<Long>) {
         if (ids.isEmpty()) return
         screenModelScope.launchIO { mergeManager.unmerge(ids) }
         clearSelection()
@@ -948,10 +945,10 @@ class LibraryScreenModel(
         libraryPreferences.lastUsedCategory.set(newIndex)
     }
 
-    fun openChangeCategoryDialog() {
+    fun openChangeCategoryDialog(ids: List<Long>) {
         screenModelScope.launchIO {
             // Create a copy of selected manga
-            val mangaList = state.value.selectedManga
+            val mangaList = state.value.mangaFor(ids)
 
             // Hide the default category because it has a different behavior than the ones from db.
             val categories = state.value.displayedCategories.filter { it.id != 0L }
@@ -973,11 +970,11 @@ class LibraryScreenModel(
         }
     }
 
-    fun openDeleteMangaDialog() {
+    fun openDeleteMangaDialog(ids: List<Long>) {
         val current = state.value
         // RK: N grouped sources to offer removing, when the selection includes a merged cover (else 0).
-        val groupedCount = if (current.selectionContainsMerged) current.selectedMemberIds.size else 0
-        mutableState.update { it.copy(dialog = Dialog.DeleteManga(current.selectedManga, groupedCount)) }
+        val groupedCount = if (current.containsMerged(ids)) current.memberIdsFor(ids).size else 0
+        mutableState.update { it.copy(dialog = Dialog.DeleteManga(current.mangaFor(ids), groupedCount)) }
     }
 
     fun closeDialog() {
@@ -1078,23 +1075,29 @@ class LibraryScreenModel(
 
         val selectionMode = selection.isNotEmpty()
 
-        val selectedManga by lazy { selection.mapNotNull { libraryData.favoritesById[it]?.libraryManga?.manga } }
+        // RK: these resolve an explicit id set rather than reading the selection, so a bulk action is
+        //     driven by the ids its caller passes. That is what lets the shared engine own a selection
+        //     spanning both content types and hand each provider only its own ids.
+        fun mangaFor(ids: Collection<Long>): List<Manga> =
+            ids.mapNotNull { libraryData.favoritesById[it]?.libraryManga?.manga }
 
-        // RK: any selected manga is part of a merge group (drives the bulk Unmerge action)
-        val selectionContainsMerged: Boolean by lazy {
-            selection.any { (libraryData.favoritesById[it]?.relatedMangaIds?.size ?: 0) > 1 }
-        }
+        /** Any of [ids] is part of a merge group (drives the bulk Unmerge action). */
+        fun containsMerged(ids: Collection<Long>): Boolean =
+            ids.any { (libraryData.favoritesById[it]?.relatedMangaIds?.size ?: 0) > 1 }
 
-        // RK: ids of every grouped source-manga behind the current selection. A merged cover is a
-        //     single selected id standing for its whole group (LibraryItem.relatedMangaIds); the
-        //     merged-away members are collapsed out of favoritesById, so we keep their ids here and
-        //     resolve the manga from the DB at delete time. Equals the selection when nothing merged.
-        val selectedMemberIds: List<Long> by lazy {
-            selection.flatMap { id ->
+        // RK: ids of every grouped source-manga behind [ids]. A merged cover is a single id standing
+        //     for its whole group (LibraryItem.relatedMangaIds); the merged-away members are collapsed
+        //     out of favoritesById, so we keep their ids here and resolve the manga from the DB at
+        //     delete time. Equals [ids] when nothing is merged.
+        fun memberIdsFor(ids: Collection<Long>): List<Long> =
+            ids.flatMap { id ->
                 val item = libraryData.favoritesById[id] ?: return@flatMap emptyList<Long>()
                 item.relatedMangaIds.ifEmpty { listOf(id) }
             }.distinct()
-        }
+
+        val selectedManga get() = mangaFor(selection)
+        val selectionContainsMerged get() = containsMerged(selection)
+        val selectedMemberIds get() = memberIdsFor(selection)
 
         fun getItemsForCategoryId(categoryId: Long?): List<LibraryItem> {
             if (categoryId == null) return emptyList()

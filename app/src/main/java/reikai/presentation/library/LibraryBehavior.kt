@@ -2,6 +2,7 @@ package reikai.presentation.library
 
 import eu.kanade.presentation.manga.DownloadAction
 import kotlinx.coroutines.flow.StateFlow
+import reikai.domain.entry.EntryId
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryManga
 
@@ -33,14 +34,16 @@ interface LibraryBehavior {
     fun toggleDynamicCategoryCollapse(headerKey: String)
     fun toggleAllCategoriesCollapsed(categories: List<Category>)
 
-    // Bulk selection actions. openChangeCategoryDialog / openDeleteDialog open a per-type dialog that the
-    // tab renders; the behaviour only triggers it.
-    fun markReadSelection(read: Boolean)
-    fun performDownloadAction(action: DownloadAction)
-    fun openChangeCategoryDialog()
-    fun openDeleteDialog()
-    fun mergeSelection()
-    fun unmergeSelection()
+    // Bulk selection actions. Each takes the entries to act on rather than reading a selection the
+    // provider owns, so the shared layer can hold one selection spanning both content types and hand
+    // each provider only its own ids. openChangeCategoryDialog / openDeleteDialog open a per-type dialog
+    // that the tab renders; the behaviour only triggers it.
+    fun markReadSelection(entries: Set<EntryId>, read: Boolean)
+    fun performDownloadAction(entries: Set<EntryId>, action: DownloadAction)
+    fun openChangeCategoryDialog(entries: Set<EntryId>)
+    fun openDeleteDialog(entries: Set<EntryId>)
+    fun mergeSelection(entries: Set<EntryId>)
+    fun unmergeSelection(entries: Set<EntryId>)
 
     // Paging + the settings sheet. A null categoryId is the global-sort scope; the novel adapter maps it to
     // its uncategorized sentinel.

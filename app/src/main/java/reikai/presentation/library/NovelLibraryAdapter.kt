@@ -90,23 +90,28 @@ class NovelLibraryAdapter(
     ) {
         model.toggleAllCategoriesCollapsed(categories)
     }
-    override fun markReadSelection(read: Boolean) {
-        model.markReadSelection(read)
+
+    // Each verb takes the neutral selection and hands the model only the raw ids of its own content
+    // type, so a mixed selection never reaches a provider that cannot act on it.
+    private fun Set<EntryId>.ownIds() = filterIsInstance<EntryId.Novel>().map { it.rawId }
+
+    override fun markReadSelection(entries: Set<EntryId>, read: Boolean) {
+        model.markReadSelection(entries.ownIds(), read)
     }
-    override fun performDownloadAction(action: DownloadAction) {
-        model.performDownloadAction(action)
+    override fun performDownloadAction(entries: Set<EntryId>, action: DownloadAction) {
+        model.performDownloadAction(entries.ownIds(), action)
     }
-    override fun openChangeCategoryDialog() {
-        model.openChangeCategoryDialog()
+    override fun openChangeCategoryDialog(entries: Set<EntryId>) {
+        model.openChangeCategoryDialog(entries.ownIds())
     }
-    override fun openDeleteDialog() {
-        model.openDeleteDialog()
+    override fun openDeleteDialog(entries: Set<EntryId>) {
+        model.openDeleteDialog(entries.ownIds())
     }
-    override fun mergeSelection() {
-        model.mergeSelection()
+    override fun mergeSelection(entries: Set<EntryId>) {
+        model.mergeSelection(entries.ownIds())
     }
-    override fun unmergeSelection() {
-        model.unmergeSelection()
+    override fun unmergeSelection(entries: Set<EntryId>) {
+        model.unmergeSelection(entries.ownIds())
     }
     override fun updateActiveCategoryIndex(index: Int) {
         model.updateActiveCategoryIndex(index)
