@@ -1,8 +1,6 @@
 package reikai.domain.novel.model
 
-import reikai.domain.library.LibrarySortFields
 import reikai.domain.library.LibrarySortMode
-import reikai.domain.library.librarySortComparator
 
 /**
  * Per-category novel library sort. Mirrors Mihon's [tachiyomi.domain.library.model.LibrarySort] bit
@@ -62,7 +60,8 @@ data class NovelLibrarySort(
     }
 }
 
-private fun NovelLibrarySort.Type.toSortMode(): LibrarySortMode = when (this) {
+/** Resolve this novel sort key to the neutral mode the shared comparator understands. */
+fun NovelLibrarySort.Type.toSortMode(): LibrarySortMode = when (this) {
     NovelLibrarySort.Type.Alphabetical -> LibrarySortMode.Alphabetical
     NovelLibrarySort.Type.LastRead -> LibrarySortMode.LastRead
     NovelLibrarySort.Type.LastUpdate -> LibrarySortMode.LastUpdate
@@ -76,33 +75,6 @@ private fun NovelLibrarySort.Type.toSortMode(): LibrarySortMode = when (this) {
     NovelLibrarySort.Type.Random -> LibrarySortMode.Random
 }
 
-/**
- * Comparator over [LibraryNovel] for this sort, a thin adapter over the shared [librarySortComparator]
- * (the novel side of the one comparator both libraries use). [randomSeed] only matters for
- * [NovelLibrarySort.Type.Random]; [trackerMeanScores] (rep novel id -> mean 0-10 score, unscored omitted)
- * only for [NovelLibrarySort.Type.TrackerMean]; [unreadCounts] (novel id -> the group's deduplicated
- * unread count) overrides the novel's own single-source count for merged entries. All are precomputed by
- * the caller so the comparator stays pure.
- */
-fun NovelLibrarySort.comparator(
-    randomSeed: Long = 0L,
-    trackerMeanScores: Map<Long, Double> = emptyMap(),
-    unreadCounts: Map<Long, Long> = emptyMap(),
-): Comparator<LibraryNovel> = librarySortComparator(
-    mode = type.toSortMode(),
-    isAscending = isAscending,
-    randomSeed = randomSeed,
-    fields = LibrarySortFields(
-        id = { it.id },
-        title = { it.novel.title },
-        lastRead = { it.lastRead },
-        lastUpdate = { it.novel.lastUpdate },
-        unreadCount = { unreadCounts[it.novel.id] ?: it.unreadCount },
-        totalChapters = { it.totalChapters },
-        latestUpload = { it.latestUpload },
-        chapterFetchedAt = { it.chapterFetchedAt },
-        dateAdded = { it.novel.dateAdded },
-        downloadCount = { it.downloadCount },
-        trackerMean = { trackerMeanScores[it.novel.id] ?: -1.0 },
-    ),
-)
+// The novel library sorts through the one shared binding over the library row
+// (reikai.presentation.library.libraryItemSortFields), the same one the manga library uses, so this
+// file only has to resolve the persisted flags to a neutral sort mode.

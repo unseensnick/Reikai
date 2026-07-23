@@ -2,6 +2,9 @@ package reikai.domain.novel.model
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import reikai.domain.library.librarySortComparator
+import reikai.presentation.library.libraryItemSortFields
+import reikai.presentation.library.novels.toLibraryItem
 
 /**
  * Characterisation tests for the novel library sort comparator, now a thin adapter over the shared
@@ -42,15 +45,37 @@ class NovelLibrarySortComparatorTest {
         chapterFetchedAt = chapterFetchedAt,
     )
 
+    // Drives the real production path: shape each novel into the shared library row, then sort it with
+    // the one binding both libraries use, resolving this sort's persisted key to the neutral mode.
     private fun sortedIds(
         novels: List<LibraryNovel>,
         type: NovelLibrarySort.Type,
         ascending: Boolean = true,
         randomSeed: Long = 0L,
         trackerMeanScores: Map<Long, Double> = emptyMap(),
-    ): List<Long> = novels
-        .sortedWith(NovelLibrarySort(type, ascending).comparator(randomSeed, trackerMeanScores))
-        .map { it.id }
+    ): List<Long> {
+        val sort = NovelLibrarySort(type, ascending)
+        val comparator = librarySortComparator(
+            mode = sort.type.toSortMode(),
+            isAscending = sort.isAscending,
+            randomSeed = randomSeed,
+            fields = libraryItemSortFields { trackerMeanScores[it.id] ?: -1.0 },
+        )
+        return novels
+            .map {
+                it.toLibraryItem(
+                    downloadBadge = false,
+                    unreadBadge = false,
+                    languageBadge = false,
+                    sourceLanguage = "",
+                    sourceBadge = false,
+                    sourceSite = null,
+                    sourceIconUrl = null,
+                )
+            }
+            .sortedWith(comparator)
+            .map { it.id }
+    }
 
     @Test
     fun `alphabetical sorts by title ignoring case`() {

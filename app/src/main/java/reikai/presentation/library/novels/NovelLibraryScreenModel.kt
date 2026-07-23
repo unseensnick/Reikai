@@ -28,7 +28,9 @@ import reikai.domain.category.CATEGORY_HIDDEN_MASK
 import reikai.domain.category.categoryDiff
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.library.ContentType
+import reikai.domain.library.LibrarySortFields
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.librarySortComparator
 import reikai.domain.merge.ChapterMatchKeyRepository
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.ReconcileChapterMatchKeys
@@ -43,7 +45,6 @@ import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.UpdateNovel
-import reikai.domain.novel.isLewd
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.NovelCategory
@@ -51,8 +52,8 @@ import reikai.domain.novel.model.NovelCategoryUpdate
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelLibrarySort
 import reikai.domain.novel.model.NovelTrack
-import reikai.domain.novel.model.comparator
 import reikai.domain.novel.model.toCategory
+import reikai.domain.novel.model.toSortMode
 import reikai.domain.novel.model.withCustomInfo
 import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.novel.track.toUiTrack
@@ -63,14 +64,14 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.category.toLongIdSet
 import reikai.presentation.library.DynItem
 import reikai.presentation.library.LibraryDynamicGrouping
-import reikai.presentation.library.LibraryFilterFields
 import reikai.presentation.library.LibraryFilterPrefs
 import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.LibraryTrackingStatusOrder
 import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.libraryFilterMatches
+import reikai.presentation.library.libraryItemFilterFields
+import reikai.presentation.library.libraryItemSortFields
 import reikai.presentation.library.libraryQueryMatches
-import reikai.presentation.library.novels.NovelMergeCollapse.CollapsedNovel
 import reikai.presentation.library.reikaiSortCategories
 import reikai.presentation.novel.selectChaptersForDownloadAction
 import tachiyomi.core.common.i18n.stringResource
@@ -394,34 +395,19 @@ class NovelLibraryScreenModel :
             categoriesInclude = f.categoriesInclude,
             categoriesExclude = f.categoriesExclude,
         )
-        val filterFields = LibraryFilterFields<CollapsedNovel>(
-            isDownloaded = { it.totalDownloadCount > 0 },
-            isUnread = { it.unreadCount > 0 },
-            hasStarted = { it.representative.hasStarted },
-            hasBookmarks = { it.representative.bookmarkCount > 0 },
-            isCompleted = { it.representative.novel.status == NovelStatusCode.COMPLETED.toLong() },
-            matchesIntervalCustom = { false },
-            isLewd = { it.representative.novel.isLewd() },
-            trackerIds = { group -> tracksByRep[group.representative.novel.id].orEmpty().map { it.trackerId } },
-            categoryIds = { it.representative.categories },
-        )
-        val collapsed = groups.filter { group ->
-            val rep = group.representative
-            (query.isNullOrBlank() || rep.matchesQuery(query, novelSourceName(rep.novel.source))) &&
-                libraryFilterMatches(group, filterPrefs, filterFields)
-        }
-        // Keyed by the representative's novel id (== the LibraryItem id), for the comparator.
-        val novelById = collapsed.associate { it.representative.novel.id to it.representative }
-        // Real novel id -> the group's unread count, so the UnreadCount sort ranks a merged entry by what
-        // its badge shows rather than by the representative's own chapters.
-        val unreadByNovelId = collapsed.associate { it.representative.novel.id to it.unreadCount }
         // novelId -> source id, to resolve each grouped source's icon for the merge badge.
         val sourceByNovelId = library.associate { it.novel.id to it.novel.source }
+        // Keyed by the representative's novel id (== the LibraryItem id). The dynamic grouping resolves
+        // per-novel metadata (genre / author / source / status) the row cannot carry, and the search
+        // needs the source name and slug, since a novel row has no Mihon Source to read either off.
+        val novelById = groups.associate { it.representative.novel.id to it.representative }
         // Display-only custom-info overlay, keyed by the real novel id. Carried into the state and
         // applied at the display read (see State.getItemsForCategory), never here, so collapse, filter,
         // sort, grouping and search all keep reading the source values. Mirrors the manga library.
         val overlay = customInfo.associateBy { it.novelId }
-        val items = collapsed.map { group ->
+        // Build the shared library row BEFORE filtering and sorting, so both content types reach the
+        // shared kernels at the same point in the type chain (the manga library already builds first).
+        val allItems = groups.map { group ->
             val rep = group.representative
             // lnreader plugins mostly declare lang as a full English name ("English"); the badge wants a
             // 2-char code like the manga side, so reduce it (codes pass through unchanged).
@@ -462,7 +448,25 @@ class NovelLibraryScreenModel :
                 item
             }
         }
+        // The one filter binding both libraries use. The lewd heuristic's source-name half is manga-only,
+        // so novels pass null and fall through to its genre half, which is their whole check.
+        val filterFields = libraryItemFilterFields(
+            lewdSourceName = { null },
+            trackerIds = { item -> tracksByRep[item.id].orEmpty().map { it.trackerId } },
+        )
+        val items = allItems.filter { item ->
+            val matchesSearch = if (query.isNullOrBlank()) {
+                true
+            } else {
+                val novel = novelById[item.id]?.novel
+                novel != null && item.matchesQuery(query, novelSourceName(novel.source), novel.source)
+            }
+            matchesSearch && libraryFilterMatches(item, filterPrefs, filterFields)
+        }
         val byId = items.associateBy { it.id }
+        // The sort twin of the filter binding. Each merged row already carries its group's deduplicated
+        // unread count, so the comparator needs no separate unread map.
+        val sortFields = libraryItemSortFields(trackerMean = { trackerMeanScores[it.id] ?: -1.0 })
         val flagsByCat = categories.associate { it.id to it.flags }
         val defaultSort = NovelLibrarySort.fromFlag(settings.defaultSort)
 
@@ -502,28 +506,31 @@ class NovelLibraryScreenModel :
             allCategories.mapNotNull { category ->
                 val ids = byCategory[category.id] ?: return@mapNotNull null
                 val sort = sortFor(category.id, flagsByCat[category.id] ?: 0L, defaultSort)
-                val comparator = sort.comparator(settings.randomSeed, trackerMeanScores, unreadByNovelId)
-                category to ids.sortedWith { a, b -> comparator.compare(novelById.getValue(a), novelById.getValue(b)) }
+                val comparator =
+                    librarySortComparator(sort.type.toSortMode(), sort.isAscending, settings.randomSeed, sortFields)
+                category to ids.mapNotNull { byId[it] }.sortedWith(comparator).map { it.id }
             }
         } else {
             // Dynamic grouping (by source / tag / author / language / status) replaces categories.
             buildNovelDynamicGrouping(
                 items,
+                byId,
                 novelById,
                 settings,
                 defaultSort,
                 collapsedKeys,
                 atBottom,
                 tracksByRep,
-                trackerMeanScores,
-                unreadByNovelId,
+                sortFields,
             )
         }
 
-        // Item id -> (source, url) so LibraryTab can open the (representative) novel.
-        val routes = collapsed.associate {
-            it.representative.novel.id to NovelRoute(it.representative.novel.source, it.representative.novel.url)
-        }
+        // Item id -> (source, url) so LibraryTab can open the (representative) novel. Over the displayed
+        // rows, so the hopper's random actions pick from what is actually on screen.
+        val routes = items.mapNotNull { item ->
+            val novel = novelById[item.id]?.novel ?: return@mapNotNull null
+            item.id to NovelRoute(novel.source, novel.url)
+        }.toMap()
 
         return State(
             isLoading = false,
@@ -552,14 +559,14 @@ class NovelLibraryScreenModel :
      */
     private fun buildNovelDynamicGrouping(
         items: List<LibraryItem>,
+        byId: Map<Long, LibraryItem>,
         novelById: Map<Long, LibraryNovel>,
         settings: LibrarySettings,
         defaultSort: NovelLibrarySort,
         collapsedKeys: Set<String>,
         atBottom: Boolean,
         tracksByRep: Map<Long, List<NovelTrack>>,
-        trackerMeanScores: Map<Long, Double>,
-        unreadByNovelId: Map<Long, Long>,
+        sortFields: LibrarySortFields<LibraryItem>,
     ): List<Pair<Category, List<Long>>> {
         val groupType = settings.groupBy
         val dynItems = items.mapNotNull { item ->
@@ -642,9 +649,14 @@ class NovelLibraryScreenModel :
         )
 
         // Dynamic groups have no per-category sort, so they all use the library default sort.
-        val comparator = defaultSort.comparator(settings.randomSeed, trackerMeanScores, unreadByNovelId)
+        val comparator = librarySortComparator(
+            defaultSort.type.toSortMode(),
+            defaultSort.isAscending,
+            settings.randomSeed,
+            sortFields,
+        )
         return groups.map { (category, ids) ->
-            category to ids.sortedWith { a, b -> comparator.compare(novelById.getValue(a), novelById.getValue(b)) }
+            category to ids.mapNotNull { byId[it] }.sortedWith(comparator).map { it.id }
         }
     }
 
@@ -1163,19 +1175,20 @@ class NovelLibraryScreenModel :
 
 // Levels novel search up to the manga library's grammar via the shared matcher: id:, src: (by source
 // slug), description, source name, and comma-separated negatable terms, on top of title/author/artist/
-// genre. [sourceName] is resolved by the caller (novels have no Mihon Source to read it off).
-private fun LibraryNovel.matchesQuery(query: String, sourceName: String): Boolean {
-    val n = novel
+// genre. Reads the shared library row, like the filter and sort beside it; [sourceName] and [sourceSlug]
+// are resolved by the caller, since a novel row carries no Mihon Source to read either off.
+private fun LibraryItem.matchesQuery(query: String, sourceName: String, sourceSlug: String): Boolean {
+    val m = libraryManga.manga
     return libraryQueryMatches(
         query = query,
-        id = n.id,
-        title = n.title,
-        author = n.author,
-        artist = n.artist,
-        description = n.description,
-        genre = n.genre,
+        id = id,
+        title = m.title,
+        author = m.author,
+        artist = m.artist,
+        description = m.description,
+        genre = m.genre,
         sourceName = sourceName,
-        matchesSourceTerm = { term -> n.source.equals(term, ignoreCase = true) },
+        matchesSourceTerm = { term -> sourceSlug.equals(term, ignoreCase = true) },
     )
 }
 
