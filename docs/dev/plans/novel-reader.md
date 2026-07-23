@@ -53,9 +53,9 @@ A document is rebuilt only when the chapter HTML or the app theme colors change.
 
 ### Display settings
 
-Reader display settings persist through `NovelPreferences` (`reikai.domain.novel.NovelPreferences`), preserving the Yokai-era key strings so existing installs upgrade in place: `ln_reader_font_size_sp`, `ln_reader_line_spacing`, `ln_reader_text_align`, `ln_reader_font_family`, `ln_reader_padding`, `ln_reader_follow_system_theme`, `ln_reader_bg_color`, `ln_reader_text_color`, plus the newer `ln_reader_keep_screen_on`, `ln_reader_default_orientation`, `ln_reader_skip_duplicate_chapters`, and `ln_reader_mark_read_on_skip`.
+Reader display settings persist through `NovelPreferences` (`reikai.domain.novel.NovelPreferences`), every key prefixed `ln_reader_`, preserving the Yokai-era strings (`ln_reader_font_size_sp`, `ln_reader_line_spacing`, `ln_reader_text_align`, `ln_reader_font_family`, `ln_reader_padding`, `ln_reader_follow_system_theme`, `ln_reader_bg_color`, `ln_reader_text_color`) so existing installs upgrade in place. The class has grown well past those: orientation and keep-screen-on, skip-duplicate and mark-read-on-skip, brightness and colour filter, the whole read-aloud block, bionic reading and extra-spacing, tap / swipe / auto-scroll, and the volume-button and bottom-button settings. Read the class rather than a list here, which rots.
 
-The ScreenModel reads these as a combined `StateFlow` and exposes them as `NovelReaderSettings` state (per the no-prefs-in-Composable convention). The settings sheet edits them; the WebView picks up display changes live.
+The ScreenModel reads these as a combined `StateFlow` and exposes them as `NovelReaderSettings` state (per the no-prefs-in-Composable convention). The settings sheet edits the display and read-aloud ones; the rest (progress percentage, volume buttons, bottom buttons, default orientation) are edited in Settings -> Reader. The WebView picks up display changes live.
 
 Two device-level settings are applied by the screen, not the WebView:
 
@@ -84,7 +84,7 @@ The reader and its details host are net-new `reikai.*` code. The only Mihon-file
 - `app/src/main/java/reikai/presentation/novel/reader/NovelReaderHtmlBuilder.kt`: `buildReaderHtml` + `readerSettingsJson`; the per-chapter document, CSS variables, `initialReaderConfig`, the `ReactNativeWebView` -> `NativeReader` shim.
 - `app/src/main/java/reikai/presentation/novel/reader/NovelReaderWebInterface.kt`: `@JavascriptInterface` bridge (`hide` / `save` / `console`, the `core.js` TTS messages, and the `reikai-ready` ping).
 - `app/src/main/java/reikai/presentation/novel/reader/NovelReaderSettings.kt`: settings data class, theme presets, font list.
-- `app/src/main/java/reikai/presentation/novel/reader/NovelReaderSettingsSheet.kt`: Compose settings sheet (Display / Theme / TTS tabs).
+- `app/src/main/java/reikai/presentation/novel/reader/NovelReaderSettingsSheet.kt`: Compose settings sheet (General / Display / TTS tabs; theme is a section inside Display).
 - `app/src/main/java/reikai/domain/novel/NovelPreferences.kt`: reader preference keys (the `ln_reader_*` strings above).
 - `app/src/main/assets/lnreader-web/`: bundled `css/index.css` + `js/{core.js, van.js, icons.js, text-vibe.js, polyfill-onscrollend.js}`, copied verbatim from LNReader.
 

@@ -22,18 +22,21 @@ The manga reader stays a View-based screen (`ReaderActivity`) that hosts the exi
 
 The mechanism:
 
-- **The shared chrome composables** live under `eu/kanade/presentation/reader/`: `ReaderAppBars` (top + bottom bars with tap-to-toggle immersive animation), `ReaderTopBar`, `ReaderBottomBar`, `ChapterNavigator` (prev/next + seekbar), `ReaderPageIndicator`, and the settings dialog pages. These are Mihon's own reader chrome, already pure Compose, already driven by immutable state. The novel reader consumes them today.
+- **The shared chrome composables** live under `eu/kanade/presentation/reader/`: `ReaderAppBars` (top + bottom bars with tap-to-toggle immersive animation), `ReaderTopBar`, `ReaderBottomBar`, `ChapterNavigator` (prev/next + seekbar), and `ReaderPageIndicator`. These are Mihon's own reader chrome, already pure Compose, already driven by immutable state. The novel reader consumes them today.
+
+- **The settings sheets are NOT shared yet.** Each reader has its own: Mihon's `ReaderSettingsDialog` (with `ReadingModePage` / `GeneralSettingsPage` / `ColorFilterPage`, all still byte-identical to upstream) for manga, and Reikai's `NovelReaderSettingsSheet` for novels. The only thing the two have in common is the `TabbedDialog` host. Settings sharing is a goal of this plan, not a shipped part of it; collapsing the two sheets belongs to the content-layer reader phase ([content-layer-architecture.md](content-layer-architecture.md)).
 
 - **The manga reader stays View-based.** `ReaderActivity` remains the manga host. The image viewers (`PagerViewer`, `WebtoonViewer`) take a concrete `ReaderActivity` reference, so leaving the activity in place means the viewers stay byte-identical to upstream and keep porting cleanly on each Mihon sync. No viewer decoupling is required.
 
 - **The novel reader's WebView canvas** (`NovelReaderWebView`) renders the chapter HTML with bundled CSS/JS; a center tap posts a message over a native JavaScript bridge to toggle the chrome. The Compose chrome around it is `NovelReaderScreen`.
 
-- **How chrome is shared (Option F).** `ReaderActivity` keeps the window-bound responsibilities that only an Activity can own (orientation lock, screen brightness, system-bar visibility), but its menu, page indicator, seekbar, chapter-navigation buttons, and color/brightness overlays move out of imperative View code and into a `ComposeView` that renders the same shared chrome composables. Both readers then present the identical control surface, fed by each side's own state. Unification happens at the chrome and settings level, not the shell level: the manga and novel content hosts remain distinct.
+- **How chrome is shared (Option F).** `ReaderActivity` keeps the window-bound responsibilities that only an Activity can own (orientation lock, screen brightness, system-bar visibility), but its menu, page indicator, seekbar, chapter-navigation buttons, and color/brightness overlays move out of imperative View code and into a `ComposeView` that renders the same shared chrome composables. Both readers then present the identical control surface, fed by each side's own state. Unification happens at the chrome level, not the shell level: the manga and novel content hosts remain distinct, and the settings sheets stay separate until the reader phase collapses them.
 
 ## Key files
 
 - Manga reader (View host, stays): `app/src/main/java/eu/kanade/tachiyomi/ui/reader/ReaderActivity.kt`.
-- Shared chrome composables: `app/src/main/java/eu/kanade/presentation/reader/appbars/ReaderAppBars.kt`, `.../appbars/ReaderTopBar.kt`, `.../appbars/ReaderBottomBar.kt`, `.../components/ChapterNavigator.kt`, `.../ReaderPageIndicator.kt`, `.../ReaderContentOverlay.kt`, and the settings pages under `.../reader/settings/`.
+- Shared chrome composables: `app/src/main/java/eu/kanade/presentation/reader/appbars/ReaderAppBars.kt`, `.../appbars/ReaderTopBar.kt`, `.../appbars/ReaderBottomBar.kt`, `.../components/ChapterNavigator.kt`, `.../ReaderPageIndicator.kt`, and `.../ReaderContentOverlay.kt`.
+- Per-reader settings sheets (separate, not shared): `app/src/main/java/eu/kanade/presentation/reader/settings/` for manga, `app/src/main/java/reikai/presentation/novel/reader/NovelReaderSettingsSheet.kt` for novels.
 - Novel reader (Compose shell + WebView canvas): `app/src/main/java/reikai/presentation/novel/reader/NovelReaderScreen.kt`, `.../NovelReaderWebView.kt`, with `NovelReaderHtmlBuilder.kt`, `NovelReaderWebInterface.kt`, `NovelReaderScreenModel.kt`, and `NovelReaderSettingsSheet.kt`.
 
 ## Status
