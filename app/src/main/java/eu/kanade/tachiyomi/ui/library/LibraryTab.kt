@@ -165,6 +165,9 @@ data object LibraryTab : Tab {
         val onSearch: (String?) -> Unit = behavior::search
         val activeSelectionMode = libState.selectionMode
         val activeHasActiveFilters = libState.hasActiveFilters
+        // The category on screen, from the active model. Category ids are per content type, so reading
+        // this off the manga model while the Novels chip is up scopes an update to the wrong category.
+        val activeCategory = activeCategories.getOrNull(libState.coercedActiveCategoryIndex)
         // RK <--
 
         val snackbarHostState = remember { SnackbarHostState() }
@@ -245,6 +248,23 @@ data object LibraryTab : Tab {
             started
         }
 
+        // RK: open a random entry from the category on screen, for the toolbar overflow and the hopper's
+        // long-press action. Shared so the two can't drift into opening different content types.
+        val onOpenRandomInCurrentCategory: () -> Unit = {
+            scope.launch {
+                val opened = if (isNovels) {
+                    novelState.randomRouteInCategory(novelState.activeCategory?.id)
+                        ?.also { navigator.push(NovelScreen(it.source, it.url)) } != null
+                } else {
+                    screenModel.getRandomLibraryItemForCurrentCategory()
+                        ?.also { navigator.push(MangaScreen(it.libraryManga.manga.id)) } != null
+                }
+                if (!opened) {
+                    snackbarHostState.showSnackbar(context.stringResource(MR.strings.information_no_entries_found))
+                }
+            }
+        }
+
         // RK: shared manga continue-reading handler, used by both the pager and the single-list view.
         val onMangaContinueReading: (LibraryManga) -> Unit = { item ->
             scope.launchIO {
@@ -316,20 +336,10 @@ data object LibraryTab : Tab {
                             // from each category header's sort in the single-list view.
                             behavior.openSettingsDialog(categoryId = null, initialTab = 0)
                         },
-                        onClickRefresh = { onClickRefresh(state.activeCategory) },
+                        onClickRefresh = { onClickRefresh(activeCategory) },
                         onClickGlobalUpdate = { onClickRefresh(null) },
-                        onClickOpenRandomManga = {
-                            scope.launch {
-                                val randomItem = screenModel.getRandomLibraryItemForCurrentCategory()
-                                if (randomItem != null) {
-                                    navigator.push(MangaScreen(randomItem.libraryManga.manga.id))
-                                } else {
-                                    snackbarHostState.showSnackbar(
-                                        context.stringResource(MR.strings.information_no_entries_found),
-                                    )
-                                }
-                            }
-                        },
+                        // RK: follows the content-type chip; it used to always open a manga.
+                        onClickOpenRandomManga = onOpenRandomInCurrentCategory,
                         // RK: opt-in Update errors screen (hidden unless the matching Advanced toggle is on);
                         //     opens on the chip for the content type currently shown.
                         onClickUpdateErrors = run {
@@ -519,7 +529,7 @@ data object LibraryTab : Tab {
                                     behavior.toggleRangeSelection(category, manga)
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 },
-                                onRefresh = { onClickRefresh(state.activeCategory) },
+                                onRefresh = { onClickRefresh(activeCategory) },
                                 onGlobalSearchClicked = {
                                     navigator.push(GlobalSearchScreen(activeSearchQuery ?: ""))
                                 },
@@ -600,15 +610,7 @@ data object LibraryTab : Tab {
                                             } else {
                                                 screenModel.showSettingsDialog(initialTab = 3)
                                             }
-                                            4 -> scope.launch {
-                                                if (isNovels) {
-                                                    novelState.randomRouteInCategory(novelState.activeCategory?.id)
-                                                        ?.let { navigator.push(NovelScreen(it.source, it.url)) }
-                                                } else {
-                                                    screenModel.getRandomLibraryItemForCurrentCategory()
-                                                        ?.let { navigator.push(MangaScreen(it.libraryManga.manga.id)) }
-                                                }
-                                            }
+                                            4 -> onOpenRandomInCurrentCategory()
                                             5 -> scope.launch {
                                                 if (isNovels) {
                                                     novelState.randomRoute()

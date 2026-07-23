@@ -31,6 +31,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Fixes
 
+- **"Open random manga" now opens a novel when the Novels library is showing.** It always opened a manga, whichever chip was selected.
+- **Updating a single category from the Novels library now updates the category you are looking at.** It was picking the category by the manga library's position instead.
 - **Chapters you have read no longer disappear from the reader's chapter list, and swiping back reaches them again.**
 - **Bookmarking or marking a chapter read from the reader's chapter list now applies to every source of a grouped series, matching the series page.**
 - **A chapter you have read now shows as read under every source of a grouped series.**
