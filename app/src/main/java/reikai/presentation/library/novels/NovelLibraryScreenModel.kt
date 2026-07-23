@@ -417,12 +417,12 @@ class NovelLibraryScreenModel :
         val unreadByNovelId = collapsed.associate { it.representative.novel.id to it.unreadCount }
         // novelId -> source id, to resolve each grouped source's icon for the merge badge.
         val sourceByNovelId = library.associate { it.novel.id to it.novel.source }
-        // Display-only custom-info overlay. Applied to the representative's display copy only (below),
-        // keyed by the real novel id; collapse, grouping, sort and matchesQuery keep using the raw
-        // novel via `novelById`, so the overrides never feed those operations.
+        // Display-only custom-info overlay, keyed by the real novel id. Carried into the state and
+        // applied at the display read (see State.getItemsForCategory), never here, so collapse, filter,
+        // sort, grouping and search all keep reading the source values. Mirrors the manga library.
         val overlay = customInfo.associateBy { it.novelId }
         val items = collapsed.map { group ->
-            val rep = group.representative.let { r -> r.copy(novel = r.novel.withCustomInfo(overlay[r.novel.id])) }
+            val rep = group.representative
             // lnreader plugins mostly declare lang as a full English name ("English"); the badge wants a
             // 2-char code like the manga side, so reduce it (codes pass through unchanged).
             val source = sourceManager.get(rep.novel.source)
@@ -530,6 +530,7 @@ class NovelLibraryScreenModel :
             searchQuery = query,
             groupedFavorites = grouped,
             favoritesById = byId,
+            customInfo = overlay,
             novelRoutes = routes,
             categorySortFlags = flagsByCat,
             defaultSortFlag = settings.defaultSort,
@@ -1073,6 +1074,8 @@ class NovelLibraryScreenModel :
         val showContinueButton: Boolean = false,
         private val groupedFavorites: List<Pair<Category, List<Long>>> = emptyList(),
         private val favoritesById: Map<Long, LibraryItem> = emptyMap(),
+        /** Display-only overrides, keyed by real novel id; applied at the display read only. */
+        private val customInfo: Map<Long, CustomNovelInfo> = emptyMap(),
         private val novelRoutes: Map<Long, NovelRoute> = emptyMap(),
         private val categorySortFlags: Map<Long, Long> = emptyMap(),
         private val defaultSortFlag: Long = NovelLibrarySort.default.toFlag(),
@@ -1111,8 +1114,19 @@ class NovelLibraryScreenModel :
             }.distinct()
         }
 
+        // Apply the display-only custom-info overlay here, the sole render path, so the overrides never
+        // reach the raw rows that filter, sort, grouping and search read. Mirrors the manga library.
         fun getItemsForCategory(category: Category): List<LibraryItem> =
-            groupedById[category.id].orEmpty().mapNotNull { favoritesById[it] }
+            groupedById[category.id].orEmpty().mapNotNull { id ->
+                favoritesById[id]?.let { item ->
+                    val custom = customInfo[item.id] ?: return@let item
+                    item.copy(
+                        libraryManga = item.libraryManga.copy(
+                            manga = item.libraryManga.manga.withCustomInfo(custom),
+                        ),
+                    )
+                }
+            }
 
         fun getItemCountForCategory(category: Category): Int? = groupedById[category.id]?.size
 

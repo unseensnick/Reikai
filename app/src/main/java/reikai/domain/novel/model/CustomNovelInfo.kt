@@ -1,6 +1,7 @@
 package reikai.domain.novel.model
 
 import androidx.compose.runtime.Immutable
+import tachiyomi.domain.manga.model.Manga
 
 /**
  * A user's per-field overrides for a novel, stored non-destructively in `custom_novel_info` (the source
@@ -28,7 +29,23 @@ data class CustomNovelInfo(
  * Non-destructive display overlay: each set custom field wins over the source value, the rest pass
  * through. Apply to a display-only copy in the ScreenModel / list mappers; the source [Novel] row stays
  * untouched.
+ *
+ * The [Manga] overload exists because the library renders a novel as a manga-shaped row, and applies the
+ * overlay at the display read so filter, sort, search and grouping keep reading the source values.
  */
+fun Manga.withCustomInfo(custom: CustomNovelInfo?): Manga {
+    if (custom == null) return this
+    return copy(
+        title = custom.title ?: title,
+        author = custom.author ?: author,
+        artist = custom.artist ?: artist,
+        description = custom.description ?: description,
+        genre = custom.genre ?: genre,
+        status = custom.status ?: status,
+        thumbnailUrl = custom.thumbnailUrl ?: thumbnailUrl,
+    )
+}
+
 fun Novel.withCustomInfo(custom: CustomNovelInfo?): Novel {
     if (custom == null) return this
     return copy(
