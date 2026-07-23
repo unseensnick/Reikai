@@ -4,6 +4,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import reikai.domain.entry.EntryId
 import reikai.presentation.library.ReikaiDynamicCategory.SOURCE_SPLITTER
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.model.LibrarySort
@@ -230,6 +231,51 @@ class LibraryDynamicGroupingTest {
             sourceMeta = mapOf(1L to ("zebra" to 100L), 2L to ("Apple" to 200L), 3L to ("Mango" to 300L)),
         )
         result.keys.map { ReikaiDynamicCategory.displayName(it) } shouldBe listOf("Apple", "Mango", "zebra")
+    }
+
+    // A mixed manga-plus-novel list buckets by EntryId, since a raw row id is only unique within one
+    // content type. These pin that the kernel is safe over that id space, which is what lets the shared
+    // library engine group one interleaved list.
+
+    @Test
+    fun `a manga and a novel sharing a row id stay distinct entries`() {
+        val manga = EntryId.Manga(12)
+        val novel = EntryId.Novel(12)
+        val result = LibraryDynamicGrouping.build(
+            items = listOf(
+                DynItem(manga, genre = null, author = "Ito", artist = null),
+                DynItem(novel, genre = null, author = "Ito", artist = null),
+            ),
+            groupType = LibraryGroup.BY_AUTHOR,
+            inheritedSortFlag = LibrarySort.default.flag,
+            collapsedDynamicCategories = emptySet(),
+            collapsedDynamicAtBottom = false,
+            unknownLabel = "Unknown",
+            notTrackedLabel = "Not tracked",
+        )
+        // Both land in the one author bucket: de-duplication must not swallow one as the other.
+        result.values.single() shouldContainExactlyInAnyOrder listOf(manga, novel)
+    }
+
+    @Test
+    fun `metadata does not cross-read between a manga and a novel sharing a row id`() {
+        val manga = EntryId.Manga(12)
+        val novel = EntryId.Novel(12)
+        val result = LibraryDynamicGrouping.build(
+            items = listOf(
+                DynItem(manga, genre = null, author = null, artist = null),
+                DynItem(novel, genre = null, author = null, artist = null),
+            ),
+            groupType = LibraryGroup.BY_SOURCE,
+            inheritedSortFlag = LibrarySort.default.flag,
+            collapsedDynamicCategories = emptySet(),
+            collapsedDynamicAtBottom = false,
+            unknownLabel = "Unknown",
+            notTrackedLabel = "Not tracked",
+            sourceMeta = mapOf(manga to ("MangaDex" to "100"), novel to ("Royal Road" to "royalroad")),
+        )
+        result.entries.associate { (category, ids) -> ReikaiDynamicCategory.displayName(category) to ids } shouldBe
+            mapOf("MangaDex" to listOf(manga), "Royal Road" to listOf(novel))
     }
 
     private fun build(

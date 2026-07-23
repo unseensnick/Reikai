@@ -7,11 +7,16 @@ import tachiyomi.domain.category.model.Category
 /**
  * Minimal per-item view the dynamic grouping needs, decoupled from the manga / novel domain types
  * so one kernel serves both libraries. The caller maps its favorites (LibraryManga or LibraryNovel)
- * into these; [id] is whatever id space the caller buckets by (manga id for manga, the negative
- * synthetic representative id for the merge-collapsed novel library).
+ * into these.
+ *
+ * [id] is generic because a row id is only unique WITHIN one content type: a manga and a novel can
+ * share the id 12. A single-content-type caller buckets by its own `Long` row id; a mixed
+ * manga-plus-novel caller buckets by the neutral [EntryId][reikai.domain.entry.EntryId]. Keying a
+ * mixed call by `Long` would silently merge the two rows (the kernel de-duplicates by id) and would
+ * cross-read one's metadata for the other, since every metadata map below is keyed by this id.
  */
-data class DynItem(
-    val id: Long,
+data class DynItem<K>(
+    val id: K,
     val genre: List<String>?,
     val author: String?,
     val artist: String?,
@@ -45,8 +50,8 @@ object LibraryDynamicGrouping {
     )
 
     @Suppress("LongParameterList")
-    fun build(
-        items: List<DynItem>,
+    fun <K> build(
+        items: List<DynItem<K>>,
         groupType: Int,
         inheritedSortFlag: Long,
         collapsedDynamicCategories: Set<String>,
@@ -55,13 +60,13 @@ object LibraryDynamicGrouping {
         notTrackedLabel: String,
         ungroupedLabel: String = "",
         categorySortOrder: Int = 0,
-        sourceMeta: Map<Long, Pair<String, String>> = emptyMap(),
-        trackStatuses: Map<Long, String> = emptyMap(),
-        languageCodes: Map<Long, String> = emptyMap(),
-        statusNames: Map<Long, String> = emptyMap(),
+        sourceMeta: Map<K, Pair<String, String>> = emptyMap(),
+        trackStatuses: Map<K, String> = emptyMap(),
+        languageCodes: Map<K, String> = emptyMap(),
+        statusNames: Map<K, String> = emptyMap(),
         languageDisplay: (langCode: String) -> String = { it },
         trackingStatusOrder: (statusName: String) -> String = { it },
-    ): Map<Category, List<Long>> {
+    ): Map<Category, List<K>> {
         if (items.isEmpty()) return emptyMap()
 
         // UNGROUPED: one flat synthetic bucket holding every item, no per-item metadata lookups.
@@ -77,7 +82,7 @@ object LibraryDynamicGrouping {
 
         // Step 1: per-item, the encoded bucket name(s) it belongs to. An item can land in several
         // buckets (multiple tags / authors); distinct() guards against the same bucket twice.
-        val bucketsByName = LinkedHashMap<String, MutableList<Long>>()
+        val bucketsByName = LinkedHashMap<String, MutableList<K>>()
         for (item in deduplicated) {
             val names = categoryNamesFor(
                 item = item,
@@ -132,15 +137,15 @@ object LibraryDynamicGrouping {
         return finalCategories.associateWith { bucketsByName[it.name].orEmpty().toList() }
     }
 
-    private fun categoryNamesFor(
-        item: DynItem,
+    private fun <K> categoryNamesFor(
+        item: DynItem<K>,
         groupType: Int,
         unknownLabel: String,
         notTrackedLabel: String,
-        sourceMeta: Map<Long, Pair<String, String>>,
-        trackStatuses: Map<Long, String>,
-        languageCodes: Map<Long, String>,
-        statusNames: Map<Long, String>,
+        sourceMeta: Map<K, Pair<String, String>>,
+        trackStatuses: Map<K, String>,
+        languageCodes: Map<K, String>,
+        statusNames: Map<K, String>,
         languageDisplay: (langCode: String) -> String,
     ): List<String> {
         val itemId = item.id
