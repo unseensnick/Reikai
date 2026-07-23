@@ -61,6 +61,8 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.novel.NovelMergeManager
+import reikai.domain.novel.interactor.RepairNovelDetails
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.ImageUtil
@@ -94,6 +96,7 @@ object SettingsAdvancedScreen : SearchableSettings {
         // RK: pref-based merge maintenance
         val mergeManager = remember { Injekt.get<MangaMergeManager>() }
         val novelMergeManager = remember { Injekt.get<NovelMergeManager>() }
+        val repairNovelDetails = remember { RepairNovelDetails() }
         // RK: gate for the built-in adult sources (E-Hentai / ExHentai)
         val exhPreferences = remember { Injekt.get<ExhPreferences>() }
 
@@ -154,6 +157,28 @@ object SettingsAdvancedScreen : SearchableSettings {
                     scope.launch {
                         novelMergeManager.clearAllMergesIncludingAuto()
                         context.toast(MR.strings.merges_cleared)
+                    }
+                },
+            ),
+            // Repair novels left wearing another novel's details by the plugin-host result mix-up
+            // (fixed, but rows written before the fix stay wrong until something re-fetches them).
+            Preference.PreferenceItem.TextPreference(
+                title = stringResource(MR.strings.pref_repair_novel_details),
+                subtitle = stringResource(MR.strings.pref_repair_novel_details_summary),
+                onClick = {
+                    scope.launch {
+                        val result = repairNovelDetails.await()
+                        if (result.suspects == 0) {
+                            context.toast(MR.strings.novel_details_repair_none)
+                        } else {
+                            context.toast(
+                                context.stringResource(
+                                    MR.strings.novel_details_repair_done,
+                                    result.repaired,
+                                    result.suspects,
+                                ),
+                            )
+                        }
                     }
                 },
             ),

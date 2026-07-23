@@ -19,6 +19,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Adding a duplicate novel now offers a one-tap Migrate, moving progress, categories, cover and tracking to the new source.**
 - **Settings > Library > Recommendations can now move the related-manga carousel off the details page into its three-dot menu.**
 - **Create backup now lets you include Manga, Novels and custom entry info separately.** Backing up one content type also makes the file smaller.
+- **Settings -> Advanced can now repair novels that are showing another novel's title or cover.** It finds the affected entries and re-fetches them from their own source.
 
 ### Changes
 
