@@ -74,6 +74,7 @@ import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelLibrarySort
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.library.LibraryBehavior
+import reikai.presentation.library.LibraryEngine
 import reikai.presentation.library.MangaLibraryAdapter
 import reikai.presentation.library.NovelLibraryAdapter
 import reikai.presentation.library.ReikaiCategoryHopper
@@ -146,7 +147,10 @@ data object LibraryTab : Tab {
         val isNovels = libraryContentType == ContentType.NOVELS
         val mangaAdapter = remember(screenModel) { MangaLibraryAdapter(screenModel) }
         val novelAdapter = remember(novelModel) { NovelLibraryAdapter(novelModel) }
-        val behavior: LibraryBehavior = if (isNovels) novelAdapter else mangaAdapter
+        // The engine owns which provider drives the view, so the content type is decided in one place
+        // rather than at each call site. It is shaped to merge both providers for an All view later.
+        val engine = remember(mangaAdapter, novelAdapter) { LibraryEngine(listOf(mangaAdapter, novelAdapter)) }
+        val behavior: LibraryBehavior = engine.behaviorFor(libraryContentType)
         // RK: collect BOTH adapters' state and pick synchronously, so flipping the chip switches
         // instantly. Collecting a single `behavior.state` over the switched adapter re-subscribes on the
         // flow change, holding the old value for a frame, which stutters the manga<->novel transition.

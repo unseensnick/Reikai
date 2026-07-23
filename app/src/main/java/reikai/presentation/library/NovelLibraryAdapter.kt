@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
 import reikai.domain.novel.model.NovelCategory
 import reikai.presentation.library.novels.NovelLibraryScreenModel
 import tachiyomi.domain.category.model.Category
@@ -21,7 +22,9 @@ import tachiyomi.domain.library.model.LibraryManga
  */
 class NovelLibraryAdapter(
     private val model: NovelLibraryScreenModel,
-) : LibraryBehavior {
+) : LibraryProvider {
+
+    override val contentType = ContentType.NOVELS
 
     override val state: StateFlow<LibraryScreenState> =
         model.state
