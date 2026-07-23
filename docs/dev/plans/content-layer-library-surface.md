@@ -42,6 +42,8 @@ Phase 2's structural core shipped (`2a1ccfea8` identity, `92cd34cf7` seam), beha
 
 ### Remaining sequence
 
+**All seven steps are done and on-device verified.** The pipeline stages and identity are shared; what remains for this surface is the **engine step**, which is scoped in [content-layer-architecture.md](content-layer-architecture.md) under the 2026-07-22 amendment rather than here: a shared orchestration layer owning list assembly, pipeline order, category bucketing, selection and dispatch, over per-type providers that keep their favourites flow and action verbs. Build it All-shaped; the All chip itself waits on the category-schema unification.
+
 Each step is independently compilable and verifiable, and carries its own tests rather than depending on an upfront test pass. That shape is forced by what is testable: the novel comparator, both collapse helpers, the sort-override decoder and the grouping kernel are pure and reachable, but the manga comparator and filter predicates are private local functions inside `LibraryScreenModel` and `applySort` reads an Injekt-constructed `trackerManager`, so they cannot be pinned until the step that extracts them. Bulk-action expansion needs the whole ScreenModel and is verified on-device, not by unit test. Library-pipeline tests run under `:app:testDebugUnitTest`, not `:domain:test`.
 
 1. **Pin the novel sort comparator.** Characterisation tests over all 11 modes, both directions, the tiebreak, tracker-mean defaults and Random stability, with the three known divergences pinned and annotated so step 5 gets a clear signal. **Done** (`70f6b8dde`).
