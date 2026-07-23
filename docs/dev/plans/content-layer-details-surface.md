@@ -4,7 +4,9 @@ The first surface cut over in the [content layer architecture](content-layer-arc
 
 ## Goal
 
-One shared, Reikai-owned behavior plus screen drives both manga and light-novel details, over the already-neutral Entry* UI. When this ships, a details change is written once and reaches both content types, and `NovelDetailsScreenModel` is gone (dissolved into shared behavior plus a thin novel adapter).
+One shared, Reikai-owned behavior plus screen drives both manga and light-novel details, over the already-neutral Entry* UI. A details change is written once and reaches both content types.
+
+**What "dissolved" turned out to mean** (this goal line originally promised `NovelDetailsScreenModel` would be "gone"): it stays live behind `NovelEntryAdapter`, reshaped rather than deleted, exactly as `MangaScreenModel` does. What collapsed is the UI body and the behavior contract, not the two models. See the Status and the "Dissolving the novel model is reshaping, not deleting" tradeoff below, and plan later surfaces on that expectation rather than on the original wording.
 
 ## Why
 
@@ -41,7 +43,7 @@ Scope boundary (found by reading the novel screen wiring): the `NovelScreen` rew
 ## Key files
 
 - Target seam home: `reikai/presentation/details/` already holds the neutral UI (`EntryDetailsScaffold`, `EntryDetailsTwoPaneScaffold`, `EntryDetailsColumn` with `EntryDetailsUiState` and `entryInfoItems`, `EntryInfoBox`, `EntryActionRow`, `EntryToolbar`, `EntryEditInfoDialog`). The `EntryId`, `EntryDetailsBehavior`, the two adapters, and `EntryDetailsContent` land here.
-- Details twins: `eu/kanade/tachiyomi/ui/manga/MangaScreenModel.kt` (stays live, read by the adapter) and `reikai/presentation/novel/details/NovelDetailsScreenModel.kt` (dissolves).
+- Details twins: `eu/kanade/tachiyomi/ui/manga/MangaScreenModel.kt` (stays live, read by the adapter) and `reikai/presentation/novel/details/NovelDetailsScreenModel.kt` (stays live behind `NovelEntryAdapter`, reshaped not deleted).
 - Screens: `eu/kanade/tachiyomi/ui/manga/MangaScreen.kt` and `reikai/presentation/novel/details/NovelScreen.kt` (both become thin, delegating to `EntryDetailsContent`).
 - Delete-and-manifest target (Step 4): the `eu.kanade.presentation.manga.MangaScreen` composable, once the manga body renders through the Entry* scaffold.
 
