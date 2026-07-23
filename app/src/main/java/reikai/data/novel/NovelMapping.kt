@@ -11,8 +11,9 @@ import tachiyomi.i18n.MR
 
 /**
  * Status codes used by the `novels.status` column. Mirrors the lnreader NovelStatus enum the
- * plugins return as strings; kept as ints to match the manga side's `mangas.status` column shape,
- * even though the value spaces don't overlap.
+ * plugins return as strings, kept as ints to match the manga side's `mangas.status` column shape.
+ * The seven values line up 1:1 with `SManga`'s status constants, so shared library code (the
+ * completed filter, status grouping) reads a status off either content type without translating.
  */
 object NovelStatusCode {
     const val UNKNOWN = 0
