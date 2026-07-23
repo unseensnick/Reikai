@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -83,6 +84,7 @@ import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
 import java.util.Locale
 import kotlin.random.Random
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Drives the novel half of the Library tab. It reads the favorited novels + novel categories
@@ -131,7 +133,6 @@ class NovelLibraryScreenModel :
     fun setContentType(type: ContentType) = reikaiLibraryPreferences.libraryContentType.set(type)
 
     private val searchQuery = MutableStateFlow<String?>(null)
-    private val selection = MutableStateFlow<Set<Long>>(emptySet())
 
     // Keyed by category name (header key), matching the manga collapse convention. Session-scoped.
     private val collapsedCategories = MutableStateFlow<Set<String>>(emptySet())
@@ -173,8 +174,9 @@ class NovelLibraryScreenModel :
                     getNovelTracks.subscribeAll(),
                     ::Triple,
                 ),
-                searchQuery,
-                selection,
+                // Debounced so a burst of keystrokes rebuilds the list once, matching the manga library.
+                // No distinctUntilChanged: a StateFlow already conflates equal values.
+                searchQuery.debounce(0.25.seconds),
                 // Collapse set + at-bottom pref ride with settings so a collapse toggle rebuilds the
                 // grouping and re-sinks collapsed dynamic groups (the manga reactivity pattern).
                 combine(
@@ -182,19 +184,27 @@ class NovelLibraryScreenModel :
                     collapsedCategories,
                     reikaiLibraryPreferences.collapsedDynamicAtBottom.changes(),
                 ) { settings, collapsed, atBottom -> GroupingInputs(settings, collapsed, atBottom) },
-            ) { categories, (library, customInfo, tracks), query, sel, grouping ->
+            ) { categories, (library, customInfo, tracks), query, grouping ->
                 buildState(
-                    categories, library, customInfo, tracks, query, sel,
-                    grouping.settings, grouping.collapsed, grouping.atBottom,
+                    categories,
+                    library,
+                    customInfo,
+                    tracks,
+                    query,
+                    grouping.settings,
+                    grouping.collapsed,
+                    grouping.atBottom,
                 )
             }.collectLatest { built ->
-                // Preserve the live searchQuery (and active page): the async buildState lags the user's
-                // typing, so overwriting searchQuery here resets the search field to a stale value mid-
-                // input and scrambles fast keystrokes. search() owns searchQuery synchronously instead.
+                // Preserve the live searchQuery, selection and active page: the async buildState lags the
+                // user, so overwriting them here resets the search field to a stale value mid-input
+                // (scrambling fast keystrokes) and would drop a selection made while a rebuild is in
+                // flight. Those three are owned synchronously by their own mutators instead.
                 mutableState.update { current ->
                     built.copy(
                         activeCategoryIndex = current.activeCategoryIndex,
                         searchQuery = current.searchQuery,
+                        selection = current.selection,
                     )
                 }
             }
@@ -302,7 +312,6 @@ class NovelLibraryScreenModel :
         customInfo: List<CustomNovelInfo>,
         tracks: Map<Long, List<NovelTrack>>,
         query: String?,
-        sel: Set<Long>,
         settings: LibrarySettings,
         collapsedKeys: Set<String>,
         atBottom: Boolean,
@@ -519,7 +528,6 @@ class NovelLibraryScreenModel :
         return State(
             isLoading = false,
             searchQuery = query,
-            selection = sel,
             groupedFavorites = grouped,
             favoritesById = byId,
             novelRoutes = routes,
@@ -648,27 +656,34 @@ class NovelLibraryScreenModel :
         searchQuery.value = query
     }
 
+    // Selection lives in the state, not in a flow feeding the pipeline: it is not an input to collapse,
+    // filter, sort or grouping, so routing it through the main combine re-ran the whole rebuild on every
+    // tap purely to carry the value through. Mirrors how the manga library owns its selection.
+
     fun clearSelection() {
         lastSelectionCategory = null
-        selection.value = emptySet()
+        mutableState.update { it.copy(selection = emptySet()) }
     }
 
     fun toggleSelection(categoryId: Long, itemId: Long) {
-        selection.update { if (itemId in it) it - itemId else it + itemId }
-        lastSelectionCategory = categoryId.takeIf { selection.value.isNotEmpty() }
+        mutableState.update { state ->
+            val sel = state.selection
+            state.copy(selection = if (itemId in sel) sel - itemId else sel + itemId)
+        }
+        lastSelectionCategory = categoryId.takeIf { state.value.selection.isNotEmpty() }
     }
 
     /** Selects every item between the last-selected and [itemId] within the same category. */
     fun toggleRangeSelection(categoryId: Long, itemId: Long) {
         val items = state.value.itemIdsForCategory(categoryId)
-        val last = selection.value.lastOrNull()
+        val last = state.value.selection.lastOrNull()
         if (lastSelectionCategory != categoryId || last == null || last !in items || itemId !in items) {
-            selection.update { it + itemId }
+            mutableState.update { it.copy(selection = it.selection + itemId) }
         } else {
             val from = items.indexOf(last)
             val to = items.indexOf(itemId)
             val range = items.subList(minOf(from, to), maxOf(from, to) + 1)
-            selection.update { it + range }
+            mutableState.update { it.copy(selection = it.selection + range) }
         }
         lastSelectionCategory = categoryId
     }
@@ -676,19 +691,25 @@ class NovelLibraryScreenModel :
     fun selectAll() {
         lastSelectionCategory = null
         val ids = state.value.itemIdsForCategory(state.value.activeCategory?.id)
-        selection.update { it + ids }
+        mutableState.update { it.copy(selection = it.selection + ids) }
     }
 
     fun selectAllInCategory(categoryId: Long) {
         lastSelectionCategory = null
         val ids = state.value.itemIdsForCategory(categoryId)
-        selection.update { sel -> if (ids.isNotEmpty() && ids.all { it in sel }) sel - ids.toSet() else sel + ids }
+        mutableState.update { state ->
+            val sel = state.selection
+            state.copy(selection = if (ids.isNotEmpty() && ids.all { it in sel }) sel - ids.toSet() else sel + ids)
+        }
     }
 
     fun invertSelection() {
         lastSelectionCategory = null
         val ids = state.value.itemIdsForCategory(state.value.activeCategory?.id)
-        selection.update { sel -> sel + ids.filterNot { it in sel } - ids.filter { it in sel }.toSet() }
+        mutableState.update { state ->
+            val sel = state.selection
+            state.copy(selection = sel + ids.filterNot { it in sel } - ids.filter { it in sel }.toSet())
+        }
     }
 
     fun toggleCategoryCollapse(headerKey: String) {
