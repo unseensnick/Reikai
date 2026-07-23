@@ -181,7 +181,6 @@ data object LibraryTab : Tab {
         val entriesOf: (Category?) -> List<EntryId> = { category ->
             category?.let { activeGetItems(it).map(LibraryItem::entryId) }.orEmpty()
         }
-        val activeCategoryEntries: () -> List<EntryId> = { entriesOf(activeCategory) }
         // RK <--
 
         val snackbarHostState = remember { SnackbarHostState() }
@@ -222,6 +221,12 @@ data object LibraryTab : Tab {
             reikaiHeaderIndices().indexOfLast { it <= singleListGridState.firstVisibleItemIndex }.coerceAtLeast(0)
         } else {
             pagerState.currentPage
+        }
+        // RK: the category Select all / Invert act on. Keyed to the category actually on screen, which in
+        // the single-list view means the one scrolled to: there is no pager there, so the stored page
+        // index never moves off the first category no matter how far down the list you are.
+        val activeCategoryEntries: () -> List<EntryId> = {
+            entriesOf(activeCategories.getOrNull(currentCategoryIndex()))
         }
         LaunchedEffect(hopperTarget) {
             val target = hopperTarget ?: return@LaunchedEffect
