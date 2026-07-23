@@ -45,6 +45,15 @@ interface LibraryBehavior {
     fun mergeSelection(entries: Set<EntryId>)
     fun unmergeSelection(entries: Set<EntryId>)
 
+    // Questions about a set of entries, asked the same way the verbs are told what to act on, so the
+    // answers never depend on a selection the provider holds privately.
+
+    /** Any of [entries] is a merge group; drives the bulk Unmerge action. */
+    fun containsMerged(entries: Set<EntryId>): Boolean
+
+    /** The bulk Download action applies (manga hides it when every selected entry is local). */
+    fun canDownload(entries: Set<EntryId>): Boolean
+
     // Paging + the settings sheet. A null categoryId is the global-sort scope; the novel adapter maps it to
     // its uncategorized sentinel.
     fun updateActiveCategoryIndex(index: Int)

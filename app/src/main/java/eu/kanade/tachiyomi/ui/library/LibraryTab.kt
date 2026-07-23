@@ -385,7 +385,7 @@ data object LibraryTab : Tab {
                     onDownloadClicked = { action: DownloadAction ->
                         behavior.performDownloadAction(activeSelection, action)
                     }
-                        .takeIf { libState.canDownloadSelection },
+                        .takeIf { behavior.canDownload(activeSelection) },
                     onDeleteClicked = { behavior.openDeleteDialog(activeSelection) },
                     onMigrateClicked = {
                         if (isNovels) {
@@ -404,7 +404,7 @@ data object LibraryTab : Tab {
                     onMergeClicked = { behavior.mergeSelection(activeSelection) }
                         .takeIf { activeSelection.size >= 2 },
                     onUnmergeClicked = { behavior.unmergeSelection(activeSelection) }
-                        .takeIf { libState.selectionContainsMerged },
+                        .takeIf { behavior.containsMerged(activeSelection) },
                 )
             },
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },

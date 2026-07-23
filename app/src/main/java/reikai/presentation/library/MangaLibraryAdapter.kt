@@ -41,8 +41,6 @@ class MangaLibraryAdapter(
         // adapter always knows its own.
         selection = selection.mapTo(mutableSetOf()) { EntryId.Manga(it) },
         selectionMode = selectionMode,
-        selectionContainsMerged = selectionContainsMerged,
-        canDownloadSelection = selectedManga.fastAll { !it.isLocal() },
         collapsedCategories = reikai.collapsedCategories,
         collapsedDynamicCategories = reikai.collapsedDynamicCategories,
         coercedActiveCategoryIndex = coercedActiveCategoryIndex,
@@ -109,6 +107,10 @@ class MangaLibraryAdapter(
     override fun unmergeSelection(entries: Set<EntryId>) {
         model.unmergeSelection(entries.ownIds())
     }
+    override fun containsMerged(entries: Set<EntryId>) =
+        model.state.value.containsMerged(entries.ownIds())
+    override fun canDownload(entries: Set<EntryId>) =
+        model.state.value.mangaFor(entries.ownIds()).fastAll { !it.isLocal() }
     override fun updateActiveCategoryIndex(index: Int) {
         model.updateActiveCategoryIndex(index)
     }

@@ -28,10 +28,6 @@ data class LibraryScreenState(
      */
     val selection: Set<EntryId>,
     val selectionMode: Boolean,
-    /** Any selected entry is a merge group; drives the bulk Unmerge action. */
-    val selectionContainsMerged: Boolean,
-    /** The bulk Download action is offered (manga hides it when every selected entry is local). */
-    val canDownloadSelection: Boolean,
     val collapsedCategories: Set<String>,
     /** Manga keeps a second collapsed set for dynamic groups; novels reuse [collapsedCategories]. */
     val collapsedDynamicCategories: Set<String>,

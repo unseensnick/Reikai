@@ -41,8 +41,6 @@ class NovelLibraryAdapter(
         // adapter always knows its own.
         selection = selection.mapTo(mutableSetOf()) { EntryId.Novel(it) },
         selectionMode = selectionMode,
-        selectionContainsMerged = selectionContainsMerged,
-        canDownloadSelection = true,
         collapsedCategories = collapsedCategories,
         // Novels keep one collapsed set for both real and dynamic categories.
         collapsedDynamicCategories = collapsedCategories,
@@ -113,6 +111,11 @@ class NovelLibraryAdapter(
     override fun unmergeSelection(entries: Set<EntryId>) {
         model.unmergeSelection(entries.ownIds())
     }
+    override fun containsMerged(entries: Set<EntryId>) =
+        model.state.value.containsMerged(entries.ownIds())
+
+    /** Novels have no local-source concept, so Download always applies. */
+    override fun canDownload(entries: Set<EntryId>) = true
     override fun updateActiveCategoryIndex(index: Int) {
         model.updateActiveCategoryIndex(index)
     }
