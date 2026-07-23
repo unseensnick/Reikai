@@ -94,7 +94,7 @@ import kotlin.time.Duration.Companion.seconds
  * [eu.kanade.tachiyomi.ui.library.LibraryScreenModel.State] does so `LibraryTab` can feed the existing
  * views from either model based on the content-type chip. Mihon's library core is untouched.
  *
- * Selection is keyed by the representative's novel id; [State.selectedNovelIds] hands those to the
+ * Selection lives in the shared LibraryEngine, which hands this model the novel ids to act on for the
  * multi-select actions (download / delete / change-category / mark-read). Display settings stay
  * shared with manga; tracker filter/sort/group reuse the shared tracker machinery via [getNovelTracks].
  */
@@ -137,9 +137,6 @@ class NovelLibraryScreenModel :
 
     // Keyed by category name (header key), matching the manga collapse convention. Session-scoped.
     private val collapsedCategories = MutableStateFlow<Set<String>>(emptySet())
-
-    // Anchor for range-select; not reactive (mirrors LibraryScreenModel.lastSelectionCategory).
-    private var lastSelectionCategory: Long? = null
 
     private val mutableDialog = MutableStateFlow<Dialog?>(null)
     val dialog: StateFlow<Dialog?> = mutableDialog.asStateFlow()
@@ -197,15 +194,14 @@ class NovelLibraryScreenModel :
                     grouping.atBottom,
                 )
             }.collectLatest { built ->
-                // Preserve the live searchQuery, selection and active page: the async buildState lags the
-                // user, so overwriting them here resets the search field to a stale value mid-input
-                // (scrambling fast keystrokes) and would drop a selection made while a rebuild is in
-                // flight. Those three are owned synchronously by their own mutators instead.
+                // Preserve the live searchQuery and active page: the async buildState lags the user, so
+                // overwriting the query here resets the search field to a stale value mid-input and
+                // scrambles fast keystrokes. search() owns it synchronously instead. The selection is
+                // not here at all; the shared engine owns it.
                 mutableState.update { current ->
                     built.copy(
                         activeCategoryIndex = current.activeCategoryIndex,
                         searchQuery = current.searchQuery,
-                        selection = current.selection,
                     )
                 }
             }
@@ -669,62 +665,6 @@ class NovelLibraryScreenModel :
         searchQuery.value = query
     }
 
-    // Selection lives in the state, not in a flow feeding the pipeline: it is not an input to collapse,
-    // filter, sort or grouping, so routing it through the main combine re-ran the whole rebuild on every
-    // tap purely to carry the value through. Mirrors how the manga library owns its selection.
-
-    fun clearSelection() {
-        lastSelectionCategory = null
-        mutableState.update { it.copy(selection = emptySet()) }
-    }
-
-    fun toggleSelection(categoryId: Long, itemId: Long) {
-        mutableState.update { state ->
-            val sel = state.selection
-            state.copy(selection = if (itemId in sel) sel - itemId else sel + itemId)
-        }
-        lastSelectionCategory = categoryId.takeIf { state.value.selection.isNotEmpty() }
-    }
-
-    /** Selects every item between the last-selected and [itemId] within the same category. */
-    fun toggleRangeSelection(categoryId: Long, itemId: Long) {
-        val items = state.value.itemIdsForCategory(categoryId)
-        val last = state.value.selection.lastOrNull()
-        if (lastSelectionCategory != categoryId || last == null || last !in items || itemId !in items) {
-            mutableState.update { it.copy(selection = it.selection + itemId) }
-        } else {
-            val from = items.indexOf(last)
-            val to = items.indexOf(itemId)
-            val range = items.subList(minOf(from, to), maxOf(from, to) + 1)
-            mutableState.update { it.copy(selection = it.selection + range) }
-        }
-        lastSelectionCategory = categoryId
-    }
-
-    fun selectAll() {
-        lastSelectionCategory = null
-        val ids = state.value.itemIdsForCategory(state.value.activeCategory?.id)
-        mutableState.update { it.copy(selection = it.selection + ids) }
-    }
-
-    fun selectAllInCategory(categoryId: Long) {
-        lastSelectionCategory = null
-        val ids = state.value.itemIdsForCategory(categoryId)
-        mutableState.update { state ->
-            val sel = state.selection
-            state.copy(selection = if (ids.isNotEmpty() && ids.all { it in sel }) sel - ids.toSet() else sel + ids)
-        }
-    }
-
-    fun invertSelection() {
-        lastSelectionCategory = null
-        val ids = state.value.itemIdsForCategory(state.value.activeCategory?.id)
-        mutableState.update { state ->
-            val sel = state.selection
-            state.copy(selection = sel + ids.filterNot { it in sel } - ids.filter { it in sel }.toSet())
-        }
-    }
-
     fun toggleCategoryCollapse(headerKey: String) {
         collapsedCategories.update { if (headerKey in it) it - headerKey else it + headerKey }
     }
@@ -750,7 +690,6 @@ class NovelLibraryScreenModel :
         screenModelScope.launchIO {
             // each selected card's whole group is absorbed by the merge, so one call coalesces every source
             mergeManager.merge(ids)
-            clearSelection()
         }
     }
 
@@ -761,7 +700,6 @@ class NovelLibraryScreenModel :
             // copy each group's trackers onto its members before splitting, so each keeps them.
             ids.forEach { propagateNovelTrackerLinks.fromSeed(it) }
             mergeManager.unmerge(ids)
-            clearSelection()
         }
     }
 
@@ -773,7 +711,6 @@ class NovelLibraryScreenModel :
             // The interactor groups by novel for delete-after-read, so pass every selected novel's chapters.
             val chapters = novelIds.flatMap { novelChapterRepository.getByNovelId(it) }
             setNovelReadStatus.await(read, chapters)
-            clearSelection()
         }
     }
 
@@ -798,7 +735,6 @@ class NovelLibraryScreenModel :
                 val targets = selectChaptersForDownloadAction(chapters, action, downloadedIds + queuedIds)
                 if (targets.isNotEmpty()) novelDownloadManager.downloadChapters(targets)
             }
-            clearSelection()
         }
     }
 
@@ -831,7 +767,6 @@ class NovelLibraryScreenModel :
                 val new = (current - removeCategories.toSet() + addCategories).distinct()
                 setNovelCategories.await(novelId, new)
             }
-            clearSelection()
             dismissDialog()
         }
     }
@@ -851,7 +786,7 @@ class NovelLibraryScreenModel :
         removeGroupedSources: Boolean = false,
     ) {
         screenModelScope.launchIO {
-            val targets = if (removeGroupedSources) state.value.selectedNovelIdsExpanded else novelIds
+            val targets = if (removeGroupedSources) state.value.memberIdsFor(novelIds) else novelIds
             targets.forEach { novelId ->
                 if (deleteFromLibrary) {
                     updateNovel.awaitUpdateFavorite(novelId, favorite = false)
@@ -867,7 +802,6 @@ class NovelLibraryScreenModel :
                     if (downloaded.isNotEmpty()) novelDownloadManager.deleteChapters(downloaded)
                 }
             }
-            clearSelection()
             dismissDialog()
         }
     }
@@ -1077,7 +1011,6 @@ class NovelLibraryScreenModel :
     data class State(
         val isLoading: Boolean = true,
         val searchQuery: String? = null,
-        val selection: Set<Long> = emptySet(),
         val collapsedCategories: Set<String> = emptySet(),
         val activeCategoryIndex: Int = 0,
         val hasActiveFilters: Boolean = false,
@@ -1105,8 +1038,6 @@ class NovelLibraryScreenModel :
 
         val isLibraryEmpty = favoritesById.isEmpty()
 
-        val selectionMode = selection.isNotEmpty()
-
         // These resolve an explicit id set rather than reading the selection, so a bulk action is driven
         // by the ids its caller passes. That is what lets the shared engine own a selection spanning both
         // content types and hand each provider only its own ids. Mirrors the manga library.
@@ -1122,10 +1053,6 @@ class NovelLibraryScreenModel :
                 val item = favoritesById[id] ?: return@flatMap emptyList<Long>()
                 item.relatedMangaIds.ifEmpty { listOf(id) }
             }.distinct()
-
-        val selectedNovelIds: List<Long> get() = selection.toList()
-        val selectionContainsMerged get() = containsMerged(selection)
-        val selectedNovelIdsExpanded get() = memberIdsFor(selection)
 
         // Apply the display-only custom-info overlay here, the sole render path, so the overrides never
         // reach the raw rows that filter, sort, grouping and search read. Mirrors the manga library.

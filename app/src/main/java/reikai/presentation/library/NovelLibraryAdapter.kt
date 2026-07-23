@@ -37,10 +37,6 @@ class NovelLibraryAdapter(
         isLibraryEmpty = isLibraryEmpty,
         searchQuery = searchQuery,
         hasActiveFilters = hasActiveFilters,
-        // The model keeps its raw novel-id selection; the content type is stamped on here, since an
-        // adapter always knows its own.
-        selection = selection.mapTo(mutableSetOf()) { EntryId.Novel(it) },
-        selectionMode = selectionMode,
         collapsedCategories = collapsedCategories,
         // Novels keep one collapsed set for both real and dynamic categories.
         collapsedDynamicCategories = collapsedCategories,
@@ -52,30 +48,6 @@ class NovelLibraryAdapter(
 
     override fun search(query: String?) {
         model.search(query)
-    }
-    override fun toggleSelection(
-        category: Category,
-        item: LibraryManga,
-    ) {
-        model.toggleSelection(category.id, item.manga.id)
-    }
-    override fun toggleRangeSelection(
-        category: Category,
-        item: LibraryManga,
-    ) {
-        model.toggleRangeSelection(category.id, item.manga.id)
-    }
-    override fun selectAll() {
-        model.selectAll()
-    }
-    override fun invertSelection() {
-        model.invertSelection()
-    }
-    override fun clearSelection() {
-        model.clearSelection()
-    }
-    override fun selectAllInCategory(category: Category) {
-        model.selectAllInCategory(category.id)
     }
     override fun toggleDefaultCategoryCollapse(headerKey: String) {
         model.toggleCategoryCollapse(headerKey)

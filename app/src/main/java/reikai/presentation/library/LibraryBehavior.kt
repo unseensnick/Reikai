@@ -21,13 +21,8 @@ interface LibraryBehavior {
 
     fun search(query: String?)
 
-    // Selection.
-    fun toggleSelection(category: Category, item: LibraryManga)
-    fun toggleRangeSelection(category: Category, item: LibraryManga)
-    fun selectAll()
-    fun invertSelection()
-    fun clearSelection()
-    fun selectAllInCategory(category: Category)
+    // Selection itself lives in LibraryEngine, not here: a combined list can hold both content types at
+    // once and a range-select can span them, which neither provider can compute alone.
 
     // Category collapse. Manga has separate default / dynamic toggles; the novel model folds both into one.
     fun toggleDefaultCategoryCollapse(headerKey: String)

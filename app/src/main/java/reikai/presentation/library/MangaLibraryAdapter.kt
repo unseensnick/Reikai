@@ -37,10 +37,6 @@ class MangaLibraryAdapter(
         isLibraryEmpty = isLibraryEmpty,
         searchQuery = searchQuery,
         hasActiveFilters = hasActiveFilters,
-        // The model keeps upstream's raw-id selection; the content type is stamped on here, since an
-        // adapter always knows its own.
-        selection = selection.mapTo(mutableSetOf()) { EntryId.Manga(it) },
-        selectionMode = selectionMode,
         collapsedCategories = reikai.collapsedCategories,
         collapsedDynamicCategories = reikai.collapsedDynamicCategories,
         coercedActiveCategoryIndex = coercedActiveCategoryIndex,
@@ -51,27 +47,6 @@ class MangaLibraryAdapter(
 
     override fun search(query: String?) {
         model.search(query)
-    }
-    override fun toggleSelection(category: Category, item: LibraryManga) {
-        model.toggleSelection(category, item)
-    }
-    override fun toggleRangeSelection(
-        category: Category,
-        item: LibraryManga,
-    ) {
-        model.toggleRangeSelection(category, item)
-    }
-    override fun selectAll() {
-        model.selectAll()
-    }
-    override fun invertSelection() {
-        model.invertSelection()
-    }
-    override fun clearSelection() {
-        model.clearSelection()
-    }
-    override fun selectAllInCategory(category: Category) {
-        model.selectAllInCategory(category)
     }
     override fun toggleDefaultCategoryCollapse(headerKey: String) {
         model.toggleDefaultCategoryCollapse(headerKey)

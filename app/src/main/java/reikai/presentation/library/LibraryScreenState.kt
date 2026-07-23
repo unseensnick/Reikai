@@ -22,12 +22,6 @@ data class LibraryScreenState(
     val isLibraryEmpty: Boolean,
     val searchQuery: String?,
     val hasActiveFilters: Boolean,
-    /**
-     * The selected entries, by neutral identity. Typed rather than raw ids because a manga and a novel
-     * can share a row id, so an untyped set could not name a mixed selection unambiguously.
-     */
-    val selection: Set<EntryId>,
-    val selectionMode: Boolean,
     val collapsedCategories: Set<String>,
     /** Manga keeps a second collapsed set for dynamic groups; novels reuse [collapsedCategories]. */
     val collapsedDynamicCategories: Set<String>,

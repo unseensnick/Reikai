@@ -161,7 +161,8 @@ data object LibraryTab : Tab {
         val novelLibState by novelAdapter.state.collectAsState()
         val libState = if (isNovels) novelLibState else mangaLibState
         val activeCategories = libState.categories
-        val activeSelection = libState.selection
+        // RK: the selection is the engine's, not a provider's: it can span both content types.
+        val activeSelection by engine.selection.collectAsState()
         val activeSearchQuery = libState.searchQuery
         val activeIsLibraryEmpty = libState.isLibraryEmpty
         val activeIsLoading = libState.isLoading
@@ -169,11 +170,18 @@ data object LibraryTab : Tab {
         val activeGetItems: (Category) -> List<LibraryItem> = libState.itemsForCategory
         val activeGetItemCount: (Category) -> Int? = libState.itemCountForCategory
         val onSearch: (String?) -> Unit = behavior::search
-        val activeSelectionMode = libState.selectionMode
+        val activeSelectionMode = activeSelection.isNotEmpty()
         val activeHasActiveFilters = libState.hasActiveFilters
         // The category on screen, from the active model. Category ids are per content type, so reading
         // this off the manga model while the Novels chip is up scopes an update to the wrong category.
         val activeCategory = activeCategories.getOrNull(libState.coercedActiveCategoryIndex)
+        // The rows of one category in display order, which is what the engine's range-select and
+        // select-all need. Resolved here rather than in the engine so the engine never looks rows up
+        // itself and stays free of per-type knowledge.
+        val entriesOf: (Category?) -> List<EntryId> = { category ->
+            category?.let { activeGetItems(it).map(LibraryItem::entryId) }.orEmpty()
+        }
+        val activeCategoryEntries: () -> List<EntryId> = { entriesOf(activeCategory) }
         // RK <--
 
         val snackbarHostState = remember { SnackbarHostState() }
@@ -340,7 +348,7 @@ data object LibraryTab : Tab {
                     targetValue = if (!state.showCategoryTabs && scrollBehavior.state.overlappedFraction > 0.01f) {
                         MaterialTheme.colorScheme.surfaceContainer
                     } else {
-                        MaterialTheme.colorScheme.surfaceColorAtElevation(if (state.selectionMode) 3.dp else 0.dp)
+                        MaterialTheme.colorScheme.surfaceColorAtElevation(if (activeSelectionMode) 3.dp else 0.dp)
                     },
                     label = "libraryChipBackground",
                 )
@@ -350,9 +358,9 @@ data object LibraryTab : Tab {
                         hasActiveFilters = activeHasActiveFilters,
                         selectedCount = activeSelection.size,
                         title = title,
-                        onClickUnselectAll = behavior::clearSelection,
-                        onClickSelectAll = behavior::selectAll,
-                        onClickInvertSelection = behavior::invertSelection,
+                        onClickUnselectAll = engine::clearSelection,
+                        onClickSelectAll = { engine.selectAll(activeCategoryEntries()) },
+                        onClickInvertSelection = { engine.invertSelection(activeCategoryEntries()) },
                         onClickFilter = {
                             // RK: the toolbar sort is GLOBAL (Model A); a null category scopes the sheet to
                             // the global sort, not a stale active category. Per-category overrides are set
@@ -384,7 +392,15 @@ data object LibraryTab : Tab {
                     )
                     ContentTypeFilterChips(
                         selected = libraryContentType,
-                        onSelect = novelModel::setContentType,
+                        onSelect = { type ->
+                            // RK: the selection is shared across content types, so switching the chip
+                            // would otherwise carry it into a view where none of its rows are listed,
+                            // leaving a stale count on the action bar and actions that hit nothing.
+                            // Revisit when the All chip lands: switching All -> Manga could keep the
+                            // manga part rather than dropping everything.
+                            engine.clearSelection()
+                            novelModel.setContentType(type)
+                        },
                         types = listOf(ContentType.MANGA, ContentType.NOVELS),
                         modifier = Modifier.background(chipBackground),
                     )
@@ -396,33 +412,33 @@ data object LibraryTab : Tab {
                 // per-type source-pick screen over each type's own id space.
                 LibraryBottomActionMenu(
                     visible = activeSelectionMode,
-                    onChangeCategoryClicked = { behavior.openChangeCategoryDialog(activeSelection) },
-                    onMarkAsReadClicked = { behavior.markReadSelection(activeSelection, true) },
-                    onMarkAsUnreadClicked = { behavior.markReadSelection(activeSelection, false) },
+                    onChangeCategoryClicked = { engine.openChangeCategoryDialog(libraryContentType) },
+                    onMarkAsReadClicked = { engine.markReadSelection(libraryContentType, true) },
+                    onMarkAsUnreadClicked = { engine.markReadSelection(libraryContentType, false) },
                     // RK: manga hides Download when every selected entry is local; novels never do.
                     onDownloadClicked = { action: DownloadAction ->
-                        behavior.performDownloadAction(activeSelection, action)
+                        engine.performDownloadAction(libraryContentType, action)
                     }
-                        .takeIf { behavior.canDownload(activeSelection) },
-                    onDeleteClicked = { behavior.openDeleteDialog(activeSelection) },
+                        .takeIf { engine.canDownloadSelection(libraryContentType) },
+                    onDeleteClicked = { engine.openDeleteDialog(libraryContentType) },
                     onMigrateClicked = {
+                        // RK: migration is per-type (each pushes a screen over its own id space), so the
+                        // neutral selection is narrowed to the active type here.
+                        val ids = activeSelection.map { it.rawId }
+                        engine.clearSelection()
                         if (isNovels) {
-                            val ids = novelState.selectedNovelIds
-                            behavior.clearSelection()
                             navigator.push(NovelMigrationSourcePickScreen(ids))
                         } else {
-                            val selection = state.selection
-                            behavior.clearSelection()
                             // RK: source picker first (merged-manga member choice).
-                            navigator.push(MangaMigrationSourcePickScreen(selection.toList()))
+                            navigator.push(MangaMigrationSourcePickScreen(ids))
                         }
                     },
                     // RK: manual merge of the selected entries (needs at least two) + unmerge (only when the
                     // selection includes a merged one).
-                    onMergeClicked = { behavior.mergeSelection(activeSelection) }
+                    onMergeClicked = { engine.mergeSelection(libraryContentType) }
                         .takeIf { activeSelection.size >= 2 },
-                    onUnmergeClicked = { behavior.unmergeSelection(activeSelection) }
-                        .takeIf { behavior.containsMerged(activeSelection) },
+                    onUnmergeClicked = { engine.unmergeSelection(libraryContentType) }
+                        .takeIf { engine.selectionContainsMerged(libraryContentType) },
                 )
             },
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
@@ -478,8 +494,8 @@ data object LibraryTab : Tab {
                                 gridState = singleListGridState,
                                 contentPadding = contentPadding,
                                 onClickManga = { category, item ->
-                                    if (libState.selectionMode) {
-                                        behavior.toggleSelection(category, item.libraryManga)
+                                    if (activeSelectionMode) {
+                                        engine.toggleSelection(category.id, item.entryId)
                                     } else {
                                         // RK: navigation is per-type, routed by the ROW's own content
                                         // type rather than the active chip, so a mixed list opens each
@@ -490,7 +506,7 @@ data object LibraryTab : Tab {
                                 onLongClickManga = { category, item ->
                                     // RK: range-select (incl. the in-between) like the tabbed view,
                                     // instead of toggling only the long-pressed manga.
-                                    behavior.toggleRangeSelection(category, item.libraryManga)
+                                    engine.toggleRangeSelection(category.id, item.entryId, entriesOf(category))
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 },
                                 onToggleDefaultCollapse = behavior::toggleDefaultCategoryCollapse,
@@ -505,7 +521,7 @@ data object LibraryTab : Tab {
                                     behavior.openSettingsDialog(categoryId = category.id, initialTab = 1)
                                 },
                                 onRefreshCategory = { category -> onClickRefresh(category) },
-                                onSelectAllInCategory = { category -> behavior.selectAllInCategory(category) },
+                                onSelectAllInCategory = { category -> engine.selectAllInCategory(entriesOf(category)) },
                                 // RK: the header shows each category's EFFECTIVE sort (its own override, or
                                 // the global sort it follows), decoded per content type so the label + arrow
                                 // match the actual ordering.
@@ -540,10 +556,10 @@ data object LibraryTab : Tab {
                                 onClickManga = openEntry,
                                 onContinueReadingClicked = onContinueReading,
                                 onToggleSelection = { category, item ->
-                                    behavior.toggleSelection(category, item.libraryManga)
+                                    engine.toggleSelection(category.id, item.entryId)
                                 },
                                 onToggleRangeSelection = { category, item ->
-                                    behavior.toggleRangeSelection(category, item.libraryManga)
+                                    engine.toggleRangeSelection(category.id, item.entryId, entriesOf(category))
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 },
                                 onRefresh = { onClickRefresh(activeCategory) },
@@ -692,11 +708,11 @@ data object LibraryTab : Tab {
                     initialSelection = dialog.initialSelection,
                     onDismissRequest = onDismissRequest,
                     onEditCategories = {
-                        screenModel.clearSelection()
+                        engine.clearSelection()
                         navigator.push(CategoryScreen())
                     },
                     onConfirm = { include, exclude ->
-                        screenModel.clearSelection()
+                        engine.clearSelection()
                         screenModel.setMangaCategories(dialog.manga, include, exclude)
                     },
                 )
@@ -709,7 +725,7 @@ data object LibraryTab : Tab {
                     onDismissRequest = onDismissRequest,
                     onConfirm = { deleteManga, deleteChapter, removeGrouped ->
                         screenModel.removeMangas(dialog.manga, deleteManga, deleteChapter, removeGrouped)
-                        screenModel.clearSelection()
+                        engine.clearSelection()
                     },
                 )
             }
@@ -724,10 +740,12 @@ data object LibraryTab : Tab {
                     onDismissRequest = novelModel::dismissDialog,
                     onEditCategories = {
                         novelModel.dismissDialog()
+                        engine.clearSelection()
                         navigator.push(CategoryScreen(novels = true))
                     },
                     onConfirm = { include, exclude ->
                         novelModel.setNovelCategories(novelDialog.novelIds, include, exclude)
+                        engine.clearSelection()
                     },
                 )
             }
@@ -739,6 +757,7 @@ data object LibraryTab : Tab {
                     onDismissRequest = novelModel::dismissDialog,
                     onConfirm = { deleteFromLibrary, deleteDownloads, removeGrouped ->
                         novelModel.removeNovels(novelDialog.novelIds, deleteFromLibrary, deleteDownloads, removeGrouped)
+                        engine.clearSelection()
                     },
                 )
             }
@@ -761,7 +780,7 @@ data object LibraryTab : Tab {
 
         BackHandler(enabled = activeSelectionMode || activeSearchQuery != null) {
             when {
-                activeSelectionMode -> behavior.clearSelection()
+                activeSelectionMode -> engine.clearSelection()
                 activeSearchQuery != null -> onSearch(null)
             }
         }

@@ -653,7 +653,6 @@ class LibraryScreenModel(
             DownloadAction.UNREAD_CHAPTERS -> downloadNextChapters(mangas, null)
             DownloadAction.BOOKMARKED_CHAPTERS -> downloadBookmarkedChapters(mangas)
         }
-        clearSelection()
     }
 
     // RK --> a merged cover is one selected row standing for its whole group, so a bulk action has to
@@ -726,7 +725,6 @@ class LibraryScreenModel(
                 )
             }
         }
-        clearSelection()
     }
 
     /**
@@ -744,10 +742,8 @@ class LibraryScreenModel(
         //     instead of just the primary. Scopes both the library removal and the download deletion.
         removeGroupedSources: Boolean = false,
     ) {
-        // RK: capture the group member ids now, on the caller thread. LibraryTab clears the selection
-        //     right after this returns, so reading selectedMemberIds inside the coroutine would race
-        //     it and come back empty.
-        val memberIds = if (removeGroupedSources) state.value.selectedMemberIds else emptyList()
+        // RK: resolve the group member ids now, on the caller thread, from the manga being removed.
+        val memberIds = if (removeGroupedSources) state.value.memberIdsFor(mangas.map { it.id }) else emptyList()
         screenModelScope.launchNonCancellable {
             // RK: the merged-away group members are collapsed out of the library state, so resolve
             //     them from the DB by id; falls back to the passed-in mangas when not expanding.
@@ -830,13 +826,6 @@ class LibraryScreenModel(
         mutableState.update { it.copy(dialog = Dialog.SettingsSheet(initialTab, categoryId)) }
     }
 
-    private var lastSelectionCategory: Long? = null
-
-    fun clearSelection() {
-        lastSelectionCategory = null
-        mutableState.update { it.copy(selection = setOf()) }
-    }
-
     // RK: manually merge the selected manga into one group (covers both library views)
     fun mergeSelection(ids: List<Long>) {
         if (ids.size < 2) return
@@ -846,90 +835,12 @@ class LibraryScreenModel(
             // RK: share any existing tracker across the newly merged group
             propagateTrackerLinks.fromSeed(ids.first())
         }
-        clearSelection()
     }
 
     // RK: split the selected manga out of their merge groups (no-op for non-merged selections)
     fun unmergeSelection(ids: List<Long>) {
         if (ids.isEmpty()) return
         screenModelScope.launchIO { mergeManager.unmerge(ids) }
-        clearSelection()
-    }
-
-    fun toggleSelection(category: Category, manga: LibraryManga) {
-        mutableState.update { state ->
-            val newSelection = state.selection.mutate { set ->
-                if (!set.remove(manga.id)) set.add(manga.id)
-            }
-            lastSelectionCategory = category.id.takeIf { newSelection.isNotEmpty() }
-            state.copy(selection = newSelection)
-        }
-    }
-
-    /**
-     * Selects all mangas between and including the given manga and the last pressed manga from the
-     * same category as the given manga
-     */
-    fun toggleRangeSelection(category: Category, manga: LibraryManga) {
-        mutableState.update { state ->
-            val newSelection = state.selection.mutate { list ->
-                val lastSelected = list.lastOrNull()
-                if (lastSelectionCategory != category.id) {
-                    list.add(manga.id)
-                    return@mutate
-                }
-
-                val items = state.getItemsForCategoryId(category.id).fastMap { it.id }
-                val lastMangaIndex = items.indexOf(lastSelected)
-                val curMangaIndex = items.indexOf(manga.id)
-
-                val selectionRange = when {
-                    lastMangaIndex < curMangaIndex -> lastMangaIndex..curMangaIndex
-                    curMangaIndex < lastMangaIndex -> curMangaIndex..lastMangaIndex
-                    // We shouldn't reach this point
-                    else -> return@mutate
-                }
-                selectionRange.mapNotNull { items[it] }.let(list::addAll)
-            }
-            lastSelectionCategory = category.id
-            state.copy(selection = newSelection)
-        }
-    }
-
-    fun selectAll() {
-        lastSelectionCategory = null
-        mutableState.update { state ->
-            val newSelection = state.selection.mutate { list ->
-                state.getItemsForCategoryId(state.activeCategory?.id).map { it.id }.let(list::addAll)
-            }
-            state.copy(selection = newSelection)
-        }
-    }
-
-    // RK: select every manga in a single category, or deselect them if all are already selected
-    // (drives the single-list header's select-all circle).
-    fun selectAllInCategory(category: Category) {
-        lastSelectionCategory = null
-        mutableState.update { state ->
-            val ids = state.getItemsForCategory(category).map { it.id }
-            val newSelection = state.selection.mutate { set ->
-                if (ids.isNotEmpty() && ids.all { it in set }) set.removeAll(ids.toSet()) else set.addAll(ids)
-            }
-            state.copy(selection = newSelection)
-        }
-    }
-
-    fun invertSelection() {
-        lastSelectionCategory = null
-        mutableState.update { state ->
-            val newSelection = state.selection.mutate { list ->
-                val itemIds = state.getItemsForCategoryId(state.activeCategory?.id).fastMap { it.id }
-                val (toRemove, toAdd) = itemIds.partition { it in list }
-                list.removeAll(toRemove)
-                list.addAll(toAdd)
-            }
-            state.copy(selection = newSelection)
-        }
     }
 
     fun search(query: String?) {
@@ -1038,7 +949,6 @@ class LibraryScreenModel(
         val isInitialized: Boolean = false,
         val isLoading: Boolean = true,
         val searchQuery: String? = null,
-        val selection: Set</* Manga */ Long> = setOf(),
         val hasActiveFilters: Boolean = false,
         val showCategoryTabs: Boolean = false,
         val showMangaCount: Boolean = false,
@@ -1073,8 +983,6 @@ class LibraryScreenModel(
 
         val isLibraryEmpty = libraryData.favorites.isEmpty()
 
-        val selectionMode = selection.isNotEmpty()
-
         // RK: these resolve an explicit id set rather than reading the selection, so a bulk action is
         //     driven by the ids its caller passes. That is what lets the shared engine own a selection
         //     spanning both content types and hand each provider only its own ids.
@@ -1094,10 +1002,6 @@ class LibraryScreenModel(
                 val item = libraryData.favoritesById[id] ?: return@flatMap emptyList<Long>()
                 item.relatedMangaIds.ifEmpty { listOf(id) }
             }.distinct()
-
-        val selectedManga get() = mangaFor(selection)
-        val selectionContainsMerged get() = containsMerged(selection)
-        val selectedMemberIds get() = memberIdsFor(selection)
 
         fun getItemsForCategoryId(categoryId: Long?): List<LibraryItem> {
             if (categoryId == null) return emptyList()
