@@ -6,7 +6,6 @@ import androidx.compose.ui.util.fastFilter
 import androidx.compose.ui.util.fastMap
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
-import dev.icerock.moko.resources.StringResource
 import eu.kanade.core.preference.PreferenceMutableState
 import eu.kanade.core.preference.asState
 import eu.kanade.core.util.fastFilterNot
@@ -19,7 +18,6 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.track.TrackerManager
-import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import eu.kanade.tachiyomi.util.removeCovers
@@ -42,28 +40,33 @@ import reikai.domain.category.categoryDiff
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.isHidden
 import reikai.domain.library.ContentType
-import reikai.domain.library.LibrarySortMode
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.sortForCategory
+import reikai.domain.library.toSortMode
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.PropagateTrackerLinks
 import reikai.domain.merge.ChapterMatchKeyRepository
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.ReconcileChapterMatchKeys
-import reikai.presentation.library.DynItem
-import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryFilterPrefs
 import reikai.presentation.library.LibraryGroup
-import reikai.presentation.library.LibraryTrackingStatusOrder
+import reikai.presentation.library.MangaGroupingInputs
 import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.ReikaiLibraryState
+import reikai.presentation.library.buildMangaDynamicGrouping
+import reikai.presentation.library.expandOrCollapseAll
+import reikai.presentation.library.groupingInputs
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemSortFields
-import reikai.presentation.library.reikaiSortCategories
+import reikai.presentation.library.libraryStateFlow
+import reikai.presentation.library.reorderReikaiCategories
+import reikai.presentation.library.toggleAllCategoriesCollapsed
+import reikai.presentation.library.toggleCategoryCollapsed
+import reikai.presentation.library.toggleDynamicCategoryCollapsed
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.TriState
@@ -300,45 +303,11 @@ class LibraryScreenModel(
         // RK <--
     }
 
-    // RK -->
-    @Suppress("UNCHECKED_CAST")
-    private fun getReikaiLibraryStateFlow(): Flow<ReikaiLibraryState> {
-        return combine(
-            reikaiLibraryPreferences.groupLibraryBy.changes(),
-            reikaiLibraryPreferences.collapsedCategories.changes(),
-            reikaiLibraryPreferences.collapsedDynamicCategories.changes(),
-            reikaiLibraryPreferences.collapsedDynamicAtBottom.changes(),
-            reikaiLibraryPreferences.categorySortOrder.changes(),
-            reikaiLibraryPreferences.showCategoryInTitle.changes(),
-            reikaiLibraryPreferences.showAllCategories.changes(),
-            reikaiLibraryPreferences.showEmptyCategoriesWhileFiltering.changes(),
-            reikaiLibraryPreferences.hideHopper.changes(),
-            reikaiLibraryPreferences.autohideHopper.changes(),
-            reikaiLibraryPreferences.hopperGravity.changes(),
-            reikaiLibraryPreferences.hopperLongPressAction.changes(),
-            reikaiLibraryPreferences.showHiddenCategories.changes(),
-            reikaiLibraryPreferences.trackUpdateErrors.changes(),
-            reikaiLibraryPreferences.trackNovelUpdateErrors.changes(),
-        ) {
-            ReikaiLibraryState(
-                groupLibraryBy = it[0] as Int,
-                collapsedCategories = it[1] as Set<String>,
-                collapsedDynamicCategories = it[2] as Set<String>,
-                collapsedDynamicAtBottom = it[3] as Boolean,
-                categorySortOrder = it[4] as Int,
-                showCategoryInTitle = it[5] as Boolean,
-                showAllCategories = it[6] as Boolean,
-                showEmptyCategoriesWhileFiltering = it[7] as Boolean,
-                hideHopper = it[8] as Boolean,
-                autohideHopper = it[9] as Boolean,
-                hopperGravity = it[10] as Int,
-                hopperLongPressAction = it[11] as Int,
-                showHiddenCategories = it[12] as Boolean,
-                trackUpdateErrors = it[13] as Boolean,
-                trackNovelUpdateErrors = it[14] as Boolean,
-            )
-        }
-    }
+    // RK --> Reikai library display state and dynamic grouping. The logic lives in
+    //        reikai.presentation.library (ReikaiLibraryState.kt, MangaDynamicGrouping.kt); these are the
+    //        delegations, so an upstream change here is a re-applied call rather than a merged body.
+    private fun getReikaiLibraryStateFlow(): Flow<ReikaiLibraryState> =
+        reikaiLibraryPreferences.libraryStateFlow()
 
     fun setGroupLibraryBy(value: Int) {
         reikaiLibraryPreferences.groupLibraryBy.set(value)
@@ -353,155 +322,32 @@ class LibraryScreenModel(
     }
 
     fun toggleDefaultCategoryCollapse(headerKey: String) {
-        val pref = reikaiLibraryPreferences.collapsedCategories
-        val current = pref.get()
-        pref.set(if (headerKey in current) current - headerKey else current + headerKey)
+        reikaiLibraryPreferences.toggleCategoryCollapsed(headerKey)
     }
 
     fun toggleDynamicCategoryCollapse(headerKey: String) {
-        val pref = reikaiLibraryPreferences.collapsedDynamicCategories
-        val current = pref.get()
-        pref.set(if (headerKey in current) current - headerKey else current + headerKey)
+        reikaiLibraryPreferences.toggleDynamicCategoryCollapsed(headerKey)
     }
 
     fun expandOrCollapseAllCategories(headerKeys: Set<String>) {
-        val pref = reikaiLibraryPreferences.collapsedCategories
-        val current = pref.get()
-        pref.set(if (current.containsAll(headerKeys)) current - headerKeys else current + headerKeys)
+        reikaiLibraryPreferences.expandOrCollapseAll(headerKeys)
     }
 
-    /**
-     * Toggle every currently-displayed category collapsed/expanded (hopper long-press). Handles
-     * both real categories (collapsedCategories) and dynamic groups (collapsedDynamicCategories).
-     */
     fun toggleAllCategoriesCollapsed(categories: List<Category>) {
-        val defaultKeys = categories.filterNot { ReikaiDynamicCategory.isDynamic(it) }
-            .map { it.id.toString() }.toSet()
-        val dynamicKeys = categories.filter { ReikaiDynamicCategory.isDynamic(it) }
-            .map { ReikaiDynamicCategory.headerKey(it) }.toSet()
-        val defaultPref = reikaiLibraryPreferences.collapsedCategories
-        val dynamicPref = reikaiLibraryPreferences.collapsedDynamicCategories
-        val allCollapsed = defaultPref.get().containsAll(defaultKeys) && dynamicPref.get().containsAll(dynamicKeys)
-        if (allCollapsed) {
-            defaultPref.set(defaultPref.get() - defaultKeys)
-            dynamicPref.set(dynamicPref.get() - dynamicKeys)
-        } else {
-            defaultPref.set(defaultPref.get() + defaultKeys)
-            dynamicPref.set(dynamicPref.get() + dynamicKeys)
-        }
+        reikaiLibraryPreferences.toggleAllCategoriesCollapsed(categories)
     }
 
-    private data class GroupingInputs(
-        val groupLibraryBy: Int,
-        val categorySortOrder: Int,
-        val collapsedDynamicCategories: Set<String>,
-        val collapsedDynamicAtBottom: Boolean,
-        val showHiddenCategories: Boolean,
-    )
-
-    private fun ReikaiLibraryState.groupingInputs() = GroupingInputs(
-        groupLibraryBy = groupLibraryBy,
-        categorySortOrder = categorySortOrder,
-        collapsedDynamicCategories = collapsedDynamicCategories,
-        collapsedDynamicAtBottom = collapsedDynamicAtBottom,
-        showHiddenCategories = showHiddenCategories,
-    )
-
-    /** Order the category buckets (0 = manual/DB order, 1 = A->Z, 2 = Z->A; system pinned on top). */
-    private fun Map<Category, List<Long>>.reorderReikaiCategories(categorySortOrder: Int): Map<Category, List<Long>> {
-        if (categorySortOrder == 0 || isEmpty()) return this
-        return reikaiSortCategories(keys.toList(), categorySortOrder).associateWith { getValue(it) }
-    }
-
-    /** Bucket the library into synthetic dynamic categories, resolving per-manga metadata. */
-    private fun buildReikaiDynamicGrouping(data: LibraryData, grouping: GroupingInputs): Map<Category, List<Long>> {
-        val context = Injekt.get<Application>()
-        val groupType = grouping.groupLibraryBy
-        val library = data.favorites.map { it.libraryManga }
-
-        val sourceMeta = if (groupType == LibraryGroup.BY_SOURCE) {
-            library.associate { lm ->
-                val source = sourceManager.getOrStub(lm.manga.source)
-                lm.manga.id to (source.name to source.id.toString())
-            }
-        } else {
-            emptyMap()
-        }
-
-        val languageCodes = if (groupType == LibraryGroup.BY_LANGUAGE) {
-            library.mapNotNull { lm ->
-                val lang = sourceManager.getOrStub(lm.manga.source).lang.takeUnless { it.isBlank() }
-                    ?: return@mapNotNull null
-                lm.manga.id to lang
-            }.toMap()
-        } else {
-            emptyMap()
-        }
-
-        val statusNames = if (groupType == LibraryGroup.BY_STATUS) {
-            library.associate { lm -> lm.manga.id to context.stringResource(mapMangaStatus(lm.manga.status)) }
-        } else {
-            emptyMap()
-        }
-
-        val trackStatuses = if (groupType == LibraryGroup.BY_TRACK_STATUS) {
-            data.favorites.mapNotNull { item ->
-                val mangaId = item.libraryManga.manga.id
-                // RK: union tracks across the merged group (relatedMangaIds), so a status bound on any
-                // grouped source groups the row, matching the tracker filter/sort and the novel library.
-                val groupIds = item.relatedMangaIds.ifEmpty { listOf(mangaId) }
-                val track = groupIds.flatMap { data.tracksMap[it].orEmpty() }
-                    .firstOrNull { it.trackerId in data.loggedInTrackerIds }
-                    ?: return@mapNotNull null
-                val statusRes = trackerManager.get(track.trackerId)?.getStatus(track.status)
-                    ?: return@mapNotNull null
-                mangaId to context.stringResource(statusRes)
-            }.toMap()
-        } else {
-            emptyMap()
-        }
-
-        // RK: order the track-status buckets by each tracker's own status list (Reading first, Dropped
-        // last) instead of alphabetically; identity for other groupings, which the kernel ignores anyway.
-        val trackingStatusOrder: (String) -> String = if (groupType == LibraryGroup.BY_TRACK_STATUS) {
-            LibraryTrackingStatusOrder.build(
-                data.loggedInTrackerIds.mapNotNull { trackerManager.get(it) },
-            ) { context.stringResource(it) }
-        } else {
-            { it }
-        }
-
-        return LibraryDynamicGrouping.build(
-            items = library.map { DynItem(it.manga.id, it.manga.genre, it.manga.author, it.manga.artist) },
-            groupType = groupType,
+    private fun buildReikaiDynamicGrouping(data: LibraryData, grouping: MangaGroupingInputs) =
+        buildMangaDynamicGrouping(
+            favorites = data.favorites,
+            tracksMap = data.tracksMap,
+            loggedInTrackerIds = data.loggedInTrackerIds,
+            inputs = grouping,
             inheritedSortFlag = libraryPreferences.sortingMode.get().flag,
-            collapsedDynamicCategories = grouping.collapsedDynamicCategories,
-            collapsedDynamicAtBottom = grouping.collapsedDynamicAtBottom,
-            unknownLabel = context.stringResource(MR.strings.unknown),
-            notTrackedLabel = context.stringResource(MR.strings.not_tracked),
-            ungroupedLabel = context.stringResource(MR.strings.group_ungrouped),
-            categorySortOrder = grouping.categorySortOrder,
-            sourceMeta = sourceMeta,
-            trackStatuses = trackStatuses,
-            languageCodes = languageCodes,
-            statusNames = statusNames,
-            languageDisplay = { code -> displayLanguage(code) },
-            trackingStatusOrder = trackingStatusOrder,
+            sourceManager = sourceManager,
+            trackerManager = trackerManager,
+            context = Injekt.get<Application>(),
         )
-    }
-
-    private fun mapMangaStatus(status: Long): StringResource = when (status.toInt()) {
-        SManga.ONGOING -> MR.strings.ongoing
-        SManga.COMPLETED -> MR.strings.completed
-        SManga.LICENSED -> MR.strings.licensed
-        SManga.PUBLISHING_FINISHED -> MR.strings.publishing_finished
-        SManga.CANCELLED -> MR.strings.cancelled
-        SManga.ON_HIATUS -> MR.strings.on_hiatus
-        else -> MR.strings.unknown
-    }
-
-    private fun displayLanguage(code: String): String =
-        java.util.Locale.forLanguageTag(code).displayName.ifBlank { code }
     // RK <--
 
     // RK -->
@@ -607,19 +453,6 @@ class LibraryScreenModel(
         }
     }
 
-    private fun LibrarySort.Type.toSortMode(): LibrarySortMode = when (this) {
-        LibrarySort.Type.Alphabetical -> LibrarySortMode.Alphabetical
-        LibrarySort.Type.LastRead -> LibrarySortMode.LastRead
-        LibrarySort.Type.LastUpdate -> LibrarySortMode.LastUpdate
-        LibrarySort.Type.UnreadCount -> LibrarySortMode.UnreadCount
-        LibrarySort.Type.TotalChapters -> LibrarySortMode.TotalChapters
-        LibrarySort.Type.LatestChapter -> LibrarySortMode.LatestChapter
-        LibrarySort.Type.ChapterFetchDate -> LibrarySortMode.ChapterFetchDate
-        LibrarySort.Type.DateAdded -> LibrarySortMode.DateAdded
-        LibrarySort.Type.TrackerMean -> LibrarySortMode.TrackerMean
-        LibrarySort.Type.Downloaded -> LibrarySortMode.Downloaded
-        LibrarySort.Type.Random -> LibrarySortMode.Random
-    }
     // RK <--
 
     private fun getLibraryItemPreferencesFlow(): Flow<ItemPreferences> {

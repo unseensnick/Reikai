@@ -19,3 +19,23 @@ const val CATEGORY_SORT_CUSTOMIZED = 0b1L
  */
 fun sortForCategory(flags: Long, global: LibrarySort): LibrarySort =
     if (flags and CATEGORY_SORT_CUSTOMIZED != 0L) LibrarySort.valueOf(flags) else global
+
+/**
+ * Resolve Mihon's sort key to the neutral mode the shared comparator understands, the manga twin of
+ * `NovelLibrarySort.Type.toSortMode`. Each content type decodes its own persisted flags before the
+ * shared layer, which is what keeps the two libraries' swapped Downloaded and TrackerMean bit values
+ * from needing a data migration.
+ */
+fun LibrarySort.Type.toSortMode(): LibrarySortMode = when (this) {
+    LibrarySort.Type.Alphabetical -> LibrarySortMode.Alphabetical
+    LibrarySort.Type.LastRead -> LibrarySortMode.LastRead
+    LibrarySort.Type.LastUpdate -> LibrarySortMode.LastUpdate
+    LibrarySort.Type.UnreadCount -> LibrarySortMode.UnreadCount
+    LibrarySort.Type.TotalChapters -> LibrarySortMode.TotalChapters
+    LibrarySort.Type.LatestChapter -> LibrarySortMode.LatestChapter
+    LibrarySort.Type.ChapterFetchDate -> LibrarySortMode.ChapterFetchDate
+    LibrarySort.Type.DateAdded -> LibrarySortMode.DateAdded
+    LibrarySort.Type.TrackerMean -> LibrarySortMode.TrackerMean
+    LibrarySort.Type.Downloaded -> LibrarySortMode.Downloaded
+    LibrarySort.Type.Random -> LibrarySortMode.Random
+}
