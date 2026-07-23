@@ -23,7 +23,6 @@ import kotlinx.coroutines.launch
 import reikai.domain.entry.EntryId // RK
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
-import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.presentation.core.components.material.PullRefresh
 import kotlin.time.Duration.Companion.seconds
 
@@ -38,10 +37,10 @@ fun LibraryContent(
     hasActiveFilters: Boolean,
     showPageTabs: Boolean,
     onChangeCurrentPage: (Int) -> Unit,
-    onClickManga: (Long) -> Unit,
-    onContinueReadingClicked: ((LibraryManga) -> Unit)?,
-    onToggleSelection: (Category, LibraryManga) -> Unit,
-    onToggleRangeSelection: (Category, LibraryManga) -> Unit,
+    onClickManga: (EntryId) -> Unit,
+    onContinueReadingClicked: ((LibraryItem) -> Unit)?,
+    onToggleSelection: (Category, LibraryItem) -> Unit,
+    onToggleRangeSelection: (Category, LibraryItem) -> Unit,
     onRefresh: () -> Boolean,
     onGlobalSearchClicked: () -> Unit,
     getItemCountForCategory: (Category) -> Int?,
@@ -102,11 +101,12 @@ fun LibraryContent(
                 getDisplayMode = getDisplayMode,
                 getColumnsForOrientation = getColumnsForOrientation,
                 getItemsForCategory = getItemsForCategory,
-                onClickManga = { category, manga ->
+                onClickManga = { category, item ->
                     if (selection.isNotEmpty()) {
-                        onToggleSelection(category, manga)
+                        onToggleSelection(category, item)
                     } else {
-                        onClickManga(manga.manga.id)
+                        // RK: the neutral identity, so the caller can route a novel row to its own screen
+                        onClickManga(item.entryId)
                     }
                 },
                 onLongClickManga = onToggleRangeSelection,

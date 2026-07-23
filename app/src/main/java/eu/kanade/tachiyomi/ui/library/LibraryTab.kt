@@ -69,6 +69,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import reikai.data.novel.update.NovelUpdateJob
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.sortForCategory
 import reikai.domain.novel.model.NovelCategory
@@ -270,6 +271,18 @@ data object LibraryTab : Tab {
             }
         }
 
+        // RK: open an entry on its own details screen, routed by the ROW's content type rather than the
+        // active chip. Navigation stays per-type (each type has its own screen), but the decision no
+        // longer depends on ambient UI state, so a mixed list routes every row correctly.
+        val openEntry: (EntryId) -> Unit = { entryId ->
+            when (entryId) {
+                is EntryId.Novel -> novelState.routeFor(entryId.rawId)?.let {
+                    navigator.push(NovelScreen(it.source, it.url))
+                }
+                is EntryId.Manga -> navigator.push(MangaScreen(entryId.rawId))
+            }
+        }
+
         // RK: shared manga continue-reading handler, used by both the pager and the single-list view.
         val onMangaContinueReading: (LibraryManga) -> Unit = { item ->
             scope.launchIO {
@@ -296,9 +309,14 @@ data object LibraryTab : Tab {
                 }
             }
         }
-        // RK: the resume handler is per-type navigation; the gate is neutral. Resolved once for both views.
-        val onContinueReading = (if (isNovels) onNovelContinueReading else onMangaContinueReading)
-            .takeIf { libState.showContinueButton }
+        // RK: the resume handler is per-type navigation, dispatched on the ROW's own content type rather
+        // than the active chip, so a mixed list resumes each row in its own reader. The gate is neutral.
+        val onContinueReading: ((LibraryItem) -> Unit)? = { item: LibraryItem ->
+            when (item.entryId) {
+                is EntryId.Novel -> onNovelContinueReading(item.libraryManga)
+                is EntryId.Manga -> onMangaContinueReading(item.libraryManga)
+            }
+        }.takeIf { libState.showContinueButton }
 
         Scaffold(
             topBar = { scrollBehavior ->
@@ -459,22 +477,20 @@ data object LibraryTab : Tab {
                                 searchQuery = activeSearchQuery,
                                 gridState = singleListGridState,
                                 contentPadding = contentPadding,
-                                onClickManga = { category, manga ->
+                                onClickManga = { category, item ->
                                     if (libState.selectionMode) {
-                                        behavior.toggleSelection(category, manga)
-                                    } else if (isNovels) {
-                                        // RK: navigation stays per-type (per-type details screen).
-                                        novelState.routeFor(manga.id)?.let {
-                                            navigator.push(NovelScreen(it.source, it.url))
-                                        }
+                                        behavior.toggleSelection(category, item.libraryManga)
                                     } else {
-                                        navigator.push(MangaScreen(manga.id))
+                                        // RK: navigation is per-type, routed by the ROW's own content
+                                        // type rather than the active chip, so a mixed list opens each
+                                        // row on its own screen.
+                                        openEntry(item.entryId)
                                     }
                                 },
-                                onLongClickManga = { category, manga ->
+                                onLongClickManga = { category, item ->
                                     // RK: range-select (incl. the in-between) like the tabbed view,
                                     // instead of toggling only the long-pressed manga.
-                                    behavior.toggleRangeSelection(category, manga)
+                                    behavior.toggleRangeSelection(category, item.libraryManga)
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 },
                                 onToggleDefaultCollapse = behavior::toggleDefaultCategoryCollapse,
@@ -521,22 +537,13 @@ data object LibraryTab : Tab {
                                 hasActiveFilters = activeHasActiveFilters,
                                 showPageTabs = state.showCategoryTabs || !activeSearchQuery.isNullOrEmpty(),
                                 onChangeCurrentPage = behavior::updateActiveCategoryIndex,
-                                onClickManga = {
-                                    // RK: navigation stays per-type (per-type details screen).
-                                    if (isNovels) {
-                                        novelState.routeFor(it)?.let { r ->
-                                            navigator.push(NovelScreen(r.source, r.url))
-                                        }
-                                    } else {
-                                        navigator.push(MangaScreen(it))
-                                    }
-                                },
+                                onClickManga = openEntry,
                                 onContinueReadingClicked = onContinueReading,
-                                onToggleSelection = { category, manga ->
-                                    behavior.toggleSelection(category, manga)
+                                onToggleSelection = { category, item ->
+                                    behavior.toggleSelection(category, item.libraryManga)
                                 },
-                                onToggleRangeSelection = { category, manga ->
-                                    behavior.toggleRangeSelection(category, manga)
+                                onToggleRangeSelection = { category, item ->
+                                    behavior.toggleRangeSelection(category, item.libraryManga)
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 },
                                 onRefresh = { onClickRefresh(activeCategory) },

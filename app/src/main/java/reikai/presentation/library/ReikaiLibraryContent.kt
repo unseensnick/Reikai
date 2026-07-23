@@ -33,7 +33,6 @@ import kotlinx.coroutines.launch
 import reikai.domain.entry.EntryId
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
-import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.util.plus
 import kotlin.time.Duration.Companion.seconds
@@ -132,8 +131,8 @@ fun ReikaiLibraryContent(
     searchQuery: String?,
     gridState: LazyGridState,
     contentPadding: PaddingValues,
-    onClickManga: (Category, LibraryManga) -> Unit,
-    onLongClickManga: (Category, LibraryManga) -> Unit,
+    onClickManga: (Category, LibraryItem) -> Unit,
+    onLongClickManga: (Category, LibraryItem) -> Unit,
     onToggleDefaultCollapse: (String) -> Unit,
     onToggleDynamicCollapse: (String) -> Unit,
     onGlobalSearchClicked: () -> Unit,
@@ -148,7 +147,7 @@ fun ReikaiLibraryContent(
     sortLabelFor: ((Category) -> StringResource?)? = null,
     sortAscendingFor: ((Category) -> Boolean?)? = null,
     // continue-reading button on covers, single-list parity with the pager; null = hidden
-    onClickContinueReading: ((LibraryManga) -> Unit)? = null,
+    onClickContinueReading: ((LibraryItem) -> Unit)? = null,
 ) {
     val isList = displayMode is LibraryDisplayMode.List
     // Mode-qualified so Compose doesn't recycle a list-row slot as a grid cell when the mode flips.
@@ -274,11 +273,11 @@ fun ReikaiLibraryContent(
                             val manga = libraryItem.libraryManga.manga
                             val isSelected = libraryItem.entryId in selection
                             val coverData = libraryCoverModel(libraryItem) // NovelCover for novels, else MangaCover
-                            val onClick = { onClickManga(category, libraryItem.libraryManga) }
-                            val onLongClick = { onLongClickManga(category, libraryItem.libraryManga) }
+                            val onClick = { onClickManga(category, libraryItem) }
+                            val onLongClick = { onLongClickManga(category, libraryItem) }
                             // Show the play button only when there's something unread (matches the pager).
                             val onContinueReading = if (onClickContinueReading != null && libraryItem.unreadCount > 0) {
-                                { onClickContinueReading(libraryItem.libraryManga) }
+                                { onClickContinueReading(libraryItem) }
                             } else {
                                 null
                             }

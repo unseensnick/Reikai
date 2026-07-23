@@ -25,9 +25,9 @@ fun ReikaiLibraryComfortableGridPanorama(
     columns: Int,
     contentPadding: PaddingValues,
     selection: Set<EntryId>,
-    onClick: (LibraryManga) -> Unit,
-    onLongClick: (LibraryManga) -> Unit,
-    onClickContinueReading: ((LibraryManga) -> Unit)?,
+    onClick: (LibraryItem) -> Unit,
+    onLongClick: (LibraryItem) -> Unit,
+    onClickContinueReading: ((LibraryItem) -> Unit)?,
     searchQuery: String?,
     onGlobalSearchClicked: () -> Unit,
 ) {
@@ -58,10 +58,10 @@ fun ReikaiLibraryComfortableGridPanorama(
                     )
                     LibraryCoverEndBadge(libraryItem) // merge / novel-icon / manga-icon
                 },
-                onLongClick = { onLongClick(libraryItem.libraryManga) },
-                onClick = { onClick(libraryItem.libraryManga) },
+                onLongClick = { onLongClick(libraryItem) },
+                onClick = { onClick(libraryItem) },
                 onClickContinueReading = if (onClickContinueReading != null && libraryItem.unreadCount > 0) {
-                    { onClickContinueReading(libraryItem.libraryManga) }
+                    { onClickContinueReading(libraryItem) }
                 } else {
                     null
                 },
