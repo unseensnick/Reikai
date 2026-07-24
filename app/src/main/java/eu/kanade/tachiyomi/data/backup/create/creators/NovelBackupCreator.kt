@@ -17,9 +17,9 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.yield
+import reikai.domain.category.CategoryContentType
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
-import reikai.domain.novel.NovelCategoryRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.NovelTrackRepository
@@ -28,13 +28,14 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.repository.CustomNovelInfoRepository
 import tachiyomi.data.Database
+import tachiyomi.domain.category.repository.CategoryRepository
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 class NovelBackupCreator(
     private val novelRepository: NovelRepository = Injekt.get(),
     private val novelChapterRepository: NovelChapterRepository = Injekt.get(),
-    private val novelCategoryRepository: NovelCategoryRepository = Injekt.get(),
+    private val categoryRepository: CategoryRepository = Injekt.get(),
     private val novelTrackRepository: NovelTrackRepository = Injekt.get(),
     private val mergeGroupRepository: MergeGroupRepository = Injekt.get(),
     private val customNovelInfoRepository: CustomNovelInfoRepository = Injekt.get(),
@@ -89,7 +90,7 @@ class NovelBackupCreator(
         }
 
         if (options.categories) {
-            val categoriesForNovel = novelCategoryRepository.getAllByNovelId(novel.id)
+            val categoriesForNovel = categoryRepository.getCategoriesByNovelId(novel.id)
             if (categoriesForNovel.isNotEmpty()) {
                 novelObject.categories = categoriesForNovel.map { it.order }
             }
@@ -118,7 +119,7 @@ class NovelBackupCreator(
 
     private suspend fun backupNovelCategories(): List<BackupNovelCategory> {
         // Skip the shared universal row 0 (the uncategorized sentinel), like the manga category backup.
-        return novelCategoryRepository.getAll()
+        return categoryRepository.getAll(CategoryContentType.NOVEL)
             .filterNot { it.isSystemCategory }
             .map {
                 BackupNovelCategory(name = it.name, order = it.order, id = it.id, flags = it.flags)

@@ -1,8 +1,9 @@
 package reikai.domain.novel.interactor
 
+import reikai.domain.category.CategoryContentType
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
-import reikai.domain.novel.NovelCategoryRepository
-import reikai.domain.novel.model.NovelCategoryUpdate
+import tachiyomi.domain.category.model.CategoryUpdate
+import tachiyomi.domain.category.repository.CategoryRepository
 
 /**
  * Clears every novel category's per-category sort so they all follow the library default sort again, the
@@ -11,16 +12,16 @@ import reikai.domain.novel.model.NovelCategoryUpdate
  * bits such as the hidden-category flag are preserved, matching the manga side.
  */
 class ResetNovelCategoryFlags(
-    private val novelCategoryRepository: NovelCategoryRepository,
+    private val categoryRepository: CategoryRepository,
 ) {
 
     suspend fun await() {
-        val updates = novelCategoryRepository.getAll().map { category ->
-            NovelCategoryUpdate(
+        val updates = categoryRepository.getAll(CategoryContentType.NOVEL).map { category ->
+            CategoryUpdate(
                 id = category.id,
                 flags = category.flags and CATEGORY_SORT_CUSTOMIZED.inv(),
             )
         }
-        novelCategoryRepository.updateAll(updates)
+        categoryRepository.updatePartial(updates)
     }
 }

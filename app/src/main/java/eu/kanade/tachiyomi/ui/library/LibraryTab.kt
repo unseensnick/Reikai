@@ -72,7 +72,6 @@ import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.sortForCategory
-import reikai.domain.novel.model.NovelCategory
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.library.LibraryBehavior
 import reikai.presentation.library.LibraryEngine
@@ -625,7 +624,7 @@ data object LibraryTab : Tab {
                                             }
                                             2 -> if (isNovels) {
                                                 novelModel.openSettingsDialog(
-                                                    novelState.activeCategory?.id ?: NovelCategory.UNCATEGORIZED_ID,
+                                                    novelState.activeCategory?.id ?: Category.UNCATEGORIZED_ID,
                                                     2,
                                                 )
                                             } else {
@@ -633,7 +632,7 @@ data object LibraryTab : Tab {
                                             }
                                             3 -> if (isNovels) {
                                                 novelModel.openSettingsDialog(
-                                                    novelState.activeCategory?.id ?: NovelCategory.UNCATEGORIZED_ID,
+                                                    novelState.activeCategory?.id ?: Category.UNCATEGORIZED_ID,
                                                     3,
                                                 )
                                             } else {

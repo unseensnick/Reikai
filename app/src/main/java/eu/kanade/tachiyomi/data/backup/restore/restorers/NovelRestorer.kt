@@ -11,17 +11,18 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
+import reikai.domain.category.CategoryContentType
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
-import reikai.domain.novel.NovelCategoryRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.interactor.SetCustomNovelInfo
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
-import reikai.domain.novel.model.NovelCategory
 import tachiyomi.data.Database
+import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.category.repository.CategoryRepository
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.math.max
@@ -29,7 +30,7 @@ import kotlin.math.max
 class NovelRestorer(
     private val novelRepository: NovelRepository = Injekt.get(),
     private val novelChapterRepository: NovelChapterRepository = Injekt.get(),
-    private val novelCategoryRepository: NovelCategoryRepository = Injekt.get(),
+    private val categoryRepository: CategoryRepository = Injekt.get(),
     private val novelTrackRepository: NovelTrackRepository = Injekt.get(),
     private val mergeGroupRepository: MergeGroupRepository = Injekt.get(),
     private val setCustomNovelInfo: SetCustomNovelInfo = Injekt.get(),
@@ -39,7 +40,7 @@ class NovelRestorer(
     /** Create any novel categories the backup has that the device doesn't, matched by name. */
     suspend fun restoreCategories(backupCategories: List<BackupNovelCategory>) {
         if (backupCategories.isEmpty()) return
-        val dbCategories = novelCategoryRepository.getAll()
+        val dbCategories = categoryRepository.getAll(CategoryContentType.NOVEL)
         val dbCategoryNames = dbCategories.mapTo(HashSet()) { it.name }
         var nextOrder = dbCategories.maxOfOrNull { it.order }?.plus(1) ?: 0L
 
@@ -47,13 +48,14 @@ class NovelRestorer(
             .sortedBy { it.order }
             .forEach { backupCategory ->
                 if (backupCategory.name in dbCategoryNames) return@forEach
-                novelCategoryRepository.insert(
-                    NovelCategory(
+                categoryRepository.insert(
+                    Category(
                         id = 0L,
                         name = backupCategory.name,
                         order = nextOrder++,
                         flags = backupCategory.flags,
                     ),
+                    CategoryContentType.NOVEL,
                 )
             }
     }
@@ -128,7 +130,7 @@ class NovelRestorer(
         backupCategories: List<BackupNovelCategory>,
     ) {
         if (categoryOrders.isEmpty()) return
-        val dbCategoriesByName = novelCategoryRepository.getAll().associateBy { it.name }
+        val dbCategoriesByName = categoryRepository.getAll(CategoryContentType.NOVEL).associateBy { it.name }
         val backupCategoriesByOrder = backupCategories.associateBy { it.order }
         val categoryIds = categoryOrders.mapNotNull { order ->
             backupCategoriesByOrder[order]?.let { dbCategoriesByName[it.name]?.id }

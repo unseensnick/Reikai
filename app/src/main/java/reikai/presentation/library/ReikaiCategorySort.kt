@@ -20,8 +20,8 @@ fun reikaiSortCategories(categories: List<Category>, sortOrder: Int): List<Categ
     )
 
 /**
- * Generic form of [reikaiSortCategories] for any category-like type (the novel `NovelCategory` keeps its
- * own model), so both content types order their category pickers by the same rule instead of drifting.
+ * Generic form of [reikaiSortCategories] for any category-like type, so both content types order their
+ * category pickers by the same rule instead of drifting.
  */
 fun <T> reikaiSortCategories(
     categories: List<T>,

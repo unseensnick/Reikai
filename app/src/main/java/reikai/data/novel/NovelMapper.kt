@@ -4,7 +4,6 @@ import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import reikai.data.coil.NovelCover
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
-import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.novel.model.NovelUpdateWithRelations
@@ -299,16 +298,4 @@ fun mapNovelChapter(
     dateUpload = dateUpload,
     page = page,
     // is_downloaded column ignored: downloaded state now comes from NovelDownloadCache (disk).
-)
-
-fun mapNovelCategory(
-    id: Long,
-    name: String,
-    order: Long,
-    flags: Long,
-): NovelCategory = NovelCategory(
-    id = id,
-    name = name,
-    order = order,
-    flags = flags,
 )

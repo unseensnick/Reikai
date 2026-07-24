@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
-import reikai.domain.novel.model.NovelCategory
 import reikai.presentation.library.novels.NovelLibraryScreenModel
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryManga
@@ -92,6 +91,6 @@ class NovelLibraryAdapter(
         model.updateActiveCategoryIndex(index)
     }
     override fun openSettingsDialog(categoryId: Long?, initialTab: Int) {
-        model.openSettingsDialog(categoryId ?: NovelCategory.UNCATEGORIZED_ID, initialTab)
+        model.openSettingsDialog(categoryId ?: Category.UNCATEGORIZED_ID, initialTab)
     }
 }

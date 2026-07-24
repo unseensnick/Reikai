@@ -28,7 +28,7 @@ class NovelBackupRoundTripTest {
     private fun restorer(repo: NovelRepository, repository: MergeGroupRepository) = NovelRestorer(
         novelRepository = repo,
         novelChapterRepository = mockk(relaxed = true),
-        novelCategoryRepository = mockk(relaxed = true),
+        categoryRepository = mockk(relaxed = true),
         novelTrackRepository = mockk(relaxed = true),
         mergeGroupRepository = repository,
         setCustomNovelInfo = mockk(relaxed = true),
@@ -91,7 +91,7 @@ class NovelBackupRoundTripTest {
         val creator = NovelBackupCreator(
             novelRepository = backupRepo,
             novelChapterRepository = mockk(relaxed = true),
-            novelCategoryRepository = mockk(relaxed = true),
+            categoryRepository = mockk(relaxed = true),
             novelTrackRepository = mockk(relaxed = true),
             mergeGroupRepository = backupMergeRepo,
             customNovelInfoRepository = mockk(relaxed = true),

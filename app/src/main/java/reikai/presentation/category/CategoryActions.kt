@@ -1,17 +1,12 @@
 package reikai.presentation.category
 
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import logcat.LogPriority
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.deleteCategoryAndCleanup
 import reikai.domain.category.flagsWithHidden
 import reikai.domain.category.isHidden
-import reikai.domain.novel.NovelCategoryRepository
 import reikai.domain.novel.NovelPreferences
-import reikai.domain.novel.model.NovelCategory
-import reikai.domain.novel.model.NovelCategoryUpdate
-import reikai.domain.novel.model.toCategory
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.CreateCategoryWithName
 import tachiyomi.domain.category.interactor.DeleteCategory
@@ -29,8 +24,9 @@ import uy.kohesive.injekt.api.get
  * Content-type-neutral category management for the shared edit-categories screen, so one
  * [eu.kanade.tachiyomi.ui.category.CategoryScreenModel] drives both the Manga and Novels tabs instead of
  * two near-identical models. Each content type supplies an adapter: the manga one delegates to Mihon's
- * category interactors unchanged, the novel one to the novel category repository. Both return the shared
- * [Category] type so the screen model and its multi-select / deferred-delete logic stay single-sourced.
+ * category interactors, the novel one to the shared category repository filtered to the novel content
+ * type. Both return the shared [Category] type so the screen model and its multi-select / deferred-delete
+ * logic stay single-sourced.
  */
 interface CategoryActions {
     fun subscribe(): Flow<List<Category>>
@@ -71,25 +67,30 @@ class MangaCategoryActions(
 }
 
 class NovelCategoryActions(
-    private val repository: NovelCategoryRepository = Injekt.get(),
     private val categoryRepository: CategoryRepository = Injekt.get(),
     private val novelPreferences: NovelPreferences = Injekt.get(),
 ) : CategoryActions {
 
     override fun subscribe(): Flow<List<Category>> =
-        repository.getAllAsFlow().map { categories -> categories.map(NovelCategory::toCategory) }
+        categoryRepository.getAllAsFlow(CategoryContentType.NOVEL)
 
-    override suspend fun create(name: String): Boolean {
-        val nextOrder = repository.getAll().maxOfOrNull { it.order }?.plus(1) ?: 0L
-        return repository.insert(NovelCategory(id = 0L, name = name, order = nextOrder, flags = 0L)) != null
+    override suspend fun create(name: String): Boolean = try {
+        val nextOrder = categoryRepository.getAll(CategoryContentType.NOVEL).maxOfOrNull { it.order }?.plus(1) ?: 0L
+        categoryRepository.insert(
+            Category(id = 0L, name = name, order = nextOrder, flags = 0L),
+            CategoryContentType.NOVEL,
+        )
+        true
+    } catch (e: Exception) {
+        logcat(LogPriority.ERROR, e) { "Failed to create novel category" }
+        false
     }
 
     override suspend fun rename(category: Category, newName: String) =
-        repository.update(NovelCategoryUpdate(id = category.id, name = newName))
+        update(CategoryUpdate(id = category.id, name = newName))
 
-    // Shared delete + renumber + preference scrub, so deleting a novel category finally cleans the six
-    // novel category-id prefs (default + the update/download include and exclude sets), which the old
-    // bare delete left dangling. Uses the shared repository (same table) as the manga delete does.
+    // Shared delete + renumber + preference scrub, so deleting a novel category also cleans the six novel
+    // category-id prefs (default + the update/download include and exclude sets), the same as manga.
     override suspend fun delete(categoryId: Long): Boolean = try {
         deleteCategoryAndCleanup(
             categoryRepository = categoryRepository,
@@ -112,20 +113,28 @@ class NovelCategoryActions(
 
     // Mirrors Mihon's ReorderCategory: move over the non-system list, then renumber every row's order.
     override suspend fun reorder(category: Category, newIndex: Int): Boolean {
-        val categories = repository.getAll()
+        val categories = categoryRepository.getAll(CategoryContentType.NOVEL)
             .filterNot { it.isSystemCategory }
             .toMutableList()
         val from = categories.indexOfFirst { it.id == category.id }
         if (from < 0) return true
         val moved = categories.removeAt(from)
         categories.add(newIndex.coerceIn(0, categories.size), moved)
-        return repository.updateAll(
-            categories.mapIndexed { index, cat -> NovelCategoryUpdate(id = cat.id, order = index.toLong()) },
+        return update(
+            *categories.mapIndexed { index, cat -> CategoryUpdate(id = cat.id, order = index.toLong()) }
+                .toTypedArray(),
         )
     }
 
     override suspend fun toggleHidden(category: Category) =
-        repository.update(
-            NovelCategoryUpdate(id = category.id, flags = category.flagsWithHidden(!category.isHidden)),
-        )
+        update(CategoryUpdate(id = category.id, flags = category.flagsWithHidden(!category.isHidden)))
+
+    // Apply partial updates over the shared table, reporting success so the screen can surface a failure.
+    private suspend fun update(vararg updates: CategoryUpdate): Boolean = try {
+        categoryRepository.updatePartial(updates.toList())
+        true
+    } catch (e: Exception) {
+        logcat(LogPriority.ERROR, e) { "Failed to update novel categories" }
+        false
+    }
 }

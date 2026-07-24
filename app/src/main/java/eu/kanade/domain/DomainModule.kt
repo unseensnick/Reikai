@@ -46,7 +46,6 @@ import reikai.data.library.updateerror.LibraryUpdateErrorRepositoryImpl
 import reikai.data.merge.ChapterMatchKeyRepositoryImpl
 import reikai.data.merge.MergeGroupRepositoryImpl
 import reikai.data.novel.CustomNovelInfoRepositoryImpl
-import reikai.data.novel.NovelCategoryRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
@@ -64,7 +63,6 @@ import reikai.domain.manga.PropagateTrackerLinks
 import reikai.domain.merge.ChapterMatchKeyRepository
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.ReconcileChapterMatchKeys
-import reikai.domain.novel.NovelCategoryRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelMergeManager
@@ -219,7 +217,6 @@ class DomainModule : InjektModule {
         // RK --> light-novel vertical (domain/DB foundation)
         addSingletonFactory<NovelRepository> { NovelRepositoryImpl(get()) }
         addSingletonFactory<NovelChapterRepository> { NovelChapterRepositoryImpl(get()) }
-        addSingletonFactory<NovelCategoryRepository> { NovelCategoryRepositoryImpl(get()) }
         addFactory { GetNovelCategories(get()) }
         addFactory { SetNovelCategories(get()) }
         addFactory { ResetNovelCategoryFlags(get()) }
