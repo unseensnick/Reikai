@@ -3,10 +3,11 @@ package reikai.presentation.category
 import kotlinx.coroutines.flow.Flow
 import logcat.LogPriority
 import reikai.domain.category.CategoryContentType
+import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.category.deleteCategoryAndCleanup
 import reikai.domain.category.flagsWithHidden
 import reikai.domain.category.isHidden
-import reikai.domain.novel.NovelPreferences
+import reikai.domain.category.scrubCategoryIdFromSetPrefs
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.CreateCategoryWithName
 import tachiyomi.domain.category.interactor.DeleteCategory
@@ -44,6 +45,7 @@ class MangaCategoryActions(
     private val deleteCategory: DeleteCategory = Injekt.get(),
     private val reorderCategory: ReorderCategory = Injekt.get(),
     private val updateCategory: UpdateCategory = Injekt.get(),
+    private val categoryIdPreferences: CategoryIdPreferences = Injekt.get(),
 ) : CategoryActions {
 
     override fun subscribe(): Flow<List<Category>> = getCategories.subscribe()
@@ -54,8 +56,13 @@ class MangaCategoryActions(
     override suspend fun rename(category: Category, newName: String) =
         renameCategory.await(category, newName) !is RenameCategory.Result.InternalError
 
-    override suspend fun delete(categoryId: Long) =
-        deleteCategory.await(categoryId) !is DeleteCategory.Result.InternalError
+    // Mihon's DeleteCategory scrubs the manga default + update/download prefs; the library and
+    // Updates-tab filter prefs live in the app module it can't see, so scrub those here too.
+    override suspend fun delete(categoryId: Long): Boolean {
+        val deleted = deleteCategory.await(categoryId) !is DeleteCategory.Result.InternalError
+        if (deleted) scrubCategoryIdFromSetPrefs(categoryId, categoryIdPreferences.mangaSets)
+        return deleted
+    }
 
     override suspend fun reorder(category: Category, newIndex: Int) =
         reorderCategory.await(category, newIndex) !is ReorderCategory.Result.InternalError
@@ -68,7 +75,7 @@ class MangaCategoryActions(
 
 class NovelCategoryActions(
     private val categoryRepository: CategoryRepository = Injekt.get(),
-    private val novelPreferences: NovelPreferences = Injekt.get(),
+    private val categoryIdPreferences: CategoryIdPreferences = Injekt.get(),
 ) : CategoryActions {
 
     override fun subscribe(): Flow<List<Category>> =
@@ -89,21 +96,15 @@ class NovelCategoryActions(
     override suspend fun rename(category: Category, newName: String) =
         update(CategoryUpdate(id = category.id, name = newName))
 
-    // Shared delete + renumber + preference scrub, so deleting a novel category also cleans the six novel
-    // category-id prefs (default + the update/download include and exclude sets), the same as manga.
+    // Shared delete + renumber + preference scrub, so deleting a novel category also cleans every novel
+    // category-id pref (default + the update/download and filter sets), the same as manga.
     override suspend fun delete(categoryId: Long): Boolean = try {
         deleteCategoryAndCleanup(
             categoryRepository = categoryRepository,
             categoryId = categoryId,
             contentType = CategoryContentType.NOVEL,
-            defaultCategoryPreference = novelPreferences.defaultNovelCategory(),
-            categorySetPreferences = listOf(
-                novelPreferences.removeExcludeCategories(),
-                novelPreferences.downloadNewChapterCategories(),
-                novelPreferences.downloadNewChapterCategoriesExclude(),
-                novelPreferences.novelUpdateCategories(),
-                novelPreferences.novelUpdateCategoriesExclude(),
-            ),
+            defaultCategoryPreference = categoryIdPreferences.novelDefault,
+            categorySetPreferences = categoryIdPreferences.novelSets,
         )
         true
     } catch (e: Exception) {

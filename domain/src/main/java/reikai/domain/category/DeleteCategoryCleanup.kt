@@ -27,11 +27,20 @@ suspend fun deleteCategoryAndCleanup(
     if (defaultCategoryPreference.get() == categoryId.toInt()) {
         defaultCategoryPreference.delete()
     }
+    scrubCategoryIdFromSetPrefs(categoryId, categorySetPreferences)
+
+    categoryRepository.updatePartial(updates)
+}
+
+/**
+ * Drop a deleted category's id out of each given set preference. Split out so the app-module category
+ * delete can scrub its filter preferences (which live above this module) with the same logic the shared
+ * [deleteCategoryAndCleanup] uses for the update/download sets.
+ */
+fun scrubCategoryIdFromSetPrefs(categoryId: Long, categorySetPreferences: List<Preference<Set<String>>>) {
     val categoryIdString = categoryId.toString()
     categorySetPreferences.forEach { preference ->
         val ids = preference.get()
         if (categoryIdString in ids) preference.set(ids.minus(categoryIdString))
     }
-
-    categoryRepository.updatePartial(updates)
 }
