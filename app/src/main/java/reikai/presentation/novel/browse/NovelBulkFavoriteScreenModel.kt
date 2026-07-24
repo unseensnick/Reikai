@@ -10,11 +10,11 @@ import kotlinx.collections.immutable.mutate
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.flow.update
+import reikai.domain.category.GetNovelCategories
 import reikai.domain.novel.NovelPreferences
-import reikai.domain.novel.interactor.GetNovelCategories
-import reikai.domain.novel.model.NovelCategory
 import reikai.novel.host.NovelItem
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.domain.category.model.Category
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -117,7 +117,7 @@ class NovelBulkFavoriteScreenModel(
     sealed interface Dialog {
         data class ChangeCategory(
             val items: List<SelectedNovel>,
-            val categories: List<NovelCategory>,
+            val categories: List<Category>,
         ) : Dialog
     }
 

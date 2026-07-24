@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
 import reikai.data.novel.refreshNovelFromSource
+import reikai.domain.category.GetNovelCategories
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager

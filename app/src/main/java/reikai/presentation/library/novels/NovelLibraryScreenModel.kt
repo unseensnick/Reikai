@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import reikai.data.novel.NovelStatusCode
 import reikai.domain.category.CATEGORY_HIDDEN_MASK
+import reikai.domain.category.GetNovelCategories
 import reikai.domain.category.categoryDiff
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.library.ContentType
@@ -40,7 +41,6 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
-import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.SetNovelReadStatus
@@ -304,7 +304,7 @@ class NovelLibraryScreenModel :
         }
 
     private suspend fun buildState(
-        categories: List<NovelCategory>,
+        categories: List<Category>,
         library: List<LibraryNovel>,
         customInfo: List<CustomNovelInfo>,
         tracks: Map<Long, List<NovelTrack>>,
@@ -478,16 +478,8 @@ class NovelLibraryScreenModel :
                 }
             }
 
-            // Encode the resolved default sort into the synthesized Default category's flags so its header
-            // label reflects the actual sort (it's stored in a global pref, not a DB row). NovelLibrarySort
-            // mirrors LibrarySort's bit layout, so the shared header's `category.sort` decodes it correctly.
-            val defaultCategory =
-                Category(
-                    NovelCategory.UNCATEGORIZED_ID,
-                    context.stringResource(MR.strings.label_default),
-                    0L,
-                    settings.defaultSort,
-                )
+            // The real universal row 0 is the Default bucket: visualName renders its empty name as
+            // "Default" and the header decodes its flags-0 sort to the library default, so no synthesis.
             val visibleCategories = if (settings.showHidden) {
                 categories
             } else {
@@ -496,7 +488,7 @@ class NovelLibraryScreenModel :
             // Manual DB order first, then the Reikai category-sort-order pref (Off/A->Z/Z->A), matching the
             // manga library so the shared Display setting reorders novel categories too (system pinned top).
             val allCategories = reikaiSortCategories(
-                (listOf(defaultCategory) + visibleCategories.map { it.toCategory() }).sortedBy { it.order },
+                visibleCategories.sortedBy { it.order },
                 settings.categorySortOrder,
             )
             allCategories.mapNotNull { category ->
@@ -746,7 +738,7 @@ class NovelLibraryScreenModel :
             val novelIds = state.value.memberIdsFor(ids)
             // All non-default categories, not just the ones currently shown (empty categories are
             // hidden from the library grid but must still be assignable here).
-            val categories = getNovelCategories.await().filterNot { it.isSystemCategory }.map { it.toCategory() }
+            val categories = getNovelCategories.await().filterNot { it.isSystemCategory }
             val perNovel = novelIds.map { getNovelCategories.awaitByNovelId(it).map { c -> c.id }.toSet() }
             val (common, mix) = categoryDiff(perNovel)
             val preselected: List<CheckboxState<Category>> = categories.map { cat ->
@@ -913,15 +905,14 @@ class NovelLibraryScreenModel :
         reikaiLibraryPreferences.novelLibraryFilterCategoriesExclude.set(exclude.map { it.toString() }.toSet())
     }
 
-    /** Full novel category list (synthesized Default + user categories, sorted) for the filter picker.
+    /** Full novel category list (the Default row 0 + user categories, sorted) for the filter picker.
      *  Not [State.displayedCategories]: that drops empty categories and is replaced by dynamic groups
      *  when grouping is on, neither of which suits a category filter. */
     val filterPickerCategories: StateFlow<List<Category>> = combine(
         getNovelCategories.subscribe(),
         reikaiLibraryPreferences.categorySortOrder.changes(),
     ) { categories, sortOrder ->
-        val default = Category(NovelCategory.UNCATEGORIZED_ID, context.stringResource(MR.strings.label_default), 0L, 0L)
-        reikaiSortCategories((listOf(default) + categories.map { it.toCategory() }).sortedBy { it.order }, sortOrder)
+        reikaiSortCategories(categories.sortedBy { it.order }, sortOrder)
     }.stateIn(screenModelScope, SharingStarted.WhileSubscribed(), emptyList())
 
     fun toggleFilter(pref: Preference<TriState>) {

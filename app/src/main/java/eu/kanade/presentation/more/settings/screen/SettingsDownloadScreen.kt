@@ -13,9 +13,8 @@ import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.category.visualName
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.widget.TriStateListDialog
+import reikai.domain.category.GetNovelCategories
 import reikai.domain.novel.NovelPreferences
-import reikai.domain.novel.interactor.GetNovelCategories
-import reikai.domain.novel.model.toCategory
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.download.service.DownloadPreferences
@@ -89,7 +88,7 @@ object SettingsDownloadScreen : SearchableSettings {
                 removeAfterReadSlots = novelPreferences.removeAfterReadSlots(),
                 removeBookmarkedChapters = novelPreferences.removeBookmarkedChapters(),
                 excludeCategories = novelPreferences.removeExcludeCategories(),
-                categories = novelCategories.map { it.toCategory() },
+                categories = novelCategories,
             ),
             autoDownloadGroup(
                 contentType = MR.strings.content_type_manga,
@@ -107,7 +106,7 @@ object SettingsDownloadScreen : SearchableSettings {
                 downloadNewUnreadOnly = novelPreferences.downloadNewUnreadChaptersOnly(),
                 includedCategories = novelPreferences.downloadNewChapterCategories(),
                 excludedCategories = novelPreferences.downloadNewChapterCategoriesExclude(),
-                categories = novelCategories.map { it.toCategory() },
+                categories = novelCategories,
                 autoDownloadWhileReading = novelPreferences.autoDownloadWhileReading(),
                 showDownloadAheadInfo = true,
             ),

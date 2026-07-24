@@ -28,13 +28,13 @@ import reikai.domain.novel.interactor.GetNovelHistory
 import reikai.domain.novel.interactor.RemoveNovelHistory
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
-import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.category.model.Category
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -219,7 +219,7 @@ class NovelHistoryScreenModel(
         ) : Dialog
         data class ChangeCategory(
             val novelId: Long,
-            val categories: List<NovelCategory>,
+            val categories: List<Category>,
             val currentIds: Set<Long>,
         ) : Dialog
     }

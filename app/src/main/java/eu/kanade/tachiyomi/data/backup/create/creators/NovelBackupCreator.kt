@@ -117,9 +117,12 @@ class NovelBackupCreator(
     }
 
     private suspend fun backupNovelCategories(): List<BackupNovelCategory> {
-        return novelCategoryRepository.getAll().map {
-            BackupNovelCategory(name = it.name, order = it.order, id = it.id, flags = it.flags)
-        }
+        // Skip the shared universal row 0 (the uncategorized sentinel), like the manga category backup.
+        return novelCategoryRepository.getAll()
+            .filterNot { it.isSystemCategory }
+            .map {
+                BackupNovelCategory(name = it.name, order = it.order, id = it.id, flags = it.flags)
+            }
     }
 
     /**

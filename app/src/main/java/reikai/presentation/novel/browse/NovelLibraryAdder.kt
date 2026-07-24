@@ -1,16 +1,16 @@
 package reikai.presentation.novel.browse
 
+import reikai.domain.category.GetNovelCategories
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
-import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
-import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelSourceManager
+import tachiyomi.domain.category.model.Category
 
 /**
  * Shared long-press "add to library" flow for any novel browse surface (per-source browse and
@@ -190,7 +190,7 @@ class NovelLibraryAdder(
 
 /** The category-picker data [NovelLibraryAdder.applyDefaultCategoryOrPrompt] returns when there is no
  *  default category to apply; each caller wraps it in its own dialog type. */
-data class CategoryPrompt(val categories: List<NovelCategory>, val currentIds: Set<Long>)
+data class CategoryPrompt(val categories: List<Category>, val currentIds: Set<Long>)
 
 /** The possible-duplicate data [NovelLibraryAdder.findDuplicates] returns; each add-path wraps it in
  *  its own dialog type to feed the shared [DuplicateNovelDialog]. */

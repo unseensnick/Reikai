@@ -43,6 +43,7 @@ import reikai.data.novel.mergeRefreshedNovel
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.data.novel.toNovel
+import reikai.domain.category.GetNovelCategories
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.vibrantColorKey
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -54,7 +55,6 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.buildNovelChapterListEntries
 import reikai.domain.novel.interactor.GetCustomNovelInfo
-import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.RefreshNovelTracks
 import reikai.domain.novel.interactor.SetCustomNovelInfo
@@ -64,7 +64,6 @@ import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
-import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelChapterFlags
 import reikai.domain.novel.model.NovelUpdate
@@ -102,6 +101,7 @@ import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.data.Database
+import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.chapter.service.missingChaptersCount
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.MangaCover
@@ -1358,7 +1358,7 @@ sealed interface NovelDetailsState {
 
 sealed interface NovelDetailsDialog {
     data class ChangeCategory(
-        val allCategories: List<NovelCategory>,
+        val allCategories: List<Category>,
         val currentCategoryIds: Set<Long>,
     ) : NovelDetailsDialog
 

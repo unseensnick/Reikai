@@ -22,11 +22,10 @@ import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import kotlinx.coroutines.launch
 import reikai.data.novel.update.NovelUpdateJob
+import reikai.domain.category.GetNovelCategories
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelPreferences
-import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.ResetNovelCategoryFlags
-import reikai.domain.novel.model.toCategory
 import reikai.presentation.library.preferredsources.PreferredSourcesScreen
 import reikai.presentation.recommendation.SettingsRecommendationsScreen
 import tachiyomi.domain.category.interactor.GetCategories
@@ -74,11 +73,11 @@ object SettingsLibraryScreen : SearchableSettings {
                 allCategories,
                 libraryPreferences,
                 novelPreferences,
-                novelCategories.map { it.toCategory() },
+                novelCategories,
             ),
             getGlobalUpdateGroup(allCategories, libraryPreferences),
             // RK: background light-novel chapter updates
-            getNovelUpdateGroup(novelPreferences, novelCategories.map { it.toCategory() }),
+            getNovelUpdateGroup(novelPreferences, novelCategories),
             getBehaviorGroup(libraryPreferences),
             // RK: merge-group preferred-source ranking
             getSourcesGroup(LocalNavigator.currentOrThrow, reikaiLibraryPreferences),

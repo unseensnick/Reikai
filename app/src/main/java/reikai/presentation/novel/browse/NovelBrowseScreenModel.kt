@@ -14,7 +14,6 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
-import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.host.NovelItem
@@ -22,6 +21,7 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.domain.category.model.Category
 import uy.kohesive.injekt.injectLazy
 
 /**
@@ -354,7 +354,7 @@ sealed interface NovelBrowseDialog {
     ) : NovelBrowseDialog
     data class ChangeCategory(
         val novelId: Long,
-        val allCategories: List<NovelCategory>,
+        val allCategories: List<Category>,
         val currentCategoryIds: Set<Long>,
     ) : NovelBrowseDialog
     data class RemoveNovel(val item: NovelItem, val sourceId: String) : NovelBrowseDialog

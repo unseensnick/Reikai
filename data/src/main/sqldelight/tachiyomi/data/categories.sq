@@ -78,10 +78,9 @@ clearSortOverrides:
 UPDATE categories SET
 flags = flags & ~1;
 
--- RK: novel-side reads over the shared table. Novel rows only (content_type 2). The system row 0 is
--- excluded: the novel library still synthesizes its own Default at id 0, so returning row 0 here would
--- produce two id-0 categories (a duplicate LazyGrid header key). Universal categories (content_type 0,
--- id > 0) are not creatable yet; when they are, the sentinel is unified and this can include them.
+-- RK: novel-side reads over the shared table: novel rows plus universal rows (the shared uncategorized
+-- system row 0), the novel twin of getCategories. The novel library reads the real row 0 as its Default
+-- bucket instead of synthesizing one; pickers filter it out by id, exactly like the manga side.
 getNovelCategories:
 SELECT
 _id AS id,
@@ -89,7 +88,7 @@ name,
 sort AS `order`,
 flags
 FROM categories
-WHERE content_type = 2
+WHERE content_type IN (0, 2)
 ORDER BY sort;
 
 getNovelCategoriesByNovelId:

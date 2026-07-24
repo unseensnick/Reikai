@@ -53,6 +53,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.NovelTrackRepositoryImpl
 import reikai.data.novel.updateerror.NovelUpdateErrorRepositoryImpl
 import reikai.data.recommendation.taste.TasteLibraryRepositoryImpl
+import reikai.domain.category.GetNovelCategories
 import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
 import reikai.domain.library.updateerror.GetLibraryUpdateErrors
 import reikai.domain.library.updateerror.LibraryUpdateErrorRepository
@@ -74,7 +75,6 @@ import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
 import reikai.domain.novel.interactor.DeleteNovelTrack
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNextNovelChapter
-import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.GetNovelHistory
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.InsertNovelTrack

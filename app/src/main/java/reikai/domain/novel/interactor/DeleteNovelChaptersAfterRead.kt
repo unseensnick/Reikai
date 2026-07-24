@@ -1,5 +1,6 @@
 package reikai.domain.novel.interactor
 
+import reikai.domain.category.GetNovelCategories
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelChapter

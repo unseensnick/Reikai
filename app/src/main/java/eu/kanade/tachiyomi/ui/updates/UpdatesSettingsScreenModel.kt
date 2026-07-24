@@ -5,8 +5,7 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import reikai.domain.novel.interactor.GetNovelCategories
-import reikai.domain.novel.model.toCategory
+import reikai.domain.category.GetNovelCategories
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.TriState
@@ -44,7 +43,7 @@ class UpdatesSettingsScreenModel(
     init {
         screenModelScope.launchIO {
             _mangaCategories.value = getCategories.await()
-            _novelCategories.value = getNovelCategories.await().map { it.toCategory() }
+            _novelCategories.value = getNovelCategories.await()
         }
     }
 

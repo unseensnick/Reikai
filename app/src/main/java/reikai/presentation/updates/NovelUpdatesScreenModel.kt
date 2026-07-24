@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import reikai.data.novel.update.NovelUpdateJob
+import reikai.domain.category.GetNovelCategories
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ContentType
@@ -30,7 +31,6 @@ import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
-import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.NovelUpdateWithRelations

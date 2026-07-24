@@ -1,8 +1,10 @@
 package tachiyomi.data.category
 
 import app.cash.sqldelight.async.coroutines.awaitAsList
+import app.cash.sqldelight.async.coroutines.awaitAsOne
 import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import kotlinx.coroutines.flow.Flow
+import reikai.domain.category.CategoryContentType
 import tachiyomi.data.Database
 import tachiyomi.data.subscribeToList
 import tachiyomi.domain.category.model.Category
@@ -19,16 +21,24 @@ class CategoryRepositoryImpl(
             .awaitAsOneOrNull()
     }
 
-    override suspend fun getAll(): List<Category> {
-        return database.categoriesQueries
-            .getCategories(::mapCategory)
-            .awaitAsList()
+    // RK: branch on contentType so one repository serves both libraries (novel rows live in the shared
+    // table at content_type 2). Manga callers pass the default and hit the unchanged manga query.
+    override suspend fun getAll(contentType: Long): List<Category> {
+        val query = if (contentType == CategoryContentType.NOVEL) {
+            database.categoriesQueries.getNovelCategories(::mapCategory)
+        } else {
+            database.categoriesQueries.getCategories(::mapCategory)
+        }
+        return query.awaitAsList()
     }
 
-    override fun getAllAsFlow(): Flow<List<Category>> {
-        return database.categoriesQueries
-            .getCategories(::mapCategory)
-            .subscribeToList()
+    override fun getAllAsFlow(contentType: Long): Flow<List<Category>> {
+        val query = if (contentType == CategoryContentType.NOVEL) {
+            database.categoriesQueries.getNovelCategories(::mapCategory)
+        } else {
+            database.categoriesQueries.getCategories(::mapCategory)
+        }
+        return query.subscribeToList()
     }
 
     override suspend fun getCategoriesByMangaId(mangaId: Long): List<Category> {
@@ -43,12 +53,32 @@ class CategoryRepositoryImpl(
             .subscribeToList()
     }
 
-    override suspend fun insert(category: Category) {
-        database.categoriesQueries.insert(
-            name = category.name,
-            order = category.order,
-            flags = category.flags,
-        )
+    // RK: novel-side per-entry read over the shared table.
+    override suspend fun getCategoriesByNovelId(novelId: Long): List<Category> {
+        return database.categoriesQueries
+            .getNovelCategoriesByNovelId(novelId, ::mapCategory)
+            .awaitAsList()
+    }
+
+    // RK: contentType selects the novel insert (content_type 2) over the manga default; returns the new
+    // row id so the novel create/restore paths can key off it.
+    override suspend fun insert(category: Category, contentType: Long): Long {
+        return database.transactionWithResult {
+            if (contentType == CategoryContentType.NOVEL) {
+                database.categoriesQueries.insertNovelCategory(
+                    name = category.name,
+                    order = category.order,
+                    flags = category.flags,
+                )
+            } else {
+                database.categoriesQueries.insert(
+                    name = category.name,
+                    order = category.order,
+                    flags = category.flags,
+                )
+            }
+            database.categoriesQueries.selectLastInsertedRowId().awaitAsOne()
+        }
     }
 
     override suspend fun updatePartial(update: CategoryUpdate) {
