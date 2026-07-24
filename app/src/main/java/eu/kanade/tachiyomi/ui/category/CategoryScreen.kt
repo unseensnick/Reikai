@@ -175,7 +175,9 @@ private fun CategoryManager(
         onDispose { onCommitDelete() }
     }
 
-    LaunchedEffect(Unit) {
+    // RK: keyed on events (the SharedFlow) so switching the Manga/Novels tab re-subscribes to the new
+    // model's events; a receiveAsFlow keyed on Unit stayed bound to the first tab and dropped the other's.
+    LaunchedEffect(events) {
         events.collect { event ->
             when (event) {
                 is CategoryEvent.LocalizedMessage -> context.toast(event.stringRes)

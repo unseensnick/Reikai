@@ -4,11 +4,12 @@ import androidx.compose.runtime.Immutable
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import dev.icerock.moko.resources.StringResource
-import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -28,8 +29,10 @@ class CategoryScreenModel(
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
 ) : StateScreenModel<CategoryScreenState>(CategoryScreenState.Loading) {
 
-    private val _events: Channel<CategoryEvent> = Channel()
-    val events = _events.receiveAsFlow()
+    // RK: a SharedFlow (not a receiveAsFlow Channel) so the shared edit-categories screen can re-collect
+    // it when the Manga/Novels tab switches to a different model; receiveAsFlow can only be collected once.
+    private val _events = MutableSharedFlow<CategoryEvent>(extraBufferCapacity = 8)
+    val events: SharedFlow<CategoryEvent> = _events.asSharedFlow()
 
     // RK --> multi-select + deferred-delete. `selectedIds` drives the action-mode UI; `pendingDeleteIds`
     // is the deferred-delete buffer: rows in it are hidden immediately but only committed to the DB once
@@ -70,14 +73,14 @@ class CategoryScreenModel(
 
     fun createCategory(name: String) {
         screenModelScope.launch {
-            if (!actions.create(name)) _events.send(CategoryEvent.InternalError)
+            if (!actions.create(name)) _events.emit(CategoryEvent.InternalError)
         }
     }
 
     // RK: a single row delete defers like the bulk path so it's undoable too; commit is shared.
     fun deleteCategory(categoryId: Long) {
         pendingDeleteIds.update { it + categoryId }
-        screenModelScope.launch { _events.send(CategoryEvent.ShowUndoSnackbar(1)) }
+        screenModelScope.launch { _events.emit(CategoryEvent.ShowUndoSnackbar(1)) }
     }
 
     // RK --> multi-select + deferred bulk delete
@@ -105,7 +108,7 @@ class CategoryScreenModel(
         if (ids.isEmpty()) return
         pendingDeleteIds.update { it + ids }
         selectedIds.value = emptySet()
-        screenModelScope.launch { _events.send(CategoryEvent.ShowUndoSnackbar(ids.size)) }
+        screenModelScope.launch { _events.emit(CategoryEvent.ShowUndoSnackbar(ids.size)) }
     }
 
     /** Undo a pending bulk delete: the rows return and the DB was never touched. */
@@ -121,7 +124,7 @@ class CategoryScreenModel(
             // RK: non-cancellable so leaving the screen (tab switch / back) still finishes the delete
             withNonCancellableContext {
                 ids.forEach { id ->
-                    if (!actions.delete(id)) _events.trySend(CategoryEvent.InternalError)
+                    if (!actions.delete(id)) _events.tryEmit(CategoryEvent.InternalError)
                 }
                 pendingDeleteIds.value = emptySet()
             }
@@ -131,20 +134,20 @@ class CategoryScreenModel(
 
     fun changeOrder(category: Category, newIndex: Int) {
         screenModelScope.launch {
-            if (!actions.reorder(category, newIndex)) _events.send(CategoryEvent.InternalError)
+            if (!actions.reorder(category, newIndex)) _events.emit(CategoryEvent.InternalError)
         }
     }
 
     fun renameCategory(category: Category, name: String) {
         screenModelScope.launch {
-            if (!actions.rename(category, name)) _events.send(CategoryEvent.InternalError)
+            if (!actions.rename(category, name)) _events.emit(CategoryEvent.InternalError)
         }
     }
 
     // RK: flip the hidden flag bit so the category drops out of (or returns to) the library
     fun toggleHidden(category: Category) {
         screenModelScope.launch {
-            if (!actions.toggleHidden(category)) _events.send(CategoryEvent.InternalError)
+            if (!actions.toggleHidden(category)) _events.emit(CategoryEvent.InternalError)
         }
     }
 
