@@ -2,12 +2,17 @@ package reikai.presentation.category
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import logcat.LogPriority
+import reikai.domain.category.CategoryContentType
+import reikai.domain.category.deleteCategoryAndCleanup
 import reikai.domain.category.flagsWithHidden
 import reikai.domain.category.isHidden
 import reikai.domain.novel.NovelCategoryRepository
+import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelCategoryUpdate
 import reikai.domain.novel.model.toCategory
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.CreateCategoryWithName
 import tachiyomi.domain.category.interactor.DeleteCategory
 import tachiyomi.domain.category.interactor.GetCategories
@@ -16,6 +21,7 @@ import tachiyomi.domain.category.interactor.ReorderCategory
 import tachiyomi.domain.category.interactor.UpdateCategory
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.model.CategoryUpdate
+import tachiyomi.domain.category.repository.CategoryRepository
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -66,6 +72,8 @@ class MangaCategoryActions(
 
 class NovelCategoryActions(
     private val repository: NovelCategoryRepository = Injekt.get(),
+    private val categoryRepository: CategoryRepository = Injekt.get(),
+    private val novelPreferences: NovelPreferences = Injekt.get(),
 ) : CategoryActions {
 
     override fun subscribe(): Flow<List<Category>> =
@@ -79,9 +87,27 @@ class NovelCategoryActions(
     override suspend fun rename(category: Category, newName: String) =
         repository.update(NovelCategoryUpdate(id = category.id, name = newName))
 
-    override suspend fun delete(categoryId: Long): Boolean {
-        repository.delete(categoryId)
-        return true
+    // Shared delete + renumber + preference scrub, so deleting a novel category finally cleans the six
+    // novel category-id prefs (default + the update/download include and exclude sets), which the old
+    // bare delete left dangling. Uses the shared repository (same table) as the manga delete does.
+    override suspend fun delete(categoryId: Long): Boolean = try {
+        deleteCategoryAndCleanup(
+            categoryRepository = categoryRepository,
+            categoryId = categoryId,
+            contentType = CategoryContentType.NOVEL,
+            defaultCategoryPreference = novelPreferences.defaultNovelCategory(),
+            categorySetPreferences = listOf(
+                novelPreferences.removeExcludeCategories(),
+                novelPreferences.downloadNewChapterCategories(),
+                novelPreferences.downloadNewChapterCategoriesExclude(),
+                novelPreferences.novelUpdateCategories(),
+                novelPreferences.novelUpdateCategoriesExclude(),
+            ),
+        )
+        true
+    } catch (e: Exception) {
+        logcat(LogPriority.ERROR, e) { "Failed to delete novel category id=$categoryId" }
+        false
     }
 
     // Mirrors Mihon's ReorderCategory: move over the non-system list, then renumber every row's order.
