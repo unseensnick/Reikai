@@ -30,6 +30,16 @@ The codebase analog of the web `deep-research` harness. Where deep-research fans
 
 If invoked for something trivial, push back once and suggest the lighter tool.
 
+## Standing defaults (no need to ask for these)
+
+These are the behavior on every invocation. The owner should never have to prepend them.
+
+- **Depth.** Real investigation: open the files and verify each claim against current code. Never pattern matching, never inference from a file or symbol name, never "this is probably how it works". A plausible mechanism that was not read is not a finding.
+- **Completeness.** Keep researching until every unknown is resolved. Do not stop at the first coherent story, and do not fill a gap with an assumption to finish the report. If an area is unresolved, it is either researched further or surfaced as an open question, never quietly smoothed over.
+- **Open questions get asked, not guessed.** Anything that genuinely cannot be settled from the code becomes an explicit numbered question and the owner answers it before implementation starts.
+- **Adversarial verification is mandatory**, not a scale knob. Re-read the claims that would most distort the plan if wrong. That explicitly includes claims from prior plan docs, `Handoff.md`, memories, and subagent findings, all of which have been wrong in this repo before.
+- **Output format** follows [.claude/rules/plan-output.md](../../rules/plan-output.md).
+
 ## Method
 
 ### 1. Scope and clarify
@@ -66,50 +76,34 @@ Do NOT trust agent summaries wholesale. On the main thread, **re-read the curren
 - A finding that is **deliberately deferred** (check the descope list from step 2) rather than a real gap.
 - Misjudged testability (e.g. "add a unit test" for logic that hardcodes a clock / does real I/O and would need a refactor first).
 
-Trust current code over memory, Handoff, and agent text. Label each surviving finding by confidence: **verified** (you re-read it) vs **reported** (agent-cited, not re-read). For exhaustive audits, verification can itself fan out (one skeptic per top finding); for a normal pass, spot-check the top handful inline.
+Trust current code over memory, `Handoff.md`, plan docs, and agent text, all of which have asserted things in this repo that current code contradicted. A claim carried forward from a plan doc is a hypothesis exactly like a subagent's, and gets the same re-read when it is load-bearing.
+
+Label each surviving finding by confidence: **verified** (you re-read it) vs **reported** (agent-cited, not re-read). Every finding that would change the plan if wrong must reach **verified** before it ships in the report. For exhaustive audits, verification can itself fan out, one skeptic per top finding.
 
 ### 5. Synthesize the report
 
-One report into the conversation (don't write a file unless asked). Structure:
+One report into the conversation (don't write a file unless asked), in the structure defined by [.claude/rules/plan-output.md](../../rules/plan-output.md): headline, findings graded High / Medium / Low, stale docs, the plan, open questions.
 
-```
-# Code research: <question>
+Additions specific to this skill:
 
-## Answer / headline
-<2-3 sentences: the bottom line>
-
-## Findings (prioritized, deduped)
-### High
-- [file.kt:42](path:42) — what it is, why it matters, (verified|reported). For test gaps: what a test would assert.
-### Medium
-...
-### Low / needs-refactor-first
-...
-
-## Already covered / deliberately deferred (so it's not re-flagged later)
-- ...
-
-## Open questions / still unknown
-- ...
-
-## Recommended next step
-<the first batch to act on, if any>
-```
-
-Rules for the report: every concrete claim cites `file:line` from code you or an agent actually read; dedupe overlapping findings from different agents; separate "real gap" from "already covered" from "deferred"; note testability honestly (pure/easy vs needs-mocking vs needs-refactor). No em dashes.
+- **Dedupe across agents.** Two agents finding the same thing is one finding, not two.
+- **Separate a real gap from deferred work.** Something on the descope list from step 2 is not a finding; say so once and move on rather than re-flagging it.
+- **Note testability honestly** when the question is about tests: pure and easy, needs mocking, or needs a refactor first.
+- **Report the plan section as a plan**, not as "recommended next step" prose, whenever the research is feeding implementation.
 
 ### 6. Hand off
 
 End with "Ready to act" + the recommended first batch, or "Open questions block this". Do not start writing tests/fixes/refactors, the user decides whether and what to action.
 
-## Scale knob (optional)
+## Scale knob
 
-Default is a single fan-out + inline verification. For "be exhaustive" / large audits, do multiple rounds (loop until a round surfaces nothing new), add a per-finding adversarial verifier pass, and a final completeness critic ("what area/angle did we not cover?"). If the user has explicitly opted into multi-agent orchestration, the `Workflow` tool can run this find -> dedupe -> verify pipeline deterministically; otherwise use parallel `Agent` calls.
+Verification is never the knob (it is mandatory, see Standing defaults). What scales is breadth: a focused audit gets one fan-out, "be exhaustive" gets multiple rounds looping until a round surfaces nothing new, plus a completeness critic ("what area or angle did we not cover?"). If the user has explicitly opted into multi-agent orchestration, the `Workflow` tool can run the find -> dedupe -> verify pipeline deterministically; otherwise use parallel `Agent` calls.
 
 ## Rules
 
 - Read-only. Never edits, never writes code, never starts the fix.
-- Every concrete claim cites `file:line` from current code. Memory/Handoff/agent-summary claims are hypotheses until cited.
+- Every concrete claim cites `file:line` from current code. Memory, Handoff, plan-doc and agent-summary claims are hypotheses until cited.
 - Surface stale memories/docs found along the way instead of acting on them.
-- Cap the synthesized report (~1500 words). A bigger answer means the question needed splitting, not a longer report.
+- Never fill an unresolved gap with an assumption. Research it or surface it as an open question.
+- Output follows [.claude/rules/plan-output.md](../../rules/plan-output.md), including its ~1500 word cap. A bigger answer means the question needed splitting.
 - No em dashes. Commas, parentheses, periods, colons.

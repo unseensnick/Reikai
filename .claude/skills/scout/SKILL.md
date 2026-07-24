@@ -1,6 +1,6 @@
 ---
 name: scout
-description: Investigate a non-trivial task before planning. Produces a findings report with file:line citations covering current behavior, upstream/reference equivalents, framework bridges, helpers to reuse, and open questions. Use before porting an upstream change, migrating a screen to Compose, touching unfamiliar modules, or any cross-cutting change. The point is to ground the plan in evidence, not memory.
+description: Investigate a non-trivial task, then produce the plan for it. Emits a file:line-cited findings report covering current behavior, upstream/reference equivalents, framework bridges, helpers to reuse and stale docs, followed by a sequenced plan and any blocking open questions. Use before porting an upstream change, migrating a screen to Compose, touching unfamiliar modules, or any cross-cutting change. The point is to ground the plan in evidence, not memory. Investigates deeply and verifies adversarially by default; never edits files.
 argument-hint: "<task description> (e.g., 'port General settings to Compose', 'add per-category sort')"
 disable-model-invocation: false
 allowed-tools:
@@ -8,7 +8,17 @@ allowed-tools:
   - Bash(JAVA_HOME=* ./gradlew *)
 ---
 
-Investigate the task described by `$ARGUMENTS` deeply enough that a plan grounded in the findings is unlikely to contain hallucinated functions, stale memories, or assumed framework behavior. **This skill never proposes changes and never writes code.** It produces a findings report. The plan happens after.
+Investigate the task described by `$ARGUMENTS` deeply enough that the resulting plan cannot contain hallucinated functions, stale memories, or assumed framework behavior. Output is a findings report **and the plan that follows from it**. **This skill never edits files and never writes code**: it proposes, the owner approves, implementation is a separate step.
+
+## Standing defaults (no need to ask for these)
+
+These are the behavior on every invocation. The owner should never have to prepend them.
+
+- **Depth.** Real investigation: open the files and verify each claim against current code. Never pattern matching, never inference from a file or symbol name. A plausible mechanism that was not read is not a finding.
+- **Completeness.** Keep investigating until every unknown is resolved. Do not stop at the first coherent story, and do not fill a gap with an assumption to finish the report.
+- **Open questions get asked, not guessed.** Anything that cannot be settled from the code becomes an explicit numbered question, answered before implementation starts.
+- **Adversarial verification is mandatory.** Re-read the claims that would most distort the plan if wrong, including claims from `Handoff.md`, plan docs, memories, and subagent findings.
+- **Output format** follows [.claude/rules/plan-output.md](../../rules/plan-output.md).
 
 ## When to use this
 
@@ -76,66 +86,47 @@ For each area, spawn one `Agent` call with `subagent_type: Explore` (read-only i
 - Cap the response (~500 words is usually enough per area).
 - Ask for a "things I'm uncertain about" section.
 
-## Step 4: Synthesize the findings report
+## Step 4: Adversarially verify
 
-The report goes into the conversation. Do not write it to a file unless the user asks. Structure:
+Explore agents locate and summarize; they do not verify. Before anything reaches the report, re-read the current code yourself for the claims that would most distort the plan if wrong. Typical kills:
 
-```
-# Scout: <task>
+- A claim that something "doesn't exist" when it moved or was renamed.
+- A flagged problem the surrounding code already handles, or that cannot actually be reached.
+- A finding that is on the deferred list from Step 2 rather than a real gap.
+- A severity rating that does not survive reading the code around the cited line.
 
-## Goal
-<one sentence>
+Verify claims inherited from `Handoff.md`, plan docs and memories on the same footing as subagent claims. All of them have been wrong in this repo. Label each surviving finding **verified** (re-read) or **reported** (cited but not re-read); anything load-bearing for the plan must be verified.
 
-## Current state
-- [file.kt:42](path/to/file.kt:42): what it does, briefly
-- [other.kt:88](path/to/other.kt:88): ...
+## Step 5: Synthesize the report and the plan
 
-## Upstream / reference equivalent
-- [design/library-compose/.../file.kt:N](design/library-compose/.../file.kt:N): what differs from Reikai's version
+Into the conversation, not a file unless asked, in the structure defined by [.claude/rules/plan-output.md](../../rules/plan-output.md): headline, findings graded High / Medium / Low, stale docs, the plan, open questions.
 
-## Framework / bridge constraints
-- e.g., `createMdc3Theme` does NOT surface `?attr/background`; reading the legacy attr directly is required.
+The findings still carry the areas from Step 3, now graded by importance rather than grouped by area: what current code does, how the reference source differs, which framework bridge constrains the approach, which existing helper the plan should reuse instead of inventing one, and what the tests cover.
 
-## Existing helpers to reuse
-- [helper.kt:N](path/to/helper.kt:N): what it provides
+Additions specific to this skill:
 
-## Tests
-- existing: [foo_test.kt:N](path/to/foo_test.kt:N)
-- gaps: <what isn't covered>
+- **A claim that cannot cite a `file:line` from code actually read** goes in Open questions, never in Findings.
+- **A source contradiction is itself a finding.** When memory, `Handoff.md` or a plan doc disagrees with current code, trust the code and record the contradiction under Stale docs so it can be pruned.
+- **Deferred work is not a defect.** If the Step 2 descope list already covers something, say so once and move on.
+- **The plan names the helper it reuses.** A step that invents a utility the repo already has is a failed scout, so cite the existing one.
 
-## Open questions for the user
-1. <ambiguity worth resolving before the plan>
-2. ...
+## Step 6: Hand off
 
-## Still unknown (would need to verify before committing to an approach)
-- <thing you couldn't pin down with confidence>
-- <thing the upstream change does that may or may not apply>
-```
+End with one of:
 
-Rules for the report:
+1. **"Ready to implement."** Findings verified, plan complete, no blocking questions.
+2. **"Open questions block implementation."** The blocking ones from the last section, asked plainly.
+3. **"Investigation incomplete."** Name what is still unchecked and ask whether to spawn more agents or proceed with the gap documented.
 
-- **Every claim about behavior, function name, or file path must cite a `file:line`.** No exceptions. If you can't cite it, move it into the "Still unknown" section.
-- Do not synthesize implementation guidance. The report describes evidence; the plan decides what to do with it.
-- If two sources contradict (memory vs current code, Handoff vs git), trust the code and note the contradiction. Update or remove the stale memory after the user confirms.
-- If a memory in `MEMORY.md` named a function, file, or flag that no longer exists, flag it explicitly so the user can prune.
-- If the deferred list from Step 2 covers something that would otherwise look like a defect, mark it `🟡 deferred` and move on.
-
-## Step 5: Hand off to planning
-
-End the report with one of:
-
-1. **"Ready to plan."** Findings are complete and unambiguous.
-2. **"Open questions block planning."** List the questions; ask the user before proceeding.
-3. **"Investigation incomplete."** Name what still needs to be checked; ask the user whether to spawn more agents or proceed with gaps documented.
-
-Then stop. Do not call `EnterPlanMode` yourself. The user reads the findings and decides whether to invoke planning, ask a follow-up, or redirect.
+Then stop. Do not start editing and do not call `EnterPlanMode`. The owner answers the open questions, approves the plan, and implementation follows as a separate step.
 
 ## Rules
 
-- This skill never edits files, never proposes changes, never writes code, never calls `EnterPlanMode`.
-- Every claim cites `file:line` from current code. Memory recall and Handoff claims are hypotheses until cited from current code.
+- This skill proposes a plan but never edits files, never writes code, and never calls `EnterPlanMode`.
+- Every claim cites `file:line` from current code. Memory, Handoff and plan-doc claims are hypotheses until cited from current code.
 - If a memory or Handoff is stale, surface it; let the user decide whether to prune.
-- Cap each subagent at ~500 words; cap the synthesized report at ~1500 words. If the task is bigger than that, it needs decomposition, not a longer report.
-- No em dashes (—) in the report. Commas, parentheses, periods, colons.
+- Never fill an unresolved gap with an assumption. Investigate it or surface it as an open question.
+- Cap each subagent at ~500 words. Output follows [.claude/rules/plan-output.md](../../rules/plan-output.md), including its ~1500 word cap; a bigger task needs decomposition, not a longer report.
+- No em dashes in the report. Commas, parentheses, periods, colons.
 - No assumptions about framework defaults. If the report relies on a framework behavior, the citation points to the source of that behavior (Compose library, Material3, Voyager) or to a project-side test that verifies it.
 - If an Explore agent comes back vague or generic, the brief was too loose. Re-spawn with a sharper scope before synthesizing.

@@ -4,9 +4,13 @@ Android manga + light-novel reader. Personal fork built on [Mihon](https://githu
 
 **Rebase onto Mihon (shipped 2026-06 as v0.1.0):** Reikai was previously a fork of [Yōkai](https://github.com/null2264/yokai); it has been rebased onto Mihon. The rebase has shipped: `main` is now the Mihon-based main (the old `design/mihon-rebase` branch is gone). The old Yōkai-based code (branch `design/library-compose`) is kept only as the porting reference. Full plan and feature list: [ROADMAP.md](ROADMAP.md) plus the per-feature records in [docs/dev/plans/](docs/dev/plans/); ongoing status: the `mihon-rebase` memory.
 
+## Replies
+
+**Start every reply with `unseensnick,` on its own first line**, then continue normally. Applies to every reply in every session, including one-line answers and tool-only turns, until the owner says to stop.
+
 ## Working approach
 
-**Investigate before planning when context is thin.** If you aren't confident you understand the surrounding code, conventions, or constraints for a task (porting a Reikai feature onto Mihon, touching an unfamiliar module, changing cross-cutting infrastructure), investigate first: read the relevant files, trace the existing pattern. Two reference sources: `refs/mihon/` (the live upstream base) and the `design/library-compose` branch (Reikai's Yōkai-era features awaiting port). For non-trivial work, invoke `/scout` to produce a grounded findings report before forming a plan. Only present a plan once you're truly confident, then wait for approval before executing.
+**Investigate before planning when context is thin.** If you aren't confident you understand the surrounding code, conventions, or constraints for a task (porting a Reikai feature onto Mihon, touching an unfamiliar module, changing cross-cutting infrastructure), investigate first: read the relevant files, trace the existing pattern. Two reference sources: `refs/mihon/` (the live upstream base) and the `design/library-compose` branch (Reikai's Yōkai-era features awaiting port). For non-trivial work, invoke `/scout`, which investigates and then produces the plan grounded in those findings. Only present a plan once you're truly confident, then wait for approval before executing.
 
 **Cite before you claim.** Every concrete claim about the codebase, framework, or upstream (a function name, a file path, a flag, "X calls Y") must come with a `file:line` citation from current code that you just read. If you can't cite it, you don't know it: read first, claim second. Memory and Handoff content are hypotheses, not facts; a memory that names a function or file is true only if it still exists in current code. When a stale memory is found, surface it for pruning instead of acting on it.
 
@@ -107,6 +111,7 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 - [.claude/rules/testing.md](.claude/rules/testing.md) — behavior over implementation, mock at boundaries, coroutine test patterns.
 - [.claude/rules/database.md](.claude/rules/database.md) — SQLDelight migrations.
 - [.claude/rules/security.md](.claude/rules/security.md) — secrets, input validation.
+- [.claude/rules/plan-output.md](.claude/rules/plan-output.md): how a findings report or plan is written (headline, graded findings, stale docs, named steps, open questions), and the density rules that keep it readable. Applies to `/scout`, `/code-research`, and any plan given in conversation.
 - [docs/dev/development.md](docs/dev/development.md) — architecture and module overview (Mihon-based: Compose + Voyager, Injekt, SQLDelight).
 - [docs/dev/plans/](docs/dev/plans/): per-feature implementation and decision records (one per substantial feature, indexed by its README). The forward backlog is [ROADMAP.md](ROADMAP.md); the format for both lives in `.claude/rules/workflow.md`.
 - [docs/dev/upstream-sync.md](docs/dev/upstream-sync.md) — porting upstream Mihon changes by hand (Reikai is a standalone repo, not a GitHub fork): the process, commit convention, verbatim-cp + `// RK` hand-merge method, recurring gotchas, and the running synced-base ledger. Enforced by `docs-lint` + the `pre-commit` hook (no em dash, no bare `#N`; content-source names allowed).
@@ -122,7 +127,9 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 
 ## Skills for common flows
 
-- `/scout` — investigate a non-trivial task before planning; produces a findings report grounded in `file:line` citations. Use before ports or cross-cutting changes.
+- `/scout`: investigate one non-trivial task, then produce its plan, grounded in `file:line` citations. Use before ports or cross-cutting changes.
+- `/code-research`: deep fan-out research over a big question spanning many files (audits, "how does X work end to end", "where does Y happen everywhere"), then the plan. Heavier than `/scout`, which is task-scoped.
+- `/session-handoff`: with no arguments, the full sweep: rewrite `Handoff.md`, update `ROADMAP.md` and the dependent docs, sync the memory store and push it. Use when wrapping up or before a `/clear`.
 - `/tighten` — trim verbose prose, walls of text, journey narration, and WHAT comments from docs (and, on ask, code comments) without losing vital info. Always plans before editing.
 - `/port-audit` — audit a port for behavioral parity against the Reikai source on `design/library-compose`. Use after a phase ships.
 - `/ship` — scan, stage, commit, push, PR with Reikai conventions (no `Co-Authored-By`, no `## Test plan`; `--repo unseensnick/Reikai`). Work targets `main`.
