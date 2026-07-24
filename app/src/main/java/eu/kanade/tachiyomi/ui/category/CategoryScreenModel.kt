@@ -11,34 +11,21 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import reikai.domain.category.flagsWithHidden
-import reikai.domain.category.isHidden
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.presentation.category.CategoryActions
 import reikai.presentation.category.CategorySelection
 import reikai.presentation.library.reikaiSortCategories
 import tachiyomi.core.common.util.lang.withNonCancellableContext
-import tachiyomi.domain.category.interactor.CreateCategoryWithName
-import tachiyomi.domain.category.interactor.DeleteCategory
-import tachiyomi.domain.category.interactor.GetCategories
-import tachiyomi.domain.category.interactor.RenameCategory
-import tachiyomi.domain.category.interactor.ReorderCategory
-import tachiyomi.domain.category.interactor.UpdateCategory
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.category.model.CategoryUpdate
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
+// RK: one model for both content types. The per-type write path is injected as [CategoryActions] so the
+// Manga and Novels tabs share this model's multi-select + deferred-delete logic instead of duplicating it.
 class CategoryScreenModel(
-    private val getCategories: GetCategories = Injekt.get(),
-    private val createCategoryWithName: CreateCategoryWithName = Injekt.get(),
-    private val deleteCategory: DeleteCategory = Injekt.get(),
-    private val reorderCategory: ReorderCategory = Injekt.get(),
-    private val renameCategory: RenameCategory = Injekt.get(),
-    // RK -->
-    private val updateCategory: UpdateCategory = Injekt.get(),
+    private val actions: CategoryActions,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
-    // RK <--
 ) : StateScreenModel<CategoryScreenState>(CategoryScreenState.Loading) {
 
     private val _events: Channel<CategoryEvent> = Channel()
@@ -58,7 +45,7 @@ class CategoryScreenModel(
             // Drag-reorder is only offered in Manual (off) mode; the screen hides the drag handle
             // when sorted A->Z / Z->A, since those override the manual order anyway.
             combine(
-                getCategories.subscribe(),
+                actions.subscribe(),
                 reikaiLibraryPreferences.categorySortOrder.changes(),
                 selectedIds,
                 pendingDeleteIds,
@@ -83,10 +70,7 @@ class CategoryScreenModel(
 
     fun createCategory(name: String) {
         screenModelScope.launch {
-            when (createCategoryWithName.await(name)) {
-                is CreateCategoryWithName.Result.InternalError -> _events.send(CategoryEvent.InternalError)
-                else -> {}
-            }
+            if (!actions.create(name)) _events.send(CategoryEvent.InternalError)
         }
     }
 
@@ -137,9 +121,7 @@ class CategoryScreenModel(
             // RK: non-cancellable so leaving the screen (tab switch / back) still finishes the delete
             withNonCancellableContext {
                 ids.forEach { id ->
-                    if (deleteCategory.await(categoryId = id) is DeleteCategory.Result.InternalError) {
-                        _events.trySend(CategoryEvent.InternalError)
-                    }
+                    if (!actions.delete(id)) _events.trySend(CategoryEvent.InternalError)
                 }
                 pendingDeleteIds.value = emptySet()
             }
@@ -149,30 +131,20 @@ class CategoryScreenModel(
 
     fun changeOrder(category: Category, newIndex: Int) {
         screenModelScope.launch {
-            when (reorderCategory.await(category, newIndex)) {
-                is ReorderCategory.Result.InternalError -> _events.send(CategoryEvent.InternalError)
-                else -> {}
-            }
+            if (!actions.reorder(category, newIndex)) _events.send(CategoryEvent.InternalError)
         }
     }
 
     fun renameCategory(category: Category, name: String) {
         screenModelScope.launch {
-            when (renameCategory.await(category, name)) {
-                is RenameCategory.Result.InternalError -> _events.send(CategoryEvent.InternalError)
-                else -> {}
-            }
+            if (!actions.rename(category, name)) _events.send(CategoryEvent.InternalError)
         }
     }
 
     // RK: flip the hidden flag bit so the category drops out of (or returns to) the library
     fun toggleHidden(category: Category) {
         screenModelScope.launch {
-            val payload = CategoryUpdate(id = category.id, flags = category.flagsWithHidden(!category.isHidden))
-            when (updateCategory.await(payload)) {
-                is UpdateCategory.Result.Error -> _events.send(CategoryEvent.InternalError)
-                is UpdateCategory.Result.Success -> {}
-            }
+            if (!actions.toggleHidden(category)) _events.send(CategoryEvent.InternalError)
         }
     }
 

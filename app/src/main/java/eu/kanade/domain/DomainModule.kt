@@ -70,7 +70,6 @@ import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.interactor.AddNovelTrack
-import reikai.domain.novel.interactor.DeleteNovelCategories
 import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
 import reikai.domain.novel.interactor.DeleteNovelTrack
 import reikai.domain.novel.interactor.GetCustomNovelInfo
@@ -78,12 +77,10 @@ import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.GetNovelCategories
 import reikai.domain.novel.interactor.GetNovelHistory
 import reikai.domain.novel.interactor.GetNovelTracks
-import reikai.domain.novel.interactor.InsertNovelCategories
 import reikai.domain.novel.interactor.InsertNovelTrack
 import reikai.domain.novel.interactor.MigrateNovelUseCase
 import reikai.domain.novel.interactor.RefreshNovelTracks
 import reikai.domain.novel.interactor.RemoveNovelHistory
-import reikai.domain.novel.interactor.ReorderNovelCategories
 import reikai.domain.novel.interactor.ResetNovelCategoryFlags
 import reikai.domain.novel.interactor.SetCustomNovelInfo
 import reikai.domain.novel.interactor.SetNovelCategories
@@ -226,9 +223,6 @@ class DomainModule : InjektModule {
         addFactory { GetNovelCategories(get()) }
         addFactory { SetNovelCategories(get()) }
         addFactory { ResetNovelCategoryFlags(get()) }
-        addFactory { InsertNovelCategories(get()) }
-        addFactory { DeleteNovelCategories(get()) }
-        addFactory { ReorderNovelCategories(get()) }
         addFactory { UpdateNovel(get()) }
         addFactory { DeleteNovelChaptersAfterRead(get(), get(), get(), get()) }
         addFactory { SetNovelReadStatus(get(), get()) }

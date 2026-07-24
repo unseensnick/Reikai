@@ -27,8 +27,9 @@ import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import reikai.domain.library.ContentType
+import reikai.presentation.category.MangaCategoryActions
+import reikai.presentation.category.NovelCategoryActions
 import reikai.presentation.components.ContentTypeFilterChips
-import reikai.presentation.library.novels.NovelCategoryScreenModel
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.category.model.Category
@@ -49,39 +50,16 @@ class CategoryScreen(private val novels: Boolean = false) : Screen() {
                 types = listOf(ContentType.MANGA, ContentType.NOVELS),
             )
         }
-        if (showNovels) NovelCategoryContent(header) else MangaCategoryContent(header)
+        CategoryContent(header, novels = showNovels)
     }
 
+    // RK: one content body for both tabs; the content type only selects which CategoryActions the shared
+    // model runs on. Distinct rememberScreenModel tags keep the two tabs' models separate.
     @Composable
-    private fun MangaCategoryContent(header: @Composable () -> Unit) {
-        val screenModel = rememberScreenModel { CategoryScreenModel() }
-        val state by screenModel.state.collectAsState()
-        CategoryManager(
-            state = state,
-            events = screenModel.events,
-            header = header,
-            onClickCreate = { screenModel.showDialog(CategoryDialog.Create) },
-            onClickRename = { screenModel.showDialog(CategoryDialog.Rename(it)) },
-            onClickDelete = { screenModel.showDialog(CategoryDialog.Delete(it)) },
-            onToggleHidden = screenModel::toggleHidden,
-            onChangeOrder = screenModel::changeOrder,
-            onDismissDialog = screenModel::dismissDialog,
-            onCreate = screenModel::createCategory,
-            onRename = screenModel::renameCategory,
-            onDelete = screenModel::deleteCategory,
-            onToggleSelection = { screenModel.toggleSelection(it.id) },
-            onSelectAll = screenModel::selectAll,
-            onInvertSelection = screenModel::invertSelection,
-            onClearSelection = screenModel::clearSelection,
-            onDeleteSelected = screenModel::deleteSelected,
-            onUndoDelete = screenModel::undoPendingDelete,
-            onCommitDelete = screenModel::commitPendingDelete,
-        )
-    }
-
-    @Composable
-    private fun NovelCategoryContent(header: @Composable () -> Unit) {
-        val screenModel = rememberScreenModel { NovelCategoryScreenModel() }
+    private fun CategoryContent(header: @Composable () -> Unit, novels: Boolean) {
+        val screenModel = rememberScreenModel(tag = if (novels) "novel-categories" else "manga-categories") {
+            CategoryScreenModel(if (novels) NovelCategoryActions() else MangaCategoryActions())
+        }
         val state by screenModel.state.collectAsState()
         CategoryManager(
             state = state,
