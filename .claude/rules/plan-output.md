@@ -6,6 +6,8 @@ alwaysApply: true
 
 How a research report or implementation plan is written, whether it comes from `/scout`, `/code-research`, or a plan given directly in conversation. The goal is density: keep every technical claim and every `file:line`, cut the words around them.
 
+This file governs the structure. [prose-style.md](prose-style.md) governs the sentences inside it.
+
 ## Structure
 
 Use these sections in this order. **Omit any section with nothing to report** rather than writing a placeholder.
