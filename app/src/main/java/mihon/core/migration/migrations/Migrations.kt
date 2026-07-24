@@ -20,5 +20,6 @@ val migrations: List<Migration>
         BackfillChapterMatchKeysMigration(),
         MigrateNovelCustomCoverKeysMigration(),
         MigrateNovelCategoriesToSharedTableMigration(),
+        CategoryPreferencesContentTypeCleanupMigration(),
         // RK <--
     )

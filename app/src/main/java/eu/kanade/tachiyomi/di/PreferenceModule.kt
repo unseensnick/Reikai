@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.system.isDebugBuildType
 import exh.pref.DelegateSourcePreferences
 import exh.source.ExhPreferences
+import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.novel.NovelPreferences
@@ -69,6 +70,15 @@ class PreferenceModule(val app: Application) : InjektModule {
         }
         addSingletonFactory {
             ReikaiSourcePreferences(get())
+        }
+        addSingletonFactory {
+            CategoryIdPreferences(
+                libraryPreferences = get(),
+                downloadPreferences = get(),
+                novelPreferences = get(),
+                reikaiLibraryPreferences = get(),
+                reikaiSourcePreferences = get(),
+            )
         }
         addSingletonFactory {
             DelegateSourcePreferences(get())
