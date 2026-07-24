@@ -19,5 +19,6 @@ val migrations: List<Migration>
         MigrateMergePrefsToGroupsMigration(),
         BackfillChapterMatchKeysMigration(),
         MigrateNovelCustomCoverKeysMigration(),
+        MigrateNovelCategoriesToSharedTableMigration(),
         // RK <--
     )

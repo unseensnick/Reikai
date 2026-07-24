@@ -53,7 +53,6 @@ class NovelRestorer(
                         name = backupCategory.name,
                         order = nextOrder++,
                         flags = backupCategory.flags,
-                        novelOrder = "",
                     ),
                 )
             }

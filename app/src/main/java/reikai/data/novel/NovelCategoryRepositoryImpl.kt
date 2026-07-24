@@ -11,37 +11,41 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
 import tachiyomi.data.subscribeToList
 
+/**
+ * Novel categories are rows in the shared `categories` table (content_type 2) since the schema
+ * unification, so this reads and writes `categoriesQueries` filtered to the novel-visible content types
+ * (novel plus universal). The distinct [NovelCategory] type stays only while the novel category stack is
+ * collapsed onto the shared one.
+ */
 class NovelCategoryRepositoryImpl(
     private val database: Database,
 ) : NovelCategoryRepository {
 
     override suspend fun getAll(): List<NovelCategory> =
-        database.novel_categoriesQueries.findAll(::mapNovelCategory).awaitAsList()
+        database.categoriesQueries.getNovelCategories(::mapNovelCategory).awaitAsList()
 
     override suspend fun getAllByNovelId(novelId: Long): List<NovelCategory> =
-        database.novel_categoriesQueries.findAllByNovelId(novelId, ::mapNovelCategory).awaitAsList()
+        database.categoriesQueries.getNovelCategoriesByNovelId(novelId, ::mapNovelCategory).awaitAsList()
 
     override fun getAllAsFlow(): Flow<List<NovelCategory>> =
-        database.novel_categoriesQueries.findAll(::mapNovelCategory).subscribeToList()
+        database.categoriesQueries.getNovelCategories(::mapNovelCategory).subscribeToList()
 
     override suspend fun insert(category: NovelCategory): Long? = database.transactionWithResult {
-        database.novel_categoriesQueries.insert(
+        database.categoriesQueries.insertNovelCategory(
             name = category.name,
-            sort = category.order,
+            order = category.order,
             flags = category.flags,
-            novelOrder = category.novelOrder,
         )
-        database.novel_categoriesQueries.selectLastInsertedRowId().awaitAsOne()
+        database.categoriesQueries.selectLastInsertedRowId().awaitAsOne()
     }
 
     override suspend fun insertBulk(categories: List<NovelCategory>) {
         database.transaction {
             categories.forEach { category ->
-                database.novel_categoriesQueries.insert(
+                database.categoriesQueries.insertNovelCategory(
                     name = category.name,
-                    sort = category.order,
+                    order = category.order,
                     flags = category.flags,
-                    novelOrder = category.novelOrder,
                 )
             }
         }
@@ -51,7 +55,7 @@ class NovelCategoryRepositoryImpl(
         partialUpdate(update)
         true
     } catch (e: Exception) {
-        logcat(LogPriority.ERROR, e) { "Failed to update novel_category id=${update.id}" }
+        logcat(LogPriority.ERROR, e) { "Failed to update novel category id=${update.id}" }
         false
     }
 
@@ -59,23 +63,22 @@ class NovelCategoryRepositoryImpl(
         partialUpdate(*updates.toTypedArray())
         true
     } catch (e: Exception) {
-        logcat(LogPriority.ERROR, e) { "Failed to bulk update novel_categories" }
+        logcat(LogPriority.ERROR, e) { "Failed to bulk update novel categories" }
         false
     }
 
     override suspend fun delete(id: Long) {
-        database.novel_categoriesQueries.delete(id)
+        database.categoriesQueries.delete(id)
     }
 
     private suspend fun partialUpdate(vararg updates: NovelCategoryUpdate) {
         database.transaction {
             updates.forEach { update ->
-                database.novel_categoriesQueries.update(
+                database.categoriesQueries.update(
                     name = update.name,
-                    sort = update.order,
+                    order = update.order,
                     flags = update.flags,
-                    novelOrder = update.novelOrder,
-                    id = update.id,
+                    categoryId = update.id,
                 )
             }
         }

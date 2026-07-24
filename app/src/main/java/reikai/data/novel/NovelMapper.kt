@@ -304,13 +304,11 @@ fun mapNovelChapter(
 fun mapNovelCategory(
     id: Long,
     name: String,
-    sort: Long,
+    order: Long,
     flags: Long,
-    novelOrder: String,
 ): NovelCategory = NovelCategory(
     id = id,
     name = name,
-    order = sort,
+    order = order,
     flags = flags,
-    novelOrder = novelOrder,
 )

@@ -43,9 +43,10 @@ android {
         // because a version-gated data migration is a no-op until the shipped versionCode reaches its
         // gate, so it cannot be exercised in dev/preview builds otherwise. A deliberate exception to the
         // bump-only-at-release-cut rule; see CLAUDE.md. 184 gated the merge-system rebuild's Phase 1
-        // migration; 185 gates the chapter-match-key backfill; 186 gates the novel custom-cover re-key.
-        // Any further migration takes 187 or above.
-        versionCode = 186
+        // migration; 185 gates the chapter-match-key backfill; 186 gates the novel custom-cover re-key;
+        // 187 gates the category schema unification's novel-category fold-in (flag fix + pref remap).
+        // Any further migration takes 188 or above.
+        versionCode = 187
         versionName = "0.3.0"
         // RK <--
 

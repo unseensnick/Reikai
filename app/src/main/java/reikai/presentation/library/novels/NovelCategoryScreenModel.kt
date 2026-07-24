@@ -82,7 +82,7 @@ class NovelCategoryScreenModel(
         screenModelScope.launch {
             val order = (state.value as? CategoryScreenState.Success)?.categories?.size?.toLong() ?: 0L
             insertNovelCategories.awaitOne(
-                NovelCategory(id = 0L, name = name, order = order, flags = 0L, novelOrder = ""),
+                NovelCategory(id = 0L, name = name, order = order, flags = 0L),
             )
         }
     }

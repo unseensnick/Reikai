@@ -1,0 +1,75 @@
+-- RK: fold the forked novel_categories table into the shared categories table (the "All" library axis).
+-- Structural half only: novel category rows move in at content_type 2, the junction is repointed at
+-- categories, and the old table is dropped. The moved rows keep their raw novel-layout sort flags here;
+-- the companion Kotlin migration (MigrateNovelCategoriesToSharedTableMigration, versionCode 187) translates
+-- those flags to the manga layout and remaps the novel category-id preferences.
+--
+-- Each novel id is shifted by a fixed offset (100000000) so it cannot collide with an existing manga id,
+-- and so the junction here and the preferences in the Kotlin migration remap by the same shift without
+-- passing a lookup table across the SQL/Kotlin migration boundary. Keep the offset in sync with
+-- MigrateNovelCategoriesToSharedTableMigration.NOVEL_CATEGORY_ID_MIGRATION_OFFSET.
+--
+-- novelLibraryView joins novels_categories, so it is dropped before the junction is recreated (otherwise
+-- the RENAME reparses the view mid-recreate and fails with "no such table") and recreated unchanged after.
+-- The statement order keeps every foreign key valid at each step even with enforcement on; defer_foreign_keys
+-- is set as insurance for the table recreate.
+PRAGMA defer_foreign_keys = 1;
+
+DROP VIEW IF EXISTS novelLibraryView;
+
+-- 1. Move each novel category into the shared table at content_type 2, id shifted by the offset.
+INSERT INTO categories(_id, name, sort, flags, content_type)
+SELECT _id + 100000000, name, sort, flags, 2
+FROM novel_categories;
+
+-- 2. Recreate the junction with its category_id foreign key pointing at categories, remapping by the
+--    same offset. Matches novels_categories.sq exactly.
+CREATE TABLE novels_categories_new(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    novel_id INTEGER NOT NULL,
+    category_id INTEGER NOT NULL,
+    FOREIGN KEY(category_id) REFERENCES categories (_id)
+    ON DELETE CASCADE,
+    FOREIGN KEY(novel_id) REFERENCES novels (_id)
+    ON DELETE CASCADE
+);
+INSERT INTO novels_categories_new(_id, novel_id, category_id)
+SELECT _id, novel_id, category_id + 100000000
+FROM novels_categories;
+DROP TABLE novels_categories;
+ALTER TABLE novels_categories_new RENAME TO novels_categories;
+
+-- 3. Drop the retired table (no junction references it anymore).
+DROP TABLE novel_categories;
+
+-- 4. Recreate novelLibraryView, identical to view/novelLibraryView.sq (it still references novels_categories,
+--    which now points at categories, so the definition is unchanged).
+CREATE VIEW novelLibraryView AS
+SELECT
+    N.*,
+    coalesce(C.total, 0) AS totalCount,
+    coalesce(C.readCount, 0) AS readCount,
+    coalesce(C.latestUpload, 0) AS latestUpload,
+    coalesce(C.fetchedAt, 0) AS chapterFetchedAt,
+    coalesce(C.bookmarkCount, 0) AS bookmarkCount,
+    coalesce(NC.categories, '0') AS categories
+FROM novels N
+LEFT JOIN (
+    SELECT
+        novel_chapters.novel_id,
+        count(*) AS total,
+        sum(read) AS readCount,
+        coalesce(max(novel_chapters.date_upload), 0) AS latestUpload,
+        coalesce(max(novel_chapters.date_fetch), 0) AS fetchedAt,
+        sum(novel_chapters.bookmark) AS bookmarkCount
+    FROM novel_chapters
+    GROUP BY novel_chapters.novel_id
+) AS C
+ON N._id = C.novel_id
+LEFT JOIN (
+    SELECT novel_id, group_concat(category_id) AS categories
+    FROM novels_categories
+    GROUP BY novel_id
+) AS NC
+ON NC.novel_id = N._id
+WHERE N.favorite = 1;

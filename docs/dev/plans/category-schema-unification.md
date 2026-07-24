@@ -127,6 +127,14 @@ both sides, unchanged.
 
 ## Status
 
-In progress. Steps 1-2 landing first (they are independent of everything downstream). Researched
-2026-07-23, decisions locked 2026-07-24. Roadmap entry: "Unify the category schema (content_type
-discriminator)".
+In progress. Steps 1-3 shipped and device-verified on the A57: the schema column and flag-translation
+test, then the cutover (33.sqm moves the rows, repoints the junction, drops the old table; the Kotlin
+migration fixes flags and remaps prefs; the novel repository reads the shared table). The novel model,
+interactors and screen model stay as thin adapters for now; retiring them, the sentinel unification (a
+single universal row 0), and wiring the All chip are the remaining steps. Researched 2026-07-23,
+decisions locked 2026-07-24. Roadmap entry: "Unify the category schema (content_type discriminator)".
+
+Two on-device fixes landed during the cutover: novelLibraryView is dropped and recreated around the
+junction table-recreate (else the RENAME reparses it mid-migration and crashes), and getNovelCategories
+returns content_type 2 only (the novel library still synthesizes its own id-0 Default, so including the
+shared row 0 produced a duplicate category and a LazyGrid header-key crash).
