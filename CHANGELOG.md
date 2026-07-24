@@ -63,6 +63,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Typing in the novel library's search no longer rebuilds the list on every keystroke.** It now waits for a short pause, like the manga library.
 - **Select all and Invert selection now act on the category you have scrolled to.** In the single-list view they always acted on the first category instead.
 - **The novel library-update and download category filters now include the Default (uncategorized) group.** You can include or exclude novels that are not in any category, matching the manga filters.
+- **Restoring a backup now keeps your novel category filters and default category working instead of quietly dropping them.** Deleting a category also clears it from the library and Updates filters, so no category setting is left pointing at a category that no longer exists.
 
 ### Other
 

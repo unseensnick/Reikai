@@ -12,6 +12,8 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
 import reikai.domain.category.CategoryContentType
+import reikai.domain.category.CategoryIdPreferences
+import reikai.domain.category.translateCategoryIds
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.novel.NovelChapterRepository
@@ -35,6 +37,7 @@ class NovelRestorer(
     private val mergeGroupRepository: MergeGroupRepository = Injekt.get(),
     private val setCustomNovelInfo: SetCustomNovelInfo = Injekt.get(),
     private val database: Database = Injekt.get(),
+    private val categoryIdPreferences: CategoryIdPreferences = Injekt.get(),
 ) {
 
     /** Create any novel categories the backup has that the device doesn't, matched by name. */
@@ -58,6 +61,36 @@ class NovelRestorer(
                     CategoryContentType.NOVEL,
                 )
             }
+    }
+
+    /**
+     * Remap the novel category-id preferences to the freshly restored local ids, matched by name. The
+     * manga equivalent runs inline in PreferenceRestorer, but novel categories are not restored until after
+     * app preferences, so the novel prefs still name the backup's ids until this runs. Mirrors the manga
+     * behavior: a stored id survives only if a restored category kept its name; the default's 0 (uncategorized)
+     * and -1 (prompt) sentinels are left alone. Call once, after [restoreCategories].
+     */
+    suspend fun remapCategoryPreferences(backupCategories: List<BackupNovelCategory>) {
+        if (backupCategories.isEmpty()) return
+        val backupIdToName = backupCategories.associate { it.id.toString() to it.name }
+        val nameToNewId = categoryRepository.getAll(CategoryContentType.NOVEL)
+            .associate { it.name to it.id.toString() }
+
+        categoryIdPreferences.novelSets.forEach { preference ->
+            val current = preference.get()
+            if (current.isNotEmpty()) {
+                preference.set(translateCategoryIds(current, backupIdToName, nameToNewId))
+            }
+        }
+
+        val defaultPreference = categoryIdPreferences.novelDefault
+        val currentDefault = defaultPreference.get()
+        if (currentDefault > 0) {
+            backupIdToName[currentDefault.toString()]
+                ?.let { nameToNewId[it] }
+                ?.toIntOrNull()
+                ?.let(defaultPreference::set)
+        }
     }
 
     suspend fun restore(backupNovel: BackupNovel, backupCategories: List<BackupNovelCategory>) {

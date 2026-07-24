@@ -166,6 +166,13 @@ class BackupRestorer(
             // TODO: optionally trigger online library + tracker update
         }
 
+        // RK: the novel category-id preferences still name the backup's category ids after the restore.
+        // Manga remaps them inline in PreferenceRestorer, but novel categories are not restored until the
+        // novel stream above, so it happens here, once both the prefs and the novel categories are in place.
+        if (options.categories && options.appSettings) {
+            novelRestorer.remapCategoryPreferences(summary.backupNovelCategories)
+        }
+
         // RK: trust is evaluated once at startup, before this restore populated the repo list, so any
         // extension installed at that point (e.g. carried over from an in-place Yōkai upgrade) loaded
         // Untrusted. Now that the repos exist, re-scan installed extensions so they re-trust without

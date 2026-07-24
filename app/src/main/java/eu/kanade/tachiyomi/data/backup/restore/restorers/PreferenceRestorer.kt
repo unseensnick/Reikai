@@ -14,6 +14,9 @@ import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.source.sourcePreferences
+import reikai.domain.category.CategoryIdPreferences
+import reikai.domain.category.DEAD_LAST_USED_NOVEL_CATEGORY_KEY
+import reikai.domain.category.translateCategoryIds
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelPreferences
 import tachiyomi.core.common.preference.AndroidPreferenceStore
@@ -21,7 +24,6 @@ import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.plusAssign
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -30,6 +32,7 @@ class PreferenceRestorer(
     private val context: Context,
     private val getCategories: GetCategories = Injekt.get(),
     private val preferenceStore: PreferenceStore = Injekt.get(),
+    private val categoryIdPreferences: CategoryIdPreferences = Injekt.get(),
 ) {
     suspend fun restoreApp(
         preferences: List<BackupPreference>,
@@ -70,6 +73,11 @@ class PreferenceRestorer(
                 key == ReikaiLibraryPreferences.NOVEL_MANUAL_MERGES_KEY ||
                 key == ReikaiLibraryPreferences.NOVEL_MANUAL_UNMERGES_KEY
             ) {
+                return@forEach
+            }
+            // RK: dead Yōkai-era key that nothing reads; skip so an old backup can't resurrect it after the
+            // cleanup migration removed it (see DEAD_LAST_USED_NOVEL_CATEGORY_KEY).
+            if (key == DEAD_LAST_USED_NOVEL_CATEGORY_KEY) {
                 return@forEach
             }
             // RK: a restored ln_installed_plugin_urls set can auto-load arbitrary plugin .js URLs that
@@ -131,6 +139,10 @@ class PreferenceRestorer(
         }
     }
 
+    // RK: the remapped key list comes from the shared CategoryIdPreferences registry (manga side), so
+    // it also covers the Reikai library and Updates-tab category filters, not just Mihon's update/download
+    // prefs. The novel prefs are remapped after the restore, in NovelRestorer, since novel categories are
+    // not restored yet at this point.
     private fun restoreCategoriesPreference(
         key: String,
         value: Set<String>,
@@ -138,14 +150,13 @@ class PreferenceRestorer(
         backupCategoriesById: Map<String, BackupCategory>,
         categoriesByName: Map<String, Category>,
     ): Boolean {
-        val categoryPreferences = LibraryPreferences.categoryPreferenceKeys + DownloadPreferences.categoryPreferenceKeys
-        if (key !in categoryPreferences) return false
+        if (key !in categoryIdPreferences.mangaSets.mapTo(HashSet()) { it.key() }) return false
 
-        val ids = value.mapNotNull {
-            backupCategoriesById[it]?.name?.let { name ->
-                categoriesByName[name]?.id?.toString()
-            }
-        }
+        val ids = translateCategoryIds(
+            ids = value,
+            backupIdToName = backupCategoriesById.mapValues { it.value.name },
+            nameToNewId = categoriesByName.mapValues { it.value.id.toString() },
+        )
 
         if (ids.isNotEmpty()) {
             preferenceStore.getStringSet(key) += ids
