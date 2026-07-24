@@ -62,6 +62,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Selecting novels in the library is no longer slow.** Every tap rebuilt the whole list before the selection appeared, so it got worse the more novels you had.
 - **Typing in the novel library's search no longer rebuilds the list on every keystroke.** It now waits for a short pause, like the manga library.
 - **Select all and Invert selection now act on the category you have scrolled to.** In the single-list view they always acted on the first category instead.
+- **The novel library-update and download category filters now include the Default (uncategorized) group.** You can include or exclude novels that are not in any category, matching the manga filters.
 
 ### Other
 
@@ -70,6 +71,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - The manga and novel libraries now sort through one shared comparator, so a sort change reaches both content types instead of being written twice.
 - The manga and novel libraries now filter and search through one shared implementation, so a filter or search change reaches both content types instead of being written twice.
 - Library selection now identifies an entry by its content type rather than by the sign of its id, so a manga and a novel that share a row number can never be confused for each other.
+- Manga and novel categories now live in one shared table with a content-type column, read and written through one repository, so the parallel novel category stack (its repository, models and sort type) is gone and a category change reaches both content types instead of being written twice.
 - Custom novel covers are now stored under a name that carries the content type, moved once on upgrade, so a novel can never collide with a manga that shares its row number.
 - The manga and novel libraries now filter and sort the same row type through one shared binding, so those two stages are written once instead of per content type.
 - The library selection now lives in one shared layer rather than one per content type, and opening an entry follows the row's own type instead of the active chip. Both are prerequisites for showing manga and novels in a single list.

@@ -119,6 +119,41 @@ both sides, unchanged.
 
 ## Follow-on (separate, after this)
 
+- **Category-preference cleanup (next task).** Some category-id preferences hold ids that are no longer a
+  valid category of the right content type: the fold-in migration remapped the six novel update/download
+  prefs but not the novel library-filter prefs or `last_used_novel_category`, and a wipe-and-restore mints
+  fresh category ids without remapping any category-id pref (Mihon's backup remaps membership by name/order,
+  never the filter/default prefs). Measured on the A57 after a restore: `novel_library_filter_categories_exclude
+  = [1]` and `last_used_novel_category = 5`, both pointing at ids that are now manga categories. Harmless
+  (they filter/preselect nothing) but stale. Fix it in one change so it needs a single migration:
+  1. **Cleanup migration**, new, gated `version = 188f` (bump `versionCode` 187 -> 188 so it fires in dev):
+     scrub every category-id preference of ids that are not a real category of the right content type. Novel
+     prefs keep only content_type-2 ids, manga prefs only content_type-1/0 ids; single-value prefs
+     (`default*Category`, `last_used*`) reset to their sentinel when invalid. Lives in the app module, so it
+     reaches every pref (`LibraryPreferences`/`DownloadPreferences` in domain, `NovelPreferences`/
+     `ReikaiLibraryPreferences` in app). Valid ids come from `CategoryRepository.getAll(MANGA/NOVEL)`. Note
+     Mihon's `CategoryPreferencesCleanupMigration` (`10f`) already scrubs the manga *set*-prefs but is
+     one-time-passed and does not cover the Reikai filter prefs.
+  2. **Extend the delete-scrub to the library-filter prefs** so a delete stops leaving dangling refs. Novel:
+     add `novelLibraryFilterCategoriesInclude`/`Exclude` to `NovelCategoryActions.delete`'s pref list. Manga:
+     add the scrub in `MangaCategoryActions.delete`, since domain `DeleteCategory` cannot see the app-module
+     `ReikaiLibraryPreferences`.
+  3. **Restore-side remap** so future restores stop re-introducing stale refs. After restoring categories,
+     build the old-id -> new-id map by name and remap the category-id filter/default prefs through it (both
+     types). Touches `CategoriesRestorer` (Mihon, `// RK`) and `NovelRestorer` (Reikai); a shared app-module
+     remap helper both call. Sequence after both the prefs and the categories are restored.
+
+  Device-verify on the A57: the two stale prefs scrubbed, a filtered-category delete cleans the filter, and a
+  backup -> restore keeps filter/default selections valid instead of stale.
+- **User-creatable universal categories.** The schema already supports a universal category (`content_type = 0`;
+  today only the hidden uncategorized row 0 uses it) and the shared `insert(Category, contentType)` already
+  takes a content type, so this is the user-facing half: a content-type selector in the Add/Edit-category dialog
+  (All / Manga only / Novels only, tsundoku-style) and a create path that writes `content_type = 0` for All, so a
+  universal "Reading" holds both manga and novels. The edit-categories screen shows each category's type. This is
+  the category-level counterpart of the "All" library chip (a universal bucket is what a mixed "Reading" means),
+  and a co-requisite of it. The manga library reads `content_type IN (0, 1)` and the novel library `IN (0, 2)`,
+  so a universal category already surfaces in both once one can be created. Decide whether the edit screen stays
+  tabbed (add the selector per tab) or becomes one list with a type column like tsundoku.
 - **Category reorder mode**, a Yokai-era Reikai feature to restore for both types on the now-unified
   category screen: a reorder mode toggled from the edit-categories screen that reveals a drag handle plus
   move-to-top and move-to-bottom controls on each category card, confirm or cancel to finish. Built once
@@ -137,28 +172,32 @@ not). Two slices, each its own device-verified commit:
   `NovelCategoryScreenModel` and the Insert/Delete/Reorder novel interactors + DI. Verified on device: both
   tabs load, tab-switch works, hiding a novel category persists. Create/rename need a hardware keyboard, not
   yet device-checked (they use the same proven adapter methods).
-- **Slice B (sentinel + read-caller retirement): NOT STARTED.** Make `CategoryRepository` content-type-aware
-  (absorb `NovelCategoryRepository`'s query methods: getAll/getByEntryId/insert take a content type); switch
-  the ~13 `GetNovelCategories` callers to it; read the real row 0 in the novel library, drop the two
-  syntheses, filter row 0 in the pickers like manga; consolidate backup; delete `NovelCategory`,
-  `NovelCategoryRepository`, `GetNovelCategories`. The `CategoryActions` seam stays; its novel adapter
-  switches from `NovelCategoryRepository` to the content-type-aware `CategoryRepository`. Fold in the
-  novel-delete parity gap here: novel delete does not scrub the six novel category-id prefs or renumber
-  (manga's `DeleteCategory` does); nothing else scrubs them today (confirmed), so add it via a shared
-  scrub+renumber helper the content-type-aware delete uses for both types. Header sort is safe: `forCategory`
-  already resolves a flags-0 row 0 to the default sort. This slice is the biggest and lives in the
-  crash-prone path; take it fresh.
+- **Slice B (sentinel + read-caller retirement): SHIPPED (`876baa087`..`43c287bd0`), device-verified on the
+  A57.** `CategoryRepository` is content-type-aware (a defaulted `contentType` param on `getAll`/`getAllAsFlow`/
+  `insert`, plus `getCategoriesByNovelId`; `insert` returns the rowid; manga callers unchanged). `GetNovelCategories`
+  re-homed to `reikai.domain.category` over the shared repo, returning `Category`; the novel library reads the
+  real row 0 and the two Default syntheses are gone; pickers filter row 0 by id as before. Backup create/restore
+  and the novel per-category sort read/write moved onto the shared repo, and `NovelLibrarySort` dissolved onto the
+  shared `LibrarySort` layout (the write side that the `187f` migration had assumed). `NovelCategory`,
+  `NovelCategoryUpdate`, `NovelCategoryRepository` (+impl), `NovelLibrarySort` and `mapNovelCategory` are deleted.
+  The novel-delete parity gap closed via a shared `deleteCategoryAndCleanup` helper both types call (unit-tested).
+  One bug surfaced and fixed here: the shared edit-categories screen swaps its model per Manga/Novels tab but
+  collected events in a `LaunchedEffect(Unit)` that never re-subscribed, so the Novels-tab delete showed no undo
+  snackbar and never committed; events is a `SharedFlow` now, keyed on the model (`e47c7898e`).
 
 ## Status
 
-In progress. Steps 1-3 and Slice A shipped and device-verified on the A57: the schema column and
+Complete, shipped and device-verified on the A57 across `87ccbfe50`..`43c287bd0`: the schema column and
 flag-translation test, the cutover (33.sqm moves the rows, repoints the junction, drops the old table; the
-Kotlin migration fixes flags and remaps prefs; the novel repository reads the shared table), and the
-category-manager dedup. Slice B (above) is the remaining work before the All chip. Researched 2026-07-23,
-decisions locked 2026-07-24.
+Kotlin migration fixes flags and remaps prefs), the category-manager dedup (Slice A), and the sentinel +
+read-caller retirement + sort collapse + stack deletion (Slice B). A full wipe-and-restore round-trip verified
+novel categories and memberships survive. What remains is the category-preference cleanup under Follow-on above
+(its own task), then the "All" chip that this whole initiative unblocks. Researched 2026-07-23, shipped
+2026-07-24.
 
-Two on-device fixes landed during the cutover: novelLibraryView is dropped and recreated around the
-junction table-recreate (else the RENAME reparses it mid-migration and crashes, invisible to
-verifyDebugDatabaseMigration's JDBC driver), and getNovelCategories returns content_type 2 only (the novel
-library still synthesizes its own id-0 Default, so including the shared row 0 produced a duplicate category
-and a LazyGrid header-key crash).
+Fixes that landed during the work, worth keeping in mind: during the cutover, novelLibraryView is dropped and
+recreated around the junction table-recreate (else the RENAME reparses it mid-migration and crashes, invisible
+to verifyDebugDatabaseMigration's JDBC driver); during Slice B, the shared edit-categories screen's event
+collector had to move to a `SharedFlow` keyed on the model, since a `LaunchedEffect(Unit)` over a
+`receiveAsFlow` channel bound to the first Manga/Novels tab only and dropped the other tab's undo snackbar (so
+its delete never committed).
