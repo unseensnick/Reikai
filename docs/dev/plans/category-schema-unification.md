@@ -119,32 +119,29 @@ both sides, unchanged.
 
 ## Follow-on (separate, after this)
 
-- **Category-preference cleanup (next task).** Some category-id preferences hold ids that are no longer a
-  valid category of the right content type: the fold-in migration remapped the six novel update/download
-  prefs but not the novel library-filter prefs or `last_used_novel_category`, and a wipe-and-restore mints
-  fresh category ids without remapping any category-id pref (Mihon's backup remaps membership by name/order,
-  never the filter/default prefs). Measured on the A57 after a restore: `novel_library_filter_categories_exclude
-  = [1]` and `last_used_novel_category = 5`, both pointing at ids that are now manga categories. Harmless
-  (they filter/preselect nothing) but stale. Fix it in one change so it needs a single migration:
-  1. **Cleanup migration**, new, gated `version = 188f` (bump `versionCode` 187 -> 188 so it fires in dev):
-     scrub every category-id preference of ids that are not a real category of the right content type. Novel
-     prefs keep only content_type-2 ids, manga prefs only content_type-1/0 ids; single-value prefs
-     (`default*Category`, `last_used*`) reset to their sentinel when invalid. Lives in the app module, so it
-     reaches every pref (`LibraryPreferences`/`DownloadPreferences` in domain, `NovelPreferences`/
-     `ReikaiLibraryPreferences` in app). Valid ids come from `CategoryRepository.getAll(MANGA/NOVEL)`. Note
-     Mihon's `CategoryPreferencesCleanupMigration` (`10f`) already scrubs the manga *set*-prefs but is
-     one-time-passed and does not cover the Reikai filter prefs.
-  2. **Extend the delete-scrub to the library-filter prefs** so a delete stops leaving dangling refs. Novel:
-     add `novelLibraryFilterCategoriesInclude`/`Exclude` to `NovelCategoryActions.delete`'s pref list. Manga:
-     add the scrub in `MangaCategoryActions.delete`, since domain `DeleteCategory` cannot see the app-module
-     `ReikaiLibraryPreferences`.
-  3. **Restore-side remap** so future restores stop re-introducing stale refs. After restoring categories,
-     build the old-id -> new-id map by name and remap the category-id filter/default prefs through it (both
-     types). Touches `CategoriesRestorer` (Mihon, `// RK`) and `NovelRestorer` (Reikai); a shared app-module
-     remap helper both call. Sequence after both the prefs and the categories are restored.
+- **Category-preference cleanup. SHIPPED (`f5aa12fe1`..`28d18f1d0`), device-verified on the A57.** Category-id
+  preferences that pointed at a category of the wrong content type (or a deleted one) are now cleaned in three
+  places, all reading one shared `reikai.domain.category.CategoryIdPreferences` registry (every category-id pref
+  per content type, in one list, so the three paths can't drift):
+  1. **Cleanup migration** (`CategoryPreferencesContentTypeCleanupMigration`, `version = 188f`, `versionCode`
+     bumped 187 -> 188): scrubs each pref against `CategoryRepository.getAll(MANGA/NOVEL)` (novel keeps
+     content_type-2/0 ids, manga content_type-1/0), resets an invalid default to its -1 sentinel, and deletes the
+     dead `last_used_novel_category` key.
+  2. **Delete-scrub** extended to the library and Updates-tab filter prefs on both types. The novel delete passes
+     the registry's `novelSets`; the manga delete scrubs the registry's `mangaSets` after Mihon's `DeleteCategory`
+     (domain can't see the app-module `ReikaiLibraryPreferences`/`ReikaiSourcePreferences`).
+  3. **Restore remap**: manga stays inline in `PreferenceRestorer` (its remapped key list now comes from the
+     registry, so it covers the filter/Updates prefs too); novel is remapped in `NovelRestorer.remapCategoryPreferences`
+     after the restore's `coroutineScope` settles, since novel categories aren't restored yet when app prefs are.
+     Both run the shared `translateCategoryIds` (old-id -> name -> new-id).
 
-  Device-verify on the A57: the two stale prefs scrubbed, a filtered-category delete cleans the filter, and a
-  backup -> restore keeps filter/default selections valid instead of stale.
+  Three corrections to the original plan surfaced during the work: Mihon's `PreferenceRestorer` **already** remapped
+  the manga default/update/download prefs by name (the real gaps were the filter prefs and all novel prefs, not
+  "membership only"); `last_used_category` is a library **tab index** (app-state, never backed up), so it is excluded
+  from the scrub; and an old backup could resurrect the dead `last_used_novel_category` key after the migration removed
+  it, so `PreferenceRestorer` now also **skips** that key on restore. The one deliberate manga/novel difference:
+  restoring **over an existing library**, manga unions the backup filter into the current one while novel replaces it
+  (novel prefs pass through the raw restore first); on a fresh-install restore they are identical.
 - **User-creatable universal categories.** The schema already supports a universal category (`content_type = 0`;
   today only the hidden uncategorized row 0 uses it) and the shared `insert(Category, contentType)` already
   takes a content type, so this is the user-facing half: a content-type selector in the Add/Edit-category dialog
@@ -191,9 +188,10 @@ Complete, shipped and device-verified on the A57 across `87ccbfe50`..`43c287bd0`
 flag-translation test, the cutover (33.sqm moves the rows, repoints the junction, drops the old table; the
 Kotlin migration fixes flags and remaps prefs), the category-manager dedup (Slice A), and the sentinel +
 read-caller retirement + sort collapse + stack deletion (Slice B). A full wipe-and-restore round-trip verified
-novel categories and memberships survive. What remains is the category-preference cleanup under Follow-on above
-(its own task), then the "All" chip that this whole initiative unblocks. Researched 2026-07-23, shipped
-2026-07-24.
+novel categories and memberships survive. The category-preference cleanup under Follow-on above then shipped
+(`f5aa12fe1`..`28d18f1d0`, `versionCode` 188), device-verified on the A57 across all three paths (upgrade scrub,
+delete-scrub, restore remap + dead-key skip). What remains is the user-creatable universal categories, then the
+"All" chip that this whole initiative unblocks. Researched 2026-07-23, shipped 2026-07-24.
 
 Fixes that landed during the work, worth keeping in mind: during the cutover, novelLibraryView is dropped and
 recreated around the junction table-recreate (else the RENAME reparses it mid-migration and crashes, invisible
