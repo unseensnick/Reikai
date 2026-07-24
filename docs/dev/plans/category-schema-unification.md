@@ -125,16 +125,40 @@ both sides, unchanged.
   on the shared screen model, so it serves manga and novels without divergence. Uses the existing `sort`
   column; no schema work. Queued in ROADMAP.
 
+## Remaining work (resequenced into two slices)
+
+The plan steps 4-6 above were resequenced once the sentinel turned out to be entangled with the read-caller
+retirement (reading row 0 means every `getNovelCategories` caller sees it, including the pickers that must
+not). Two slices, each its own device-verified commit:
+
+- **Slice A (management dedup): SHIPPED (`e68e1c572`).** One `CategoryScreenModel` drives both edit-category
+  tabs via a Reikai-owned `CategoryActions` seam (`reikai.presentation.category`): a manga adapter over
+  Mihon's interactors (unchanged) and a novel adapter over `NovelCategoryRepository`. Retired
+  `NovelCategoryScreenModel` and the Insert/Delete/Reorder novel interactors + DI. Verified on device: both
+  tabs load, tab-switch works, hiding a novel category persists. Create/rename need a hardware keyboard, not
+  yet device-checked (they use the same proven adapter methods).
+- **Slice B (sentinel + read-caller retirement): NOT STARTED.** Make `CategoryRepository` content-type-aware
+  (absorb `NovelCategoryRepository`'s query methods: getAll/getByEntryId/insert take a content type); switch
+  the ~13 `GetNovelCategories` callers to it; read the real row 0 in the novel library, drop the two
+  syntheses, filter row 0 in the pickers like manga; consolidate backup; delete `NovelCategory`,
+  `NovelCategoryRepository`, `GetNovelCategories`. The `CategoryActions` seam stays; its novel adapter
+  switches from `NovelCategoryRepository` to the content-type-aware `CategoryRepository`. Fold in the
+  novel-delete parity gap here: novel delete does not scrub the six novel category-id prefs or renumber
+  (manga's `DeleteCategory` does); nothing else scrubs them today (confirmed), so add it via a shared
+  scrub+renumber helper the content-type-aware delete uses for both types. Header sort is safe: `forCategory`
+  already resolves a flags-0 row 0 to the default sort. This slice is the biggest and lives in the
+  crash-prone path; take it fresh.
+
 ## Status
 
-In progress. Steps 1-3 shipped and device-verified on the A57: the schema column and flag-translation
-test, then the cutover (33.sqm moves the rows, repoints the junction, drops the old table; the Kotlin
-migration fixes flags and remaps prefs; the novel repository reads the shared table). The novel model,
-interactors and screen model stay as thin adapters for now; retiring them, the sentinel unification (a
-single universal row 0), and wiring the All chip are the remaining steps. Researched 2026-07-23,
-decisions locked 2026-07-24. Roadmap entry: "Unify the category schema (content_type discriminator)".
+In progress. Steps 1-3 and Slice A shipped and device-verified on the A57: the schema column and
+flag-translation test, the cutover (33.sqm moves the rows, repoints the junction, drops the old table; the
+Kotlin migration fixes flags and remaps prefs; the novel repository reads the shared table), and the
+category-manager dedup. Slice B (above) is the remaining work before the All chip. Researched 2026-07-23,
+decisions locked 2026-07-24.
 
 Two on-device fixes landed during the cutover: novelLibraryView is dropped and recreated around the
-junction table-recreate (else the RENAME reparses it mid-migration and crashes), and getNovelCategories
-returns content_type 2 only (the novel library still synthesizes its own id-0 Default, so including the
-shared row 0 produced a duplicate category and a LazyGrid header-key crash).
+junction table-recreate (else the RENAME reparses it mid-migration and crashes, invisible to
+verifyDebugDatabaseMigration's JDBC driver), and getNovelCategories returns content_type 2 only (the novel
+library still synthesizes its own id-0 Default, so including the shared row 0 produced a duplicate category
+and a LazyGrid header-key crash).
