@@ -2,11 +2,14 @@ CREATE TABLE categories(
     _id INTEGER NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
     sort INTEGER NOT NULL,
-    flags INTEGER NOT NULL
+    flags INTEGER NOT NULL,
+    -- RK: content-type discriminator (0 = universal, 1 = manga, 2 = novel). Manga-created rows default
+    -- to 1; novel categories fold in at 2; the system row 0 is universal. Lets one axis serve both types.
+    content_type INTEGER NOT NULL DEFAULT 1
 );
 
--- Insert system category
-INSERT OR IGNORE INTO categories(_id, name, sort, flags) VALUES (0, "", -1, 0);
+-- Insert system category (universal: it is the shared uncategorized bucket for both content types)
+INSERT OR IGNORE INTO categories(_id, name, sort, flags, content_type) VALUES (0, "", -1, 0, 0);
 -- Disallow deletion of default category
 CREATE TRIGGER IF NOT EXISTS system_category_delete_trigger BEFORE DELETE
 ON categories
@@ -17,7 +20,11 @@ BEGIN SELECT CASE
 END;
 
 getCategory:
-SELECT *
+SELECT
+_id AS id,
+name,
+sort AS `order`,
+flags
 FROM categories
 WHERE _id = :id
 LIMIT 1;

@@ -1,0 +1,11 @@
+-- RK: content-type discriminator on the shared categories table (0 = universal, 1 = manga, 2 = novel),
+-- the data half of the unified "All" library axis. Fresh installs build this from categories.sq via
+-- Schema.create(); existing installs reach the same schema here.
+--
+-- Existing rows are all manga categories, so they backfill to 1 through the column default. The one
+-- exception is the system row 0: it becomes the shared universal uncategorized bucket for both content
+-- types, so it is retyped to 0. This corrects the new column on a row that already exists; it does not
+-- seed a new row.
+ALTER TABLE categories ADD COLUMN content_type INTEGER NOT NULL DEFAULT 1;
+
+UPDATE categories SET content_type = 0 WHERE _id = 0;
