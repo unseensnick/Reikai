@@ -59,6 +59,9 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A novel showing chapter numbers instead of titles now labels them in your app language, like manga.**
 - **Adding a manga to an existing merged group now updates its details page right away, like novels.**
 - **Backing up a large library with chapters enabled works again instead of leaving an empty file.** Restoring no longer runs out of memory, and a failed backup now reports the error.
+- **Selecting novels in the library is no longer slow.** Every tap rebuilt the whole list before the selection appeared, so it got worse the more novels you had.
+- **Typing in the novel library's search no longer rebuilds the list on every keystroke.** It now waits for a short pause, like the manga library.
+- **Select all and Invert selection now act on the category you have scrolled to.** In the single-list view they always acted on the first category instead.
 
 ### Other
 
@@ -68,6 +71,9 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - The manga and novel libraries now filter and search through one shared implementation, so a filter or search change reaches both content types instead of being written twice.
 - Library selection now identifies an entry by its content type rather than by the sign of its id, so a manga and a novel that share a row number can never be confused for each other.
 - Custom novel covers are now stored under a name that carries the content type, moved once on upgrade, so a novel can never collide with a manga that shares its row number.
+- The manga and novel libraries now filter and sort the same row type through one shared binding, so those two stages are written once instead of per content type.
+- The library selection now lives in one shared layer rather than one per content type, and opening an entry follows the row's own type instead of the active chip. Both are prerequisites for showing manga and novels in a single list.
+- Reikai's own library code moved out of the Mihon file it had been sitting inside, shrinking that file by about 260 lines and leaving its remaining patches as call sites rather than bodies of logic, so upstream changes merge more cleanly.
 - The manga and novel source-grouping (merge) system is now shared code (the manager, the source-switcher chips, and the details read/observe wiring) instead of near-duplicate copies, so a grouping change reaches both content types and they can't drift apart.
 - Shizuku detection now probes for the Shizuku permission instead of a fixed package name (synced from Mihon, mihonapp/mihon#3565).
 

@@ -42,7 +42,18 @@ Phase 2's structural core shipped (`2a1ccfea8` identity, `92cd34cf7` seam), beha
 
 ### Remaining sequence
 
-**All seven steps are done and on-device verified.** The pipeline stages and identity are shared; what remains for this surface is the **engine step**, which is scoped in [content-layer-architecture.md](content-layer-architecture.md) under the 2026-07-22 amendment rather than here: a shared orchestration layer owning list assembly, pipeline order, category bucketing, selection and dispatch, over per-type providers that keep their favourites flow and action verbs. Build it All-shaped; the All chip needs real categories at launch, so the category-schema unification is a hard pre-requisite in front of it.
+**All seven steps are done and on-device verified**, and so is the **engine step** that followed them (2026-07-23, `fc29c35b9`..`ed983165a`). The engine is scoped in [content-layer-architecture.md](content-layer-architecture.md) under the 2026-07-22 amendment rather than here.
+
+What shipped in it, all device-verified on both the Fold and the A57 across both view modes and both chips:
+
+- **One filter and sort binding over the shared row** (`LibraryItemFields.kt`). Novels now build the row before filtering rather than after, so both content types reach the shared kernels at the same point in the type chain, which is what lets one comparator order a mixed list. Three seams stay explicit parameters: the lewd source-name half (manga-only), tracker ids, and the tracker mean.
+- **`LibraryProvider` and `LibraryEngine`.** Each content type is a provider (the neutral behaviour seam plus its type); the engine owns the selection as `Set<EntryId>`, every operation on it, and bulk-action dispatch. `providersFor(ALL)` already fans out to both; `behaviorFor(ALL)` fails loudly, since a mixed view still needs one category id space.
+- **Row identity through the grids.** The grid callbacks carry `LibraryItem` rather than its `LibraryManga`, so opening an entry and resuming reading follow the tapped row's own content type instead of the active chip. Four of the tab's 22 `isNovels` branches went away, and those four were the ones a mixed list would have got wrong.
+- **Reikai logic out of the Mihon model.** 203 lines of net-new Reikai code (the display-state flow, the collapse and hopper setters, dynamic grouping) moved to `reikai.presentation.library`; `LibraryScreenModel` went 1316 to 1056 lines and its largest `// RK` island 203 to 46. The file stays live and synced rather than being manifested, since it is an engine file.
+
+Two bugs surfaced while writing the test plan for that work, which is a habit worth keeping: switching the content-type chip carried the shared selection into a view where none of its rows were listed (a regression from the selection move), and single-list Select all acted on the first category rather than the one scrolled to (**pre-existing**, inherited from the model's `selectAll`, which read the pager index the single-list view never updates).
+
+What remains for the All chip is the category axis, and only that: the category-schema unification is a hard pre-requisite because the chip needs real categories at launch. See [category-schema-unification.md](category-schema-unification.md).
 
 ### Engine-step ground truth (2026-07-23)
 
