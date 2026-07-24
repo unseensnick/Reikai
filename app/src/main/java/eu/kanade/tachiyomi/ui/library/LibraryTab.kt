@@ -73,7 +73,6 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.sortForCategory
 import reikai.domain.novel.model.NovelCategory
-import reikai.domain.novel.model.NovelLibrarySort
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.library.LibraryBehavior
 import reikai.presentation.library.LibraryEngine
@@ -84,7 +83,6 @@ import reikai.presentation.library.ReikaiCategoryPickerSheet
 import reikai.presentation.library.ReikaiLibraryContent
 import reikai.presentation.library.novels.NovelLibraryScreenModel
 import reikai.presentation.library.novels.NovelLibrarySettingsDialog
-import reikai.presentation.library.novels.novelSortLabelRes
 import reikai.presentation.library.reikaiCategoryHeaderIndices
 import reikai.presentation.library.reikaiIsCollapsed
 import reikai.presentation.library.reikaiSortCategories
@@ -99,6 +97,7 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryManga
+import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -483,7 +482,7 @@ data object LibraryTab : Tab {
                             // RK: the global sort each non-overridden category follows (re-read per render;
                             // a global-sort change re-sorts the library, which recomposes this).
                             val mangaGlobalSort = settingsScreenModel.libraryPreferences.sortingMode.get()
-                            val novelDefaultSort = NovelLibrarySort.fromFlag(
+                            val novelDefaultSort = LibrarySort.valueOf(
                                 settingsScreenModel.reikaiLibraryPreferences.novelLibraryDefaultSort.get(),
                             )
                             ReikaiLibraryContent(
@@ -528,23 +527,15 @@ data object LibraryTab : Tab {
                                 onRefreshCategory = { category -> onClickRefresh(category) },
                                 onSelectAllInCategory = { category -> engine.selectAllInCategory(entriesOf(category)) },
                                 // RK: the header shows each category's EFFECTIVE sort (its own override, or
-                                // the global sort it follows), decoded per content type so the label + arrow
-                                // match the actual ordering.
-                                sortLabelFor = if (isNovels) {
-                                    { category ->
-                                        novelSortLabelRes(
-                                            NovelLibrarySort.forCategory(category.flags, novelDefaultSort).type,
-                                        )
-                                    }
-                                } else {
-                                    { category -> sortLabelRes(sortForCategory(category.flags, mangaGlobalSort).type) }
+                                // the global sort it follows). Both content types decode through the shared
+                                // manga layout now, differing only in which global sort the Default follows.
+                                sortLabelFor = { category ->
+                                    val global = if (isNovels) novelDefaultSort else mangaGlobalSort
+                                    sortLabelRes(sortForCategory(category.flags, global).type)
                                 },
-                                sortAscendingFor = if (isNovels) {
-                                    { category ->
-                                        NovelLibrarySort.forCategory(category.flags, novelDefaultSort).isAscending
-                                    }
-                                } else {
-                                    { category -> sortForCategory(category.flags, mangaGlobalSort).isAscending }
+                                sortAscendingFor = { category ->
+                                    val global = if (isNovels) novelDefaultSort else mangaGlobalSort
+                                    sortForCategory(category.flags, global).isAscending
                                 },
                                 onClickContinueReading = onContinueReading,
                             )

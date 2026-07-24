@@ -22,15 +22,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.library.LibrarySettingsScreenModel
-import reikai.domain.novel.model.NovelLibrarySort
+import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.presentation.library.EntryDisplayPage
 import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.ResetToGlobalSortItem
 import tachiyomi.core.common.preference.TriState
+import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.BaseSortItem
 import tachiyomi.presentation.core.components.CheckboxItem
@@ -179,26 +179,6 @@ private fun ColumnScope.FilterPage(
     NovelCategoriesFilter(screenModel = screenModel, onManageCategories = onManageCategories)
 }
 
-/**
- * Display label for a novel sort mode, for the single-list category header. The shared header decodes a
- * category's flags through the manga [tachiyomi.domain.library.model.LibrarySort] enum, which misreads
- * the two novel-only sorts (Downloaded, Tracker score) since they sit on bits the manga enum labels
- * differently; the novel library passes this instead so its header labels stay correct.
- */
-internal fun novelSortLabelRes(type: NovelLibrarySort.Type): StringResource = when (type) {
-    NovelLibrarySort.Type.Alphabetical -> MR.strings.action_sort_alpha
-    NovelLibrarySort.Type.LastRead -> MR.strings.action_sort_last_read
-    NovelLibrarySort.Type.LastUpdate -> MR.strings.action_sort_last_manga_update
-    NovelLibrarySort.Type.UnreadCount -> MR.strings.action_sort_unread_count
-    NovelLibrarySort.Type.TotalChapters -> MR.strings.action_sort_total
-    NovelLibrarySort.Type.LatestChapter -> MR.strings.action_sort_latest_chapter
-    NovelLibrarySort.Type.ChapterFetchDate -> MR.strings.action_sort_chapter_fetch_date
-    NovelLibrarySort.Type.DateAdded -> MR.strings.action_sort_date_added
-    NovelLibrarySort.Type.Downloaded -> MR.strings.action_sort_downloaded
-    NovelLibrarySort.Type.TrackerMean -> MR.strings.action_sort_tracker_score
-    NovelLibrarySort.Type.Random -> MR.strings.action_sort_random
-}
-
 @Composable
 private fun ColumnScope.SortPage(screenModel: NovelLibraryScreenModel, categoryId: Long) {
     val state by screenModel.state.collectAsState()
@@ -209,30 +189,30 @@ private fun ColumnScope.SortPage(screenModel: NovelLibraryScreenModel, categoryI
     // Tracker-score sort only shows with a logged-in tracker (mirrors the manga LibrarySettingsDialog).
     val sortModes = remember(trackers.isEmpty()) {
         val trackerMeanPair = if (trackers.isNotEmpty()) {
-            MR.strings.action_sort_tracker_score to NovelLibrarySort.Type.TrackerMean
+            MR.strings.action_sort_tracker_score to LibrarySort.Type.TrackerMean
         } else {
             null
         }
         listOfNotNull(
-            MR.strings.action_sort_alpha to NovelLibrarySort.Type.Alphabetical,
-            MR.strings.action_sort_last_read to NovelLibrarySort.Type.LastRead,
-            MR.strings.action_sort_last_manga_update to NovelLibrarySort.Type.LastUpdate,
-            MR.strings.action_sort_latest_chapter to NovelLibrarySort.Type.LatestChapter,
-            MR.strings.action_sort_chapter_fetch_date to NovelLibrarySort.Type.ChapterFetchDate,
-            MR.strings.action_sort_total to NovelLibrarySort.Type.TotalChapters,
-            MR.strings.action_sort_unread_count to NovelLibrarySort.Type.UnreadCount,
-            MR.strings.action_sort_date_added to NovelLibrarySort.Type.DateAdded,
-            MR.strings.label_downloaded to NovelLibrarySort.Type.Downloaded,
+            MR.strings.action_sort_alpha to LibrarySort.Type.Alphabetical,
+            MR.strings.action_sort_last_read to LibrarySort.Type.LastRead,
+            MR.strings.action_sort_last_manga_update to LibrarySort.Type.LastUpdate,
+            MR.strings.action_sort_latest_chapter to LibrarySort.Type.LatestChapter,
+            MR.strings.action_sort_chapter_fetch_date to LibrarySort.Type.ChapterFetchDate,
+            MR.strings.action_sort_total to LibrarySort.Type.TotalChapters,
+            MR.strings.action_sort_unread_count to LibrarySort.Type.UnreadCount,
+            MR.strings.action_sort_date_added to LibrarySort.Type.DateAdded,
+            MR.strings.label_downloaded to LibrarySort.Type.Downloaded,
             trackerMeanPair,
-            MR.strings.action_sort_random to NovelLibrarySort.Type.Random,
+            MR.strings.action_sort_random to LibrarySort.Type.Random,
         )
     }
 
     sortModes.forEach { (labelRes, mode) ->
-        if (mode == NovelLibrarySort.Type.Random) {
+        if (mode == LibrarySort.Type.Random) {
             BaseSortItem(
                 label = stringResource(labelRes),
-                icon = Icons.Default.Refresh.takeIf { current.type == NovelLibrarySort.Type.Random },
+                icon = Icons.Default.Refresh.takeIf { current.type == LibrarySort.Type.Random },
                 onClick = { screenModel.setSort(categoryId, mode, isAscending = true) },
             )
             return@forEach
@@ -249,7 +229,7 @@ private fun ColumnScope.SortPage(screenModel: NovelLibraryScreenModel, categoryI
     }
 
     // RK: clear this category's override so it follows the global sort again (only when overridden).
-    if ((state.flagsForCategory(categoryId) and NovelLibrarySort.CUSTOMIZED) != 0L) {
+    if ((state.flagsForCategory(categoryId) and CATEGORY_SORT_CUSTOMIZED) != 0L) {
         ResetToGlobalSortItem(onClick = { screenModel.resetSort(categoryId) })
     }
 }

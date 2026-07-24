@@ -12,7 +12,7 @@ import tachiyomi.domain.library.model.LibrarySort
  */
 class NovelCategoryFlagsMigrationTest {
 
-    // The legacy novel bit layout for the two swapped types (mirror of NovelLibrarySort, which is retired).
+    // The legacy novel bit layout for the two swapped types (from the old novel sort type, since removed).
     private val novelDownloaded = 0b100000L
     private val novelTrackerMean = 0b100100L
 

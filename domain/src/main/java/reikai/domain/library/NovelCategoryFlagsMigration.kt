@@ -12,9 +12,9 @@ import tachiyomi.domain.library.model.LibrarySort
  * is identical across the two: the [CATEGORY_SORT_CUSTOMIZED] override bit, the direction bit, and the
  * hidden bit. So only those two type values are remapped and all other bits pass through unchanged.
  *
- * The novel source values are literals, not references to `NovelLibrarySort`, because that type is
- * retired once the novel library reads through the shared manga layout. This translation must keep
- * working for every device upgrading afterwards, so it cannot depend on the retired class.
+ * The novel source values are hard-coded literals rather than a reference to the old novel sort type,
+ * which has since been removed now that the novel library reads through the shared manga layout. This
+ * translation must keep working for every device upgrading afterwards, so it can't depend on that class.
  */
 fun novelCategoryFlagsToMangaLayout(flags: Long): Long {
     val novelType = flags and SORT_TYPE_MASK

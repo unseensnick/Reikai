@@ -28,10 +28,13 @@ import reikai.domain.category.CATEGORY_HIDDEN_MASK
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.category.categoryDiff
 import reikai.domain.category.categoryFilterActive
+import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibrarySortFields
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.librarySortComparator
+import reikai.domain.library.sortForCategory
+import reikai.domain.library.toSortMode
 import reikai.domain.merge.ChapterMatchKeyRepository
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.ReconcileChapterMatchKeys
@@ -50,10 +53,7 @@ import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.NovelCategory
 import reikai.domain.novel.model.NovelCategoryUpdate
 import reikai.domain.novel.model.NovelChapter
-import reikai.domain.novel.model.NovelLibrarySort
 import reikai.domain.novel.model.NovelTrack
-import reikai.domain.novel.model.toCategory
-import reikai.domain.novel.model.toSortMode
 import reikai.domain.novel.model.withCustomInfo
 import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.novel.track.toUiTrack
@@ -80,6 +80,8 @@ import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.library.model.LibrarySort
+import tachiyomi.domain.library.model.plus
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
@@ -464,7 +466,7 @@ class NovelLibraryScreenModel :
         // unread count, so the comparator needs no separate unread map.
         val sortFields = libraryItemSortFields(trackerMean = { trackerMeanScores[it.id] ?: -1.0 })
         val flagsByCat = categories.associate { it.id to it.flags }
-        val defaultSort = NovelLibrarySort.fromFlag(settings.defaultSort)
+        val defaultSort = LibrarySort.valueOf(settings.defaultSort)
 
         val grouped: List<Pair<Category, List<Long>>> = if (settings.groupBy == LibraryGroup.BY_DEFAULT) {
             // Bucket item ids by category id; uncategorized (no real category) goes to Default (id 0).
@@ -536,8 +538,8 @@ class NovelLibraryScreenModel :
         )
     }
 
-    private fun sortFor(categoryId: Long, flags: Long, default: NovelLibrarySort): NovelLibrarySort =
-        if (categoryId == NovelCategory.UNCATEGORIZED_ID) default else NovelLibrarySort.forCategory(flags, default)
+    private fun sortFor(categoryId: Long, flags: Long, default: LibrarySort): LibrarySort =
+        if (categoryId == NovelCategory.UNCATEGORIZED_ID) default else sortForCategory(flags, default)
 
     /**
      * Bucket the novel library into synthetic dynamic categories via the shared kernel, resolving
@@ -550,7 +552,7 @@ class NovelLibraryScreenModel :
         byId: Map<Long, LibraryItem>,
         novelById: Map<Long, LibraryNovel>,
         settings: LibrarySettings,
-        defaultSort: NovelLibrarySort,
+        defaultSort: LibrarySort,
         collapsedKeys: Set<String>,
         atBottom: Boolean,
         tracksByRep: Map<Long, List<NovelTrack>>,
@@ -832,26 +834,26 @@ class NovelLibraryScreenModel :
     }
 
     /** Sets the sort for a category (or the library default for the synthesized Default category). */
-    fun setSort(categoryId: Long, type: NovelLibrarySort.Type, isAscending: Boolean) {
-        if (type == NovelLibrarySort.Type.Random) {
+    fun setSort(categoryId: Long, type: LibrarySort.Type, isAscending: Boolean) {
+        if (type == LibrarySort.Type.Random) {
             reikaiLibraryPreferences.novelLibraryRandomSeed.set(Random.nextLong())
         }
-        val flag = NovelLibrarySort(type, isAscending).toFlag()
-        // Mirror manga's SetSortModeForCategory: a real category with categorized-display on is an
-        // OVERRIDE (writes CUSTOMIZED via toFlag); otherwise this is the GLOBAL sort. Clearing overrides
-        // happens only when the toggle is turned off (ResetNovelCategoryFlags), never here, so sorting the
-        // Default bucket / a global change no longer wipes per-category overrides.
+        val direction = if (isAscending) LibrarySort.Direction.Ascending else LibrarySort.Direction.Descending
+        // Mirror manga's SetSortModeForCategory: a real category with categorized-display on is an OVERRIDE
+        // (sets the CUSTOMIZED bit); otherwise this is the GLOBAL sort. Clearing overrides happens only when
+        // the toggle is turned off (ResetNovelCategoryFlags), never here, so sorting the Default bucket or a
+        // global change no longer wipes per-category overrides.
         val perCategory = categoryId != NovelCategory.UNCATEGORIZED_ID &&
             libraryPreferences.categorizedDisplaySettings.get()
         if (perCategory) {
             screenModelScope.launchIO {
-                // Preserve the category's other flag bits (e.g. hidden); only rewrite the sort bits.
+                // Replace only the sort bits and set the override marker; other bits (e.g. hidden) pass through.
                 val current = state.value.flagsForCategory(categoryId)
-                val newFlags = (current and NovelLibrarySort.FLAGS_MASK.inv()) or flag
+                val newFlags = (current + type + direction) or CATEGORY_SORT_CUSTOMIZED
                 novelCategoryRepository.update(NovelCategoryUpdate(id = categoryId, flags = newFlags))
             }
         } else {
-            reikaiLibraryPreferences.novelLibraryDefaultSort.set(flag)
+            reikaiLibraryPreferences.novelLibraryDefaultSort.set(LibrarySort(type, direction).flag)
         }
     }
 
@@ -860,7 +862,7 @@ class NovelLibraryScreenModel :
         screenModelScope.launchIO {
             val current = state.value.flagsForCategory(categoryId)
             novelCategoryRepository.update(
-                NovelCategoryUpdate(id = categoryId, flags = current and NovelLibrarySort.FLAGS_MASK.inv()),
+                NovelCategoryUpdate(id = categoryId, flags = current and CATEGORY_SORT_CUSTOMIZED.inv()),
             )
         }
     }
@@ -1012,7 +1014,7 @@ class NovelLibraryScreenModel :
         private val customInfo: Map<Long, CustomNovelInfo> = emptyMap(),
         private val novelRoutes: Map<Long, NovelRoute> = emptyMap(),
         private val categorySortFlags: Map<Long, Long> = emptyMap(),
-        private val defaultSortFlag: Long = NovelLibrarySort.default.toFlag(),
+        private val defaultSortFlag: Long = LibrarySort.default.flag,
     ) {
         val displayedCategories: List<Category> = groupedFavorites.map { it.first }
 
@@ -1069,12 +1071,12 @@ class NovelLibraryScreenModel :
         fun flagsForCategory(categoryId: Long): Long = categorySortFlags[categoryId] ?: 0L
 
         /** Current sort for a category, for the settings dialog's Sort tab. */
-        fun sortFor(categoryId: Long): NovelLibrarySort {
-            val default = NovelLibrarySort.fromFlag(defaultSortFlag)
+        fun sortFor(categoryId: Long): LibrarySort {
+            val default = LibrarySort.valueOf(defaultSortFlag)
             return if (categoryId == NovelCategory.UNCATEGORIZED_ID) {
                 default
             } else {
-                NovelLibrarySort.forCategory(categorySortFlags[categoryId] ?: 0L, default)
+                sortForCategory(categorySortFlags[categoryId] ?: 0L, default)
             }
         }
 

@@ -4,10 +4,9 @@ import tachiyomi.core.common.util.lang.compareToWithCollator
 import kotlin.random.Random
 
 /**
- * Neutral library sort modes shared by the manga and novel libraries. Each content type decodes its own
- * persisted flags (which store TrackerMean and Downloaded on swapped bits, see
- * [tachiyomi.domain.library.model.LibrarySort] vs [reikai.domain.novel.model.NovelLibrarySort]) into these
- * modes, then feeds the one [librarySortComparator], so a sort-behaviour change is written once.
+ * Neutral library sort modes shared by the manga and novel libraries. Both decode their persisted
+ * [tachiyomi.domain.library.model.LibrarySort] flags into these modes, then feed the one
+ * [librarySortComparator], so a sort-behaviour change is written once.
  */
 enum class LibrarySortMode {
     Alphabetical,
