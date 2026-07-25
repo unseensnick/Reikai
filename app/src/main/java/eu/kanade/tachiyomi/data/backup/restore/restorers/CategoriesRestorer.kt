@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.data.backup.restore.restorers
 
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
+import reikai.domain.category.CategoryContentType
 import tachiyomi.data.Database
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -28,7 +29,7 @@ class CategoriesRestorer(
                         val order = nextOrder++
                         database.categoriesQueries
                             // RK: flagsForRestore folds a Komikku backup's `hidden` into our flags bit
-                            .insert(it.name, order, it.flagsForRestore())
+                            .insert(it.name, order, it.flagsForRestore(), CategoryContentType.MANGA)
                             .let { id -> it.toCategory(id).copy(order = order) }
                     }
             }

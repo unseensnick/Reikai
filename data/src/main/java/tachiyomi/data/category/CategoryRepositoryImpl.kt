@@ -60,23 +60,16 @@ class CategoryRepositoryImpl(
             .awaitAsList()
     }
 
-    // RK: contentType selects the novel insert (content_type 2) over the manga default; returns the new
-    // row id so the novel create/restore paths can key off it.
+    // RK: contentType is written straight through, so a universal category (0) is expressible and not
+    // silently demoted to manga. Returns the new row id for the create/restore paths that key off it.
     override suspend fun insert(category: Category, contentType: Long): Long {
         return database.transactionWithResult {
-            if (contentType == CategoryContentType.NOVEL) {
-                database.categoriesQueries.insertNovelCategory(
-                    name = category.name,
-                    order = category.order,
-                    flags = category.flags,
-                )
-            } else {
-                database.categoriesQueries.insert(
-                    name = category.name,
-                    order = category.order,
-                    flags = category.flags,
-                )
-            }
+            database.categoriesQueries.insert(
+                name = category.name,
+                order = category.order,
+                flags = category.flags,
+                contentType = contentType,
+            )
             database.categoriesQueries.selectLastInsertedRowId().awaitAsOne()
         }
     }
@@ -114,12 +107,14 @@ class CategoryRepositoryImpl(
         name: String,
         order: Long,
         flags: Long,
+        contentType: Long,
     ): Category {
         return Category(
             id = id,
             name = name,
             order = order,
             flags = flags,
+            contentType = contentType,
         )
     }
 }

@@ -24,7 +24,8 @@ SELECT
 _id AS id,
 name,
 sort AS `order`,
-flags
+flags,
+content_type
 FROM categories
 WHERE _id = :id
 LIMIT 1;
@@ -36,7 +37,8 @@ SELECT
 _id AS id,
 name,
 sort AS `order`,
-flags
+flags,
+content_type
 FROM categories
 WHERE content_type IN (0, 1)
 ORDER BY sort;
@@ -46,15 +48,18 @@ SELECT
 C._id AS id,
 C.name,
 C.sort AS `order`,
-C.flags
+C.flags,
+C.content_type
 FROM categories C
 JOIN mangas_categories MC
 ON C._id = MC.category_id
 WHERE MC.manga_id = :mangaId;
 
+-- RK: content_type is a parameter (was two statements, one per type, neither able to write the universal
+-- 0). A universal category is a single row both libraries read, so the create path must be able to name it.
 insert:
-INSERT INTO categories(name, sort, flags)
-VALUES (:name, :order, :flags);
+INSERT INTO categories(name, sort, flags, content_type)
+VALUES (:name, :order, :flags, :contentType);
 
 delete:
 DELETE FROM categories
@@ -86,7 +91,8 @@ SELECT
 _id AS id,
 name,
 sort AS `order`,
-flags
+flags,
+content_type
 FROM categories
 WHERE content_type IN (0, 2)
 ORDER BY sort;
@@ -96,16 +102,12 @@ SELECT
 C._id AS id,
 C.name,
 C.sort AS `order`,
-C.flags
+C.flags,
+C.content_type
 FROM categories C
 JOIN novels_categories NC
 ON C._id = NC.category_id
 WHERE NC.novel_id = :novelId;
-
--- Novel categories are created at content_type 2 (the shared `insert` defaults to 1 for manga).
-insertNovelCategory:
-INSERT INTO categories(name, sort, flags, content_type)
-VALUES (:name, :order, :flags, 2);
 
 selectLastInsertedRowId:
 SELECT last_insert_rowid();
