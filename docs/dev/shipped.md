@@ -45,6 +45,8 @@ Cut and tagged `v0.1.0`-`v0.3.0`. Stale inherited Yokai `v*` tags were pruned; s
 - Category bulk-delete with deferred-undo (`9a320598e`).
 - Global sort with per-category overrides (0.3.0, `b90344562`), manga + novels. See [library-sort-overrides.md](plans/library-sort-overrides.md).
 - Sort the manga library by download count (0.3.0, `3db0554ab`); the category hopper opens on the current category and jumps instantly (`af09bc34f`, `574f7421a`); each content type remembers its own scroll (`ad70e3825`).
+- Category schema unification (0.4.0, `87ccbfe50`..`43c287bd0`): the forked novel category stack folded into Mihon's shared `categories` table with a `content_type` discriminator, one repository and one sort layout for both types. See [category-schema-unification.md](plans/category-schema-unification.md).
+- Category-preference cleanup (0.4.0, `f5aa12fe1`..`28d18f1d0`): stale category-id preferences scrubbed on upgrade and on category delete, and remapped by name on restore, so a filter or default never targets a wrong-type or deleted category. See [category-schema-unification.md](plans/category-schema-unification.md).
 
 ## Manga
 

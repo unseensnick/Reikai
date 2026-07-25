@@ -16,9 +16,9 @@ The Novels tab reuses Mihon's existing library screen, hopper, and category-mana
 
 ### Novel categories (DB + UI)
 
-Novels store their categories in their own tables and read them back through a novel category repository plus interactors (get / insert / delete / reorder), the exact mirror of Mihon's manga category stack. The category-management screen is shared: Mihon's `CategoryScreen` (a Voyager `Screen`) now takes a `novels: Boolean` flag and renders a Manga / Novels chip at the top; flipping to Novels swaps in `NovelCategoryScreenModel` behind the same `CategoryScreen` UI, dialogs, and action-mode toolbar (`app/src/main/java/eu/kanade/tachiyomi/ui/category/CategoryScreen.kt`). The novel screen model talks to the novel interactors but produces Mihon's `CategoryScreenState` / `CategoryDialog` types, so create / rename / reorder / hide / multi-select-delete all render through one set of composables for both content types.
+Novel categories are rows in Mihon's shared `categories` table tagged `content_type = 2` (novel), read back through the content-type-aware `CategoryRepository`. The forked novel category stack this feature originally shipped (a separate `novel_categories` table, a `NovelCategoryRepository`, the `NovelCategory` model, and the get / insert / delete / reorder interactors) was later retired into that shared table; see [category-schema-unification.md](category-schema-unification.md) for the schema, the id migration, and the sort-flag translation. The category-management screen is shared: `CategoryScreen` takes a `novels: Boolean` flag and renders a Manga / Novels chip, and one `CategoryScreenModel` drives both tabs through a Reikai-owned `CategoryActions` seam (a manga adapter over Mihon's interactors, a novel adapter over the shared repository), so create / rename / reorder / hide / multi-select-delete render through one set of composables for both content types.
 
-Deletion is deferred, not immediate: selecting Delete moves the rows into a `pendingDeleteIds` set that is filtered out of the live category flow and only committed to the DB when the undo snackbar dismisses (`NovelCategoryScreenModel.kt`). Single-row delete routes through the same deferred path so it is undoable too, and leaving the screen commits any still-pending delete inside a `withNonCancellableContext` block so a cancelled snackbar coroutine never silently drops it (`NovelCategoryScreenModel.kt`). The synthesized Default category (id 0) is filtered out of the editable list, matching the manga side. Sort order respects the shared `categorySortOrder` preference via `reikaiSortCategories`.
+Deletion is deferred and undoable: selecting Delete holds the rows out of the live category flow and commits to the DB only when the undo snackbar dismisses, through the shared `deleteCategoryAndCleanup` helper both content types call, which also renumbers the survivors and scrubs the deleted id out of the category-id preferences. Single-row delete shares the same deferred path, and leaving the screen commits any still-pending delete so a cancelled snackbar coroutine never silently drops it. The shared universal row 0 (`content_type = 0`, rendered as "Default") is the one uncategorized bucket for both types and is filtered out of the editable list. Sort order respects the shared `categorySortOrder` preference.
 
 ### The category hopper + jump-to-category sheet on the Novels tab
 
@@ -38,14 +38,13 @@ Manga extensions get a "needs updating" badge; light-novel plugins now get the s
 
 ## Key files
 
-Novel categories (data + logic):
-- `app/src/main/java/reikai/domain/novel/NovelCategoryRepository.kt`, `app/src/main/java/reikai/data/novel/NovelCategoryRepositoryImpl.kt`: the novel category repository.
-- `app/src/main/java/reikai/domain/novel/model/NovelCategory.kt`, `NovelCategoryUpdate.kt`: the novel category domain model and partial-update.
-- `app/src/main/java/reikai/domain/novel/interactor/`: `GetNovelCategories`, `InsertNovelCategories`, `DeleteNovelCategories`, `ReorderNovelCategories`.
-- `app/src/main/java/reikai/presentation/library/novels/NovelCategoryScreenModel.kt`: the Novels-side category manager screen model (multi-select, deferred delete, reorder, hide).
+Novel categories (data + logic; the stack unified into the shared category table, see [category-schema-unification.md](category-schema-unification.md)):
+- `tachiyomi/domain/category/repository/CategoryRepository.kt` (+ `tachiyomi/data/category/CategoryRepositoryImpl.kt`): the content-type-aware shared repository; novels pass `CategoryContentType.NOVEL`.
+- `reikai/presentation/category/CategoryActions.kt`: the manga/novel adapter seam behind the shared category screen.
+- `reikai/domain/category/DeleteCategoryCleanup.kt`: the shared delete + renumber + preference-scrub helper both types call.
 
 Category-manager UI (shared, `// RK` islands):
-- `app/src/main/java/eu/kanade/tachiyomi/ui/category/CategoryScreen.kt`: the shared category screen, `novels: Boolean` flag + Manga/Novels chip; swaps in `NovelCategoryScreenModel`.
+- `app/src/main/java/eu/kanade/tachiyomi/ui/category/CategoryScreen.kt` (+ `CategoryScreenModel.kt`): the shared category screen, `novels: Boolean` flag + Manga/Novels chip; both tabs resolve one `CategoryScreenModel` via `CategoryActions`.
 
 Hopper + picker (single-list view):
 - `app/src/main/java/reikai/presentation/library/ReikaiCategoryHopper.kt`: the floating up/center/down control.
@@ -63,11 +62,11 @@ LN plugin update detection:
 
 ## Status
 
-Shipped. Novel categories, the hopper and jump-to-category sheet on the Novels tab, the tab-aware Display sheet, and LN plugin update detection are all on-device verified (P5 S6 area). Two follow-ups landed later as round-2 parity items: the novel library category include/exclude filter, which also extracted the shared `CategoryFilterRow` reused by the manga library and the Updates feed (Roadmap item 2), and category bulk-delete on the shared category manager for both tabs (Roadmap item 6).
+Shipped. Novel categories, the hopper and jump-to-category sheet on the Novels tab, the tab-aware Display sheet, and LN plugin update detection are all on-device verified. Two follow-ups landed later as round-2 parity items: the novel library category include/exclude filter, which also extracted the shared `CategoryFilterRow` reused by the manga library and the Updates feed (Roadmap item 2), and category bulk-delete on the shared category manager for both tabs (Roadmap item 6). Later still, the separate novel category stack this doc originally built was folded into the shared `categories` table; see [category-schema-unification.md](category-schema-unification.md).
 
 ## Decisions & tradeoffs
 
-- **Reuse Mihon's category screen, do not clone it.** `CategoryScreen` takes a `novels` flag and a Manga/Novels chip instead of a separate novel screen. One set of composables, dialogs, and action-mode toolbar serves both content types; the only divergence is which screen model backs them. This keeps the patch surface against upstream tiny (a fenced flag, not a parallel screen).
+- **Reuse Mihon's category screen, do not clone it.** `CategoryScreen` takes a `novels` flag and a Manga/Novels chip instead of a separate novel screen. One `CategoryScreenModel` and one set of composables, dialogs, and action-mode toolbar serve both content types; the only divergence is the `CategoryActions` adapter each tab supplies. This keeps the patch surface against upstream tiny (a fenced flag, not a parallel screen).
 
 - **Deferred, undoable deletes over immediate DB writes.** Deleting a category hides it from the live flow and commits to the DB only when the undo snackbar dismisses, so undo never needs a lossy re-insert (junction tables cascade their membership rows, and a re-inserted category would get a new id). Single-row delete shares the same deferred path. The cost is the extra `pendingDeleteIds` bookkeeping and the non-cancellable commit-on-leave, which is worth it to make undo correct rather than approximate.
 
