@@ -10,7 +10,7 @@ The docs grew into three tiers (user docs in `docs/`, dev process/reference in `
 
 ## Approach
 
-A routing map plus a few targeted collapses, not a big merge. The docs mostly own distinct questions; the fix is to name the ownership and route to it.
+A routing map plus a few targeted collapses. The docs mostly own distinct questions, so the fix is to name the ownership and route to it.
 
 - **Two front doors.** [`docs/README.md`](../../README.md) states the three tiers and carries the **topic map** (feature area to user doc + dev records). [`docs/dev/README.md`](../README.md) splits the dev docs into **process/records** and **architecture/reference**, gives each its one job, and holds the **file-to-file workflow** table plus a who-owns-which-fact section.
 - **Back-links.** Each user doc gained a one-line `Dev records:` pointer, so navigation is two-way.
@@ -29,7 +29,7 @@ Shipped. Phase 1 (front doors + topic map + back-links) and Phase 2 (slim `devel
 
 ## Decisions & tradeoffs
 
-- **`ln-plugin-host.md` stays in `docs/dev/`.** It is deliberately an architecture reference (paired with the `novel-plugin-host.md` decision record), not a misplaced plan doc; the project's own rules already classify it that way. Only `tracker-aware-duplicate-detection.md` was a genuine orphan, resolved by indexing rather than moving.
+- **`ln-plugin-host.md` stays in `docs/dev/`.** It is deliberately an architecture reference (paired with the `novel-plugin-host.md` decision record), not a misplaced plan doc; the project's own rules already classify it that way. Only `tracker-aware-duplicate-detection.md` was a genuine orphan, resolved by indexing it.
 - **Filename tier-encoding deferred.** The editor tab / bare-basename glance is the one spot folders do not reach; if it keeps biting, a rename is the fallback, kept out of scope here to avoid the link churn.
-- **`shipped.md` stays a terse pointer, not a second detail record.** The densest entries were trimmed to the "one line + short-SHA + plan link" contract; the full record is the plan doc it links to.
+- **`shipped.md` stays a terse pointer to the plan docs.** The densest entries were trimmed to the "one line + short-SHA + plan link" contract; the full record is the plan doc it links to.
 - **CHANGELOG and ROADMAP untouched**, by request.

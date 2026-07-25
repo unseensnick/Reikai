@@ -135,12 +135,12 @@ both sides, unchanged.
      after the restore's `coroutineScope` settles, since novel categories aren't restored yet when app prefs are.
      Both run the shared `translateCategoryIds` (old-id -> name -> new-id).
 
-  Three corrections to the original plan surfaced during the work: Mihon's `PreferenceRestorer` **already** remapped
+  Three corrections to the original plan surfaced during the work: Mihon's `PreferenceRestorer` already remapped
   the manga default/update/download prefs by name (the real gaps were the filter prefs and all novel prefs, not
-  "membership only"); `last_used_category` is a library **tab index** (app-state, never backed up), so it is excluded
+  "membership only"); `last_used_category` is a library tab index (app-state, never backed up), so it is excluded
   from the scrub; and an old backup could resurrect the dead `last_used_novel_category` key after the migration removed
-  it, so `PreferenceRestorer` now also **skips** that key on restore. The one deliberate manga/novel difference:
-  restoring **over an existing library**, manga unions the backup filter into the current one while novel replaces it
+  it, so `PreferenceRestorer` now also skips that key on restore. The one deliberate manga/novel difference:
+  restoring over an existing library, manga unions the backup filter into the current one while novel replaces it
   (novel prefs pass through the raw restore first); on a fresh-install restore they are identical.
 - **User-creatable universal categories.** The schema already supports a universal category (`content_type = 0`;
   today only the hidden uncategorized row 0 uses it) and the shared `insert(Category, contentType)` already
