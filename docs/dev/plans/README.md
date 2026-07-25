@@ -2,7 +2,7 @@
 
 One markdown per substantial Reikai feature or initiative: a developer-facing record of what was built and why. These describe current behavior and the decisions behind it, not the chronology of how a plan evolved.
 
-These are distinct from the user-facing architecture references in [`docs/`](../../) and [`docs/dev/`](../) (for example [multi-source.md](../../multi-source.md), [related-mangas.md](../../related-mangas.md), [tracker-sync.md](../../tracker-sync.md), [ln-plugin-host.md](../ln-plugin-host.md)). The plan docs cross-link those rather than duplicating them.
+These are distinct from the user-facing docs ([docs/README.md](../../README.md)) and the dev process / reference docs ([docs/dev/README.md](../README.md)); the plan docs cross-link those rather than duplicating them. For which doc owns what and what to update when, start at [docs/dev/README.md](../README.md).
 
 The format these follow, and the rule for what earns a doc here, live in [.claude/rules/workflow.md](../../../.claude/rules/workflow.md) ("Roadmap & plans"). The forward-looking backlog is [ROADMAP.md](../../../ROADMAP.md).
 
@@ -12,6 +12,7 @@ The format these follow, and the rule for what earns a doc here, live in [.claud
 - [ViewModel migration](viewmodel-migration.md): taking Mihon's move off Voyager `ScreenModel` onto AndroidX `ViewModel` across Reikai's own screens too, phased so each cluster ships compiling, with the R8 risk proven up front. Deferred (attempted once, reverted, parked pending an upstream release).
 - [Legacy Yōkai database import](legacy-yokai-import.md): recovering a user's manga + novel library when they update in place from a pre-rebase Yōkai build, instead of crashing on the now-incompatible shared `tachiyomi.db`.
 - [FlareSolverr Cloudflare bypass integration](flaresolverr-integration.md): the optional bypass proxy (Solverr / Byparr / FlareSolverr) as a WebView fallback for Cloudflare-gated sources, proxy-mode not cookie-replay, with all mechanics in a net-new `FlareSolverrClient` and a minimal `// RK` detection island.
+- [Documentation system](docs-system.md): the docs revamp itself, the topic map and file-to-file workflow front doors ([docs/README.md](../../README.md), [docs/dev/README.md](../README.md)) that route "where does this go" and "what do I update for X", and the single-owner-per-fact rule that de-drifted the records.
 
 ## Library & shell
 
