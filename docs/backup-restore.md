@@ -1,5 +1,7 @@
 # Backup & restore
 
+_Dev records: [novel-backup.md](dev/plans/novel-backup.md), [legacy-yokai-import.md](dev/plans/legacy-yokai-import.md); the streaming divergence in [upstream-sync.md](dev/upstream-sync.md). Doc map: [README.md](README.md)._
+
 How to back up your library, tracking, and settings, and what to expect when you restore.
 
 Reikai is built on Mihon, and uses Mihon's backup format: a single compressed `.tachibk` file. These backups are not interchangeable with old Yōkai-based Reikai builds: the database structure is different, so a Mihon-based install can't open a Yōkai-Reikai backup, and an old build can't open one made here.

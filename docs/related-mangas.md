@@ -1,5 +1,7 @@
 # Related-mangas carousel
 
+_Dev record: [recommendations.md](dev/plans/recommendations.md). Doc map: [README.md](README.md)._
+
 A horizontal carousel of similar / related titles, shown below the description on the manga details screen. Pulls from several independent input streams and merges them into one row, so a single fast input can't dominate the result list and the same manga can't appear twice via different streams.
 
 Base feature ported from [Komikku](https://github.com/komikku-app/komikku); Reikai adapts it into a single merged carousel and layers a taste-profile-driven personalization layer on top: extra candidates based on what you already track, plus a rerank step that reorders the row against your taste and can hide manga already in your library.

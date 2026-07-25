@@ -1,5 +1,7 @@
 # Adult sources (E-Hentai / ExHentai)
 
+_Dev records: [exh-subsystem.md](dev/plans/exh-subsystem.md), [adult-browse-parity.md](dev/plans/adult-browse-parity.md), [library-tag-search.md](dev/plans/library-tag-search.md), [md-enhanced-source.md](dev/plans/md-enhanced-source.md). Doc map: [README.md](README.md)._
+
 Built-in support for E-Hentai and ExHentai, plus richer handling of other adult sources you install. It is **off by default** and lives behind a single toggle, so nothing here appears unless you turn it on.
 
 This subsystem is ported from [Komikku](https://github.com/komikku-app/komikku) (the Tachiyomi-SY lineage), re-typed onto Reikai's current Mihon base. Reikai ships a deliberately lighter slice of it for now; see [What's not here yet](#whats-not-here-yet).

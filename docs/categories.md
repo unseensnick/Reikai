@@ -1,5 +1,7 @@
 # Category features
 
+_Dev records: [novel-categories.md](dev/plans/novel-categories.md), [category-schema-unification.md](dev/plans/category-schema-unification.md), [library-sort-overrides.md](dev/plans/library-sort-overrides.md). Doc map: [README.md](README.md)._
+
 Two Reikai additions to category management on top of Mihon, both working for manga and novel categories alike. Each section leads with the in-app path so you know exactly where to find the feature.
 
 ## Category sort order

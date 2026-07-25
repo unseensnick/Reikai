@@ -1,5 +1,7 @@
 # Tracker sharing across merged sources
 
+_Dev records: [novel-tracking.md](dev/plans/novel-tracking.md), [tracker-aware-duplicate-detection.md](dev/tracker-aware-duplicate-detection.md). Doc map: [README.md](README.md)._
+
 When an entry in your library is part of a multi-source group (see [multi-source.md](multi-source.md)), you don't have to set tracker links per-source. The group can share one tracker binding across all of its sources.
 
 This works the same way for manga and light novels.

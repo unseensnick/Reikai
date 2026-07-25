@@ -1,5 +1,7 @@
 # Cloudflare bypass proxy (Solverr, Byparr or FlareSolverr)
 
+_Dev record: [flaresolverr-integration.md](dev/plans/flaresolverr-integration.md). Doc map: [README.md](README.md)._
+
 Optional Cloudflare bypass for sites that the in-app WebView can't reliably solve. WebView remains the primary solver: most challenges go through it without ever touching the proxy. The proxy is the escape hatch.
 
 The app speaks the FlareSolverr `/v1` protocol, so it works with [Solverr](https://github.com/unseensnick/Solverr), [Byparr](https://github.com/ThePhaseless/Byparr) or [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr): all three serve the same API on the same port, so switching between them means changing only the URL.
