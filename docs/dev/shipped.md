@@ -20,7 +20,7 @@ Grouped by area, never by phase: the rebase-era phase numbers this was built und
 - Preview pipeline prune fix: prune by build number, not identical `createdAt`, so previews publish again (`e1960e06e`).
 - Commit-standard enforcement: `commit-msg` hook (`.githooks/commit-msg`), explicit `owner/repo#N` refs allowed (`7f4649d65`).
 - CI redundancy trim (0.2.0): `build_check` PR-only, preview / release own their R8 mappings, `upload-artifact` on Node 24; Gradle root project + Android Studio icon rebranded Reikai.
-- Mihon upstream syncs, caught up to `refs/mihon` `ef1c52967` (0.3.0 batches: the MangaBaka tracker `mihonapp/mihon#3047`, the per-mode vertical chapter navigator + height `mihonapp/mihon#3531`, reader slider-step `mihonapp/mihon#3549` and app-bar `mihonapp/mihon#3567` fixes, HTTP 416 resumable downloads, Hikka media types `mihonapp/mihon#3560` + the unclosed-response fix that retired two `// RK` islands, `extensionLib` metadata via `getFloat`, a scripted 21-locale Weblate merge, AGP 9.3.0; earlier: the Hikka tracker `mihonapp/mihon#1386`, per-tracker usernames, GMS-availability detection without GMS); process + ledger in [upstream-sync.md](upstream-sync.md).
+- Mihon upstream syncs land continuously. The current frontier and the full per-sync record live in [upstream-sync.md](upstream-sync.md) (its ledger is the single source of truth for "synced through X"); notable user-facing syncs are credited in [CHANGELOG.md](../../CHANGELOG.md).
 
 ### Releases
 
@@ -62,7 +62,7 @@ Cut and tagged `v0.1.0`-`v0.3.0`. Stale inherited Yokai `v*` tags were pruned; s
 ## Merging & multi-source
 
 - Multi-source merge (manga + novels): cross-source chapter pooling, preferred-source ranking, tracker-link mirroring, dynamic grouping (0.1.x, pref-based). See [merge-system-rebuild.md](plans/merge-system-rebuild.md).
-- Merge system rebuild (manga + novels, 0.4.0): the pref-derived merge replaced by a persisted group identity (the `merge_group` + per-type member tables), fixing id-reuse membership corruption, restore-dropped unmerges, the two disagreeing group definitions, browse pre-merging by title, and the full-library scan on every open. Adds a master on/off switch, an add-time grouping prompt, a per-group source-ranking override with a redesigned shared Manage-sources modal, and reader scope-by-context. See [merge-system-rebuild.md](plans/merge-system-rebuild.md).
+- Merge system rebuild (manga + novels, 0.4.0): pref-derived merge replaced by a persisted group identity (`merge_group` + per-type member tables), fixing membership corruption, restore-dropped unmerges, and the per-open library scan; adds a master switch, an add-time grouping prompt, per-group source ranking, and reader scope-by-context. See [merge-system-rebuild.md](plans/merge-system-rebuild.md).
 - FlareSolverr Cloudflare bypass. See [flaresolverr-integration.md](plans/flaresolverr-integration.md).
 - Merge coalescing fix (0.1.5): one tap merges every source of a series, manga + novels.
 - Merge-aware reader: read a merged manga through all its sources (`d30cce03d`, `4bd3ca823`, `5b9f6d778`). See [merge-aware-manga-reader.md](plans/merge-aware-manga-reader.md).
