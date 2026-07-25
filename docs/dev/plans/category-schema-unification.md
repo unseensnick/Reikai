@@ -142,7 +142,8 @@ both sides, unchanged.
   it, so `PreferenceRestorer` now also skips that key on restore. The one deliberate manga/novel difference:
   restoring over an existing library, manga unions the backup filter into the current one while novel replaces it
   (novel prefs pass through the raw restore first); on a fresh-install restore they are identical.
-- **User-creatable universal categories. IN PROGRESS** (`f54320f49`, `5483d30c7`). A category can now be created
+- **User-creatable universal categories. SHIPPED except backup** (`f54320f49`..`2caa678b2`), device-verified on
+  the A57. A category can now be created
   as universal (`content_type = 0`), manga-only or novel-only, picked from a radio group in the Add-category
   dialog and fixed afterwards. The edit-categories screen became **one list** rather than staying tabbed, and
   each row names its type on a secondary line, following tsundoku. The single list is what makes ordering
@@ -156,7 +157,33 @@ both sides, unchanged.
   both category lists and restores as two type-scoped rows, because `BackupCategory` carries no content type
   and `CategoriesRestorer` inserts through the raw query at the column default. That restorer also builds every
   restored `Category` from the insert's rows-affected count rather than the new row id, which is currently
-  harmless (only `flags` is read back) but has to be fixed alongside.
+  harmless (only `flags` is read back) but has to be fixed alongside. The plan for it: add the content type to
+  `BackupCategory` at a fork-reserved `@ProtoNumber(8001)` (tsundoku's convention) with a Kotlin default of
+  MANGA, since Reikai's column defaults to 1 and an old backup carries no such field; emit a universal category
+  once, in the manga list with its real type, and leave the novel list working for old backups.
+
+  Four decisions settled with the owner while building it:
+  1. **One list, not tabs.** Ordering decided it: `sort` is a single column, so two per-library renumberings
+     fight over a row both libraries can see. One list gives one ordering authority and the collision cannot
+     occur. The cost accepted is that dragging a category crosses rows the other library does not show.
+  2. **The content type is fixed at creation.** Rename stays name-only, which sidesteps having to migrate
+     memberships out of a junction table that no longer matches, for an operation a new category covers.
+  3. **Hidden and per-category sort stay shared.** The override is a property of the category and applies
+     wherever it is displayed, so a category spanning both libraries has one hidden state and one sort. This
+     needed no code: it falls out of the single `flags` column, and both libraries already decode it through
+     the same `sortForCategory`.
+  4. **Empty categories should be hidden**, levelling manga up to the novel behaviour. Queued in ROADMAP.
+
+  Verified on device across the whole surface: creation of each type, per-type visibility in both libraries and
+  both default-category pickers, one drag order (only the moved rows' `sort` changed, the system row kept -1),
+  hide and per-category sort applying to both libraries from one row, the both-sides preference scrub on delete
+  (no reference to the deleted id survived anywhere) against a one-sided delete leaving the other side intact,
+  a mixed-type multi-select with undo, and rename preserving the type.
+
+  One pre-existing behaviour surfaced and is **awaiting a ruling**: the Updates filter renders one section per
+  content type, and both sections read a list that includes universal rows, so a category spanning both
+  libraries is listed twice there with independent toggles (`Default` doubles the same way). Either it stays two
+  independent filters, or a spanning category collapses to one toggle writing both sides.
 - **Category reorder mode**, a Yokai-era Reikai feature to restore for both types on the now-unified
   category screen: a reorder mode toggled from the edit-categories screen that reveals a drag handle plus
   move-to-top and move-to-bottom controls on each category card, confirm or cancel to finish. Built once

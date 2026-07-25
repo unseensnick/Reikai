@@ -27,4 +27,9 @@ The path is relative to the repo root and matches the `refs/` clone layout. `Ups
 | domain/src/main/java/tachiyomi/domain/category/interactor/ReorderCategory.kt | mihon | reikai/presentation/category/CategoryActions.kt |
 | domain/src/main/java/tachiyomi/domain/category/interactor/DeleteCategory.kt | mihon | reikai/domain/category/DeleteCategoryCleanup.kt |
 
+**Known false alarm.** The check reports `MangaCoverScreenModel.kt` as VANISHED, because the deferred ViewModel
+migration (`mihonapp/mihon#3594`, mihon `c3b99aea0`) renamed it to `MangaCoverViewModel.kt` upstream. That is
+expected until the migration is ported, not sync debt; reconcile it then. A VANISHED report on any other row is
+real.
+
 The three category interactors each scoped themselves to the manga-visible rows. Once a category can span both libraries those rows overlap the novel-visible ones, so a create, reorder or delete that only sees one library writes an order or a preference scrub that is wrong for the other. `CategoryActions` does all three over the whole table instead.
