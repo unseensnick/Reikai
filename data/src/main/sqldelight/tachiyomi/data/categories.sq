@@ -43,6 +43,20 @@ FROM categories
 WHERE content_type IN (0, 1)
 ORDER BY sort;
 
+-- RK: every category row, whatever its content type. The edit-categories screen is one list spanning both
+-- libraries, so it needs the rows the two per-library reads above exclude from each other, and it is the
+-- one place ordering is assigned: renumbering over this list is what stops the two libraries fighting over
+-- a universal row's sort.
+getAllCategories:
+SELECT
+_id AS id,
+name,
+sort AS `order`,
+flags,
+content_type
+FROM categories
+ORDER BY sort;
+
 getCategoriesByMangaId:
 SELECT
 C._id AS id,

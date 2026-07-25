@@ -41,6 +41,18 @@ class CategoryRepositoryImpl(
         return query.subscribeToList()
     }
 
+    override suspend fun getUnfiltered(): List<Category> {
+        return database.categoriesQueries
+            .getAllCategories(::mapCategory)
+            .awaitAsList()
+    }
+
+    override fun getUnfilteredAsFlow(): Flow<List<Category>> {
+        return database.categoriesQueries
+            .getAllCategories(::mapCategory)
+            .subscribeToList()
+    }
+
     override suspend fun getCategoriesByMangaId(mangaId: Long): List<Category> {
         return database.categoriesQueries
             .getCategoriesByMangaId(mangaId, ::mapCategory)

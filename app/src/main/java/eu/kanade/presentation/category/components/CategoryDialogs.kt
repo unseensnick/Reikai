@@ -7,17 +7,20 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -25,9 +28,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.semantics.Role
 import eu.kanade.core.preference.asToggleableState
 import eu.kanade.presentation.category.visualName
 import kotlinx.coroutines.delay
+import reikai.domain.category.CategoryContentType
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
@@ -39,10 +44,13 @@ import kotlin.time.Duration.Companion.seconds
 @Composable
 fun CategoryCreateDialog(
     onDismissRequest: () -> Unit,
-    onCreate: (String) -> Unit,
+    // RK: the content type is chosen here and fixed afterwards; rename stays name-only.
+    onCreate: (String, Long) -> Unit,
     categories: List<String>,
 ) {
     var name by remember { mutableStateOf("") }
+    // RK: default to universal so a category works in both libraries unless the user narrows it.
+    var contentType by remember { mutableLongStateOf(CategoryContentType.UNIVERSAL) }
 
     val focusRequester = remember { FocusRequester() }
     val nameAlreadyExists = remember(name) { categories.contains(name) }
@@ -53,7 +61,7 @@ fun CategoryCreateDialog(
             TextButton(
                 enabled = name.isNotEmpty() && !nameAlreadyExists,
                 onClick = {
-                    onCreate(name)
+                    onCreate(name, contentType)
                     onDismissRequest()
                 },
             ) {
@@ -69,25 +77,43 @@ fun CategoryCreateDialog(
             Text(text = stringResource(MR.strings.action_add_category))
         },
         text = {
-            OutlinedTextField(
-                modifier = Modifier
-                    .focusRequester(focusRequester),
-                value = name,
-                onValueChange = { name = it },
-                label = {
-                    Text(text = stringResource(MR.strings.name))
-                },
-                supportingText = {
-                    val msgRes = if (name.isNotEmpty() && nameAlreadyExists) {
-                        MR.strings.error_category_exists
-                    } else {
-                        MR.strings.information_required_plain
-                    }
-                    Text(text = stringResource(msgRes))
-                },
-                isError = name.isNotEmpty() && nameAlreadyExists,
-                singleLine = true,
-            )
+            Column {
+                OutlinedTextField(
+                    modifier = Modifier
+                        .focusRequester(focusRequester),
+                    value = name,
+                    onValueChange = { name = it },
+                    label = {
+                        Text(text = stringResource(MR.strings.name))
+                    },
+                    supportingText = {
+                        val msgRes = if (name.isNotEmpty() && nameAlreadyExists) {
+                            MR.strings.error_category_exists
+                        } else {
+                            MR.strings.information_required_plain
+                        }
+                        Text(text = stringResource(msgRes))
+                    },
+                    isError = name.isNotEmpty() && nameAlreadyExists,
+                    singleLine = true,
+                )
+
+                // RK --> which libraries the new category applies to
+                Text(
+                    text = stringResource(MR.strings.category_content_type),
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(
+                        start = MaterialTheme.padding.extraSmall,
+                        top = MaterialTheme.padding.small,
+                        bottom = MaterialTheme.padding.extraSmall,
+                    ),
+                )
+                CategoryContentTypeOptions(
+                    selected = contentType,
+                    onSelect = { contentType = it },
+                )
+                // RK <--
+            }
         },
     )
 
@@ -95,6 +121,38 @@ fun CategoryCreateDialog(
         // TODO: https://issuetracker.google.com/issues/204502668
         delay(0.1.seconds)
         focusRequester.requestFocus()
+    }
+}
+
+// RK: the three content types as a radio group, in the order All / Manga only / Novels only.
+@Composable
+private fun CategoryContentTypeOptions(
+    selected: Long,
+    onSelect: (Long) -> Unit,
+) {
+    val options = listOf(
+        CategoryContentType.UNIVERSAL to MR.strings.category_content_type_all,
+        CategoryContentType.MANGA to MR.strings.category_content_type_manga,
+        CategoryContentType.NOVEL to MR.strings.category_content_type_novels,
+    )
+    options.forEach { (type, labelRes) ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectable(
+                    selected = selected == type,
+                    onClick = { onSelect(type) },
+                    role = Role.RadioButton,
+                )
+                .padding(vertical = MaterialTheme.padding.extraSmall),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RadioButton(selected = selected == type, onClick = null)
+            Text(
+                text = stringResource(labelRes),
+                modifier = Modifier.padding(start = MaterialTheme.padding.small),
+            )
+        }
     }
 }
 

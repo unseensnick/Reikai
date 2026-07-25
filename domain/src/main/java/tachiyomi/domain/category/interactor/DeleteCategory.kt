@@ -1,7 +1,6 @@
 package tachiyomi.domain.category.interactor
 
 import logcat.LogPriority
-import reikai.domain.category.CategoryContentType
 import reikai.domain.category.deleteCategoryAndCleanup
 import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.core.common.util.system.logcat
@@ -21,8 +20,7 @@ class DeleteCategory(
             deleteCategoryAndCleanup(
                 categoryRepository = categoryRepository,
                 categoryId = categoryId,
-                contentType = CategoryContentType.MANGA,
-                defaultCategoryPreference = libraryPreferences.defaultCategory,
+                defaultCategoryPreferences = listOf(libraryPreferences.defaultCategory),
                 categorySetPreferences = listOf(
                     libraryPreferences.updateCategories,
                     libraryPreferences.updateCategoriesExclude,

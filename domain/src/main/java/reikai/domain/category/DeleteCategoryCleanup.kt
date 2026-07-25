@@ -1,32 +1,37 @@
 package reikai.domain.category
 
 import tachiyomi.core.common.preference.Preference
+import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.model.CategoryUpdate
 import tachiyomi.domain.category.repository.CategoryRepository
 
 /**
- * Delete a category, renumber the remaining rows of its content type, and scrub the deleted id out of the
- * category-id preferences that referenced it. Shared by manga's [tachiyomi.domain.category.interactor.DeleteCategory]
- * and the novel category delete so the two can't drift; each caller passes its own content type, default-category
- * preference and set-preference list (the preferences live in different modules, so they are injected rather than
- * referenced here). Throws on any DB failure, for the caller to map to its own result type.
+ * Delete a category, renumber every remaining row, and scrub the deleted id out of the category-id
+ * preferences that referenced it. The caller passes the preferences to scrub, which follow the deleted
+ * row's content type: a universal category is referenced by both libraries' preferences, so deleting one
+ * has to clean both sides or the id is left stranded in whichever side went unscrubbed.
+ *
+ * Renumbering covers the whole table rather than one content type, because the per-library reads overlap
+ * on universal rows: renumbering either one alone would rewrite a universal row's order against the other
+ * library's positions. Throws on any DB failure, for the caller to map to its own result type.
  */
 suspend fun deleteCategoryAndCleanup(
     categoryRepository: CategoryRepository,
     categoryId: Long,
-    contentType: Long,
-    defaultCategoryPreference: Preference<Int>,
+    defaultCategoryPreferences: List<Preference<Int>>,
     categorySetPreferences: List<Preference<Set<String>>>,
 ) {
     categoryRepository.delete(categoryId)
 
-    val updates = categoryRepository.getAll(contentType).mapIndexed { index, category ->
-        CategoryUpdate(id = category.id, order = index.toLong())
-    }
+    // The system row keeps its -1 sort so it always sorts first; renumbering it too would tie it with the
+    // first user category and let ORDER BY sort put them in either order.
+    val updates = categoryRepository.getUnfiltered()
+        .filterNot(Category::isSystemCategory)
+        .mapIndexed { index, category -> CategoryUpdate(id = category.id, order = index.toLong()) }
 
-    if (defaultCategoryPreference.get() == categoryId.toInt()) {
-        defaultCategoryPreference.delete()
-    }
+    defaultCategoryPreferences
+        .filter { it.get() == categoryId.toInt() }
+        .forEach { it.delete() }
     scrubCategoryIdFromSetPrefs(categoryId, categorySetPreferences)
 
     categoryRepository.updatePartial(updates)

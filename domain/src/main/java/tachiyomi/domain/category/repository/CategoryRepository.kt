@@ -15,6 +15,12 @@ interface CategoryRepository {
 
     fun getAllAsFlow(contentType: Long = CategoryContentType.MANGA): Flow<List<Category>>
 
+    // RK: every row, unfiltered by content type, for the edit-categories screen and the ordering it owns.
+    // The per-library reads above overlap (both include universal rows), so neither can renumber safely.
+    suspend fun getUnfiltered(): List<Category>
+
+    fun getUnfilteredAsFlow(): Flow<List<Category>>
+
     suspend fun getCategoriesByMangaId(mangaId: Long): List<Category>
 
     fun getCategoriesByMangaIdAsFlow(mangaId: Long): Flow<List<Category>>

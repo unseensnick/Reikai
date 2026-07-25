@@ -55,8 +55,6 @@ fun CategoryScreen(
     onClearSelection: () -> Unit,
     onDeleteSelected: () -> Unit,
     // RK <--
-    // RK: optional content-type chip (Manga/Novels) rendered above the list; null = manga path unchanged
-    header: (@Composable () -> Unit)? = null,
 ) {
     val lazyListState = rememberLazyListState()
     // RK: in selection mode the drag handle is hidden (selection-tap shouldn't fight a drag-grab)
@@ -106,36 +104,6 @@ fun CategoryScreen(
             }
         },
     ) { paddingValues ->
-        // RK --> with the chip header, consume the top inset into a Column so the chip sits below the
-        // toolbar and the list gets only the bottom inset (the manga path keeps the original layout).
-        if (header != null) {
-            Column(modifier = Modifier.padding(top = paddingValues.calculateTopPadding())) {
-                header()
-                val innerPadding = PaddingValues(bottom = paddingValues.calculateBottomPadding())
-                if (state.isEmpty) {
-                    EmptyScreen(
-                        stringRes = MR.strings.information_empty_category,
-                        modifier = Modifier.padding(innerPadding),
-                    )
-                } else {
-                    CategoryContent(
-                        categories = state.categories,
-                        lazyListState = lazyListState,
-                        paddingValues = innerPadding,
-                        onClickRename = onClickRename,
-                        onClickDelete = onClickDelete,
-                        onClickToggleHidden = onClickToggleHidden,
-                        onChangeOrder = onChangeOrder,
-                        reorderable = reorderable,
-                        selection = state.selection,
-                        selectionMode = state.selectionMode,
-                        onToggleSelection = onToggleSelection,
-                    )
-                }
-            }
-            return@Scaffold
-        }
-        // RK <--
         if (state.isEmpty) {
             EmptyScreen(
                 stringRes = MR.strings.information_empty_category,

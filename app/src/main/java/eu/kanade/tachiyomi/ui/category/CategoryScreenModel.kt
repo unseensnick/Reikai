@@ -22,24 +22,26 @@ import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
-// RK: one model for both content types. The per-type write path is injected as [CategoryActions] so the
-// Manga and Novels tabs share this model's multi-select + deferred-delete logic instead of duplicating it.
+// RK: one model over one list spanning both libraries. Rows carry their own content type, so there is no
+// longer a per-type model or write path; [CategoryActions] dispatches on the row where it has to.
 class CategoryScreenModel(
-    private val actions: CategoryActions,
+    private val actions: CategoryActions = CategoryActions(),
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
 ) : StateScreenModel<CategoryScreenState>(CategoryScreenState.Loading) {
 
-    // RK: a SharedFlow (not a receiveAsFlow Channel) so the shared edit-categories screen can re-collect
-    // it when the Manga/Novels tab switches to a different model; receiveAsFlow can only be collected once.
+    // RK: a SharedFlow rather than a receiveAsFlow Channel, which can only be collected once.
     private val _events = MutableSharedFlow<CategoryEvent>(extraBufferCapacity = 8)
     val events: SharedFlow<CategoryEvent> = _events.asSharedFlow()
 
-    // RK --> multi-select + deferred-delete. `selectedIds` drives the action-mode UI; `pendingDeleteIds`
+    // RK --> multi-select + deferred-delete. `selectedIds` drives the action-mode UI; `pendingDelete`
     // is the deferred-delete buffer: rows in it are hidden immediately but only committed to the DB once
     // the undo snackbar resolves without an undo. Both fold into the live category flow so a DB re-emission
     // can't clobber them mid-undo.
     private val selectedIds = MutableStateFlow<Set<Long>>(emptySet())
-    private val pendingDeleteIds = MutableStateFlow<Set<Long>>(emptySet())
+
+    // Holds the rows, not just their ids: a delete has to know the category's content type to clean the
+    // right side's preferences, and by commit time the row is gone from the live list.
+    private val pendingDelete = MutableStateFlow<Set<Category>>(emptySet())
     // RK <--
 
     init {
@@ -51,11 +53,12 @@ class CategoryScreenModel(
                 actions.subscribe(),
                 reikaiLibraryPreferences.categorySortOrder.changes(),
                 selectedIds,
-                pendingDeleteIds,
+                pendingDelete,
             ) { categories, sortOrder, selected, pending ->
+                val pendingIds = pending.mapTo(HashSet()) { it.id }
                 val visible = categories
                     .filterNot(Category::isSystemCategory)
-                    .filterNot { it.id in pending }
+                    .filterNot { it.id in pendingIds }
                 CategoryScreenState.Success(
                     categories = reikaiSortCategories(visible, sortOrder),
                     categorySortOrder = sortOrder,
@@ -71,15 +74,15 @@ class CategoryScreenModel(
         }
     }
 
-    fun createCategory(name: String) {
+    fun createCategory(name: String, contentType: Long) {
         screenModelScope.launch {
-            if (!actions.create(name)) _events.emit(CategoryEvent.InternalError)
+            if (!actions.create(name, contentType)) _events.emit(CategoryEvent.InternalError)
         }
     }
 
     // RK: a single row delete defers like the bulk path so it's undoable too; commit is shared.
-    fun deleteCategory(categoryId: Long) {
-        pendingDeleteIds.update { it + categoryId }
+    fun deleteCategory(category: Category) {
+        pendingDelete.update { it + category }
         screenModelScope.launch { _events.emit(CategoryEvent.ShowUndoSnackbar(1)) }
     }
 
@@ -106,27 +109,32 @@ class CategoryScreenModel(
     fun deleteSelected() {
         val ids = selectedIds.value
         if (ids.isEmpty()) return
-        pendingDeleteIds.update { it + ids }
+        val categories = (state.value as? CategoryScreenState.Success)
+            ?.categories
+            ?.filter { it.id in ids }
+            .orEmpty()
+        if (categories.isEmpty()) return
+        pendingDelete.update { it + categories }
         selectedIds.value = emptySet()
-        screenModelScope.launch { _events.emit(CategoryEvent.ShowUndoSnackbar(ids.size)) }
+        screenModelScope.launch { _events.emit(CategoryEvent.ShowUndoSnackbar(categories.size)) }
     }
 
     /** Undo a pending bulk delete: the rows return and the DB was never touched. */
     fun undoPendingDelete() {
-        pendingDeleteIds.value = emptySet()
+        pendingDelete.value = emptySet()
     }
 
-    /** Commit a pending bulk delete to the DB. Per-id so each delete keeps its reorder + preference cleanup. */
+    /** Commit a pending bulk delete to the DB. Per-row so each delete keeps its reorder + preference cleanup. */
     fun commitPendingDelete() {
-        val ids = pendingDeleteIds.value
-        if (ids.isEmpty()) return
+        val categories = pendingDelete.value
+        if (categories.isEmpty()) return
         screenModelScope.launch {
-            // RK: non-cancellable so leaving the screen (tab switch / back) still finishes the delete
+            // RK: non-cancellable so leaving the screen still finishes the delete
             withNonCancellableContext {
-                ids.forEach { id ->
-                    if (!actions.delete(id)) _events.tryEmit(CategoryEvent.InternalError)
+                categories.forEach { category ->
+                    if (!actions.delete(category)) _events.tryEmit(CategoryEvent.InternalError)
                 }
-                pendingDeleteIds.value = emptySet()
+                pendingDelete.value = emptySet()
             }
         }
     }

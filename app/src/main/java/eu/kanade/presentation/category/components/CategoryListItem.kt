@@ -2,6 +2,7 @@ package eu.kanade.presentation.category.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import eu.kanade.presentation.category.contentTypeLabel
 import reikai.domain.category.isHidden
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import tachiyomi.domain.category.model.Category
@@ -80,13 +82,21 @@ fun ReorderableCollectionItemScope.CategoryListItem(
                 Spacer(modifier = Modifier.width(12.dp))
             }
             // RK <--
-            Text(
-                text = category.name,
-                // RK: dim a hidden category's name so its state reads at a glance
+            // RK: name over a secondary line naming the libraries this category applies to, since one
+            // list now holds all three kinds and the type is otherwise invisible.
+            Column(
+                // RK: dim a hidden category so its state reads at a glance
                 modifier = Modifier
                     .weight(1f)
                     .alpha(if (category.isHidden) 0.5f else 1f),
-            )
+            ) {
+                Text(text = category.name)
+                Text(
+                    text = stringResource(category.contentTypeLabel),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             // RK --> selection mode shows a selected-state check; otherwise the per-row actions
             // (hide is a Reikai addition; rename + delete are Mihon's).
             if (selectionMode) {

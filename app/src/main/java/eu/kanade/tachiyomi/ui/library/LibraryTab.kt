@@ -736,7 +736,7 @@ data object LibraryTab : Tab {
                     onEditCategories = {
                         novelModel.dismissDialog()
                         engine.clearSelection()
-                        navigator.push(CategoryScreen(novels = true))
+                        navigator.push(CategoryScreen())
                     },
                     onConfirm = { include, exclude ->
                         novelModel.setNovelCategories(novelDialog.novelIds, include, exclude)
@@ -765,7 +765,7 @@ data object LibraryTab : Tab {
                     initialTab = novelDialog.initialTab,
                     onManageCategories = {
                         novelModel.dismissDialog()
-                        navigator.push(CategoryScreen(novels = true))
+                        navigator.push(CategoryScreen())
                     },
                 )
             }

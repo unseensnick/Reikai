@@ -1047,6 +1047,11 @@
 
     <!-- Category activity -->
     <string name="error_category_exists">A category with this name already exists!</string>
+    <!-- RK: which libraries a category applies to, picked when it is created -->
+    <string name="category_content_type">Show in</string>
+    <string name="category_content_type_all">Manga and novels</string>
+    <string name="category_content_type_manga">Manga only</string>
+    <string name="category_content_type_novels">Novels only</string>
     <!-- missing undo feature after Compose rewrite #7454 -->
     <string name="snack_categories_deleted">Categories deleted</string>
 

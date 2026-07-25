@@ -30,7 +30,7 @@ class DeleteCategoryCleanupTest {
 
     @Test
     fun `scrubs only the deleted id from every set preference`() = runTest {
-        coEvery { repository.getAll(any()) } returns emptyList()
+        coEvery { repository.getUnfiltered() } returns emptyList()
         val includeSet = FakePreference(setOf("1", "2", "3"))
         val excludeSet = FakePreference(setOf("2"))
         val unrelatedSet = FakePreference(setOf("5"))
@@ -38,8 +38,7 @@ class DeleteCategoryCleanupTest {
         deleteCategoryAndCleanup(
             repository,
             categoryId = 2L,
-            contentType = CategoryContentType.NOVEL,
-            defaultCategoryPreference = FakePreference(-1),
+            defaultCategoryPreferences = listOf(FakePreference(-1)),
             categorySetPreferences = listOf(includeSet, excludeSet, unrelatedSet),
         )
 
@@ -49,32 +48,56 @@ class DeleteCategoryCleanupTest {
 
     @Test
     fun `clears the default preference only when it names the deleted category`() = runTest {
-        coEvery { repository.getAll(any()) } returns emptyList()
+        coEvery { repository.getUnfiltered() } returns emptyList()
         val namesDeleted = FakePreference(-1).apply { set(2) }
         val namesOther = FakePreference(-1).apply { set(5) }
 
-        deleteCategoryAndCleanup(repository, 2L, CategoryContentType.NOVEL, namesDeleted, emptyList())
-        deleteCategoryAndCleanup(repository, 2L, CategoryContentType.NOVEL, namesOther, emptyList())
+        deleteCategoryAndCleanup(repository, 2L, listOf(namesDeleted), emptyList())
+        deleteCategoryAndCleanup(repository, 2L, listOf(namesOther), emptyList())
 
         listOf(namesDeleted.isSet(), namesOther.get()) shouldBe listOf(false, 5)
     }
 
+    /** A universal category is referenced by both libraries, so deleting it has to clean both sides. */
+    @Test
+    fun `clears a matching default preference on every side it is given`() = runTest {
+        coEvery { repository.getUnfiltered() } returns emptyList()
+        val mangaDefault = FakePreference(-1).apply { set(2) }
+        val novelDefault = FakePreference(-1).apply { set(2) }
+
+        deleteCategoryAndCleanup(repository, 2L, listOf(mangaDefault, novelDefault), emptyList())
+
+        listOf(mangaDefault.isSet(), novelDefault.isSet()) shouldBe listOf(false, false)
+    }
+
     @Test
     fun `renumbers the surviving categories into a gapless order`() = runTest {
-        coEvery { repository.getAll(any()) } returns listOf(category(0), category(1), category(3))
+        coEvery { repository.getUnfiltered() } returns listOf(category(1), category(3), category(4))
         val updates = slot<List<CategoryUpdate>>()
         coEvery { repository.updatePartial(capture(updates)) } just Runs
 
-        deleteCategoryAndCleanup(repository, 2L, CategoryContentType.MANGA, FakePreference(-1), emptyList())
+        deleteCategoryAndCleanup(repository, 2L, listOf(FakePreference(-1)), emptyList())
 
-        updates.captured.map { it.id to it.order } shouldBe listOf(0L to 0L, 1L to 1L, 3L to 2L)
+        updates.captured.map { it.id to it.order } shouldBe listOf(1L to 0L, 3L to 1L, 4L to 2L)
+    }
+
+    /** The system row keeps its -1 sort, else it ties with the first user category and can sort after it. */
+    @Test
+    fun `leaves the system category out of the renumbering`() = runTest {
+        coEvery { repository.getUnfiltered() } returns listOf(category(0), category(1), category(3))
+        val updates = slot<List<CategoryUpdate>>()
+        coEvery { repository.updatePartial(capture(updates)) } just Runs
+
+        deleteCategoryAndCleanup(repository, 2L, listOf(FakePreference(-1)), emptyList())
+
+        updates.captured.map { it.id to it.order } shouldBe listOf(1L to 0L, 3L to 1L)
     }
 
     @Test
     fun `deletes the category row`() = runTest {
-        coEvery { repository.getAll(any()) } returns emptyList()
+        coEvery { repository.getUnfiltered() } returns emptyList()
 
-        deleteCategoryAndCleanup(repository, 7L, CategoryContentType.NOVEL, FakePreference(-1), emptyList())
+        deleteCategoryAndCleanup(repository, 7L, listOf(FakePreference(-1)), emptyList())
 
         coVerify { repository.delete(7L) }
     }
