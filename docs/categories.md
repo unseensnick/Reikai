@@ -2,7 +2,23 @@
 
 _Dev records: [novel-categories.md](dev/plans/novel-categories.md), [category-schema-unification.md](dev/plans/category-schema-unification.md), [library-sort-overrides.md](dev/plans/library-sort-overrides.md). Doc map: [README.md](README.md)._
 
-Two Reikai additions to category management on top of Mihon, both working for manga and novel categories alike. Each section leads with the in-app path so you know exactly where to find the feature.
+Reikai additions to category management on top of Mihon, all working for manga and novel categories alike. Each section leads with the in-app path so you know exactly where to find the feature.
+
+## Categories that span manga and novels
+
+*Settings → Library → **Edit categories** → the add (+) button.*
+
+Edit categories is one list covering both libraries, and every category says which of them it applies to. When you create one you choose between:
+
+| Option | Where it appears |
+|---|---|
+| **Manga and novels** | Both libraries. A shared "Reading" holds manga and novels together. *(Default.)* |
+| **Manga only** | The manga library only. |
+| **Novels only** | The novels library only. |
+
+The choice is made when the category is created and cannot be changed afterwards; renaming a category leaves its type alone. To move entries to a differently-typed category, create the new one and reassign them.
+
+A category that spans both libraries is a single category, not a copy in each, so hiding it, deleting it, or giving it its own sort applies in both places at once. It also holds one position in the drag order, so it sits in the same spot in each library.
 
 ## Category sort order
 
@@ -30,4 +46,4 @@ Long-pressing a category enters multi-select mode. Once in multi-select:
 - A single confirmation dialog asks you to confirm the bulk delete.
 - After deletion, an undo snackbar appears at the bottom: tap **Undo** to restore the deleted categories (with the entry assignments they had).
 
-This avoids having to delete each category one at a time when cleaning up a long list. The category manager has a **Manga / Novels** switch at the top, so both the sort order and bulk delete apply to each content type's categories.
+This avoids having to delete each category one at a time when cleaning up a long list. Since the category manager is one list, a selection can mix manga, novel and shared categories.

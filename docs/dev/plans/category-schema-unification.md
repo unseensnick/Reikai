@@ -142,15 +142,21 @@ both sides, unchanged.
   it, so `PreferenceRestorer` now also skips that key on restore. The one deliberate manga/novel difference:
   restoring over an existing library, manga unions the backup filter into the current one while novel replaces it
   (novel prefs pass through the raw restore first); on a fresh-install restore they are identical.
-- **User-creatable universal categories.** The schema already supports a universal category (`content_type = 0`;
-  today only the hidden uncategorized row 0 uses it) and the shared `insert(Category, contentType)` already
-  takes a content type, so this is the user-facing half: a content-type selector in the Add/Edit-category dialog
-  (All / Manga only / Novels only, tsundoku-style) and a create path that writes `content_type = 0` for All, so a
-  universal "Reading" holds both manga and novels. The edit-categories screen shows each category's type. This is
-  the category-level counterpart of the "All" library chip (a universal bucket is what a mixed "Reading" means),
-  and a co-requisite of it. The manga library reads `content_type IN (0, 1)` and the novel library `IN (0, 2)`,
-  so a universal category already surfaces in both once one can be created. Decide whether the edit screen stays
-  tabbed (add the selector per tab) or becomes one list with a type column like tsundoku.
+- **User-creatable universal categories. IN PROGRESS** (`f54320f49`, `5483d30c7`). A category can now be created
+  as universal (`content_type = 0`), manga-only or novel-only, picked from a radio group in the Add-category
+  dialog and fixed afterwards. The edit-categories screen became **one list** rather than staying tabbed, and
+  each row names its type on a secondary line, following tsundoku. The single list is what makes ordering
+  correct: `sort` is one column, and the per-library reads overlap on universal rows, so create/reorder/delete
+  had to move onto one authority that renumbers the whole table. `Category` carries `contentType`, the five
+  category reads project the column, and the two insert statements collapsed into one that takes it as a
+  parameter (the universal value used to fall through to the manga branch and be written as manga-only).
+  Mihon's `CreateCategoryWithName`, `ReorderCategory` and `DeleteCategory` each scoped themselves to the
+  manga-visible rows and went off-path (see [off-path-manifest.md](../off-path-manifest.md)); the type-agnostic
+  `RenameCategory` and `UpdateCategory` stay live. **Remaining: backup.** A universal category is written into
+  both category lists and restores as two type-scoped rows, because `BackupCategory` carries no content type
+  and `CategoriesRestorer` inserts through the raw query at the column default. That restorer also builds every
+  restored `Category` from the insert's rows-affected count rather than the new row id, which is currently
+  harmless (only `flags` is read back) but has to be fixed alongside.
 - **Category reorder mode**, a Yokai-era Reikai feature to restore for both types on the now-unified
   category screen: a reorder mode toggled from the edit-categories screen that reveals a drag handle plus
   move-to-top and move-to-bottom controls on each category card, confirm or cancel to finish. Built once

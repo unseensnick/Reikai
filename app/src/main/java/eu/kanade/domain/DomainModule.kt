@@ -124,11 +124,8 @@ import tachiyomi.data.source.SourceRepositoryImpl
 import tachiyomi.data.source.StubSourceRepositoryImpl
 import tachiyomi.data.track.TrackRepositoryImpl
 import tachiyomi.data.updates.UpdatesRepositoryImpl
-import tachiyomi.domain.category.interactor.CreateCategoryWithName
-import tachiyomi.domain.category.interactor.DeleteCategory
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.RenameCategory
-import tachiyomi.domain.category.interactor.ReorderCategory
 import tachiyomi.domain.category.interactor.ResetCategoryFlags
 import tachiyomi.domain.category.interactor.SetDisplayMode
 import tachiyomi.domain.category.interactor.SetMangaCategories
@@ -290,11 +287,8 @@ class DomainModule : InjektModule {
         addFactory { ResetCategoryFlags(get()) }
         addFactory { SetDisplayMode(get()) }
         addFactory { SetSortModeForCategory(get(), get()) }
-        addFactory { CreateCategoryWithName(get(), get()) }
         addFactory { RenameCategory(get()) }
-        addFactory { ReorderCategory(get()) }
         addFactory { UpdateCategory(get()) }
-        addFactory { DeleteCategory(get(), get(), get()) }
 
         addSingletonFactory<MangaRepository> { MangaRepositoryImpl(get()) }
         // RK: manga custom-info overlay (non-destructive display-layer edits)

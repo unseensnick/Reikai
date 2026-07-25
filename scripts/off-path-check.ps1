@@ -30,7 +30,7 @@ if (-not (Test-Path $manifestPath)) { throw "manifest not found: $manifestPath" 
 
 # Parse the manifest table: data rows look like `| <path> | <upstream> | <replacement> |`.
 $entries = Get-Content $manifestPath |
-    Where-Object { $_ -match '^\|\s*app/' } |
+    Where-Object { $_ -match '^\|\s*[a-z0-9-]+/' } |
     ForEach-Object {
         $cols = ($_ -split '\|') | ForEach-Object { $_.Trim() }
         [pscustomobject]@{ Path = $cols[1]; Upstream = $cols[2]; Replacement = $cols[3] }

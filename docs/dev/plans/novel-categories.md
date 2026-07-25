@@ -30,7 +30,7 @@ The hopper appears when its visibility preference (`hideHopper`) is off and at l
 
 ### The tab-aware Display sheet
 
-The library's Display sheet (sort, filter, display mode, badges, categories tabs) is shared between Manga and Novels. The host resolves both screen models and tracks which content type is active via `libraryContentType`; the sheet and its actions are routed to the active type's screen model (`LibraryTab.kt`). On the Novels tab the sheet's settings dialog is `NovelLibrarySettingsDialog` driven by `NovelLibraryScreenModel`; on the Manga tab it is Mihon's `LibrarySettingsDialog`. Crucially, the "Add or edit categories" / "Edit categories" buttons are tab-aware: on the Novels tab they push `CategoryScreen(novels = true)` (opening straight on the Novels category manager), and on the Manga tab they push `CategoryScreen()` (`LibraryTab.kt`). The change-category dialog and library settings sheet both route their edit-categories action the same way.
+The library's Display sheet (sort, filter, display mode, badges, categories tabs) is shared between Manga and Novels. The host resolves both screen models and tracks which content type is active via `libraryContentType`; the sheet and its actions are routed to the active type's screen model (`LibraryTab.kt`). On the Novels tab the sheet's settings dialog is `NovelLibrarySettingsDialog` driven by `NovelLibraryScreenModel`; on the Manga tab it is Mihon's `LibrarySettingsDialog`. The "Add or edit categories" / "Edit categories" buttons used to be tab-aware, pushing a per-content-type category manager. They no longer are: `CategoryScreen` is one list covering both libraries, so every entry point pushes the same screen. See [category-schema-unification.md](category-schema-unification.md).
 
 ### Light-novel plugin update detection
 
@@ -72,7 +72,7 @@ Shipped. Novel categories, the hopper and jump-to-category sheet on the Novels t
 
 - **One shared hopper, content-aware callbacks.** Rather than disabling the hopper on the Novels tab or duplicating it, the shared host draws it once and routes each callback (jump, long-press actions, gravity drag) to whichever content type is active. Hopper preferences (gravity, autohide, long-press action) are tracked per content type so the two libraries can diverge.
 
-- **Tab-aware actions, shared sheet shell.** The Display sheet shell is shared, but the edit-categories buttons and the settings dialog route to the active content type. This avoids a Novels-tab Edit button silently opening the manga category manager (the prior bug) without forking the sheet UI.
+- **Tab-aware actions, shared sheet shell.** The Display sheet shell is shared, but the settings dialog routes to the active content type. This avoids forking the sheet UI. The edit-categories buttons were tab-aware for the same reason until the category manager became one list for both content types.
 
 - **Plugin update detection mirrors manga, fails soft.** The LN checker reuses the manga update-badge mental model (a count plus a notification plus a periodic job) so users do not learn a second concept. A failed repo fetch is logged and skipped rather than aborting the batch, so a single bad registry URL cannot hide updates from healthy repos. The 6-hour `runIfStale` cache keeps quick relaunches from hammering every registry.
 
