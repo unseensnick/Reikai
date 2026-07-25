@@ -8,6 +8,7 @@ When the check flags a path, open its **Replacement** and reconcile the upstream
 
 - **Engine files** (a ScreenModel, repository, or the source manager) are never deleted; they stay live and minimally patched on the render path, and sync normally. Example still pending its surface: `eu/kanade/tachiyomi/ui/download/DownloadQueueScreenModel.kt` (replaced by `MangaDownloadQueueScreenModel`) is a dead ScreenModel kept `// RK: inert` until the download-subsystem unification (Road B) retires it there.
 - **Partially collapsed files** keep their live remainder in place, marked `// RK` with what moved out, so they stay on the render path and are not listed here. Once nothing live remains, the file moves to the manifest below, as `MangaInfoHeader` did once its last live piece (the expandable description) became `ExpandableEntryDescription`.
+- **Reikai-own files**, even under a shared `tachiyomi/` path. A file Reikai added (e.g. the retired `novel_categories.sq`) has no `refs/mihon` counterpart, so deleting it is not a Mihon reroute and the check has nothing to diff. Only files that exist in `refs/mihon` belong here.
 
 ## Manifest
 
