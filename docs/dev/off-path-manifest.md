@@ -21,15 +21,28 @@ The path is relative to the repo root and matches the `refs/` clone layout. `Ups
 | app/src/main/java/eu/kanade/presentation/manga/components/MangaCoverDialog.kt | mihon | reikai/presentation/components/EntryCoverDialog.kt |
 | app/src/main/java/eu/kanade/presentation/browse/components/GlobalSearchCardRow.kt | mihon | reikai/presentation/browse/EntrySearchCardRow.kt |
 | app/src/main/java/eu/kanade/tachiyomi/ui/manga/track/TrackInfoDialog.kt | mihon | reikai/presentation/track/EntryTrackInfoDialog.kt |
-| app/src/main/java/eu/kanade/tachiyomi/ui/manga/MangaCoverScreenModel.kt | mihon | reikai/presentation/details/EntryCoverScreenModel.kt |
+| app/src/main/java/eu/kanade/tachiyomi/ui/manga/MangaCoverViewModel.kt | mihon | reikai/presentation/details/EntryCoverScreenModel.kt |
 | app/src/main/java/eu/kanade/presentation/manga/components/MangaInfoHeader.kt | mihon | reikai/presentation/details/EntryInfoBox.kt |
 | domain/src/main/java/tachiyomi/domain/category/interactor/CreateCategoryWithName.kt | mihon | reikai/presentation/category/CategoryActions.kt |
 | domain/src/main/java/tachiyomi/domain/category/interactor/ReorderCategory.kt | mihon | reikai/presentation/category/CategoryActions.kt |
 | domain/src/main/java/tachiyomi/domain/category/interactor/DeleteCategory.kt | mihon | reikai/domain/category/DeleteCategoryCleanup.kt |
 
-**Known false alarm.** The check reports `MangaCoverScreenModel.kt` as VANISHED, because the deferred ViewModel
-migration (`mihonapp/mihon#3594`, mihon `c3b99aea0`) renamed it to `MangaCoverViewModel.kt` upstream. That is
-expected until the migration is ported, not sync debt; reconcile it then. A VANISHED report on any other row is
-real.
+**A row tracks the file's CURRENT upstream path, not the name Reikai deleted.** When upstream renames a
+manifested file, repoint the row at the new path, because the check `cat-file`s the path at upstream HEAD and,
+finding nothing, reports VANISHED and **skips the diff entirely**. A renamed row therefore reports the same
+message forever while silently covering up every later change to it, which is the opposite of what the manifest
+is for. The cover model is the worked example: Reikai deleted `MangaCoverScreenModel.kt`, the deferred ViewModel
+migration (`mihonapp/mihon#3594`, mihon `c3b99aea0`) renamed it to `MangaCoverViewModel.kt` upstream, and the row
+now names the new path so a real change to it is caught. The rename itself still arrives with the migration.
+
+So treat **VANISHED as unresolved, never as expected**: find whether upstream renamed the file
+(`git log --oneline --follow --diff-filter=R -- <new path>`) and repoint the row, or confirm it was genuinely
+deleted and drop the row with a note. Only a deliberate, recorded conclusion closes one.
+
+`TrackInfoDialog.kt` reports CHANGED against base `5ce7d00eb`, from one commit: mihon `98705910e`
+(`mihonapp/mihon#3609`), the deferred ViewModel migration's crash fix, which lands with that bundle rather than
+on its own. It clears once the migration is ported. Confirm the commit list is still just that one
+(`git log --oneline <base>..HEAD -- "*TrackInfoDialog.kt"`) instead of assuming; a second commit there would be
+real debt hiding behind a familiar-looking report.
 
 The three category interactors each scoped themselves to the manga-visible rows. Once a category can span both libraries those rows overlap the novel-visible ones, so a create, reorder or delete that only sees one library writes an order or a preference scrub that is wrong for the other. `CategoryActions` does all three over the whole table instead.
