@@ -1,38 +1,44 @@
 package eu.kanade.tachiyomi.data.backup.restore.restorers
 
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
-import reikai.domain.category.CategoryContentType
-import tachiyomi.data.Database
 import tachiyomi.domain.category.interactor.GetCategories
+import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.service.LibraryPreferences
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 class CategoriesRestorer(
-    private val database: Database = Injekt.get(),
     private val getCategories: GetCategories = Injekt.get(),
+    private val categoryRepository: CategoryRepository = Injekt.get(),
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
 ) {
 
     suspend operator fun invoke(backupCategories: List<BackupCategory>) {
         if (backupCategories.isNotEmpty()) {
             val dbCategories = getCategories.await()
-            val dbCategoriesByName = dbCategories.associateBy { it.name }
+            // RK: grouped, not associateBy: one name can now belong to several rows (a universal
+            // category and a manga one can share it), and associateBy silently kept only the last.
+            val dbCategoriesByName = dbCategories.groupBy { it.name }
             var nextOrder = dbCategories.maxOfOrNull { it.order }?.plus(1) ?: 0
 
-            val categories = database.transactionWithResult {
-                backupCategories
-                    .sortedBy { it.order }
-                    .map {
-                        val dbCategory = dbCategoriesByName[it.name]
-                        if (dbCategory != null) return@map dbCategory
-                        val order = nextOrder++
-                        database.categoriesQueries
-                            // RK: flagsForRestore folds a Komikku backup's `hidden` into our flags bit
-                            .insert(it.name, order, it.flagsForRestore(), CategoryContentType.MANGA)
-                            .let { id -> it.toCategory(id).copy(order = order) }
-                    }
-            }
+            val categories = backupCategories
+                .sortedBy { it.order }
+                .map { backupCategory ->
+                    val sameName = dbCategoriesByName[backupCategory.name].orEmpty()
+                    // RK: prefer a row of the same content type, then settle for any row with that
+                    // name. The fallback is what keeps a backup made before the content type existed
+                    // (every entry reads as manga) matching a category the user has since made
+                    // universal, instead of inserting a duplicate next to it.
+                    val dbCategory = sameName.firstOrNull { it.contentType == backupCategory.contentType }
+                        ?: sameName.firstOrNull()
+                    if (dbCategory != null) return@map dbCategory
+                    // RK: insert through the repository. It writes the backup's content type, so a
+                    // category spanning both libraries no longer lands as manga-only and gets re-created
+                    // by the novel list's copy, and it returns the new row id; the raw query returns
+                    // rows affected, which every restored Category was using as its id.
+                    val category = backupCategory.toCategory(id = 0L).copy(order = nextOrder++)
+                    category.copy(id = categoryRepository.insert(category, category.contentType))
+                }
 
             libraryPreferences.categorizedDisplaySettings.set(
                 (dbCategories + categories)

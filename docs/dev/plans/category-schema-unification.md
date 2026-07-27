@@ -153,14 +153,31 @@ both sides, unchanged.
   parameter (the universal value used to fall through to the manga branch and be written as manga-only).
   Mihon's `CreateCategoryWithName`, `ReorderCategory` and `DeleteCategory` each scoped themselves to the
   manga-visible rows and went off-path (see [off-path-manifest.md](../off-path-manifest.md)); the type-agnostic
-  `RenameCategory` and `UpdateCategory` stay live. **Remaining: backup.** A universal category is written into
-  both category lists and restores as two type-scoped rows, because `BackupCategory` carries no content type
-  and `CategoriesRestorer` inserts through the raw query at the column default. That restorer also builds every
-  restored `Category` from the insert's rows-affected count rather than the new row id, which is currently
-  harmless (only `flags` is read back) but has to be fixed alongside. The plan for it: add the content type to
-  `BackupCategory` at a fork-reserved `@ProtoNumber(8001)` (tsundoku's convention) with a Kotlin default of
-  MANGA, since Reikai's column defaults to 1 and an old backup carries no such field; emit a universal category
-  once, in the manga list with its real type, and leave the novel list working for old backups.
+  `RenameCategory` and `UpdateCategory` stay live.
+
+  **Backup carries the content type.** `BackupCategory` gained it at a fork-reserved `@ProtoNumber(8001)`
+  (tsundoku's convention) with a Kotlin default of MANGA, matching both the column default and how a backup
+  written before the field has to read. `CategoriesRestorer` now inserts through `CategoryRepository` rather
+  than the raw query, which writes that content type instead of forcing manga-only, and returns the new row id
+  (the raw query returns rows affected, which every restored `Category` was using as its id).
+
+  **A universal category stays in both backup lists, and that is deliberate.** The obvious-looking fix, emitting
+  it once in the manga list, would silently drop novel memberships: `BackupNovel.categories` holds each
+  category's `order`, not its id, and `NovelRestorer` resolves that `order` inside `backupNovelCategories`
+  alone. Drop the row from that list and the lookup finds nothing. Emitting stays untouched; only restore
+  changed. The duplicate row stops being created because `NovelRestorer`'s existing name check reads
+  `content_type IN (0, 2)`, so it already sees a universal row once one is actually written as universal, which
+  is also why `BackupNovelCategory` needs no content type of its own. Restore order guarantees the manga list
+  wins the race: `BackupRestorer` joins the manga category job before anything else launches, and the manga
+  list is emitted whenever categories are backed up, independent of whether manga are.
+
+  Name matching moved from `associateBy` to a grouped lookup preferring the same content type and falling back
+  to any row with that name. The fallback is what keeps a pre-field backup (every entry reads as manga)
+  matching a category the user has since made universal, rather than inserting a duplicate beside it.
+
+  One consequence accepted: the category inserts are no longer wrapped in a single transaction, since
+  `CategoryRepositoryImpl.insert` opens its own and nesting them is not worth it. A failure mid-restore can
+  leave some categories created. The novel side already behaved this way and restore is not atomic overall.
 
   Four decisions settled with the owner while building it:
   1. **One list, not tabs.** Ordering decided it: `sort` is a single column, so two per-library renumberings

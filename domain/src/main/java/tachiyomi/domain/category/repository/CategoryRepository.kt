@@ -30,7 +30,7 @@ interface CategoryRepository {
 
     // RK: contentType picks the manga (default) or novel insert; returns the new row id for the novel
     // create/restore paths that need it. Manga callers ignore the returned id.
-    suspend fun insert(category: Category, contentType: Long = CategoryContentType.MANGA): Long?
+    suspend fun insert(category: Category, contentType: Long = CategoryContentType.MANGA): Long
 
     suspend fun updatePartial(update: CategoryUpdate)
 
