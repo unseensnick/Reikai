@@ -33,6 +33,7 @@ class NovelBackupRoundTripTest {
         mergeGroupRepository = repository,
         setCustomNovelInfo = mockk(relaxed = true),
         database = mockk(relaxed = true),
+        categoryIdPreferences = mockk(relaxed = true),
     )
 
     @Test
