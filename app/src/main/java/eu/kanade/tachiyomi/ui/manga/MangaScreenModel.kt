@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.ui.manga
 
 import android.content.Context
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Immutable
@@ -33,7 +32,6 @@ import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.domain.track.interactor.RefreshTracks
 import eu.kanade.domain.track.interactor.TrackChapter
-import eu.kanade.domain.track.model.AutoTrackState
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.DownloadAction
@@ -58,7 +56,6 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import eu.kanade.tachiyomi.util.removeCovers
 import eu.kanade.tachiyomi.util.system.getBitmapOrNull
-import eu.kanade.tachiyomi.util.system.toast
 import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.metadata.metadata.base.FlatMetadata
@@ -89,7 +86,6 @@ import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
-import reikai.domain.manga.PropagateTrackerLinks
 import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
 import reikai.domain.recommendation.RecommendationHideFilter
@@ -102,6 +98,7 @@ import reikai.domain.recommendation.taste.GetTasteProfile
 import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteProfile
 import reikai.presentation.browse.MangaLibraryAdder
+import reikai.presentation.details.EntryAutoTrackOnMarkRead
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.EntryManageSourceInfo
 import reikai.presentation.details.EntryMergeActionHost
@@ -167,6 +164,7 @@ class MangaScreenModel(
     readerPreferences: ReaderPreferences = Injekt.get(),
     private val trackerManager: TrackerManager = Injekt.get(),
     private val trackChapter: TrackChapter = Injekt.get(),
+    private val refreshTracks: RefreshTracks = Injekt.get(),
     private val downloadManager: DownloadManager = Injekt.get(),
     private val downloadCache: DownloadCache = Injekt.get(),
     private val getMangaAndChapters: GetMangaWithChapters = Injekt.get(),
@@ -193,7 +191,6 @@ class MangaScreenModel(
     private val updateMangaFromRemote: UpdateMangaFromRemote = Injekt.get(),
     // RK -->
     private val mergeManager: MangaMergeManager = Injekt.get(),
-    private val propagateTrackerLinks: PropagateTrackerLinks = Injekt.get(),
     private val mangaLibraryAdder: MangaLibraryAdder = Injekt.get(),
     private val mergedChapterProvider: MergedChapterProvider = Injekt.get(),
     private val mangaPreferences: MangaPreferences = Injekt.get(),
@@ -236,6 +233,9 @@ class MangaScreenModel(
 
     val chapterSwipeStartAction = libraryPreferences.swipeToEndAction.get()
     val chapterSwipeEndAction = libraryPreferences.swipeToStartAction.get()
+
+    // RK: unread by us since the mark-read tracker push moved into EntryAutoTrackOnMarkRead, which reads
+    // the preference itself. Kept as upstream wrote it so the next sync of this file stays a clean merge.
     var autoTrackState = trackPreferences.autoUpdateTrackOnMarkRead.get()
 
     private val skipFiltered by readerPreferences.skipFiltered.asState(screenModelScope)
@@ -1342,58 +1342,23 @@ class MangaScreenModel(
                 chapters = expandToGroup(chapters).toTypedArray(),
             )
 
-            if (!read || successState?.hasLoggedInTrackers == false || autoTrackState == AutoTrackState.NEVER) {
-                return@launchIO
-            }
-
-            refreshTrackers()
-
-            val tracks = getTracksInGroup.await(mangaId)
-            val maxChapterNumber = chapters.maxOf { it.chapterNumber }
-            val shouldPromptTrackingUpdate = tracks.any { track -> maxChapterNumber > track.lastChapterRead }
-
-            if (!shouldPromptTrackingUpdate) return@launchIO
-            if (autoTrackState == AutoTrackState.ALWAYS) {
-                trackChapter.await(context, mangaId, maxChapterNumber)
-                withUIContext {
-                    context.toast(context.stringResource(MR.strings.trackers_updated_summary, maxChapterNumber.toInt()))
-                }
-                return@launchIO
-            }
-
-            val result = snackbarHostState.showSnackbar(
-                message = context.stringResource(MR.strings.confirm_tracker_update, maxChapterNumber.toInt()),
-                actionLabel = context.stringResource(MR.strings.action_ok),
-                duration = SnackbarDuration.Short,
-                withDismissAction = true,
-            )
-
-            if (result == SnackbarResult.ActionPerformed) {
-                trackChapter.await(context, mangaId, maxChapterNumber)
-            }
+            if (!read) return@launchIO
+            // RK: the push itself is the shared step both details models run
+            autoTrackOnMarkRead.await(mangaId, chapters.map { it.chapterNumber })
         }
     }
 
-    private suspend fun refreshTrackers(
-        refreshTracks: RefreshTracks = Injekt.get(),
-    ) {
-        refreshTracks.await(mangaId)
-            .filter { it.first != null }
-            .forEach { (track, e) ->
-                logcat(LogPriority.ERROR, e) {
-                    "Failed to refresh track data mangaId=$mangaId for service ${track!!.id}"
-                }
-                withUIContext {
-                    context.toast(
-                        context.stringResource(
-                            MR.strings.track_error,
-                            track!!.name,
-                            e.message ?: "",
-                        ),
-                    )
-                }
-            }
-    }
+    // RK --> shared with the novel details model, so a change to the tracker push reaches both
+    private val autoTrackOnMarkRead = EntryAutoTrackOnMarkRead(
+        context = context,
+        snackbarHostState = snackbarHostState,
+        trackerManager = trackerManager,
+        trackPreferences = trackPreferences,
+        refresh = { refreshTracks.await(it) },
+        lastReadPerTracker = { getTracksInGroup.await(it).map(Track::lastChapterRead) },
+        pushProgress = { id, chapterNumber -> trackChapter.await(context, id, chapterNumber) },
+    )
+    // RK <--
 
     /**
      * Downloads the given list of chapters with the manager.
@@ -1770,7 +1735,6 @@ class MangaScreenModel(
         onClearSelectedSource = { mergeGroup.selectedSource.value = null },
         dismissDialog = ::dismissDialog,
         setFavorite = { ids, favorite -> ids.forEach { updateManga.awaitUpdateFavorite(it, favorite) } },
-        onBeforeSplit = { ids -> propagateTrackerLinks.distribute(ids) },
     )
 
     /** Switch the chapter list to a single grouped source, or null for the unified merged view. */

@@ -1,7 +1,6 @@
 package reikai.presentation.novel.details
 
 import android.app.Application
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Immutable
@@ -13,7 +12,6 @@ import coil3.asDrawable
 import coil3.imageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
-import eu.kanade.domain.track.model.AutoTrackState
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.DownloadAction
@@ -24,7 +22,6 @@ import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.util.system.getBitmapOrNull
-import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -66,6 +63,7 @@ import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelChapterFlags
+import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.novel.model.effectiveBookmarkedFilter
@@ -75,7 +73,6 @@ import reikai.domain.novel.model.effectiveReadFilter
 import reikai.domain.novel.model.effectiveSortDescending
 import reikai.domain.novel.model.effectiveSorting
 import reikai.domain.novel.model.sortedAndFiltered
-import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.novel.track.toUiTrack
 import reikai.novel.download.NovelDownload
@@ -84,6 +81,7 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.details.EntryAutoTrackOnMarkRead
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.EntryManageSourceInfo
 import reikai.presentation.details.EntryMergeActionHost
@@ -151,7 +149,6 @@ class NovelDetailsScreenModel(
     private val trackNovelChapter: TrackNovelChapter by injectLazy()
     private val trackerManager: TrackerManager by injectLazy()
     private val trackPreferences: TrackPreferences by injectLazy()
-    private val propagateNovelTrackerLinks: PropagateNovelTrackerLinks by injectLazy()
 
     /** Hosts the merge split/remove Undo snackbars; wired into the details Scaffold. */
     val snackbarHostState = SnackbarHostState()
@@ -671,7 +668,6 @@ class NovelDetailsScreenModel(
         onClearSelectedSource = { mergeGroup.selectedSource.value = null },
         dismissDialog = ::dismissDialog,
         setFavorite = { ids, favorite -> ids.forEach { updateNovel.await(NovelUpdate(id = it, favorite = favorite)) } },
-        onBeforeSplit = { ids -> propagateNovelTrackerLinks.distribute(ids) },
     )
 
     /** Switch the chapter view between the unified list (null) and a single grouped source's list. */
@@ -1104,37 +1100,25 @@ class NovelDetailsScreenModel(
     fun showTrackDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.TrackSheet) }
 
     /**
-     * Hook 2: after chapters are marked read from the details list, push progress to bound trackers,
-     * honouring the AutoTrackState pref (never / always / ask), mirroring [MangaScreenModel.markChaptersRead].
+     * Hook 2: after chapters are marked read from the details list, push progress to bound trackers.
+     * The step itself is [EntryAutoTrackOnMarkRead], shared with the manga details model.
      */
     private fun autoTrackOnMarkRead(chapters: List<NovelChapter>) {
-        if (chapters.isEmpty() || trackerManager.loggedInTrackers().isEmpty()) return
-        val autoTrackState = trackPreferences.autoUpdateTrackOnMarkRead.get()
-        if (autoTrackState == AutoTrackState.NEVER) return
         val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return
-        val maxChapterNumber = chapters.maxOf { it.chapterNumber }
         screenModelScope.launchIO {
-            refreshNovelTracks.await(novel.id)
-            val tracks = getNovelTracks.await(novel.id)
-            if (tracks.none { maxChapterNumber > it.lastChapterRead }) return@launchIO
-            if (autoTrackState == AutoTrackState.ALWAYS) {
-                trackNovelChapter.await(context, novel.id, maxChapterNumber)
-                withUIContext {
-                    context.toast(context.stringResource(MR.strings.trackers_updated_summary, maxChapterNumber.toInt()))
-                }
-                return@launchIO
-            }
-            val result = snackbarHostState.showSnackbar(
-                message = context.stringResource(MR.strings.confirm_tracker_update, maxChapterNumber.toInt()),
-                actionLabel = context.stringResource(MR.strings.action_ok),
-                duration = SnackbarDuration.Short,
-                withDismissAction = true,
-            )
-            if (result == SnackbarResult.ActionPerformed) {
-                trackNovelChapter.await(context, novel.id, maxChapterNumber)
-            }
+            autoTrackOnMarkRead.await(novel.id, chapters.map { it.chapterNumber })
         }
     }
+
+    private val autoTrackOnMarkRead = EntryAutoTrackOnMarkRead(
+        context = context,
+        snackbarHostState = snackbarHostState,
+        trackerManager = trackerManager,
+        trackPreferences = trackPreferences,
+        refresh = { refreshNovelTracks.await(it) },
+        lastReadPerTracker = { getNovelTracks.awaitGroup(it).map(NovelTrack::lastChapterRead) },
+        pushProgress = { id, chapterNumber -> trackNovelChapter.await(context, id, chapterNumber) },
+    )
 
     /** Row swipe, dispatched by the configured [LibraryPreferences.ChapterSwipeAction] (mirrors the
      *  manga path's `executeChapterSwipeAction`, with the same download-state to action mapping). */
