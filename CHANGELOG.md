@@ -33,6 +33,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Removing a grouped series now ticks "all grouped sources" by default.** Untick it to remove only the source shown on the cover.
 - **Bulk-deleting downloaded novel chapters now asks you to confirm first, matching manga.**
 - **Related-manga suggestions now label where each one came from, in both the carousel and the full grid.** The source, the tracker, or the taste reason behind the pick.
+- **Preview builds now have a teal icon, so they are easy to tell apart from the stable app.** They were both purple before.
 
 ### Fixes
 
