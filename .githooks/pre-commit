@@ -119,6 +119,56 @@ if [ -n "$codenames" ]; then
   fail=1
 fi
 
+# ===== docs/dev/off-path-manifest.md: a deleted Mihon file must stay deleted and stay declared =====
+# The manifest only works if every row is real and no listed file comes back. Both failures used to be
+# silent: a resurrected file gives two implementations of one surface, and a reroute with no row means
+# the next sync never learns upstream touched it.
+manifest="docs/dev/off-path-manifest.md"
+if [ -f "$manifest" ]; then
+  # Data rows look like `| <path> | <upstream> | <replacement> |`, same shape the sync script parses.
+  manifest_paths=$(grep -E '^\|[[:space:]]*[a-z0-9-]+/' "$manifest" | awk -F'|' '{gsub(/ /,"",$2); print $2}')
+  manifest_repl=$(grep -E '^\|[[:space:]]*[a-z0-9-]+/' "$manifest" | awk -F'|' '{gsub(/ /,"",$4); print $4}')
+
+  for path in $manifest_paths; do
+    if [ -e "$path" ]; then
+      echo "off-path manifest: '$path' is listed as deleted but exists in the tree."
+      echo "  Either it was resurrected (delete it, its twin renders the surface), or it is live again"
+      echo "  (drop its manifest row and say why in the commit)."
+      fail=1
+    fi
+  done
+
+  # A replacement that does not exist means the row points nowhere and the check silently protects nothing.
+  for repl in $manifest_repl; do
+    [ -z "$repl" ] && continue
+    found=0
+    for root in app/src/main/java domain/src/main/java data/src/main/java core/common/src/main/kotlin ""; do
+      [ -e "${root:+$root/}$repl" ] && found=1 && break
+    done
+    if [ "$found" -eq 0 ]; then
+      echo "off-path manifest: replacement '$repl' does not exist; the row protects nothing."
+      fail=1
+    fi
+  done
+
+  # A staged deletion of a file Mihon still has needs a manifest row in the SAME commit, or the reroute
+  # is invisible to every future sync. Needs the refs clone; warn (never block) when it is absent.
+  mihon_clone="../refs/mihon"
+  if [ -d "$mihon_clone" ]; then
+    deleted=$(git diff --cached --name-only --diff-filter=D)
+    for path in $deleted; do
+      git -C "$mihon_clone" cat-file -e "HEAD:$path" 2>/dev/null || continue
+      if ! grep -qF "| $path |" "$manifest"; then
+        echo "off-path manifest: deleting '$path', which Mihon still has, without a manifest row."
+        echo "  Add a row (path | mihon | replacement) so the next sync is told when upstream changes it."
+        fail=1
+      fi
+    done
+  elif [ -n "$(git diff --cached --name-only --diff-filter=D)" ]; then
+    echo "off-path manifest: no refs/mihon clone, skipping the undeclared-reroute check."
+  fi
+fi
+
 if [ "$fail" -ne 0 ]; then
   echo
   echo "Fix the file, or use 'git commit --no-verify' if this is intentional."

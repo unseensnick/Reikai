@@ -71,4 +71,15 @@ if ($changed.Count -gt 0) {
     exit 1
 }
 
+# Stamp the run so the commit-msg hook can tell a sync commit that the check actually ran, and ran
+# against the upstream HEAD being synced. Without this the check is opt-in and a forgotten step is
+# indistinguishable from a clean one.
+$stampDir = Join-Path $repoRoot '.git'
+if (Test-Path $stampDir) {
+    $mihonHead = (git -C (Join-Path $RefsRoot 'mihon') rev-parse HEAD 2>$null)
+    if ($LASTEXITCODE -eq 0 -and $mihonHead) {
+        Set-Content -Path (Join-Path $stampDir 'off-path-checked') -Value $mihonHead.Trim() -NoNewline
+    }
+}
+
 Write-Host 'off-path check clean: no manifested file changed upstream in range.'

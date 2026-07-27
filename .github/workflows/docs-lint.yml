@@ -111,3 +111,34 @@ jobs:
             echo "$bad"
             exit 1
           fi
+
+      - name: Lint the off-path manifest
+        run: |
+          # Mirrors the repo-only half of .githooks/pre-commit. CI has no refs/ clones, so it cannot
+          # diff against upstream; it checks that every manifested file stays deleted and every
+          # replacement exists, which is what catches a resurrected file or a row pointing nowhere.
+          manifest="docs/dev/off-path-manifest.md"
+          fail=0
+          rows=$(grep -E '^\|[[:space:]]*[a-z0-9-]+/' "$manifest" || true)
+          if [ -z "$rows" ]; then
+            echo "::error::off-path manifest has no machine-readable rows; the sync check would silently pass"
+            exit 1
+          fi
+          while IFS='|' read -r _ path _ repl _; do
+            path=$(echo "$path" | tr -d ' ')
+            repl=$(echo "$repl" | tr -d ' ')
+            [ -z "$path" ] && continue
+            if [ -e "$path" ]; then
+              echo "::error::$path is manifested as deleted but exists in the tree"
+              fail=1
+            fi
+            found=0
+            for root in app/src/main/java domain/src/main/java data/src/main/java core/common/src/main/kotlin ""; do
+              [ -e "${root:+$root/}$repl" ] && found=1 && break
+            done
+            if [ "$found" -eq 0 ]; then
+              echo "::error::off-path manifest replacement '$repl' does not exist; the row protects nothing"
+              fail=1
+            fi
+          done <<< "$rows"
+          [ "$fail" -eq 0 ]

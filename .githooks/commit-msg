@@ -34,6 +34,23 @@ stripped=$(echo "$msg" | sed -E 's@[A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+@@g')
 echo "$stripped" | grep -qE '#[0-9]+([^0-9A-Za-z]|$)' \
   && errors+=("bare '#<number>' is ambiguous; use 'Roadmap N', or an explicit 'unseensnick/Reikai#N' / 'mihonapp/mihon#N'")
 
+# A Mihon sync commit must have run the off-path check against the upstream HEAD it is syncing, or a
+# change to a manifested file lands unseen. scripts/off-path-check.ps1 writes the stamp on a clean run.
+case "$subject" in
+  "chore: sync Mihon"*)
+    stamp="$(git rev-parse --git-dir)/off-path-checked"
+    mihon_clone="../refs/mihon"
+    if [ -d "$mihon_clone" ]; then
+      head=$(git -C "$mihon_clone" rev-parse HEAD 2>/dev/null || echo "")
+      if [ ! -f "$stamp" ]; then
+        errors+=("off-path check not run; use: pwsh scripts/off-path-check.ps1 -MihonBase <last-synced>")
+      elif [ -n "$head" ] && [ "$(cat "$stamp")" != "$head" ]; then
+        errors+=("off-path check stamp is stale (refs/mihon moved); re-run scripts/off-path-check.ps1")
+      fi
+    fi
+    ;;
+esac
+
 if [ "${#errors[@]}" -gt 0 ]; then
   {
     echo ""

@@ -4,6 +4,25 @@ Every Mihon file Reikai has **deleted** because a Reikai-owned twin (`reikai.*`)
 
 When the check flags a path, open its **Replacement** and reconcile the upstream change into that twin by hand, exactly as if the file were still `// RK: inert`. The `refs/mihon` clone holds the pre-delete blob, so the change is a diff of upstream-before against upstream-after, applied deliberately into the twin.
 
+## What enforces this
+
+The manifest used to be enforced by remembering to run the sync check. Three things now fail loudly instead,
+because the two worst failures (a deleted file coming back, and a reroute nobody declared) were previously
+silent and left no trace.
+
+- **`pre-commit`, every commit.** No manifested path may exist in the working tree, and every `Replacement`
+  must exist. A resurrected file means two implementations of one surface; a replacement that does not exist
+  means the row protects nothing.
+- **`pre-commit`, when `refs/mihon` is present.** Staging the deletion of a file Mihon still has requires a
+  manifest row for it in the same commit, which closes the "a new reroute that skips the manifest is
+  invisible" hole. Without the clone it warns instead of blocking, so a fresh clone is never stuck.
+- **`commit-msg`, on sync commits.** `scripts/off-path-check.ps1` writes `.git/off-path-checked` recording the
+  upstream HEAD it ran against, and a `chore: sync Mihon...` subject is rejected unless that stamp exists and
+  matches the current `refs/mihon` HEAD. Running the check stops being optional.
+- **`docs-lint` CI** mirrors the first of these. CI has no `refs/` clones, so it cannot diff against upstream.
+
+Install the hooks on a fresh clone with the command in [upstream-sync.md](upstream-sync.md).
+
 ## What is NOT here
 
 - **Engine files** (a ScreenModel, repository, or the source manager) are never deleted; they stay live and minimally patched on the render path, and sync normally. An interactor that is still called stays too: the category interactors listed below went off-path only because nothing calls them any more, while their type-agnostic siblings (`RenameCategory`, `UpdateCategory`) remain live and are not listed. Example still pending its surface: `eu/kanade/tachiyomi/ui/download/DownloadQueueScreenModel.kt` (replaced by `MangaDownloadQueueScreenModel`) is a dead ScreenModel kept `// RK: inert` until the download-subsystem unification (Road B) retires it there.
