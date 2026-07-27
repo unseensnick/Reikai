@@ -15,7 +15,7 @@ object TelemetryConfig {
 
     fun init(context: Context) {
         // To stop forks/test builds from polluting our data
-        if (!context.isMihonProductionApp()) return
+        if (!context.isReikaiProductionApp()) return
 
         // Check if Google Play Services is available before initializing Firebase
         if (!isGooglePlayServicesAvailable(context)) {
@@ -52,15 +52,20 @@ object TelemetryConfig {
         crashlytics?.isCrashlyticsCollectionEnabled = enabled
     }
 
-    private fun Context.isMihonProductionApp(): Boolean {
-        if (packageName !in MIHON_PACKAGES) return false
+    // RK --> Reikai's own packages and signing certificate, replacing Mihon's.
+    private fun Context.isReikaiProductionApp(): Boolean {
+        if (packageName !in REIKAI_PACKAGES) return false
 
         return packageManager.getPackageInfo(packageName, SignatureFlags)
             .getCertificateFingerprints()
-            .any { it == MIHON_CERTIFICATE_FINGERPRINT }
+            .any { it == REIKAI_CERTIFICATE_FINGERPRINT }
     }
 }
 
-private val MIHON_PACKAGES = hashSetOf("app.mihon", "app.mihon.debug")
-private const val MIHON_CERTIFICATE_FINGERPRINT =
-    "9A:DD:65:5A:78:E9:6C:4E:C7:A5:3E:F8:9D:CC:B5:57:CB:5D:76:74:89:FA:C5:E7:85:D6:71:A5:A7:5D:4D:A2"
+// The stable and preview packages only: the local debugY2k build is deliberately absent, so a dev
+// build never reports even if it is signed with the release key (a local keystore.properties makes
+// that the default).
+private val REIKAI_PACKAGES = hashSetOf("eu.kanade.tachiyomi.y2k", "eu.kanade.tachiyomi.debug")
+private const val REIKAI_CERTIFICATE_FINGERPRINT =
+    "D0:E2:7C:7C:43:A6:BE:B1:66:BB:18:83:19:EE:4A:03:4F:7B:F0:A3:9B:CC:03:EC:E6:49:5C:E0:8F:5D:D6:EC"
+// RK <--

@@ -70,8 +70,21 @@ jobs:
       - name: Run unit tests
         run: ./gradlew test
 
+      # Firebase config is never committed (see .gitignore), so the telemetry build needs it written
+      # from the repo secret first. Fail loudly rather than let the google-services plugin guess.
+      - name: Write google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          set -e
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "::error::GOOGLE_SERVICES_JSON secret is missing; -Pinclude-telemetry cannot build without it."
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" > app/google-services.json
+
       - name: Build signed preview APKs
-        run: ./gradlew assemblePreview -Penable-updater
+        run: ./gradlew assemblePreview -Pinclude-telemetry -Penable-updater
         env:
           REIKAI_GITHUB_RELEASE: "true"
           storeFileBase64: ${{ secrets.SIGNING_KEY }}

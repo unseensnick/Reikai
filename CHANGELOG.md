@@ -21,6 +21,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Settings > Library > Recommendations can now move the related-manga carousel off the details page into its three-dot menu.**
 - **Create backup now lets you include Manga, Novels and custom entry info separately.** Backing up one content type also makes the file smaller.
 - **Settings -> Advanced can now repair novels that are showing another novel's title or cover.** It finds the affected entries and re-fetches them from their own source.
+- **Reikai can now send crash reports so bugs get found and fixed faster.** Crash logs and anonymous usage data are both opt-out, from onboarding or Settings -> Security and privacy.
 
 ### Changes
 
