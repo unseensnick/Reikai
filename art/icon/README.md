@@ -9,7 +9,16 @@ regenerate the `res/` resources below.
 | `monochrome.svg` | Flattened single-path "R-flame" silhouette (white) | [`app/src/main/res/drawable/ic_reikai.xml`](../../app/src/main/res/drawable/ic_reikai.xml) — the in-app logo (More / About header) and the notification small-icon. Rendered tinted at runtime, so it must stay a single-colour silhouette. |
 | `monochrome-project.svg` | Editable Inkscape project for the monochrome mark | (working file) export `monochrome.svg` from this |
 | `drawing.svg` | Master source drawing of the Reikai "R-flame" icon (full colour artwork) | The README logo and the launcher icon art (the flat renders below + `ic_launcher_foreground.xml`) are produced from this |
-| `Reikai-debug-flat.png`, `Reikai-nightly-flat.png`, `Reikai-release-flat.png` | Flat renders of the launcher icon per build channel | [`app/src/main/res/drawable/ic_launcher_foreground.xml`](../../app/src/main/res/drawable/ic_launcher_foreground.xml) + `mipmap-anydpi-v26/ic_launcher*.xml`; background `#280055` in `res/values/ic_launcher_background.xml` |
+| `Reikai-release-flat.png`, `Reikai-preview-flat.png`, `Reikai-debug-flat.png` | Flat renders of the launcher icon, one per build channel | The foreground layer of each channel's launcher icon: `main` (stable) as [`ic_launcher_foreground.xml`](../../app/src/main/res/drawable/ic_launcher_foreground.xml), `preview` and `debug` as generated `mipmap-*/ic_launcher_foreground.webp`, wired by that source set's `mipmap-anydpi-v26/ic_launcher*.xml` |
+| `Reikai-nightly-flat.png` | The purple render the preview channel used before it went teal | (kept for reference; backs nothing shipped) |
+
+Each channel also sets its own `ic_launcher_background` colour, which must match the render's
+deepest tone: `#280055` (stable), `#053A48` (preview), `#242424` (debug). The channels differ by
+hue and saturation on purpose, since two icons separated only by lightness are indistinguishable
+at launcher size. `<monochrome>` is deliberately NOT per-channel: every channel points at `main`'s
+`ic_launcher_monochrome.xml`, so themed icons stay identical. Android Studio's Image Asset wizard
+repoints that at the colour foreground and writes a per-channel copy, so check both
+`ic_launcher.xml` and `ic_launcher_round.xml` after regenerating.
 
 ## Regenerating `ic_reikai.xml`
 
