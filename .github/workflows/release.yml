@@ -87,12 +87,27 @@ jobs:
           keyAlias: ${{ secrets.ALIAS }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
 
-      # Stable builds ship to users, so keep their R8 mapping to deobfuscate crash stacks.
+      # The FOSS build is the Firebase-free alternative, so it is a second Gradle run WITHOUT
+      # -Pinclude-telemetry (telemetry inclusion is a whole-build property, not a per-variant one).
+      # Universal only, and the name must keep "-foss" for the in-app updater to match it.
+      - name: Build signed FOSS APK
+        run: ./gradlew assembleFoss -Penable-updater
+        env:
+          REIKAI_GITHUB_RELEASE: "true"
+          storeFileBase64: ${{ secrets.SIGNING_KEY }}
+          storePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyAlias: ${{ secrets.ALIAS }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+
+      # Stable builds ship to users, so keep their R8 mapping to deobfuscate crash stacks. FOSS
+      # sends no crash reports at all, so its mapping is the only way to read a pasted stack.
       - name: Upload R8 mapping
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: mapping-${{ env.VERSION_TAG }}
-          path: app/build/outputs/mapping/release
+          path: |
+            app/build/outputs/mapping/release
+            app/build/outputs/mapping/foss
 
       - name: Install parse-changelog
         uses: taiki-e/install-action@parse-changelog
@@ -143,6 +158,12 @@ jobs:
             sum=$(sha256sum "$out" | awk '{ print $1 }')
             checksums+=$'\n'"| \`$out\` | \`$sum\` |"
           done
+          # FOSS ships universal only, and keeps "-foss" in the name so the in-app updater picks it
+          # for anyone already running that variant.
+          foss_out="reikai-foss-${VERSION_TAG}.apk"
+          mv app/build/outputs/apk/foss/app-universal-foss.apk "$foss_out"
+          foss_sum=$(sha256sum "$foss_out" | awk '{ print $1 }')
+          checksums+=$'\n'"| \`$foss_out\` | \`$foss_sum\` |"
           {
             echo "CHECKSUMS<<__EOF__"
             echo "$checksums"
@@ -156,15 +177,21 @@ jobs:
           name: Reikai ${{ env.VERSION_TAG }}
           body: |
             ${{ env.RELEASE_BODY }}
-            ${{ env.CHECKSUMS }}
 
-            > If you are unsure which to download, use `reikai-${{ env.VERSION_TAG }}.apk` (universal).
+            ### Which file?
+
+            - `reikai-${{ env.VERSION_TAG }}.apk` if you are unsure. Universal, runs on any device.
+            - `reikai-arm64-v8a-${{ env.VERSION_TAG }}.apk` and the other ABI files are smaller downloads for one CPU type. Most modern phones are `arm64-v8a`.
+            - `reikai-foss-${{ env.VERSION_TAG }}.apk` has no crash reporting or analytics compiled in. It installs as a separate app, so moving to or from it needs a backup and restore.
+
+            ${{ env.CHECKSUMS }}
           files: |
             reikai-${{ env.VERSION_TAG }}.apk
             reikai-arm64-v8a-${{ env.VERSION_TAG }}.apk
             reikai-armeabi-v7a-${{ env.VERSION_TAG }}.apk
             reikai-x86-${{ env.VERSION_TAG }}.apk
             reikai-x86_64-${{ env.VERSION_TAG }}.apk
+            reikai-foss-${{ env.VERSION_TAG }}.apk
           draft: true
           prerelease: false
         env:
