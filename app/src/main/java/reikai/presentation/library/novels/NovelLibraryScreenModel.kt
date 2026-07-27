@@ -52,7 +52,6 @@ import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.model.withCustomInfo
-import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.novel.track.toUiTrack
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
@@ -123,7 +122,6 @@ class NovelLibraryScreenModel :
     private val mergeGroupRepository: MergeGroupRepository by injectLazy()
     private val chapterMatchKeyRepository: ChapterMatchKeyRepository by injectLazy()
     private val reconcileChapterMatchKeys: ReconcileChapterMatchKeys by injectLazy()
-    private val propagateNovelTrackerLinks: PropagateNovelTrackerLinks by injectLazy()
     private val installer: LnPluginInstaller by injectLazy()
     private val trackerManager: TrackerManager by injectLazy()
     private val getNovelTracks: GetNovelTracks by injectLazy()
@@ -686,14 +684,11 @@ class NovelLibraryScreenModel :
         }
     }
 
-    /** Split the selected novels out of their merge groups (no-op for non-merged selections). */
+    /** Split the selected novels out of their merge groups (no-op for non-merged selections).
+     *  The manager hands each member its own tracker copy on the way out. */
     fun unmergeSelection(ids: List<Long>) {
         if (ids.isEmpty()) return
-        screenModelScope.launchIO {
-            // copy each group's trackers onto its members before splitting, so each keeps them.
-            ids.forEach { propagateNovelTrackerLinks.fromSeed(it) }
-            mergeManager.unmerge(ids)
-        }
+        screenModelScope.launchIO { mergeManager.unmerge(ids) }
     }
 
     fun markReadSelection(ids: List<Long>, read: Boolean) {

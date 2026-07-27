@@ -17,9 +17,9 @@ import tachiyomi.i18n.MR
  * The shared source split / remove / reorder actions for a merged entry's details screen, so the
  * snackbar-with-undo logic that the manga and novel details models both run lives in one place and can't
  * drift. The details model supplies its own [relatedIds] flow, [anchorId] getter, [MergeManager], favorite
- * writer, and selected-source reset; the two per-type differences are the [onBeforeSplit] hook (novels
- * propagate tracker links onto each member before a split) and the [setFavorite] lambda (novels write
- * favorite-only so the merge-undo restores the original dateAdded).
+ * writer, and selected-source reset; the one per-type difference left is the [setFavorite] lambda (novels
+ * write favorite-only so the merge-undo restores the original dateAdded). Handing each member its own
+ * tracker copy is not here: [MergeManager] does it on every path that breaks a group up.
  *
  * [anchorId] is a getter, not a captured value, because the novel model resolves its anchor id after
  * construction. selectSource and showManageSourcesDialog are deliberately not here: those bodies genuinely
@@ -35,7 +35,6 @@ class EntryMergeActionHost(
     private val onClearSelectedSource: () -> Unit,
     private val dismissDialog: () -> Unit,
     private val setFavorite: suspend (ids: List<Long>, favorite: Boolean) -> Unit,
-    private val onBeforeSplit: (suspend (ids: List<Long>) -> Unit)? = null,
 ) {
 
     /** Persist a manage-sources drag as the group's source order, then re-aggregate live (a fresh array
@@ -64,7 +63,6 @@ class EntryMergeActionHost(
     fun splitSources(targetIds: List<Long>) {
         if (targetIds.isEmpty()) return
         val prevRelated = relatedIds.value
-        onBeforeSplit?.let { hook -> scope.launchIO { hook(prevRelated.toList()) } }
         onClearSelectedSource()
         dismissDialog()
         scope.launchIO {

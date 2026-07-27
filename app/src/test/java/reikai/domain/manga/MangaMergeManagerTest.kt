@@ -1,7 +1,10 @@
 package reikai.domain.manga
 
+import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -16,6 +19,9 @@ import reikai.domain.merge.MergeGroupRepository
  */
 class MangaMergeManagerTest {
 
+    /** Groups handed to the dissolve hook, in call order, so the tracker-copy step can be asserted. */
+    private val dissolved = mutableListOf<List<Long>>()
+
     private fun manager(
         repository: MergeGroupRepository = mockk(relaxed = true),
         mergingEnabled: Boolean = true,
@@ -23,7 +29,7 @@ class MangaMergeManagerTest {
         val preferences = mockk<ReikaiLibraryPreferences> {
             every { seriesMergingEnabled } returns mockk(relaxed = true) { every { get() } returns mergingEnabled }
         }
-        return MangaMergeManager(repository, preferences)
+        return MangaMergeManager(repository, preferences) { dissolved += it }
     }
 
     @Test
@@ -68,5 +74,39 @@ class MangaMergeManagerTest {
         val keys = manager(mergingEnabled = false).seriesGroupKeys(listOf(1L, 2L))
 
         (keys[1L] == keys[2L]) shouldBe false
+    }
+
+    @Test
+    fun `unmerge hands the whole group to the dissolve hook before dissolving`() = runTest {
+        val repo = mockk<MergeGroupRepository>(relaxed = true) {
+            coEvery { getGroupId(ContentType.MANGA, 1L) } returns 7L
+            coEvery { getMembers(ContentType.MANGA, 7L) } returns listOf(1L, 2L, 3L)
+        }
+
+        manager(repo).unmerge(listOf(1L))
+
+        dissolved shouldContainExactly listOf(listOf(1L, 2L, 3L))
+        coVerify { repo.dissolve(ContentType.MANGA, 1L) }
+    }
+
+    @Test
+    fun `removeFromGroup hands the group it is leaving to the dissolve hook`() = runTest {
+        val repo = mockk<MergeGroupRepository>(relaxed = true)
+
+        manager(repo).removeFromGroup(longArrayOf(1L, 2L, 3L), listOf(3L))
+
+        dissolved shouldContainExactly listOf(listOf(1L, 2L, 3L))
+    }
+
+    @Test
+    fun `clearing every merge hands each group to the dissolve hook`() = runTest {
+        val repo = mockk<MergeGroupRepository>(relaxed = true) {
+            coEvery { getAllMemberships(ContentType.MANGA) } returns mapOf(1L to 7L, 2L to 7L, 5L to 9L)
+        }
+
+        manager(repo).clearAllMergesIncludingAuto()
+
+        dissolved shouldContainExactlyInAnyOrder listOf(listOf(1L, 2L), listOf(5L))
+        coVerify { repo.clearAll(ContentType.MANGA) }
     }
 }

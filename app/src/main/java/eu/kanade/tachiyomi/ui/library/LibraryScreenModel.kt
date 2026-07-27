@@ -51,7 +51,6 @@ import reikai.domain.library.sortForCategory
 import reikai.domain.library.toSortMode
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MergedChapterProvider
-import reikai.domain.manga.PropagateTrackerLinks
 import reikai.domain.merge.ChapterMatchKeyRepository
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.ReconcileChapterMatchKeys
@@ -137,7 +136,6 @@ class LibraryScreenModel(
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
     private val mergeManager: MangaMergeManager = Injekt.get(),
     private val mergeGroupRepository: MergeGroupRepository = Injekt.get(),
-    private val propagateTrackerLinks: PropagateTrackerLinks = Injekt.get(),
     private val chapterMatchKeyRepository: ChapterMatchKeyRepository = Injekt.get(),
     private val mergedChapterProvider: MergedChapterProvider = Injekt.get(),
     private val reconcileChapterMatchKeys: ReconcileChapterMatchKeys = Injekt.get(),
@@ -856,14 +854,11 @@ class LibraryScreenModel(
         }
     }
 
-    // RK: split the selected manga out of their merge groups (no-op for non-merged selections)
+    // RK: split the selected manga out of their merge groups (no-op for non-merged selections).
+    // The manager hands each member its own tracker copy on the way out.
     fun unmergeSelection(ids: List<Long>) {
         if (ids.isEmpty()) return
-        screenModelScope.launchIO {
-            // RK: copy each group's trackers onto its members before splitting, so each keeps them
-            ids.forEach { propagateTrackerLinks.fromSeed(it) }
-            mergeManager.unmerge(ids)
-        }
+        screenModelScope.launchIO { mergeManager.unmerge(ids) }
     }
 
     fun search(query: String?) {

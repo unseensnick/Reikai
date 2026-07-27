@@ -13,11 +13,17 @@ import reikai.domain.library.ReikaiLibraryPreferences
  *
  * The [ReikaiLibraryPreferences.seriesMergingEnabled] master switch gates resolution: when off, every
  * entry resolves standalone (groups are preserved, just not shown), so flipping it back on restores them.
+ *
+ * [onBeforeDissolve] runs on every path that breaks a group up, with that group's members. A merged group
+ * shares one tracker binding rather than a copy per source, so the copies have to be handed out here, at
+ * the one moment the sharing ends. Keeping it in the manager instead of at each call site is deliberate:
+ * three separate call sites had already forgotten it.
  */
 open class EntryMergeManager(
     private val contentType: ContentType,
     private val repository: MergeGroupRepository,
     private val preferences: ReikaiLibraryPreferences,
+    private val onBeforeDissolve: suspend (memberIds: List<Long>) -> Unit,
 ) : MergeManager {
 
     private val isNovel: Boolean get() = contentType == ContentType.NOVELS
@@ -45,6 +51,7 @@ open class EntryMergeManager(
      */
     override suspend fun removeFromGroup(relatedIds: LongArray, targetIds: List<Long>): LongArray {
         if (targetIds.isEmpty()) return relatedIds
+        onBeforeDissolve(relatedIds.toList())
         return repository.removeFromGroup(contentType, targetIds).toLongArray()
     }
 
@@ -98,7 +105,10 @@ open class EntryMergeManager(
     /** Fully dissolve the group of each of [targetIds] (the library bulk "Unmerge"). Ungrouped targets
      *  are skipped. */
     suspend fun unmerge(targetIds: List<Long>) {
-        targetIds.distinct().forEach { repository.dissolve(contentType, it) }
+        targetIds.distinct().forEach { targetId ->
+            onBeforeDissolve(computeRelatedIds(targetId).toList())
+            repository.dissolve(contentType, targetId)
+        }
     }
 
     /**
@@ -117,6 +127,9 @@ open class EntryMergeManager(
 
     /** Dissolve every group of this content type (the Settings "Clear all merges" action). */
     suspend fun clearAllMergesIncludingAuto() {
+        repository.getAllMemberships(contentType)
+            .entries.groupBy({ it.value }, { it.key })
+            .values.forEach { members -> onBeforeDissolve(members) }
         repository.clearAll(contentType)
     }
 }

@@ -184,6 +184,7 @@ import tachiyomi.domain.track.interactor.InsertTrack
 import tachiyomi.domain.track.repository.TrackRepository
 import tachiyomi.domain.updates.interactor.GetUpdates
 import tachiyomi.domain.updates.repository.UpdatesRepository
+import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.InjektModule
 import uy.kohesive.injekt.api.InjektRegistrar
 import uy.kohesive.injekt.api.addFactory
@@ -249,11 +250,14 @@ class DomainModule : InjektModule {
         addFactory { TrackNovelChapter(get(), get(), get(), get()) }
         addFactory { PropagateNovelTrackerLinks(get(), get(), get(), get(), get()) }
         // RK <--
-        // RK --> merge (manga + novel)
-        addSingletonFactory { MangaMergeManager(get(), get()) }
+        // RK --> merge (manga + novel). Breaking a group up hands each member its own tracker copy; the
+        // propagators are resolved lazily inside the lambda because they depend on the managers themselves.
+        addSingletonFactory { MangaMergeManager(get(), get()) { Injekt.get<PropagateTrackerLinks>().distribute(it) } }
         addSingletonFactory { MergedChapterProvider(get(), get(), get(), get()) }
         addSingletonFactory { PropagateTrackerLinks(get(), get(), get(), get(), get()) }
-        addSingletonFactory { NovelMergeManager(get(), get()) }
+        addSingletonFactory {
+            NovelMergeManager(get(), get()) { Injekt.get<PropagateNovelTrackerLinks>().distribute(it) }
+        }
         // RK <--
         // RK --> novel source migration (Roadmap 7)
         addFactory { MigrateNovelUseCase(get(), get(), get(), get(), get(), get()) }

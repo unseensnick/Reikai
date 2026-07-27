@@ -12,4 +12,5 @@ import reikai.domain.merge.MergeGroupRepository
 class NovelMergeManager(
     repository: MergeGroupRepository,
     preferences: ReikaiLibraryPreferences,
-) : EntryMergeManager(ContentType.NOVELS, repository, preferences)
+    onBeforeDissolve: suspend (memberIds: List<Long>) -> Unit,
+) : EntryMergeManager(ContentType.NOVELS, repository, preferences, onBeforeDissolve)

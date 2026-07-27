@@ -1,7 +1,10 @@
 package reikai.domain.novel
 
+import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -23,8 +26,11 @@ class NovelMergeManagerTest {
         val preferences = mockk<ReikaiLibraryPreferences> {
             every { seriesMergingEnabled } returns mockk(relaxed = true) { every { get() } returns mergingEnabled }
         }
-        return NovelMergeManager(repository, preferences)
+        return NovelMergeManager(repository, preferences) { dissolved += it }
     }
+
+    /** Groups handed to the dissolve hook, in call order, so the tracker-copy step can be asserted. */
+    private val dissolved = mutableListOf<List<Long>>()
 
     @Test
     fun `computeRelatedIds returns the group members`() = runTest {
@@ -71,5 +77,30 @@ class NovelMergeManagerTest {
 
         keys[1L] shouldBe keys[2L]
         (keys[1L] == keys[3L]) shouldBe false
+    }
+
+    @Test
+    fun `unmerge hands the whole group to the dissolve hook before dissolving`() = runTest {
+        val repo = mockk<MergeGroupRepository>(relaxed = true) {
+            coEvery { getGroupId(ContentType.NOVELS, 1L) } returns 7L
+            coEvery { getMembers(ContentType.NOVELS, 7L) } returns listOf(1L, 2L)
+        }
+
+        manager(repo).unmerge(listOf(1L))
+
+        dissolved shouldContainExactly listOf(listOf(1L, 2L))
+        coVerify { repo.dissolve(ContentType.NOVELS, 1L) }
+    }
+
+    @Test
+    fun `clearing every merge hands each group to the dissolve hook`() = runTest {
+        val repo = mockk<MergeGroupRepository>(relaxed = true) {
+            coEvery { getAllMemberships(ContentType.NOVELS) } returns mapOf(1L to 7L, 2L to 7L, 5L to 9L)
+        }
+
+        manager(repo).clearAllMergesIncludingAuto()
+
+        dissolved shouldContainExactlyInAnyOrder listOf(listOf(1L, 2L), listOf(5L))
+        coVerify { repo.clearAll(ContentType.NOVELS) }
     }
 }

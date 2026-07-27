@@ -26,11 +26,11 @@ Merging entries needs no tracker step: the moment they are one group, a tracker 
 
 Removing a tracker unbinds it from every source in the group. Because the group reads as one, leaving a sibling's binding in place would keep the entry showing as tracked in the library filters even though its chip is gone.
 
-## Split a source out of the group: each source keeps a copy
+## Break the group up: each source keeps a copy
 
-*Manage Sources sheet → check a source → "Split".*
+*Manage Sources sheet → check a source → "Split", the library's Unmerge action, "Remove from library", or Settings → Advanced → "Clear merges".*
 
-Just before a split, each in-library source gets its own copy of the group's tracker bindings, carrying the group's furthest-read progress. Both the split-off source and the remaining group keep their tracker chips, and each then tracks on its own.
+Every one of those hands each in-library source its own copy of the group's tracker bindings first, carrying the group's furthest-read progress. Both the split-off source and the remaining group keep their tracker chips, and each then tracks on its own.
 
 Two cases are skipped rather than guessed: a source that isn't in your library (grouped but unfavorited), and a tracker whose linked remote entry disagrees across the group.
 
