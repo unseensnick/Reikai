@@ -55,6 +55,22 @@ Two bugs surfaced while writing the test plan for that work, which is a habit wo
 
 The category axis is no longer what the All chip is waiting on: the category-schema unification shipped, including user-creatable universal categories and their backup support, so there is one `categories` table and one id space (see [category-schema-unification.md](category-schema-unification.md)). What remains is the library screen itself, planned as an All-first rebuild in which the manga and novel chips become filters over one assembled list rather than two states to combine.
 
+## The All-first takeover (planned 2026-07-27)
+
+Decided after auditing the surface: the pipeline kernels (filter, sort, grouping, field extraction) are genuinely shared and called by both models, but `LibraryBehavior` is a 15-method passthrough with nothing implemented in the shared layer, and `LibraryTab` bypasses it for refresh, continue-reading, open-random, the hopper long-press, migrate and all dialog rendering, including two methods the interface already has. So the library is unified at the pipeline layer and not at the behaviour layer.
+
+Five phases, each shipping alone and device-verified in **both** view modes (tabbed pager and single-list hopper).
+
+1. **Ground-clearing (shipped, `3f1e8c3c0`, `0f2828687`).** Manifest enforcement made a hard stop; `LibraryCategoryRef` deleted; four stale claims corrected; the manga Change-categories dialog switched to a fresh category read, which was a live bug (a hidden category could not be picked).
+2. **Close the behaviour seam.** Move the bypassed `LibraryTab` calls onto `LibraryBehavior`; collapse the two per-type dialog streams into one. Nothing can fan out over methods that do not exist on the interface, so this gates everything after it.
+3. **Single-value the shared state.** Novel collapse onto the shared persisted state (manga persists collapsed categories, novels do not, which is a live parity gap). Hoist four byte-identical `State` helpers. Extract `buildNovelDynamicGrouping` so it cannot drift from `MangaDynamicGrouping`.
+4. **All-first assembly.** Providers yield `LibraryItem` rows; the shared layer concatenates, runs one pipeline over the mixed list, and buckets into categories from the one table. The chip becomes a filter predicate. A category spanning both libraries appears **once** and holds both types, interleaved under the global category sort (the same order Edit categories uses).
+5. **Verb takeover.** The eight verbs move to the shared layer dispatching to per-type interactors; `LibraryScreenModel` is deleted and manifested.
+6. **Parity closeout.** Novel search onto the query AST, hide empty categories on manga, hopper long-press scope.
+
+**Open before phase 2:** tracker propagation. Manga propagates links on merge only, novels on unmerge only, and each is missing the other's behaviour, so merging manga shares a tracker but splitting never redistributes it, while novels do the reverse. Needs a ruling, not a mechanical merge.
+
+
 ### Engine-step ground truth (2026-07-23)
 
 Verified against current code before starting the engine. These are the facts the engine design turns on:
