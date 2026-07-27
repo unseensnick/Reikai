@@ -37,6 +37,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Fixes
 
+- **Novel update notifications now carry the Reikai icon instead of a generic book.** Manga ones already did.
 - **A category that covers both manga and novels now survives a backup.** Restoring one used to split it into two separate categories, one per library.
 - **Installing an extension through Shizuku works again.**
 - **A resumed image download now shows the right progress instead of restarting from zero.**

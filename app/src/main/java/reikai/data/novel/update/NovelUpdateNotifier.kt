@@ -64,7 +64,7 @@ class NovelUpdateNotifier(private val context: Context) {
                 setContentText(
                     context.pluralStringResource(MR.plurals.notification_chapters_generic, newChapters, newChapters),
                 )
-                setSmallIcon(R.drawable.ic_book_24dp)
+                setSmallIcon(R.drawable.ic_reikai)
                 setGroup(Notifications.GROUP_NOVEL_NEW_CHAPTERS)
                 setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY)
                 setAutoCancel(true)
@@ -73,7 +73,7 @@ class NovelUpdateNotifier(private val context: Context) {
         }
         val summary = context.notificationBuilder(Notifications.CHANNEL_NOVEL_LIBRARY_RESULT) {
             setContentTitle(context.stringResource(MR.strings.novel_new_chapters_available, updates.size))
-            setSmallIcon(R.drawable.ic_book_24dp)
+            setSmallIcon(R.drawable.ic_reikai)
             setGroup(Notifications.GROUP_NOVEL_NEW_CHAPTERS)
             setGroupSummary(true)
             setAutoCancel(true)
