@@ -9,13 +9,17 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import logcat.LogPriority
+import reikai.domain.manga.GetTracksInGroup
 import tachiyomi.core.common.util.lang.withNonCancellableContext
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.interactor.InsertTrack
 
 class TrackChapter(
-    private val getTracks: GetTracks,
+    // RK --> the reader keys on the chapter's own manga, which differs across a merged group, so the
+    // group's tracks are read as one; the "is this tracker behind?" guard below would otherwise see a
+    // sibling's stale row and push the remote service backwards.
+    private val getTracks: GetTracksInGroup,
+    // RK <--
     private val trackerManager: TrackerManager,
     private val insertTrack: InsertTrack,
     private val delayedTrackingStore: DelayedTrackingStore,

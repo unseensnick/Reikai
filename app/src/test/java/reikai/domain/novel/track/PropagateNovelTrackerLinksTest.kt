@@ -33,14 +33,14 @@ class PropagateNovelTrackerLinksTest {
     private val interactor =
         PropagateNovelTrackerLinks(preferences, mergeManager, novelRepository, getNovelTracks, insertNovelTrack)
 
-    private fun track(novelId: Long, trackerId: Long, remoteId: Long) = NovelTrack(
+    private fun track(novelId: Long, trackerId: Long, remoteId: Long, lastChapterRead: Double = 0.0) = NovelTrack(
         id = -1L,
         novelId = novelId,
         trackerId = trackerId,
         remoteId = remoteId,
         libraryId = null,
         title = "title",
-        lastChapterRead = 0.0,
+        lastChapterRead = lastChapterRead,
         totalChapters = 0L,
         status = 0L,
         score = 0.0,
@@ -108,7 +108,7 @@ class PropagateNovelTrackerLinksTest {
     }
 
     @Test
-    fun `does not re-insert a tracker a member already has`() = runTest {
+    fun `does not re-insert a tracker a member already has at the same progress`() = runTest {
         group(1L, 2L)
         coEvery { novelRepository.getById(any()) } returns novel()
         coEvery { getNovelTracks.await(1L) } returns listOf(track(1L, 10L, 100L))
@@ -117,5 +117,17 @@ class PropagateNovelTrackerLinksTest {
         interactor.fromSeed(1L)
 
         coVerify(exactly = 0) { insertNovelTrack.await(any()) }
+    }
+
+    @Test
+    fun `levels a member up to the group's furthest-read row`() = runTest {
+        group(1L, 2L)
+        coEvery { novelRepository.getById(any()) } returns novel()
+        coEvery { getNovelTracks.await(1L) } returns listOf(track(1L, 10L, 100L, lastChapterRead = 5.0))
+        coEvery { getNovelTracks.await(2L) } returns listOf(track(2L, 10L, 100L, lastChapterRead = 21.0))
+
+        interactor.fromSeed(1L)
+
+        inserted.map { it.novelId to it.lastChapterRead } shouldContainExactlyInAnyOrder listOf(1L to 21.0)
     }
 }

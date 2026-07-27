@@ -36,6 +36,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Bulk-deleting downloaded novel chapters now asks you to confirm first, matching manga.**
 - **Related-manga suggestions now label where each one came from, in both the carousel and the full grid.** The source, the tracker, or the taste reason behind the pick.
 - **Preview builds now have a teal icon, so they are easy to tell apart from the stable app.** They were both purple before.
+- **"Share trackers across merged sources" now covers showing and removing a tracker, not just copying it.** Turn it off and every source of a merged series tracks on its own again.
 
 ### Fixes
 
@@ -56,6 +57,9 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A grouped series' library cover, title and unread count now follow the source you set as its lead.** Reordering sources on the series page used to change only the combined chapter list; the library kept showing whichever source had the most chapters.
 - **Grouping the library by source now shows clean source names on the category tabs.** They were showing the raw internal key.
 - **The novel library now has the adult-content filter the manga library already had.** It classifies novels from their genre tags, since novel sources carry no adult flag.
+- **A tracker set on one source of a merged manga now shows and updates on every source of it.** The chip, reading progress, mark-as-read and refresh all follow the whole group, the way merged novels already did.
+- **Reading an older chapter from another source of a merged series can no longer push your tracker's progress backwards.**
+- **Removing a tracker from a merged series now removes it everywhere.** It used to stay bound on the other sources and keep the series in the Tracked filter.
 - **A merged manga is now filtered and sorted by a tracker bound on any of its sources, not just its main one.**
 - **Grouping the library by tracking status now places a merged series by a status set on any of its sources, not just its main one.**
 - **The library's tracking-status groups now always read in reading-progress order (Reading first, Not tracked last), instead of being sorted alphabetically by your category sort.**

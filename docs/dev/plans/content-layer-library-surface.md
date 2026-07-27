@@ -68,7 +68,9 @@ Five phases, each shipping alone and device-verified in **both** view modes (tab
 5. **Verb takeover.** The eight verbs move to the shared layer dispatching to per-type interactors; `LibraryScreenModel` is deleted and manifested.
 6. **Parity closeout.** Novel search onto the query AST, hide empty categories on manga, hopper long-press scope.
 
-**Open before phase 2:** tracker propagation. Manga propagates links on merge only, novels on unmerge only, and each is missing the other's behaviour, so merging manga shares a tracker but splitting never redistributes it, while novels do the reverse. Needs a ruling, not a mechanical merge.
+**Settled before phase 2: tracker propagation (2026-07-27).** The two content types were not one design at two timings, they were two invariants. Novels keep one row per tracker per group and read it group-aware, so nothing has to run when a group forms. Manga copied rows at merge and read anchor-only, so correctness depended on the copy running at every path that forms a group or binds a tracker, and it ran at one of six (only the library bulk merge; details add-to-group, the browse add dialog, the history dialog, migration and backup restore all formed groups with no copy). The copies also froze at copy time, since only reads unioned and writes touched one row, which let a sibling stuck at chapter 5 push the remote service backwards.
+
+So manga adopts the novel shape rather than both gaining each other's call. The read sites go through `GetTracksInGroup` (a manga binding of the shared `GroupTrackReader`, which the novel `GetNovelTracks.awaitGroup` now also runs), propagation moves to just before a split on both types, and unbinding clears the group on both. The dedup picks the furthest-read row per tracker rather than the first, so the duplicate rows older builds already wrote are tolerated without a migration. The upstream cost is two small `// RK` islands in `TrackChapter` and `RefreshTracks`, files upstream has not touched since February 2024.
 
 
 ### Engine-step ground truth (2026-07-23)

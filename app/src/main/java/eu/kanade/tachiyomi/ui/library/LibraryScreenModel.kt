@@ -853,15 +853,17 @@ class LibraryScreenModel(
         screenModelScope.launchIO {
             // RK: each selected card's whole group is absorbed by the merge, so one call coalesces every source
             mergeManager.merge(ids)
-            // RK: share any existing tracker across the newly merged group
-            propagateTrackerLinks.fromSeed(ids.first())
         }
     }
 
     // RK: split the selected manga out of their merge groups (no-op for non-merged selections)
     fun unmergeSelection(ids: List<Long>) {
         if (ids.isEmpty()) return
-        screenModelScope.launchIO { mergeManager.unmerge(ids) }
+        screenModelScope.launchIO {
+            // RK: copy each group's trackers onto its members before splitting, so each keeps them
+            ids.forEach { propagateTrackerLinks.fromSeed(it) }
+            mergeManager.unmerge(ids)
+        }
     }
 
     fun search(query: String?) {

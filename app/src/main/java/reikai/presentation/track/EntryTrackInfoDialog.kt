@@ -67,7 +67,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
-import reikai.domain.manga.PropagateTrackerLinks
+import reikai.domain.manga.DeleteTrackInGroup
+import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.novel.interactor.AddNovelTrack
 import reikai.domain.novel.interactor.DeleteNovelTrack
 import reikai.domain.novel.interactor.GetNovelTracks
@@ -83,8 +84,6 @@ import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.source.service.SourceManager
-import tachiyomi.domain.track.interactor.DeleteTrack
-import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.model.Track
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.LabeledCheckbox
@@ -177,7 +176,7 @@ data class EntryTrackInfoDialogHomeScreen(
         private val entryId: Long,
         private val sourceId: Long?,
         private val isNovel: Boolean,
-        private val getTracks: GetTracks = Injekt.get(),
+        private val getTracksInGroup: GetTracksInGroup = Injekt.get(),
         private val getNovelTracks: GetNovelTracks = Injekt.get(),
     ) : StateScreenModel<Model.State>(State()) {
 
@@ -197,10 +196,10 @@ data class EntryTrackInfoDialogHomeScreen(
 
         private fun entryTrackFlow(): Flow<List<Track>> =
             if (isNovel) {
-                // subscribeGroup spans the merge group, so a track bound on a sibling source shows here.
+                // Both reads span the merge group, so a track bound on a sibling source shows here.
                 getNovelTracks.subscribeGroup(entryId).map { tracks -> tracks.map(NovelTrack::toUiTrack) }
             } else {
-                getTracks.subscribe(entryId)
+                getTracksInGroup.subscribe(entryId)
             }
 
         // Manga-only: EnhancedTracker matches a manga to its same-id remote entry with no manual search.
@@ -211,8 +210,6 @@ data class EntryTrackInfoDialogHomeScreen(
                 try {
                     val matchResult = item.tracker.match(manga) ?: throw Exception()
                     item.tracker.register(matchResult, entryId)
-                    // RK: share the new tracker with the rest of the merged group
-                    Injekt.get<PropagateTrackerLinks>().fromSeed(entryId)
                 } catch (_: Exception) {
                     withUIContext { Injekt.get<Application>().toast(MR.strings.error_no_match) }
                 }
@@ -679,8 +676,6 @@ data class EntryTrackerSearchScreen(
                     Injekt.get<AddNovelTrack>().bind(tracker, item, entryId)
                 } else {
                     tracker.register(item, entryId)
-                    // RK: share the new tracker with the rest of the merged group
-                    Injekt.get<PropagateTrackerLinks>().fromSeed(entryId)
                 }
             }
         }
@@ -780,11 +775,12 @@ private data class EntryTrackerRemoveScreen(
 
         fun unregisterTracking(serviceId: Long) {
             screenModelScope.launchNonCancellable {
+                // Group-aware on both types: clear the tracker from every merged source, so a sibling's
+                // row can't keep it alive in the library's tracker filter, sort and grouping.
                 if (isNovel) {
-                    // Group-aware: clear the tracker from every merged source so it doesn't reappear.
                     Injekt.get<DeleteNovelTrack>().awaitGroup(entryId, serviceId)
                 } else {
-                    Injekt.get<DeleteTrack>().await(entryId, serviceId)
+                    Injekt.get<DeleteTrackInGroup>().await(entryId, serviceId)
                 }
             }
         }

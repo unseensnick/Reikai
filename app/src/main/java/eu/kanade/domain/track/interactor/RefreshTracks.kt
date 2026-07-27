@@ -7,11 +7,12 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.supervisorScope
-import tachiyomi.domain.track.interactor.GetTracks
+import reikai.domain.manga.GetTracksInGroup
 import tachiyomi.domain.track.interactor.InsertTrack
 
 class RefreshTracks(
-    private val getTracks: GetTracks,
+    // RK: refresh every tracker bound anywhere in the merged group, not just this source's own rows
+    private val getTracks: GetTracksInGroup,
     private val trackerManager: TrackerManager,
     private val insertTrack: InsertTrack,
     private val syncChapterProgressWithTrack: SyncChapterProgressWithTrack,

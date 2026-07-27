@@ -2,57 +2,44 @@
 
 _Dev records: [novel-tracking.md](dev/plans/novel-tracking.md), [tracker-aware-duplicate-detection.md](dev/tracker-aware-duplicate-detection.md). Doc map: [README.md](README.md)._
 
-When an entry in your library is part of a multi-source group (see [multi-source.md](multi-source.md)), you don't have to set tracker links per-source. The group can share one tracker binding across all of its sources.
+When an entry in your library is part of a multi-source group (see [multi-source.md](multi-source.md)), you don't have to set tracker links per-source. One tracker binding covers the whole group.
 
 This works the same way for manga and light novels.
 
-## Add a tracker: shared across the group
+## Add a tracker: it counts for the whole group
 
 *Details → tap "Add tracker" → search the tracker → pick the matching entry.*
 
-The tracker is set for the source you're viewing and copied onto every other in-library source in the same merged group. Open another source's details and you'll see the same tracker chip already populated.
+The tracker is bound once, to the source you're viewing, and it counts for every source in the group. Open another source's details and the same tracker chip is there. Reading a chapter from any source advances it, the library's tracker filter, tracker-score sort and tracking-status grouping all see it, and refreshing from the tracker updates it.
 
-Only *missing* trackers are filled in:
+There is one binding while the group is merged, not a copy per source. That means the progress you see is always the group's, never a source's stale snapshot.
 
-- A source that already has a binding for that tracker is never overwritten.
-- Sources not in your library (grouped but unfavorited) are skipped. The tracker only goes on entries you're actually keeping.
-- If a tracker's linked entry disagrees across the group (different sources already point at different remote entries for the same tracker), that tracker is skipped rather than guessed. Nothing is overwritten.
-
-## Merge: shared trackers spread to the group
+## Merge: nothing to copy
 
 *Library → long-press to multi-select → tap "Merge".*
 
-When you merge entries into a group, the same simple sharing runs: each tracker that some members already have is copied onto the other in-library members that are missing it. Existing bindings are never overwritten, and a tracker is skipped if members disagree on which remote entry it points to.
+Merging entries needs no tracker step: the moment they are one group, a tracker bound on any member counts for all of them. If two members were already tracked with different remote entries for the same tracker, both bindings stay; the furthest-read one is the one that counts.
 
-There's no voting or majority rule, and nothing happens automatically during a library refresh or auto-grouping. Sharing runs only when you explicitly merge entries, or when you add a tracker from the tracking dialog.
-
-## Remove a tracker: only that source
+## Remove a tracker: clears the group
 
 *Details → long-press the tracker chip → "Remove".*
 
-Removing a tracker affects only the source you're viewing. Other sources in the group keep their trackers. Removal is never propagated: a per-source removal means "I don't want this source linked anymore", not "remove everywhere".
+Removing a tracker unbinds it from every source in the group. Because the group reads as one, leaving a sibling's binding in place would keep the entry showing as tracked in the library filters even though its chip is gone.
 
-## Split a source out of the group: trackers untouched
+## Split a source out of the group: each source keeps a copy
 
 *Manage Sources sheet → check a source → "Split".*
 
-Each source ends up with its own copy of the tracker binding, so trackers survive a split. Both the split-off source and the remaining group keep their tracker chips exactly as-is. There's nothing to clean up.
+Just before a split, each in-library source gets its own copy of the group's tracker bindings, carrying the group's furthest-read progress. Both the split-off source and the remaining group keep their tracker chips, and each then tracks on its own.
 
-For a merged light novel this is the same: while merged it shares one tracker binding across its sources, and each source keeps the tracker if you later split them apart.
+Two cases are skipped rather than guessed: a source that isn't in your library (grouped but unfavorited), and a tracker whose linked remote entry disagrees across the group.
 
-## Remove from library: that entry's trackers are cleaned up
+## Remove from library: tracker rows stay
 
-Removing an entry from the library, by *any* path, clears its tracker rows. Sources still in the library keep their own trackers.
-
-- *Manage Sources sheet → "Remove from library"*: just the entries you ticked.
-- *Manage Sources sheet → "Remove all from library"*: every source in the merged group.
-- *Details → heart button*: just the entry you're viewing (no group-wide option here).
-- *Library multi-select → delete*: the selected entries, or every grouped source if you tick **All N grouped sources** in the Remove dialog.
-
-Once an entry isn't in your library, its tracker association is stale, so cleaning it up avoids leaving orphaned rows behind. This cleanup always runs, regardless of the sharing setting below.
+Removing an entry from the library doesn't clear its tracker rows. They are dropped only when the entry itself is deleted from the database (Settings → Advanced → Clear database), which cascades. Re-adding a removed source to your library brings its tracker back with it.
 
 ## Setting
 
 *Settings → Tracking → "Share trackers across merged sources".*
 
-Default **on**. Turn it off to disable both add-side and merge-side sharing, so tracker linking happens one source at a time. The cleanup on Remove-from-library always runs and isn't governed by this toggle.
+Default **on**, and it governs everything above. Turn it off and each source tracks on its own again: a tracker counts only for the source it is bound to, removing one leaves the others alone, and a split no longer hands each source a copy, so only the source holding the binding stays tracked. Existing bindings are left alone either way, so you can switch back.

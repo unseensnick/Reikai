@@ -29,14 +29,14 @@ class PropagateTrackerLinksTest {
 
     private val interactor = PropagateTrackerLinks(preferences, mergeManager, getManga, getTracks, insertTrack)
 
-    private fun track(mangaId: Long, trackerId: Long, remoteId: Long) = Track(
+    private fun track(mangaId: Long, trackerId: Long, remoteId: Long, lastChapterRead: Double = 0.0) = Track(
         id = -1L,
         mangaId = mangaId,
         trackerId = trackerId,
         remoteId = remoteId,
         libraryId = null,
         title = "title",
-        lastChapterRead = 0.0,
+        lastChapterRead = lastChapterRead,
         totalChapters = 0L,
         status = 0L,
         score = 0.0,
@@ -76,7 +76,7 @@ class PropagateTrackerLinksTest {
     fun `does nothing when the pref is off`() = runTest {
         every { syncPref.get() } returns false
 
-        interactor.fromSeed(1L)
+        interactor.distribute(listOf(1L, 2L))
 
         coVerify(exactly = 0) { insertTrack.awaitAll(any()) }
     }
@@ -110,7 +110,7 @@ class PropagateTrackerLinksTest {
     }
 
     @Test
-    fun `does not re-insert a tracker a member already has`() = runTest {
+    fun `does not re-insert a tracker a member already has at the same progress`() = runTest {
         group(1L, 2L)
         coEvery { getManga.await(any()) } answers { manga(firstArg()) }
         coEvery { getTracks.await(1L) } returns listOf(track(1L, 10L, 100L))
@@ -119,5 +119,20 @@ class PropagateTrackerLinksTest {
         interactor.fromSeed(1L)
 
         coVerify(exactly = 0) { insertTrack.awaitAll(any()) }
+    }
+
+    @Test
+    fun `levels a member up to the group's furthest-read row`() = runTest {
+        group(1L, 2L)
+        coEvery { getManga.await(any()) } answers { manga(firstArg()) }
+        coEvery { getTracks.await(1L) } returns listOf(track(1L, 10L, 100L, lastChapterRead = 5.0))
+        coEvery { getTracks.await(2L) } returns listOf(track(2L, 10L, 100L, lastChapterRead = 21.0))
+        val inserted = slot<List<Track>>()
+        coEvery { insertTrack.awaitAll(capture(inserted)) } returns Unit
+
+        interactor.fromSeed(1L)
+
+        inserted.captured.map { it.mangaId to it.lastChapterRead } shouldContainExactlyInAnyOrder
+            listOf(1L to 21.0)
     }
 }

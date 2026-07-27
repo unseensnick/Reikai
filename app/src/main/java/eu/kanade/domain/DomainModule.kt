@@ -57,6 +57,8 @@ import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
 import reikai.domain.library.updateerror.GetLibraryUpdateErrors
 import reikai.domain.library.updateerror.LibraryUpdateErrorRepository
 import reikai.domain.library.updateerror.UpsertLibraryUpdateError
+import reikai.domain.manga.DeleteTrackInGroup
+import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.PropagateTrackerLinks
@@ -238,9 +240,9 @@ class DomainModule : InjektModule {
         // RK <--
         // RK --> novel trackers
         addSingletonFactory<NovelTrackRepository> { NovelTrackRepositoryImpl(get()) }
-        addFactory { GetNovelTracks(get(), get()) }
+        addFactory { GetNovelTracks(get(), get(), get()) }
         addFactory { InsertNovelTrack(get()) }
-        addFactory { DeleteNovelTrack(get(), get()) }
+        addFactory { DeleteNovelTrack(get(), get(), get()) }
         addFactory { NovelTrackUpdater(get()) }
         addFactory { AddNovelTrack(get(), get(), get()) }
         addFactory { RefreshNovelTracks(get(), get(), get()) }
@@ -341,8 +343,14 @@ class DomainModule : InjektModule {
         addFactory { AddTracks(get(), get(), get(), get()) }
         addFactory { RefreshTracks(get(), get(), get(), get()) }
         addFactory { DeleteTrack(get()) }
+        // RK --> unbind across a merged group, matching the group-aware reads
+        addFactory { DeleteTrackInGroup(get(), get(), get()) }
+        // RK <--
         addFactory { GetTracksPerManga(get()) }
         addFactory { GetTracks(get()) }
+        // RK --> tracks bound anywhere in a merged group, one per tracker
+        addFactory { GetTracksInGroup(get(), get(), get()) }
+        // RK <--
         addFactory { InsertTrack(get()) }
         addFactory { SyncChapterProgressWithTrack(get(), get(), get()) }
 

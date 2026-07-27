@@ -85,9 +85,11 @@ import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
+import reikai.domain.manga.PropagateTrackerLinks
 import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.RECOMMENDS_SOURCE
 import reikai.domain.recommendation.RecommendationHideFilter
@@ -143,7 +145,6 @@ import tachiyomi.domain.manga.model.applyFilter
 import tachiyomi.domain.manga.model.asMangaCover
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.source.service.SourceManager
-import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.model.Track
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
@@ -181,7 +182,10 @@ class MangaScreenModel(
     private val getCategories: GetCategories = Injekt.get(),
     // RK: orders the change-category picker by the category sort-order pref, like the library.
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences = Injekt.get(),
-    private val getTracks: GetTracks = Injekt.get(),
+    // RK --> a tracker bound on one source of a merged series counts for the whole group, so every read
+    // here goes through GetTracksInGroup instead of Mihon's per-manga GetTracks.
+    private val getTracksInGroup: GetTracksInGroup = Injekt.get(),
+    // RK <--
     private val addTracks: AddTracks = Injekt.get(),
     private val setMangaCategories: SetMangaCategories = Injekt.get(),
     private val mangaRepository: MangaRepository = Injekt.get(),
@@ -189,6 +193,7 @@ class MangaScreenModel(
     private val updateMangaFromRemote: UpdateMangaFromRemote = Injekt.get(),
     // RK -->
     private val mergeManager: MangaMergeManager = Injekt.get(),
+    private val propagateTrackerLinks: PropagateTrackerLinks = Injekt.get(),
     private val mangaLibraryAdder: MangaLibraryAdder = Injekt.get(),
     private val mergedChapterProvider: MergedChapterProvider = Injekt.get(),
     private val mangaPreferences: MangaPreferences = Injekt.get(),
@@ -1343,7 +1348,7 @@ class MangaScreenModel(
 
             refreshTrackers()
 
-            val tracks = getTracks.await(mangaId)
+            val tracks = getTracksInGroup.await(mangaId)
             val maxChapterNumber = chapters.maxOf { it.chapterNumber }
             val shouldPromptTrackingUpdate = tracks.any { track -> maxChapterNumber > track.lastChapterRead }
 
@@ -1652,7 +1657,7 @@ class MangaScreenModel(
 
         screenModelScope.launchIO {
             combine(
-                getTracks.subscribe(manga.id).catch { logcat(LogPriority.ERROR, it) },
+                getTracksInGroup.subscribe(manga.id).catch { logcat(LogPriority.ERROR, it) },
                 trackerManager.loggedInTrackersFlow(),
             ) { mangaTracks, loggedInTrackers ->
                 // Show only if the service supports this manga's source
@@ -1748,7 +1753,7 @@ class MangaScreenModel(
 
     /** Bound trackers eligible for "Fill from tracker" (self-hosted enhanced trackers can't autofill). */
     suspend fun autofillCandidates(): List<Pair<Track, Tracker>> =
-        buildTrackerAutofillCandidates(getTracks.await(mangaId), trackerManager)
+        buildTrackerAutofillCandidates(getTracksInGroup.await(mangaId), trackerManager)
 
     suspend fun fetchTrackerMetadata(track: Track, tracker: Tracker): TrackMangaMetadata =
         tracker.getMangaMetadata(track)
@@ -1765,6 +1770,7 @@ class MangaScreenModel(
         onClearSelectedSource = { mergeGroup.selectedSource.value = null },
         dismissDialog = ::dismissDialog,
         setFavorite = { ids, favorite -> ids.forEach { updateManga.awaitUpdateFavorite(it, favorite) } },
+        onBeforeSplit = { ids -> propagateTrackerLinks.distribute(ids) },
     )
 
     /** Switch the chapter list to a single grouped source, or null for the unified merged view. */
@@ -1873,7 +1879,7 @@ class MangaScreenModel(
             val pool = relatedMangasLoader.load(
                 manga = state.manga.toSManga(),
                 source = source,
-                tracks = getTracks.await(state.manga.id),
+                tracks = getTracksInGroup.await(state.manga.id),
                 ranker = recommendationPreferences.buildRanker(),
                 // Rerank off -> empty profile, which collapses the ranker to popularity order.
                 taste = if (recommendationPreferences.enableRecommendationRerank.get()) {
