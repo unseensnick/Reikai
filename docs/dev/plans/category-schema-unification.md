@@ -98,7 +98,8 @@ both sides, unchanged.
 - Backup: `BackupCategory`, `BackupNovelCategory`, `CategoriesBackupCreator`, `CategoriesRestorer`,
   `NovelRestorer`.
 - The consumer that unblocks: `reikai.presentation.library.LibraryEngine` (`behaviorFor` refuses a mixed
-  view today) and `LibraryCategoryRef` (pairs a category with its content type, defined but unwired).
+  view today). `LibraryCategoryRef` was meant to pair a category with its content type; the shared table made
+  it unnecessary and it was deleted unwired.
 
 ## Plan
 
@@ -115,7 +116,8 @@ both sides, unchanged.
 5. **Retire the novel category stack** (repository, model with `novelOrder`, interactors, screen model,
    DI), routing the novel sort-read path onto the shared `LibrarySort` / `CategorySortOverride` helpers
    and the novel category UI through the shared `Category` stack, `content_type`-filtered.
-6. **Wire `LibraryCategoryRef` and lift `behaviorFor(ALL)`'s refusal**, unblocking the All chip.
+6. **Lift `behaviorFor(ALL)`'s refusal**, unblocking the All chip. (`LibraryCategoryRef` was dropped instead of
+   wired: one shared table means one id space, so there is nothing to disambiguate.)
 
 ## Follow-on (separate, after this)
 
@@ -240,8 +242,9 @@ Kotlin migration fixes flags and remaps prefs), the category-manager dedup (Slic
 read-caller retirement + sort collapse + stack deletion (Slice B). A full wipe-and-restore round-trip verified
 novel categories and memberships survive. The category-preference cleanup under Follow-on above then shipped
 (`f5aa12fe1`..`28d18f1d0`, `versionCode` 188), device-verified on the A57 across all three paths (upgrade scrub,
-delete-scrub, restore remap + dead-key skip). What remains is the user-creatable universal categories, then the
-"All" chip that this whole initiative unblocks. Researched 2026-07-23, shipped 2026-07-24.
+delete-scrub, restore remap + dead-key skip). The user-creatable universal categories and their backup support
+then shipped too, both recorded under Follow-on above, so this initiative is complete and the "All" chip it
+existed to unblock is no longer waiting on the category axis. Researched 2026-07-23, shipped 2026-07-24.
 
 Fixes that landed during the work, worth keeping in mind: during the cutover, novelLibraryView is dropped and
 recreated around the junction table-recreate (else the RENAME reparses it mid-migration and crashes, invisible

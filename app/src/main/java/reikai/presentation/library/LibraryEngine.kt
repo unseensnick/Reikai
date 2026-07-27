@@ -20,10 +20,11 @@ import reikai.domain.library.ContentType
  *
  * Shaped for a mixed list from the start: [providersFor] answers with every provider whose rows belong in
  * a view, which is one provider for Manga or Novels and both for [ContentType.ALL]. Only the single-type
- * case is wired today, because a mixed view additionally needs the manga and novel category id spaces
- * unified (they allocate independently, so the id 3 exists in both meaning different things). An ALL view
- * therefore fails loudly rather than silently rendering one content type; the library chip does not offer
- * All yet, so it is unreachable.
+ * case is wired today, because [behaviorFor] can only return one provider's behaviour and a mixed view
+ * needs the two states combined. The category id spaces were the original blocker and no longer are: the
+ * novel category table was folded into the shared `categories` table, so there is one id space and
+ * `content_type` says which libraries a category belongs to. An ALL view still fails loudly rather than
+ * silently rendering one content type; the library chip does not offer All yet, so it is unreachable.
  */
 class LibraryEngine(private val providers: List<LibraryProvider>) {
 
@@ -40,7 +41,7 @@ class LibraryEngine(private val providers: List<LibraryProvider>) {
     /** The behaviour driving a [contentType] view. */
     fun behaviorFor(contentType: ContentType): LibraryBehavior =
         providersFor(contentType).singleOrNull()
-            ?: error("A mixed $contentType library needs one category id space across content types")
+            ?: error("A mixed $contentType library needs a behaviour combining both providers' state")
 
     // Selection. Every op that needs to know what is on screen takes the category's entries in display
     // order, so the engine never has to resolve rows itself and stays free of per-type lookups.

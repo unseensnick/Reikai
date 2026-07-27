@@ -40,6 +40,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 ### Fixes
 
 - **Novel update notifications now carry the Reikai icon instead of a generic book.** Manga ones already did.
+- **You can now move manga into a hidden category from the library's Change categories action.** Hidden categories were missing from that list, so there was no way to pick them.
 - **A category that covers both manga and novels now survives a backup.** Restoring one used to split it into two separate categories, one per library.
 - **Installing an extension through Shizuku works again.**
 - **A resumed image download now shows the right progress instead of restarting from zero.**

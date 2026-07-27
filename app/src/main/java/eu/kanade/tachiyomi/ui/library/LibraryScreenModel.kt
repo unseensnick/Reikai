@@ -430,8 +430,9 @@ class LibraryScreenModel(
 
     // RK -->
     // Manga library sort, routed through the shared reikai.domain.library.librarySortComparator so a sort
-    // behaviour change is written once for manga and novels. Manga keeps its OWN LibrarySort bit decoder
-    // (sortForCategory), because manga and novels store the TrackerMean / Downloaded sorts on swapped bits.
+    // behaviour change is written once for manga and novels. Both types also decode their per-category
+    // flags through the shared sortForCategory; the novel bit layout was translated onto the manga one
+    // when the category tables merged, so there is one layout and no per-type decoder.
     private fun Map<Category, List</* LibraryItem */ Long>>.applySort(
         favoritesById: Map<Long, LibraryItem>,
         trackMap: Map<Long, List<Track>>,
@@ -882,7 +883,10 @@ class LibraryScreenModel(
             val mangaList = state.value.mangaFor(ids)
 
             // Hide the default category because it has a different behavior than the ones from db.
-            val categories = state.value.displayedCategories.filter { it.id != 0L }
+            // RK: a fresh read, not displayedCategories. That list is filtered by the hidden-category
+            // toggle and by an active search, so assigning to a hidden category was impossible: its
+            // checkbox never appeared. Matches the novel dialog, which already read the full list.
+            val categories = getCategories.await().filterNot { it.isSystemCategory }
 
             // RK: shared manga/novel category-diff over each entry's category ids (common = on all,
             // mix = on some) so the change-categories tri-state can't drift between the two types.
