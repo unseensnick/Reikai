@@ -1,21 +1,13 @@
 package eu.kanade.tachiyomi.ui.library
 
-import eu.kanade.tachiyomi.source.getNameForMangaInfo
-import eu.kanade.tachiyomi.source.online.MetadataSource
 import exh.metadata.sql.models.SearchTag
 import exh.metadata.sql.models.SearchTitle
 import exh.search.Namespace
 import exh.search.QueryComponent
 import exh.search.Text
-import exh.source.getMainSource
 import reikai.domain.entry.EntryId
-import reikai.presentation.library.libraryQueryMatches
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.source.model.Source
-import tachiyomi.domain.source.service.SourceManager
-import tachiyomi.source.local.LocalSource
-
-private const val LOCAL_SOURCE_ID_ALIAS = "local"
 
 data class LibraryItem(
     val libraryManga: LibraryManga,
@@ -37,60 +29,27 @@ data class LibraryItem(
     // can carry the same row id. Defaults to the manga id; NovelLibraryItem.toLibraryItem sets the
     // novel case.
     val entryId: EntryId = EntryId.Manga(libraryManga.id),
+    // Upstream fields for the query AST. Defaulted because the novel adapter builds this type too and
+    // novels filter through their own matcher, never the AST.
+    val sourceName: String = "",
+    val sourceLanguage: String = "",
+    // RK: the source name the EXH tag-search grammar matches against. getNameForMangaInfo() differs
+    // from the AST's lowercased source name, so they stay separate rather than one changing the other.
+    // Non-null only for metadata/gallery sources, which is also what selects the tag-search path.
+    val metadataSourceName: String? = null,
 ) {
     val id: Long = libraryManga.id
 
-    /**
-     * Checks if a query matches the manga
-     *
-     * @param constraint the query to check.
-     * @return true if the manga matches the query, false otherwise.
-     */
-    fun matches(
-        constraint: String,
-        // RK: query pre-parsed once per search (in LibraryScreenModel); used for metadata-source
-        // entries so the structured grammar (namespace:tag, wildcards, exclusion, exact) applies.
-        parsedQuery: List<QueryComponent>,
-        sourceManager: SourceManager,
-    ): Boolean {
-        val source = sourceManager.getOrStub(libraryManga.manga.source)
-        val sourceName = source.getNameForMangaInfo()
-        // RK --> tag-search engine for adult/metadata sources: a non-prefix query on a gallery source is
-        //        matched by the structured grammar (namespace:tag, wildcards, exclusion), manga-only.
-        //        A prefix query (id:/src:) still falls through to the shared matcher below, as before.
-        if (!constraint.startsWith("id:", true) &&
-            !constraint.startsWith("src:", true) &&
-            source.getMainSource<MetadataSource<*, *>>() != null
-        ) {
-            return parsedQuery.all { matchesComponent(it, sourceName) }
-        }
-        // RK <--
-        // RK: the plain-text / id: / src: grammar is shared with the novel library
-        //     (reikai.presentation.library.libraryQueryMatches). searchTags matching stays in the
-        //     metadata branch above: a non-metadata manga never carries them, so nothing is lost here.
-        val manga = libraryManga.manga
-        return libraryQueryMatches(
-            query = constraint,
-            id = id,
-            title = manga.title,
-            author = manga.author,
-            artist = manga.artist,
-            description = manga.description,
-            genre = manga.genre,
-            sourceName = sourceName,
-            matchesSourceTerm = { term ->
-                if (term.equals(LOCAL_SOURCE_ID_ALIAS, ignoreCase = true)) {
-                    source.id == LocalSource.ID
-                } else {
-                    source.id == term.toLongOrNull()
-                }
-            },
-        )
-    }
+    // RK --> tag-search engine for adult/metadata sources. Upstream matches every entry through the
+    // query AST (mihon.feature.library.matches); a gallery entry is matched by this structured grammar
+    // instead (namespace:tag, wildcards, exclusion, exact), which the AST has no equivalent for. The
+    // caller picks the path, since a prefix query (id:/src:) still belongs to the AST.
+    fun matchesMetadataQuery(parsedQuery: List<QueryComponent>): Boolean =
+        parsedQuery.all { matchesComponent(it, metadataSourceName.orEmpty()) }
 
-    // RK --> match one parsed query component against this entry, honouring its excluded flag. A
-    // Namespace checks the indexed tags (namespace + optional tag pattern); a Text matches across
-    // the entry's title, author, artist, description, source name, genres, tags and alt-titles.
+    // Match one parsed query component against this entry, honouring its excluded flag. A Namespace
+    // checks the indexed tags (namespace + optional tag pattern); a Text matches across the entry's
+    // title, author, artist, description, source name, genres, tags and alt-titles.
     private fun matchesComponent(component: QueryComponent, sourceName: String): Boolean {
         val manga = libraryManga.manga
         val matched = when (component) {

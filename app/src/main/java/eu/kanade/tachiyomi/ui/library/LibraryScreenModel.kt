@@ -18,10 +18,13 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import eu.kanade.tachiyomi.util.removeCovers
 import exh.search.SearchEngine
+import exh.source.getMainSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -36,6 +39,8 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import mihon.core.common.utils.mutate
+import mihon.domain.library.model.search.QueryNode
+import mihon.feature.library.matches
 import reikai.domain.category.categoryDiff
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.isHidden
@@ -178,7 +183,16 @@ class LibraryScreenModel(
                             items
                         } else {
                             val parsedQuery = searchEngine.parseQuery(searchQuery)
-                            items.filter { m -> m.matches(searchQuery, parsedQuery, sourceManager) }
+                            val queryNode = QueryNode.from(searchQuery)
+                            val isPrefixQuery = searchQuery.startsWith("id:", true) ||
+                                searchQuery.startsWith("src:", true)
+                            items.filter { m ->
+                                if (m.metadataSourceName != null && !isPrefixQuery) {
+                                    m.matchesMetadataQuery(parsedQuery)
+                                } else {
+                                    queryNode.matches(m)
+                                }
+                            }
                         }
                     }
 
@@ -522,6 +536,7 @@ class LibraryScreenModel(
                 // RK: resolve the download count once (it walks the download-cache tree); reused for the
                 //     field and the badge instead of two identical traversals per manga per emit.
                 val downloadCount = downloadManager.getDownloadCount(manga.manga)
+                val source = sourceManager.getOrStub(manga.manga.source)
                 LibraryItem(
                     libraryManga = manga,
                     downloadCount = downloadCount,
@@ -529,6 +544,11 @@ class LibraryScreenModel(
                     searchTags = tagsByManga[manga.id],
                     searchTitles = titlesByManga[manga.id],
                     isLocal = manga.manga.isLocal(),
+                    sourceName = source.name.lowercase(),
+                    sourceLanguage = source.lang,
+                    // RK: non-null only for gallery/metadata sources, which selects the tag-search path.
+                    metadataSourceName = source.getMainSource<MetadataSource<*, *>>()
+                        ?.let { source.getNameForMangaInfo() },
                     badges = LibraryItem.Badges(
                         downloadCount = if (preferences.downloadBadge) {
                             downloadCount
