@@ -155,7 +155,7 @@ both sides, unchanged.
   manga-visible rows and went off-path (see [off-path-manifest.md](../off-path-manifest.md)); the type-agnostic
   `RenameCategory` and `UpdateCategory` stay live.
 
-  **Backup carries the content type.** `BackupCategory` gained it at a fork-reserved `@ProtoNumber(8001)`
+  **Backup carries the content type. SHIPPED (`de40d9f20`), device-verified.** `BackupCategory` gained it at a fork-reserved `@ProtoNumber(8001)`
   (tsundoku's convention) with a Kotlin default of MANGA, matching both the column default and how a backup
   written before the field has to read. `CategoriesRestorer` now inserts through `CategoryRepository` rather
   than the raw query, which writes that content type instead of forcing manga-only, and returns the new row id
