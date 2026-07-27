@@ -141,8 +141,13 @@ jobs:
         with:
           tag_name: ${{ env.VERSION_TAG }}
           name: Reikai ${{ env.VERSION_TAG }}
+          # The in-app update dialog shows this body only up to the last <!--> marker (see
+          # ReleaseServiceImpl), so the download guidance and checksums below it stay GitHub-only.
           body: |
             ${{ env.RELEASE_BODY }}
+
+            <!-->
+
             ${{ env.CHECKSUMS }}
 
             > If you are unsure which to download, use `reikai-${{ env.VERSION_TAG }}.apk` (universal).
