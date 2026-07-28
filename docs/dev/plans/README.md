@@ -4,7 +4,7 @@ One markdown per substantial Reikai feature or initiative: a developer-facing re
 
 These are distinct from the user-facing docs ([docs/README.md](../../README.md)) and the dev process / reference docs ([docs/dev/README.md](../README.md)); the plan docs cross-link those rather than duplicating them. For which doc owns what and what to update when, start at [docs/dev/README.md](../README.md).
 
-The format these follow, and the rule for what earns a doc here, live in [.claude/rules/workflow.md](../../../.claude/rules/workflow.md) ("Roadmap & plans"). The forward-looking backlog is [ROADMAP.md](../../../ROADMAP.md).
+The format these follow, and the rule for what earns a doc here, live in [.claude/rules/roadmap-plans.md](../../../.claude/rules/roadmap-plans.md). The forward-looking backlog is [ROADMAP.md](../../../ROADMAP.md).
 
 ## Foundation
 
