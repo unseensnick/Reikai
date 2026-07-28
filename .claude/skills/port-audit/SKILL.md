@@ -79,14 +79,14 @@ Use the existing project helpers. Reikai already has Compose equivalents for mos
 
 ## Step 5: Plan
 
-Use `EnterPlanMode`. The plan file structure that worked in this skill's home session:
+Use `EnterPlanMode`. The plan structure:
 
 1. **Context**: why this audit / fix is happening, decisions captured in Step 3.
 2. **TL;DR table**: `| # | Defect | User-visible effect |`. One row per fix, plain-English effect. This is the section the user actually reads first.
 3. **Per-defect implementation detail**: for each, cite legacy file:line + Compose file:line, name the param / signature changes, name the call sites.
 4. **Files touched**: flat list.
 5. **Commit cadence**: one logical change per commit, conventional-commits messages drafted, NO `Co-Authored-By`, NO em dashes.
-6. **Verification**: concrete on-device steps using user-facing setting names (look these up in `i18n/src/commonMain/moko-resources/base/strings.xml`, since internal pref keys do not always match the displayed label). Include the test command lines for any runs: `:domain:test --tests "<FQCN>"` (Gradle via PowerShell with `JAVA_HOME` set to Temurin 21, see workflow.md).
+6. **Verification**: concrete on-device steps using user-facing setting names (look these up in `i18n/src/commonMain/moko-resources/base/strings.xml`, since internal pref keys do not always match the displayed label). Include the test command lines for any runs: `:domain:test --tests "<FQCN>"` (Gradle via PowerShell with `JAVA_HOME` set to Temurin 21; see CLAUDE.md "Build").
 
 Call `ExitPlanMode` when the plan is complete. Wait for approval.
 
@@ -102,7 +102,7 @@ After approval:
 After all defects are landed:
 
 - Run the relevant unit tests one class at a time (per the testing rules): `:domain:test --tests "<FQCN>"`.
-- Run `:app:compileDebugKotlin` to verify the app compiles (Gradle via PowerShell, `JAVA_HOME` = Temurin 21, see workflow.md). Pre-existing deprecation warnings are fine; new errors are not.
+- Run `:app:compileDebugKotlin` to verify the app compiles (Gradle via PowerShell, `JAVA_HOME` = Temurin 21; see CLAUDE.md "Build"). Pre-existing deprecation warnings are fine; new errors are not.
 
 ## Step 7: CHANGELOG
 
@@ -114,7 +114,7 @@ Per `.claude/rules/workflow.md`:
 
 ## Step 8: Stop
 
-Do NOT commit. CLAUDE.md is explicit: "NEVER commit changes unless the user explicitly asks." The plan listed a commit cadence as a guide, but plan approval is not commit authorization.
+Do NOT commit. Committing is the owner's call via `/ship`. The plan listed a commit cadence as a guide, but plan approval is not commit authorization.
 
 Summarize for the user:
 

@@ -57,7 +57,7 @@ These run on the main thread (cheap) so the subagents you spawn next get briefed
 1. Check `Handoff.md` in the project root if present (untracked is fine). Note the branch, what shipped, what was deferred, which legacy files are off-limits.
 2. `git log --oneline -20` for recent shape of work. If the task references a phase, `git log --oneline -50 --grep="<phase keyword>"` to find prior commits in the same series.
 3. Look for a plan file in `C:\Users\<user>\.claude\plans\` matching the task (Reikai stores plans there; latest plan often has a "what really shipped" rewrite).
-4. Skim `.claude/rules/architecture.md` for the legacy / Compose split rule. For a flipped section, the Compose screen is the target. For not-yet-flipped, legacy is.
+4. Skim `.claude/rules/architecture.md` and `.claude/rules/screen-conventions.md` for the conventions the affected surface must follow (Mihon is Compose + Voyager throughout; the reader and the edit-info form are the only View-based holdouts).
 
 Write down for Step 3 (briefing the subagents):
 
@@ -73,7 +73,7 @@ Decide which of these areas the task touches. Skip the ones that don't apply, br
 | Area | When relevant | What to brief |
 |---|---|---|
 | Current Reikai code | Always | Target files, callers, callees, related ScreenModel, tests. |
-| Reference source | Ports, parity checks | Upstream port: the matching Mihon file(s) + history (`git -C refs/mihon log -- <path>`). Reikai-feature port: the Yōkai-era source on `design/library-compose`. API differences from current code. |
+| Reference source | Ports, parity checks | Upstream port: the matching Mihon file(s) + history (`git -C refs/mihon log -- <path>`). If the Mihon file has no local counterpart, check `docs/dev/off-path-manifest.md`: a deleted-and-manifested file's change lands in its Reikai twin instead. Reikai-feature port: the Yōkai-era source on `design/library-compose`. API differences from current code. |
 | Framework bridges | Theme, Compose, Voyager, Injekt | The relevant layer (e.g., Voyager screen lifecycle, `PreferenceStore`, Injekt DI). Specifically: what's mapped, what isn't, what falls through. |
 | Existing helpers (DRY) | New widget / utility tempting | Search for the project's existing equivalent before letting the plan invent one. |
 | Test coverage | Behavior changes, refactors | What's tested, what isn't, which test class to extend. |

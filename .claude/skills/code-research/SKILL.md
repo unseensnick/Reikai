@@ -1,6 +1,6 @@
 ---
 name: code-research
-description: Deep, fan-out research over the codebase to answer a big question (test gaps, how a subsystem works end to end, a risk/security/dead-code audit, "where does X happen everywhere"). The codebase analog of deep web research: parallel explorer agents gather file:line-cited findings, surprising or high-stakes claims are adversarially verified against current code, and the result is a single prioritized report. Use for broad/deep questions that span many files and modules, NOT a one-file lookup and NOT a single-task pre-plan (use /scout for that, /explain for one thing).
+description: Deep, fan-out research over the codebase to answer a big question (test gaps, how a subsystem works end to end, a risk/security/dead-code audit, "where does X happen everywhere"). The codebase analog of deep web research: parallel explorer agents gather file:line-cited findings, surprising or high-stakes claims are adversarially verified against current code, and the result is a single prioritized report. Use for broad/deep questions that span many files and modules, NOT a one-file lookup and NOT a single-task pre-plan (use /scout for that; a one-thing explanation needs no skill).
 argument-hint: "<research question> (e.g. 'where are our unit-test gaps', 'how does backup/restore work end to end', 'audit the EXH subsystem for risk')"
 disable-model-invocation: false
 allowed-tools:
@@ -26,7 +26,7 @@ The codebase analog of the web `deep-research` harness. Where deep-research fans
 
 - A single fact or one-file lookup. Just read it.
 - Pre-planning ONE concrete task (port this screen, add this feature). Use `/scout`, it is lighter and task-scoped.
-- Explaining one already-located thing. Use `/explain`.
+- Explaining one already-located thing. Just read it and explain; no skill needed.
 
 If invoked for something trivial, push back once and suggest the lighter tool.
 

@@ -122,4 +122,26 @@ if [ "$FORMATTED" = false ] && command -v gofmt >/dev/null 2>&1; then
   esac
 fi
 
+# Kotlin via Spotless (Gradle). Opt-in: CLI Gradle is intermittent on this
+# machine (loopback failures under MSYS bash) and a cold daemon would stall
+# every edit, so the branch only runs when RK_FORMAT_SPOTLESS=1 is set.
+# Formats just the edited file via Spotless' IDE hook.
+if [ "$FORMATTED" = false ] && [ "${RK_FORMAT_SPOTLESS:-0}" = "1" ] && [ -f "$ROOT/gradlew" ]; then
+  case "$EXTENSION" in
+    kt|kts)
+      if [ -z "${JAVA_HOME:-}" ]; then
+        for jdk in "$HOME"/.jdks/temurin-21*; do
+          if [ -d "$jdk" ]; then
+            export JAVA_HOME="$jdk"
+            break
+          fi
+        done
+      fi
+      if [ -n "${JAVA_HOME:-}" ]; then
+        (cd "$ROOT" && timeout 12 ./gradlew --quiet spotlessApply "-PspotlessIdeHook=$FILE_PATH" >/dev/null 2>&1) && FORMATTED=true
+      fi
+      ;;
+  esac
+fi
+
 exit 0

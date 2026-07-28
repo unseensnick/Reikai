@@ -18,39 +18,7 @@ Check `README.md` and `docs/*.md` for stale references when behavior or fork-spe
 
 ## Roadmap & plans
 
-Two artifacts hold the forward plan. Keep them separate: the roadmap is the terse what-and-when; the plan docs are the how-and-why.
-
-### `ROADMAP.md` (tracked, the single forward backlog)
-
-**Forward-looking only.** It holds what is *left* to build, never what already shipped. Structure, top to bottom:
-
-1. **Intro**: two lines pointing to `docs/dev/shipped.md` (done-log), `docs/dev/plans/` (detail), `Handoff.md` (session state), and this file (format).
-2. **Now** (in progress), **Next** (queued, in priority order), **Later** (backlog). Each item is **one line**: a bold title, a size tag (`[S]` / `[M]` / `[L]`), a one-sentence "what", and a link to its plan doc when one exists. No inline plans: the detail lives in the plan doc.
-3. **Later is grouped by stable area** (Library, Reader, Novels, Recommendations, adult sources, ...), never by phase. Phases are a plan artifact and rot; areas are durable. Only include areas that have open items.
-4. **Parked / not building**: one line per item, a one-line reason, a link if there's a plan/decision doc. Verbose rationale goes in the plan doc, not here.
-
-**No Status table, no Shipped section, no audit prose in this file.** Shipped work moves to [docs/dev/shipped.md](../../docs/dev/shipped.md): a terse done-log grouped by durable area (never by phase), each area free to carry sub-sections, plus a releases table mapping each version to what it carried. A line cites whatever identifies the work best: a commit short-SHA(s), a `(version)` parenthetical for the release it shipped in, and/or a link to its plan doc for anything with a full record. It is a dev record, so it *may* name sources. Audit reports live in `docs/dev/audits/` (local / gitignored; only their action items become roadmap lines). Decisions and rationale live in `docs/dev/plans/`.
-
-**Naming (enforced):** `ROADMAP.md` is a semi-public surface, so it stays generic about content sources: use an approved shorthand (`EH` / `ExH` / `MD` / `CMK`) or collective phrasing ("the built-in adult sources"), never a full source name, adult (`nhentai`, `pururin`, ...) or mainstream (`mangadex`, `comick`). Trackers (MangaUpdates, Shikimori, AniList, ...) are not content sources and stay named. The dev-record files (`docs/dev/shipped.md`, `docs/dev/plans/`, local `docs/dev/audits/`) may name sources freely. This mirrors the CHANGELOG rule (see "Public-facing naming"); the enforced deny-list lives in `.githooks/pre-commit` and `.github/workflows/docs-lint.yml` (extend both when a new source is named).
-
-**Other rules:** never paste an implementation plan into the roadmap; convert relative dates to absolute; no em dashes; `Roadmap N` (never a bare `#N`), a real issue/PR uses `owner/repo#N`. A `pre-commit` hook + the `docs-lint` CI enforce the three hard rules on `ROADMAP.md`: no content-source names, no em dash, no bare `#N`. Structural rules (one-line items, size tags, area grouping) are convention, not linted; review catches them.
-
-### `docs/dev/plans/` (tracked, implementation & decision records)
-
-A **substantial** feature or initiative gets one markdown here: a developer-facing record of what was built and why. Distinct from the architecture references already in `docs/` and `docs/dev/` (`multi-source.md`, `related-mangas.md`, `tracker-sync.md`, `ln-plugin-host.md`, etc.): cross-link those, do not duplicate them. One doc per feature; fold superseded iterations of the same feature into its single doc.
-
-**Template** (every plan doc follows it):
-
-- **Goal**: one or two sentences, what this delivers for the user.
-- **Why**: the motivation, the parity gap, or the constraint that made it worth building.
-- **Approach**: how it works now, in plain English first, then the mechanism. Describe current behavior, never the journey ("we tried X then switched to Y").
-- **Key files**: the entry points a developer would open first (`file:line` or path).
-- **Status**: shipped / in progress / deferred, with commit short-SHA(s).
-- **Decisions & tradeoffs**: the choices made and what was deliberately left out.
-
-Naming: real descriptive names (`novel-reader.md`, `manga-details-parity.md`), never generated slugs. `docs/dev/plans/README.md` indexes every doc with a one-line hook.
-
-**What does NOT go here:** bug-fix plans, polish batches, scouting / audit reports, doc-edit plans, and superseded drafts stay **local** (the session plan archive), out of the repo, so `docs/dev/plans/` holds only durable feature records.
+The forward backlog is `ROADMAP.md` (terse, forward-only, one-line items); substantial features get a record in `docs/dev/plans/` (Goal / Why / Approach / Key files / Status / Decisions template); shipped work moves to `docs/dev/shipped.md` at release-cut. The full structure, naming, and lint rules for all three live in [roadmap-plans.md](roadmap-plans.md), a path-scoped rule that loads when those files are in play. The hard rules (no content-source names, no em dash, no bare `#N`) are enforced by the `pre-commit` hook and `docs-lint` CI regardless.
 
 ## Cutting a release (user-initiated)
 
@@ -92,13 +60,13 @@ Write commits a user could skim and a contributor could read on. Scale the struc
 **Pre-commit checklist, run on EVERY commit (no exceptions: this includes `docs`, `chore`, and one-line fixes, not just feature commits).** A commit that fails any line gets reworded before it lands:
 
 1. Subject is `type(scope): summary`: a real conventional type, imperative, lower-case, no trailing period, `<=72` chars.
-2. **No bare `#N` anywhere in the message** (subject or body): it is ambiguous (a misformatted roadmap or upstream ref vs a real issue, indistinguishable to GitHub and the hook). A roadmap item is `Roadmap N` (not a GitHub issue, so no `#`); a real issue/PR uses the explicit `owner/repo#N` form, `unseensnick/Reikai#N` for our own and `mihonapp/mihon#N` for upstream, which links correctly and is unambiguous. A bare `#N` (and `Roadmap #8`, `Mihon PR #3403`) is the single most common past slip, check the body too, not just the subject.
+2. **No bare `#N` anywhere in the message** (subject or body), per the ROADMAP-references rule above. A bare `#N` (and `Roadmap #8`, `Mihon PR #3403`) is the single most common past slip, so check the body too, not just the subject.
 3. No em dashes; no AI watermark (`Co-Authored-By`, generated-by footer).
 4. Non-trivial commit: body leads with 1-2 plain-language sentences, then benefit-first bullets. A trivial commit is just the compliant subject (no body needed).
 
 A **`commit-msg` git hook enforces this** automatically: `.githooks/commit-msg` (tracked) is installed at `.git/hooks/commit-msg` and rejects a non-compliant message (bad subject, over-72 subject, bare `#<number>`, em dash, AI watermark). A companion **`pre-commit` hook** (`.githooks/pre-commit`) lints a staged `CHANGELOG.md` (no content-source names in added lines; a self-contained bold headline + length cap on new `[Unreleased]` entries); the same checks run in CI via `.github/workflows/docs-lint.yml`. Reinstall both on a fresh clone with `cp .githooks/commit-msg .githooks/pre-commit .git/hooks/ && chmod +x .git/hooks/commit-msg .git/hooks/pre-commit`. They leave `.git/hooks/` as the hooks path so Kotlinter's pre-push hook still works.
 
-Example (a large feature):
+Shape of a large-feature body (real examples are in `git log`):
 
 ```
 feat(novel): track novels on AniList, MyAnimeList, MangaUpdates & Kitsu
@@ -107,25 +75,15 @@ Bind a novel to a tracker from its details screen and keep reading
 progress in sync, the same way manga tracking works.
 
 Tracking:
-- Bind to any tracker you're signed into; set status, chapters read,
-  score and dates from the details Tracking sheet.
-- Progress syncs automatically as you read and when marking chapters read.
-- Works across a merged novel's sources; each source keeps its tracker
-  if you later unmerge.
+- <benefit-first bullets a user can skim>
 
 Under the hood:
-- Persists to the existing novel_tracks table (model, repo, interactors);
-  bind/update port AddTracks.bind / BaseTracker onto it.
-- Reuses Mihon's tracker services; only search needed a // RK searchNovel
-  path, since Mihon's manga search excludes light novels.
-- Auto-sync from the reader and details mark-read, with an offline queue.
+- <internals, so a reader can stop early>
 
 Roadmap item 8. Tests: conversions, updater transitions, propagation.
 ```
 
-A small commit needs no headers, just the subject plus a sentence or two (see the `fix(icon)` / `feat(novel)` re-queue commits in the log).
-
-**Conventional types:** `feat:` new feature, `fix:` bug fix, `docs:` documentation only, `chore:` build / tooling, `refactor:` / `test:` / `perf:` as named.
+A small commit needs no headers, just the subject plus a sentence or two.
 
 Work lands on `main` (the Mihon-based main). PRs target `main`. Patches to Mihon's own files are fenced with `// RK -->` / `// RK <--`.
 

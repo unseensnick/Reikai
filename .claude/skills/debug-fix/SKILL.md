@@ -6,8 +6,7 @@ disable-model-invocation: true
 allowed-tools:
   - Bash(git *)
   - Bash(gh *)
-  - Bash(npm run test *)
-  - Bash(npm run build)
+  - Bash(JAVA_HOME=* ./gradlew *)
   - Read
   - Glob
   - Grep
@@ -39,9 +38,9 @@ If unclear, ask clarifying questions before proceeding.
 
 In `--fast` mode only:
 
-- Detect the production branch: `git symbolic-ref refs/remotes/origin/HEAD` or `git remote show origin`.
+- The production branch is `main`.
 - Stash uncommitted work if needed.
-- Create and switch to `hotfix/<short-description>` branched from production.
+- Create and switch to `hotfix/<short-description>` branched from `main`. The branch name stays generic about content sources (`hotfix/paging-crash`, never a source name).
 - **ASK** the user to confirm the branch name first.
 
 In default mode, skip this. Branch creation happens in Step 7.
@@ -86,8 +85,8 @@ In `--fast` mode specifically:
 
 **Default**:
 - Write a test that reproduces the bug and now passes.
-- Run related tests for regressions.
-- Run lint and typecheck.
+- Run related tests for regressions (`:domain:test --tests "<FQCN>"`).
+- Run `:app:compileDebugKotlin`; `spotlessApply` if formatting drifted.
 - Temporarily revert your fix and confirm the new test fails (proves the test catches the bug).
 
 **--fast**:
@@ -101,11 +100,11 @@ In `--fast` mode specifically:
 **Default**:
 - Create a branch if not already on one.
 - Stage only the fix and test files.
-- Commit: `fix: <what was wrong and why> (#number)`.
+- Commit: `fix(scope): <what was wrong>` per the workflow.md standard (the `commit-msg` hook enforces it). Reference an issue as `unseensnick/Reikai#N`, never a bare `#N`.
 
 **--fast**:
 - Stage only the fix files (never secrets, locks, or build output).
-- Draft commit: `hotfix: <short description>`. **Do NOT include `Co-Authored-By` lines.** **ASK** the user to confirm.
+- Draft commit: `fix(scope): <short description>` (`hotfix` is not a conventional type; the `commit-msg` hook rejects it). **Do NOT include `Co-Authored-By` lines.** **ASK** the user to confirm.
 - Push: `git push -u origin hotfix/<description>`.
 - Create a PR targeting production:
   - Title: `[HOTFIX] <description>`.

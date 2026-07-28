@@ -14,7 +14,7 @@ Check `$ARGUMENTS` for the word `verbose`. Strip it from the argument string bef
 - **Default**: terse output. Each finding is one line (`file:line: issue (fix: hint)`). Synthesis report stays compact.
 - **`verbose`**: full breakdown. Each finding gets the multi-field block (Severity, Confidence, etc.). Synthesis report uses the full template.
 
-When dispatching reviewers in Step 3, include the word `verbose` in each `Task` call's prompt only if the user asked for it. Otherwise omit; the reviewers default to terse.
+When dispatching reviewers in Step 3, include the word `verbose` in each `Agent` call's prompt only if the user asked for it. Otherwise omit; the reviewers default to terse.
 
 ## Step 1: Determine Scope
 
@@ -39,7 +39,7 @@ When reviewing a PR, fetch and check:
 
 Review the PR itself before the code:
 - **Title**: descriptive and under 72 chars?
-- **Description**: explains the *why*? Includes a test plan? Flag if empty or template-only.
+- **Description**: explains the *why*? Flag if empty or template-only. (No `## Test plan` section expected; this fork explicitly omits them.)
 - **Size**: count changed files and lines. Flag if >500 lines changed (suggest splitting).
 - **Base branch**: targeting the right branch?
 - **CI status**: passing, failing, or pending? If failing, note which checks. Fix CI first.
@@ -56,9 +56,9 @@ Decide which reviewers apply by reading the diff content, not just file paths:
 | `performance-reviewer` | Endpoints, DB queries, loops over collections, caching, connection management. Skip for pure-docs, config-only, or static-asset diffs. |
 | `doc-reviewer` | `.md` changes, significant docstring or JSDoc changes, API docs. |
 
-**Dispatch all applicable reviewers in PARALLEL.** Send one message that contains one `Task` tool call per applicable reviewer (use `subagent_type` matching the reviewer name). Do NOT invoke them sequentially. Parallel dispatch cuts wall-clock time from N times the slowest review to roughly the slowest single review, with no extra token cost.
+**Dispatch all applicable reviewers in PARALLEL.** Send one message that contains one `Agent` tool call per applicable reviewer (use `subagent_type` matching the reviewer name). Do NOT invoke them sequentially. Parallel dispatch cuts wall-clock time from N times the slowest review to roughly the slowest single review, with no extra token cost.
 
-If only one reviewer applies (a pure-docs diff, for example), a single `Task` call is fine. Skip the parallel pattern when there's nothing to parallelize.
+If only one reviewer applies (a pure-docs diff, for example), a single `Agent` call is fine. Skip the parallel pattern when there's nothing to parallelize.
 
 While the reviewers run, you can read the PR description, recent CI logs, or open comments to enrich the synthesis in Step 4. Don't wait idly.
 

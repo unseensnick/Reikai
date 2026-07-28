@@ -1,6 +1,6 @@
 ---
 name: test-steps
-description: Turn a change into a checkable manual test script the owner runs on-device, not prose about testing. Reachability-verified steps grouped by precondition, one observable outcome each, with unreachable actions listed up top and known regressions or type-divergences flagged. Use when the user asks for test steps, a test plan, or how to verify a change by hand. This is the manual counterpart to test-writer (which writes automated JUnit tests).
+description: Turn a change into a checkable manual test script the owner runs on-device, not prose about testing. Reachability-verified steps grouped by precondition, one observable outcome each, with unreachable actions listed up top and known regressions or type-divergences flagged. Use when the user asks for test steps, a test plan, or how to verify a change by hand. Automated JUnit tests are separate work under `.claude/rules/testing.md`.
 argument-hint: "<the change or feature to test> (e.g. 'the library selection move', 'novel search')"
 disable-model-invocation: false
 allowed-tools:

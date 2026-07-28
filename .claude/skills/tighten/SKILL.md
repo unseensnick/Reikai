@@ -19,7 +19,7 @@ Tighten the file(s) at `$ARGUMENTS` so a maintainer or contributor skimming them
 Do NOT use this for:
 
 - Released CHANGELOG entries (history is immutable per `.claude/rules/workflow.md`).
-- Code refactoring (use `/refactor`).
+- Code refactoring (this skill is prose-only; refactors ride the change that motivates them, per code-quality.md).
 - A whole-repo sweep without a clear motivating change (this is the "no standalone refactor sprints" rule from `.claude/rules/code-quality.md`).
 - Files you've never read in this session, on a hunch. Tighten responds to a known problem, not a guess.
 
@@ -87,7 +87,7 @@ Before finishing, grep the changed files for project anti-defaults:
 - For code comments / KDoc: re-skim the surrounding function. The comment that survived should now explain something the code itself cannot.
 - Summarize in conversation: files touched, paragraphs cut, paragraphs tightened, paragraphs moved (and to where). One bullet per file.
 
-Do NOT commit. Per `CLAUDE.md`: "NEVER commit changes unless the user explicitly asks." Suggest `/ship` when the user is happy.
+Do NOT commit. This skill stops short of committing; the owner reviews the result and runs `/ship` when happy.
 
 ## Rules
 

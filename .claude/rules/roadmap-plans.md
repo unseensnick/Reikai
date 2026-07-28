@@ -1,0 +1,42 @@
+---
+paths:
+  - "ROADMAP.md"
+  - "docs/dev/plans/**"
+  - "docs/dev/shipped.md"
+---
+
+# Roadmap & plan docs
+
+Two artifacts hold the forward plan. Keep them separate: the roadmap is the terse what-and-when; the plan docs are the how-and-why.
+
+## `ROADMAP.md` (tracked, the single forward backlog)
+
+**Forward-looking only.** It holds what is *left* to build, never what already shipped. Structure, top to bottom:
+
+1. **Intro**: two lines pointing to `docs/dev/shipped.md` (done-log), `docs/dev/plans/` (detail), `Handoff.md` (session state), and this file (format).
+2. **Now** (in progress), **Next** (queued, in priority order), **Later** (backlog). Each item: a bold title, a size tag (`[S]` / `[M]` / `[L]` / `[XL]`, one tag, never a range), and up to two sentences of "what", plus a link to its plan doc when one exists. No inline plans: the detail lives in the plan doc.
+3. **Later is grouped by stable area** (Library, Reader, Novels, Recommendations, adult sources, ...), never by phase. Phases are a plan artifact and rot; areas are durable. Only include areas that have open items.
+4. **Parked / not building**: up to three sentences per item: what it is, why it's parked, and the revive trigger, with a link if there's a plan/decision doc. Longer rationale goes in the plan doc, not here.
+
+**No Status table, no Shipped section, no audit prose in this file.** Shipped work moves to [docs/dev/shipped.md](../../docs/dev/shipped.md): a terse done-log grouped by durable area (never by phase), each area free to carry sub-sections, plus a releases table mapping each version to what it carried. A line cites whatever identifies the work best: a commit short-SHA(s), a `(version)` parenthetical for the release it shipped in, and/or a link to its plan doc for anything with a full record. It is a dev record, so it *may* name sources. Audit reports live in `docs/dev/audits/` (local / gitignored; only their action items become roadmap lines). Decisions and rationale live in `docs/dev/plans/`.
+
+**Naming (enforced):** `ROADMAP.md` is a semi-public surface, so it stays generic about content sources: use an approved shorthand (`EH` / `ExH` / `MD` / `CMK`) or collective phrasing ("the built-in adult sources"), never a full source name, adult (`nhentai`, `pururin`, ...) or mainstream (`mangadex`, `comick`). Trackers (MangaUpdates, Shikimori, AniList, ...) are not content sources and stay named. The dev-record files (`docs/dev/shipped.md`, `docs/dev/plans/`, local `docs/dev/audits/`) may name sources freely. This mirrors the CHANGELOG rule (see [workflow.md](workflow.md) "Public-facing naming"); the enforced deny-list lives in `.githooks/pre-commit` and `.github/workflows/docs-lint.yml` (extend both when a new source is named).
+
+**Other rules:** never paste an implementation plan into the roadmap; convert relative dates to absolute; no em dashes; `Roadmap N` (never a bare `#N`), a real issue/PR uses `owner/repo#N`. A `pre-commit` hook + the `docs-lint` CI enforce the three hard rules on `ROADMAP.md`: no content-source names, no em dash, no bare `#N`. Structural rules (item length, size tags, area grouping) are convention, not linted; review catches them.
+
+## `docs/dev/plans/` (tracked, implementation & decision records)
+
+A **substantial** feature or initiative gets one markdown here: a developer-facing record of what was built and why. Distinct from the architecture references already in `docs/` and `docs/dev/` (`multi-source.md`, `related-mangas.md`, `tracker-sync.md`, `ln-plugin-host.md`, etc.): cross-link those, do not duplicate them. One doc per feature; fold superseded iterations of the same feature into its single doc.
+
+**Template** (every plan doc follows it):
+
+- **Goal**: one or two sentences, what this delivers for the user.
+- **Why**: the motivation, the parity gap, or the constraint that made it worth building.
+- **Approach**: how it works now, in plain English first, then the mechanism. Describe current behavior, never the journey ("we tried X then switched to Y").
+- **Key files**: the entry points a developer would open first (`file:line` or path).
+- **Status**: shipped / in progress / deferred, with commit short-SHA(s).
+- **Decisions & tradeoffs**: the choices made and what was deliberately left out.
+
+Naming: real descriptive names (`novel-reader.md`, `manga-details-parity.md`), never generated slugs. `docs/dev/plans/README.md` indexes every doc with a one-line hook.
+
+**What does NOT go here:** bug-fix plans, polish batches, scouting / audit reports, doc-edit plans, and superseded drafts stay **local** (the session plan archive), out of the repo, so `docs/dev/plans/` holds only durable feature records.

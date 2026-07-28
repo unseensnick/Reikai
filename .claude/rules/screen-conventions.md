@@ -27,6 +27,8 @@ State and side-effects live in a `ScreenModel` resolved via `rememberScreenModel
 
 Inject dependencies in the ScreenModel (constructor injection registered in `eu/kanade/domain/DomainModule.kt` / `eu/kanade/tachiyomi/di/`, or `injectLazy()` at class level). `Injekt.get<>()` and `injectLazy()` must never appear inside a `@Composable` body: it couples the renderer to the DI container and breaks isolated preview/test. Use Mihon's Injekt; do not introduce Koin.
 
+**Carve-out for ported upstream shapes (applies to conventions 3 and 5):** code ported from a Mihon or Komikku file may keep the upstream shape even where it breaks these two rules (Mihon itself resolves Injekt inside settings-screen `getPreferences()` and its track dialog, and ships queue stores on raw `SharedPreferences`). Staying character-close to the source keeps future syncs diffable. The rules bind net-new Reikai screens.
+
 ### 4. State via `StateFlow`
 
 State exposed by the ScreenModel is a `StateFlow` (typically `StateScreenModel<S>`). Trivial UI-only state (a text field value, a tab index) may use `mutableStateOf` / `rememberSaveable` in the composable. No RxJava `Observable` / `Subject` / `Flowable` on the screen path; adapt at the boundary with `.asFlow()` if a dependency still returns Rx.

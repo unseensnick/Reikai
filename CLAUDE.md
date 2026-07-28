@@ -28,18 +28,9 @@ Mihon is **Compose + Voyager throughout**: there is no Conductor `*Controller` /
 
 ## Screen conventions (match Mihon)
 
-Every Reikai screen ported onto or added to Mihon follows Mihon's existing Voyager conventions. Index (full rationale + reference screen in [.claude/rules/screen-conventions.md](.claude/rules/screen-conventions.md)):
+Every Reikai screen ported onto or added to Mihon follows Mihon's Voyager conventions: a Voyager `Screen` / `Tab` backed by a `ScreenModel`, DI and preference reads out of `@Composable` bodies, `StateFlow` state, `screenModelScope` coroutines, `// RK` fencing on edits to Mihon's own files. The full list with rationale and a reference screen is [.claude/rules/screen-conventions.md](.claude/rules/screen-conventions.md).
 
-1. A Voyager `Screen` / `Tab` class, not a bare `@Composable fun FooScreen()`.
-2. Business logic in a `ScreenModel` resolved via `rememberScreenModel { ... }`. Pure-UI screens may skip it and say so in a one-line comment.
-3. No `Injekt.get<>()` / `injectLazy()` inside a `@Composable` body. Inject in the ScreenModel.
-4. State exposed as `StateFlow` (typically `StateScreenModel<S>`). No RxJava on the screen path.
-5. No `PreferenceStore` / `*Preferences` read inside a `@Composable`. Read in the ScreenModel, expose as state.
-6. Coroutines via `screenModelScope.launchIO` / `launchUI` (ScreenModel) or `rememberCoroutineScope()` (composable). Never `GlobalScope`; use `WorkManager` for work that must outlive the screen.
-7. Business logic out of `@Composable`. Side-effects in `LaunchedEffect` or the ScreenModel.
-8. Re-typed to Mihon's immutable domain models; in-place edits to Mihon's own files fenced with `// RK -->` / `// RK <--` markers (see below). Net-new code lives in its own files/modules.
-
-**Watch item (deferred: the ViewModel migration is paused, see the plan).** When Reikai eventually ports Mihon's move off Voyager `ScreenModel` to AndroidX `ViewModel` (deferred, see [docs/dev/plans/viewmodel-migration.md](docs/dev/plans/viewmodel-migration.md)), or syncs any single upstream screen file that already made the switch: a model resolved by a **bare `viewModel<T>()` must not be `private`**. The default factory builds it reflectively from `androidx.lifecycle`, and a private top-level Kotlin class is package-private in bytecode, so `newInstance()` throws `IllegalAccessException` and the screen crashes on open. Unlike the R8 trap below, this fails on **every** build type, debug included. Fix by making the class `internal` (public in bytecode, still module-private in Kotlin), or pass an explicit factory, which skips reflection. **Upstream shipped this bug** (mihonapp/mihon#3594) on its `CreateBackup`, `ClearDatabase`, `MigrateDialog`, `More` and `MigrationConfigScreen` models; **the follow-up fix landed as mihonapp/mihon#3609 (mihon `98705910e`, still unreleased)** and just drops `private` from those model classes, so take it wholesale when the migration is ported rather than hand-widening to `internal`.
+**Watch item:** when porting Mihon's deferred ScreenModel-to-ViewModel migration, or syncing any upstream screen file that already made the switch, a model resolved by a bare `viewModel<T>()` must not be `private` (crashes on open, every build type, debug included). The mechanism, the upstream fix to take wholesale, and the full migration plan: [docs/dev/plans/viewmodel-migration.md](docs/dev/plans/viewmodel-migration.md).
 
 ## Unified content UI (active initiative)
 
@@ -51,32 +42,13 @@ Reikai is collapsing the near-duplicate manga and novel stacks into one Reikai-o
 
 ## Code change defaults
 
-- **DRY**: Before adding a helper, search the codebase (or run an Explore agent in plan mode) for an existing equivalent.
-- **YAGNI**: Only add what the current task requires. No speculative APIs, optional parameters, or abstractions for hypothetical callers.
-- **KISS**: Prefer the simplest correct solution. Complexity must be justified by concrete requirements, not elegance or anticipated scale.
-- **Minimal blast radius**: A bug fix changes only what's broken. A feature adds only what's specified. Leave working surrounding code untouched.
-- **No standalone refactor sprints**: Refactor incrementally alongside the feature or fix that motivated it. Never propose a separate "cleanup pass" unless the user asks.
-
-### Anti-defaults
-
-- No premature abstractions. Three similar lines beat a helper used once.
-- Don't add features or improvements beyond what was asked.
-- Don't refactor adjacent code while fixing a bug.
-- No dead code or commented-out blocks. Git has history.
-- Comments, KDoc, and docstrings exist for contributors and maintainers. Keep them short and concise without losing context. Explain WHY, not WHAT (rename if a WHAT comment is needed). Reserve KDoc for module boundaries (public APIs of `source-api`, repository interfaces), not every internal function. Never a wall of text.
-- No em dashes in prose, comments, commit messages, or PR bodies. Use commas, parentheses, periods, or colons. Em dashes are a Claude stylistic tic that flags writing as AI-generated.
-- No AI-generated watermarks. Don't add "Co-Authored-By: Claude", "Generated with Claude Code", robot emoji footers, or similar tags to commits, PRs, code, or docs.
+DRY / YAGNI / KISS, minimal blast radius, no standalone refactor sprints, no dead code, comments explain WHY not WHAT, no em dashes, no AI watermarks. The full defaults and anti-defaults are [.claude/rules/code-quality.md](.claude/rules/code-quality.md).
 
 ## Commit messages (every commit, no exceptions)
 
-EVERY commit on the branch (including `docs` / `chore` / one-line fixes, not just feature commits) follows the standard in [.claude/rules/workflow.md](.claude/rules/workflow.md) "Commit message standard". Run its pre-commit checklist before each commit; the non-negotiables:
+EVERY commit (including `docs` / `chore` / one-line fixes) follows the "Commit message standard" in [.claude/rules/workflow.md](.claude/rules/workflow.md), enforced by the `commit-msg` hook. Run its pre-commit checklist before each commit; the most common past slip is a bare `#N` anywhere in the message (a roadmap item is `Roadmap N`; a real issue/PR is `owner/repo#N`).
 
-- Subject `type(scope): summary`: imperative, lower-case, no trailing period, `<=72` chars.
-- **Never a bare `#N`** in the subject OR body (it's ambiguous). A roadmap item is `Roadmap N`; a real issue/PR uses the explicit `owner/repo#N` form (`unseensnick/Reikai#N` for ours, `mihonapp/mihon#N` for upstream), which links correctly. A bare `#N` (and `Roadmap #8`, `Mihon PR #3403`) is the most common past slip, so check the body, not just the subject.
-- No em dashes; no AI watermark.
-- Non-trivial commits get a body that leads with 1-2 plain-language sentences, then benefit-first bullets. A trivial commit is just the compliant subject.
-
-**Public-facing surfaces stay generic about content sources.** No specific source names (especially adult) or aggregation vocab in the repo description / topics, README, release notes (and the CHANGELOG sections feeding them), or branch / PR names: use generic wording ("adult content sources", "a Cloudflare-blocked source") and link to the detailed docs (which may name them). Branch example `fix/paging-crash`. In-app strings / code name sources as the feature needs; commit history is left as-is. Stay a notch tighter than Komikku (which names sources in its README / releases). Full rule: [.claude/rules/workflow.md](.claude/rules/workflow.md) "Public-facing naming".
+**Public-facing surfaces stay generic about content sources** (repo description / topics, README, release notes, branch / PR names): generic wording ("adult content sources", "a Cloudflare-blocked source") plus a link to the detailed docs, which may name them. Full rule: workflow.md "Public-facing naming".
 
 ## Identity (load-bearing, preserve through the rebase)
 
@@ -106,7 +78,8 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 
 - [.claude/rules/architecture.md](.claude/rules/architecture.md) — Compose + Voyager, Injekt DI, PreferenceStore, coroutines, domain models, module layout, `// RK` markers, R8/minification keeps for net-new packages.
 - [.claude/rules/screen-conventions.md](.claude/rules/screen-conventions.md) — Reikai screen conventions on Mihon, with rationale and a reference screen.
-- [.claude/rules/workflow.md](.claude/rules/workflow.md) — CHANGELOG rule, commits/PRs, release-cut, Mihon-upstream + Reikai-feature porting. **Commit message standard** (in "Commits & PRs"): subject `type(scope): summary` (imperative, <=72 chars); body leads with 1-2 plain-language sentences a non-developer can read, then benefit-first bullets (large commits group a user-facing section then `Under the hood:`), optional footer for tests/tradeoffs. Lead with the user-facing effect, never implementation. No em dashes, no AI watermarks. ROADMAP refs are written `Roadmap N` (never a bare `#N`, which is ambiguous); a real issue/PR uses the explicit `owner/repo#N` form (`unseensnick/Reikai#N` for ours, `mihonapp/mihon#N` for upstream). A `commit-msg` hook (`.githooks/commit-msg`) enforces the standard. **Mihon-sync standards** (the commit-message convention referencing upstream PRs/issues as `mihonapp/mihon#N` (cross-repo link, since a bare `#N` auto-links to a Reikai issue), the verbatim-cp + `// RK` hand-merge method, and the running synced-base ledger) live in its "Syncing with Mihon" section and, in full, [docs/dev/upstream-sync.md](docs/dev/upstream-sync.md).
+- [.claude/rules/workflow.md](.claude/rules/workflow.md) — CHANGELOG rule, the commit message standard (hook-enforced), public-facing naming, release-cut, versioning, Mihon-upstream + Reikai-feature porting (the sync method and ledger in full: [docs/dev/upstream-sync.md](docs/dev/upstream-sync.md)).
+- [.claude/rules/roadmap-plans.md](.claude/rules/roadmap-plans.md) — ROADMAP.md, docs/dev/plans/ and shipped.md structure and naming (path-scoped; loads when editing those files).
 - [.claude/rules/code-quality.md](.claude/rules/code-quality.md) — DRY/YAGNI/KISS, naming, code markers, file organization.
 - [.claude/rules/testing.md](.claude/rules/testing.md) — behavior over implementation, mock at boundaries, coroutine test patterns.
 - [.claude/rules/database.md](.claude/rules/database.md) — SQLDelight migrations.
@@ -114,10 +87,10 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 - [.claude/rules/plan-output.md](.claude/rules/plan-output.md): how a findings report or plan is written (headline, graded findings, stale docs, named steps, open questions), and the density rules that keep it readable. Applies to `/scout`, `/code-research`, and any plan given in conversation.
 - [.claude/rules/prose-style.md](.claude/rules/prose-style.md): sentence-level writing for every output (replies, plans, commits, docs, comments). The machine-writing habits to drop (trailing significance clauses, inflated stakes, negative parallelism, padded triples, filler openers), the overused vocabulary, and the plainer constructions to use instead.
 - [docs/dev/development.md](docs/dev/development.md) — architecture and module overview (Mihon-based: Compose + Voyager, Injekt, SQLDelight).
-- [docs/dev/plans/](docs/dev/plans/): per-feature implementation and decision records (one per substantial feature, indexed by its README). The forward backlog is [ROADMAP.md](ROADMAP.md); the format for both lives in `.claude/rules/workflow.md`.
+- [docs/dev/plans/](docs/dev/plans/): per-feature implementation and decision records (one per substantial feature, indexed by its README). The forward backlog is [ROADMAP.md](ROADMAP.md); the format for both lives in `.claude/rules/roadmap-plans.md`.
 - [docs/dev/upstream-sync.md](docs/dev/upstream-sync.md) — porting upstream Mihon changes by hand (Reikai is a standalone repo, not a GitHub fork): the process, commit convention, verbatim-cp + `// RK` hand-merge method, recurring gotchas, and the running synced-base ledger. Enforced by `docs-lint` + the `pre-commit` hook (no em dash, no bare `#N`; content-source names allowed).
 - [docs/dev/feature-ports.md](docs/dev/feature-ports.md) — the **borrowed-feature** refs (Komikku, Tsundoku, LNReader), which are NOT a base sync: no "synced through" frontier, so the record is per feature (what was taken, from which SHA, last checked, verdict), plus where Reikai is *ahead* (don't port backwards) and what was deliberately not taken. Read before porting from a ref: a matching commit title proves nothing, and a fork's own Mihon syncs must come from `refs/mihon` instead. Same lint as upstream-sync.md.
-- **Doc flow (finish an item, then ship):** [ROADMAP.md](ROADMAP.md) forward backlog, then [CHANGELOG.md](CHANGELOG.md) `[Unreleased]` (the source of truth for release notes, benefit-first bold headline), then [docs/dev/shipped.md](docs/dev/shipped.md) done-log at release-cut. Format for all three lives in `.claude/rules/workflow.md`.
+- **Doc flow (finish an item, then ship):** [ROADMAP.md](ROADMAP.md) forward backlog, then [CHANGELOG.md](CHANGELOG.md) `[Unreleased]` (the source of truth for release notes, benefit-first bold headline), then [docs/dev/shipped.md](docs/dev/shipped.md) done-log at release-cut. CHANGELOG format: `.claude/rules/workflow.md`; ROADMAP and shipped.md format: `.claude/rules/roadmap-plans.md`.
 - [docs/dev/readme-showcase.md](docs/dev/readme-showcase.md) — how the README showcase animation (`screens.webp`) is captured and built; the reproduction kit (stills + frame + scripts) lives in `.github/readme-images/showcase/`.
 - **Read-only reference clones live in the `refs/` directory, which is a SIBLING of this `app/` repo, not inside it.** The repo root is `E:\Code\yokai-y2k\app`; the clones are at `E:\Code\yokai-y2k\refs` (i.e. `../refs/<name>` from the repo root, declared as absolute paths in `.claude/settings.json`). `refs/foo` relative to the app cwd does NOT resolve; use `../refs/foo` or the absolute path. The sync / port sources and what each is for:
   - `refs/mihon/` — the live upstream **base**. Ported by hand on an ongoing basis; the process + running ledger live in [docs/dev/upstream-sync.md](docs/dev/upstream-sync.md). Do not credit (it is the base).
@@ -128,11 +101,4 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 
 ## Skills for common flows
 
-- `/scout`: investigate one non-trivial task, then produce its plan, grounded in `file:line` citations. Use before ports or cross-cutting changes.
-- `/code-research`: deep fan-out research over a big question spanning many files (audits, "how does X work end to end", "where does Y happen everywhere"), then the plan. Heavier than `/scout`, which is task-scoped.
-- `/session-handoff`: with no arguments, the full sweep: rewrite `Handoff.md`, update `ROADMAP.md` and the dependent docs, sync the memory store and push it. Use when wrapping up or before a `/clear`.
-- `/tighten` — trim verbose prose, walls of text, journey narration, and WHAT comments from docs (and, on ask, code comments) without losing vital info. Always plans before editing.
-- `/port-audit` — audit a port for behavioral parity against the Reikai source on `design/library-compose`. Use after a phase ships.
-- `/ship` — scan, stage, commit, push, PR with Reikai conventions (no `Co-Authored-By`, no `## Test plan`; `--repo unseensnick/Reikai`). Work targets `main`.
-- `/debug-fix` — bug-hunt workflow (`--fast` for hotfixes).
-- `/pr-review`, `/refactor`, `/test-writer`, `/tdd`, `/explain`, `/context-budget`.
+The skill descriptions carry the details; the routing that isn't in them: `/scout` for one non-trivial task (investigate, then plan), `/code-research` for broad questions spanning many files; `/session-handoff` with no arguments does the full sweep (Handoff.md, ROADMAP, dependent docs, memory sync + push); `/ship` for commit/push/PR with Reikai conventions; `/debug-fix --fast` for hotfixes. Also available: `/tighten`, `/port-audit`, `/pr-review`, `/test-steps`.
