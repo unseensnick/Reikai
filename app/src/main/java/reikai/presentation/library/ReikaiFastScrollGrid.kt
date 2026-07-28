@@ -173,7 +173,6 @@ fun ReikaiFastScrollLazyVerticalGrid(
                 if (stableScrollInProgress) scrolled.tryEmit(Unit)
             }
 
-            // Thumb alpha
             val alpha = remember { Animatable(0f) }
             val isThumbVisible = alpha.value > 0f
             LaunchedEffect(scrolled, alpha) {

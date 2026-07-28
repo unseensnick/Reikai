@@ -30,7 +30,7 @@ CREATE TABLE novel_tracks(
 
 CREATE INDEX novel_tracks_novel_id_index ON novel_tracks(novel_id);
 
--- Queries mirror manga_sync.sq (Active #8). The `private` column was added in 25.sqm (the table
+-- Queries mirror manga_sync.sq. The `private` column was added in 25.sqm (the table
 -- shipped in 14.sqm without it), so novel tracking supports private listing like manga.
 
 delete:

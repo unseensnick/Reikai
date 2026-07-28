@@ -88,7 +88,7 @@ class NovelReaderScreenModel(
     private val novelPreferences: NovelPreferences by injectLazy()
 
     // Shared with the manga reader so the vertical-rail geometry (height + side) is one setting for
-    // both readers (Roadmap: version-181 verticalNavigator prefs).
+    // both readers.
     private val readerPreferences: ReaderPreferences by injectLazy()
     private val downloadManager: NovelDownloadManager by injectLazy()
     private val upsertNovelHistory: UpsertNovelHistory by injectLazy()

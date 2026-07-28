@@ -42,7 +42,7 @@ android {
         // versionCode bumped mid-cycle ahead of the 0.4.0 cut (versionName stays 0.3.0 until release),
         // because a version-gated data migration is a no-op until the shipped versionCode reaches its
         // gate, so it cannot be exercised in dev/preview builds otherwise. A deliberate exception to the
-        // bump-only-at-release-cut rule; see CLAUDE.md. 184 gated the merge-system rebuild's Phase 1
+        // bump-only-at-release-cut rule; see CLAUDE.md. 184 gated the merge-prefs-to-groups data
         // migration; 185 gates the chapter-match-key backfill; 186 gates the novel custom-cover re-key;
         // 187 gates the category schema unification's novel-category fold-in (flag fix + pref remap);
         // 188 gates the category-preference content-type cleanup (scrub stale category-id prefs).
@@ -370,8 +370,8 @@ dependencies {
 
     testImplementation(libs.kotlinx.coroutines.test)
 
-    // RK: in-memory SQLite (pure-JVM) for the merge-group DB round-trip / cascade tests (Phase 0 of the
-    // merge-system rebuild). Test-only, never ships. Mihon has no JVM database test harness, so this is a
+    // RK: in-memory SQLite (pure-JVM) for the merge-system rebuild's DB round-trip / cascade tests.
+    // Test-only, never ships. Mihon has no JVM database test harness, so this is a
     // Reikai-only test dependency; the app itself keeps using the native androidx bundled driver.
     testImplementation(libs.sqldelight.sqliteDriver)
 }

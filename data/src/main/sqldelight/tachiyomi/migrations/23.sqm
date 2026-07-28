@@ -1,4 +1,4 @@
--- Adult / EXH subsystem (Phase 1): gallery metadata persistence. These tables only reach fresh
+-- Adult / EXH subsystem: gallery metadata persistence. These tables only reach fresh
 -- installs via Schema.create(), so existing installs need them created here or metadata queries
 -- crash "no such table". Mirrors data/search_metadata.sq, search_tags.sq, search_titles.sq.
 CREATE TABLE search_metadata (

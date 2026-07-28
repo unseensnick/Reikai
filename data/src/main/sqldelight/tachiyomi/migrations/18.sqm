@@ -1,4 +1,4 @@
--- Novel reading history (P5 / Active #5): the novel twin of `history` + `historyView` for the unified
+-- Novel reading history: the novel twin of `history` + `historyView` for the unified
 -- History tab. New table + view, so already-installed DBs need this migration (a CREATE in a .sq/.sqv
 -- only reaches fresh installs via Schema.create()). Matches data/novel_history.sq and
 -- view/novelHistoryView.sq. `last_read` is plain epoch-millis (no Date adapter), like novels.last_read_at.

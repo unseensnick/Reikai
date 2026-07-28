@@ -1,8 +1,6 @@
 package eu.kanade.tachiyomi.source.model
 
-// RK -->
-import exh.metadata.metadata.RaisedSearchMetadata
-// RK <--
+import exh.metadata.metadata.RaisedSearchMetadata // RK
 
 // RK: open so the adult-source browse can return a MetadataMangasPage that carries per-gallery
 //     metadata + a gallery-id paging cursor. Other sources keep using the plain MangasPage.

@@ -1,4 +1,4 @@
--- Light-novel library (P5 S6): the novelLibraryView for already-installed DBs. Matches the
+-- Light-novel library: the novelLibraryView for already-installed DBs. Matches the
 -- definition in view/novelLibraryView.sq (which only covers fresh installs via Schema.create()).
 CREATE VIEW novelLibraryView AS
 SELECT

@@ -1,4 +1,4 @@
--- RK: novel twin of libraryView (P5 S6). Favorited novels plus per-novel chapter counts (total,
+-- RK: novel twin of libraryView. Favorited novels plus per-novel chapter counts (total,
 -- read, latest upload, fetch date, bookmarks) and the concatenated category ids. The download count
 -- is not here: downloaded state now comes from NovelDownloadCache (disk), filled in the model. No
 -- history / excluded_scanlators joins: novels denormalize last_read_at onto the row and have no

@@ -1,4 +1,4 @@
--- Light-novel vertical (P5 S1): additive novel tables, disjoint from the manga tables.
+-- Light-novel vertical: additive novel tables, disjoint from the manga tables.
 -- No FK references into manga tables, so manga paths are untouched.
 
 CREATE TABLE novels(

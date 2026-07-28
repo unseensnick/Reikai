@@ -1,4 +1,4 @@
--- RK: novel twin of updatesView (P5 unified-Updates slice). Favorited novels' chapters that were
+-- RK: novel twin of updatesView. Favorited novels' chapters that were
 -- fetched after the novel was added to the library (date_fetch > date_added), i.e. the recent-updates
 -- feed. Filters/sorts on date_fetch (not date_upload): many LN sources leave date_upload at 0, so the
 -- manga side's dateUpload cutoff would hide them. No scanlator joins (novels have none); date_added is
