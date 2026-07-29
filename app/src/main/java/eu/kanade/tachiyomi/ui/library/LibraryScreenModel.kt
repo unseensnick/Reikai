@@ -838,9 +838,9 @@ class LibraryScreenModel(
     // RK: a random entry from the whole library (hopper long-press "random, global" action)
     fun getRandomLibraryItem(): LibraryItem? = state.value.libraryData.favorites.randomOrNull()
 
-    // RK: initialTab opens straight to a tab (e.g. Group); categoryId scopes the sheet so a single-list
-    // header can open the Sort tab for that category. Store the id (not the Category) so the sheet reads
-    // the live category at the mount site; a snapshot would show a stale sort after changing it.
+    // RK: DEAD. The library dialogs are built and owned by reikai.presentation.library.LibraryEngine, so
+    // nothing renders this state any more. Kept because upstream has its own copy and deleting it would
+    // widen the sync diff for no gain; it goes when this file does. Do not add to it.
     fun showSettingsDialog(initialTab: Int = 0, categoryId: Long? = null) {
         mutableState.update { it.copy(dialog = Dialog.SettingsSheet(initialTab, categoryId)) }
     }
@@ -874,6 +874,9 @@ class LibraryScreenModel(
         libraryPreferences.lastUsedCategory.set(newIndex)
     }
 
+    // RK: DEAD, along with openDeleteMangaDialog, closeDialog, the Dialog union and State.dialog below.
+    // LibraryEngine builds these now, asking the adapter for the entries' category ids instead. Kept for
+    // the same reason as showSettingsDialog above. Do not add to it.
     fun openChangeCategoryDialog(ids: List<Long>) {
         screenModelScope.launchIO {
             // Create a copy of selected manga

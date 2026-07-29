@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
@@ -26,7 +25,6 @@ import kotlinx.coroutines.flow.update
 import reikai.data.novel.NovelStatusCode
 import reikai.domain.category.CATEGORY_HIDDEN_MASK
 import reikai.domain.category.GetNovelCategories
-import reikai.domain.category.categoryDiff
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.ContentType
@@ -71,7 +69,6 @@ import reikai.presentation.library.libraryQueryMatches
 import reikai.presentation.library.reikaiSortCategories
 import reikai.presentation.novel.selectChaptersForDownloadAction
 import tachiyomi.core.common.i18n.stringResource
-import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
@@ -136,9 +133,6 @@ class NovelLibraryScreenModel :
 
     // Keyed by category name (header key), matching the manga collapse convention. Session-scoped.
     private val collapsedCategories = MutableStateFlow<Set<String>>(emptySet())
-
-    private val mutableDialog = MutableStateFlow<Dialog?>(null)
-    val dialog: StateFlow<Dialog?> = mutableDialog.asStateFlow()
 
     /** Reactive grouping inputs folded into the main combine so a collapse toggle re-sinks groups. */
     private data class GroupingInputs(val settings: LibrarySettings, val collapsed: Set<String>, val atBottom: Boolean)
@@ -726,28 +720,7 @@ class NovelLibraryScreenModel :
         }
     }
 
-    fun openChangeCategoryDialog(ids: List<Long>) {
-        screenModelScope.launchIO {
-            // Expanded, so the checkboxes reflect the whole merge group and the write below reaches
-            // every member; otherwise members drift into different categories and the entry can
-            // vanish from a category the user moved it to.
-            val novelIds = state.value.memberIdsFor(ids)
-            // All non-default categories, not just the ones currently shown (empty categories are
-            // hidden from the library grid but must still be assignable here).
-            val categories = getNovelCategories.await().filterNot { it.isSystemCategory }
-            val perNovel = novelIds.map { getNovelCategories.awaitByNovelId(it).map { c -> c.id }.toSet() }
-            val (common, mix) = categoryDiff(perNovel)
-            val preselected: List<CheckboxState<Category>> = categories.map { cat ->
-                when (cat.id) {
-                    in common -> CheckboxState.State.Checked(cat)
-                    in mix -> CheckboxState.TriState.Exclude(cat)
-                    else -> CheckboxState.State.None(cat)
-                }
-            }
-            mutableDialog.value = Dialog.ChangeCategory(novelIds, preselected)
-        }
-    }
-
+    /** Writes exactly the ids it is handed; the caller expands the merge group. */
     fun setNovelCategories(novelIds: List<Long>, addCategories: List<Long>, removeCategories: List<Long>) {
         screenModelScope.launchIO {
             novelIds.forEach { novelId ->
@@ -755,15 +728,7 @@ class NovelLibraryScreenModel :
                 val new = (current - removeCategories.toSet() + addCategories).distinct()
                 setNovelCategories.await(novelId, new)
             }
-            dismissDialog()
         }
-    }
-
-    fun openDeleteDialog(ids: List<Long>) {
-        val current = state.value
-        // N grouped sources to offer removing, when the selection includes a merged cover (else 0).
-        val groupedCount = if (current.containsMerged(ids)) current.memberIdsFor(ids).size else 0
-        mutableDialog.value = Dialog.Delete(ids, groupedCount)
     }
 
     fun removeNovels(
@@ -790,7 +755,6 @@ class NovelLibraryScreenModel :
                     if (downloaded.isNotEmpty()) novelDownloadManager.deleteChapters(downloaded)
                 }
             }
-            dismissDialog()
         }
     }
 
@@ -817,15 +781,7 @@ class NovelLibraryScreenModel :
         return ordered.firstOrNull { !it.read }
     }
 
-    // --- settings dialog (sort / filter) ---
-
-    fun openSettingsDialog(categoryId: Long, initialTab: Int = 0) {
-        mutableDialog.value = Dialog.Settings(categoryId, initialTab)
-    }
-
-    fun dismissDialog() {
-        mutableDialog.value = null
-    }
+    // --- settings sheet (sort / filter), rendered from the engine's dialog ---
 
     /** Sets the sort for a category (or the library default for the synthesized Default category). */
     fun setSort(categoryId: Long, type: LibrarySort.Type, isAscending: Boolean) {
@@ -986,14 +942,6 @@ class NovelLibraryScreenModel :
     private val NovelFilters.hasActive: Boolean
         get() = categoriesActive ||
             listOf(downloaded, unread, started, completed, bookmarked, lewd).any { it != TriState.DISABLED }
-
-    sealed interface Dialog {
-        data class ChangeCategory(val novelIds: List<Long>, val preselected: List<CheckboxState<Category>>) : Dialog
-
-        // groupedSourceCount = N grouped sources behind the selection (0 = none merged, no extra option)
-        data class Delete(val novelIds: List<Long>, val groupedSourceCount: Int = 0) : Dialog
-        data class Settings(val categoryId: Long, val initialTab: Int) : Dialog
-    }
 
     data class State(
         val isLoading: Boolean = true,

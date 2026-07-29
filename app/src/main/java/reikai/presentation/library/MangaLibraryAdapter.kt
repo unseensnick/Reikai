@@ -10,9 +10,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.source.local.isLocal
+import uy.kohesive.injekt.injectLazy
 
 /**
  * Adapts the live Mihon [LibraryScreenModel] to the neutral [LibraryBehavior]. The model stays live and
@@ -23,6 +24,9 @@ import tachiyomi.source.local.isLocal
 class MangaLibraryAdapter(
     private val model: LibraryScreenModel,
 ) : LibraryProvider {
+
+    // Lazy, so constructing the adapter in a composable never touches the DI container.
+    private val getCategories: GetCategories by injectLazy()
 
     override val contentType = ContentType.MANGA
 
@@ -70,29 +74,59 @@ class MangaLibraryAdapter(
     override fun performDownloadAction(entries: Set<EntryId>, action: DownloadAction) {
         model.performDownloadAction(entries.ownIds(), action)
     }
-    override fun openChangeCategoryDialog(entries: Set<EntryId>) {
-        model.openChangeCategoryDialog(entries.ownIds())
-    }
-    override fun openDeleteDialog(entries: Set<EntryId>) {
-        model.openDeleteMangaDialog(entries.ownIds())
-    }
     override fun mergeSelection(entries: Set<EntryId>) {
         model.mergeSelection(entries.ownIds())
     }
     override fun unmergeSelection(entries: Set<EntryId>) {
         model.unmergeSelection(entries.ownIds())
     }
+
+    // The model expands merge groups itself for categories; delete expands only on request, and wants the
+    // manga rather than their ids, so resolving from state here saves it a DB round-trip.
+    override fun setCategories(
+        entries: Set<EntryId>,
+        addCategories: List<Long>,
+        removeCategories: List<Long>,
+    ) {
+        model.setMangaCategories(model.state.value.mangaFor(entries.ownIds()), addCategories, removeCategories)
+    }
+
+    override fun deleteEntries(
+        entries: Set<EntryId>,
+        deleteFromLibrary: Boolean,
+        deleteDownloads: Boolean,
+        removeGroupedSources: Boolean,
+    ) {
+        model.removeMangas(
+            model.state.value.mangaFor(entries.ownIds()),
+            deleteFromLibrary,
+            deleteDownloads,
+            removeGroupedSources,
+        )
+    }
+
     override fun containsMerged(entries: Set<EntryId>) =
         model.state.value.containsMerged(entries.ownIds())
     override fun canDownload(entries: Set<EntryId>) =
         model.state.value.mangaFor(entries.ownIds()).fastAll { !it.isLocal() }
+
+    override fun groupedSourceCount(entries: Set<EntryId>): Int {
+        val ids = entries.ownIds()
+        val state = model.state.value
+        return if (state.containsMerged(ids)) state.memberIdsFor(ids).size else 0
+    }
+
+    override fun containsLocal(entries: Set<EntryId>) =
+        model.state.value.mangaFor(entries.ownIds()).any { it.isLocal() }
+
+    override suspend fun assignableCategories() =
+        getCategories.await().filterNot { it.isSystemCategory }
+
+    override suspend fun categoryIdsFor(entries: Set<EntryId>): List<Set<Long>> =
+        model.state.value.memberIdsFor(entries.ownIds())
+            .map { id -> getCategories.await(id).mapTo(mutableSetOf()) { it.id } }
+
     override fun updateActiveCategoryIndex(index: Int) {
         model.updateActiveCategoryIndex(index)
-    }
-    override fun openSettingsDialog(
-        categoryId: Long?,
-        initialTab: Int,
-    ) {
-        model.showSettingsDialog(initialTab, categoryId)
     }
 }

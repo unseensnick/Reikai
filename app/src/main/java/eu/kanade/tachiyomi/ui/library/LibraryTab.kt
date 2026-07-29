@@ -74,6 +74,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.sortForCategory
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.library.LibraryBehavior
+import reikai.presentation.library.LibraryDialog
 import reikai.presentation.library.LibraryEngine
 import reikai.presentation.library.MangaLibraryAdapter
 import reikai.presentation.library.NovelLibraryAdapter
@@ -97,14 +98,12 @@ import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.model.LibrarySort
-import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.EmptyScreenAction
 import tachiyomi.presentation.core.screens.LoadingScreen
-import tachiyomi.source.local.isLocal
 
 data object LibraryTab : Tab {
 
@@ -138,25 +137,30 @@ data object LibraryTab : Tab {
         // RK --> novels in the library behind the Manga/Novels chip. Both models stay live; a per-type
         // adapter maps each onto the neutral LibraryScreenState / LibraryBehavior, so the tab reads one
         // `libState` and dispatches one `behavior` instead of branching manga-vs-novel per field. The chip
-        // picks the active adapter; per-type navigation, dialog rendering and the hopper long-press stay
-        // branched below (they need the navigator / per-type screen + dialog types). The `active*` locals
-        // are kept as thin aliases over `libState` so every downstream view reads them unchanged.
+        // picks the active adapter; per-type navigation and the hopper long-press stay branched below (they
+        // need the navigator / per-type screen types). The `active*` locals are kept as thin aliases over
+        // `libState` so every downstream view reads them unchanged.
         val novelModel = rememberScreenModel { NovelLibraryScreenModel() }
         val novelState by novelModel.state.collectAsState()
         val libraryContentType by novelModel.contentType.collectAsState()
         val isNovels = libraryContentType == ContentType.NOVELS
-        val mangaAdapter = remember(screenModel) { MangaLibraryAdapter(screenModel) }
-        val novelAdapter = remember(novelModel) { NovelLibraryAdapter(novelModel) }
-        // The engine owns which provider drives the view, so the content type is decided in one place
-        // rather than at each call site. It is shaped to merge both providers for an All view later.
-        val engine = remember(mangaAdapter, novelAdapter) { LibraryEngine(listOf(mangaAdapter, novelAdapter)) }
+        // The engine owns which provider drives the view and every dialog, so the content type is decided
+        // in one place rather than at each call site. It is shaped to merge both providers for an All view
+        // later, and is a ScreenModel for its scope: building the change-categories dialog reads categories.
+        // It also constructs the adapters, so exactly one pair exists for as long as the engine does. They
+        // must not be `remember`ed separately: the engine outlives the composition, so a tab switch would
+        // hand the tab a second pair while the engine kept dispatching through the first.
+        val engine = rememberScreenModel {
+            LibraryEngine(listOf(MangaLibraryAdapter(screenModel), NovelLibraryAdapter(novelModel)))
+        }
         val behavior: LibraryBehavior = engine.behaviorFor(libraryContentType)
+        val libraryDialog by engine.dialog.collectAsState()
         // RK: collect BOTH adapters' state and pick synchronously, so flipping the chip switches
         // instantly. Collecting a single `behavior.state` over the switched adapter re-subscribes on the
         // flow change, holding the old value for a frame, which stutters the manga<->novel transition.
         // Both stateIn flows are eager, so the inactive side stays current for an instant swap.
-        val mangaLibState by mangaAdapter.state.collectAsState()
-        val novelLibState by novelAdapter.state.collectAsState()
+        val mangaLibState by engine.behaviorFor(ContentType.MANGA).state.collectAsState()
+        val novelLibState by engine.behaviorFor(ContentType.NOVELS).state.collectAsState()
         val libState = if (isNovels) novelLibState else mangaLibState
         val activeCategories = libState.categories
         // RK: the selection is the engine's, not a provider's: it can span both content types.
@@ -368,7 +372,7 @@ data object LibraryTab : Tab {
                             // RK: the toolbar sort is GLOBAL (Model A); a null category scopes the sheet to
                             // the global sort, not a stale active category. Per-category overrides are set
                             // from each category header's sort in the single-list view.
-                            behavior.openSettingsDialog(categoryId = null, initialTab = 0)
+                            engine.openSettingsDialog(libraryContentType, categoryId = null, initialTab = 0)
                         },
                         onClickRefresh = { onClickRefresh(activeCategory) },
                         onClickGlobalUpdate = { onClickRefresh(null) },
@@ -521,7 +525,7 @@ data object LibraryTab : Tab {
                                 onRefresh = { onClickRefresh(null) },
                                 // RK: per-category header sort (Sort tab scoped to it), refresh, select-all
                                 onClickCategorySort = { category ->
-                                    behavior.openSettingsDialog(categoryId = category.id, initialTab = 1)
+                                    engine.openSettingsDialog(libraryContentType, category.id, initialTab = 1)
                                 },
                                 onRefreshCategory = { category -> onClickRefresh(category) },
                                 onSelectAllInCategory = { category -> engine.selectAllInCategory(entriesOf(category)) },
@@ -622,22 +626,18 @@ data object LibraryTab : Tab {
                                             } else {
                                                 screenModel.toggleAllCategoriesCollapsed(state.displayedCategories)
                                             }
-                                            2 -> if (isNovels) {
-                                                novelModel.openSettingsDialog(
-                                                    novelState.activeCategory?.id ?: Category.UNCATEGORIZED_ID,
-                                                    2,
-                                                )
-                                            } else {
-                                                screenModel.showSettingsDialog(initialTab = 2)
-                                            }
-                                            3 -> if (isNovels) {
-                                                novelModel.openSettingsDialog(
-                                                    novelState.activeCategory?.id ?: Category.UNCATEGORIZED_ID,
-                                                    3,
-                                                )
-                                            } else {
-                                                screenModel.showSettingsDialog(initialTab = 3)
-                                            }
+                                            // The hopper is a category navigator, so its sheet is scoped to
+                                            // the category it sits on, the same as a category header's sort.
+                                            2 -> engine.openSettingsDialog(
+                                                libraryContentType,
+                                                activeCategory?.id,
+                                                initialTab = 2,
+                                            )
+                                            3 -> engine.openSettingsDialog(
+                                                libraryContentType,
+                                                activeCategory?.id,
+                                                initialTab = 3,
+                                            )
                                             4 -> onOpenRandomInCurrentCategory()
                                             5 -> scope.launch {
                                                 if (isNovels) {
@@ -677,10 +677,24 @@ data object LibraryTab : Tab {
             }
         }
 
-        val onDismissRequest = screenModel::closeDialog
-        when (val dialog = state.dialog) {
-            is LibraryScreenModel.Dialog.SettingsSheet -> run {
-                LibrarySettingsDialog(
+        // RK --> one dialog stream for both content types, built and owned by the engine. The dialogs
+        // themselves dismiss before they confirm, so each confirm acts on the entries its own dialog was
+        // built from, never on the live selection.
+        val onDismissRequest = engine::dismissDialog
+        when (val dialog = libraryDialog) {
+            is LibraryDialog.Settings -> when (dialog.contentType) {
+                ContentType.NOVELS -> NovelLibrarySettingsDialog(
+                    onDismissRequest = onDismissRequest,
+                    screenModel = novelModel,
+                    settingsScreenModel = settingsScreenModel,
+                    categoryId = dialog.categoryId ?: Category.UNCATEGORIZED_ID,
+                    initialTab = dialog.initialTab,
+                    onManageCategories = {
+                        onDismissRequest()
+                        navigator.push(CategoryScreen())
+                    },
+                )
+                else -> LibrarySettingsDialog(
                     onDismissRequest = onDismissRequest,
                     screenModel = settingsScreenModel,
                     // RK: a single-list header scopes the sheet to its category (Sort tab). Resolve the
@@ -698,7 +712,7 @@ data object LibraryTab : Tab {
                     // RK <--
                 )
             }
-            is LibraryScreenModel.Dialog.ChangeCategory -> {
+            is LibraryDialog.ChangeCategory -> {
                 ChangeCategoryDialog(
                     initialSelection = dialog.initialSelection,
                     onDismissRequest = onDismissRequest,
@@ -707,65 +721,20 @@ data object LibraryTab : Tab {
                         navigator.push(CategoryScreen())
                     },
                     onConfirm = { include, exclude ->
+                        engine.setCategories(dialog.entries, include, exclude)
                         engine.clearSelection()
-                        screenModel.setMangaCategories(dialog.manga, include, exclude)
                     },
                 )
             }
-            is LibraryScreenModel.Dialog.DeleteManga -> {
+            is LibraryDialog.Delete -> {
                 DeleteLibraryMangaDialog(
-                    containsLocalManga = dialog.manga.any(Manga::isLocal),
+                    containsLocalManga = dialog.containsLocal,
                     // RK: offer removing every grouped source when a merged cover is selected
                     groupedSourceCount = dialog.groupedSourceCount,
                     onDismissRequest = onDismissRequest,
-                    onConfirm = { deleteManga, deleteChapter, removeGrouped ->
-                        screenModel.removeMangas(dialog.manga, deleteManga, deleteChapter, removeGrouped)
+                    onConfirm = { deleteEntry, deleteDownloads, removeGrouped ->
+                        engine.deleteEntries(dialog.entries, deleteEntry, deleteDownloads, removeGrouped)
                         engine.clearSelection()
-                    },
-                )
-            }
-            null -> {}
-        }
-
-        // RK --> novel library dialogs (change-category / delete / settings)
-        when (val novelDialog = novelModel.dialog.collectAsState().value) {
-            is NovelLibraryScreenModel.Dialog.ChangeCategory -> {
-                ChangeCategoryDialog(
-                    initialSelection = novelDialog.preselected,
-                    onDismissRequest = novelModel::dismissDialog,
-                    onEditCategories = {
-                        novelModel.dismissDialog()
-                        engine.clearSelection()
-                        navigator.push(CategoryScreen())
-                    },
-                    onConfirm = { include, exclude ->
-                        novelModel.setNovelCategories(novelDialog.novelIds, include, exclude)
-                        engine.clearSelection()
-                    },
-                )
-            }
-            is NovelLibraryScreenModel.Dialog.Delete -> {
-                DeleteLibraryMangaDialog(
-                    containsLocalManga = false,
-                    // RK: offer removing every grouped source when a merged novel cover is selected
-                    groupedSourceCount = novelDialog.groupedSourceCount,
-                    onDismissRequest = novelModel::dismissDialog,
-                    onConfirm = { deleteFromLibrary, deleteDownloads, removeGrouped ->
-                        novelModel.removeNovels(novelDialog.novelIds, deleteFromLibrary, deleteDownloads, removeGrouped)
-                        engine.clearSelection()
-                    },
-                )
-            }
-            is NovelLibraryScreenModel.Dialog.Settings -> {
-                NovelLibrarySettingsDialog(
-                    onDismissRequest = novelModel::dismissDialog,
-                    screenModel = novelModel,
-                    settingsScreenModel = settingsScreenModel,
-                    categoryId = novelDialog.categoryId,
-                    initialTab = novelDialog.initialTab,
-                    onManageCategories = {
-                        novelModel.dismissDialog()
-                        navigator.push(CategoryScreen())
                     },
                 )
             }
@@ -780,7 +749,9 @@ data object LibraryTab : Tab {
             }
         }
 
-        LaunchedEffect(activeSelectionMode, state.dialog) {
+        // RK: keyed on the engine's dialog, so a novel dialog re-asserts the bottom nav the same way a
+        // manga one always has.
+        LaunchedEffect(activeSelectionMode, libraryDialog) {
             HomeScreen.showBottomNav(!activeSelectionMode)
         }
 
@@ -792,7 +763,14 @@ data object LibraryTab : Tab {
 
         LaunchedEffect(Unit) {
             launch { queryEvent.receiveAsFlow().collect(screenModel::search) }
-            launch { requestSettingsSheetEvent.receiveAsFlow().collectLatest { screenModel.showSettingsDialog() } }
+            // RK: through the engine, so re-tapping the Library nav item follows the content-type chip
+            // instead of always opening the manga sheet.
+            launch {
+                // Read the chip from its flow, not the captured composition value: this effect keys on
+                // Unit and would otherwise hold whatever the chip was at first composition.
+                requestSettingsSheetEvent.receiveAsFlow()
+                    .collectLatest { engine.openSettingsDialog(novelModel.contentType.value) }
+            }
         }
     }
 

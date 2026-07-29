@@ -40,6 +40,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Fixes
 
+- **Change categories on a grouped series no longer drops categories that only some of its sources were in.** Those categories now show as partly ticked, and are left alone unless you change them.
+- **Tapping the Library button again while the Novels library is showing now opens the novel settings, not the manga ones.**
 - **Novel update notifications now carry the Reikai icon instead of a generic book.** Manga ones already did.
 - **You can now move manga into a hidden category from the library's Change categories action.** Hidden categories were missing from that list, so there was no way to pick them.
 - **A category that covers both manga and novels now survives a backup.** Restoring one used to split it into two separate categories, one per library.
