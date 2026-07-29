@@ -437,24 +437,26 @@ data object LibraryTab : Tab {
                 activeIsLoading -> {
                     LoadingScreen(Modifier.padding(contentPadding))
                 }
-                activeSearchQuery.isNullOrEmpty() && !isNovels && !state.hasActiveFilters && activeIsLibraryEmpty -> {
+                // RK: "empty" is counted after filters run, so the filter guard is what stops a filter
+                // that matches nothing from reading as an empty library. Both content types need it.
+                // The getting-started guide stays manga-only on purpose: it documents manga extensions,
+                // which the novel plugin system does not use.
+                activeSearchQuery.isNullOrEmpty() && !activeHasActiveFilters && activeIsLibraryEmpty -> {
                     val handler = LocalUriHandler.current
                     EmptyScreen(
                         stringRes = MR.strings.information_empty_library,
                         modifier = Modifier.padding(contentPadding),
-                        actions = listOf(
-                            EmptyScreenAction(
-                                stringRes = MR.strings.getting_started_guide,
-                                icon = Icons.AutoMirrored.Outlined.HelpOutline,
-                                onClick = { handler.openUri(GETTING_STARTED_URL) },
-                            ),
-                        ),
-                    )
-                }
-                isNovels && activeSearchQuery.isNullOrEmpty() && activeIsLibraryEmpty -> {
-                    EmptyScreen(
-                        stringRes = MR.strings.information_empty_library,
-                        modifier = Modifier.padding(contentPadding),
+                        actions = if (isNovels) {
+                            null
+                        } else {
+                            listOf(
+                                EmptyScreenAction(
+                                    stringRes = MR.strings.getting_started_guide,
+                                    icon = Icons.AutoMirrored.Outlined.HelpOutline,
+                                    onClick = { handler.openUri(GETTING_STARTED_URL) },
+                                ),
+                            )
+                        },
                     )
                 }
                 else -> {
