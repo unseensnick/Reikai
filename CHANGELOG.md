@@ -67,6 +67,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 **Library & updates**
 
 - **Tapping the Library button again while the Novels library is showing now opens the novel settings, not the manga ones.**
+- **Searching your library from another screen now searches the library you are looking at.** It always searched manga, whichever chip was selected.
+- **Updating the novel library now tells you when an update is already running.** It used to say it had started a new one every time.
 - **Novel update notifications now carry the Reikai icon instead of a generic book, like manga.**
 - **You can now move manga into a hidden category from the library's Change categories action.** Hidden categories were missing from that list, so there was no way to pick them.
 - **Updating your novel library can no longer save one novel's title and cover onto a different novel.** Refresh an affected entry to restore its details.
