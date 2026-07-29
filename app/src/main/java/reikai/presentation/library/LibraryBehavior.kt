@@ -21,6 +21,18 @@ interface LibraryBehavior {
 
     fun search(query: String?)
 
+    /**
+     * Start a library update for [category], or the whole library when null. Returns false when one is
+     * already running, which is what the "already updating" message keys on.
+     */
+    fun refresh(category: Category?): Boolean
+
+    /**
+     * A random entry from [categoryId], or from the whole library when null. Neutral, so the caller opens
+     * it through the same per-type routing every other row uses.
+     */
+    fun randomEntry(categoryId: Long?): EntryId?
+
     // Selection itself lives in LibraryEngine, not here: a combined list can hold both content types at
     // once and a range-select can span them, which neither provider can compute alone.
 

@@ -2,10 +2,15 @@ package reikai.presentation.library
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import eu.kanade.core.preference.PreferenceMutableState
+import eu.kanade.core.preference.asState
 import eu.kanade.presentation.manga.DownloadAction
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import reikai.domain.category.categoryDiff
 import reikai.domain.entry.EntryId
@@ -13,6 +18,9 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.library.model.LibraryDisplayMode
+import tachiyomi.domain.library.service.LibraryPreferences
 import uy.kohesive.injekt.injectLazy
 
 /**
@@ -37,6 +45,42 @@ import uy.kohesive.injekt.injectLazy
 class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel {
 
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
+    private val libraryPreferences: LibraryPreferences by injectLazy()
+
+    // These two are `by lazy` rather than plain vals so constructing the engine touches neither the DI
+    // container nor the coroutine scope. Selection is pure maths and is unit-tested by direct
+    // construction; only the view ever reads a preference-backed flow.
+
+    /**
+     * The Manga / Novels chip. It lives here rather than on either provider because it decides which
+     * provider drives the view, which is the engine's job and not one content type's.
+     */
+    val contentType: StateFlow<ContentType> by lazy {
+        reikaiLibraryPreferences.libraryContentType.changes()
+            .stateIn(screenModelScope, SharingStarted.Eagerly, reikaiLibraryPreferences.libraryContentType.get())
+    }
+
+    /**
+     * The library-wide display config, hoisted off the manga model because it is one setting for the
+     * whole library rather than one per content type.
+     */
+    val display: StateFlow<LibraryDisplayState> by lazy {
+        combine(
+            reikaiLibraryPreferences.libraryStateFlow(),
+            libraryPreferences.categoryTabs.changes(),
+            libraryPreferences.categoryNumberOfItems.changes(),
+        ) { reikai, showCategoryTabs, showItemCounts ->
+            LibraryDisplayState(reikai, showCategoryTabs, showItemCounts)
+        }.stateIn(screenModelScope, SharingStarted.Eagerly, LibraryDisplayState())
+    }
+
+    /** Grid shape, the other half of the display config. Both are library-wide, not per content type. */
+    fun displayMode(): PreferenceMutableState<LibraryDisplayMode> =
+        libraryPreferences.displayMode.asState(screenModelScope)
+
+    fun columnsForOrientation(isLandscape: Boolean): PreferenceMutableState<Int> =
+        (if (isLandscape) libraryPreferences.landscapeColumns else libraryPreferences.portraitColumns)
+            .asState(screenModelScope)
 
     private val mutableSelection = MutableStateFlow<Set<EntryId>>(emptySet())
     val selection: StateFlow<Set<EntryId>> = mutableSelection.asStateFlow()
@@ -59,6 +103,30 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
     fun behaviorFor(contentType: ContentType): LibraryBehavior =
         providersFor(contentType).singleOrNull()
             ?: error("A mixed $contentType library needs a behaviour combining both providers' state")
+
+    /**
+     * Switch the chip. The selection is dropped because it is shared across content types, so keeping it
+     * would carry rows into a view that does not list them, leaving a count on the action bar and actions
+     * that hit nothing. Revisit when the All chip lands: All -> Manga could keep the manga part.
+     */
+    fun setContentType(type: ContentType) {
+        clearSelection()
+        reikaiLibraryPreferences.libraryContentType.set(type)
+    }
+
+    // Per-type verbs the view dispatches for whatever the chip is showing.
+
+    /** Start a library update, returning false when one is already running. */
+    fun refresh(contentType: ContentType, category: Category?): Boolean =
+        providersFor(contentType).map { it.refresh(category) }.all { it }
+
+    /**
+     * A random entry from [categoryId], or the whole library when null, across every provider in view.
+     * Picking one per provider and then one of those weights the content types equally rather than by
+     * how many entries each holds, which only matters once a mixed view is reachable.
+     */
+    fun randomEntry(contentType: ContentType, categoryId: Long?): EntryId? =
+        providersFor(contentType).mapNotNull { it.randomEntry(categoryId) }.randomOrNull()
 
     // Selection. Every op that needs to know what is on screen takes the category's entries in display
     // order, so the engine never has to resolve rows itself and stays free of per-type lookups.

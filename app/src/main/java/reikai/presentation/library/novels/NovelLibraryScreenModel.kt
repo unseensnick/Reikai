@@ -123,12 +123,6 @@ class NovelLibraryScreenModel :
     private val trackerManager: TrackerManager by injectLazy()
     private val getNovelTracks: GetNovelTracks by injectLazy()
 
-    /** Sticky Manga/Novels chip for the Library tab (owned here so it's read outside a Composable). */
-    val contentType: StateFlow<ContentType> = reikaiLibraryPreferences.libraryContentType.changes()
-        .stateIn(screenModelScope, SharingStarted.Eagerly, reikaiLibraryPreferences.libraryContentType.get())
-
-    fun setContentType(type: ContentType) = reikaiLibraryPreferences.libraryContentType.set(type)
-
     private val searchQuery = MutableStateFlow<String?>(null)
 
     // Keyed by category name (header key), matching the manga collapse convention. Session-scoped.
@@ -1025,12 +1019,9 @@ class NovelLibraryScreenModel :
         /** (source, url) for the item id, to open the novel details screen. */
         fun routeFor(itemId: Long): NovelRoute? = novelRoutes[itemId]
 
-        /** A random favorited novel's route (the hopper "random, global" action). */
-        fun randomRoute(): NovelRoute? = novelRoutes.values.randomOrNull()
-
-        /** A random novel route within [categoryId] (the hopper "random, in category" action). */
-        fun randomRouteInCategory(categoryId: Long?): NovelRoute? =
-            itemIdsForCategory(categoryId).randomOrNull()?.let { routeFor(it) }
+        /** A random favorited novel's id, within [categoryId] or across the whole library when null. */
+        fun randomItemId(categoryId: Long?): Long? =
+            if (categoryId == null) novelRoutes.keys.randomOrNull() else itemIdsForCategory(categoryId).randomOrNull()
     }
 
     data class NovelRoute(val source: String, val url: String)

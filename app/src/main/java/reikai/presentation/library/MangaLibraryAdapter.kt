@@ -1,8 +1,10 @@
 package reikai.presentation.library
 
+import android.app.Application
 import androidx.compose.ui.util.fastAll
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.presentation.manga.DownloadAction
+import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.library.LibraryScreenModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +29,7 @@ class MangaLibraryAdapter(
 
     // Lazy, so constructing the adapter in a composable never touches the DI container.
     private val getCategories: GetCategories by injectLazy()
+    private val context: Application by injectLazy()
 
     override val contentType = ContentType.MANGA
 
@@ -51,6 +54,18 @@ class MangaLibraryAdapter(
 
     override fun search(query: String?) {
         model.search(query)
+    }
+
+    override fun refresh(category: Category?) = LibraryUpdateJob.startNow(context, category)
+
+    override fun randomEntry(categoryId: Long?): EntryId? {
+        val state = model.state.value
+        val item = if (categoryId == null) {
+            state.libraryData.favorites.randomOrNull()
+        } else {
+            state.getItemsForCategoryId(categoryId).randomOrNull()
+        }
+        return item?.entryId
     }
     override fun toggleDefaultCategoryCollapse(headerKey: String) {
         model.toggleDefaultCategoryCollapse(headerKey)

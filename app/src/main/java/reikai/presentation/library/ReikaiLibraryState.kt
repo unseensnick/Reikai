@@ -31,6 +31,18 @@ data class ReikaiLibraryState(
     val trackNovelUpdateErrors: Boolean = false,
 )
 
+/**
+ * The whole library's display config, Reikai's own preferences plus the two Mihon ones the shared tab
+ * reads. One holder for the library rather than one per content type, because none of these settings is
+ * per-type: the chip changes what is listed, not how it is drawn.
+ */
+@Immutable
+data class LibraryDisplayState(
+    val reikai: ReikaiLibraryState = ReikaiLibraryState(),
+    val showCategoryTabs: Boolean = false,
+    val showItemCounts: Boolean = false,
+)
+
 /** Every Reikai library display preference, folded into one reactive state. */
 @Suppress("UNCHECKED_CAST")
 fun ReikaiLibraryPreferences.libraryStateFlow(): Flow<ReikaiLibraryState> = combine(

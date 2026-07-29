@@ -1,11 +1,13 @@
 package reikai.presentation.library
 
+import android.app.Application
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.presentation.manga.DownloadAction
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
@@ -25,6 +27,7 @@ class NovelLibraryAdapter(
 
     // Lazy, so constructing the adapter in a composable never touches the DI container.
     private val getNovelCategories: GetNovelCategories by injectLazy()
+    private val context: Application by injectLazy()
 
     override val contentType = ContentType.NOVELS
 
@@ -51,6 +54,12 @@ class NovelLibraryAdapter(
     override fun search(query: String?) {
         model.search(query)
     }
+
+    override fun refresh(category: Category?) = NovelUpdateJob.startNow(context, category)
+
+    override fun randomEntry(categoryId: Long?): EntryId? =
+        model.state.value.randomItemId(categoryId)?.let(EntryId::Novel)
+
     override fun toggleDefaultCategoryCollapse(headerKey: String) {
         model.toggleCategoryCollapse(headerKey)
     }

@@ -57,7 +57,6 @@ import eu.kanade.presentation.manga.components.LibraryBottomActionMenu
 import eu.kanade.presentation.more.onboarding.GETTING_STARTED_URL
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
@@ -68,7 +67,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.sortForCategory
@@ -142,8 +140,6 @@ data object LibraryTab : Tab {
         // `libState` so every downstream view reads them unchanged.
         val novelModel = rememberScreenModel { NovelLibraryScreenModel() }
         val novelState by novelModel.state.collectAsState()
-        val libraryContentType by novelModel.contentType.collectAsState()
-        val isNovels = libraryContentType == ContentType.NOVELS
         // The engine owns which provider drives the view and every dialog, so the content type is decided
         // in one place rather than at each call site. It is shaped to merge both providers for an All view
         // later, and is a ScreenModel for its scope: building the change-categories dialog reads categories.
@@ -153,8 +149,13 @@ data object LibraryTab : Tab {
         val engine = rememberScreenModel {
             LibraryEngine(listOf(MangaLibraryAdapter(screenModel), NovelLibraryAdapter(novelModel)))
         }
+        val libraryContentType by engine.contentType.collectAsState()
+        val isNovels = libraryContentType == ContentType.NOVELS
         val behavior: LibraryBehavior = engine.behaviorFor(libraryContentType)
         val libraryDialog by engine.dialog.collectAsState()
+        // RK: the library-wide display config, read from the engine rather than off the manga model, so
+        // the tab does not reach into one content type for a setting that belongs to neither.
+        val display by engine.display.collectAsState()
         // RK: collect BOTH adapters' state and pick synchronously, so flipping the chip switches
         // instantly. Collecting a single `behavior.state` over the switched adapter re-subscribes on the
         // flow change, holding the old value for a frame, which stutters the manga<->novel transition.
@@ -219,7 +220,7 @@ data object LibraryTab : Tab {
             },
             itemCount = { activeGetItems(it).size },
         )
-        fun currentCategoryIndex(): Int = if (state.reikai.showAllCategories) {
+        fun currentCategoryIndex(): Int = if (display.reikai.showAllCategories) {
             reikaiHeaderIndices().indexOfLast { it <= singleListGridState.firstVisibleItemIndex }.coerceAtLeast(0)
         } else {
             pagerState.currentPage
@@ -232,7 +233,7 @@ data object LibraryTab : Tab {
         }
         LaunchedEffect(hopperTarget) {
             val target = hopperTarget ?: return@LaunchedEffect
-            if (state.reikai.showAllCategories) {
+            if (display.reikai.showAllCategories) {
                 reikaiHeaderIndices().getOrNull(target)?.let { itemIndex ->
                     // Jump instantly to the target category, the way Yōkai's hopper does. Categories
                     // here can hold hundreds of items, so a smooth scroll across them has to compose
@@ -249,15 +250,8 @@ data object LibraryTab : Tab {
         }
         // RK <--
 
-        // RK: route refresh to the right vertical's job. The novel job (KEEP-deduped) has no
-        // already-running signal, so the Novels chip always reports "updating".
         val onClickRefresh: (Category?) -> Boolean = { category ->
-            val started = if (isNovels) {
-                NovelUpdateJob.startNow(context, category)
-                true
-            } else {
-                LibraryUpdateJob.startNow(context, category)
-            }
+            val started = engine.refresh(libraryContentType, category)
             scope.launch {
                 val msgRes = when {
                     !started -> MR.strings.update_already_running
@@ -269,23 +263,6 @@ data object LibraryTab : Tab {
             started
         }
 
-        // RK: open a random entry from the category on screen, for the toolbar overflow and the hopper's
-        // long-press action. Shared so the two can't drift into opening different content types.
-        val onOpenRandomInCurrentCategory: () -> Unit = {
-            scope.launch {
-                val opened = if (isNovels) {
-                    novelState.randomRouteInCategory(novelState.activeCategory?.id)
-                        ?.also { navigator.push(NovelScreen(it.source, it.url)) } != null
-                } else {
-                    screenModel.getRandomLibraryItemForCurrentCategory()
-                        ?.also { navigator.push(MangaScreen(it.libraryManga.manga.id)) } != null
-                }
-                if (!opened) {
-                    snackbarHostState.showSnackbar(context.stringResource(MR.strings.information_no_entries_found))
-                }
-            }
-        }
-
         // RK: open an entry on its own details screen, routed by the ROW's content type rather than the
         // active chip. Navigation stays per-type (each type has its own screen), but the decision no
         // longer depends on ambient UI state, so a mixed list routes every row correctly.
@@ -295,6 +272,20 @@ data object LibraryTab : Tab {
                     navigator.push(NovelScreen(it.source, it.url))
                 }
                 is EntryId.Manga -> navigator.push(MangaScreen(entryId.rawId))
+            }
+        }
+
+        // RK: open a random entry, from the category on screen or from the whole library. The entry comes
+        // back neutral and opens through the same routing every other row uses, so the two callers can't
+        // drift into opening different content types.
+        val onOpenRandom: (Long?) -> Unit = { categoryId ->
+            val entry = engine.randomEntry(libraryContentType, categoryId)
+            if (entry == null) {
+                scope.launch {
+                    snackbarHostState.showSnackbar(context.stringResource(MR.strings.information_no_entries_found))
+                }
+            } else {
+                openEntry(entry)
             }
         }
 
@@ -339,7 +330,7 @@ data object LibraryTab : Tab {
                     defaultTitle = stringResource(MR.strings.label_library),
                     defaultCategoryTitle = stringResource(MR.strings.label_default),
                     // RK: single-list tracks the visible category on scroll, so the title follows it
-                    page = if (state.reikai.showAllCategories) {
+                    page = if (display.reikai.showAllCategories) {
                         currentCategoryIndex()
                     } else {
                         state.coercedActiveCategoryIndex
@@ -352,7 +343,7 @@ data object LibraryTab : Tab {
                 // isActionMode); on scroll the toolbar tints to its scrolledContainerColor
                 // (M3 default surfaceContainer), only when it actually collapses (no category tabs).
                 val chipBackground by animateColorAsState(
-                    targetValue = if (!state.showCategoryTabs && scrollBehavior.state.overlappedFraction > 0.01f) {
+                    targetValue = if (!display.showCategoryTabs && scrollBehavior.state.overlappedFraction > 0.01f) {
                         MaterialTheme.colorScheme.surfaceContainer
                     } else {
                         MaterialTheme.colorScheme.surfaceColorAtElevation(if (activeSelectionMode) 3.dp else 0.dp)
@@ -377,12 +368,12 @@ data object LibraryTab : Tab {
                         onClickRefresh = { onClickRefresh(activeCategory) },
                         onClickGlobalUpdate = { onClickRefresh(null) },
                         // RK: follows the content-type chip; it used to always open a manga.
-                        onClickOpenRandomManga = onOpenRandomInCurrentCategory,
+                        onClickOpenRandomManga = { onOpenRandom(activeCategory?.id) },
                         // RK: opt-in Update errors screen (hidden unless the matching Advanced toggle is on);
                         //     opens on the chip for the content type currently shown.
                         onClickUpdateErrors = run {
-                            val enabled =
-                                if (isNovels) state.reikai.trackNovelUpdateErrors else state.reikai.trackUpdateErrors
+                            val reikai = display.reikai
+                            val enabled = if (isNovels) reikai.trackNovelUpdateErrors else reikai.trackUpdateErrors
                             if (enabled) {
                                 {
                                     val initial = if (isNovels) ContentType.NOVELS else ContentType.MANGA
@@ -395,19 +386,11 @@ data object LibraryTab : Tab {
                         searchQuery = activeSearchQuery,
                         onSearchQueryChange = onSearch,
                         // For scroll overlay when no tab
-                        scrollBehavior = scrollBehavior.takeIf { !state.showCategoryTabs },
+                        scrollBehavior = scrollBehavior.takeIf { !display.showCategoryTabs },
                     )
                     ContentTypeFilterChips(
                         selected = libraryContentType,
-                        onSelect = { type ->
-                            // RK: the selection is shared across content types, so switching the chip
-                            // would otherwise carry it into a view where none of its rows are listed,
-                            // leaving a stale count on the action bar and actions that hit nothing.
-                            // Revisit when the All chip lands: switching All -> Manga could keep the
-                            // manga part rather than dropping everything.
-                            engine.clearSelection()
-                            novelModel.setContentType(type)
-                        },
+                        onSelect = engine::setContentType,
                         types = listOf(ContentType.MANGA, ContentType.NOVELS),
                         modifier = Modifier.background(chipBackground),
                     )
@@ -477,11 +460,11 @@ data object LibraryTab : Tab {
                 else -> {
                     // RK --> both library views (pager + single-list) with hopper + picker overlaid
                     Box(modifier = Modifier.fillMaxSize()) {
-                        if (state.reikai.showAllCategories) {
+                        if (display.reikai.showAllCategories) {
                             val isLandscape =
                                 LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-                            val columns by screenModel.getColumnsForOrientation(isLandscape)
-                            val displayMode by screenModel.getDisplayMode()
+                            val columns by engine.columnsForOrientation(isLandscape)
+                            val displayMode by engine.displayMode()
                             // RK: the global sort each non-overridden category follows (re-read per render;
                             // a global-sort change re-sorts the library, which recomposes this).
                             val mangaGlobalSort = settingsScreenModel.libraryPreferences.sortingMode.get()
@@ -493,7 +476,7 @@ data object LibraryTab : Tab {
                                 getItemsForCategory = activeGetItems,
                                 collapsedCategories = activeCollapsedCategories,
                                 collapsedDynamicCategories = libState.collapsedDynamicCategories,
-                                showItemCounts = state.showMangaCount,
+                                showItemCounts = display.showItemCounts,
                                 displayMode = displayMode,
                                 columns = columns,
                                 selection = activeSelection,
@@ -550,7 +533,7 @@ data object LibraryTab : Tab {
                                 contentPadding = contentPadding,
                                 pagerState = pagerState,
                                 hasActiveFilters = activeHasActiveFilters,
-                                showPageTabs = state.showCategoryTabs || !activeSearchQuery.isNullOrEmpty(),
+                                showPageTabs = display.showCategoryTabs || !activeSearchQuery.isNullOrEmpty(),
                                 onChangeCurrentPage = behavior::updateActiveCategoryIndex,
                                 onClickManga = openEntry,
                                 onContinueReadingClicked = onContinueReading,
@@ -566,14 +549,14 @@ data object LibraryTab : Tab {
                                     navigator.push(GlobalSearchScreen(activeSearchQuery ?: ""))
                                 },
                                 getItemCountForCategory = activeGetItemCount,
-                                getDisplayMode = { screenModel.getDisplayMode() },
-                                getColumnsForOrientation = { screenModel.getColumnsForOrientation(it) },
+                                getDisplayMode = { engine.displayMode() },
+                                getColumnsForOrientation = { engine.columnsForOrientation(it) },
                                 getItemsForCategory = activeGetItems,
                             )
                         }
 
-                        if (!state.reikai.hideHopper && activeCategories.isNotEmpty()) {
-                            val hopperAlignment = when (state.reikai.hopperGravity) {
+                        if (!display.reikai.hideHopper && activeCategories.isNotEmpty()) {
+                            val hopperAlignment = when (display.reikai.hopperGravity) {
                                 0 -> Alignment.BottomStart
                                 2 -> Alignment.BottomEnd
                                 else -> Alignment.BottomCenter
@@ -581,7 +564,7 @@ data object LibraryTab : Tab {
                             // Autohide: fade the hopper out while the single-list is scrolling,
                             // bring it back when it settles. No effect in the pager (its grid state
                             // isn't this one), where the hopper stays put.
-                            val hopperVisible = !state.reikai.autohideHopper ||
+                            val hopperVisible = !display.reikai.autohideHopper ||
                                 !singleListGridState.isScrollInProgress
                             AnimatedVisibility(
                                 visible = hopperVisible,
@@ -595,8 +578,8 @@ data object LibraryTab : Tab {
                                 ReikaiCategoryHopper(
                                     modifier = Modifier
                                         // Drag the hopper left/right to move it between start / center / end.
-                                        .pointerInput(state.reikai.hopperGravity) {
-                                            val gravity = state.reikai.hopperGravity
+                                        .pointerInput(display.reikai.hopperGravity) {
+                                            val gravity = display.reikai.hopperGravity
                                             detectHorizontalDragGestures(
                                                 onDragStart = { hopperDragAccum = 0f },
                                                 onDragEnd = {
@@ -617,15 +600,12 @@ data object LibraryTab : Tab {
                                         hopperTarget = ((hopperTarget ?: currentCategoryIndex()) - 1).coerceIn(0, last)
                                     },
                                     onCenterClick = { pickerOpen = true },
-                                    // RK: every hopper long-press action is content-aware (novel vs manga).
+                                    // RK: every hopper long-press action follows the content-type chip, which
+                                    // the seam decides, so none of them branches on the chip here.
                                     onCenterLongClick = {
-                                        when (state.reikai.hopperLongPressAction) {
-                                            0 -> if (isNovels) novelModel.search("") else screenModel.search("")
-                                            1 -> if (isNovels) {
-                                                novelModel.toggleAllCategoriesCollapsed(novelState.displayedCategories)
-                                            } else {
-                                                screenModel.toggleAllCategoriesCollapsed(state.displayedCategories)
-                                            }
+                                        when (display.reikai.hopperLongPressAction) {
+                                            0 -> onSearch("")
+                                            1 -> behavior.toggleAllCategoriesCollapsed(activeCategories)
                                             // The hopper is a category navigator, so its sheet is scoped to
                                             // the category it sits on, the same as a category header's sort.
                                             2 -> engine.openSettingsDialog(
@@ -638,16 +618,8 @@ data object LibraryTab : Tab {
                                                 activeCategory?.id,
                                                 initialTab = 3,
                                             )
-                                            4 -> onOpenRandomInCurrentCategory()
-                                            5 -> scope.launch {
-                                                if (isNovels) {
-                                                    novelState.randomRoute()
-                                                        ?.let { navigator.push(NovelScreen(it.source, it.url)) }
-                                                } else {
-                                                    screenModel.getRandomLibraryItem()
-                                                        ?.let { navigator.push(MangaScreen(it.libraryManga.manga.id)) }
-                                                }
-                                            }
+                                            4 -> onOpenRandom(activeCategory?.id)
+                                            5 -> onOpenRandom(null)
                                         }
                                     },
                                     onDownClick = {
@@ -663,7 +635,7 @@ data object LibraryTab : Tab {
                         ReikaiCategoryPickerSheet(
                             categories = activeCategories,
                             getItemCount = activeGetItemCount,
-                            showItemCounts = state.showMangaCount,
+                            showItemCounts = display.showItemCounts,
                             activeCategoryId = activeCategories.getOrNull(currentCategoryIndex())?.id,
                             onSelect = { category ->
                                 hopperTarget = activeCategories.indexOf(category)
@@ -703,7 +675,7 @@ data object LibraryTab : Tab {
                     // active category.
                     category = dialog.categoryId?.let { id -> state.libraryData.categories.find { it.id == id } },
                     // RK --> full category list for the include/exclude filter (sorted by the category order) + route to category manager
-                    categories = reikaiSortCategories(state.libraryData.categories, state.reikai.categorySortOrder),
+                    categories = reikaiSortCategories(state.libraryData.categories, display.reikai.categorySortOrder),
                     onManageCategories = {
                         onDismissRequest()
                         navigator.push(CategoryScreen())
@@ -762,14 +734,16 @@ data object LibraryTab : Tab {
         }
 
         LaunchedEffect(Unit) {
-            launch { queryEvent.receiveAsFlow().collect(screenModel::search) }
-            // RK: through the engine, so re-tapping the Library nav item follows the content-type chip
-            // instead of always opening the manga sheet.
+            // RK: through the seam, so a search sent from another screen lands on the library the chip is
+            // showing. Both collectors read the chip from its flow rather than the captured composition
+            // value, because this effect keys on Unit and would otherwise hold the chip's first value.
             launch {
-                // Read the chip from its flow, not the captured composition value: this effect keys on
-                // Unit and would otherwise hold whatever the chip was at first composition.
+                queryEvent.receiveAsFlow()
+                    .collect { engine.behaviorFor(engine.contentType.value).search(it) }
+            }
+            launch {
                 requestSettingsSheetEvent.receiveAsFlow()
-                    .collectLatest { engine.openSettingsDialog(novelModel.contentType.value) }
+                    .collectLatest { engine.openSettingsDialog(engine.contentType.value) }
             }
         }
     }

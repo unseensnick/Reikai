@@ -835,9 +835,6 @@ class LibraryScreenModel(
         return state.getItemsForCategoryId(state.activeCategory?.id).randomOrNull()
     }
 
-    // RK: a random entry from the whole library (hopper long-press "random, global" action)
-    fun getRandomLibraryItem(): LibraryItem? = state.value.libraryData.favorites.randomOrNull()
-
     // RK: DEAD. The library dialogs are built and owned by reikai.presentation.library.LibraryEngine, so
     // nothing renders this state any more. Kept because upstream has its own copy and deleting it would
     // widen the sync diff for no gain; it goes when this file does. Do not add to it.
