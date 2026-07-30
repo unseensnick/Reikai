@@ -36,29 +36,52 @@ The shared layer already owns the selection, the dialogs, the settings sheet and
 - `LibraryScreenModel.State.reikai` retires. Three readers remain, all inside the manga model: the grouping inputs and the empty-category drop (`LibraryScreenModel.kt:226,229`) and the toolbar title (`:1051`). The first two source from the engine's flow instead; the third goes with the title work.
 - `itemCountForCategory` becomes one rule. Manga returns null unless the count preference is on or a search is active; novels always return a count. Under one list this is one computation over the filtered rows, honouring the preference.
 
+## How the screen works today
+
+Read this before the steps; the whole plan is a rearrangement of it.
+
+`LibraryTab.Content()` builds three `ScreenModel`s: the manga `LibraryScreenModel`, the novel `NovelLibraryScreenModel`, and `LibraryEngine` over an adapter for each (`LibraryTab.kt:128-151`). It then collects **both** adapters' states eagerly and picks one by chip: `val libState = if (isNovels) novelLibState else mangaLibState` (`:160-162`). Everything the tab renders comes off that one `LibraryScreenState`, whose `categories` field is already a finished, bucketed, sorted list. Assembly replaces that pick.
+
+Each side reaches its finished list the same way, and the split point step 1 needs is visible in both:
+
+- **Manga.** `favorites.applyFilters(...)` produces `filteredFavorites` (`LibraryScreenModel.kt:171`), stored as `LibraryData.favorites` (`:197`). Bucketing happens later, in `applyGrouping` (`:237`, defined `:393`), then `applySort` (`:444-446`). So the rows exist, filtered and unbucketed, at `:197`.
+- **Novels.** `items` is the filtered row list (`NovelLibraryScreenModel.kt:437`), `byId` its index (`:446`); bucketing into `byCategory` follows at `:455-461`. Same shape, same split point.
+
+The chip is a preference, `reikaiLibraryPreferences.libraryContentType`, exposed as `LibraryEngine.contentType` and written by `setContentType`, which also clears the selection because a selection can span types. `ContentType` is `MANGA`, `NOVELS`, `ALL`; the strip currently offers only the first two (`LibraryTab.kt:391-396` area), and three engine methods fail loudly on `ALL` today: `behaviorFor` (`LibraryEngine.kt:105`), `settingsFor` (`:114`) and `openSettingsDialog` (`:284`).
+
 ## Sequenced steps
 
-1. **Rows out of the providers.** Add a neutral row flow to `LibraryProvider` that yields filtered, unsorted, unbucketed `List<LibraryItem>`. Both models already produce exactly this internally, before their own bucketing. Nothing consumes it yet, so it ships inert.
-2. **Assembly in the shared layer.** The engine concatenates, sorts, buckets and hides emptied categories, producing the list the tab renders. Behind the existing chips it must produce byte-identical output to today, which is the test: switch the tab to the assembled list with the chip predicate applied and nothing visible changes.
-3. **The chip becomes a predicate.** `providersFor(ALL)` already fans out to both; make `behaviorFor` and the assembly path stop failing on ALL, and add the All chip to the strip. The mixed list is real from here.
+1. **Rows out of the providers.** Add a neutral row flow to `LibraryProvider` yielding filtered, unsorted, unbucketed `List<LibraryItem>`, sourced from the two split points above. Nothing consumes it yet, so it ships inert and the app is unchanged.
+2. **Assembly in the shared layer.** The engine concatenates, sorts, buckets and hides emptied categories, producing what the tab renders instead of `libState.categories` and its item lookups. **Verification is a unit test, not a squint:** with one provider's rows and that provider's settings, the assembled output must equal what that model produces today, so pin it by feeding both paths the same fixture and comparing category order plus per-category id order. `LibraryEngineTest` already constructs the engine directly over `mockk<LibraryProvider>(relaxed = true)`, which is the pattern to extend. Device-check afterwards that nothing visible moved.
+3. **The chip becomes a predicate.** `providersFor(ALL)` already fans out to both. Make the three `ALL` failure sites resolve, apply `rows.filter { it.entryId.contentType == chip }` for the single-type chips, and add All to the strip. The mixed list is real from here, so this is the first step with a wide device pass.
 4. **Counts and empty categories** to the ruled behaviour, over the assembled list.
 5. **Retire the per-type list state**: `State.reikai`, the four helpers, and the `isNovels` branches the assembly made unreachable.
 6. **Parity closeout**: the toolbar title (still reads the manga state on both chips), novel search onto the query AST, and the hopper long-press scope.
 
 ## Key files
 
-- `reikai/presentation/library/LibraryEngine.kt`: the shared engine, a Voyager `ScreenModel`. Owns selection, dialogs, display config, the chip, collapse, and the settings-description lookup. This is where assembly lands.
-- `reikai/presentation/library/LibraryProvider.kt` and `LibraryBehavior.kt`: the per-type seam, 17 members. Providers answer about entries and perform writes; they do not open dialogs and do not own collapse.
-- `reikai/presentation/library/LibraryScreenState.kt`: the neutral per-type state. Only genuinely per-type content lives here; library-wide values belong on the engine.
-- `reikai/presentation/library/MangaLibraryAdapter.kt`, `NovelLibraryAdapter.kt`: the two adapters.
-- The shared kernels, all already type-neutral and unit-tested: `LibraryItemFields.kt`, `LibraryFilter.kt`, `LibraryQueryMatch.kt`, `LibraryDynamicGrouping.kt`, `domain/reikai/domain/library/LibrarySortComparator.kt`.
+Paths are from the repo root, which **is** `.../yokai-y2k/app`. App-module sources therefore live under `app/src/main/java/`, and the sibling reference clones are at `../refs/`, outside the repo.
+
+Under `app/src/main/java/reikai/presentation/library/`:
+
+- `LibraryEngine.kt`: the shared engine, a Voyager `ScreenModel`. Owns selection, dialogs, display config, the chip, collapse, and the settings-description lookup. **This is where assembly lands.**
+- `LibraryProvider.kt` and `LibraryBehavior.kt`: the per-type seam, 17 members. Providers answer about entries and perform writes; they do not open dialogs and do not own collapse.
+- `LibraryScreenState.kt`: the neutral per-type state the tab renders. Only genuinely per-type content lives here; library-wide values belong on the engine.
+- `MangaLibraryAdapter.kt`, `NovelLibraryAdapter.kt`: the two adapters, constructed by the engine's own factory.
+- Type-neutral shared kernels, all unit-tested: `LibraryItemFields.kt`, `LibraryFilter.kt`, `LibraryQueryMatch.kt`, `LibraryDynamicGrouping.kt`.
 - The two grouping builders, deliberately side by side: `MangaDynamicGrouping.kt` and `novels/NovelDynamicGrouping.kt`.
-- `eu/kanade/tachiyomi/ui/library/LibraryTab.kt`: the consumer, 8 `isNovels` branches left (the definition, `libState`, the two per-type scroll/pager states, the update-errors preference and its screen seed, the migration screen, and the manga-only getting-started action).
-- `eu/kanade/tachiyomi/ui/library/LibraryScreenModel.kt`: Mihon's, live and `// RK`-patched, deleted and manifested at the end of the programme.
+
+Elsewhere:
+
+- `domain/src/main/java/reikai/domain/library/LibrarySortComparator.kt`: the shared comparator both types sort through. `CategorySortOverride.kt` beside it owns the per-category override rule.
+- `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryTab.kt`: the consumer, 8 `isNovels` branches left (the definition, `libState`, the two per-type scroll/pager states, the update-errors preference and its screen seed, the migration screen, and the manga-only getting-started action).
+- `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryScreenModel.kt`: Mihon's, live and `// RK`-patched, deleted and manifested at the end of the programme.
+- `app/src/main/java/reikai/presentation/library/novels/NovelLibraryScreenModel.kt`: Reikai's, the novel twin.
+- Tests: `app/src/test/java/reikai/presentation/library/`.
 
 ## Status
 
-Not started. The preparatory phases are done and device-verified: the behaviour seam, one settings sheet, and the two phase 3 prerequisites (collapse as one library-wide value, and the novel grouping builder extracted so the two cannot drift). The full record of those, and of the shared-pipeline work under them, is [content-layer-library-surface.md](content-layer-library-surface.md); the programme-level design is [content-layer-architecture.md](content-layer-architecture.md).
+**Not started, and step 2 is gated on open question 1 below** (which global sort a mixed category falls back to). Steps 1 can proceed without it. The preparatory phases are done and device-verified: the behaviour seam, one settings sheet, and the two phase 3 prerequisites (collapse as one library-wide value, and the novel grouping builder extracted so the two cannot drift). The full record of those, and of the shared-pipeline work under them, is [content-layer-library-surface.md](content-layer-library-surface.md); the programme-level design is [content-layer-architecture.md](content-layer-architecture.md).
 
 ## Decisions & tradeoffs
 
@@ -67,6 +90,12 @@ Not started. The preparatory phases are done and device-verified: the behaviour 
 - **Interactors and repositories stay Mihon's.** The takeover stops at orchestration. Any step that starts reimplementing what `setReadStatus` or `DownloadManager` does has gone too far.
 - **A source bucket stays per content type.** Manga encodes a numeric source id in the dynamic group's key where novels encode a plugin slug, so the two never merge into one bucket, which is correct: a manga source and a novel source are different sources. Pinned by `LibraryDynamicGroupingTest` over a mixed list.
 - **No schema or backup change.** Categories are already one table with a `content_type` column and one id space; rows already carry real positive ids behind a neutral `EntryId`. Assembly is code-only.
+
+## Open questions
+
+**1. Which global sort does a mixed category use? Blocking step 2.** Per-category overrides are fine: they live in the shared `categories` table's flags, so one row carries one override. The **fallback** is not. Manga reads `libraryPreferences.sortingMode` (a `LibrarySort`, key `library_sorting_mode`) and novels read `reikaiLibraryPreferences.novelLibraryDefaultSort` (a raw `Long` flag, key `novel_library_default_sort`); a category with no override currently gets whichever the active model supplies. Under one assembled list a mixed category needs one answer. Options: promote one preference to the library-wide global sort and migrate the other into it, keep both and let the chip choose (which contradicts the All-first rule, since All would then have no answer), or read the manga preference as the global and retire the novel one. **The same question applies to the Random seed** (`library_random_sort_seed` against `novel_library_random_seed`), which must be one value or a mixed Random sort is unstable across the two halves. Needs an owner ruling before assembly is written, because the shape of the sort input depends on it.
+
+**2. Does the sort tab still offer a per-type global sort? Follows from 1, non-blocking.** If the global sort unifies, the settings sheet's Sort tab writes one preference for both types and the `globalSort` member on `LibrarySettingsBinding` (`LibrarySettingsBinding.kt`) collapses to one shared flow. Cheap either way, but it is the visible half of question 1.
 
 ## Gotchas worth knowing before starting
 
