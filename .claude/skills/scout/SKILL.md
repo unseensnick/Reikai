@@ -126,7 +126,8 @@ Then stop. Do not start editing and do not call `EnterPlanMode`. The owner answe
 - Every claim cites `file:line` from current code. Memory, Handoff and plan-doc claims are hypotheses until cited from current code.
 - If a memory or Handoff is stale, surface it; let the user decide whether to prune.
 - Never fill an unresolved gap with an assumption. Investigate it or surface it as an open question.
-- Cap each subagent at ~500 words. Output follows [.claude/rules/plan-output.md](../../rules/plan-output.md), including its ~1500 word cap; a bigger task needs decomposition, not a longer report.
+- Cap each subagent at ~500 words. Output follows [.claude/rules/plan-output.md](../../rules/plan-output.md), including its word cap; a bigger task needs decomposition, not a longer report.
+- No interim narration: one sentence when the agents are spawned, then nothing until the report.
 - No em dashes in the report. Commas, parentheses, periods, colons.
 - No assumptions about framework defaults. If the report relies on a framework behavior, the citation points to the source of that behavior (Compose library, Material3, Voyager) or to a project-side test that verifies it.
 - If an Explore agent comes back vague or generic, the brief was too loose. Re-spawn with a sharper scope before synthesizing.

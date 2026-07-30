@@ -20,7 +20,9 @@ Android manga + light-novel reader. Personal fork built on [Mihon](https://githu
 
 **Offload long or hard tasks to subagents.** When a task requires deep codebase exploration, multi-file research, or extended multi-step work, spawn a subagent (`Agent` tool). This keeps the main context window clean.
 
-**Explain in plain English, without dumbing down.** Default to clear everyday language: spell out what something does and why it matters before naming the construct, define jargon the first time, and prefer a concrete analogy over a term of art (the user is newer to Kotlin/Android). Plain English does NOT mean less substance: keep the real technical detail, the tradeoffs, the failure modes, and the `file:line` citations. The goal is that someone can follow the reasoning without already knowing the codebase, not that the content is thinner. When presenting findings or a plan, lead with the plain-English picture; the precise function/file names are support, not the headline.
+**Explain in plain English, without dumbing down.** Default to clear everyday language: spell out what something does and why it matters before naming the construct, define jargon the first time, and prefer a concrete analogy over a term of art (the user is newer to Kotlin/Android). Plain English does NOT mean less substance: keep the real technical detail, the tradeoffs, the failure modes, and the `file:line` citations. When presenting findings or a plan, lead with the plain-English picture; the precise function/file names are support, not the headline. Plain English governs word choice, not volume: it is not a mandate to explain everything that could be explained.
+
+**Reply length.** Default replies are a few sentences: the answer or outcome, the load-bearing detail, done. A full explanation or report happens when the owner asks for one or when the task is a `/scout` / `/code-research` style deliverable (which has its own cap in [.claude/rules/plan-output.md](.claude/rules/plan-output.md)). When in doubt, give the short version and offer the long one.
 
 ## Architecture in brief
 

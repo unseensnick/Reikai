@@ -105,5 +105,6 @@ Verification is never the knob (it is mandatory, see Standing defaults). What sc
 - Every concrete claim cites `file:line` from current code. Memory, Handoff, plan-doc and agent-summary claims are hypotheses until cited.
 - Surface stale memories/docs found along the way instead of acting on them.
 - Never fill an unresolved gap with an assumption. Research it or surface it as an open question.
-- Output follows [.claude/rules/plan-output.md](../../rules/plan-output.md), including its ~1500 word cap. A bigger answer means the question needed splitting.
+- Output follows [.claude/rules/plan-output.md](../../rules/plan-output.md), including its word cap. A bigger answer means the question needed splitting.
+- No interim narration: one sentence when the fan-out starts, then nothing until the report. Agent-return play-by-play ("two back", "waiting on sort") never reaches the user.
 - No em dashes. Commas, parentheses, periods, colons.
