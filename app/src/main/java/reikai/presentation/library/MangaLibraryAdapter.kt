@@ -6,14 +6,25 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.library.LibraryScreenModel
+import eu.kanade.tachiyomi.util.system.isReleaseBuildType
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.entry.EntryId
+import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.ContentType
+import reikai.domain.library.ReikaiLibraryPreferences
+import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.interactor.GetCategories
+import tachiyomi.domain.category.interactor.SetSortModeForCategory
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.category.model.CategoryUpdate
+import tachiyomi.domain.category.repository.CategoryRepository
+import tachiyomi.domain.library.model.LibrarySort
+import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.injectLazy
 
@@ -30,8 +41,65 @@ class MangaLibraryAdapter(
     // Lazy, so constructing the adapter in a composable never touches the DI container.
     private val getCategories: GetCategories by injectLazy()
     private val context: Application by injectLazy()
+    private val libraryPreferences: LibraryPreferences by injectLazy()
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
+    private val setSortModeForCategory: SetSortModeForCategory by injectLazy()
+    private val categoryRepository: CategoryRepository by injectLazy()
 
     override val contentType = ContentType.MANGA
+
+    // `by lazy` for the same reason as the injections above: nothing here is resolved until a sheet asks.
+    override val settings: LibrarySettingsBinding by lazy {
+        LibrarySettingsBinding(
+            filterAxes = libraryPreferences.autoUpdateMangaRestrictions.changes()
+                .map(::filterAxes)
+                .stateIn(
+                    model.screenModelScope,
+                    SharingStarted.Eagerly,
+                    filterAxes(libraryPreferences.autoUpdateMangaRestrictions.get()),
+                ),
+            trackerFilter = libraryPreferences::filterTracking,
+            categoryFilter = LibraryCategoryFilter(
+                enabled = reikaiLibraryPreferences.filterCategories,
+                included = reikaiLibraryPreferences.filterCategoriesInclude,
+                excluded = reikaiLibraryPreferences.filterCategoriesExclude,
+            ),
+            categories = combine(
+                getCategories.subscribe(),
+                reikaiLibraryPreferences.categorySortOrder.changes(),
+            ) { categories, sortOrder ->
+                reikaiSortCategories(categories.sortedBy { it.order }, sortOrder)
+            }.stateIn(model.screenModelScope, SharingStarted.WhileSubscribed(), emptyList()),
+            groupMode = reikaiLibraryPreferences.groupLibraryBy,
+            globalSort = libraryPreferences.sortingMode.changes()
+                .stateIn(model.screenModelScope, SharingStarted.Eagerly, libraryPreferences.sortingMode.get()),
+            setSort = { categoryId, type, direction ->
+                model.screenModelScope.launchIO { setSortModeForCategory.await(categoryId, type, direction) }
+            },
+            resetSort = { categoryId ->
+                model.screenModelScope.launchIO {
+                    val category = categoryRepository.get(categoryId) ?: return@launchIO
+                    categoryRepository.updatePartial(
+                        CategoryUpdate(id = categoryId, flags = category.flags and CATEGORY_SORT_CUSTOMIZED.inv()),
+                    )
+                }
+            },
+        )
+    }
+
+    private fun filterAxes(updateRestrictions: Set<String>) = buildList {
+        add(LibraryFilterAxis(MR.strings.label_downloaded, libraryPreferences.filterDownloaded, true))
+        add(LibraryFilterAxis(MR.strings.action_filter_unread, libraryPreferences.filterUnread))
+        add(LibraryFilterAxis(MR.strings.label_started, libraryPreferences.filterStarted))
+        add(LibraryFilterAxis(MR.strings.action_filter_bookmarked, libraryPreferences.filterBookmarked))
+        add(LibraryFilterAxis(MR.strings.completed, libraryPreferences.filterCompleted))
+        // Upstream keeps custom intervals out of stable, so this axis is debug-only and follows the
+        // restriction that produces it. Novels have no equivalent and simply omit it.
+        if (!isReleaseBuildType && LibraryPreferences.MANGA_OUTSIDE_RELEASE_PERIOD in updateRestrictions) {
+            add(LibraryFilterAxis(MR.strings.action_filter_interval_custom, libraryPreferences.filterIntervalCustom))
+        }
+        add(LibraryFilterAxis(MR.strings.lewd, reikaiLibraryPreferences.filterLewd))
+    }
 
     override val state: StateFlow<LibraryScreenState> =
         model.state

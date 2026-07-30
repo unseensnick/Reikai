@@ -3,6 +3,7 @@ package reikai.presentation.library
 import android.app.Application
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.presentation.manga.DownloadAction
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -13,6 +14,8 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.library.novels.NovelLibraryScreenModel
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.library.model.LibrarySort
+import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
 
 /**
@@ -30,6 +33,49 @@ class NovelLibraryAdapter(
     private val context: Application by injectLazy()
 
     override val contentType = ContentType.NOVELS
+
+    // `by lazy` for the same reason as the injections above: nothing here is resolved until a sheet asks.
+    override val settings: LibrarySettingsBinding by lazy {
+        LibrarySettingsBinding(
+            // Manga's axis order, so one sheet reads the same on both content types. Novels have no
+            // interval-custom axis and simply omit it.
+            filterAxes = MutableStateFlow(
+                listOf(
+                    LibraryFilterAxis(MR.strings.label_downloaded, model.filterDownloaded, true),
+                    LibraryFilterAxis(MR.strings.action_filter_unread, model.filterUnread),
+                    LibraryFilterAxis(MR.strings.label_started, model.filterStarted),
+                    LibraryFilterAxis(MR.strings.action_filter_bookmarked, model.filterBookmarked),
+                    LibraryFilterAxis(MR.strings.completed, model.filterCompleted),
+                    LibraryFilterAxis(MR.strings.lewd, model.filterLewd),
+                ),
+            ),
+            trackerFilter = model::novelFilterTracking,
+            categoryFilter = LibraryCategoryFilter(
+                enabled = model.filterCategoriesEnabled,
+                included = model.filterCategoriesInclude,
+                excluded = model.filterCategoriesExclude,
+            ),
+            categories = model.filterPickerCategories,
+            groupMode = model.groupLibraryBy,
+            // The novel global sort is the sort of the uncategorized scope, which is what the model's own
+            // lookup returns for that id, so nothing has to reach past it for the preference.
+            globalSort = model.state
+                .map { it.sortFor(Category.UNCATEGORIZED_ID) }
+                .stateIn(
+                    model.screenModelScope,
+                    SharingStarted.Eagerly,
+                    model.state.value.sortFor(Category.UNCATEGORIZED_ID),
+                ),
+            setSort = { categoryId, type, direction ->
+                model.setSort(
+                    categoryId ?: Category.UNCATEGORIZED_ID,
+                    type,
+                    direction == LibrarySort.Direction.Ascending,
+                )
+            },
+            resetSort = model::resetSort,
+        )
+    }
 
     override val state: StateFlow<LibraryScreenState> =
         model.state

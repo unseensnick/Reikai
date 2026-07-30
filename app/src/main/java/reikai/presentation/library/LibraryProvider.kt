@@ -13,4 +13,11 @@ import reikai.domain.library.ContentType
  */
 interface LibraryProvider : LibraryBehavior {
     val contentType: ContentType
+
+    /**
+     * This content type's settings sheet, described rather than rendered, so one shared sheet serves both.
+     * It sits here rather than on [LibraryBehavior] because it is per-content-type data, not an action on
+     * entries, and because a mixed view has no single settings scope to answer with.
+     */
+    val settings: LibrarySettingsBinding
 }
