@@ -22,13 +22,11 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import reikai.data.novel.NovelStatusCode
 import reikai.domain.category.CATEGORY_HIDDEN_MASK
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.ContentType
-import reikai.domain.library.LibrarySortFields
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.sortForCategory
@@ -56,11 +54,8 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.category.toLongIdSet
-import reikai.presentation.library.DynItem
-import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryFilterPrefs
 import reikai.presentation.library.LibraryGroup
-import reikai.presentation.library.LibraryTrackingStatusOrder
 import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryItemFilterFields
@@ -80,7 +75,6 @@ import tachiyomi.domain.library.model.plus
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
-import java.util.Locale
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
 
@@ -491,15 +485,16 @@ class NovelLibraryScreenModel :
         } else {
             // Dynamic grouping (by source / tag / author / language / status) replaces categories.
             buildNovelDynamicGrouping(
-                items,
-                byId,
-                novelById,
-                settings,
-                defaultSort,
-                collapsedDynamicKeys,
-                atBottom,
-                tracksByRep,
-                sortFields,
+                items = items,
+                byId = byId,
+                novelById = novelById,
+                tracksByRep = tracksByRep,
+                inputs = settings.groupingInputs(collapsedDynamicKeys, atBottom),
+                defaultSort = defaultSort,
+                sortFields = sortFields,
+                sourceManager = sourceManager,
+                trackerManager = trackerManager,
+                context = context,
             )
         }
 
@@ -528,114 +523,17 @@ class NovelLibraryScreenModel :
     private fun sortFor(categoryId: Long, flags: Long, default: LibrarySort): LibrarySort =
         if (categoryId == Category.UNCATEGORIZED_ID) default else sortForCategory(flags, default)
 
-    /**
-     * Bucket the novel library into synthetic dynamic categories via the shared kernel, resolving
-     * per-novel metadata (source / language / status / tracking status) into id-keyed maps. Operates on
-     * the merge-collapsed representatives, keyed by the item id so the result lines up
-     * with [State.favoritesById]. Tracking-status uses each rep's unioned merge-group tracks.
-     */
-    private fun buildNovelDynamicGrouping(
-        items: List<LibraryItem>,
-        byId: Map<Long, LibraryItem>,
-        novelById: Map<Long, LibraryNovel>,
-        settings: LibrarySettings,
-        defaultSort: LibrarySort,
-        collapsedDynamicKeys: Set<String>,
-        atBottom: Boolean,
-        tracksByRep: Map<Long, List<NovelTrack>>,
-        sortFields: LibrarySortFields<LibraryItem>,
-    ): List<Pair<Category, List<Long>>> {
-        val groupType = settings.groupBy
-        val dynItems = items.mapNotNull { item ->
-            val novel = novelById[item.id]?.novel ?: return@mapNotNull null
-            DynItem(item.id, novel.genre, novel.author, novel.artist)
-        }
-
-        val sourceMeta = if (groupType == LibraryGroup.BY_SOURCE) {
-            items.mapNotNull { item ->
-                val novel = novelById[item.id]?.novel ?: return@mapNotNull null
-                // The slug is the encoded disambiguator (sourceId() is never read); the name is the label.
-                item.id to ((sourceManager.get(novel.source)?.name ?: novel.source) to novel.source)
-            }.toMap()
-        } else {
-            emptyMap()
-        }
-
-        val languageCodes = if (groupType == LibraryGroup.BY_LANGUAGE) {
-            items.mapNotNull { item ->
-                val novel = novelById[item.id]?.novel ?: return@mapNotNull null
-                val lang = languageCodeOf(sourceManager.get(novel.source)?.lang.orEmpty()).takeUnless { it.isBlank() }
-                    ?: return@mapNotNull null
-                item.id to lang
-            }.toMap()
-        } else {
-            emptyMap()
-        }
-
-        val statusNames = if (groupType == LibraryGroup.BY_STATUS) {
-            items.mapNotNull { item ->
-                val novel = novelById[item.id]?.novel ?: return@mapNotNull null
-                item.id to context.stringResource(NovelStatusCode.toStringRes(novel.status))
-            }.toMap()
-        } else {
-            emptyMap()
-        }
-
-        // Group by the first logged-in tracker's status on any grouped source (mirrors the manga library).
-        val loggedInTrackerIds = settings.trackingFilter.keys
-        val trackStatuses = if (groupType == LibraryGroup.BY_TRACK_STATUS) {
-            items.mapNotNull { item ->
-                val novel = novelById[item.id]?.novel ?: return@mapNotNull null
-                val track = tracksByRep[novel.id].orEmpty()
-                    .firstOrNull { it.trackerId in loggedInTrackerIds } ?: return@mapNotNull null
-                val statusRes = trackerManager.get(track.trackerId)?.getStatus(track.status) ?: return@mapNotNull null
-                item.id to context.stringResource(statusRes)
-            }.toMap()
-        } else {
-            emptyMap()
-        }
-
-        // Order the track-status buckets by each tracker's own status list (Reading first, Dropped last)
-        // instead of alphabetically, sharing the manga library's helper; identity for other groupings.
-        val trackingStatusOrder: (String) -> String = if (groupType == LibraryGroup.BY_TRACK_STATUS) {
-            LibraryTrackingStatusOrder.build(
-                loggedInTrackerIds.mapNotNull { trackerManager.get(it) },
-            ) { context.stringResource(it) }
-        } else {
-            { it }
-        }
-
-        val groups = LibraryDynamicGrouping.build(
-            items = dynItems,
-            groupType = groupType,
-            inheritedSortFlag = settings.defaultSort,
+    /** The grouping inputs, read off the library settings the same way the manga library reads its own. */
+    private fun LibrarySettings.groupingInputs(collapsedDynamicKeys: Set<String>, atBottom: Boolean) =
+        NovelGroupingInputs(
+            groupLibraryBy = groupBy,
+            categorySortOrder = categorySortOrder,
             collapsedDynamicCategories = collapsedDynamicKeys,
             collapsedDynamicAtBottom = atBottom,
-            unknownLabel = context.stringResource(MR.strings.unknown),
-            notTrackedLabel = context.stringResource(MR.strings.not_tracked),
-            ungroupedLabel = context.stringResource(MR.strings.group_ungrouped),
-            categorySortOrder = settings.categorySortOrder,
-            sourceMeta = sourceMeta,
-            languageCodes = languageCodes,
-            // Render the group-by-language header as the full name ("English"), not the bare code,
-            // matching the manga library; the cover badge still uses the short code separately.
-            languageDisplay = { code -> Locale.forLanguageTag(code).displayName.ifBlank { code } },
-            statusNames = statusNames,
-            trackStatuses = trackStatuses,
-            trackingStatusOrder = trackingStatusOrder,
+            loggedInTrackerIds = trackingFilter.keys,
+            inheritedSortFlag = defaultSort,
+            randomSeed = randomSeed,
         )
-
-        // Dynamic groups have no per-category sort, so they all use the library default sort.
-        val comparator = librarySortComparator(
-            defaultSort.type.toSortMode(),
-            defaultSort.isAscending,
-            settings.randomSeed,
-            sortFields,
-        )
-        return groups.map { (category, ids) ->
-            category to ids.mapNotNull { byId[it] }.sortedWith(comparator).map { it.id }
-        }
-    }
 
     // --- search / selection / collapse mutators (read by LibraryTab) ---
 
@@ -1008,23 +906,4 @@ private fun LibraryItem.matchesQuery(query: String, sourceName: String, sourceSl
         sourceName = sourceName,
         matchesSourceTerm = { term -> sourceSlug.equals(term, ignoreCase = true) },
     )
-}
-
-/**
- * Reduce an lnreader language value to a 2-char ISO 639-1 code for the library badge. Plugins mostly
- * declare a full English name ("English", "Turkish"); reverse-map it. Values already short (a code) pass
- * through; an unmatched name falls back to its first two chars.
- *
- * Memoized: the name to code mapping is static, but this runs for every novel on every library rebuild
- * (including each selection tap), and the reverse-map scans ~180 ISO languages per uncached name.
- */
-private val languageCodeCache = java.util.concurrent.ConcurrentHashMap<String, String>()
-
-private fun languageCodeOf(value: String): String {
-    if (value.isBlank() || value.length <= 3) return value
-    return languageCodeCache.getOrPut(value) {
-        Locale.getISOLanguages().firstOrNull {
-            Locale.forLanguageTag(it).getDisplayLanguage(Locale.ENGLISH).equals(value, ignoreCase = true)
-        } ?: value.take(2)
-    }
 }
