@@ -93,7 +93,6 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryManga
-import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -465,12 +464,9 @@ data object LibraryTab : Tab {
                                 LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
                             val columns by engine.columnsForOrientation(isLandscape)
                             val displayMode by engine.displayMode()
-                            // RK: the global sort each non-overridden category follows (re-read per render;
-                            // a global-sort change re-sorts the library, which recomposes this).
-                            val mangaGlobalSort = settingsScreenModel.libraryPreferences.sortingMode.get()
-                            val novelDefaultSort = LibrarySort.valueOf(
-                                settingsScreenModel.reikaiLibraryPreferences.novelLibraryDefaultSort.get(),
-                            )
+                            // RK: the global sort each non-overridden category follows, read off the active
+                            // content type's own settings description rather than branched on the chip.
+                            val globalSort by engine.settingsFor(libraryContentType).globalSort.collectAsState()
                             ReikaiLibraryContent(
                                 categories = activeCategories,
                                 getItemsForCategory = activeGetItems,
@@ -512,16 +508,11 @@ data object LibraryTab : Tab {
                                 },
                                 onRefreshCategory = { category -> onClickRefresh(category) },
                                 onSelectAllInCategory = { category -> engine.selectAllInCategory(entriesOf(category)) },
-                                // RK: the header shows each category's EFFECTIVE sort (its own override, or
-                                // the global sort it follows). Both content types decode through the shared
-                                // manga layout now, differing only in which global sort the Default follows.
-                                sortLabelFor = { category ->
-                                    val global = if (isNovels) novelDefaultSort else mangaGlobalSort
-                                    sortLabelRes(sortForCategory(category.flags, global).type)
-                                },
+                                // RK: the header shows each category's EFFECTIVE sort, its own override or
+                                // the global sort it follows, decoded the same way on both content types.
+                                sortLabelFor = { category -> sortLabelRes(sortForCategory(category, globalSort).type) },
                                 sortAscendingFor = { category ->
-                                    val global = if (isNovels) novelDefaultSort else mangaGlobalSort
-                                    sortForCategory(category.flags, global).isAscending
+                                    sortForCategory(category, globalSort).isAscending
                                 },
                                 onClickContinueReading = onContinueReading,
                             )

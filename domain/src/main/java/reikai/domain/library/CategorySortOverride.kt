@@ -1,5 +1,6 @@
 package reikai.domain.library
 
+import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibrarySort
 
 /**
@@ -18,6 +19,15 @@ const val CATEGORY_SORT_CUSTOMIZED = 0b1L
  */
 fun sortForCategory(flags: Long, global: LibrarySort): LibrarySort =
     if (flags and CATEGORY_SORT_CUSTOMIZED != 0L) LibrarySort.valueOf(flags) else global
+
+/**
+ * The sort a category should use, honouring the one scope rule the flags cannot express: the system
+ * (Default) category always follows the [global] sort. That row is universal, a single row serving the
+ * manga and novel libraries at once, so an override stored on it could not mean one thing for manga and
+ * another for novels. Prefer this over the flags overload wherever the [Category] itself is at hand.
+ */
+fun sortForCategory(category: Category, global: LibrarySort): LibrarySort =
+    if (category.isSystemCategory) global else sortForCategory(category.flags, global)
 
 /**
  * Resolve Mihon's sort key to the neutral mode the shared comparator understands. Both libraries decode

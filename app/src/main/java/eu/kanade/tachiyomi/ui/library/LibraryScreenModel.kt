@@ -456,11 +456,12 @@ class LibraryScreenModel(
 
         val fields = libraryItemSortFields(trackerMean = { trackerScores[it.id] ?: -1.0 })
 
-        // A category follows the global sort unless it has a per-category override (CUSTOMIZED bit).
+        // A category follows the global sort unless it has a per-category override (CUSTOMIZED bit), and
+        // the universal Default row always follows it.
         val globalSort = libraryPreferences.sortingMode.get()
         val randomSeed = libraryPreferences.randomSortSeed.get().toLong()
         return mapValues { (key, value) ->
-            val sort = sortForCategory(key.flags, globalSort)
+            val sort = sortForCategory(key, globalSort)
             val comparator = librarySortComparator(sort.type.toSortMode(), sort.isAscending, randomSeed, fields)
             value.mapNotNull { favoritesById[it] }.sortedWith(comparator).map { it.id }
         }
