@@ -8,9 +8,9 @@ import tachiyomi.domain.category.model.Category
  * The neutral, per-content-type library state the shared [LibraryTab][eu.kanade.tachiyomi.ui.library.LibraryTab]
  * renders, so the tab reads one state instead of branching manga-vs-novel for every field. Each adapter
  * (manga over the live `LibraryScreenModel`, novel over `NovelLibraryScreenModel`) maps its own state into
- * this. Only the genuinely per-type content lives here; the shared library display config (view mode,
- * hopper, category-sort order) stays read from the live manga model, since it is one setting for the whole
- * library, not per content type.
+ * this. Only the genuinely per-type content lives here. Anything library-wide (the display config, which
+ * categories are collapsed) belongs to [LibraryEngine] instead, because the chips filter one list rather
+ * than selecting between two, so those values describe the list and not the content type being listed.
  *
  * [itemsForCategory] / [itemCountForCategory] stay functions rather than a precomputed map so the manga
  * side keeps applying its custom-info overlay lazily at the display read (only the visible categories),
@@ -22,9 +22,6 @@ data class LibraryScreenState(
     val isLibraryEmpty: Boolean,
     val searchQuery: String?,
     val hasActiveFilters: Boolean,
-    val collapsedCategories: Set<String>,
-    /** Manga keeps a second collapsed set for dynamic groups; novels reuse [collapsedCategories]. */
-    val collapsedDynamicCategories: Set<String>,
     val coercedActiveCategoryIndex: Int,
     /** The resume ("continue reading") button is shown on covers. */
     val showContinueButton: Boolean,

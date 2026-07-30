@@ -114,8 +114,6 @@ class MangaLibraryAdapter(
         isLibraryEmpty = isLibraryEmpty,
         searchQuery = searchQuery,
         hasActiveFilters = hasActiveFilters,
-        collapsedCategories = reikai.collapsedCategories,
-        collapsedDynamicCategories = reikai.collapsedDynamicCategories,
         coercedActiveCategoryIndex = coercedActiveCategoryIndex,
         showContinueButton = showMangaContinueButton,
         itemsForCategory = this::getItemsForCategory,
@@ -136,17 +134,6 @@ class MangaLibraryAdapter(
             state.getItemsForCategoryId(categoryId).randomOrNull()
         }
         return item?.entryId
-    }
-    override fun toggleDefaultCategoryCollapse(headerKey: String) {
-        model.toggleDefaultCategoryCollapse(headerKey)
-    }
-    override fun toggleDynamicCategoryCollapse(headerKey: String) {
-        model.toggleDynamicCategoryCollapse(headerKey)
-    }
-    override fun toggleAllCategoriesCollapsed(
-        categories: List<Category>,
-    ) {
-        model.toggleAllCategoriesCollapsed(categories)
     }
 
     // Each verb takes the neutral selection and hands the model only the raw ids of its own content

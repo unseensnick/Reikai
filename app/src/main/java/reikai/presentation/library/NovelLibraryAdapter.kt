@@ -93,9 +93,6 @@ class NovelLibraryAdapter(
         isLibraryEmpty = isLibraryEmpty,
         searchQuery = searchQuery,
         hasActiveFilters = hasActiveFilters,
-        collapsedCategories = collapsedCategories,
-        // Novels keep one collapsed set for both real and dynamic categories.
-        collapsedDynamicCategories = collapsedCategories,
         coercedActiveCategoryIndex = coercedActiveCategoryIndex,
         showContinueButton = showContinueButton,
         itemsForCategory = this::getItemsForCategory,
@@ -110,18 +107,6 @@ class NovelLibraryAdapter(
 
     override fun randomEntry(categoryId: Long?): EntryId? =
         model.state.value.randomItemId(categoryId)?.let(EntryId::Novel)
-
-    override fun toggleDefaultCategoryCollapse(headerKey: String) {
-        model.toggleCategoryCollapse(headerKey)
-    }
-    override fun toggleDynamicCategoryCollapse(headerKey: String) {
-        model.toggleCategoryCollapse(headerKey)
-    }
-    override fun toggleAllCategoriesCollapsed(
-        categories: List<Category>,
-    ) {
-        model.toggleAllCategoriesCollapsed(categories)
-    }
 
     // Each verb takes the neutral selection and hands the model only the raw ids of its own content
     // type, so a mixed selection never reaches a provider that cannot act on it.

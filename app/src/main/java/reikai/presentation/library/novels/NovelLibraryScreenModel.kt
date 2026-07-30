@@ -125,11 +125,12 @@ class NovelLibraryScreenModel :
 
     private val searchQuery = MutableStateFlow<String?>(null)
 
-    // Keyed by category name (header key), matching the manga collapse convention. Session-scoped.
-    private val collapsedCategories = MutableStateFlow<Set<String>>(emptySet())
-
     /** Reactive grouping inputs folded into the main combine so a collapse toggle re-sinks groups. */
-    private data class GroupingInputs(val settings: LibrarySettings, val collapsed: Set<String>, val atBottom: Boolean)
+    private data class GroupingInputs(
+        val settings: LibrarySettings,
+        val collapsedDynamic: Set<String>,
+        val atBottom: Boolean,
+    )
 
     init {
         // Load the plugin host so the library can resolve each novel's source (lang + source-icon
@@ -163,10 +164,12 @@ class NovelLibraryScreenModel :
                 // No distinctUntilChanged: a StateFlow already conflates equal values.
                 searchQuery.debounce(0.25.seconds),
                 // Collapse set + at-bottom pref ride with settings so a collapse toggle rebuilds the
-                // grouping and re-sinks collapsed dynamic groups (the manga reactivity pattern).
+                // grouping and re-sinks collapsed dynamic groups (the manga reactivity pattern). The
+                // collapse preferences are library-wide and owned by LibraryEngine; only the dynamic set
+                // reaches the pipeline, because that is the one the grouping kernel sinks on.
                 combine(
                     settingsFlow(),
-                    collapsedCategories,
+                    reikaiLibraryPreferences.collapsedDynamicCategories.changes(),
                     reikaiLibraryPreferences.collapsedDynamicAtBottom.changes(),
                 ) { settings, collapsed, atBottom -> GroupingInputs(settings, collapsed, atBottom) },
             ) { categories, (library, customInfo, tracks), query, grouping ->
@@ -177,7 +180,7 @@ class NovelLibraryScreenModel :
                     tracks,
                     query,
                     grouping.settings,
-                    grouping.collapsed,
+                    grouping.collapsedDynamic,
                     grouping.atBottom,
                 )
             }.collectLatest { built ->
@@ -297,7 +300,7 @@ class NovelLibraryScreenModel :
         tracks: Map<Long, List<NovelTrack>>,
         query: String?,
         settings: LibrarySettings,
-        collapsedKeys: Set<String>,
+        collapsedDynamicKeys: Set<String>,
         atBottom: Boolean,
     ): State {
         // Downloaded state is disk-derived (NovelDownloadCache), not a DB column, so fill each novel's
@@ -493,7 +496,7 @@ class NovelLibraryScreenModel :
                 novelById,
                 settings,
                 defaultSort,
-                collapsedKeys,
+                collapsedDynamicKeys,
                 atBottom,
                 tracksByRep,
                 sortFields,
@@ -519,7 +522,6 @@ class NovelLibraryScreenModel :
             hasActiveFilters = settings.filters.hasActive ||
                 settings.trackingFilter.values.any { it != TriState.DISABLED },
             showContinueButton = settings.showContinue,
-            collapsedCategories = collapsedKeys,
         )
     }
 
@@ -538,7 +540,7 @@ class NovelLibraryScreenModel :
         novelById: Map<Long, LibraryNovel>,
         settings: LibrarySettings,
         defaultSort: LibrarySort,
-        collapsedKeys: Set<String>,
+        collapsedDynamicKeys: Set<String>,
         atBottom: Boolean,
         tracksByRep: Map<Long, List<NovelTrack>>,
         sortFields: LibrarySortFields<LibraryItem>,
@@ -607,7 +609,7 @@ class NovelLibraryScreenModel :
             items = dynItems,
             groupType = groupType,
             inheritedSortFlag = settings.defaultSort,
-            collapsedDynamicCategories = collapsedKeys,
+            collapsedDynamicCategories = collapsedDynamicKeys,
             collapsedDynamicAtBottom = atBottom,
             unknownLabel = context.stringResource(MR.strings.unknown),
             notTrackedLabel = context.stringResource(MR.strings.not_tracked),
@@ -642,19 +644,6 @@ class NovelLibraryScreenModel :
         // manga LibraryScreenModel); searchQuery also drives the async filter combine below.
         mutableState.update { it.copy(searchQuery = query) }
         searchQuery.value = query
-    }
-
-    fun toggleCategoryCollapse(headerKey: String) {
-        collapsedCategories.update { if (headerKey in it) it - headerKey else it + headerKey }
-    }
-
-    /** Collapse all categories if any is expanded, else expand all (the hopper "toggle collapse").
-     *  Dynamic groups key by their encoded header key (matching the collapse + sink), real ones by id. */
-    fun toggleAllCategoriesCollapsed(categories: List<Category>) {
-        val keys = categories.map {
-            if (ReikaiDynamicCategory.isDynamic(it)) ReikaiDynamicCategory.headerKey(it) else it.id.toString()
-        }.toSet()
-        collapsedCategories.update { current -> if (current.containsAll(keys)) current - keys else current + keys }
     }
 
     fun updateActiveCategoryIndex(index: Int) {
@@ -916,7 +905,6 @@ class NovelLibraryScreenModel :
     data class State(
         val isLoading: Boolean = true,
         val searchQuery: String? = null,
-        val collapsedCategories: Set<String> = emptySet(),
         val activeCategoryIndex: Int = 0,
         val hasActiveFilters: Boolean = false,
         val showContinueButton: Boolean = false,

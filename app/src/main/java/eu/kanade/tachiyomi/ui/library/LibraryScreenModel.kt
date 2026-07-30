@@ -61,16 +61,12 @@ import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.ReikaiDynamicCategory
 import reikai.presentation.library.ReikaiLibraryState
 import reikai.presentation.library.buildMangaDynamicGrouping
-import reikai.presentation.library.expandOrCollapseAll
 import reikai.presentation.library.groupingInputs
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemSortFields
 import reikai.presentation.library.libraryStateFlow
 import reikai.presentation.library.reorderReikaiCategories
-import reikai.presentation.library.toggleAllCategoriesCollapsed
-import reikai.presentation.library.toggleCategoryCollapsed
-import reikai.presentation.library.toggleDynamicCategoryCollapsed
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.TriState
@@ -333,21 +329,8 @@ class LibraryScreenModel(
         reikaiLibraryPreferences.categorySortOrder.set(value)
     }
 
-    fun toggleDefaultCategoryCollapse(headerKey: String) {
-        reikaiLibraryPreferences.toggleCategoryCollapsed(headerKey)
-    }
-
-    fun toggleDynamicCategoryCollapse(headerKey: String) {
-        reikaiLibraryPreferences.toggleDynamicCategoryCollapsed(headerKey)
-    }
-
-    fun expandOrCollapseAllCategories(headerKeys: Set<String>) {
-        reikaiLibraryPreferences.expandOrCollapseAll(headerKeys)
-    }
-
-    fun toggleAllCategoriesCollapsed(categories: List<Category>) {
-        reikaiLibraryPreferences.toggleAllCategoriesCollapsed(categories)
-    }
+    // RK: category collapse moved to LibraryEngine, which writes the same preferences. It is library-wide
+    // rather than per content type, so it belongs beside the selection and not on a per-type model.
 
     private fun buildReikaiDynamicGrouping(data: LibraryData, grouping: MangaGroupingInputs) =
         buildMangaDynamicGrouping(

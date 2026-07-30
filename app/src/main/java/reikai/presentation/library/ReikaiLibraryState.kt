@@ -91,12 +91,6 @@ fun ReikaiLibraryPreferences.toggleDynamicCategoryCollapsed(headerKey: String) {
     collapsedDynamicCategories.toggle(headerKey)
 }
 
-/** Collapse every key, or expand them all when they are already collapsed. */
-fun ReikaiLibraryPreferences.expandOrCollapseAll(headerKeys: Set<String>) {
-    val current = collapsedCategories.get()
-    collapsedCategories.set(if (current.containsAll(headerKeys)) current - headerKeys else current + headerKeys)
-}
-
 /**
  * Toggle every displayed category collapsed or expanded (the hopper long-press), across both the real
  * categories and the dynamic groups, which are collapsed through separate preferences.

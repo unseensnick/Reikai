@@ -113,6 +113,23 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
         providersFor(contentType).singleOrNull()?.settings
             ?: error("A mixed $contentType library needs a settings description combining both providers'")
 
+    // Category collapse, library-wide rather than per provider: a collapsed category is one row in one
+    // list, and a dynamic group is one bucket that will hold both content types once the chips are only
+    // filters, so the collapse belongs to the row and not to whichever chip is filtering the view. Both
+    // sets are persisted, and the tab reads them back through [display].
+
+    fun toggleDefaultCategoryCollapse(headerKey: String) {
+        reikaiLibraryPreferences.toggleCategoryCollapsed(headerKey)
+    }
+
+    fun toggleDynamicCategoryCollapse(headerKey: String) {
+        reikaiLibraryPreferences.toggleDynamicCategoryCollapsed(headerKey)
+    }
+
+    fun toggleAllCategoriesCollapsed(categories: List<Category>) {
+        reikaiLibraryPreferences.toggleAllCategoriesCollapsed(categories)
+    }
+
     /**
      * Switch the chip. The selection is dropped because it is shared across content types, so keeping it
      * would carry rows into a view that does not list them, leaving a count on the action bar and actions

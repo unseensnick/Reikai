@@ -166,7 +166,6 @@ data object LibraryTab : Tab {
         val activeSearchQuery = libState.searchQuery
         val activeIsLibraryEmpty = libState.isLibraryEmpty
         val activeIsLoading = libState.isLoading
-        val activeCollapsedCategories = libState.collapsedCategories
         val activeGetItems: (Category) -> List<LibraryItem> = libState.itemsForCategory
         val activeGetItemCount: (Category) -> Int? = libState.itemCountForCategory
         val onSearch: (String?) -> Unit = behavior::search
@@ -211,8 +210,8 @@ data object LibraryTab : Tab {
             isCollapsed = {
                 reikaiIsCollapsed(
                     it,
-                    activeCollapsedCategories,
-                    libState.collapsedDynamicCategories,
+                    display.reikai.collapsedCategories,
+                    display.reikai.collapsedDynamicCategories,
                 )
             },
             itemCount = { activeGetItems(it).size },
@@ -470,8 +469,8 @@ data object LibraryTab : Tab {
                             ReikaiLibraryContent(
                                 categories = activeCategories,
                                 getItemsForCategory = activeGetItems,
-                                collapsedCategories = activeCollapsedCategories,
-                                collapsedDynamicCategories = libState.collapsedDynamicCategories,
+                                collapsedCategories = display.reikai.collapsedCategories,
+                                collapsedDynamicCategories = display.reikai.collapsedDynamicCategories,
                                 showItemCounts = display.showItemCounts,
                                 displayMode = displayMode,
                                 columns = columns,
@@ -495,8 +494,8 @@ data object LibraryTab : Tab {
                                     engine.toggleRangeSelection(category.id, item.entryId, entriesOf(category))
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 },
-                                onToggleDefaultCollapse = behavior::toggleDefaultCategoryCollapse,
-                                onToggleDynamicCollapse = behavior::toggleDynamicCategoryCollapse,
+                                onToggleDefaultCollapse = engine::toggleDefaultCategoryCollapse,
+                                onToggleDynamicCollapse = engine::toggleDynamicCategoryCollapse,
                                 onGlobalSearchClicked = {
                                     navigator.push(GlobalSearchScreen(activeSearchQuery ?: ""))
                                 },
@@ -596,7 +595,7 @@ data object LibraryTab : Tab {
                                     onCenterLongClick = {
                                         when (display.reikai.hopperLongPressAction) {
                                             0 -> onSearch("")
-                                            1 -> behavior.toggleAllCategoriesCollapsed(activeCategories)
+                                            1 -> engine.toggleAllCategoriesCollapsed(activeCategories)
                                             // The hopper is a category navigator, so its sheet is scoped to
                                             // the category it sits on, the same as a category header's sort.
                                             2 -> engine.openSettingsDialog(

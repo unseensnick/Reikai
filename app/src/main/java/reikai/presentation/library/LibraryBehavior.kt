@@ -36,10 +36,8 @@ interface LibraryBehavior {
     // Selection itself lives in LibraryEngine, not here: a combined list can hold both content types at
     // once and a range-select can span them, which neither provider can compute alone.
 
-    // Category collapse. Manga has separate default / dynamic toggles; the novel model folds both into one.
-    fun toggleDefaultCategoryCollapse(headerKey: String)
-    fun toggleDynamicCategoryCollapse(headerKey: String)
-    fun toggleAllCategoriesCollapsed(categories: List<Category>)
+    // Category collapse lives in LibraryEngine, not here: a collapsed category is one row in one list,
+    // so it is a property of the row rather than of whichever content type is being listed.
 
     // Bulk selection actions. Each takes the entries to act on rather than reading a selection the
     // provider owns, so the shared layer can hold one selection spanning both content types and hand
