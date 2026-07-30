@@ -246,6 +246,21 @@ delete-scrub, restore remap + dead-key skip). The user-creatable universal categ
 then shipped too, both recorded under Follow-on above, so this initiative is complete and the "All" chip it
 existed to unblock is no longer waiting on the category axis. Researched 2026-07-23, shipped 2026-07-24.
 
+**Three sort-flag residues the translation does not reach** (audited 2026-07-30, tracked as a roadmap item). The
+187f migration translates novel *category rows*, so three carriers of the old layout survive: the global novel
+sort preference `novel_library_default_sort`, which was written with the old novel sort flag and is read today as
+a manga-layout `LibrarySort`; `NovelRestorer.restoreCategories`, which inserts a backup's category flags verbatim;
+and the generic preference restore, which skips only the merge keys. Each can re-present a pre-unification
+Downloaded or TrackerMean sort as the other one.
+
+None is safely fixable by a later migration, which is why nothing was added. The translation is a pure swap of
+those two values, so it only ever touches flags it cannot disambiguate: a flag carrying either value is equally
+consistent with an untranslated old value and a correct current one, `setSort` has written the manga layout since
+the unification, and `Backup` carries no format version to discriminate on (only per-entry `version` fields on the
+manga and novel rows). 187f was correct precisely because it fired at a version gate where every row was known to
+predate the change. A migration firing later would repair one small cohort by corrupting another of similar size,
+so the prerequisite is a backup format version, and the user-facing cost meanwhile is re-picking one sort.
+
 Fixes that landed during the work, worth keeping in mind: during the cutover, novelLibraryView is dropped and
 recreated around the junction table-recreate (else the RENAME reparses it mid-migration and crashes, invisible
 to verifyDebugDatabaseMigration's JDBC driver); during Slice B, the shared edit-categories screen's event

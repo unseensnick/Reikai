@@ -84,6 +84,7 @@ From the same audit.
 
 ### Data & backup
 
+- **Give backups a format version, and close the novel sort-flag residues** `[S]` - the category unification translated novel category rows onto the manga sort-flag layout but not the novel global sort preference, and neither the category restore nor the preference restore translates an old backup, so a novel library sorted by Downloaded or Tracker score before that change can read as the other one. Backups carry no format version, so a restorer cannot tell an untranslated old value from a correct new one; adding one is the prerequisite that makes the rest fixable. [Plan](docs/dev/plans/category-schema-unification.md).
 - **Unify backup into one Entry-level emitter** `[M]` - collapse the twin manga/novel backup creators into one neutral emitter over `EntryId` so each backup field is written once for both content types, not by a per-type creator pair. Rides on the content-layer `EntryId` seam; the streamed create/validate/restore mechanism already lives once in the orchestrator, so this is the model-level half. [Plan](docs/dev/plans/content-layer-architecture.md).
 
 ### Trackers
