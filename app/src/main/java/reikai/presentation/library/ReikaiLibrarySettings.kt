@@ -1,74 +1,26 @@
 package reikai.presentation.library
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.ui.library.LibrarySettingsScreenModel
-import reikai.presentation.category.CategoryFilterRow
-import reikai.presentation.category.CategoryFilterSection
-import reikai.presentation.category.toLongIdSet
-import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.HeadingItem
 import tachiyomi.presentation.core.components.SettingsChipRow
-import tachiyomi.presentation.core.components.SettingsItemsPaddings
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 
 /**
- * Reikai-specific settings-sheet pieces grafted into Mihon's `LibrarySettingsDialog` (Stage 4):
- * a Group tab (dynamic grouping) and the include/exclude category filter (ported from Komikku's
- * `CategoriesFilter`, re-typed onto Mihon's `Category` + Reikai prefs). The category picker's Edit
- * also reaches Mihon's full category management screen via [onManageCategories].
+ * Reikai's category and hopper settings, rendered under the Display tab by [EntryDisplayPage]. They are
+ * library-wide rather than per-content-type, which is why they hang off the shared display model rather
+ * than off a [LibrarySettingsBinding].
  *
- * Follows Mihon's settings idiom (prefs read in the composable via `collectAsState`), consistent
- * with the rest of `LibrarySettingsDialog`.
+ * Follows Mihon's settings idiom (preferences read in the composable via `collectAsState`), consistent
+ * with the rest of the settings sheet.
  */
-
-private val groupModes = listOf(
-    LibraryGroup.BY_DEFAULT to MR.strings.group_by_default,
-    LibraryGroup.BY_TAG to MR.strings.group_by_tag,
-    LibraryGroup.BY_SOURCE to MR.strings.group_by_source,
-    LibraryGroup.BY_STATUS to MR.strings.group_by_status,
-    LibraryGroup.BY_TRACK_STATUS to MR.strings.group_by_tracking_status,
-    LibraryGroup.BY_AUTHOR to MR.strings.group_by_author,
-    LibraryGroup.BY_LANGUAGE to MR.strings.group_by_language,
-    LibraryGroup.UNGROUPED to MR.strings.group_ungrouped,
-)
-
-@Composable
-fun ColumnScope.ReikaiGroupPage(screenModel: LibrarySettingsScreenModel) {
-    val groupLibraryBy by screenModel.reikaiLibraryPreferences.groupLibraryBy.collectAsState()
-    groupModes.forEach { (mode, labelRes) ->
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { screenModel.setGrouping(mode) }
-                .padding(
-                    horizontal = SettingsItemsPaddings.Horizontal,
-                    vertical = SettingsItemsPaddings.Vertical,
-                ),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
-        ) {
-            RadioButton(selected = groupLibraryBy == mode, onClick = null)
-            Text(text = stringResource(labelRes), style = MaterialTheme.typography.bodyMedium)
-        }
-    }
-}
 
 private val categorySortOrders = listOf(
     MR.strings.category_sort_off to 0,
@@ -138,30 +90,4 @@ fun ColumnScope.ReikaiCategoriesPage(screenModel: LibrarySettingsScreenModel) {
             )
         }
     }
-}
-
-@Composable
-fun ColumnScope.ReikaiCategoriesFilter(
-    screenModel: LibrarySettingsScreenModel,
-    categories: List<Category>,
-    onManageCategories: () -> Unit,
-) {
-    val filterCategories by screenModel.reikaiLibraryPreferences.filterCategories.collectAsState()
-    val included by screenModel.reikaiLibraryPreferences.filterCategoriesInclude.collectAsState()
-    val excluded by screenModel.reikaiLibraryPreferences.filterCategoriesExclude.collectAsState()
-
-    CategoryFilterRow(
-        enabled = filterCategories,
-        onToggleEnabled = screenModel::setFilterCategories,
-        sections = listOf(
-            CategoryFilterSection(
-                headingRes = null,
-                categories = categories,
-                included = included.toLongIdSet(),
-                excluded = excluded.toLongIdSet(),
-                onConfirm = screenModel::setCategoryFilterSelections,
-            ),
-        ),
-        onManageCategories = onManageCategories,
-    )
 }

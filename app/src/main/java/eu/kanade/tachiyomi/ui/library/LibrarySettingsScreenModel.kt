@@ -6,7 +6,6 @@ import eu.kanade.domain.base.BasePreferences
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
-import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.TriState
@@ -15,8 +14,6 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.interactor.SetDisplayMode
 import tachiyomi.domain.category.interactor.SetSortModeForCategory
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.category.model.CategoryUpdate
-import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -32,7 +29,6 @@ class LibrarySettingsScreenModel(
     // RK <--
     private val setDisplayMode: SetDisplayMode = Injekt.get(),
     private val setSortModeForCategory: SetSortModeForCategory = Injekt.get(),
-    private val categoryRepository: CategoryRepository = Injekt.get(),
     trackerManager: TrackerManager = Injekt.get(),
 ) : ScreenModel {
 
@@ -63,36 +59,10 @@ class LibrarySettingsScreenModel(
         }
     }
 
-    // RK: clear this category's per-category sort override so it follows the global sort again.
-    fun resetSort(category: Category) {
-        screenModelScope.launchIO {
-            categoryRepository.updatePartial(
-                CategoryUpdate(id = category.id, flags = category.flags and CATEGORY_SORT_CUSTOMIZED.inv()),
-            )
-        }
-    }
-
-    // RK --> Reikai settings-sheet actions (Stage 4): dynamic grouping + net-new filter dims
-
-    /** Set the dynamic grouping mode (see reikai.presentation.library.LibraryGroup). */
-    fun setGrouping(value: Int) {
-        reikaiLibraryPreferences.groupLibraryBy.set(value)
-    }
-
-    /** Cycle the lewd filter through ignore -> include -> exclude. */
-    fun toggleLewdFilter() {
-        reikaiLibraryPreferences.filterLewd.getAndSet { it.next() }
-    }
-
-    fun setFilterCategories(enabled: Boolean) {
-        reikaiLibraryPreferences.filterCategories.set(enabled)
-    }
-
-    /** Persist the include/exclude category id selections from the category-filter picker. */
-    fun setCategoryFilterSelections(include: Set<Long>, exclude: Set<Long>) {
-        reikaiLibraryPreferences.filterCategoriesInclude.set(include.map { it.toString() }.toSet())
-        reikaiLibraryPreferences.filterCategoriesExclude.set(exclude.map { it.toString() }.toSet())
-    }
+    // RK --> Reikai settings-sheet actions still on the Display tab. The filter, sort and group actions
+    // that used to live here moved to MangaLibraryAdapter's LibrarySettingsBinding, which the one shared
+    // sheet drives; upstream's own toggleFilter / toggleTracker / setSort above are unused by it but are
+    // left untouched so this file keeps diffing cleanly against Mihon.
 
     /** Category list order (0 = manual, 1 = A->Z, 2 = Z->A). */
     fun setCategorySortOrder(value: Int) {

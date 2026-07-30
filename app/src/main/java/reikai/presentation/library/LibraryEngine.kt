@@ -105,6 +105,15 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
             ?: error("A mixed $contentType library needs a behaviour combining both providers' state")
 
     /**
+     * The settings sheet a [contentType] describes. Like [behaviorFor] this fails loudly on a mixed view:
+     * the sheet writes one content type's preferences, so All would need a merged description rather than
+     * a silent pick of one side's.
+     */
+    fun settingsFor(contentType: ContentType): LibrarySettingsBinding =
+        providersFor(contentType).singleOrNull()?.settings
+            ?: error("A mixed $contentType library needs a settings description combining both providers'")
+
+    /**
      * Switch the chip. The selection is dropped because it is shared across content types, so keeping it
      * would carry rows into a view that does not list them, leaving a count on the action bar and actions
      * that hit nothing. Revisit when the All chip lands: All -> Manga could keep the manga part.

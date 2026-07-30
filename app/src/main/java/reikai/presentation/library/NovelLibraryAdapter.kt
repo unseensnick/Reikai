@@ -12,6 +12,7 @@ import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.presentation.library.novels.NovelLibraryScreenModel
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibrarySort
@@ -31,6 +32,7 @@ class NovelLibraryAdapter(
     // Lazy, so constructing the adapter in a composable never touches the DI container.
     private val getNovelCategories: GetNovelCategories by injectLazy()
     private val context: Application by injectLazy()
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
 
     override val contentType = ContentType.NOVELS
 
@@ -74,6 +76,9 @@ class NovelLibraryAdapter(
                 )
             },
             resetSort = model::resetSort,
+            // Novels have no local sources, so nothing is ever local and the badge would never light up.
+            showLocalBadge = false,
+            mergeSourceIcons = reikaiLibraryPreferences.showNovelMergeSourceIcons,
         )
     }
 

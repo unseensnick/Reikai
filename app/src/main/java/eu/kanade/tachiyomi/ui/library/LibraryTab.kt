@@ -49,7 +49,6 @@ import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.library.DeleteLibraryMangaDialog
-import eu.kanade.presentation.library.LibrarySettingsDialog
 import eu.kanade.presentation.library.components.LibraryContent
 import eu.kanade.presentation.library.components.LibraryToolbar
 import eu.kanade.presentation.manga.DownloadAction
@@ -74,16 +73,15 @@ import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.library.LibraryBehavior
 import reikai.presentation.library.LibraryDialog
 import reikai.presentation.library.LibraryEngine
+import reikai.presentation.library.LibrarySettingsSheet
 import reikai.presentation.library.MangaLibraryAdapter
 import reikai.presentation.library.NovelLibraryAdapter
 import reikai.presentation.library.ReikaiCategoryHopper
 import reikai.presentation.library.ReikaiCategoryPickerSheet
 import reikai.presentation.library.ReikaiLibraryContent
 import reikai.presentation.library.novels.NovelLibraryScreenModel
-import reikai.presentation.library.novels.NovelLibrarySettingsDialog
 import reikai.presentation.library.reikaiCategoryHeaderIndices
 import reikai.presentation.library.reikaiIsCollapsed
-import reikai.presentation.library.reikaiSortCategories
 import reikai.presentation.library.sortLabelRes
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
 import reikai.presentation.manga.MangaMigrationSourcePickScreen
@@ -656,36 +654,20 @@ data object LibraryTab : Tab {
         // built from, never on the live selection.
         val onDismissRequest = engine::dismissDialog
         when (val dialog = libraryDialog) {
-            is LibraryDialog.Settings -> when (dialog.contentType) {
-                ContentType.NOVELS -> NovelLibrarySettingsDialog(
-                    onDismissRequest = onDismissRequest,
-                    screenModel = novelModel,
-                    settingsScreenModel = settingsScreenModel,
-                    categoryId = dialog.categoryId ?: Category.UNCATEGORIZED_ID,
-                    initialTab = dialog.initialTab,
-                    onManageCategories = {
-                        onDismissRequest()
-                        navigator.push(CategoryScreen())
-                    },
-                )
-                else -> LibrarySettingsDialog(
-                    onDismissRequest = onDismissRequest,
-                    screenModel = settingsScreenModel,
-                    // RK: a single-list header scopes the sheet to its category (Sort tab). Resolve the
-                    // live category by id so the Sort tab reflects the current sort after it changes. A
-                    // toolbar open (null id) leaves it null = the GLOBAL sort scope (Model A), not a stale
-                    // active category.
-                    category = dialog.categoryId?.let { id -> state.libraryData.categories.find { it.id == id } },
-                    // RK --> full category list for the include/exclude filter (sorted by the category order) + route to category manager
-                    categories = reikaiSortCategories(state.libraryData.categories, display.reikai.categorySortOrder),
-                    onManageCategories = {
-                        onDismissRequest()
-                        navigator.push(CategoryScreen())
-                    },
-                    initialTab = dialog.initialTab,
-                    // RK <--
-                )
-            }
+            // One sheet for both content types: the dialog's content type picks whose settings it
+            // describes, and the sheet itself is the same code either way. A null category id is the
+            // global sort scope, not a stale active category.
+            is LibraryDialog.Settings -> LibrarySettingsSheet(
+                settings = engine.settingsFor(dialog.contentType),
+                settingsScreenModel = settingsScreenModel,
+                categoryId = dialog.categoryId,
+                initialTab = dialog.initialTab,
+                onManageCategories = {
+                    onDismissRequest()
+                    navigator.push(CategoryScreen())
+                },
+                onDismissRequest = onDismissRequest,
+            )
             is LibraryDialog.ChangeCategory -> {
                 ChangeCategoryDialog(
                     initialSelection = dialog.initialSelection,

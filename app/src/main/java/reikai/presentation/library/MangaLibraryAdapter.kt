@@ -84,6 +84,8 @@ class MangaLibraryAdapter(
                     )
                 }
             },
+            showLocalBadge = true,
+            mergeSourceIcons = reikaiLibraryPreferences.showMergeSourceIcons,
         )
     }
 

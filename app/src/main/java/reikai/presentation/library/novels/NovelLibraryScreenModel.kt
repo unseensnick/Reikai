@@ -811,14 +811,15 @@ class NovelLibraryScreenModel :
         }
     }
 
-    // Dynamic grouping mode exposed for the settings dialog's Group tab.
+    // The settings sheet reads these through NovelLibraryAdapter's LibrarySettingsBinding, which is why
+    // they are bare preferences: the shared sheet writes them itself rather than calling a setter per axis.
+
+    /** Dynamic grouping mode, for the settings sheet's Group tab. */
     val groupLibraryBy: Preference<Int> get() = reikaiLibraryPreferences.groupNovelLibraryBy
-    fun setGrouping(value: Int) = reikaiLibraryPreferences.groupNovelLibraryBy.set(value)
 
     // Global "Downloaded only" mode (More menu), exposed so the filter sheet can lock the Downloaded chip.
     val downloadedOnly: Preference<Boolean> get() = basePreferences.downloadedOnly
 
-    // Filter prefs exposed for the settings dialog (read via collectAsState, cycled via toggleFilter).
     val filterDownloaded: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterDownloaded
     val filterUnread: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterUnread
     val filterStarted: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterStarted
@@ -826,30 +827,15 @@ class NovelLibraryScreenModel :
     val filterBookmarked: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterBookmarked
     val filterLewd: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterLewd
 
-    /** Logged-in trackers, for the settings sheet's per-tracker filter rows + the tracker-score sort gate. */
-    val trackersFlow: StateFlow<List<Tracker>> = trackerManager.loggedInTrackersFlow()
-        .stateIn(screenModelScope, SharingStarted.WhileSubscribed(), trackerManager.loggedInTrackers())
-
-    /** Per-tracker novel filter pref (read via collectAsState in the sheet), cycled via [toggleNovelTracker]. */
+    /** Per-tracker novel filter pref. */
     fun novelFilterTracking(id: Int): Preference<TriState> = reikaiLibraryPreferences.novelFilterTracking(id)
 
-    fun toggleNovelTracker(id: Int) = toggleFilter(reikaiLibraryPreferences.novelFilterTracking(id))
-
-    // Include/exclude category filter (novel-specific keys); the shared CategoryFilterRow reads these.
+    // Include/exclude category filter (novel-specific keys).
     val filterCategoriesEnabled: Preference<Boolean> get() = reikaiLibraryPreferences.novelLibraryFilterCategories
     val filterCategoriesInclude: Preference<Set<String>>
         get() = reikaiLibraryPreferences.novelLibraryFilterCategoriesInclude
     val filterCategoriesExclude: Preference<Set<String>>
         get() = reikaiLibraryPreferences.novelLibraryFilterCategoriesExclude
-
-    fun setFilterCategories(enabled: Boolean) {
-        reikaiLibraryPreferences.novelLibraryFilterCategories.set(enabled)
-    }
-
-    fun setCategoryFilterSelections(include: Set<Long>, exclude: Set<Long>) {
-        reikaiLibraryPreferences.novelLibraryFilterCategoriesInclude.set(include.map { it.toString() }.toSet())
-        reikaiLibraryPreferences.novelLibraryFilterCategoriesExclude.set(exclude.map { it.toString() }.toSet())
-    }
 
     /** Full novel category list (the Default row 0 + user categories, sorted) for the filter picker.
      *  Not [State.displayedCategories]: that drops empty categories and is replaced by dynamic groups
@@ -860,16 +846,6 @@ class NovelLibraryScreenModel :
     ) { categories, sortOrder ->
         reikaiSortCategories(categories.sortedBy { it.order }, sortOrder)
     }.stateIn(screenModelScope, SharingStarted.WhileSubscribed(), emptyList())
-
-    fun toggleFilter(pref: Preference<TriState>) {
-        pref.set(
-            when (pref.get()) {
-                TriState.DISABLED -> TriState.ENABLED_IS
-                TriState.ENABLED_IS -> TriState.ENABLED_NOT
-                TriState.ENABLED_NOT -> TriState.DISABLED
-            },
-        )
-    }
 
     /** A novel's human-readable source name for search, or the raw slug when the plugin isn't installed. */
     private fun novelSourceName(source: String): String = sourceManager.get(source)?.name ?: source
