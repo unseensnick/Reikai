@@ -86,6 +86,17 @@ fun assembleLibrary(
 }
 
 /**
+ * The assembled list the tab renders: the ordered categories, and the per-category display read as a
+ * function so the per-type custom-info overlay is applied at read time, only for what is rendered.
+ */
+class LibraryAssembled(
+    val categories: List<Category>,
+    private val items: (Category) -> List<LibraryItem>,
+) {
+    fun itemsFor(category: Category): List<LibraryItem> = items(category)
+}
+
+/**
  * Sort fields for a mixed list: [libraryItemSortFields] with a type-unique id key. The comparator's only
  * id use is the Random rank, `Random(seed + id)`, and a manga and a novel sharing a raw id would rank
  * identically, gluing the pair together under Random. Novel ids are negated (rowids are positive, so the

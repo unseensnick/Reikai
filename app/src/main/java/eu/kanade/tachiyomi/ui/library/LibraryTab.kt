@@ -160,13 +160,18 @@ data object LibraryTab : Tab {
         val mangaLibState by engine.behaviorFor(ContentType.MANGA).state.collectAsState()
         val novelLibState by engine.behaviorFor(ContentType.NOVELS).state.collectAsState()
         val libState = if (isNovels) novelLibState else mangaLibState
-        val activeCategories = libState.categories
+        // RK: the list itself (categories + the per-category display read) renders off the engine's
+        // assembly (step 2 of the All-chip plan); the rest of libState stays adapter-sourced until
+        // step 5. Null only before the assembly's first emission, where the provider's own list fills in.
+        val assembled by engine.assembled.collectAsState()
+        val activeCategories = assembled?.categories ?: libState.categories
         // RK: the selection is the engine's, not a provider's: it can span both content types.
         val activeSelection by engine.selection.collectAsState()
         val activeSearchQuery = libState.searchQuery
         val activeIsLibraryEmpty = libState.isLibraryEmpty
         val activeIsLoading = libState.isLoading
-        val activeGetItems: (Category) -> List<LibraryItem> = libState.itemsForCategory
+        val activeGetItems: (Category) -> List<LibraryItem> =
+            assembled?.let { it::itemsFor } ?: libState.itemsForCategory
         val activeGetItemCount: (Category) -> Int? = libState.itemCountForCategory
         val onSearch: (String?) -> Unit = behavior::search
         val activeSelectionMode = activeSelection.isNotEmpty()

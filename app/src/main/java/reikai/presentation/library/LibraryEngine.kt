@@ -5,6 +5,7 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.core.preference.PreferenceMutableState
 import eu.kanade.core.preference.asState
 import eu.kanade.presentation.manga.DownloadAction
+import eu.kanade.tachiyomi.ui.library.LibraryItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import reikai.domain.category.CategoryContentType
 import reikai.domain.category.categoryDiff
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
@@ -19,7 +21,9 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.model.LibraryDisplayMode
+import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
 import uy.kohesive.injekt.injectLazy
 
@@ -46,6 +50,7 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
 
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
     private val libraryPreferences: LibraryPreferences by injectLazy()
+    private val categoryRepository: CategoryRepository by injectLazy()
 
     // These two are `by lazy` rather than plain vals so constructing the engine touches neither the DI
     // container nor the coroutine scope. Selection is pure maths and is unit-tested by direct
@@ -73,6 +78,100 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
             LibraryDisplayState(reikai, showCategoryTabs, showItemCounts)
         }.stateIn(screenModelScope, SharingStarted.Eagerly, LibraryDisplayState())
     }
+
+    /**
+     * The assembled list the tab renders (step 2 of the All-chip plan): the providers' row flows
+     * concatenated per the chip, bucketed and sorted by [assembleLibrary]. Null only before the first
+     * emission, where the tab falls back to the active provider's own list (scaffolding until step 5).
+     * `by lazy` like every preference-backed member: eager resolution breaks direct construction in
+     * tests. A dynamically grouped view passes the active provider's finished list through unchanged,
+     * because the per-type builders read model internals; merging dynamic groups under All is later work.
+     */
+    val assembled: StateFlow<LibraryAssembled?> by lazy {
+        val prefsFlow = combine(
+            libraryPreferences.sortingMode.changes(),
+            libraryPreferences.randomSortSeed.changes(),
+            reikaiLibraryPreferences.showHiddenCategories.changes(),
+            reikaiLibraryPreferences.categorySortOrder.changes(),
+            reikaiLibraryPreferences.showEmptyCategoriesWhileFiltering.changes(),
+        ) { sort, seed, showHidden, catOrder, keepWhileFiltering ->
+            AssemblyPrefs(sort, seed.toLong(), showHidden, catOrder, keepWhileFiltering)
+        }
+        val groupModes = combine(
+            reikaiLibraryPreferences.groupLibraryBy.changes(),
+            reikaiLibraryPreferences.groupNovelLibraryBy.changes(),
+        ) { manga, novel -> mapOf(ContentType.MANGA to manga, ContentType.NOVELS to novel) }
+        combine(
+            contentType,
+            combine(providers.map { it.rows }) { it.toList() },
+            combine(providers.map { it.state }) { it.toList() },
+            categoryRepository.getUnfilteredAsFlow(),
+            combine(prefsFlow, groupModes, ::Pair),
+        ) { chip, rowsPerProvider, statesPerProvider, allCategories, (prefs, modes) ->
+            assembleFor(chip, rowsPerProvider, statesPerProvider, allCategories, prefs, modes)
+        }.stateIn(screenModelScope, SharingStarted.Eagerly, null)
+    }
+
+    private fun assembleFor(
+        chip: ContentType,
+        rowsPerProvider: List<List<LibraryItem>>,
+        statesPerProvider: List<LibraryScreenState>,
+        allCategories: List<Category>,
+        prefs: AssemblyPrefs,
+        groupModes: Map<ContentType, Int>,
+    ): LibraryAssembled {
+        val active = providersFor(chip)
+        if (active.any { groupModes[it.contentType] != LibraryGroup.BY_DEFAULT }) {
+            val provider = active.singleOrNull()
+                ?: error("Dynamic grouping under a mixed $chip library is not assembled yet")
+            val state = statesPerProvider[providers.indexOf(provider)]
+            return LibraryAssembled(state.categories, state.itemsForCategory)
+        }
+        val rows = providers.indices
+            .filter { providers[it] in active }
+            .flatMap { rowsPerProvider[it] }
+        val categories = allCategories.filter { category ->
+            when (chip) {
+                ContentType.MANGA -> category.contentType != CategoryContentType.NOVEL
+                ContentType.NOVELS -> category.contentType != CategoryContentType.MANGA
+                ContentType.ALL -> true
+            }
+        }
+        // Manga's existing rule; irrelevant under Novels, whose keepEmpty=false drops empties anyway.
+        val filtering = active.any { provider ->
+            val state = statesPerProvider[providers.indexOf(provider)]
+            state.hasActiveFilters || state.searchQuery != null
+        }
+        val inputs = LibraryAssemblyInputs(
+            globalSort = prefs.sort,
+            randomSeed = prefs.seed,
+            showHiddenCategories = prefs.showHidden,
+            categorySortOrder = prefs.categorySortOrder,
+            keepEmptyCategories = chip != ContentType.NOVELS,
+            dropEmptyWhileFiltering = filtering && !prefs.keepEmptyWhileFiltering,
+        )
+        // Lazy per provider, so only a view actually sorting by tracker score pays the computation.
+        val means = active.associate { it.contentType to lazy(it::trackerMeans) }
+        val fields = mixedLibraryItemSortFields { item ->
+            means[item.entryId.contentType]?.value?.get(item.id) ?: -1.0
+        }
+        val assembledList = assembleLibrary(rows, categories, inputs, fields)
+        val bucketsById = assembledList.associate { it.first.id to it.second }
+        val byType = providers.associateBy { it.contentType }
+        return LibraryAssembled(assembledList.map { it.first }) { category ->
+            bucketsById[category.id].orEmpty().map { item ->
+                byType[item.entryId.contentType]?.overlaid(item) ?: item
+            }
+        }
+    }
+
+    private data class AssemblyPrefs(
+        val sort: LibrarySort,
+        val seed: Long,
+        val showHidden: Boolean,
+        val categorySortOrder: Int,
+        val keepEmptyWhileFiltering: Boolean,
+    )
 
     /** Grid shape, the other half of the display config. Both are library-wide, not per content type. */
     fun displayMode(): PreferenceMutableState<LibraryDisplayMode> =
