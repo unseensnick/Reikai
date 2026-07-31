@@ -419,10 +419,11 @@ data object LibraryTab : Tab {
                         // For scroll overlay when no tab
                         scrollBehavior = scrollBehavior.takeIf { !display.showCategoryTabs },
                     )
+                    // RK: all three chips since the All view landed; the component's default order is
+                    // All, Manga, Novels (ContentType.entries).
                     ContentTypeFilterChips(
                         selected = libraryContentType,
                         onSelect = engine::setContentType,
-                        types = listOf(ContentType.MANGA, ContentType.NOVELS),
                         modifier = Modifier.background(chipBackground),
                     )
                 }

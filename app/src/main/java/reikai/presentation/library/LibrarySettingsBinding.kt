@@ -31,28 +31,29 @@ data class LibraryCategoryFilter(
 )
 
 /**
- * One content type's settings sheet, described rather than rendered: the provider hands over the
- * preferences it already binds and the shared sheet renders them, so a sheet change is written once for
- * manga and novels.
+ * One view's settings sheet, described rather than rendered: the shared sheet renders whatever binding
+ * the active view describes, so a sheet change is written once for manga and novels.
  *
- * Sharing the UI needs no migration because every axis is a separate preference key per content type
- * (manga `pref_filter_library_*_v2` against novel `novel_library_filter_*`, `group_library_by` against
- * `group_novel_library_by`). The binding carries each side's own [Preference], so both keep their stored
- * values. It also means a provider simply omits an axis it does not have, instead of the shared sheet
- * branching on content type.
+ * Since the filter unification (2026-07-31) every filter axis, the tracker filters and the category
+ * include/exclude write ONE library-wide preference; the binding still exists for what genuinely
+ * differs per view: which axes are offered (novels omit manga's debug interval axis), the category
+ * list the pickers show, the group mode, and the local badge. A provider omits an axis it does not
+ * have, instead of the shared sheet branching on content type.
  *
  * [filterAxes] is a flow rather than a plain list because manga's interval-custom row appears and
  * disappears with an auto-update preference the sheet does not own.
  *
- * A null category id in [setSort] is the global scope. [categories] is the provider's full category list,
- * not the filtered list the grid renders, because the picker must offer categories the current filters hide.
+ * A null category id in [setSort] is the global scope. [categories] is the view's full category list,
+ * not the filtered list the grid renders, because the picker must offer categories the current filters
+ * hide. A null [groupMode] hides the Group tab's controls (the All view, until dynamic grouping is
+ * assembled for it).
  */
 data class LibrarySettingsBinding(
     val filterAxes: StateFlow<List<LibraryFilterAxis>>,
     val trackerFilter: (trackerId: Int) -> Preference<TriState>,
     val categoryFilter: LibraryCategoryFilter,
     val categories: StateFlow<List<Category>>,
-    val groupMode: Preference<Int>,
+    val groupMode: Preference<Int>?,
     val globalSort: StateFlow<LibrarySort>,
     val setSort: (categoryId: Long?, type: LibrarySort.Type, direction: LibrarySort.Direction) -> Unit,
     val resetSort: (categoryId: Long) -> Unit,

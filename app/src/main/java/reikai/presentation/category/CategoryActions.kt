@@ -109,9 +109,10 @@ private fun CategoryIdPreferences.defaultsFor(contentType: Long) = when (content
     else -> listOf(mangaDefault, novelDefault)
 }
 
-/** The category-id set preferences a row of this content type is referenced by. */
+/** The category-id set preferences a row of this content type is referenced by. The shared sets can
+ *  hold ids of either type, so every arm scrubs them. */
 private fun CategoryIdPreferences.setsFor(contentType: Long) = when (contentType) {
-    CategoryContentType.MANGA -> mangaSets
-    CategoryContentType.NOVEL -> novelSets
-    else -> mangaSets + novelSets
+    CategoryContentType.MANGA -> mangaSets + sharedSets
+    CategoryContentType.NOVEL -> novelSets + sharedSets
+    else -> mangaSets + novelSets + sharedSets
 }

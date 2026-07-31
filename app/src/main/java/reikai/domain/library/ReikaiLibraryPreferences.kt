@@ -43,9 +43,8 @@ class ReikaiLibraryPreferences(
 
     // region Content type
 
-    /** Sticky Manga/Novels switch on the Library tab. Its own key, distinct from the Browse
-     *  and download-queue content-type filters, so each surface remembers its last type. No ALL on
-     *  the library: manga and novels never share one list. */
+    /** Sticky All/Manga/Novels chip on the Library tab. Its own key, distinct from the Browse
+     *  and download-queue content-type filters, so each surface remembers its last type. */
     val libraryContentType: Preference<ContentType> =
         preferenceStore.getEnum("library_content_type", ContentType.MANGA)
 
@@ -116,47 +115,12 @@ class ReikaiLibraryPreferences(
 
     // endregion
 
-    // region Novel library filters (novel-specific keys, never collide with manga)
-    // The novel global sort and Random seed keys are retired (see DEAD_NOVEL_SORT_KEY below): both
-    // content types read the shared LibraryPreferences.sortingMode / randomSortSeed.
-
-    val novelLibraryFilterDownloaded: Preference<TriState> =
-        preferenceStore.getEnum("novel_library_filter_downloaded", TriState.DISABLED)
-    val novelLibraryFilterUnread: Preference<TriState> =
-        preferenceStore.getEnum("novel_library_filter_unread", TriState.DISABLED)
-    val novelLibraryFilterStarted: Preference<TriState> =
-        preferenceStore.getEnum("novel_library_filter_started", TriState.DISABLED)
-    val novelLibraryFilterCompleted: Preference<TriState> =
-        preferenceStore.getEnum("novel_library_filter_completed", TriState.DISABLED)
-    val novelLibraryFilterBookmarked: Preference<TriState> =
-        preferenceStore.getEnum("novel_library_filter_bookmarked", TriState.DISABLED)
-
-    /** Adult-content filter for the novel library. Novel sources carry no nsfw flag, so lewdness is
-     *  derived from adult genre tags only (see reikai.domain.novel.isLewd); the manga source-name
-     *  heuristic does not apply. Held under its own key so it never bleeds across content types. */
-    val novelLibraryFilterLewd: Preference<TriState> =
-        preferenceStore.getEnum("novel_library_filter_lewd", TriState.DISABLED)
-
-    /**
-     * Per-tracker novel library filter (tri-state), keyed by tracker id. Held under a separate key from
-     * manga's `pref_filter_library_tracked_*` so a tracker filtered on one content type doesn't bleed
-     * into the other; net-new, so no `_v2` migration suffix.
-     */
-    fun novelFilterTracking(id: Int): Preference<TriState> =
-        preferenceStore.getEnum("novel_library_filter_tracked_$id", TriState.DISABLED)
-
-    /** Master switch for the novel include/exclude category filter. */
-    val novelLibraryFilterCategories: Preference<Boolean> =
-        preferenceStore.getBoolean("novel_library_filter_categories", false)
-
-    /** Category ids (as strings) a novel must belong to at least one of. Empty = no include constraint. */
-    val novelLibraryFilterCategoriesInclude: Preference<Set<String>> =
-        preferenceStore.getStringSet("novel_library_filter_categories_include", emptySet())
-
-    /** Category ids (as strings) a novel must not belong to any of. */
-    val novelLibraryFilterCategoriesExclude: Preference<Set<String>> =
-        preferenceStore.getStringSet("novel_library_filter_categories_exclude", emptySet())
-
+    // region Novel library filters: RETIRED
+    // The library filter preferences unified onto the manga keys (2026-07-31), following the sort
+    // unification: a filter describes the list, not a content type. Every `novel_library_filter_*` key
+    // (the tri-state axes, lewd, the per-tracker filters, the category include/exclude set) is dead and
+    // skipped on restore via DEAD_NOVEL_FILTER_KEY_PREFIX below, like the sort keys. The novel global
+    // sort and Random seed keys retired the same way (DEAD_NOVEL_SORT_KEY).
     // endregion
 
     // region Merging (persisted group tables; the pref-based keys below are migrated then kept for backup)
@@ -219,8 +183,8 @@ class ReikaiLibraryPreferences(
     val novelAutoMergeRequireAuthor: Preference<Boolean> =
         preferenceStore.getBoolean("novel_auto_merge_require_author", true)
 
-    /** On a merged novel cover, show the grouped sources' icons instead of a numeric group count. */
-    val showNovelMergeSourceIcons: Preference<Boolean> = preferenceStore.getBoolean("novel_merge_source_icons", true)
+    // The novel merge-source-icons key ("novel_merge_source_icons") is retired with the filter keys:
+    // both content types read [showMergeSourceIcons]. Skipped on restore (DEAD_NOVEL_MERGE_ICONS_KEY).
 
     // endregion
 
@@ -239,5 +203,12 @@ class ReikaiLibraryPreferences(
         // readings are indistinguishable. Skipped on restore so an old backup can't resurrect them.
         const val DEAD_NOVEL_SORT_KEY = "novel_library_default_sort"
         const val DEAD_NOVEL_RANDOM_SEED_KEY = "novel_library_random_seed"
+
+        // Retired novel filter keys (every novel_library_filter_* key: the tri-state axes, lewd, the
+        // per-tracker filters, the category include/exclude set), plus the novel merge-icons toggle:
+        // the library filter preferences unified onto the manga keys. Values dropped, not migrated
+        // (filters are casually re-picked); skipped on restore so an old backup can't resurrect them.
+        const val DEAD_NOVEL_FILTER_KEY_PREFIX = "novel_library_filter_"
+        const val DEAD_NOVEL_MERGE_ICONS_KEY = "novel_merge_source_icons"
     }
 }

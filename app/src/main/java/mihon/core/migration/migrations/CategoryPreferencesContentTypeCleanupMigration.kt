@@ -42,6 +42,9 @@ class CategoryPreferencesContentTypeCleanupMigration : Migration {
             resetDefaultIfInvalid(categoryIdPreferences.novelDefault, novelIds)
             categoryIdPreferences.mangaSets.forEach { scrubSet(it, mangaIds) }
             categoryIdPreferences.novelSets.forEach { scrubSet(it, novelIds) }
+            // The shared library filter can legitimately hold ids of either type, so it scrubs
+            // against the union rather than one side's list.
+            categoryIdPreferences.sharedSets.forEach { scrubSet(it, mangaIds + novelIds) }
 
             preferenceStore.getInt(DEAD_LAST_USED_NOVEL_CATEGORY_KEY, 0).delete()
         }.onFailure { logcat(LogPriority.ERROR, it) { "Category preference cleanup migration failed" } }

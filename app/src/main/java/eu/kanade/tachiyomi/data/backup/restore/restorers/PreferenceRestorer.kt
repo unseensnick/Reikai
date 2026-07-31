@@ -88,6 +88,13 @@ class PreferenceRestorer(
             ) {
                 return@forEach
             }
+            // RK: retired novel filter keys (every novel_library_filter_* key) plus the novel
+            // merge-icons toggle; the filter preferences unified onto the manga keys.
+            if (key.startsWith(ReikaiLibraryPreferences.DEAD_NOVEL_FILTER_KEY_PREFIX) ||
+                key == ReikaiLibraryPreferences.DEAD_NOVEL_MERGE_ICONS_KEY
+            ) {
+                return@forEach
+            }
             // RK: a restored ln_installed_plugin_urls set can auto-load arbitrary plugin .js URLs that
             // the QuickJS host evaluates. Flag it so LnPluginInstaller validates the restored URLs
             // against the restored repos before loading any; the value itself is still restored below.
@@ -158,7 +165,11 @@ class PreferenceRestorer(
         backupCategoriesById: Map<String, BackupCategory>,
         categoriesByName: Map<String, Category>,
     ): Boolean {
-        if (key !in categoryIdPreferences.mangaSets.mapTo(HashSet()) { it.key() }) return false
+        // RK: the shared sets (the library-wide include/exclude filter) remap here too; a backup's novel
+        // ids in them drop, since novel categories are not restored yet (see CategoryIdPreferences).
+        val remappedKeys = (categoryIdPreferences.mangaSets + categoryIdPreferences.sharedSets)
+            .mapTo(HashSet()) { it.key() }
+        if (key !in remappedKeys) return false
 
         val ids = translateCategoryIds(
             ids = value,

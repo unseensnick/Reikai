@@ -204,18 +204,20 @@ class NovelLibraryScreenModel :
             reikaiLibraryPreferences.showHiddenCategories.changes(),
             reikaiLibraryPreferences.categorySortOrder.changes(),
         ) { sort, seed, cont, showHidden, catSort -> Misc(sort.flag, seed.toLong(), cont, showHidden, catSort) }
+        // The library-wide filter preferences, shared with the manga library since the filter
+        // unification: a filter describes the list, not a content type.
         val triStateFilterFlow = combine(
-            reikaiLibraryPreferences.novelLibraryFilterDownloaded.changes(),
-            reikaiLibraryPreferences.novelLibraryFilterUnread.changes(),
-            reikaiLibraryPreferences.novelLibraryFilterStarted.changes(),
-            reikaiLibraryPreferences.novelLibraryFilterCompleted.changes(),
-            reikaiLibraryPreferences.novelLibraryFilterBookmarked.changes(),
+            libraryPreferences.filterDownloaded.changes(),
+            libraryPreferences.filterUnread.changes(),
+            libraryPreferences.filterStarted.changes(),
+            libraryPreferences.filterCompleted.changes(),
+            libraryPreferences.filterBookmarked.changes(),
         ) { d, u, s, c, b -> NovelFilters(d, u, s, c, b) }
         // Category include/exclude rides in its own sub-flow so the tri-state combine stays at its 5-arg max.
         val categoryFilterFlow = combine(
-            reikaiLibraryPreferences.novelLibraryFilterCategories.changes(),
-            reikaiLibraryPreferences.novelLibraryFilterCategoriesInclude.changes(),
-            reikaiLibraryPreferences.novelLibraryFilterCategoriesExclude.changes(),
+            reikaiLibraryPreferences.filterCategories.changes(),
+            reikaiLibraryPreferences.filterCategoriesInclude.changes(),
+            reikaiLibraryPreferences.filterCategoriesExclude.changes(),
         ) { enabled, include, exclude ->
             val inc = include.toLongIdSet()
             val exc = exclude.toLongIdSet()
@@ -226,7 +228,7 @@ class NovelLibraryScreenModel :
             categoryFilterFlow,
             basePreferences.downloadedOnly.changes(),
             trackingFilterFlow(),
-            reikaiLibraryPreferences.novelLibraryFilterLewd.changes(),
+            reikaiLibraryPreferences.filterLewd.changes(),
         ) { base, (active, inc, exc), downloadedOnly, trackingFilter, lewd ->
             FilterSettings(
                 base.copy(
@@ -242,7 +244,7 @@ class NovelLibraryScreenModel :
         val mergeFlow = combine(
             mergeGroupRepository.getAllMembershipsAsFlow(ContentType.NOVELS),
             reikaiLibraryPreferences.seriesMergingEnabled.changes(),
-            reikaiLibraryPreferences.showNovelMergeSourceIcons.changes(),
+            reikaiLibraryPreferences.showMergeSourceIcons.changes(),
             mergeGroupRepository.getOverrideRankingsAsFlow(ContentType.NOVELS),
             reikaiLibraryPreferences.preferredNovelSources.changes(),
         ) { membership, mergingEnabled, showIcons, overrideRankings, preferredSources ->
@@ -276,7 +278,7 @@ class NovelLibraryScreenModel :
             } else {
                 combine(
                     trackers.map { tracker ->
-                        reikaiLibraryPreferences.novelFilterTracking(tracker.id.toInt()).changes()
+                        libraryPreferences.filterTracking(tracker.id.toInt()).changes()
                             .map { tracker.id to it }
                     },
                 ) { it.toMap() }
@@ -662,31 +664,11 @@ class NovelLibraryScreenModel :
     // Sort writes live in NovelLibraryAdapter, routed through the shared SetSortModeForCategory exactly
     // like the manga side, since the global sort and Random seed are one library-wide preference pair.
 
-    // The settings sheet reads these through NovelLibraryAdapter's LibrarySettingsBinding, which is why
-    // they are bare preferences: the shared sheet writes them itself rather than calling a setter per axis.
+    // The filter axes read the library-wide preferences directly in NovelLibraryAdapter's
+    // LibrarySettingsBinding since the filter unification; only the genuinely per-type members remain.
 
     /** Dynamic grouping mode, for the settings sheet's Group tab. */
     val groupLibraryBy: Preference<Int> get() = reikaiLibraryPreferences.groupNovelLibraryBy
-
-    // Global "Downloaded only" mode (More menu), exposed so the filter sheet can lock the Downloaded chip.
-    val downloadedOnly: Preference<Boolean> get() = basePreferences.downloadedOnly
-
-    val filterDownloaded: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterDownloaded
-    val filterUnread: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterUnread
-    val filterStarted: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterStarted
-    val filterCompleted: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterCompleted
-    val filterBookmarked: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterBookmarked
-    val filterLewd: Preference<TriState> get() = reikaiLibraryPreferences.novelLibraryFilterLewd
-
-    /** Per-tracker novel filter pref. */
-    fun novelFilterTracking(id: Int): Preference<TriState> = reikaiLibraryPreferences.novelFilterTracking(id)
-
-    // Include/exclude category filter (novel-specific keys).
-    val filterCategoriesEnabled: Preference<Boolean> get() = reikaiLibraryPreferences.novelLibraryFilterCategories
-    val filterCategoriesInclude: Preference<Set<String>>
-        get() = reikaiLibraryPreferences.novelLibraryFilterCategoriesInclude
-    val filterCategoriesExclude: Preference<Set<String>>
-        get() = reikaiLibraryPreferences.novelLibraryFilterCategoriesExclude
 
     /** Full novel category list (the Default row 0 + user categories, sorted) for the filter picker.
      *  Not [State.displayedCategories]: that drops empty categories and is replaced by dynamic groups

@@ -121,9 +121,13 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
         groupModes: Map<ContentType, Int>,
     ): LibraryAssembled {
         val active = providersFor(chip)
-        if (active.any { groupModes[it.contentType] != LibraryGroup.BY_DEFAULT }) {
-            val provider = active.singleOrNull()
-                ?: error("Dynamic grouping under a mixed $chip library is not assembled yet")
+        // Dynamic grouping passes the single active provider's finished list through (the per-type
+        // builders read model internals). Under All the per-type group modes are IGNORED and real
+        // categories render, rather than erroring or picking one side: a user can set grouping under
+        // Manga and then flip to All, so this path must be reachable and safe. Merging dynamic groups
+        // under All (by encoded name collision) is later work.
+        if (chip != ContentType.ALL && active.any { groupModes[it.contentType] != LibraryGroup.BY_DEFAULT }) {
+            val provider = active.single()
             val state = statesPerProvider[providers.indexOf(provider)]
             return LibraryAssembled(chip, state.categories, state.itemsForCategory)
         }
@@ -223,13 +227,24 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
     }
 
     /**
-     * The settings sheet a [contentType] describes. Like [behaviorFor] this fails loudly on a mixed view:
-     * the sheet writes one content type's preferences, so All would need a merged description rather than
-     * a silent pick of one side's.
+     * The settings sheet a [contentType] describes. Since the filter unification every axis writes a
+     * library-wide preference, so the All description is the manga binding (the axis superset: novels
+     * only omit the debug interval axis) with the two remaining per-type members answered for a mixed
+     * view: a union category list, and no Group tab until dynamic grouping is assembled under All.
      */
     fun settingsFor(contentType: ContentType): LibrarySettingsBinding =
-        providersFor(contentType).singleOrNull()?.settings
-            ?: error("A mixed $contentType library needs a settings description combining both providers'")
+        providersFor(contentType).singleOrNull()?.settings ?: allSettings
+
+    private val allSettings: LibrarySettingsBinding by lazy {
+        val manga = providersFor(ContentType.MANGA).single()
+        val novel = providersFor(ContentType.NOVELS).single()
+        manga.settings.copy(
+            categories = combine(manga.settings.categories, novel.settings.categories) { m, n ->
+                (m + n).distinctBy { it.id }.sortedBy { it.order }
+            }.stateIn(screenModelScope, SharingStarted.WhileSubscribed(), emptyList()),
+            groupMode = null,
+        )
+    }
 
     // Category collapse, library-wide rather than per provider: a collapsed category is one row in one
     // list, and a dynamic group is one bucket that will hold both content types once the chips are only
@@ -393,14 +408,9 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
         )
     }
 
-    /**
-     * One sheet per content type until the two merge, so a mixed view fails loudly here for the same
-     * reason [behaviorFor] does rather than silently configuring one of the two libraries.
-     */
+    /** Opens the sheet for the view; [settingsFor] answers every chip since the filter unification. */
     fun openSettingsDialog(contentType: ContentType, categoryId: Long? = null, initialTab: Int = 0) {
-        val provider = providersFor(contentType).singleOrNull()
-            ?: error("A mixed $contentType library has no single settings sheet")
-        mutableDialog.value = LibraryDialog.Settings(provider.contentType, categoryId, initialTab)
+        mutableDialog.value = LibraryDialog.Settings(contentType, categoryId, initialTab)
     }
 
     // Dialog confirms. Dispatched by the entries' own content types rather than the view's, since the

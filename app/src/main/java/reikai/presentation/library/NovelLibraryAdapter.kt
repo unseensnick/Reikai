@@ -50,23 +50,24 @@ class NovelLibraryAdapter(
     // `by lazy` for the same reason as the injections above: nothing here is resolved until a sheet asks.
     override val settings: LibrarySettingsBinding by lazy {
         LibrarySettingsBinding(
-            // Manga's axis order, so one sheet reads the same on both content types. Novels have no
-            // interval-custom axis and simply omit it.
+            // The library-wide filter preferences (shared with manga since the filter unification), in
+            // manga's axis order. Novels have no interval-custom axis and simply omit it; the novel
+            // pipeline neutralizes that axis rather than reading it, so it can never empty this library.
             filterAxes = MutableStateFlow(
                 listOf(
-                    LibraryFilterAxis(MR.strings.label_downloaded, model.filterDownloaded, true),
-                    LibraryFilterAxis(MR.strings.action_filter_unread, model.filterUnread),
-                    LibraryFilterAxis(MR.strings.label_started, model.filterStarted),
-                    LibraryFilterAxis(MR.strings.action_filter_bookmarked, model.filterBookmarked),
-                    LibraryFilterAxis(MR.strings.completed, model.filterCompleted),
-                    LibraryFilterAxis(MR.strings.lewd, model.filterLewd),
+                    LibraryFilterAxis(MR.strings.label_downloaded, libraryPreferences.filterDownloaded, true),
+                    LibraryFilterAxis(MR.strings.action_filter_unread, libraryPreferences.filterUnread),
+                    LibraryFilterAxis(MR.strings.label_started, libraryPreferences.filterStarted),
+                    LibraryFilterAxis(MR.strings.action_filter_bookmarked, libraryPreferences.filterBookmarked),
+                    LibraryFilterAxis(MR.strings.completed, libraryPreferences.filterCompleted),
+                    LibraryFilterAxis(MR.strings.lewd, reikaiLibraryPreferences.filterLewd),
                 ),
             ),
-            trackerFilter = model::novelFilterTracking,
+            trackerFilter = libraryPreferences::filterTracking,
             categoryFilter = LibraryCategoryFilter(
-                enabled = model.filterCategoriesEnabled,
-                included = model.filterCategoriesInclude,
-                excluded = model.filterCategoriesExclude,
+                enabled = reikaiLibraryPreferences.filterCategories,
+                included = reikaiLibraryPreferences.filterCategoriesInclude,
+                excluded = reikaiLibraryPreferences.filterCategoriesExclude,
             ),
             categories = model.filterPickerCategories,
             groupMode = model.groupLibraryBy,
@@ -87,7 +88,7 @@ class NovelLibraryAdapter(
             },
             // Novels have no local sources, so nothing is ever local and the badge would never light up.
             showLocalBadge = false,
-            mergeSourceIcons = reikaiLibraryPreferences.showNovelMergeSourceIcons,
+            mergeSourceIcons = reikaiLibraryPreferences.showMergeSourceIcons,
         )
     }
 

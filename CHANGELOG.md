@@ -16,6 +16,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 **Library**
 
+- **A new All chip shows your whole library, manga and novels together.** One list, one sort, with each series opening in its own reader; the Manga and Novels chips now simply filter it.
 - **A category can now hold both manga and novels.** Pick whether a new category shows in manga, novels or both when you create it.
 - **Manga library search understands field terms and comparisons, like `author:kubo`, `genre:horror -genre:ecchi` or `unread>5`.** Novel search gets the term matching, not the comparisons.
 - **Settings -> Library -> Recommendations can now move the related-manga carousel off the details page into its three-dot menu.**
@@ -44,6 +45,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The Default category now follows your global library sort instead of taking a sort of its own.** It is one shared bucket across both libraries, so it could not sensibly be sorted two ways at once.
 - **A category you collapse stays collapsed on both the Manga and Novels chips.** Collapsing is now remembered per category rather than per chip.
 - **The library's global sort is now one setting for manga and novels.** Set it once under either chip and both libraries follow it; a novel-only global sort choice needs re-picking once. Per-category sorts are untouched.
+- **Library filters are now one set for manga and novels.** Downloaded, unread, tracker and category filters apply to the whole library whichever chip is up; novel-only filter choices need re-picking once.
 - **Source grouping is now optional, via "Group series across sources" in the library display menu or Settings -> Library.** Off shows each source as its own library entry.
 - **The reader now opens either one source's chapters or the whole merged group, depending on where you tapped.** Updates, source chips and new-chapter notifications open one source; your library, the series page and history open the group.
 - **Reading a chapter now marks it read on the series' other sources too, by default.** Switch it off under Settings -> Reader.

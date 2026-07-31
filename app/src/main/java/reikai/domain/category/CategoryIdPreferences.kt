@@ -34,10 +34,20 @@ class CategoryIdPreferences(
         downloadPreferences.removeExcludeCategories,
         downloadPreferences.downloadNewChapterCategories,
         downloadPreferences.downloadNewChapterCategoriesExclude,
-        reikaiLibraryPreferences.filterCategoriesInclude,
-        reikaiLibraryPreferences.filterCategoriesExclude,
         reikaiSourcePreferences.updatesFilterMangaCategoriesInclude,
         reikaiSourcePreferences.updatesFilterMangaCategoriesExclude,
+    )
+
+    /**
+     * Library-wide sets that may hold ids of EITHER content type: the include/exclude library filter,
+     * one preference pair for both libraries since the filter unification. Scrubbed against the union
+     * of valid ids, and a delete of any content type scrubs them. On restore they are remapped inline
+     * on the manga pass only (manga + universal names); a backup's novel ids in them are dropped, since
+     * novel categories do not exist yet at preference-restore time, and a filter is cheaply re-picked.
+     */
+    val sharedSets: List<Preference<Set<String>>> = listOf(
+        reikaiLibraryPreferences.filterCategoriesInclude,
+        reikaiLibraryPreferences.filterCategoriesExclude,
     )
 
     /** Novel default-category preference: a single id, or -1 for "prompt on favorite". */
@@ -50,8 +60,6 @@ class CategoryIdPreferences(
         novelPreferences.downloadNewChapterCategoriesExclude(),
         novelPreferences.novelUpdateCategories(),
         novelPreferences.novelUpdateCategoriesExclude(),
-        reikaiLibraryPreferences.novelLibraryFilterCategoriesInclude,
-        reikaiLibraryPreferences.novelLibraryFilterCategoriesExclude,
         reikaiSourcePreferences.updatesFilterNovelCategoriesInclude,
         reikaiSourcePreferences.updatesFilterNovelCategoriesExclude,
     )
