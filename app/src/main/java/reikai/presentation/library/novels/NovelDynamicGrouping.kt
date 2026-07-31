@@ -16,6 +16,7 @@ import reikai.presentation.library.DynamicGroupingFeed
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.LibraryTrackingStatusOrder
+import reikai.presentation.library.displayLanguage
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibrarySort
@@ -169,9 +170,7 @@ fun buildNovelDynamicGrouping(
         categorySortOrder = inputs.categorySortOrder,
         sourceMeta = feed.sourceMeta,
         languageCodes = feed.languageCodes,
-        // Render the group-by-language header as the full name ("English"), not the bare code,
-        // matching the manga library; the cover badge still uses the short code separately.
-        languageDisplay = { code -> Locale.forLanguageTag(code).displayName.ifBlank { code } },
+        languageDisplay = ::displayLanguage,
         statusNames = feed.statusNames,
         trackStatuses = feed.trackStatuses,
         trackingStatusOrder = trackingStatusOrder,

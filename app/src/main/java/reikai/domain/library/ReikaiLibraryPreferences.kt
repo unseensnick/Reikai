@@ -19,12 +19,11 @@ class ReikaiLibraryPreferences(
 
     // region Grouping
 
-    /** Dynamic grouping mode (eu.kanade.tachiyomi.ui.library.LibraryGroup; 0 = BY_DEFAULT). */
+    /** Dynamic grouping mode, library-wide (eu.kanade.tachiyomi.ui.library.LibraryGroup; 0 = BY_DEFAULT). */
     val groupLibraryBy: Preference<Int> = preferenceStore.getInt("group_library_by", 0)
 
-    /** Dynamic grouping mode for the novel library; separate key because novel ids/categories are
-     *  a separate space from manga. */
-    val groupNovelLibraryBy: Preference<Int> = preferenceStore.getInt("group_novel_library_by", 0)
+    // The "group_novel_library_by" key is retired (DEAD_NOVEL_GROUP_BY_KEY): grouping describes the list,
+    // not a content type, so both read [groupLibraryBy] and one kernel call groups the mixed library.
 
     /** Header keys of collapsed user categories (BY_DEFAULT grouping). */
     val collapsedCategories: Preference<Set<String>> = preferenceStore.getStringSet("collapsed_categories", emptySet())
@@ -214,5 +213,10 @@ class ReikaiLibraryPreferences(
         // Retired with the one empty-category rule (empty categories always hide): the toggle had
         // nothing left to control. Skipped on restore like the other retired keys.
         const val DEAD_SHOW_EMPTY_CATEGORIES_KEY = "show_empty_categories_filtering"
+
+        // Retired novel grouping key: grouping unified onto group_library_by, following the sort and
+        // filter unifications, so one kernel call can group manga and novels into shared buckets. Value
+        // dropped, not migrated (a group mode is casually re-picked); skipped on restore.
+        const val DEAD_NOVEL_GROUP_BY_KEY = "group_novel_library_by"
     }
 }

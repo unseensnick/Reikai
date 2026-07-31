@@ -45,15 +45,15 @@ data class LibraryCategoryFilter(
  *
  * A null category id in [setSort] is the global scope. [categories] is the view's full category list,
  * not the filtered list the grid renders, because the picker must offer categories the current filters
- * hide. A null [groupMode] hides the Group tab's controls (the All view, until dynamic grouping is
- * assembled for it).
+ * hide. [groupMode] is the one library-wide grouping preference on every chip, since the assembly
+ * groups manga and novels in a single kernel call.
  */
 data class LibrarySettingsBinding(
     val filterAxes: StateFlow<List<LibraryFilterAxis>>,
     val trackerFilter: (trackerId: Int) -> Preference<TriState>,
     val categoryFilter: LibraryCategoryFilter,
     val categories: StateFlow<List<Category>>,
-    val groupMode: Preference<Int>?,
+    val groupMode: Preference<Int>,
     val globalSort: StateFlow<LibrarySort>,
     val setSort: (categoryId: Long?, type: LibrarySort.Type, direction: LibrarySort.Direction) -> Unit,
     val resetSort: (categoryId: Long) -> Unit,

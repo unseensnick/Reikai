@@ -255,7 +255,7 @@ class NovelLibraryScreenModel :
             miscFlow,
             filterFlow,
             mergeFlow,
-            reikaiLibraryPreferences.groupNovelLibraryBy.changes(),
+            reikaiLibraryPreferences.groupLibraryBy.changes(),
         ) { badges, misc, filterSettings, merge, groupBy ->
             LibrarySettings(
                 badges, misc.defaultSort, misc.randomSeed, misc.showContinue, misc.showHidden,
@@ -669,8 +669,9 @@ class NovelLibraryScreenModel :
     // The filter axes read the library-wide preferences directly in NovelLibraryAdapter's
     // LibrarySettingsBinding since the filter unification; only the genuinely per-type members remain.
 
-    /** Dynamic grouping mode, for the settings sheet's Group tab. */
-    val groupLibraryBy: Preference<Int> get() = reikaiLibraryPreferences.groupNovelLibraryBy
+    /** Dynamic grouping mode, for the settings sheet's Group tab. Library-wide since the grouping
+     *  unification, so setting it under either chip groups the whole library. */
+    val groupLibraryBy: Preference<Int> get() = reikaiLibraryPreferences.groupLibraryBy
 
     /** Full novel category list (the Default row 0 + user categories, sorted) for the filter picker.
      *  Not [State.displayedCategories]: that drops empty categories and is replaced by dynamic groups

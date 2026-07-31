@@ -178,5 +178,10 @@ private fun mapMangaStatus(status: Long): StringResource = when (status.toInt())
     else -> MR.strings.unknown
 }
 
-private fun displayLanguage(code: String): String =
+/**
+ * Render a group-by-language header as the full name ("English") rather than the bare code; the cover
+ * badge still shows the short code separately. Shared with the novel builder and the engine's mixed
+ * assembly so one language can never split into two differently-labelled buckets.
+ */
+internal fun displayLanguage(code: String): String =
     Locale.forLanguageTag(code).displayName.ifBlank { code }

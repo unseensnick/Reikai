@@ -262,20 +262,7 @@ private val groupModes = listOf(
 
 @Composable
 private fun ColumnScope.GroupPage(settings: LibrarySettingsBinding) {
-    // A null group mode is the All view: dynamic grouping is not assembled for a mixed list yet, so the
-    // tab explains instead of offering modes that could not render.
     val groupMode = settings.groupMode
-    if (groupMode == null) {
-        Text(
-            text = stringResource(MR.strings.group_unavailable_all),
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(
-                horizontal = SettingsItemsPaddings.Horizontal,
-                vertical = SettingsItemsPaddings.Vertical,
-            ),
-        )
-        return
-    }
     val groupBy by groupMode.collectAsState()
     groupModes.forEach { (mode, labelRes) ->
         Row(
