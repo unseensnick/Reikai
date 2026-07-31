@@ -11,11 +11,16 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.data.novel.update.NovelUpdateJob
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.entry.EntryId
+import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.presentation.library.novels.NovelLibraryScreenModel
+import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.domain.category.interactor.SetSortModeForCategory
 import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.library.model.LibrarySort
+import tachiyomi.domain.category.model.CategoryUpdate
+import tachiyomi.domain.category.repository.CategoryRepository
+import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
 
@@ -32,7 +37,10 @@ class NovelLibraryAdapter(
     // Lazy, so constructing the adapter in a composable never touches the DI container.
     private val getNovelCategories: GetNovelCategories by injectLazy()
     private val context: Application by injectLazy()
+    private val libraryPreferences: LibraryPreferences by injectLazy()
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
+    private val setSortModeForCategory: SetSortModeForCategory by injectLazy()
+    private val categoryRepository: CategoryRepository by injectLazy()
 
     override val contentType = ContentType.NOVELS
 
@@ -59,23 +67,21 @@ class NovelLibraryAdapter(
             ),
             categories = model.filterPickerCategories,
             groupMode = model.groupLibraryBy,
-            // The novel global sort is the sort of the uncategorized scope, which is what the model's own
-            // lookup returns for that id, so nothing has to reach past it for the preference.
-            globalSort = model.state
-                .map { it.sortFor(Category.UNCATEGORIZED_ID) }
-                .stateIn(
-                    model.screenModelScope,
-                    SharingStarted.Eagerly,
-                    model.state.value.sortFor(Category.UNCATEGORIZED_ID),
-                ),
+            // One library-wide global sort (the manga preference), mirroring MangaLibraryAdapter, so the
+            // Sort tab writes the same preference whichever chip is up.
+            globalSort = libraryPreferences.sortingMode.changes()
+                .stateIn(model.screenModelScope, SharingStarted.Eagerly, libraryPreferences.sortingMode.get()),
             setSort = { categoryId, type, direction ->
-                model.setSort(
-                    categoryId ?: Category.UNCATEGORIZED_ID,
-                    type,
-                    direction == LibrarySort.Direction.Ascending,
-                )
+                model.screenModelScope.launchIO { setSortModeForCategory.await(categoryId, type, direction) }
             },
-            resetSort = model::resetSort,
+            resetSort = { categoryId ->
+                model.screenModelScope.launchIO {
+                    val category = categoryRepository.get(categoryId) ?: return@launchIO
+                    categoryRepository.updatePartial(
+                        CategoryUpdate(id = categoryId, flags = category.flags and CATEGORY_SORT_CUSTOMIZED.inv()),
+                    )
+                }
+            },
             // Novels have no local sources, so nothing is ever local and the badge would never light up.
             showLocalBadge = false,
             mergeSourceIcons = reikaiLibraryPreferences.showNovelMergeSourceIcons,

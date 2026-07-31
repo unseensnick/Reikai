@@ -5,7 +5,6 @@ import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.preference.getEnum
 import tachiyomi.core.common.preference.getLongArray
-import tachiyomi.domain.library.model.LibrarySort
 
 /**
  * Reikai's net-new library preferences, the ones Mihon's [tachiyomi.domain.library.service.LibraryPreferences]
@@ -117,16 +116,9 @@ class ReikaiLibraryPreferences(
 
     // endregion
 
-    // region Novel library sort/filter (novel-specific keys, never collide with manga)
-
-    /** Global novel library sort: the sort of the Default bucket and the seed for new categories. Stored
-     *  as a [LibrarySort] flag, the same layout the manga library uses; per-category overrides live in
-     *  each category's flags. */
-    val novelLibraryDefaultSort: Preference<Long> =
-        preferenceStore.getLong("novel_library_default_sort", LibrarySort.default.flag)
-
-    /** Stable seed for the novel library Random sort; regenerated when Random is (re)selected. */
-    val novelLibraryRandomSeed: Preference<Long> = preferenceStore.getLong("novel_library_random_seed", 0L)
+    // region Novel library filters (novel-specific keys, never collide with manga)
+    // The novel global sort and Random seed keys are retired (see DEAD_NOVEL_SORT_KEY below): both
+    // content types read the shared LibraryPreferences.sortingMode / randomSortSeed.
 
     val novelLibraryFilterDownloaded: Preference<TriState> =
         preferenceStore.getEnum("novel_library_filter_downloaded", TriState.DISABLED)
@@ -240,5 +232,12 @@ class ReikaiLibraryPreferences(
         const val MANGA_MANUAL_UNMERGES_KEY = "manga_manual_unmerges"
         const val NOVEL_MANUAL_MERGES_KEY = "novel_manual_merges"
         const val NOVEL_MANUAL_UNMERGES_KEY = "novel_manual_unmerges"
+
+        // Retired novel global-sort keys: both content types now read LibraryPreferences.sortingMode /
+        // randomSortSeed. The stored value was dropped, not migrated, because a value written before the
+        // category unification can carry the old flag layout (Downloaded/TrackerMean swapped) and the two
+        // readings are indistinguishable. Skipped on restore so an old backup can't resurrect them.
+        const val DEAD_NOVEL_SORT_KEY = "novel_library_default_sort"
+        const val DEAD_NOVEL_RANDOM_SEED_KEY = "novel_library_random_seed"
     }
 }

@@ -39,9 +39,9 @@ private val hopperLongPressActions = listOf(
 
 /**
  * The wired Reikai category/hopper settings, rendered under a "Categories" heading at the bottom
- * of the Display tab. The category-in-title, show-empty-while-filtering, hopper autohide-on-scroll,
- * and hopper long-press settings are intentionally absent until their backing behavior is wired
- * (they would otherwise be inert toggles).
+ * of the Display tab. NOTE: show-empty-while-filtering currently has a manga reader only; novels drop
+ * emptied categories unconditionally, so under the Novels chip the toggle is visible but inert. The
+ * All-chip assembly unifies that rule (see docs/dev/plans/library-all-chip.md).
  */
 @Composable
 fun ColumnScope.ReikaiCategoriesPage(screenModel: LibrarySettingsScreenModel) {

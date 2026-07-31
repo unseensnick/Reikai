@@ -80,6 +80,14 @@ class PreferenceRestorer(
             if (key == DEAD_LAST_USED_NOVEL_CATEGORY_KEY) {
                 return@forEach
             }
+            // RK: retired novel global-sort keys (the library-wide sort is LibraryPreferences.sortingMode
+            // now); skip so an old backup can't resurrect them. Restoring would be worse than useless: a
+            // pre-unification value carries a flag layout nothing can safely decode (see the consts).
+            if (key == ReikaiLibraryPreferences.DEAD_NOVEL_SORT_KEY ||
+                key == ReikaiLibraryPreferences.DEAD_NOVEL_RANDOM_SEED_KEY
+            ) {
+                return@forEach
+            }
             // RK: a restored ln_installed_plugin_urls set can auto-load arbitrary plugin .js URLs that
             // the QuickJS host evaluates. Flag it so LnPluginInstaller validates the restored URLs
             // against the restored repos before loading any; the value itself is still restored below.

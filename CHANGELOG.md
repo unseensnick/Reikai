@@ -43,6 +43,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The library filter, sort and group menus are now identical for manga and novels.** They were drifting apart in wording and order; an option added to one now shows up in both.
 - **The Default category now follows your global library sort instead of taking a sort of its own.** It is one shared bucket across both libraries, so it could not sensibly be sorted two ways at once.
 - **A category you collapse stays collapsed on both the Manga and Novels chips.** Collapsing is now remembered per category rather than per chip.
+- **The library's global sort is now one setting for manga and novels.** Set it once under either chip and both libraries follow it; a novel-only global sort choice needs re-picking once. Per-category sorts are untouched.
 - **Source grouping is now optional, via "Group series across sources" in the library display menu or Settings -> Library.** Off shows each source as its own library entry.
 - **The reader now opens either one source's chapters or the whole merged group, depending on where you tapped.** Updates, source chips and new-chapter notifications open one source; your library, the series page and history open the group.
 - **Reading a chapter now marks it read on the series' other sources too, by default.** Switch it off under Settings -> Reader.
