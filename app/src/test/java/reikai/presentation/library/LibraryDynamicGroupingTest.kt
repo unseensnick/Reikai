@@ -278,6 +278,48 @@ class LibraryDynamicGroupingTest {
             mapOf("MangaDex" to listOf(manga), "Royal Road" to listOf(novel))
     }
 
+    @Test
+    fun `a tag spelled differently by two sources forms one group, under the first spelling`() {
+        val manga = EntryId.Manga(1)
+        val novel = EntryId.Novel(1)
+        val result = LibraryDynamicGrouping.build(
+            // Manga sources title-case their tags where the novel plugins shout them; the same tag must
+            // not render as two adjacent groups once both content types group together.
+            items = listOf(
+                DynItem(manga, genre = listOf("Adult", "Sci-Fi"), author = null, artist = null),
+                DynItem(novel, genre = listOf("ADULT", "Sci Fi"), author = null, artist = null),
+            ),
+            groupType = LibraryGroup.BY_TAG,
+            inheritedSortFlag = LibrarySort.default.flag,
+            collapsedDynamicCategories = emptySet(),
+            collapsedDynamicAtBottom = false,
+            unknownLabel = "Unknown",
+            notTrackedLabel = "Not tracked",
+        )
+        result.entries.associate { (category, ids) -> ReikaiDynamicCategory.displayName(category) to ids } shouldBe
+            mapOf("Adult" to listOf(manga, novel), "Sci-Fi" to listOf(manga, novel))
+    }
+
+    @Test
+    fun `two sources differing only in case stay separate, since their ids disambiguate`() {
+        val a = EntryId.Manga(1)
+        val b = EntryId.Manga(2)
+        val result = LibraryDynamicGrouping.build(
+            items = listOf(
+                DynItem(a, genre = null, author = null, artist = null),
+                DynItem(b, genre = null, author = null, artist = null),
+            ),
+            groupType = LibraryGroup.BY_SOURCE,
+            inheritedSortFlag = LibrarySort.default.flag,
+            collapsedDynamicCategories = emptySet(),
+            collapsedDynamicAtBottom = false,
+            unknownLabel = "Unknown",
+            notTrackedLabel = "Not tracked",
+            sourceMeta = mapOf(a to ("Alpha" to "1"), b to ("ALPHA" to "2")),
+        )
+        result.values shouldContainExactly listOf(listOf(a), listOf(b))
+    }
+
     private fun build(
         library: List<LibraryManga>,
         groupType: Int,

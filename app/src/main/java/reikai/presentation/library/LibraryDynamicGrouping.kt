@@ -98,8 +98,17 @@ object LibraryDynamicGrouping {
         val deduplicated = items.distinctBy { it.id }
 
         // Step 1: per-item, the encoded bucket name(s) it belongs to. An item can land in several
-        // buckets (multiple tags / authors); distinct() guards against the same bucket twice.
+        // buckets (multiple tags / authors); distinct guards against the same bucket twice.
+        //
+        // Buckets are keyed by [bucketKey], not the name itself, and the first spelling seen becomes the
+        // display name. Sources spell the same tag differently ("Adult" against "ADULT", "Sci-Fi" against
+        // "Sci Fi"), and an exact-string key renders those as two adjacent groups holding what a reader
+        // sees as one tag. Normalizing the display name instead would mangle acronyms (BL, NTR) and pick
+        // a separator arbitrarily, so the first spelling wins; callers concatenate the manga feed first,
+        // which keeps that choice stable. Source and language names carry a disambiguator (id / code), so
+        // this can never merge two of those; status names are app-localized and already canonical.
         val bucketsByName = LinkedHashMap<String, MutableList<K>>()
+        val displayNames = LinkedHashMap<String, String>()
         for (item in deduplicated) {
             val names = categoryNamesFor(
                 item = item,
@@ -112,13 +121,15 @@ object LibraryDynamicGrouping {
                 statusNames = statusNames,
                 languageDisplay = languageDisplay,
             )
-            for (name in names.distinct()) {
-                bucketsByName.getOrPut(name) { mutableListOf() }.add(item.id)
+            for (name in names.distinctBy { it.bucketKey() }) {
+                val key = name.bucketKey()
+                displayNames.getOrPut(key) { name }
+                bucketsByName.getOrPut(key) { mutableListOf() }.add(item.id)
             }
         }
 
         // Step 2: synthetic Category per bucket. Negative id; sort inherited via flags.
-        val categories = bucketsByName.keys.mapIndexed { idx, encodedName ->
+        val categories = displayNames.values.mapIndexed { idx, encodedName ->
             Category(
                 id = -(idx + 1).toLong(),
                 name = encodedName,
@@ -151,7 +162,7 @@ object LibraryDynamicGrouping {
             sorted
         }
 
-        return finalCategories.associateWith { bucketsByName[it.name].orEmpty().toList() }
+        return finalCategories.associateWith { bucketsByName[it.name.bucketKey()].orEmpty().toList() }
     }
 
     private fun <K> categoryNamesFor(
@@ -206,4 +217,12 @@ object LibraryDynamicGrouping {
 
     private fun String.capitalizeWords(): String =
         split(" ").joinToString(" ") { word -> word.replaceFirstChar { it.uppercaseChar() } }
+
+    private val SEPARATOR_RUN = Regex("[-_\\s]+")
+
+    /**
+     * The merge key for a bucket name: case-folded, with hyphen / underscore / whitespace runs unified so
+     * one tag spelled two ways by two sources is one group. Display keeps the first spelling seen.
+     */
+    private fun String.bucketKey(): String = lowercase().replace(SEPARATOR_RUN, " ").trim()
 }

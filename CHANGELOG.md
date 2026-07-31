@@ -85,6 +85,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **"Open random manga" now opens a novel when the Novels library is showing.** It always opened a manga, whichever chip was selected.
 - **Updating a single category from the Novels library now updates the category you are looking at.** It was picking the category by the manga library's position instead.
 - **Grouping the library by source now shows clean source names on the category tabs.** They were showing the raw internal key.
+- **Grouping the library by tag or author no longer splits one tag into two groups.** Sources that spell a tag differently, like Adult and ADULT or Sci-Fi and Sci Fi, now land in a single group.
 - **The novel library now has an adult-content filter, based on genre tags.** It is less reliable than the manga one, which can use a source's own flag.
 - **The novel library now sorts like the manga library.** Ties stay A to Z under a descending sort, fully-read novels sort to the bottom by unread, and titles order by your device language.
 - **Searching the novel library now matches source, description and negated terms too, not just title, author and genre.** Terms are comma-separated, and a leading minus excludes one.
