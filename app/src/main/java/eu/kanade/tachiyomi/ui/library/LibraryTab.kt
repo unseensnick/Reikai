@@ -160,9 +160,9 @@ data object LibraryTab : Tab {
         val libState = when (libraryContentType) {
             ContentType.MANGA -> mangaLibState
             ContentType.NOVELS -> novelLibState
-            // RK: the All view's state, combined field by field. The list itself comes off the
-            // assembly below (the empty fallbacks here show only for the frame before its first
-            // emission); counts stay off until step 4 of the All-chip plan rules them.
+            // RK: the All view's state, combined field by field. The list and the counts come off the
+            // assembly below; the empty fallbacks here show only for the frame before its first
+            // emission.
             ContentType.ALL -> LibraryScreenState(
                 categories = emptyList(),
                 isLoading = mangaLibState.isLoading || novelLibState.isLoading,
@@ -189,7 +189,8 @@ data object LibraryTab : Tab {
         val activeIsLoading = libState.isLoading
         val activeGetItems: (Category) -> List<LibraryItem> =
             assembled?.let { it::itemsFor } ?: libState.itemsForCategory
-        val activeGetItemCount: (Category) -> Int? = libState.itemCountForCategory
+        val activeGetItemCount: (Category) -> Int? =
+            assembled?.let { it::countFor } ?: libState.itemCountForCategory
         val onSearch: (String?) -> Unit = { engine.search(libraryContentType, it) }
         val activeSelectionMode = activeSelection.isNotEmpty()
         val activeHasActiveFilters = libState.hasActiveFilters

@@ -21,15 +21,10 @@ data class LibraryAssemblyInputs(
     val showHiddenCategories: Boolean,
     /** The category-sort-order pref (0 manual, 1 A-Z, 2 Z-A), applied via [reikaiSortCategories]. */
     val categorySortOrder: Int,
-    /**
-     * Manga keeps a category with no rows, novels drop it unconditionally. Until the one ruled
-     * behaviour lands (step 4 of the All-chip plan), assembly reproduces each chip's current rule
-     * through this flag rather than deciding it.
-     */
-    val keepEmptyCategories: Boolean,
-    /** Manga's existing rule: with a filter or search active (and the keep preference off), drop the
-     *  categories it emptied. */
-    val dropEmptyWhileFiltering: Boolean = false,
+    /** A filter or search is active on the view. */
+    val filtering: Boolean,
+    /** The show-empty-categories-while-filtering preference (one reader for both types now). */
+    val keepEmptyWhileFiltering: Boolean = false,
 )
 
 /**
@@ -42,7 +37,7 @@ data class LibraryAssemblyInputs(
  * a novel can share a raw table id, so any Long-keyed structure over a mixed list silently cross-wires.
  * The custom-info overlay is NOT applied here; it stays at the display read.
  *
- * Behaviour fidelity, pinned by LibraryAssemblyTest against the rules the two models apply today:
+ * Behaviour rules, pinned by LibraryAssemblyTest:
  * - Bucketing: a row's non-zero category ids, or the system bucket when it has none. Manga rows carry
  *   [0] when uncategorized and novels may carry 0 or nothing, so ids are normalized first.
  * - The system category shows only when some row is actually uncategorized (manga's derived
@@ -50,12 +45,17 @@ data class LibraryAssemblyInputs(
  * - Category order is explicit (order column, then the category-sort-order pref): a list unioned from
  *   two queries is not DB-ordered, so nothing may rely on incoming order. [categories] is deduped by id
  *   because every universal row appears in both per-type lists.
+ * - Empty categories follow ONE rule (the step 4 ruling): a category the chip emptied (it holds only
+ *   rows of the excluded type, [occupiedByExcluded]) is hidden; a truly empty category shows unless a
+ *   filter or search is active with the keep-while-filtering preference off. Novels thereby gain
+ *   visible empty categories when idle, and the keep preference gains a novel reader.
  */
 fun assembleLibrary(
     rows: List<LibraryItem>,
     categories: List<Category>,
     inputs: LibraryAssemblyInputs,
     fields: LibrarySortFields<LibraryItem>,
+    occupiedByExcluded: Set<Long> = emptySet(),
 ): List<Pair<Category, List<LibraryItem>>> {
     val buckets = HashMap<Long, MutableList<LibraryItem>>()
     var anyUncategorized = false
@@ -76,10 +76,10 @@ fun assembleLibrary(
         .sortedBy { it.order }
         .let { reikaiSortCategories(it, inputs.categorySortOrder) }
 
-    val dropEmpty = !inputs.keepEmptyCategories || inputs.dropEmptyWhileFiltering
+    val dropTrulyEmpty = inputs.filtering && !inputs.keepEmptyWhileFiltering
     return visible.mapNotNull { category ->
         val bucket = buckets[category.id].orEmpty()
-        if (bucket.isEmpty() && dropEmpty) return@mapNotNull null
+        if (bucket.isEmpty() && (category.id in occupiedByExcluded || dropTrulyEmpty)) return@mapNotNull null
         val sort = sortForCategory(category, inputs.globalSort)
         val comparator = librarySortComparator(sort.type.toSortMode(), sort.isAscending, inputs.randomSeed, fields)
         category to bucket.sortedWith(comparator)
@@ -87,8 +87,21 @@ fun assembleLibrary(
 }
 
 /**
- * The assembled list the tab renders: the ordered categories, and the per-category display read as a
- * function so the per-type custom-info overlay is applied at read time, only for what is rendered.
+ * The category ids a row list occupies, under the same normalization [assembleLibrary] buckets with.
+ * The engine feeds it the EXCLUDED providers' rows so assembly can tell a chip-emptied category (hidden)
+ * from a truly empty one (shown when nothing is filtering).
+ */
+fun occupiedCategoryIds(rows: List<LibraryItem>): Set<Long> =
+    rows.flatMapTo(mutableSetOf()) { item ->
+        item.libraryManga.categories.filter { it != Category.UNCATEGORIZED_ID }
+            .ifEmpty { listOf(Category.UNCATEGORIZED_ID) }
+    }
+
+/**
+ * The assembled list the tab renders: the ordered categories, the per-category display read as a
+ * function so the per-type custom-info overlay is applied at read time, only for what is rendered, and
+ * the one count rule (the step 4 ruling): the chip-filtered bucket size, shown when the count
+ * preference is on or a search is active, on every chip.
  * [chip] is the view this output was assembled for: the flow lags a chip flip by one emission, so the
  * tab renders an assembly only when its chip matches, falling back to the provider's own list meanwhile.
  */
@@ -96,8 +109,10 @@ class LibraryAssembled(
     val chip: ContentType,
     val categories: List<Category>,
     private val items: (Category) -> List<LibraryItem>,
+    private val counts: (Category) -> Int? = { null },
 ) {
     fun itemsFor(category: Category): List<LibraryItem> = items(category)
+    fun countFor(category: Category): Int? = counts(category)
 }
 
 /**

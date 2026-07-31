@@ -89,14 +89,17 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
      */
     val assembled: StateFlow<LibraryAssembled?> by lazy {
         val prefsFlow = combine(
-            libraryPreferences.sortingMode.changes(),
-            libraryPreferences.randomSortSeed.changes(),
-            reikaiLibraryPreferences.showHiddenCategories.changes(),
-            reikaiLibraryPreferences.categorySortOrder.changes(),
-            reikaiLibraryPreferences.showEmptyCategoriesWhileFiltering.changes(),
-        ) { sort, seed, showHidden, catOrder, keepWhileFiltering ->
-            AssemblyPrefs(sort, seed.toLong(), showHidden, catOrder, keepWhileFiltering)
-        }
+            combine(
+                libraryPreferences.sortingMode.changes(),
+                libraryPreferences.randomSortSeed.changes(),
+                reikaiLibraryPreferences.showHiddenCategories.changes(),
+                reikaiLibraryPreferences.categorySortOrder.changes(),
+                reikaiLibraryPreferences.showEmptyCategoriesWhileFiltering.changes(),
+            ) { sort, seed, showHidden, catOrder, keepWhileFiltering ->
+                AssemblyPrefs(sort, seed.toLong(), showHidden, catOrder, keepWhileFiltering, showCounts = false)
+            },
+            libraryPreferences.categoryNumberOfItems.changes(),
+        ) { prefs, showCounts -> prefs.copy(showCounts = showCounts) }
         val groupModes = combine(
             reikaiLibraryPreferences.groupLibraryBy.changes(),
             reikaiLibraryPreferences.groupNovelLibraryBy.changes(),
@@ -129,10 +132,16 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
         if (chip != ContentType.ALL && active.any { groupModes[it.contentType] != LibraryGroup.BY_DEFAULT }) {
             val provider = active.single()
             val state = statesPerProvider[providers.indexOf(provider)]
-            return LibraryAssembled(chip, state.categories, state.itemsForCategory)
+            // Counts stay the provider's own until dynamic grouping is assembled.
+            return LibraryAssembled(chip, state.categories, state.itemsForCategory, state.itemCountForCategory)
         }
         val rows = providers.indices
             .filter { providers[it] in active }
+            .flatMap { rowsPerProvider[it] }
+        // The excluded providers' rows tell assembly which empty categories the chip emptied (hidden)
+        // as opposed to truly empty (shown when nothing is filtering).
+        val excludedRows = providers.indices
+            .filter { providers[it] !in active }
             .flatMap { rowsPerProvider[it] }
         val categories = allCategories.filter { category ->
             when (chip) {
@@ -141,32 +150,36 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
                 ContentType.ALL -> true
             }
         }
-        // Manga's existing rule; irrelevant under Novels, whose keepEmpty=false drops empties anyway.
-        val filtering = active.any { provider ->
-            val state = statesPerProvider[providers.indexOf(provider)]
-            state.hasActiveFilters || state.searchQuery != null
-        }
+        val activeStates = active.map { statesPerProvider[providers.indexOf(it)] }
+        val filtering = activeStates.any { it.hasActiveFilters || it.searchQuery != null }
+        val searchActive = activeStates.any { !it.searchQuery.isNullOrEmpty() }
         val inputs = LibraryAssemblyInputs(
             globalSort = prefs.sort,
             randomSeed = prefs.seed,
             showHiddenCategories = prefs.showHidden,
             categorySortOrder = prefs.categorySortOrder,
-            keepEmptyCategories = chip != ContentType.NOVELS,
-            dropEmptyWhileFiltering = filtering && !prefs.keepEmptyWhileFiltering,
+            filtering = filtering,
+            keepEmptyWhileFiltering = prefs.keepEmptyWhileFiltering,
         )
         // Lazy per provider, so only a view actually sorting by tracker score pays the computation.
         val means = active.associate { it.contentType to lazy(it::trackerMeans) }
         val fields = mixedLibraryItemSortFields { item ->
             means[item.entryId.contentType]?.value?.get(item.id) ?: -1.0
         }
-        val assembledList = assembleLibrary(rows, categories, inputs, fields)
+        val assembledList = assembleLibrary(rows, categories, inputs, fields, occupiedCategoryIds(excludedRows))
         val bucketsById = assembledList.associate { it.first.id to it.second }
         val byType = providers.associateBy { it.contentType }
-        return LibraryAssembled(chip, assembledList.map { it.first }) { category ->
-            bucketsById[category.id].orEmpty().map { item ->
-                byType[item.entryId.contentType]?.overlaid(item) ?: item
-            }
-        }
+        val showCounts = prefs.showCounts || searchActive
+        return LibraryAssembled(
+            chip = chip,
+            categories = assembledList.map { it.first },
+            items = { category ->
+                bucketsById[category.id].orEmpty().map { item ->
+                    byType[item.entryId.contentType]?.overlaid(item) ?: item
+                }
+            },
+            counts = { category -> if (showCounts) bucketsById[category.id]?.size else null },
+        )
     }
 
     private data class AssemblyPrefs(
@@ -175,6 +188,7 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
         val showHidden: Boolean,
         val categorySortOrder: Int,
         val keepEmptyWhileFiltering: Boolean,
+        val showCounts: Boolean,
     )
 
     /** Grid shape, the other half of the display config. Both are library-wide, not per content type. */
