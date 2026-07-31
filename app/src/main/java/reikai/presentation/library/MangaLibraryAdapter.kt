@@ -5,6 +5,7 @@ import androidx.compose.ui.util.fastAll
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import eu.kanade.tachiyomi.ui.library.LibraryScreenModel
 import eu.kanade.tachiyomi.util.system.isReleaseBuildType
@@ -48,6 +49,7 @@ class MangaLibraryAdapter(
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
     private val setSortModeForCategory: SetSortModeForCategory by injectLazy()
     private val categoryRepository: CategoryRepository by injectLazy()
+    private val trackerManager: TrackerManager by injectLazy()
 
     override val contentType = ContentType.MANGA
 
@@ -115,6 +117,14 @@ class MangaLibraryAdapter(
     // because the state re-emits for grouping/badge changes the row list is upstream of.
     override val rows: Flow<List<LibraryItem>> =
         model.state.map { it.libraryData.favorites }.distinctUntilChanged()
+
+    override fun trackerMeans(): Map<Long, Double> {
+        val data = model.state.value.libraryData
+        val trackers = trackerManager.getAll(data.loggedInTrackerIds).associateBy { it.id }
+        return mangaTrackerMeans(data.favorites, data.tracksMap, trackers)
+    }
+
+    override fun overlaid(item: LibraryItem): LibraryItem = model.state.value.withOverlay(item)
 
     private fun LibraryScreenModel.State.toNeutral() = LibraryScreenState(
         categories = displayedCategories,

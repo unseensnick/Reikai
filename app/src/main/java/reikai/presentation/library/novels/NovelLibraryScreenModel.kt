@@ -505,6 +505,7 @@ class NovelLibraryScreenModel :
             isLoading = false,
             searchQuery = query,
             favorites = items,
+            trackerMeans = trackerMeanScores,
             groupedFavorites = grouped,
             favoritesById = byId,
             customInfo = overlay,
@@ -773,6 +774,9 @@ class NovelLibraryScreenModel :
          *  split point the provider's row flow reads (the twin of manga's LibraryData.favorites). The
          *  custom-info overlay is NOT applied here, matching the manga contract. */
         val favorites: List<LibraryItem> = emptyList(),
+        /** Per-rep mean tracker score (0-10, unscored reps absent), for the sort and the provider seam
+         *  (LibraryProvider.trackerMeans). */
+        val trackerMeans: Map<Long, Double> = emptyMap(),
         private val groupedFavorites: List<Pair<Category, List<Long>>> = emptyList(),
         private val favoritesById: Map<Long, LibraryItem> = emptyMap(),
         /** Display-only overrides, keyed by real novel id; applied at the display read only. */
@@ -814,15 +818,18 @@ class NovelLibraryScreenModel :
         // reach the raw rows that filter, sort, grouping and search read. Mirrors the manga library.
         fun getItemsForCategory(category: Category): List<LibraryItem> =
             groupedById[category.id].orEmpty().mapNotNull { id ->
-                favoritesById[id]?.let { item ->
-                    val custom = customInfo[item.id] ?: return@let item
-                    item.copy(
-                        libraryManga = item.libraryManga.copy(
-                            manga = item.libraryManga.manga.withCustomInfo(custom),
-                        ),
-                    )
-                }
+                favoritesById[id]?.let(::withOverlay)
             }
+
+        /** The one place the overlay is applied; also the provider seam (LibraryProvider.overlaid). */
+        fun withOverlay(item: LibraryItem): LibraryItem {
+            val custom = customInfo[item.id] ?: return item
+            return item.copy(
+                libraryManga = item.libraryManga.copy(
+                    manga = item.libraryManga.manga.withCustomInfo(custom),
+                ),
+            )
+        }
 
         fun getItemCountForCategory(category: Category): Int? = groupedById[category.id]?.size
 

@@ -32,4 +32,19 @@ interface LibraryProvider : LibraryBehavior {
      * collects it only once assembly lands.
      */
     val rows: Flow<List<LibraryItem>>
+
+    /**
+     * Mean 0-10 tracker score per row of this type, keyed by the row's own raw id (safe: the map never
+     * crosses the provider boundary un-rekeyed), unscored rows absent. On-demand rather than a flow so
+     * only a view actually sorting by tracker score pays the computation; the assembly resolves it
+     * lazily inside the sort, mirroring the `by lazy` in the manga model's applySort.
+     */
+    fun trackerMeans(): Map<Long, Double>
+
+    /**
+     * Apply this type's display-only custom title/cover overlay to one of its rows. The assembly emits
+     * raw rows (filter, sort and selection must never see an override), so the display read applies the
+     * overlay through this seam, per category and only for what is actually rendered.
+     */
+    fun overlaid(item: LibraryItem): LibraryItem
 }

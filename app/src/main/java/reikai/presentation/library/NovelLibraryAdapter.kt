@@ -101,6 +101,10 @@ class NovelLibraryAdapter(
     override val rows: Flow<List<LibraryItem>> =
         model.state.map { it.favorites }.distinctUntilChanged()
 
+    override fun trackerMeans(): Map<Long, Double> = model.state.value.trackerMeans
+
+    override fun overlaid(item: LibraryItem): LibraryItem = model.state.value.withOverlay(item)
+
     private fun NovelLibraryScreenModel.State.toNeutral() = LibraryScreenState(
         categories = displayedCategories,
         isLoading = isLoading,

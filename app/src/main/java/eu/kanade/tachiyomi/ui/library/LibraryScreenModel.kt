@@ -66,6 +66,7 @@ import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemSortFields
 import reikai.presentation.library.libraryStateFlow
+import reikai.presentation.library.mangaTrackerMeans
 import reikai.presentation.library.reorderReikaiCategories
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
@@ -419,22 +420,11 @@ class LibraryScreenModel(
         trackMap: Map<Long, List<Track>>,
         loggedInTrackerIds: Set<Long>,
     ): Map<Category, List</* LibraryItem */ Long>> {
-        // Score each entry over its whole merged group (relatedMangaIds), deduped by tracker and dropping
-        // unrated (<= 0) scores, so a tracker on any grouped source contributes once, matching the novel
-        // library. Keyed by the entry's own id; unscored entries are absent and fall back to the -1.0
-        // default. Guarding on the mapped scores (not the raw track list) fixes the upstream bug where an
-        // all-logged-out track list averaged to NaN and sorted above every real score.
+        // Lazy so only a TrackerMean sort pays it; the scoring rule itself lives in the shared
+        // mangaTrackerMeans, which the provider seam (MangaLibraryAdapter.trackerMeans) also reads.
         val trackerScores by lazy {
             val trackerMap = trackerManager.getAll(loggedInTrackerIds).associateBy { it.id }
-            buildMap {
-                favoritesById.values.forEach { item ->
-                    val ids = item.relatedMangaIds.ifEmpty { listOf(item.id) }
-                    val scores = ids.flatMap { trackMap[it].orEmpty() }
-                        .distinctBy { it.trackerId }
-                        .mapNotNull { trackerMap[it.trackerId]?.get10PointScore(it)?.takeIf { s -> s > 0.0 } }
-                    if (scores.isNotEmpty()) put(item.id, scores.average())
-                }
-            }
+            mangaTrackerMeans(favoritesById.values, trackMap, trackerMap)
         }
 
         val fields = libraryItemSortFields(trackerMean = { trackerScores[it.id] ?: -1.0 })
@@ -1019,15 +1009,19 @@ class LibraryScreenModel(
             //     then apply the display-only custom-info overlay. This is the sole render path, so
             //     the overrides never reach the raw favorites that search/filter/sort/selection read.
             return groupedFavoritesById[category.id].orEmpty().mapNotNull { id ->
-                libraryData.favoritesById[id]?.let { item ->
-                    val custom = libraryData.customInfo[item.libraryManga.manga.id] ?: return@let item
-                    item.copy(
-                        libraryManga = item.libraryManga.copy(
-                            manga = item.libraryManga.manga.withCustomInfo(custom),
-                        ),
-                    )
-                }
+                libraryData.favoritesById[id]?.let(::withOverlay)
             }
+        }
+
+        // RK: the one place the overlay is applied; also the provider seam (LibraryProvider.overlaid)
+        //     for the shared assembly's display read.
+        fun withOverlay(item: LibraryItem): LibraryItem {
+            val custom = libraryData.customInfo[item.libraryManga.manga.id] ?: return item
+            return item.copy(
+                libraryManga = item.libraryManga.copy(
+                    manga = item.libraryManga.manga.withCustomInfo(custom),
+                ),
+            )
         }
 
         fun getItemCountForCategory(category: Category): Int? {
