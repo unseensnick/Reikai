@@ -832,12 +832,12 @@ class LibraryScreenModel(
     }
 
     fun updateActiveCategoryIndex(index: Int) {
-        val newIndex = mutableState.updateAndGet { state ->
-            state.copy(activeCategoryIndex = index)
-        }
-            .coercedActiveCategoryIndex
-
-        libraryPreferences.lastUsedCategory.set(newIndex)
+        mutableState.update { state -> state.copy(activeCategoryIndex = index) }
+        // RK: persist the RAW index. Upstream stored the value coerced against this model's own
+        // category list, which under the All chip is shorter than the list on screen, so a page past
+        // the last manga category came back clamped. Readers tolerate an out-of-range value because
+        // the tab coerces against what it renders.
+        libraryPreferences.lastUsedCategory.set(index)
     }
 
     // RK: DEAD, along with openDeleteMangaDialog, closeDialog, the Dialog union and State.dialog below.
@@ -948,7 +948,10 @@ class LibraryScreenModel(
         // RK -->
         val reikai: ReikaiLibraryState = ReikaiLibraryState(),
         // RK <--
-        private val activeCategoryIndex: Int = 0,
+        // RK: exposed (upstream keeps it private) so the adapter can hand the tab the RAW index. The
+        // coercion below is against this model's own category list, which is the wrong list under the
+        // All chip; the tab coerces against the list it actually renders instead.
+        val activeCategoryIndex: Int = 0,
         // RK --> ordered list, not a Map: Map.equals() ignores key order, so a category reorder
         // (category sort / move-dynamic-to-bottom) would compare equal and StateFlow would dedupe it,
         // leaving the UI unchanged. A List has order-sensitive equality, so reorders propagate.

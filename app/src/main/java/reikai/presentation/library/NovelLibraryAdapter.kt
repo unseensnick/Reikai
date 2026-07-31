@@ -131,7 +131,7 @@ class NovelLibraryAdapter(
         isLibraryEmpty = isLibraryEmpty,
         searchQuery = searchQuery,
         hasActiveFilters = hasActiveFilters,
-        coercedActiveCategoryIndex = coercedActiveCategoryIndex,
+        activeCategoryIndex = activeCategoryIndex,
         showContinueButton = showContinueButton,
         itemsForCategory = this::getItemsForCategory,
         itemCountForCategory = this::getItemCountForCategory,

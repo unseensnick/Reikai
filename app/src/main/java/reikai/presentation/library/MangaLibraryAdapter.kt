@@ -147,7 +147,7 @@ class MangaLibraryAdapter(
         isLibraryEmpty = isLibraryEmpty,
         searchQuery = searchQuery,
         hasActiveFilters = hasActiveFilters,
-        coercedActiveCategoryIndex = coercedActiveCategoryIndex,
+        activeCategoryIndex = activeCategoryIndex,
         showContinueButton = showMangaContinueButton,
         itemsForCategory = this::getItemsForCategory,
         itemCountForCategory = this::getItemCountForCategory,
