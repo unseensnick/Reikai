@@ -246,12 +246,14 @@ delete-scrub, restore remap + dead-key skip). The user-creatable universal categ
 then shipped too, both recorded under Follow-on above, so this initiative is complete and the "All" chip it
 existed to unblock is no longer waiting on the category axis. Researched 2026-07-23, shipped 2026-07-24.
 
-**Three sort-flag residues the translation does not reach** (audited 2026-07-30, tracked as a roadmap item). The
-187f migration translates novel *category rows*, so three carriers of the old layout survive: the global novel
-sort preference `novel_library_default_sort`, which was written with the old novel sort flag and is read today as
-a manga-layout `LibrarySort`; `NovelRestorer.restoreCategories`, which inserts a backup's category flags verbatim;
-and the generic preference restore, which skips only the merge keys. Each can re-present a pre-unification
-Downloaded or TrackerMean sort as the other one.
+**Sort-flag residues the translation does not reach** (audited 2026-07-30, tracked as a roadmap item). The
+187f migration translates novel *category rows*, so carriers of the old layout survived it. Two of the original
+three closed on 2026-07-31 when the library-wide sort unified onto the manga preference: the global novel sort
+preference `novel_library_default_sort` and its Random seed retired unread (their values dropped, not migrated,
+precisely because of the ambiguity below), and the generic preference restore now skips both retired keys
+(`ReikaiLibraryPreferences.DEAD_NOVEL_SORT_KEY`). The remaining carrier is `NovelRestorer.restoreCategories`,
+which inserts a backup's category flags verbatim and can re-present a pre-unification Downloaded or TrackerMean
+sort as the other one.
 
 None is safely fixable by a later migration, which is why nothing was added. The translation is a pure swap of
 those two values, so it only ever touches flags it cannot disambiguate: a flag carrying either value is equally

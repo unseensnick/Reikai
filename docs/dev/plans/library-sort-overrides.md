@@ -14,19 +14,19 @@ A category follows the global sort unless a `CUSTOMIZED` sentinel bit (bit 0 of 
 
 - **Manga override bit + read:** `reikai.domain.library.CategorySortOverride` (`CATEGORY_SORT_CUSTOMIZED = 0b1`, and `sortForCategory(flags, global)`), the manga twin of `NovelLibrarySort.CUSTOMIZED` / `forCategory`. Lives in the domain module (not app, like the hidden bit) because the write/reset interactors are Mihon domain interactors. Only three manga read sites use it (`LibraryScreenModel.applySort`, the shared header, the Sort dialog); `Category.sort` itself stays a raw decode (novels depend on it).
 - **Write/reset:** `SetSortModeForCategory` OR-in `CUSTOMIZED` on a per-category write, sets only `sortingMode` on a global write. `ResetCategoryFlags` clears the bit on all categories (new `categories.sq` `clearSortOverrides` query) instead of flattening flags to the global. Both fired from the same settings-toggle handler as before, alongside the novel `ResetNovelCategoryFlags`.
-- **Toolbar to global (Model A):** the toolbar sort scopes to the global (manga passes a null category, novel passes `UNCATEGORIZED_ID`), not the stale active category. Per-category overrides are set from each category's header sort in the single-list view. (Known limitation: the tabbed pager has no per-category sort control, overrides are set from show-all.)
+- **Toolbar to global (Model A):** the toolbar sort scopes to the global (a null category id), not the stale active category. Per-category overrides are set from each category's header sort in the single-list view. (Known limitation: the tabbed pager has no per-category sort control, overrides are set from show-all.)
 - **Shared header decode:** `ReikaiLibraryCategoryHeader` renders a `sortLabel` + `sortAscending` (primitives), and the caller computes the effective sort (override or global) per content type, so labels and arrows always match the ordering and neither type's raw bits are touched by the shared header.
 - **Reset UI:** a shared `ResetToGlobalSortItem` (a divider plus a restore icon, distinct from the sort modes) in both Sort dialogs, shown only when the category is overridden.
-- **Re-sort trigger:** the manga sort pipeline now also observes `sortingMode.changes()` (it previously relied on the dropped `updateAllFlags` write to re-emit); novels already observed `novelLibraryDefaultSort`.
+- **Re-sort trigger:** both sort pipelines observe `sortingMode.changes()` (manga previously relied on the dropped `updateAllFlags` write to re-emit). Since 2026-07-31 the global sort and Random seed are one library-wide preference pair (`library_sorting_mode` / `library_random_sort_seed`); the novel keys are retired and skipped on restore (see category-schema-unification.md, sort-flag residues).
 - **Migration:** existing per-category manga sorts are concrete flags with no bit, so a one-time migration (`SetupCategorySortOverrideMigration`, version 183f, versionCode bumped 182 -> 183) marks categories whose decoded sort differs from the global as overrides, only for categorized-display users (off users already follow the global). Backup round-trips free (`BackupCategory.flags` is a verbatim `Long`); novels need no migration.
 
 ## Key files
 
 - Domain: `domain/.../reikai/domain/library/CategorySortOverride.kt`; `tachiyomi/domain/category/interactor/SetSortModeForCategory.kt`, `ResetCategoryFlags.kt`, `repository/CategoryRepository.kt`.
 - Data: `data/.../categories.sq` (`clearSortOverrides`), `CategoryRepositoryImpl.kt`.
-- Manga UI: `LibraryScreenModel.applySort` + the sort pipeline; `LibrarySettingsDialog` SortPage; `LibrarySettingsScreenModel.resetSort`.
-- Shared UI: `reikai/presentation/library/ReikaiLibraryCategoryHeader.kt`, `ReikaiLibraryContent.kt`, `ResetToGlobalSortItem.kt`, `LibraryTab.kt` (toolbar routing + effective-sort header wiring).
-- Novel UI: `NovelLibraryScreenModel.setSort`/`resetSort`, `NovelLibrarySettingsDialog` SortPage, `ResetNovelCategoryFlags`.
+- Manga UI: `LibraryScreenModel.applySort` + the sort pipeline.
+- Shared UI: the one settings sheet's SortPage (`reikai/presentation/library/LibrarySettingsSheet.kt`), with each adapter's `LibrarySettingsBinding` routing `setSort`/`resetSort` through `SetSortModeForCategory` / `CategoryRepository`; `ReikaiLibraryCategoryHeader.kt`, `ReikaiLibraryContent.kt`, `ResetToGlobalSortItem.kt`, `LibraryTab.kt` (toolbar routing + effective-sort header wiring).
+- Novel UI: the novel sort pipeline in `NovelLibraryScreenModel`; `ResetNovelCategoryFlags`.
 - Migration: `mihon/core/migration/migrations/SetupCategorySortOverrideMigration.kt`; `app/build.gradle.kts` versionCode 183.
 
 ## Status

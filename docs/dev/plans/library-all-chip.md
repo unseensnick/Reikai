@@ -95,7 +95,7 @@ Elsewhere:
 
 ## Status
 
-**Steps 0 and 1 in progress; nothing is gated on an open question any more** (the sort ruling above resolved what gated step 2). The preparatory phases are done and device-verified: the behaviour seam, one settings sheet, and the two phase 3 prerequisites (collapse as one library-wide value, and the novel grouping builder extracted so the two cannot drift). The full record of those, and of the shared-pipeline work under them, is [content-layer-library-surface.md](content-layer-library-surface.md); the programme-level design is [content-layer-architecture.md](content-layer-architecture.md).
+**Step 0 is built (compiles, suite green), awaiting its device pass; step 1 is next; nothing is gated on an open question any more** (the sort ruling above resolved what gated step 2). The preparatory phases are done and device-verified: the behaviour seam, one settings sheet, and the two phase 3 prerequisites (collapse as one library-wide value, and the novel grouping builder extracted so the two cannot drift). The full record of those, and of the shared-pipeline work under them, is [content-layer-library-surface.md](content-layer-library-surface.md); the programme-level design is [content-layer-architecture.md](content-layer-architecture.md).
 
 ## Decisions & tradeoffs
 
