@@ -28,6 +28,7 @@ import tachiyomi.domain.category.model.CategoryUpdate
 import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.injectLazy
@@ -50,6 +51,7 @@ class MangaLibraryAdapter(
     private val setSortModeForCategory: SetSortModeForCategory by injectLazy()
     private val categoryRepository: CategoryRepository by injectLazy()
     private val trackerManager: TrackerManager by injectLazy()
+    private val sourceManager: SourceManager by injectLazy()
 
     override val contentType = ContentType.MANGA
 
@@ -122,6 +124,19 @@ class MangaLibraryAdapter(
         val data = model.state.value.libraryData
         val trackers = trackerManager.getAll(data.loggedInTrackerIds).associateBy { it.id }
         return mangaTrackerMeans(data.favorites, data.tracksMap, trackers)
+    }
+
+    override fun dynamicGroupingFeed(groupType: Int): DynamicGroupingFeed {
+        val data = model.state.value.libraryData
+        return mangaDynamicGroupingFeed(
+            favorites = data.favorites,
+            tracksMap = data.tracksMap,
+            loggedInTrackerIds = data.loggedInTrackerIds,
+            groupType = groupType,
+            sourceManager = sourceManager,
+            trackerManager = trackerManager,
+            context = context,
+        )
     }
 
     override fun overlaid(item: LibraryItem): LibraryItem = model.state.value.withOverlay(item)

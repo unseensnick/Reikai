@@ -5,6 +5,7 @@ import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import reikai.domain.entry.EntryId
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.source.service.SourceManager
@@ -39,29 +40,28 @@ fun Map<Category, List<Long>>.reorderReikaiCategories(categorySortOrder: Int): M
 }
 
 /**
- * Bucket the manga library into synthetic dynamic categories, resolving the per-manga metadata (source,
- * language, status, tracking status) the shared [LibraryDynamicGrouping] kernel needs as id-keyed maps.
- * The novel library has its own twin of this, since the two resolve metadata off different source
- * managers and track tables.
+ * Resolve the manga library's per-item metadata (source, language, status, tracking status) into a
+ * [DynamicGroupingFeed] for the shared [LibraryDynamicGrouping] kernel, keyed by [EntryId]. The novel
+ * library has its own twin, since the two resolve metadata off different source managers and track
+ * tables; the manga model's own builder below and the engine's mixed assembly both consume this, so the
+ * resolution rules cannot fork.
  */
 @Suppress("LongParameterList")
-fun buildMangaDynamicGrouping(
+fun mangaDynamicGroupingFeed(
     favorites: List<LibraryItem>,
     tracksMap: Map<Long, List<Track>>,
     loggedInTrackerIds: Set<Long>,
-    inputs: MangaGroupingInputs,
-    inheritedSortFlag: Long,
+    groupType: Int,
     sourceManager: SourceManager,
     trackerManager: TrackerManager,
     context: Context,
-): Map<Category, List<Long>> {
-    val groupType = inputs.groupLibraryBy
+): DynamicGroupingFeed {
     val library = favorites.map { it.libraryManga }
 
     val sourceMeta = if (groupType == LibraryGroup.BY_SOURCE) {
         library.associate { lm ->
             val source = sourceManager.getOrStub(lm.manga.source)
-            lm.manga.id to (source.name to source.id.toString())
+            EntryId.Manga(lm.manga.id) as EntryId to (source.name to source.id.toString())
         }
     } else {
         emptyMap()
@@ -71,14 +71,16 @@ fun buildMangaDynamicGrouping(
         library.mapNotNull { lm ->
             val lang = sourceManager.getOrStub(lm.manga.source).lang.takeUnless { it.isBlank() }
                 ?: return@mapNotNull null
-            lm.manga.id to lang
+            EntryId.Manga(lm.manga.id) as EntryId to lang
         }.toMap()
     } else {
         emptyMap()
     }
 
     val statusNames = if (groupType == LibraryGroup.BY_STATUS) {
-        library.associate { lm -> lm.manga.id to context.stringResource(mapMangaStatus(lm.manga.status)) }
+        library.associate { lm ->
+            EntryId.Manga(lm.manga.id) as EntryId to context.stringResource(mapMangaStatus(lm.manga.status))
+        }
     } else {
         emptyMap()
     }
@@ -94,11 +96,48 @@ fun buildMangaDynamicGrouping(
                 ?: return@mapNotNull null
             val statusRes = trackerManager.get(track.trackerId)?.getStatus(track.status)
                 ?: return@mapNotNull null
-            mangaId to context.stringResource(statusRes)
+            EntryId.Manga(mangaId) as EntryId to context.stringResource(statusRes)
         }.toMap()
     } else {
         emptyMap()
     }
+
+    return DynamicGroupingFeed(
+        items = library.map {
+            DynItem<EntryId>(EntryId.Manga(it.manga.id), it.manga.genre, it.manga.author, it.manga.artist)
+        },
+        sourceMeta = sourceMeta,
+        languageCodes = languageCodes,
+        statusNames = statusNames,
+        trackStatuses = trackStatuses,
+    )
+}
+
+/**
+ * Bucket the manga library into synthetic dynamic categories through the shared feed above; the manga
+ * model's own dynamic path, returning its Long-keyed shape.
+ */
+@Suppress("LongParameterList")
+fun buildMangaDynamicGrouping(
+    favorites: List<LibraryItem>,
+    tracksMap: Map<Long, List<Track>>,
+    loggedInTrackerIds: Set<Long>,
+    inputs: MangaGroupingInputs,
+    inheritedSortFlag: Long,
+    sourceManager: SourceManager,
+    trackerManager: TrackerManager,
+    context: Context,
+): Map<Category, List<Long>> {
+    val groupType = inputs.groupLibraryBy
+    val feed = mangaDynamicGroupingFeed(
+        favorites,
+        tracksMap,
+        loggedInTrackerIds,
+        groupType,
+        sourceManager,
+        trackerManager,
+        context,
+    )
 
     // Order the track-status buckets by each tracker's own status list (Reading first, Dropped last)
     // instead of alphabetically; identity for other groupings, which the kernel ignores anyway.
@@ -111,7 +150,7 @@ fun buildMangaDynamicGrouping(
     }
 
     return LibraryDynamicGrouping.build(
-        items = library.map { DynItem(it.manga.id, it.manga.genre, it.manga.author, it.manga.artist) },
+        items = feed.items,
         groupType = groupType,
         inheritedSortFlag = inheritedSortFlag,
         collapsedDynamicCategories = inputs.collapsedDynamicCategories,
@@ -120,13 +159,13 @@ fun buildMangaDynamicGrouping(
         notTrackedLabel = context.stringResource(MR.strings.not_tracked),
         ungroupedLabel = context.stringResource(MR.strings.group_ungrouped),
         categorySortOrder = inputs.categorySortOrder,
-        sourceMeta = sourceMeta,
-        trackStatuses = trackStatuses,
-        languageCodes = languageCodes,
-        statusNames = statusNames,
+        sourceMeta = feed.sourceMeta,
+        trackStatuses = feed.trackStatuses,
+        languageCodes = feed.languageCodes,
+        statusNames = feed.statusNames,
         languageDisplay = { code -> displayLanguage(code) },
         trackingStatusOrder = trackingStatusOrder,
-    )
+    ).mapValues { (_, ids) -> ids.map { it.rawId } }
 }
 
 private fun mapMangaStatus(status: Long): StringResource = when (status.toInt()) {

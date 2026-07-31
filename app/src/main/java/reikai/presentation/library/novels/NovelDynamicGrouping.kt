@@ -4,6 +4,7 @@ import android.content.Context
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.data.novel.NovelStatusCode
+import reikai.domain.entry.EntryId
 import reikai.domain.library.LibrarySortFields
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.toSortMode
@@ -11,6 +12,7 @@ import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.NovelTrack
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.DynItem
+import reikai.presentation.library.DynamicGroupingFeed
 import reikai.presentation.library.LibraryDynamicGrouping
 import reikai.presentation.library.LibraryGroup
 import reikai.presentation.library.LibraryTrackingStatusOrder
@@ -37,14 +39,88 @@ data class NovelGroupingInputs(
 )
 
 /**
- * Bucket the novel library into synthetic dynamic categories, resolving the per-novel metadata (source,
- * language, status, tracking status) the shared [LibraryDynamicGrouping] kernel needs as id-keyed maps.
- * The twin of [buildMangaDynamicGrouping][reikai.presentation.library.buildMangaDynamicGrouping]: the two
- * are separate only because they resolve metadata off different source managers and track tables, so any
- * change to one is a question about the other.
+ * Resolve the novel library's per-item metadata (source, language, status, tracking status) into a
+ * [DynamicGroupingFeed] for the shared [LibraryDynamicGrouping] kernel, keyed by [EntryId]. The twin of
+ * [mangaDynamicGroupingFeed][reikai.presentation.library.mangaDynamicGroupingFeed]: the two are separate
+ * only because they resolve metadata off different source managers and track tables, so any change to one
+ * is a question about the other. The novel model's own builder below and the engine's mixed assembly both
+ * consume this, so the resolution rules cannot fork.
  *
- * Operates on the merge-collapsed representatives, keyed by the item id so the result lines up with the
- * library's own row map. Tracking status uses each representative's unioned merge-group tracks.
+ * Operates on the merge-collapsed representatives. Tracking status uses each representative's unioned
+ * merge-group tracks.
+ */
+@Suppress("LongParameterList")
+fun novelDynamicGroupingFeed(
+    items: List<LibraryItem>,
+    novelById: Map<Long, LibraryNovel>,
+    tracksByRep: Map<Long, List<NovelTrack>>,
+    loggedInTrackerIds: Set<Long>,
+    groupType: Int,
+    sourceManager: NovelSourceManager,
+    trackerManager: TrackerManager,
+    context: Context,
+): DynamicGroupingFeed {
+    val dynItems = items.mapNotNull { item ->
+        val novel = novelById[item.id]?.novel ?: return@mapNotNull null
+        DynItem<EntryId>(EntryId.Novel(item.id), novel.genre, novel.author, novel.artist)
+    }
+
+    val sourceMeta = if (groupType == LibraryGroup.BY_SOURCE) {
+        items.mapNotNull { item ->
+            val novel = novelById[item.id]?.novel ?: return@mapNotNull null
+            // The slug is the encoded disambiguator (sourceId() is never read); the name is the label.
+            EntryId.Novel(item.id) as EntryId to
+                ((sourceManager.get(novel.source)?.name ?: novel.source) to novel.source)
+        }.toMap()
+    } else {
+        emptyMap()
+    }
+
+    val languageCodes = if (groupType == LibraryGroup.BY_LANGUAGE) {
+        items.mapNotNull { item ->
+            val novel = novelById[item.id]?.novel ?: return@mapNotNull null
+            val lang = languageCodeOf(sourceManager.get(novel.source)?.lang.orEmpty()).takeUnless { it.isBlank() }
+                ?: return@mapNotNull null
+            EntryId.Novel(item.id) as EntryId to lang
+        }.toMap()
+    } else {
+        emptyMap()
+    }
+
+    val statusNames = if (groupType == LibraryGroup.BY_STATUS) {
+        items.mapNotNull { item ->
+            val novel = novelById[item.id]?.novel ?: return@mapNotNull null
+            EntryId.Novel(item.id) as EntryId to context.stringResource(NovelStatusCode.toStringRes(novel.status))
+        }.toMap()
+    } else {
+        emptyMap()
+    }
+
+    // Group by the first logged-in tracker's status on any grouped source (mirrors the manga library).
+    val trackStatuses = if (groupType == LibraryGroup.BY_TRACK_STATUS) {
+        items.mapNotNull { item ->
+            val novel = novelById[item.id]?.novel ?: return@mapNotNull null
+            val track = tracksByRep[novel.id].orEmpty()
+                .firstOrNull { it.trackerId in loggedInTrackerIds } ?: return@mapNotNull null
+            val statusRes = trackerManager.get(track.trackerId)?.getStatus(track.status) ?: return@mapNotNull null
+            EntryId.Novel(item.id) as EntryId to context.stringResource(statusRes)
+        }.toMap()
+    } else {
+        emptyMap()
+    }
+
+    return DynamicGroupingFeed(
+        items = dynItems,
+        sourceMeta = sourceMeta,
+        languageCodes = languageCodes,
+        statusNames = statusNames,
+        trackStatuses = trackStatuses,
+    )
+}
+
+/**
+ * Bucket the novel library into synthetic dynamic categories through the shared feed above; the novel
+ * model's own dynamic path, returning its Long-keyed, per-bucket-sorted shape.
  */
 @Suppress("LongParameterList")
 fun buildNovelDynamicGrouping(
@@ -60,53 +136,16 @@ fun buildNovelDynamicGrouping(
     context: Context,
 ): List<Pair<Category, List<Long>>> {
     val groupType = inputs.groupLibraryBy
-    val dynItems = items.mapNotNull { item ->
-        val novel = novelById[item.id]?.novel ?: return@mapNotNull null
-        DynItem(item.id, novel.genre, novel.author, novel.artist)
-    }
-
-    val sourceMeta = if (groupType == LibraryGroup.BY_SOURCE) {
-        items.mapNotNull { item ->
-            val novel = novelById[item.id]?.novel ?: return@mapNotNull null
-            // The slug is the encoded disambiguator (sourceId() is never read); the name is the label.
-            item.id to ((sourceManager.get(novel.source)?.name ?: novel.source) to novel.source)
-        }.toMap()
-    } else {
-        emptyMap()
-    }
-
-    val languageCodes = if (groupType == LibraryGroup.BY_LANGUAGE) {
-        items.mapNotNull { item ->
-            val novel = novelById[item.id]?.novel ?: return@mapNotNull null
-            val lang = languageCodeOf(sourceManager.get(novel.source)?.lang.orEmpty()).takeUnless { it.isBlank() }
-                ?: return@mapNotNull null
-            item.id to lang
-        }.toMap()
-    } else {
-        emptyMap()
-    }
-
-    val statusNames = if (groupType == LibraryGroup.BY_STATUS) {
-        items.mapNotNull { item ->
-            val novel = novelById[item.id]?.novel ?: return@mapNotNull null
-            item.id to context.stringResource(NovelStatusCode.toStringRes(novel.status))
-        }.toMap()
-    } else {
-        emptyMap()
-    }
-
-    // Group by the first logged-in tracker's status on any grouped source (mirrors the manga library).
-    val trackStatuses = if (groupType == LibraryGroup.BY_TRACK_STATUS) {
-        items.mapNotNull { item ->
-            val novel = novelById[item.id]?.novel ?: return@mapNotNull null
-            val track = tracksByRep[novel.id].orEmpty()
-                .firstOrNull { it.trackerId in inputs.loggedInTrackerIds } ?: return@mapNotNull null
-            val statusRes = trackerManager.get(track.trackerId)?.getStatus(track.status) ?: return@mapNotNull null
-            item.id to context.stringResource(statusRes)
-        }.toMap()
-    } else {
-        emptyMap()
-    }
+    val feed = novelDynamicGroupingFeed(
+        items,
+        novelById,
+        tracksByRep,
+        inputs.loggedInTrackerIds,
+        groupType,
+        sourceManager,
+        trackerManager,
+        context,
+    )
 
     // Order the track-status buckets by each tracker's own status list (Reading first, Dropped last)
     // instead of alphabetically, sharing the manga library's helper; identity for other groupings.
@@ -119,7 +158,7 @@ fun buildNovelDynamicGrouping(
     }
 
     val groups = LibraryDynamicGrouping.build(
-        items = dynItems,
+        items = feed.items,
         groupType = groupType,
         inheritedSortFlag = inputs.inheritedSortFlag,
         collapsedDynamicCategories = inputs.collapsedDynamicCategories,
@@ -128,13 +167,13 @@ fun buildNovelDynamicGrouping(
         notTrackedLabel = context.stringResource(MR.strings.not_tracked),
         ungroupedLabel = context.stringResource(MR.strings.group_ungrouped),
         categorySortOrder = inputs.categorySortOrder,
-        sourceMeta = sourceMeta,
-        languageCodes = languageCodes,
+        sourceMeta = feed.sourceMeta,
+        languageCodes = feed.languageCodes,
         // Render the group-by-language header as the full name ("English"), not the bare code,
         // matching the manga library; the cover badge still uses the short code separately.
         languageDisplay = { code -> Locale.forLanguageTag(code).displayName.ifBlank { code } },
-        statusNames = statusNames,
-        trackStatuses = trackStatuses,
+        statusNames = feed.statusNames,
+        trackStatuses = feed.trackStatuses,
         trackingStatusOrder = trackingStatusOrder,
     )
 
@@ -146,7 +185,7 @@ fun buildNovelDynamicGrouping(
         sortFields,
     )
     return groups.map { (category, ids) ->
-        category to ids.mapNotNull { byId[it] }.sortedWith(comparator).map { it.id }
+        category to ids.mapNotNull { byId[it.rawId] }.sortedWith(comparator).map { it.id }
     }
 }
 

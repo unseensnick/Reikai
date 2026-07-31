@@ -1,5 +1,6 @@
 package reikai.presentation.library
 
+import reikai.domain.entry.EntryId
 import reikai.presentation.library.ReikaiDynamicCategory.LANG_SPLITTER
 import reikai.presentation.library.ReikaiDynamicCategory.SOURCE_SPLITTER
 import tachiyomi.domain.category.model.Category
@@ -20,6 +21,22 @@ data class DynItem<K>(
     val genre: List<String>?,
     val author: String?,
     val artist: String?,
+)
+
+/**
+ * One provider's pre-resolved inputs for [LibraryDynamicGrouping.build], keyed by the neutral
+ * [EntryId][reikai.domain.entry.EntryId] exactly as the kernel's own KDoc prescribes for a mixed call:
+ * raw row ids collide across content types, and every map below is id-keyed. Each provider resolves its
+ * own metadata (different source managers, different track tables); the engine concatenates the active
+ * feeds and runs the kernel once, so the under-All merge and the group ordering come from the kernel's
+ * existing logic rather than a hand-written list merge.
+ */
+class DynamicGroupingFeed(
+    val items: List<DynItem<EntryId>>,
+    val sourceMeta: Map<EntryId, Pair<String, String>> = emptyMap(),
+    val languageCodes: Map<EntryId, String> = emptyMap(),
+    val statusNames: Map<EntryId, String> = emptyMap(),
+    val trackStatuses: Map<EntryId, String> = emptyMap(),
 )
 
 /**

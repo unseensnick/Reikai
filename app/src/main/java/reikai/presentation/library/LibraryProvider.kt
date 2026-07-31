@@ -47,4 +47,11 @@ interface LibraryProvider : LibraryBehavior {
      * overlay through this seam, per category and only for what is actually rendered.
      */
     fun overlaid(item: LibraryItem): LibraryItem
+
+    /**
+     * This type's pre-resolved dynamic-grouping inputs for the current rows, EntryId-keyed (see
+     * [DynamicGroupingFeed]). On-demand like [trackerMeans]: only a dynamically grouped view pays the
+     * metadata resolution, and the engine concatenates the active feeds into one kernel call.
+     */
+    fun dynamicGroupingFeed(groupType: Int): DynamicGroupingFeed
 }

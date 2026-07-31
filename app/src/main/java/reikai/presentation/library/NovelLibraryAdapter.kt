@@ -3,6 +3,7 @@ package reikai.presentation.library
 import android.app.Application
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.presentation.manga.DownloadAction
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,7 +18,9 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.novels.NovelLibraryScreenModel
+import reikai.presentation.library.novels.novelDynamicGroupingFeed
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.interactor.SetSortModeForCategory
 import tachiyomi.domain.category.model.Category
@@ -44,6 +47,8 @@ class NovelLibraryAdapter(
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences by injectLazy()
     private val setSortModeForCategory: SetSortModeForCategory by injectLazy()
     private val categoryRepository: CategoryRepository by injectLazy()
+    private val trackerManager: TrackerManager by injectLazy()
+    private val novelSourceManager: NovelSourceManager by injectLazy()
 
     override val contentType = ContentType.NOVELS
 
@@ -105,6 +110,20 @@ class NovelLibraryAdapter(
     override fun trackerMeans(): Map<Long, Double> = model.state.value.trackerMeans
 
     override fun overlaid(item: LibraryItem): LibraryItem = model.state.value.withOverlay(item)
+
+    override fun dynamicGroupingFeed(groupType: Int): DynamicGroupingFeed {
+        val state = model.state.value
+        return novelDynamicGroupingFeed(
+            items = state.favorites,
+            novelById = state.novelById,
+            tracksByRep = state.tracksByRep,
+            loggedInTrackerIds = trackerManager.loggedInTrackers().mapTo(mutableSetOf()) { it.id },
+            groupType = groupType,
+            sourceManager = novelSourceManager,
+            trackerManager = trackerManager,
+            context = context,
+        )
+    }
 
     private fun NovelLibraryScreenModel.State.toNeutral() = LibraryScreenState(
         categories = displayedCategories,

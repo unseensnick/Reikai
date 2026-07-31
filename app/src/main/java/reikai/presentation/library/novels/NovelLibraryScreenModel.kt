@@ -508,6 +508,8 @@ class NovelLibraryScreenModel :
             searchQuery = query,
             favorites = items,
             trackerMeans = trackerMeanScores,
+            novelById = novelById,
+            tracksByRep = tracksByRep,
             groupedFavorites = grouped,
             favoritesById = byId,
             customInfo = overlay,
@@ -759,6 +761,10 @@ class NovelLibraryScreenModel :
         /** Per-rep mean tracker score (0-10, unscored reps absent), for the sort and the provider seam
          *  (LibraryProvider.trackerMeans). */
         val trackerMeans: Map<Long, Double> = emptyMap(),
+        /** Rep id -> its LibraryNovel and unioned merge-group tracks, carried for the dynamic-grouping
+         *  feed seam (LibraryProvider.dynamicGroupingFeed), which resolves metadata the row cannot carry. */
+        val novelById: Map<Long, LibraryNovel> = emptyMap(),
+        val tracksByRep: Map<Long, List<NovelTrack>> = emptyMap(),
         private val groupedFavorites: List<Pair<Category, List<Long>>> = emptyList(),
         private val favoritesById: Map<Long, LibraryItem> = emptyMap(),
         /** Display-only overrides, keyed by real novel id; applied at the display read only. */
