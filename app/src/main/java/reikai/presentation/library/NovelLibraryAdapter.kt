@@ -3,9 +3,12 @@ package reikai.presentation.library
 import android.app.Application
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.presentation.manga.DownloadAction
+import eu.kanade.tachiyomi.ui.library.LibraryItem
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import reikai.data.novel.update.NovelUpdateJob
@@ -92,6 +95,11 @@ class NovelLibraryAdapter(
         model.state
             .map { it.toNeutral() }
             .stateIn(model.screenModelScope, SharingStarted.Eagerly, model.state.value.toNeutral())
+
+    // The split point: filtered but pre-grouping, pre-sort (State.favorites). distinctUntilChanged
+    // because the state re-emits for grouping/collapse changes the row list is upstream of.
+    override val rows: Flow<List<LibraryItem>> =
+        model.state.map { it.favorites }.distinctUntilChanged()
 
     private fun NovelLibraryScreenModel.State.toNeutral() = LibraryScreenState(
         categories = displayedCategories,

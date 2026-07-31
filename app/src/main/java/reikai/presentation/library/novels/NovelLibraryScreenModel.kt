@@ -504,6 +504,7 @@ class NovelLibraryScreenModel :
         return State(
             isLoading = false,
             searchQuery = query,
+            favorites = items,
             groupedFavorites = grouped,
             favoritesById = byId,
             customInfo = overlay,
@@ -768,6 +769,10 @@ class NovelLibraryScreenModel :
         val activeCategoryIndex: Int = 0,
         val hasActiveFilters: Boolean = false,
         val showContinueButton: Boolean = false,
+        /** The filtered, merge-collapsed rows before bucketing and sort, in pipeline order; the novel
+         *  split point the provider's row flow reads (the twin of manga's LibraryData.favorites). The
+         *  custom-info overlay is NOT applied here, matching the manga contract. */
+        val favorites: List<LibraryItem> = emptyList(),
         private val groupedFavorites: List<Pair<Category, List<Long>>> = emptyList(),
         private val favoritesById: Map<Long, LibraryItem> = emptyMap(),
         /** Display-only overrides, keyed by real novel id; applied at the display read only. */

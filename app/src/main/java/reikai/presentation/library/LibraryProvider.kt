@@ -1,5 +1,7 @@
 package reikai.presentation.library
 
+import eu.kanade.tachiyomi.ui.library.LibraryItem
+import kotlinx.coroutines.flow.Flow
 import reikai.domain.library.ContentType
 
 /**
@@ -20,4 +22,14 @@ interface LibraryProvider : LibraryBehavior {
      * entries, and because a mixed view has no single settings scope to answer with.
      */
     val settings: LibrarySettingsBinding
+
+    /**
+     * This content type's library rows: filtered, search-matched and merge-collapsed, but unsorted and
+     * unbucketed, with the custom-info overlay deliberately NOT applied (it is applied only at the display
+     * read). Filtering stays per provider (each reads its own repositories and source manager); everything
+     * downstream of these rows (concatenation, the chip predicate, bucketing, per-category sort) is the
+     * shared assembly's job. Cold on purpose: nothing may resolve a scope at construction, and the engine
+     * collects it only once assembly lands.
+     */
+    val rows: Flow<List<LibraryItem>>
 }

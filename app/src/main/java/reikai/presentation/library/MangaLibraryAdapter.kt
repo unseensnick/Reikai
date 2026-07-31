@@ -5,11 +5,14 @@ import androidx.compose.ui.util.fastAll
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.ui.library.LibraryItem
 import eu.kanade.tachiyomi.ui.library.LibraryScreenModel
 import eu.kanade.tachiyomi.util.system.isReleaseBuildType
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.entry.EntryId
@@ -107,6 +110,11 @@ class MangaLibraryAdapter(
         model.state
             .map { it.toNeutral() }
             .stateIn(model.screenModelScope, SharingStarted.Eagerly, model.state.value.toNeutral())
+
+    // The split point: filtered but pre-grouping, pre-sort (LibraryData.favorites). distinctUntilChanged
+    // because the state re-emits for grouping/badge changes the row list is upstream of.
+    override val rows: Flow<List<LibraryItem>> =
+        model.state.map { it.libraryData.favorites }.distinctUntilChanged()
 
     private fun LibraryScreenModel.State.toNeutral() = LibraryScreenState(
         categories = displayedCategories,
