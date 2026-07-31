@@ -70,9 +70,9 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.sortForCategory
 import reikai.presentation.components.ContentTypeFilterChips
-import reikai.presentation.library.LibraryBehavior
 import reikai.presentation.library.LibraryDialog
 import reikai.presentation.library.LibraryEngine
+import reikai.presentation.library.LibraryScreenState
 import reikai.presentation.library.LibrarySettingsSheet
 import reikai.presentation.library.MangaLibraryAdapter
 import reikai.presentation.library.NovelLibraryAdapter
@@ -147,8 +147,6 @@ data object LibraryTab : Tab {
             LibraryEngine(listOf(MangaLibraryAdapter(screenModel), NovelLibraryAdapter(novelModel)))
         }
         val libraryContentType by engine.contentType.collectAsState()
-        val isNovels = libraryContentType == ContentType.NOVELS
-        val behavior: LibraryBehavior = engine.behaviorFor(libraryContentType)
         val libraryDialog by engine.dialog.collectAsState()
         // RK: the library-wide display config, read from the engine rather than off the manga model, so
         // the tab does not reach into one content type for a setting that belongs to neither.
@@ -159,11 +157,30 @@ data object LibraryTab : Tab {
         // Both stateIn flows are eager, so the inactive side stays current for an instant swap.
         val mangaLibState by engine.behaviorFor(ContentType.MANGA).state.collectAsState()
         val novelLibState by engine.behaviorFor(ContentType.NOVELS).state.collectAsState()
-        val libState = if (isNovels) novelLibState else mangaLibState
+        val libState = when (libraryContentType) {
+            ContentType.MANGA -> mangaLibState
+            ContentType.NOVELS -> novelLibState
+            // RK: the All view's state, combined field by field. The list itself comes off the
+            // assembly below (the empty fallbacks here show only for the frame before its first
+            // emission); counts stay off until step 4 of the All-chip plan rules them.
+            ContentType.ALL -> LibraryScreenState(
+                categories = emptyList(),
+                isLoading = mangaLibState.isLoading || novelLibState.isLoading,
+                isLibraryEmpty = mangaLibState.isLibraryEmpty && novelLibState.isLibraryEmpty,
+                // The engine fans a search out to both models, so the two queries mirror each other.
+                searchQuery = mangaLibState.searchQuery,
+                hasActiveFilters = mangaLibState.hasActiveFilters || novelLibState.hasActiveFilters,
+                coercedActiveCategoryIndex = mangaLibState.coercedActiveCategoryIndex,
+                showContinueButton = mangaLibState.showContinueButton,
+                itemsForCategory = { emptyList() },
+                itemCountForCategory = { null },
+            )
+        }
         // RK: the list itself (categories + the per-category display read) renders off the engine's
         // assembly (step 2 of the All-chip plan); the rest of libState stays adapter-sourced until
-        // step 5. Null only before the assembly's first emission, where the provider's own list fills in.
-        val assembled by engine.assembled.collectAsState()
+        // step 5. The assembly lags a chip flip by one emission, so it renders only when its chip
+        // matches, with the provider's own list (identical for a single-type chip) filling in.
+        val assembled = engine.assembled.collectAsState().value?.takeIf { it.chip == libraryContentType }
         val activeCategories = assembled?.categories ?: libState.categories
         // RK: the selection is the engine's, not a provider's: it can span both content types.
         val activeSelection by engine.selection.collectAsState()
@@ -173,7 +190,7 @@ data object LibraryTab : Tab {
         val activeGetItems: (Category) -> List<LibraryItem> =
             assembled?.let { it::itemsFor } ?: libState.itemsForCategory
         val activeGetItemCount: (Category) -> Int? = libState.itemCountForCategory
-        val onSearch: (String?) -> Unit = behavior::search
+        val onSearch: (String?) -> Unit = { engine.search(libraryContentType, it) }
         val activeSelectionMode = activeSelection.isNotEmpty()
         val activeHasActiveFilters = libState.hasActiveFilters
         // The category on screen, from the active model. Category ids are per content type, so reading
@@ -198,14 +215,25 @@ data object LibraryTab : Tab {
         // active pair falls through to the current type, like the other `active*` locals above.
         val mangaSingleListGridState = rememberLazyGridState()
         val novelSingleListGridState = rememberLazyGridState()
-        val singleListGridState = if (isNovels) novelSingleListGridState else mangaSingleListGridState
+        val allSingleListGridState = rememberLazyGridState()
+        val singleListGridState = when (libraryContentType) {
+            ContentType.MANGA -> mangaSingleListGridState
+            ContentType.NOVELS -> novelSingleListGridState
+            ContentType.ALL -> allSingleListGridState
+        }
         val mangaPagerState = rememberPagerState(initialPage = state.coercedActiveCategoryIndex) {
             state.displayedCategories.size
         }
         val novelPagerState = rememberPagerState(initialPage = novelState.coercedActiveCategoryIndex) {
             novelState.displayedCategories.size
         }
-        val pagerState = if (isNovels) novelPagerState else mangaPagerState
+        // RK: the All pager pages over the assembled list, which is the only list that view has.
+        val allPagerState = rememberPagerState { activeCategories.size }
+        val pagerState = when (libraryContentType) {
+            ContentType.MANGA -> mangaPagerState
+            ContentType.NOVELS -> novelPagerState
+            ContentType.ALL -> allPagerState
+        }
         var pickerOpen by remember { mutableStateOf(false) }
         var hopperTarget by remember { mutableStateOf<Int?>(null) }
         var hopperDragAccum by remember { mutableFloatStateOf(0f) }
@@ -374,12 +402,14 @@ data object LibraryTab : Tab {
                         //     opens on the chip for the content type currently shown.
                         onClickUpdateErrors = run {
                             val reikai = display.reikai
-                            val enabled = if (isNovels) reikai.trackNovelUpdateErrors else reikai.trackUpdateErrors
+                            val enabled = when (libraryContentType) {
+                                ContentType.MANGA -> reikai.trackUpdateErrors
+                                ContentType.NOVELS -> reikai.trackNovelUpdateErrors
+                                ContentType.ALL -> reikai.trackUpdateErrors || reikai.trackNovelUpdateErrors
+                            }
                             if (enabled) {
-                                {
-                                    val initial = if (isNovels) ContentType.NOVELS else ContentType.MANGA
-                                    navigator.push(UpdateErrorsScreen(initial))
-                                }
+                                // The errors screen already handles ALL with its own chip strip.
+                                { navigator.push(UpdateErrorsScreen(libraryContentType)) }
                             } else {
                                 null
                             }
@@ -412,22 +442,37 @@ data object LibraryTab : Tab {
                     }
                         .takeIf { engine.canDownloadSelection(libraryContentType) },
                     onDeleteClicked = { engine.openDeleteDialog(libraryContentType) },
-                    onMigrateClicked = {
-                        // RK: migration is per-type (each pushes a screen over its own id space), so the
-                        // neutral selection is narrowed to the active type here.
-                        val ids = activeSelection.map { it.rawId }
-                        engine.clearSelection()
-                        if (isNovels) {
-                            navigator.push(NovelMigrationSourcePickScreen(ids))
-                        } else {
-                            // RK: source picker first (merged-manga member choice).
-                            navigator.push(MangaMigrationSourcePickScreen(ids))
+                    // RK: migration is per-type (each pushes a screen over its own id space), so it routes
+                    // by what the selection actually holds, and a mixed selection hides the action rather
+                    // than silently flattening two id spaces into one screen.
+                    onMigrateClicked = run {
+                        val mangaIds = activeSelection.filterIsInstance<EntryId.Manga>().map { it.rawId }
+                        val novelIds = activeSelection.filterIsInstance<EntryId.Novel>().map { it.rawId }
+                        when {
+                            novelIds.isEmpty() && mangaIds.isNotEmpty() -> {
+                                {
+                                    engine.clearSelection()
+                                    // RK: source picker first (merged-manga member choice).
+                                    navigator.push(MangaMigrationSourcePickScreen(mangaIds))
+                                }
+                            }
+                            mangaIds.isEmpty() && novelIds.isNotEmpty() -> {
+                                {
+                                    engine.clearSelection()
+                                    navigator.push(NovelMigrationSourcePickScreen(novelIds))
+                                }
+                            }
+                            else -> null
                         }
                     },
-                    // RK: manual merge of the selected entries (needs at least two) + unmerge (only when the
-                    // selection includes a merged one).
+                    // RK: manual merge of the selected entries (needs at least two OF ONE TYPE: a merge
+                    // group is per content type, and a mixed gesture would silently create two groups)
+                    // + unmerge (only when the selection includes a merged one).
                     onMergeClicked = { engine.mergeSelection(libraryContentType) }
-                        .takeIf { activeSelection.size >= 2 },
+                        .takeIf {
+                            activeSelection.size >= 2 &&
+                                activeSelection.mapTo(mutableSetOf()) { it.contentType }.size == 1
+                        },
                     onUnmergeClicked = { engine.unmergeSelection(libraryContentType) }
                         .takeIf { engine.selectionContainsMerged(libraryContentType) },
                 )
@@ -447,10 +492,11 @@ data object LibraryTab : Tab {
                     EmptyScreen(
                         stringRes = MR.strings.information_empty_library,
                         modifier = Modifier.padding(contentPadding),
-                        actions = if (isNovels) {
-                            null
-                        } else {
-                            listOf(
+                        actions = when (libraryContentType) {
+                            ContentType.NOVELS -> null
+                            // Manga and All: the guide documents manga extensions, which still helps an
+                            // empty mixed library; the novel plugin system does not use it.
+                            else -> listOf(
                                 EmptyScreenAction(
                                     stringRes = MR.strings.getting_started_guide,
                                     icon = Icons.AutoMirrored.Outlined.HelpOutline,
@@ -468,9 +514,9 @@ data object LibraryTab : Tab {
                                 LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
                             val columns by engine.columnsForOrientation(isLandscape)
                             val displayMode by engine.displayMode()
-                            // RK: the global sort each non-overridden category follows, read off the active
-                            // content type's own settings description rather than branched on the chip.
-                            val globalSort by engine.settingsFor(libraryContentType).globalSort.collectAsState()
+                            // RK: the global sort each non-overridden category follows, one library-wide
+                            // value since the sort preferences unified, so no chip involved.
+                            val globalSort by engine.globalSort.collectAsState()
                             ReikaiLibraryContent(
                                 categories = activeCategories,
                                 getItemsForCategory = activeGetItems,
@@ -529,7 +575,7 @@ data object LibraryTab : Tab {
                                 pagerState = pagerState,
                                 hasActiveFilters = activeHasActiveFilters,
                                 showPageTabs = display.showCategoryTabs || !activeSearchQuery.isNullOrEmpty(),
-                                onChangeCurrentPage = behavior::updateActiveCategoryIndex,
+                                onChangeCurrentPage = { engine.updateActiveCategoryIndex(libraryContentType, it) },
                                 onClickManga = openEntry,
                                 onContinueReadingClicked = onContinueReading,
                                 onToggleSelection = { category, item ->
@@ -718,7 +764,7 @@ data object LibraryTab : Tab {
             // value, because this effect keys on Unit and would otherwise hold the chip's first value.
             launch {
                 queryEvent.receiveAsFlow()
-                    .collect { engine.behaviorFor(engine.contentType.value).search(it) }
+                    .collect { engine.search(engine.contentType.value, it) }
             }
             launch {
                 requestSettingsSheetEvent.receiveAsFlow()

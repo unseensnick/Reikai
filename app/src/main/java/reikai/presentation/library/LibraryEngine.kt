@@ -125,7 +125,7 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
             val provider = active.singleOrNull()
                 ?: error("Dynamic grouping under a mixed $chip library is not assembled yet")
             val state = statesPerProvider[providers.indexOf(provider)]
-            return LibraryAssembled(state.categories, state.itemsForCategory)
+            return LibraryAssembled(chip, state.categories, state.itemsForCategory)
         }
         val rows = providers.indices
             .filter { providers[it] in active }
@@ -158,7 +158,7 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
         val assembledList = assembleLibrary(rows, categories, inputs, fields)
         val bucketsById = assembledList.associate { it.first.id to it.second }
         val byType = providers.associateBy { it.contentType }
-        return LibraryAssembled(assembledList.map { it.first }) { category ->
+        return LibraryAssembled(chip, assembledList.map { it.first }) { category ->
             bucketsById[category.id].orEmpty().map { item ->
                 byType[item.entryId.contentType]?.overlaid(item) ?: item
             }
@@ -202,6 +202,25 @@ class LibraryEngine(private val providers: List<LibraryProvider>) : ScreenModel 
     fun behaviorFor(contentType: ContentType): LibraryBehavior =
         providersFor(contentType).singleOrNull()
             ?: error("A mixed $contentType library needs a behaviour combining both providers' state")
+
+    /**
+     * Search every provider in view. Fanning out keeps both models' queries in sync under All, so the
+     * assembled rows from each side are filtered by the same text.
+     */
+    fun search(contentType: ContentType, query: String?) {
+        providersFor(contentType).forEach { it.search(query) }
+    }
+
+    /** The active category page, fanned out so each model's own coercion stays consistent. */
+    fun updateActiveCategoryIndex(contentType: ContentType, index: Int) {
+        providersFor(contentType).forEach { it.updateActiveCategoryIndex(index) }
+    }
+
+    /** The one library-wide global sort (chip-free since the sort preferences unified). */
+    val globalSort: StateFlow<LibrarySort> by lazy {
+        libraryPreferences.sortingMode.changes()
+            .stateIn(screenModelScope, SharingStarted.Eagerly, libraryPreferences.sortingMode.get())
+    }
 
     /**
      * The settings sheet a [contentType] describes. Like [behaviorFor] this fails loudly on a mixed view:

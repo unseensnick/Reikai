@@ -3,6 +3,7 @@ package reikai.presentation.library
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.category.isHidden
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
 import reikai.domain.library.LibrarySortFields
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.sortForCategory
@@ -88,8 +89,11 @@ fun assembleLibrary(
 /**
  * The assembled list the tab renders: the ordered categories, and the per-category display read as a
  * function so the per-type custom-info overlay is applied at read time, only for what is rendered.
+ * [chip] is the view this output was assembled for: the flow lags a chip flip by one emission, so the
+ * tab renders an assembly only when its chip matches, falling back to the provider's own list meanwhile.
  */
 class LibraryAssembled(
+    val chip: ContentType,
     val categories: List<Category>,
     private val items: (Category) -> List<LibraryItem>,
 ) {
